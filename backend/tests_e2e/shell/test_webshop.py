@@ -282,3 +282,75 @@ def test_een_geweigerde_upload_tekent_de_pagina_niet_dubbel(webshop_page):
     page.wait_for_selector("#product-melding [role=alert]")
     assert page.locator("h1").count() == 1
     assert "bestandstype" in page.locator("#product-melding").inner_text()
+
+
+def test_elke_weigering_van_de_record_opslag(webshop_page):
+    """Every refusal of the record's one save answers at the message line and
+    keeps one page — one <h1> — with what was typed still in the form (A1)."""
+    page = webshop_page
+    banner = page.locator("#product-melding [data-save-refusal]")
+
+    # 1. an emptied article name
+    _open_artikel_in_bewerkmodus(page)
+    page.locator('input[name="name"]').fill("")
+    with htmx_afgerond(page):
+        page.locator("[data-form-save]").click()
+    banner.wait_for(state="visible")
+    assert page.locator("h1").count() == 1
+    assert "Geef het artikel een naam." in banner.inner_text()
+
+    # 2. a size renamed to nothing — the article's name stays
+    _open_artikel_in_bewerkmodus(page)
+    page.locator("[data-group-row]").first.locator('input[name^="v."]').fill("")
+    with htmx_afgerond(page):
+        page.locator("[data-form-save]").click()
+    banner.wait_for(state="visible")
+    assert page.locator("h1").count() == 1
+    assert "Geef de maat een naam." in banner.inner_text()
+    assert page.locator('input[name="name"]').input_value() == "Webshop T-shirt"
+
+    # 3. a second size with the same name — the typed duplicate stays
+    _open_artikel_in_bewerkmodus(page)
+    page.locator("[data-group-add]").click()
+    rows = page.locator("[data-group-row]")
+    eerste = rows.first.locator('input[name^="v."]').input_value()
+    rows.last.locator('input[name^="v."]').fill(eerste)
+    with htmx_afgerond(page):
+        page.locator("[data-form-save]").click()
+    banner.wait_for(state="visible")
+    assert page.locator("h1").count() == 1
+    assert "Deze maat bestaat al." in banner.inner_text()
+    assert page.locator("[data-group-row]").count() == 2
+
+    # 4. a size with movements removed
+    _open_artikel_in_bewerkmodus(page)
+    row = page.locator("[data-group-row]").first
+    row.locator("[data-row-menu-trigger]").click()
+    row.locator('[data-row-action="remove"]').click()
+    with htmx_afgerond(page):
+        page.locator("[data-form-save]").click()
+    banner.wait_for(state="visible")
+    assert page.locator("h1").count() == 1
+    assert "voorraadbewegingen" in banner.inner_text()
+
+
+def test_de_knoppen_op_het_bewerkscherm_op_390_px(webshop_page):
+    """At 390 px the upload cards' buttons stand inside their card and under the
+    upload field — not over it, and not off the window (B5, asked twice)."""
+    page = webshop_page
+    page.set_viewport_size({"width": 390, "height": 844})
+    _open_artikel_in_bewerkmodus(page)
+
+    for form_id in ("foto-form", "document-form"):
+        form = page.locator(f'form[id="{form_id}"]')
+        card = form.locator("xpath=ancestor::section[1]").bounding_box()
+        field = form.locator('[data-kind="upload"]').bounding_box()
+        buttons = form.locator("xpath=following-sibling::*[1]").locator("button, a")
+        assert buttons.count() >= 2, f"geen Annuleren/Opslaan onder {form_id}"
+        for i in range(buttons.count()):
+            box = buttons.nth(i).bounding_box()
+            assert box["x"] >= card["x"], f"{form_id} knop {i} links van de kaart"
+            assert box["x"] + box["width"] <= card["x"] + card["width"], (
+                f"{form_id} knop {i} rechts van de kaart"
+            )
+            assert box["y"] >= field["y"] + field["height"], f"{form_id} knop {i} over het veld"

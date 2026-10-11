@@ -102,14 +102,7 @@ def add_variant(db: Session, product_id: int, size: str) -> ProductVariant:
     product = get_product(db, product_id)
     if product is None:
         raise ProductError(_("Dit artikel bestaat niet."))
-    variant = ProductVariant(
-        product_id=product_id,
-        properties=[{"name": "Maat", "value": size}],
-        sort_order=len(product.variants),
-    )
-    db.add(variant)
-    db.flush()
-    return variant
+    return _new_variant(db, product_id, size)
 
 
 def rename_variant(db: Session, variant_id: int, size: str) -> ProductVariant:
@@ -125,6 +118,25 @@ def rename_variant(db: Session, variant_id: int, size: str) -> ProductVariant:
         raise ProductError(_("Deze maat bestaat niet."))
     if _size_name_exists(db, variant.product_id, size, exclude_id=variant.id):
         raise ProductError(_("Deze maat bestaat al."))
+    return _set_variant_name(db, variant, size)
+
+
+def _new_variant(db: Session, product_id: int, size: str) -> ProductVariant:
+    """A size written with no name rule — `add_variant` checks, `sync_variants`
+    has already checked the names as they will stand after its save."""
+    variant = ProductVariant(
+        product_id=product_id,
+        properties=[{"name": "Maat", "value": size}],
+        sort_order=len(variants_of(db, product_id)),
+    )
+    db.add(variant)
+    db.flush()
+    return variant
+
+
+def _set_variant_name(db: Session, variant: ProductVariant, size: str) -> ProductVariant:
+    """Rename with no name rule — `rename_variant` checks, `sync_variants` has
+    already checked the names as they will stand after its save."""
     variant.properties = [{"name": "Maat", "value": size}]
     db.flush()
     return variant
@@ -274,24 +286,40 @@ def sync_variants(db: Session, product_id: int, ordered: list[tuple[str, str]]) 
     record's repeating group. A key that is an existing variant's id renames it, a
     new key adds a size, and an existing variant not in the list is deleted. One
     transaction: a refusal in a delete (a size with movements, through `stock`'s
-    handler) rolls every change of this save back. A size's name is refused by
-    `add_variant` and `rename_variant`; here the refusal is named at the field the
-    record's group carries.
+    handler) rolls every change of this save back.
+
+    The name rule runs once, against the names as they will stand after this save
+    — a swap ("M" ↔ "L") is no duplicate. `add_variant` and `rename_variant` hold
+    the same rule for a caller that changes one size; here the refusal is named at
+    the field the record's group carries.
     """
+    from app.i18n import _
+
     existing = {str(variant.id): variant for variant in variants_of(db, product_id)}
     kept: set[str] = set()
+    seen: dict[str, str] = {}
 
     for key, name in ordered:
         name = (name or "").strip()
-        try:
-            if key in existing:
-                if name != size_of(existing[key]):
-                    rename_variant(db, existing[key].id, name)
-                kept.add(key)
-            elif name:
-                add_variant(db, product_id, name)
-        except ProductError as refusal:
-            raise SizeNameRefusal(f"v.{key}.name", str(refusal)) from refusal
+        if key in existing:
+            if not name:
+                raise SizeNameRefusal(f"v.{key}.name", _("Geef de maat een naam."))
+            kept.add(key)
+        elif not name:
+            continue
+        folded = name.casefold()
+        if folded in seen:
+            raise SizeNameRefusal(f"v.{key}.name", _("Deze maat bestaat al."))
+        seen[folded] = key
+
+    for key, name in ordered:
+        name = (name or "").strip()
+        if key in existing:
+            if name != size_of(existing[key]):
+                _set_variant_name(db, existing[key], name)
+        elif name:
+            _new_variant(db, product_id, name)
+
     for key in list(existing):
         if key not in kept:
             delete_variant(db, existing[key].id)

@@ -250,13 +250,10 @@ def product_update(
         return refusal_response(
             request, [FieldError(refusal.field, str(refusal))], "#product-melding"
         )
-    except (ProductError, StockError) as refusal:
-        return templates.TemplateResponse(
-            request,
-            "admin_product.html",
-            _record_view(request, db, product, editing=True, error=str(refusal)).as_context(),
-            status_code=422,
-        )
+    except ProductError as refusal:
+        return refusal_response(request, [FieldError("name", str(refusal))], "#product-melding")
+    except StockError as refusal:
+        return refusal_response(request, [FieldError("", str(refusal))], "#product-melding")
     return _redirect(request, f"/admin/producten/{product_id}")
 
 
