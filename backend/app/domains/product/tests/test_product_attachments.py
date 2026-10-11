@@ -31,26 +31,26 @@ def _png() -> bytes:
 
 
 def _pdf() -> bytes:
-    stroom = b"1 0 0 rg 20 20 160 260 re f\n"
-    uit = bytearray(b"%PDF-1.4\n")
-    posities = []
-    for nummer, body in enumerate(
+    stream = b"1 0 0 rg 20 20 160 260 re f\n"
+    out = bytearray(b"%PDF-1.4\n")
+    positions = []
+    for number, body in enumerate(
         [
             b"<</Type/Catalog/Pages 2 0 R>>",
             b"<</Type/Pages/Kids[3 0 R]/Count 1>>",
             b"<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 300]/Contents 4 0 R>>",
-            b"<</Length " + str(len(stroom)).encode() + b">>stream\n" + stroom + b"endstream",
+            b"<</Length " + str(len(stream)).encode() + b">>stream\n" + stream + b"endstream",
         ],
         start=1,
     ):
-        posities.append(len(uit))
-        uit += str(nummer).encode() + b" 0 obj" + body + b"endobj\n"
-    start = len(uit)
-    uit += b"xref\n0 5\n0000000000 65535 f \n"
-    for p in posities:
-        uit += ("%010d 00000 n \n" % p).encode()
-    uit += b"trailer<</Size 5/Root 1 0 R>>\nstartxref\n" + str(start).encode() + b"\n%%EOF\n"
-    return bytes(uit)
+        positions.append(len(out))
+        out += str(number).encode() + b" 0 obj" + body + b"endobj\n"
+    start = len(out)
+    out += b"xref\n0 5\n0000000000 65535 f \n"
+    for p in positions:
+        out += ("%010d 00000 n \n" % p).encode()
+    out += b"trailer<</Size 5/Root 1 0 R>>\nstartxref\n" + str(start).encode() + b"\n%%EOF\n"
+    return bytes(out)
 
 
 def test_a_photo_and_a_document_are_uploaded_and_removed(client, db_session, every_module_on):
@@ -83,3 +83,40 @@ def test_a_photo_and_a_document_are_uploaded_and_removed(client, db_session, eve
     )
     assert removed.status_code == 303
     assert len(attachments_of(db_session, product.id)) == 1
+
+
+def test_removing_an_attachment_of_another_article_is_not_found(
+    client, db_session, every_module_on
+):
+    headers = _operator(client, db_session, every_module_on)
+    product = create_product(db_session, "T-shirt Raak")
+    other = create_product(db_session, "Sweater Raak")
+
+    photo = client.post(
+        f"/admin/producten/{other.id}/fotos",
+        files={"file": ("foto.png", _png(), "image/png")},
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert photo.status_code == 303
+    attachment = attachments_of(db_session, other.id)[0]
+
+    answer = client.post(
+        f"/admin/producten/{product.id}/bijlage/{attachment.id}/verwijderen",
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert answer.status_code == 404
+    assert len(attachments_of(db_session, other.id)) == 1
+
+
+def test_removing_an_unknown_attachment_is_not_found(client, db_session, every_module_on):
+    headers = _operator(client, db_session, every_module_on)
+    product = create_product(db_session, "T-shirt Raak")
+
+    answer = client.post(
+        f"/admin/producten/{product.id}/bijlage/999999/verwijderen",
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert answer.status_code == 404

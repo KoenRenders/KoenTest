@@ -308,7 +308,7 @@ def attachments_of(db: Session, product_id: int) -> list[ProductAttachment]:
 def attachment_cards(db: Session, product_id: int) -> list[dict]:
     """What the record shows: each attachment with `is_photo` and its media id, so
     the screen tells a picture from a document without comparing a code."""
-    from app.domains.media.api import MediaAsset, MediaKind
+    from app.domains.media.api import MediaAsset, MediaKind, media_url
 
     attachments = attachments_of(db, product_id)
     ids = [attachment.media_asset_id for attachment in attachments]
@@ -321,6 +321,7 @@ def attachment_cards(db: Session, product_id: int) -> list[dict]:
         {
             "id": attachment.id,
             "media_asset_id": attachment.media_asset_id,
+            "url": media_url(attachment.media_asset_id),
             "title": attachment.title,
             "is_photo": kinds.get(attachment.media_asset_id) == MediaKind.PRODUCT_PHOTO,
         }
@@ -354,6 +355,7 @@ def add_attachment(
     attachment = ProductAttachment(
         product_id=product_id,
         media_asset_id=stored.asset_id,
+        title=stored.title,
         sort_order=len(attachments_of(db, product_id)),
     )
     db.add(attachment)
@@ -362,14 +364,16 @@ def add_attachment(
     return attachment
 
 
-def remove_attachment(db: Session, attachment_id: int) -> None:
-    """Remove one attachment and its file (through media's `RemoveAsset`)."""
+def remove_attachment(db: Session, product_id: int, attachment_id: int) -> None:
+    """Remove one attachment — of this article only — and its file (through
+    media's `RemoveAsset`). An attachment that is not this article's, or is not
+    there, raises `LookupError` and removes nothing."""
     from app.kernel.contracts.media import RemoveAsset
     from app.kernel.ports import call
 
     attachment = db.get(ProductAttachment, attachment_id)
-    if attachment is None:
-        return
+    if attachment is None or attachment.product_id != product_id:
+        raise LookupError("attachment")
     call(RemoveAsset(asset_id=attachment.media_asset_id), db)
     db.delete(attachment)
     db.flush()

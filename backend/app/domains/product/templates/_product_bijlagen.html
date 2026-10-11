@@ -1,0 +1,46 @@
+{% import "_macros.html" as ui %}
+
+{% macro _bijlage(a) %}
+<div class="flex items-center gap-2">
+  {% if a.is_photo %}
+  <img src="{{ a.url }}" alt="" class="h-20 w-20 object-cover rounded-md border border-line">
+  {% else %}
+  <a href="{{ a.url }}" target="_blank" rel="noopener" class="text-blue-500 underline">{{ a.title or _("Document") }}</a>
+  {% endif %}
+  {% if editing %}
+  {{ ui.link_action(_("Verwijderen"),
+      attrs='hx-post="/admin/producten/' ~ product.id ~ '/bijlage/' ~ a.id ~ '/verwijderen"',
+      confirm=_("De bijlage wordt verwijderd."), cls="text-red-700") }}
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% call ui.section(_("Foto's")) %}
+  <div data-span="full" class="flex flex-wrap gap-2">
+    {% for a in attachments if a.is_photo %}{{ _bijlage(a) }}{% else %}
+    <span class="text-sm text-ink-soft">{{ _("Nog geen foto's.") }}</span>
+    {% endfor %}
+  </div>
+  {% if editing %}
+  <form id="foto-form" method="post" action="/admin/producten/{{ product.id }}/fotos" enctype="multipart/form-data"
+        hx-post="/admin/producten/{{ product.id }}/fotos" hx-encoding="multipart/form-data">
+    {{ ui.field("file", _("Foto toevoegen"), kind="upload", accept="image/*") }}
+  </form>
+  {{ ui.action_bar(save_label=_("Foto opslaan"), form="foto-form", cancel_href="/admin/producten/" ~ product.id ~ "?bewerken=1") }}
+  {% endif %}
+{% endcall %}
+
+{% call ui.section(_("Documenten")) %}
+  <div data-span="full" class="flex flex-col gap-1">
+    {% for a in attachments if not a.is_photo %}{{ _bijlage(a) }}{% else %}
+    <span class="text-sm text-ink-soft">{{ _("Nog geen documenten.") }}</span>
+    {% endfor %}
+  </div>
+  {% if editing %}
+  <form id="document-form" method="post" action="/admin/producten/{{ product.id }}/documenten" enctype="multipart/form-data"
+        hx-post="/admin/producten/{{ product.id }}/documenten" hx-encoding="multipart/form-data">
+    {{ ui.field("file", _("Document toevoegen"), kind="upload", accept="application/pdf") }}
+  </form>
+  {{ ui.action_bar(save_label=_("Document opslaan"), form="document-form", cancel_href="/admin/producten/" ~ product.id ~ "?bewerken=1") }}
+  {% endif %}
+{% endcall %}

@@ -163,8 +163,8 @@ def test_de_bewegingen_van_een_maat_worden_getoond(webshop_page):
 
 
 def test_een_foto_wordt_opgeladen_en_verwijderd(webshop_page):
-    """A picture is uploaded through the record and shown, then removed — read
-    after a fresh load each time (R3)."""
+    """A picture is uploaded through the record and really shows — its natural
+    width above zero after a fresh load — then removed (R3)."""
     from io import BytesIO
 
     from PIL import Image
@@ -182,13 +182,103 @@ def test_een_foto_wordt_opgeladen_en_verwijderd(webshop_page):
 
     page.goto(record)
     page.wait_for_selector("[data-record-head]")
-    assert page.locator('img[src^="/media/"]').count() == 1
+    img = page.locator('img[src^="/api/v1/media/"]')
+    assert img.count() == 1
+    assert img.first.evaluate("el => el.naturalWidth") > 0, "the picture did not load"
 
     page.goto(record + "?bewerken=1")
-    page.wait_for_selector('img[src^="/media/"]')
+    page.wait_for_selector('img[src^="/api/v1/media/"]')
+    page.locator('button[hx-post*="/bijlage/"]').first.click()
+    ok = page.locator("[data-dialog] [data-dialog-ok]")
+    ok.wait_for(state="visible")
     with htmx_afgerond(page):
-        page.locator('button[hx-post*="/bijlage/"]').first.click()
+        ok.click()
+    page.wait_for_url("**" + record + "?bewerken=1")
 
     page.goto(record)
     page.wait_for_selector("[data-record-head]")
-    assert page.locator('img[src^="/media/"]').count() == 0
+    assert page.locator('img[src^="/api/v1/media/"]').count() == 0
+
+
+def test_een_document_wordt_opgeladen_en_verwijderd(webshop_page):
+    """A document is uploaded through the record, its link answers 200 with the
+    file, and it is removed again (R3)."""
+    page = webshop_page
+    record = _open_artikel_in_bewerkmodus(page)
+
+    page.locator('form[hx-post$="/documenten"] input[type="file"]').set_input_files(
+        {
+            "name": "maattabel.pdf",
+            "mimeType": "application/pdf",
+            "buffer": b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 300]>>endobj\nxref\n0 4\n0000000000 65535 f \ntrailer<</Size 4/Root 1 0 R>>\n%%EOF\n",
+        }
+    )
+    with htmx_afgerond(page):
+        page.get_by_role("button", name="Document opslaan").click()
+
+    page.goto(record)
+    page.wait_for_selector("[data-record-head]")
+    link = page.locator('a[href^="/api/v1/media/"]').first
+    href = link.get_attribute("href")
+    assert (
+        page.request.get(
+            f"http://127.0.0.1:8000{href}", headers={"Host": "webshop.localhost"}
+        ).status
+        == 200
+    )
+
+    page.goto(record + "?bewerken=1")
+    page.wait_for_selector('a[href^="/api/v1/media/"]')
+    page.locator('button[hx-post*="/bijlage/"]').first.click()
+    ok = page.locator("[data-dialog] [data-dialog-ok]")
+    ok.wait_for(state="visible")
+    with htmx_afgerond(page):
+        ok.click()
+    page.wait_for_url("**" + record + "?bewerken=1")
+
+    page.goto(record)
+    page.wait_for_selector("[data-record-head]")
+    assert page.locator('a[href^="/api/v1/media/"]').count() == 0
+
+
+def test_de_eerste_rij_van_voorraad_opent_zijn_eigen_maat(webshop_page):
+    """With two sizes, a click on the first row's text opens the first size's
+    movements, not the last row's (the review of the list's row_link)."""
+    page = webshop_page
+    record = _open_artikel_in_bewerkmodus(page)
+
+    page.locator("[data-group-add]").click()
+    page.locator("[data-group-row]").last.locator('input[name^="v."]').fill("L")
+    page.locator("[data-form-save]").click()
+    page.wait_for_url("**" + record)
+
+    page.goto("/admin/voorraad")
+    page.wait_for_selector("tr[data-row]")
+    page.locator("tr[data-row]").first.locator("a[data-row-link]").click()
+    page.wait_for_selector("[data-record-head]")
+    assert "· M" in page.locator("[data-record-head] h1").inner_text()
+
+    # put the size back to what the seed had.
+    page.goto(record + "?bewerken=1")
+    page.wait_for_selector("[data-group-row]")
+    row = page.locator("[data-group-row]").filter(has=page.locator('input[value="L"]'))
+    row.locator("[data-row-menu-trigger]").click()
+    row.locator('[data-row-action="remove"]').click()
+    page.locator("[data-form-save]").click()
+    page.wait_for_url("**" + record)
+
+
+def test_een_geweigerde_upload_tekent_de_pagina_niet_dubbel(webshop_page):
+    """A refused upload shows its sentence and keeps one page — one <h1> (A4)."""
+    page = webshop_page
+    _open_artikel_in_bewerkmodus(page)
+
+    page.locator('form[hx-post$="/fotos"] input[type="file"]').set_input_files(
+        {"name": "not-an-image.png", "mimeType": "text/plain", "buffer": b"geen afbeelding"}
+    )
+    with htmx_afgerond(page):
+        page.get_by_role("button", name="Foto opslaan").click()
+
+    page.wait_for_selector("#product-melding [role=alert]")
+    assert page.locator("h1").count() == 1
+    assert "bestandstype" in page.locator("#product-melding").inner_text()

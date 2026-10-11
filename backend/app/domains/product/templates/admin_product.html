@@ -19,23 +19,6 @@
 {% endcall %}
 {% endmacro %}
 
-{% macro _bijlage(a) %}
-<div class="flex items-center gap-2">
-  {% if a.is_photo %}
-  <img src="/media/{{ a.media_asset_id }}" alt="" class="h-20 w-20 object-cover rounded-md border border-line">
-  {% if editing %}
-  {{ ui.field("bijlage-" ~ a.id, _("Verwijderen"), kind="upload", label_hidden=True,
-              current_url="/media/" ~ a.media_asset_id, current_label=_("Bekijken"),
-              delete_attrs='hx-post="/admin/producten/' ~ product.id ~ '/bijlage/' ~ a.id ~ '/verwijderen"') }}
-  {% endif %}
-  {% else %}
-  {{ ui.field("bijlage-" ~ a.id, _("Document"), kind="upload", edit=editing,
-              current_url="/media/" ~ a.media_asset_id, current_label=a.title or _("Bekijken"),
-              delete_attrs='hx-post="/admin/producten/' ~ product.id ~ '/bijlage/' ~ a.id ~ '/verwijderen"' if editing else None) }}
-  {% endif %}
-</div>
-{% endmacro %}
-
 {% if not editing %}
 {% call ui.record_columns() %}
 <div class="form-flow">
@@ -52,20 +35,7 @@
       {% endfor %}
     </div>
   {% endcall %}
-  {% call ui.section(_("Foto's")) %}
-    <div data-span="full" class="flex flex-wrap gap-2">
-      {% for a in attachments if a.is_photo %}{{ _bijlage(a) }}{% else %}
-      <span class="text-sm text-ink-soft">{{ _("Nog geen foto's.") }}</span>
-      {% endfor %}
-    </div>
-  {% endcall %}
-  {% call ui.section(_("Documenten")) %}
-    <div data-span="full" class="flex flex-col gap-1">
-      {% for a in attachments if not a.is_photo %}{{ _bijlage(a) }}{% else %}
-      <span class="text-sm text-ink-soft">{{ _("Nog geen documenten.") }}</span>
-      {% endfor %}
-    </div>
-  {% endcall %}
+  {% include "_product_bijlagen.html" %}
   {% call ui.section(_("Op bestelling")) %}
     {{ ui.field("pre_order", _("Op bestelling"), kind="switch", value=product.pre_order, edit=False) }}
     {% if product.pre_order_until %}{{ ui.field("pre_order_until", _("Bestellen tot en met"), kind="date", value=product.pre_order_until.isoformat(), edit=False) }}{% endif %}
@@ -91,26 +61,7 @@
       {{ ui.field("pre_order_until", _("Bestellen tot en met"), kind="date", value=(product.pre_order_until.isoformat() if product.pre_order_until else ""), help=_("Leeg: zonder einddatum. Daarna verkoopt het artikel wat in voorraad ligt.")) }}
     {% endcall %}
   </form>
-  {% call ui.section(_("Foto's")) %}
-    <div data-span="full" class="flex flex-wrap gap-2">
-      {% for a in attachments if a.is_photo %}{{ _bijlage(a) }}{% endfor %}
-    </div>
-    <form id="foto-form" method="post" action="/admin/producten/{{ product.id }}/fotos" enctype="multipart/form-data"
-          hx-post="/admin/producten/{{ product.id }}/fotos" hx-encoding="multipart/form-data">
-      {{ ui.field("file", _("Foto toevoegen"), kind="upload", accept="image/*") }}
-    </form>
-    {{ ui.action_bar(save_label=_("Foto opslaan"), form="foto-form", cancel_href="/admin/producten/" ~ product.id ~ "?bewerken=1") }}
-  {% endcall %}
-  {% call ui.section(_("Documenten")) %}
-    <div data-span="full" class="flex flex-col gap-1">
-      {% for a in attachments if not a.is_photo %}{{ _bijlage(a) }}{% endfor %}
-    </div>
-    <form id="document-form" method="post" action="/admin/producten/{{ product.id }}/documenten" enctype="multipart/form-data"
-          hx-post="/admin/producten/{{ product.id }}/documenten" hx-encoding="multipart/form-data">
-      {{ ui.field("file", _("Document toevoegen"), kind="upload", accept="application/pdf") }}
-    </form>
-    {{ ui.action_bar(save_label=_("Document opslaan"), form="document-form", cancel_href="/admin/producten/" ~ product.id ~ "?bewerken=1") }}
-  {% endcall %}
+  {% include "_product_bijlagen.html" %}
 </div>
 {% endcall %}
 {{ ui.action_bar(record=True, form="product-form", cancel_href="/admin/producten/" ~ product.id) }}

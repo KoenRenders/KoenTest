@@ -46,7 +46,8 @@ from app.domains.product.viewmodels import (
 )
 from app.domains.stock.api import ProductHasMovements, StockError
 from app.i18n import _
-from app.ui import admin_nav, is_fragment_request, templates
+from app.kernel.refusals import FieldError
+from app.ui import admin_nav, is_fragment_request, refusal_response, templates
 
 router = APIRouter()
 
@@ -329,12 +330,7 @@ async def _store_upload(request: Request, db: Session, product_id: int, kind: st
             content=content,
         )
     except (ProductError, MediaFout) as refusal:
-        return templates.TemplateResponse(
-            request,
-            "admin_product.html",
-            _record_view(request, db, product, editing=True, error=str(refusal)).as_context(),
-            status_code=422,
-        )
+        return refusal_response(request, [FieldError("", str(refusal))], "#product-melding")
     return _redirect(request, f"/admin/producten/{product_id}?bewerken=1")
 
 
@@ -369,7 +365,10 @@ def product_attachment_remove(
     _email: str = Depends(require_right(Right.PRODUCT_MASTERDATA)),
     _csrf: None = Depends(require_csrf),
 ):
-    remove_attachment(db, attachment_id)
+    try:
+        remove_attachment(db, product_id, attachment_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail=_("Niet gevonden")) from None
     return _redirect(request, f"/admin/producten/{product_id}?bewerken=1")
 
 

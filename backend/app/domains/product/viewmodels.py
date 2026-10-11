@@ -41,7 +41,7 @@ class ProductView(ViewModel):
     product: Product
     #: The sizes, in their sort order: `{"id": variant id, "name": the size}`.
     sizes: list[dict[str, Any]]
-    #: The attachments, in their sort order: `{"id", "media_asset_id", "title", "kind"}`.
+    #: The attachments, in their sort order: `{"id", "url", "title", "is_photo"}`.
     attachments: list[dict[str, Any]]
     editing: bool
     csrf_token: str
