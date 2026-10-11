@@ -1574,7 +1574,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    the caption and the placement; the editor hears the choice as
    `raak-figure-chosen`. The link dialog replaces the browser's `prompt`
    (B5, review of #1699): the UI norm has no browser dialogs. #}
-{% macro document_editor(name, blocks, value_json, id=None, cls="") -%}
+{% macro document_editor(name, blocks, value_json, id=None, cls="", button_pages=None, button_forms=None) -%}
 {%- set editor_id = id or (name ~ "-editor") -%}
 <link rel="stylesheet" href="{{ statisch('vendor/tiptap-3.31.4.css') }}">
 <link rel="stylesheet" href="{{ statisch('prose-figures.css') }}">
@@ -1644,6 +1644,92 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     {{ btn_primary(_("Invoegen"), type="button", cls="disabled:opacity-30",
                    attrs='@click="$dispatch(\'raak-figure-insert\')"'
                          ' :disabled="!chosen || !alt.trim()"') }}
+  </div>
+  {% endcall %}
+</div>
+{% endif %}
+{% set _bied_paginas = button_pages is not none and button_pages|length > 0 %}
+{% set _bied_formulieren = button_forms is not none and button_forms|length > 0 %}
+{% set _eerste_soort = "page" if _bied_paginas else ("form" if _bied_formulieren else "screen") %}
+{% if blocks.toolbar.insert and blocks.toolbar.insert | selectattr("id", "equalto", "button") | list %}
+{# The button's dialog (CR-17 #1679): her label, her variant, and the ONE
+   destination she leads to — Koen, 11 October 2026: a page of the site, a
+   form of the tenant, one application screen (Lid worden), or an outside
+   address. The pages and the forms are the caller's own lists (cms's
+   record screen passes the tenant's; the kit page passes invented ones);
+   an empty list hides her option — an offered choice must resolve. The
+   apply logic lives on the wrapper (the link dialog's pattern): the
+   button only says "klaar", the wrapper holds the guard. #}
+<div x-data="{ button: false, bLabel: '', bVariant: 'secondary', bKind: '{{ _eerste_soort }}',
+              bPage: {{ (button_pages[0][0] if button_pages else "null") }}, bForm: '{{ button_forms[0][0] if button_forms else "" }}', bHref: '' }"
+     @raak-button-choose.window="if ($event.detail.editor === '{{ editor_id }}') { button = true }"
+     @raak-button-apply.window="if (button && bLabel.trim() && (bKind !== 'href' || bHref.trim())) {
+                                   $dispatch('raak-button-chosen', { editor: '{{ editor_id }}',
+                                                                     label: bLabel, variant: bVariant, kind: bKind,
+                                                                     page_id: bPage ? Number(bPage) : null,
+                                                                     form_slug: bForm || null, href: bHref || null });
+                                   button = false }">
+  {% call modal("button", _("Knop"), max_w="max-w-lg") %}
+  {{ label(_("Tekst op de knop"), editor_id ~ "-btn-label") }}
+  {{ input_control("", id=editor_id ~ "-btn-label", cls="w-full", attrs='x-model="bLabel"') }}
+  <div class="mt-4">
+    <span class="block text-sm font-medium text-gray-700 mb-1">{{ _("Vorm") }}</span>
+    <div class="flex flex-wrap gap-2">
+      <button type="button" class="px-3 py-1.5 text-sm rounded-lg border"
+              :class="bVariant === 'primary' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white border-gray-300 hover:bg-gray-50'"
+              @click="bVariant = 'primary'">{{ _("Primair") }}</button>
+      <button type="button" class="px-3 py-1.5 text-sm rounded-lg border"
+              :class="bVariant === 'secondary' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white border-gray-300 hover:bg-gray-50'"
+              @click="bVariant = 'secondary'">{{ _("Secundair") }}</button>
+    </div>
+  </div>
+  <div class="mt-4">
+    <span class="block text-sm font-medium text-gray-700 mb-1">{{ _("Waar leidt de knop naartoe?") }}</span>
+    <div class="flex flex-wrap gap-2">
+      {% if _bied_paginas %}
+      <button type="button" class="px-3 py-1.5 text-sm rounded-lg border"
+              :class="bKind === 'page' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white border-gray-300 hover:bg-gray-50'"
+              @click="bKind = 'page'">{{ _("Een pagina van de site") }}</button>
+      {% endif %}
+      {% if _bied_formulieren %}
+      <button type="button" class="px-3 py-1.5 text-sm rounded-lg border"
+              :class="bKind === 'form' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white border-gray-300 hover:bg-gray-50'"
+              @click="bKind = 'form'">{{ _("Een formulier") }}</button>
+      {% endif %}
+      <button type="button" class="px-3 py-1.5 text-sm rounded-lg border"
+              :class="bKind === 'screen' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white border-gray-300 hover:bg-gray-50'"
+              @click="bKind = 'screen'">{{ _("Word lid") }}</button>
+      <button type="button" class="px-3 py-1.5 text-sm rounded-lg border"
+              :class="bKind === 'href' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white border-gray-300 hover:bg-gray-50'"
+              @click="bKind = 'href'">{{ _("Een adres buiten de site") }}</button>
+    </div>
+    <div class="mt-3">
+      {% if _bied_paginas %}
+      <select x-show="bKind === 'page'" class="w-full border border-gray-300 rounded-lg px-3 py-2" x-model="bPage">
+        {% for pid, ptitle in button_pages %}
+        <option value="{{ pid }}">{{ ptitle }}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
+      {% if _bied_formulieren %}
+      <select x-show="bKind === 'form'" class="w-full border border-gray-300 rounded-lg px-3 py-2" x-model="bForm">
+        {% for fslug, ftitle in button_forms %}
+        <option value="{{ fslug }}">{{ ftitle }}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
+      {# The x-show stands on her own wrapper, in plain markup: Jinja's
+         single-quoted macro attribute knows no escape, so the input's
+         attrs carry the model only. #}
+      <div x-show="bKind === 'href'">
+        {{ input_control("", cls="w-full", attrs='x-model="bHref" placeholder="https://"') }}
+      </div>
+    </div>
+  </div>
+  <div class="mt-4 flex justify-end gap-2">
+    {{ btn_secondary(_("Annuleren"), attrs='@click="button = false"') }}
+    {{ btn_primary(_("Invoegen"), type="button", cls="disabled:opacity-30",
+                   attrs='@click="$dispatch(\'raak-button-apply\')" :disabled="!bLabel.trim()"') }}
   </div>
   {% endcall %}
 </div>

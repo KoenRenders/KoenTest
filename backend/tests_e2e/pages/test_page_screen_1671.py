@@ -208,9 +208,13 @@ def refused_setup(setup):
         page_id=page.id,
         language="nl",
         title="Geweigerd",
+        # A node outside the schema entirely (`gallery` stands nowhere in
+        # NODES): the button RENDERED since phase 2's first slice (#1679),
+        # so she no longer refuses — the door this test pins stays shut on
+        # a name the schema does not know.
         draft_json={
             "type": "doc",
-            "content": [{"type": "button", "attrs": {"label": "Klik", "target": "/x"}}],
+            "content": [{"type": "gallery", "attrs": {"label": "Klik", "target": "/x"}}],
         },
     )
     db.add(translation)
@@ -221,7 +225,7 @@ def refused_setup(setup):
             action="published",
             document={
                 "type": "doc",
-                "content": [{"type": "callout", "content": [{"type": "text", "text": "Oud."}]}],
+                "content": [{"type": "gallery", "content": [{"type": "text", "text": "Oud."}]}],
             },
             at=__import__("datetime").datetime.now(__import__("datetime").timezone.utc),
             by="een-oude-build",

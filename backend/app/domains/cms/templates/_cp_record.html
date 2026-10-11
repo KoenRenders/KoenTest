@@ -108,7 +108,8 @@
   {#- Full span: the editor is not a field either; the wrapper makes her
       one child of the 4-track grid instead of four quarter tracks
       (the toolbar wrapped over four rows on the local version). -#}
-  <div data-span="full">{{ ui.document_editor("document", editor_config, document_json, id="cp-document") }}</div>
+  <div data-span="full">{{ ui.document_editor("document", editor_config, document_json, id="cp-document",
+                                                button_pages=button_pages, button_forms=button_forms) }}</div>
   {% endcall %}
 </form>
 {# The action bar of a record form (§3.6, #1561): the ONE save of the whole

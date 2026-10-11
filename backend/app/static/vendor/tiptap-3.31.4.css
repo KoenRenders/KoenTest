@@ -111,6 +111,43 @@
   pointer-events: none;
 }
 
+/* The columns, the button and the callout in the editor (#1679): the
+   editing aid shows each block for what she is — the two columns of the
+   grid, the button as the chip she is (the site gives her the kit's
+   button look), the callout as her box. The site's own measures live in
+   the prose rules; this file is the author's editing surface only. */
+.document-editor .tiptap .prose-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  margin: 0.5rem 0;
+}
+.document-editor .tiptap .prose-column {
+  border: 1px dashed var(--line);
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+}
+.document-editor .tiptap .prose-button {
+  display: block;
+  margin: 0.5rem 0;
+}
+.document-editor .tiptap a[data-button] {
+  display: inline-block;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--surface-2);
+  font-weight: 600;
+  cursor: pointer;
+}
+.document-editor .tiptap .prose-callout {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+  padding: 16px;
+  margin: 0.5rem 0;
+}
+
 /* A table in the editor: the author's EDITING GRID, a deliberate
    difference from the site (the review of #3110b37e, B1, said here where
    the choice lives): a full hairline grid and tighter cells (4/8 px) —

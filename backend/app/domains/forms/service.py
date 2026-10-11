@@ -1179,6 +1179,20 @@ def contact_form(db) -> Optional[Form]:
     return form
 
 
+def form_button_choices(db) -> list[tuple[str, str]]:
+    """The (slug, title) of this tenant's forms that a button may lead to —
+    exactly the ones `form_button_target` resolves (#1679, phase 2; Koen,
+    11 October 2026: a button may lead to a form). The door's own list:
+    every form asked THROUGH the door herself, so the picker and the
+    resolver cannot drift — the contact form's extra rules (#1509) and a
+    form's room are decided in the one place that renders the button.
+    """
+    from app.domains.forms.models import Form, FormStatus
+
+    forms = db.query(Form).filter(Form.status == FormStatus.OPEN).order_by(Form.title).all()
+    return [(f.slug, f.title) for f in forms if form_button_target(db, f.slug) is not None]
+
+
 def form_button_target(db, slug: str) -> Optional[tuple[str, str]]:
     """The title and the public path of this tenant's form `slug` — when it can
     take a submission, else None (#1567).

@@ -331,9 +331,13 @@ class TestTheLiveGoingDoorsValidate:
         page = _page(db_session)
         translation = save_draft(db_session, page.id, _document("Goed."))
         # The migration's own way of writing: straight into the row.
+        # A node the schema does not know at all (`gallery`): the button,
+        # the callout and the columns RENDER since phase 2's first slice
+        # (#1679), so they no longer refuse — the door this test pins stays
+        # shut on a name outside the schema.
         translation.draft_json = {
             "type": "doc",
-            "content": [{"type": "button", "attrs": {"label": "Klik", "target": "/x"}}],
+            "content": [{"type": "gallery", "attrs": {"label": "Klik", "target": "/x"}}],
         }
         db_session.commit()
         with pytest.raises(UnknownBlock):
@@ -365,7 +369,7 @@ class TestTheLiveGoingDoorsValidate:
         row = db_session.query(CmsPageHistory).filter(CmsPageHistory.page_id == page.id).first()
         row.document = {
             "type": "doc",
-            "content": [{"type": "callout", "content": [{"type": "text", "text": "Oud."}]}],
+            "content": [{"type": "gallery", "content": [{"type": "text", "text": "Oud."}]}],
         }
         db_session.commit()
         from app.domains.cms.schema import UnknownBlock

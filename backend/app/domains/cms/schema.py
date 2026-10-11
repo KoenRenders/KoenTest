@@ -113,9 +113,23 @@ NODES: dict[str, dict[str, Any]] = {
     },
     "columns": {"group": "block", "content": "column{1,2}", "attrs": {"align": ("top", "middle")}},
     "column": {"content": "block+"},
+    # Where a button (and a card) may lead (Koen, 11 October 2026: "c, maar
+    # enkel \"lid worden\" als onderdeel van deze CR"): a page of the site
+    # (page_id — a reference that survives a slug change), an outside
+    # address (href, http(s) only, refused at the save), a form of the
+    # tenant (form_slug, resolved through forms' own door), and ONE
+    # application screen — Lid worden. Exactly one of the four is set; the
+    # one resolver (render.py) serves the button and the card alike.
     "button": {
         "group": "block",
-        "attrs": {"label": "str", "target": "str", "variant": ("primary", "secondary")},
+        "attrs": {
+            "label": "str",
+            "variant": ("primary", "secondary"),
+            "page_id": "int?",
+            "href": "str?",
+            "form_slug": "str?",
+            "screen": ("lid-worden", None),
+        },
     },
     "callout": {"group": "block", "content": "inline*"},
     "linkCard": {
@@ -161,6 +175,12 @@ RENDERABLE: frozenset[str] = frozenset(
         "tableHeader",
         "tableCell",
         "figure",
+        # Phase 2, slice 1's rest (#1679): the renderer learned them, so
+        # the border opens — a stored document with them renders now.
+        "columns",
+        "column",
+        "button",
+        "callout",
         "text",
         "hardBreak",
         "value",
@@ -179,7 +199,9 @@ BLOCK_SETS: dict[str, dict[str, Any]] = {
         "marks": ("bold", "italic", "strike", "link"),
         "headings": HEADING_LEVELS,
         "lists": ("bulletList", "orderedList"),
-        "insert": ("table", "figure"),
+        # C4.13's menu order: Tabel · Afbeelding · Kolommen · Knop · Kader
+        # (Linkkaart · Kaarten · Formulier join as their commits build them).
+        "insert": ("table", "figure", "columns", "button", "callout"),
     },
     # Phase 7; the shape stands here so the one schema is the whole design.
     "letter": {
@@ -398,6 +420,24 @@ def _validate_node(node: Any, path: str, renderable: bool = False) -> None:
             continue
         if attr not in attrs or attrs[attr] is None:
             raise UnknownAttribute(f"{node_type}.{attr}")
+    if node_type == "button":
+        # Koen's four destinations (11 October 2026) are the button's own
+        # shape rule: exactly one of them is set — two is a document the
+        # resolver cannot resolve, none a button that leads nowhere. An
+        # outside address is http(s) only, refused at the save (C4.11:
+        # nothing is stripped at render).
+        targets = [
+            k for k in ("page_id", "href", "form_slug", "screen") if attrs.get(k) is not None
+        ]
+        if len(targets) != 1:
+            raise InvalidShape(
+                "Onjuiste vorm: een knop wijst naar precies één bestemming"
+                + (f" (nu {', '.join(targets)})" if len(targets) > 1 else "")
+            )
+        if "href" in targets:
+            href = attrs["href"]
+            if not isinstance(href, str) or not href.startswith(("http://", "https://")):
+                raise UnknownAttribute(f"button.href={href!r}")
     if spec.get("text"):
         # A text node carries words: the key is there and the string is not
         # empty (review A3, #1699) — an empty text node renders nothing and
@@ -472,6 +512,10 @@ def _validate_node(node: Any, path: str, renderable: bool = False) -> None:
             raise UnknownBlock(f"Onbekend blok: {type(child).__name__}")
         if child_type not in allowed_children:
             raise InvalidShape(f"Onjuiste plaats: {child_type} onder {node_type}")
+        if node_type == "column" and child_type == "columns":
+            # The design review's B5 (#1679): a column holds blocks, not a
+            # second columns block that breaks out of her column.
+            raise InvalidShape("Onjuiste plaats: kolommen in een kolom")
         _validate_node(child, f"{path}/{node_type}", renderable=renderable)
     if len(children) < minimum:
         raise InvalidShape(f"Leeg blok: {node_type}")
@@ -493,6 +537,9 @@ def _toolbar_label(command_id: str) -> str:
         "orderedList": _("Genummerde lijst"),
         "table": _("Tabel"),
         "figure": _("Afbeelding"),
+        "columns": _("Kolommen"),
+        "button": _("Knop"),
+        "callout": _("Kader"),
     }.get(command_id, command_id)
 
 

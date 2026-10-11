@@ -471,10 +471,12 @@ def _inline_html(nodes: "list[dict] | None") -> str:
     return "".join(parts)
 
 
-def _blocks_html(blocks: "list[dict] | None", cell: bool = False) -> str:
+def _blocks_html(
+    blocks: "list[dict] | None", cell: bool = False, preview: bool = False, db=None
+) -> str:
     parts = []
     for node in blocks or []:
-        parts.append(_block_html(node, cell))
+        parts.append(_block_html(node, cell, preview, db))
     # A cell or a list item holds bare paragraphs (no <p>); Enter in a cell
     # is the author's own line break — blocks joined with nothing ran her
     # lines together on the site (review B1, #1770). Outside a cell the
@@ -482,7 +484,7 @@ def _blocks_html(blocks: "list[dict] | None", cell: bool = False) -> str:
     return "<br>".join(parts) if cell else "".join(parts)
 
 
-def _block_html(node: dict, cell: bool = False) -> str:
+def _block_html(node: dict, cell: bool = False, preview: bool = False, db=None) -> str:
     kind = node["type"]
     content = node.get("content")
 
@@ -561,6 +563,30 @@ def _block_html(node: dict, cell: bool = False) -> str:
     if kind == "figure":
         return _figure_html(node)
 
+    if kind in ("columns", "column"):
+        # C4.6/C4.13: two sub-documents of equal width, 32 px between; the
+        # alignment is the stored `align` (the editor adapter derives her,
+        # #1679's design review B4) written as a class — the sanitiser
+        # allows no data attributes, and the class is the look's own
+        # vocabulary. A column renders her children bare: the wrapper
+        # carries the grid, the columns the blocks.
+        if kind == "columns":
+            align = (node.get("attrs") or {}).get("align") or "top"
+            cls = "prose-columns"
+            if align == "middle":
+                cls += " prose-columns--middle"
+            return f'<div class="{cls}">{_blocks_html(content, preview=preview, db=db)}</div>'
+        return f'<div class="prose-column">{_blocks_html(content, preview=preview, db=db)}</div>'
+
+    if kind == "button":
+        return _button_html(node, preview=preview, db=db)
+
+    if kind == "callout":
+        # C4.13: text only, on a neutral surface with the line and radius
+        # 14, 16 px inside — no title, icon or colour stripe. Her words are
+        # inline content, sanitised with everything else.
+        return f'<div class="prose-callout">{_inline_html(content)}</div>'
+
     raise ValueError(f"unknown block node: {kind}")
 
 
@@ -593,7 +619,95 @@ def _figure_html(node: dict) -> str:
     return figure + "</figure>"
 
 
-def render_document(document, db=None, *, on_page: bool = False, target: str = "site") -> str:
+def _button_html(node: dict, preview: bool = False, db=None) -> str:
+    """The kit's button with the author's label and her ONE resolved
+    destination (#1679; Koen, 11 October 2026): a page of the site (a
+    reference that survives a slug change), a form of the tenant, the one
+    application screen of this CR — Lid worden — or an outside address
+    (http(s), already refused at the save). What cannot be reached renders
+    NOTHING on the site — never a button that leads nowhere (A4's one
+    rule, the form button's own, #1567).
+
+    The addresses go through `path_for` (#1477/B7): a tenant reached by
+    her path prefix would be sent to the wrong door by a bare one. The
+    form asks forms' own door — `form_button_target` decides whether the
+    form exists and is open, the same door the `{{form:...}}` code uses.
+    """
+    from app.database import SessionLocal
+    from app.domains.forms.api import form_button_target
+    from app.ui import path_for
+
+    attrs = node.get("attrs") or {}
+    label = escape(attrs.get("label") or "")
+    variant = attrs.get("variant") or "secondary"
+    # The caller's own session where she has one (the request's, the test's):
+    # one button is one query, not a session of her own. Without a caller
+    # (the public render path's own conventions) she opens one, exactly as
+    # the form button does.
+    own_db = None
+    if db is None:
+        own_db = SessionLocal()
+        db = own_db
+    try:
+        if attrs.get("page_id") is not None:
+            from app.domains.cms.models import CmsPage
+
+            page = (
+                db.query(CmsPage)
+                # The tenant's own listener scopes her (the request sets
+                # the contextvar; a bare session sees every tenant — how
+                # the tests reach the seed).
+                .filter(
+                    CmsPage.id == attrs["page_id"],
+                    CmsPage.is_published.is_(True),
+                )
+                .first()
+            )
+            if page is None:
+                # A4's one rule: nothing on the site, the words in the
+                # admin preview (the span carries the look's own class).
+                if preview:
+                    return (
+                        '<span class="prose-refused">Deze knop wijst naar een pagina '
+                        "die niet (meer) bestaat.</span>"
+                    )
+                return ""
+            return (
+                f'<a class="prose-button prose-button--{variant}" '
+                f'href="{escape(path_for(f"/{page.slug}"), quote=True)}">{label}</a>'
+            )
+        if attrs.get("form_slug"):
+            resolved = form_button_target(db, attrs["form_slug"])
+            if resolved is None:
+                if preview:
+                    return (
+                        '<span class="prose-refused">Deze knop wijst naar een formulier '
+                        "dat geen inzendingen meer aanneemt.</span>"
+                    )
+                return ""
+            _title, form_path = resolved
+            return (
+                f'<a class="prose-button prose-button--{variant}" '
+                f'href="{escape(form_path, quote=True)}">{label}</a>'
+            )
+        if attrs.get("screen"):
+            return (
+                f'<a class="prose-button prose-button--{variant}" '
+                f'href="{escape(path_for("/lid-worden"), quote=True)}">{label}</a>'
+            )
+        href = attrs.get("href") or ""
+        return (
+            f'<a class="prose-button prose-button--{variant}" '
+            f'href="{escape(href, quote=True)}" rel="noopener noreferrer">{label}</a>'
+        )
+    finally:
+        if own_db is not None:
+            own_db.close()
+
+
+def render_document(
+    document, db=None, *, on_page: bool = False, target: str = "site", preview: bool = False
+) -> str:
     """A validated document (dict or JSON string) to site HTML (CR-17, C4.2) —
     or to plain text (``target="text"``): the words the chatbot's context
     reads, no tags at all.
@@ -613,7 +727,7 @@ def render_document(document, db=None, *, on_page: bool = False, target: str = "
         document = json.loads(document)
     if target == "text":
         return _document_text(document, db)
-    html = _blocks_html(document.get("content") or []) if document else ""
+    html = _blocks_html(document.get("content") or [], preview=preview, db=db) if document else ""
     html = sanitize_cms_html(html) or ""
     if on_page:
         html = headings_one_level_down(html)
@@ -677,7 +791,16 @@ def _document_text(document, db=None) -> str:
             alt = (node.get("attrs") or {}).get("alt") or ""
             if alt:
                 lines.append(alt)
-        elif kind in ("button", "callout", "linkCard", "card", "cards"):
+        elif kind in ("columns", "column"):
+            for child in content:
+                walk(child)
+        elif kind == "callout":
+            # Her words are content, not attributes (the review's B3: read
+            # from where they stand, never silently dropped).
+            words = _inline_text(content)
+            if words:
+                lines.append(words)
+        elif kind in ("button", "linkCard", "card", "cards"):
             attrs = node.get("attrs") or {}
             words = " ".join(
                 str(attrs.get(k, "")) for k in ("heading", "label", "title", "line") if attrs.get(k)

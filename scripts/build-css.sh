@@ -781,6 +781,31 @@ body[data-shell="site"]>main{padding-bottom:24px}
 .prose-raak :is(th,td){border-bottom:1px solid rgb(var(--c-line));padding:.75rem 1rem;text-align:left;vertical-align:top}
 .prose-raak tbody tr:last-child :is(th,td){border-bottom:none}
 .prose-raak th{font-weight:600;background:rgb(var(--c-surface-2))}
+/* CR-17 phase 2 (#1679, C4.13): the columns, the button and the callout.
+   Columns: two sub-documents of equal width, 32 px between, top-aligned
+   (middle — `prose-columns--middle`, the adapter's derived case — when
+   one column holds only a figure); under 640 px ONE column, the text
+   before the image. The button: the kit's button, left under its text,
+   on her label above 40 px, full width 44 px on a phone. The callout:
+   text only, a neutral surface with the line and radius 14, 16 px
+   inside — no title, icon or colour stripe. */
+.prose-columns{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start;margin:.5rem 0}
+.prose-columns--middle{align-items:center}
+.prose-raak .prose-column>*:first-child{margin-top:0}
+@media (max-width:639.98px){
+  /* stretch, not the grid's align-items:start: in a column flex that
+     start means "shrink to content", and a stacked column must take
+     her full width (a button inside her follows). */
+  .prose-columns{display:flex;flex-direction:column;gap:24px;align-items:stretch}
+  .prose-columns .prose-column:has(figure){order:2}
+}
+.prose-raak a.prose-button{display:inline-flex;align-items:center;justify-content:center;border-radius:.5rem;padding:.625rem 1rem;margin:.5rem 0;font-weight:600;font-size:.875rem;line-height:1.25rem;text-decoration:none}
+.prose-raak a.prose-button--primary{background:var(--primary);color:#fff}
+.prose-raak a.prose-button--secondary{border:1px solid rgb(var(--c-control-line));color:var(--ink)}
+.prose-callout{border:1px solid rgb(var(--c-line));border-radius:14px;background:var(--surface-2);padding:16px;margin:.5rem 0}
+@media (max-width:639.98px){
+  .prose-raak a.prose-button{display:flex;width:100%;min-height:44px}
+}
 /* ── CR-17 (#1671 slice 4; phase 2 #1679, C4.13 "Where the width lives"):
    ONE container of 1 024 px, CENTRED (the master CLI's comment of
    11 October 2026 is the source until the paragraph stands on `master`),
@@ -793,7 +818,7 @@ body[data-shell="site"]>main{padding-bottom:24px}
    <main> gives them). */
 .doc-page{width:100%;max-width:1024px;margin-left:auto;margin-right:auto}
 .doc-page>:not(.prose-raak){max-width:768px}
-.doc-page .prose-raak>*:not(table):not(.prose-figure--full){max-width:768px}
+.doc-page .prose-raak>*:not(table):not(.prose-figure--full):not(.prose-columns){max-width:768px}
 /* ── The Assistent panel (CR-11 pilot A, K8 — #1562; end state §3.15) ──────────
    One component, `_raakje_panel.html`, in two modes.
 

@@ -92,10 +92,21 @@ def _record_ctx(
         draft_differs,
         editable_document,
         get_translation,
+        list_pages,
         placeholders,
         schema,
         versions,
     )
+
+    # The button's dialog needs the tenant's pages and her button-eligible
+    # forms (Koen, 11 October 2026: a button may lead to a page, a form,
+    # "Lid worden", or an outside address). The pages are cms's own; the
+    # forms ask forms' own door, so the picker offers exactly what the
+    # resolver resolves (#1679).
+    from app.domains.forms.api import form_button_choices
+
+    button_pages = [(p.id, p.title) for p in list_pages(db)]
+    button_forms = form_button_choices(db)
 
     return {
         "p": page,
@@ -103,6 +114,8 @@ def _record_ctx(
             document if document is not None else _json.dumps(editable_document(db, page))
         ),
         "editor_config": schema.schema_for("page"),
+        "button_pages": button_pages,
+        "button_forms": button_forms,
         # The value codes the author can type in the document (#1615): the
         # legend in WORDS, one source with the public renderer's examples —
         # the record page's aside shows her.

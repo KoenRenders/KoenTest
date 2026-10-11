@@ -79,6 +79,91 @@
      attributes carry the figure through a copy inside the editor:
      ProseMirror serialises her to this markup and parses her back, and
      without them a pasted figure would lose her picture. */
+  /* The columns of #1679 (C4.13): two sub-documents of equal width; the
+     stored `align` is derived by the server's save adapter, so the editor
+     writes "top" and lets the adapter decide. The phone's stack order is
+     the site's (css); the editor shows the grid of the two columns. */
+  function columnsNode(RaakTiptap) {
+    var columns = RaakTiptap.Node.create({
+      name: "columns",
+      group: "block",
+      /* ProseMirror knows no `{1,2}` count in her content expressions —
+         the SERVER's schema holds the pair ({1,2}, cms/schema.py); the editor
+         takes "one or more" and the adapter plus the validator keep her
+         honest on what is stored. */
+      content: "column+",
+      addAttributes: function () {
+        return { align: { default: "top" } };
+      },
+      parseHTML: function () {
+        return [{ tag: "div.prose-columns" }];
+      },
+      renderHTML: function (props) {
+        var cls = "prose-columns";
+        if (props.node.attrs.align === "middle") cls += " prose-columns--middle";
+        return ["div", { class: cls }, 0];
+      },
+    });
+    var column = RaakTiptap.Node.create({
+      name: "column",
+      content: "block+",
+      parseHTML: function () {
+        return [{ tag: "div.prose-column" }];
+      },
+      renderHTML: function () {
+        return ["div", { class: "prose-column" }, 0];
+      },
+    });
+    return [columns, column];
+  }
+
+  /* The button of #1679: her label and her variant, and the ONE
+     destination she leads to — chosen in the dialog of the macro, which
+     carries the pages and forms of the tenant (Koen, 11 October 2026:
+     a page, an outside address, a form, and Lid worden). An atom: the
+     author edits her through the dialog, not by typing. */
+  function buttonNode(RaakTiptap, config) {
+    return RaakTiptap.Node.create({
+      name: "button",
+      group: "block",
+      atom: true,
+      addAttributes: function () {
+        return {
+          label: { default: "" },
+          variant: { default: "secondary" },
+          page_id: { default: null },
+          href: { default: null },
+          form_slug: { default: null },
+          screen: { default: null },
+        };
+      },
+      parseHTML: function () {
+        return [{ tag: "a[data-button]" }];
+      },
+      renderHTML: function (props) {
+        var a = props.node.attrs;
+        var naam = a.label || (config.toolbar.insert || []).filter(function (i) { return i.id === "button"; })[0].label;
+        return ["a", { "data-button": "", class: "prose-button prose-button--" + (a.variant || "secondary") }, naam];
+      },
+    });
+  }
+
+  /* The callout of #1679 (C4.13): text only, typed in her box — an
+     inline* node, like a paragraph with her own look. */
+  function calloutNode(RaakTiptap) {
+    return RaakTiptap.Node.create({
+      name: "callout",
+      group: "block",
+      content: "inline*",
+      parseHTML: function () {
+        return [{ tag: "div.prose-callout" }];
+      },
+      renderHTML: function () {
+        return ["div", { class: "prose-callout" }, 0];
+      },
+    });
+  }
+
   function figureNode(RaakTiptap, config, label) {
     var mediaUrl = (config.figure && config.figure.mediaUrl) || "";
     return RaakTiptap.Node.create({
@@ -224,7 +309,13 @@
     });
 
     var insertable = (config.toolbar.insert || []).filter(function (item) {
-      return item.id === "table" || item.id === "figure";
+      return (
+        item.id === "table" ||
+        item.id === "figure" ||
+        item.id === "columns" ||
+        item.id === "button" ||
+        item.id === "callout"
+      );
     });
     if (insertable.length) {
       var menu = document.createElement("details");
@@ -248,6 +339,23 @@
           menu.removeAttribute("open");
           if (item.id === "table") {
             editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+          } else if (item.id === "columns") {
+            editor.chain().focus().insertContent({
+              type: "columns",
+              attrs: { align: "top" },
+              content: [
+                { type: "column", content: [{ type: "paragraph" }] },
+                { type: "column", content: [{ type: "paragraph" }] },
+              ],
+            }).run();
+          } else if (item.id === "callout") {
+            editor.chain().focus().insertContent({ type: "callout" }).run();
+          } else if (item.id === "button") {
+            /* The button never lands without her destination: the dialog
+               of the macro carries the pages and forms of the tenant, and
+               the server refuses a button with no destination anyway
+               (the shape rule, C6 2). */
+            announce("raak-button-choose", { editor: editorId });
           } else if (config.figure) {
             /* The figure never lands without her picture: the dialog of
                the macro opens the kit's picker, and the server's shape
@@ -372,6 +480,22 @@
       .run();
   });
 
+  document.addEventListener("raak-button-chosen", function (event) {
+    var editor = editors[event.detail.editor];
+    if (!editor || editor.isDestroyed) return;
+    var attrs = { label: event.detail.label || "", variant: event.detail.variant || "secondary" };
+    if (event.detail.kind === "page") attrs.page_id = event.detail.page_id;
+    else if (event.detail.kind === "form") attrs.form_slug = event.detail.form_slug;
+    else if (event.detail.kind === "screen") attrs.screen = "lid-worden";
+    else attrs.href = event.detail.href || "";
+    var attrs_here = editor.getAttributes("button");
+    if (attrs_here && attrs_here.label !== undefined) {
+      editor.chain().focus().updateAttributes("button", attrs).run();
+    } else {
+      editor.chain().focus().insertContent({ type: "button", attrs: attrs }).run();
+    }
+  });
+
   document.addEventListener("raak-link-save", function (event) {
     var editor = editors[event.detail.editor];
     if (!editor || editor.isDestroyed) return;
@@ -430,6 +554,15 @@
     });
     if ((config.insert || []).indexOf("figure") !== -1) {
       extensions.push(figureNode(RaakTiptap, config, figureLabel));
+    }
+    if ((config.insert || []).indexOf("columns") !== -1) {
+      extensions = extensions.concat(columnsNode(RaakTiptap));
+    }
+    if ((config.insert || []).indexOf("button") !== -1) {
+      extensions.push(buttonNode(RaakTiptap, config));
+    }
+    if ((config.insert || []).indexOf("callout") !== -1) {
+      extensions.push(calloutNode(RaakTiptap));
     }
 
     var editor = new RaakTiptap.Editor({

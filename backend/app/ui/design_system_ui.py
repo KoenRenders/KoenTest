@@ -346,6 +346,49 @@ def _document_demo() -> tuple[dict, str]:
                 ],
             },
             {
+                "type": "callout",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "Een kader met alleen woorden — neutraal, met de lijn en haar ronde hoeken.",
+                    }
+                ],
+            },
+            {
+                "type": "columns",
+                "attrs": {"align": "top"},
+                "content": [
+                    {
+                        "type": "column",
+                        "content": [
+                            {
+                                "type": "paragraph",
+                                "content": [{"type": "text", "text": "De linker kolom van twee."}],
+                            }
+                        ],
+                    },
+                    {
+                        "type": "column",
+                        "content": [
+                            {
+                                "type": "paragraph",
+                                "content": [
+                                    {"type": "text", "text": "De rechter kolom, even breed."}
+                                ],
+                            }
+                        ],
+                    },
+                ],
+            },
+            {
+                "type": "button",
+                "attrs": {
+                    "label": "Word lid",
+                    "variant": "primary",
+                    "screen": "lid-worden",
+                },
+            },
+            {
                 "type": "table",
                 "content": [
                     {

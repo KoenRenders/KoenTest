@@ -445,7 +445,9 @@ def draft_html(db, page: CmsPage, language: Optional[str] = None) -> str:
     if document is None:
         document = published_document(db, page, language)
     if document is not None:
-        return render_document(document, db, on_page=not is_site_block(page.slug))
+        # The preview passes her own flag: a reference that leads nowhere
+        # shows her words here (A4's one rule) and nothing on the site.
+        return render_document(document, db, on_page=not is_site_block(page.slug), preview=True)
     return render_cms_content(page.content or "", db, on_page=not is_site_block(page.slug)) or ""
 
 
@@ -511,6 +513,26 @@ def document_from_editor(document: Any) -> Any:
                 else "body"
             )
             node = {**node, "attrs": {"section": section}}
+        elif kind == "columns":
+            # The alignment is not the author's own choice to make: C4.13
+            # says "bovenaan uitgelijnd; in het midden wanneer één kolom
+            # alleen een afbeelding is" — derived here, one place (the
+            # design review's B4), and the renderer renders the stored
+            # value. A figure beside her text is the one case; everything
+            # else is "top".
+            content = node.get("content")
+            children = content if isinstance(content, list) else []
+            only_figure = [
+                all(
+                    isinstance(b, dict) and b.get("type") == "figure"
+                    for b in (c.get("content") or [])
+                )
+                for c in children
+                if isinstance(c, dict) and c.get("type") == "column"
+            ]
+            align = "middle" if len(only_figure) == 2 and sum(only_figure) == 1 else "top"
+            attrs = node.get("attrs")
+            node = {**node, "attrs": {**(attrs if isinstance(attrs, dict) else {}), "align": align}}
         result = dict(node)
         if isinstance(result.get("content"), list):
             result["content"] = [transform(child, depth + 1) for child in result["content"]]

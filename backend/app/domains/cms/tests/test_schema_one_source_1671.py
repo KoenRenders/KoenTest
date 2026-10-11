@@ -21,7 +21,10 @@ def test_schema_for_names_exactly_the_page_set():
     """The `page` set of phase 1: table and figure in the insert menu, NO
     value block (phase 5), the three heading levels, today's marks."""
     config = schema.schema_for("page")
-    assert config["insert"] == ["table", "figure"]
+    # Phase 2 (#1679, C4.13's menu order): Tabel · Afbeelding · Kolommen ·
+    # Knop · Kader — Linkkaart · Kaarten · Formulier join as their commits
+    # build them.
+    assert config["insert"] == ["table", "figure", "columns", "button", "callout"]
     assert [h["level"] for h in config["headings"]] == [1, 2, 3]
     assert set(config["marks"]) == {"bold", "italic", "strike", "link"}
     assert config["nodes"] == sorted(schema.NODES)

@@ -10,6 +10,7 @@ slice-1 validator — the violation it makes is named in the docstring.
 
 import pytest
 
+from app.domains.cms import schema
 from app.domains.cms.schema import (
     FIGURE_PLACEMENTS,
     InvalidShape,
@@ -82,13 +83,16 @@ def test_a_block_inside_an_inline_place_is_refused():
 
 
 def test_a_button_without_her_label_is_refused():
-    """A button is a later phase's node: the schema holds her shape, the
-    renderer does not walk her — so a stored document refuses her at the
-    border (review A2, #1770), before her missing label is even named.
-    The shape half still names required attributes on the nodes that DO
-    render (the figure below)."""
-    with pytest.raises(UnknownBlock):
-        validate_document(_doc({"type": "button", "attrs": {"target": "/x", "variant": "primary"}}))
+    """Phase 2 (#1679): the button renders now, so the border lets her
+    through — the SHAPE half names what she misses: her label, and the
+    one destination she leads to (Koen, 11 October 2026). The border's
+    refusal is gone by design; this pin keeps the shape's own words."""
+    with pytest.raises(UnknownAttribute, match="button.label"):
+        validate_document(_doc({"type": "button", "attrs": {"variant": "primary"}}))
+    with pytest.raises(InvalidShape):
+        validate_document(
+            _doc({"type": "button", "attrs": {"label": "Klik", "variant": "primary"}})
+        )
 
 
 def test_marks_on_a_block_are_refused():
@@ -402,49 +406,51 @@ def test_the_lists_type_holds_no_value_but_the_editors_null():
 
 class TestRenderableBorder:
     """The schema holds the whole design — the renderer walks only part of
-    it today. A stored document with a later-phase node (a button, a
-    callout) would publish fine and take the public page down at render
-    (review A2, #1770): the validator refuses what the renderer cannot
-    render. Every test here goes red on the validator without her
-    renderable border — each node of `RENDERABLE`'s complement walks.
+    it today. A stored document with a node the renderer cannot walk would
+    publish fine and take the public page down at render (review A2,
+    #1770): the validator refuses what the renderer cannot render. The
+    button, the callout and the columns LEFT this border with phase 2's
+    first slice (#1679) — the renderer learned them; the card family and
+    the form wait for their commits. Every test here goes red on the
+    validator without her renderable border.
     """
 
-    def test_a_button_is_refused(self):
+    def test_a_cards_node_is_refused(self):
         with pytest.raises(UnknownBlock):
-            validate_document(
-                _doc(
-                    {
-                        "type": "button",
-                        "attrs": {"label": "Klik", "target": "/lid-worden"},
-                    }
-                )
-            )
-
-    def test_a_callout_is_refused(self):
-        with pytest.raises(UnknownBlock):
-            validate_document(
-                _doc({"type": "callout", "content": [{"type": "text", "text": "Let op."}]})
-            )
-
-    def test_a_columns_node_is_refused(self):
-        with pytest.raises(UnknownBlock):
-            validate_document(_doc({"type": "columns", "content": []}))
+            validate_document(_doc({"type": "cards", "content": []}))
 
     def test_a_form_node_is_refused(self):
         with pytest.raises(UnknownBlock):
             validate_document(_doc({"type": "form", "attrs": {"form_id": 1}}))
 
-    def test_a_button_nested_deeper_is_refused_too(self):
+    def test_a_refused_node_nested_deeper_is_refused_too(self):
         with pytest.raises(UnknownBlock):
             validate_document(
                 _doc(
                     _par("Voor:"),
                     {
-                        "type": "button",
-                        "attrs": {"label": "Klik", "target": "/lid-worden"},
+                        "type": "cards",
+                        "content": [{"type": "card", "attrs": {"title": "K", "href": "/x"}}],
                     },
                 )
             )
+
+    def test_the_border_stays_red_able_for_a_node_yet_to_come(self):
+        """B2 of the plan review: after phase 2 no known node is left on
+        the refused side — the border needs a subject to stay a tested
+        rule. This adds a shape to NODES for the length of the test (an
+        ADDITIVE violation, gone afterwards) and proves the border refuses
+        her by name: a node the schema knows but the renderer does not
+        walk. Red on the validator without her border — measured while
+        building, by taking the border out and watching her walk through."""
+        schema.NODES["watermerk"] = {"group": "block", "content": "inline*"}
+        try:
+            with pytest.raises(UnknownBlock):
+                validate_document(
+                    _doc({"type": "watermerk", "content": [{"type": "text", "text": "x"}]})
+                )
+        finally:
+            del schema.NODES["watermerk"]
 
     def test_every_renderable_node_really_renders(self):
         # The border's other side: every node of RENDERABLE that a document
