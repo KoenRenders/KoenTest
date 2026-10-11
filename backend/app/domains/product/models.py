@@ -55,7 +55,12 @@ class ProductError(ValueError):
 
 
 class SizeNameRefusal(ProductError):
-    """A size's name was refused, at one field of the record's repeating group."""
+    """A size's save was refused, at a place of the record's repeating group.
+
+    `field` is the place the kit marks: a size's name field (`v.<key>.name`) for a
+    name the size may not take, or the row itself (`v.<key>`) for a size that may
+    not go (movements) — the row is then put back with the reason on it.
+    """
 
     def __init__(self, field: str, message: str):
         super().__init__(message)

@@ -166,3 +166,24 @@ def test_swapping_two_names_in_one_save_is_no_duplicate(client, db_session, ever
     assert answer.status_code == 303
 
     assert [size_of(v) for v in variants_of(db_session, product.id)] == ["L", "M"]
+
+
+def test_a_name_over_255_characters_is_refused(client, db_session, every_module_on):
+    import pytest
+
+    from app.domains.product.api import ProductError
+
+    with pytest.raises(ProductError):
+        create_product(db_session, "x" * 256)
+
+    product = create_product(db_session, "T-shirt Raak")
+    headers = _operator(client, db_session, every_module_on)
+    answer = client.post(
+        f"/admin/producten/{product.id}",
+        data={"name": "x" * 256},
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert answer.status_code == 422
+    assert "te lang" in answer.text
+    assert get_product(db_session, product.id).name == "T-shirt Raak"

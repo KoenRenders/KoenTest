@@ -50,7 +50,7 @@
         hx-post="/admin/producten/{{ product.id }}" class="form-flow">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     {% call ui.section(_("Artikel")) %}
-      {{ ui.field("name", _("Naam"), value=product.name, required=True, long=True) }}
+      {{ ui.field("name", _("Naam"), value=product.name, required=True, long=True, attrs='maxlength="255"') }}
       {{ ui.field("description", _("Omschrijving"), kind="textarea", value=product.description or "") }}
     {% endcall %}
     {% set _size_template %}{{ _size_row("__V__", "") }}{% endset %}

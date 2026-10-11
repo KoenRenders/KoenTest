@@ -18,6 +18,7 @@ from app.domains.product.models import (
     ProductVariant,
     SizeNameRefusal,
 )
+from app.domains.stock.api import StockError
 from app.kernel.contracts.media import RemoveAsset
 from app.kernel.contracts.product import ProductDeleted
 from app.kernel.events import has_subscribers, publish
@@ -29,14 +30,23 @@ def get_product(db: Session, product_id: int) -> Product | None:
     return db.get(Product, product_id)
 
 
-def create_product(db: Session, name: str) -> Product:
-    """Create an article with a name; it starts as Concept (Q74). The sizes,
-    prices and pictures come later, on the article record."""
+def _checked_name(name: str) -> str:
+    """The article's name, stripped, refused when empty or over the column's 255
+    characters (S2). One place: `create_product` and `update_product`."""
     from app.i18n import _
 
     name = (name or "").strip()
     if not name:
         raise ProductError(_("Geef het artikel een naam."))
+    if len(name) > 255:
+        raise ProductError(_("De naam is te lang (hoogstens 255 tekens)."))
+    return name
+
+
+def create_product(db: Session, name: str) -> Product:
+    """Create an article with a name; it starts as Concept (Q74). The sizes,
+    prices and pictures come later, on the article record."""
+    name = _checked_name(name)
     product = Product(name=name)
     db.add(product)
     db.flush()
@@ -51,9 +61,7 @@ def update_product(db: Session, product_id: int, *, name: str, description: str 
     product = get_product(db, product_id)
     if product is None:
         raise ProductError(_("Dit artikel bestaat niet."))
-    name = (name or "").strip()
-    if not name:
-        raise ProductError(_("Geef het artikel een naam."))
+    name = _checked_name(name)
     product.name = name
     product.description = (description or "").strip() or None
     db.flush()
@@ -322,7 +330,14 @@ def sync_variants(db: Session, product_id: int, ordered: list[tuple[str, str]]) 
 
     for key in list(existing):
         if key not in kept:
-            delete_variant(db, existing[key].id)
+            try:
+                delete_variant(db, existing[key].id)
+            except StockError as refusal:
+                raise SizeNameRefusal(
+                    f"v.{key}",
+                    _("Maat %(name)s heeft voorraadbewegingen en kan niet verwijderd worden.")
+                    % {"name": size_of(existing[key])},
+                ) from refusal
     db.commit()
 
 

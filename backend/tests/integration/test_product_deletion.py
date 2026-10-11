@@ -21,6 +21,7 @@ from app.domains.product.api import (
     ProductAttachment,
     ProductError,
     ProductVariant,
+    SizeNameRefusal,
     delete_product,
     delete_variant,
 )
@@ -111,14 +112,15 @@ def test_a_movement_refusal_rolls_the_prices_back_too(db_session):
 def test_a_refused_size_removal_rolls_back_the_rename_of_the_same_save(db_session):
     """A save that renames one size and removes another (with movements) in one go:
     the refusal of the removal rolls the whole save back, so the rename is gone
-    too (the review of the sizes commit)."""
+    too (the review of the sizes commit). The refusal names the size at its row
+    (`SizeNameRefusal`), not a bare `StockError`."""
     from app.domains.product.api import size_of, sync_variants, variants_of
 
     product, variants = _product_with_variants(db_session, "M", "S")
     receive(db_session, variant_id=variants[0].id, quantity=5)
 
     savepoint = db_session.begin_nested()
-    with pytest.raises(StockError):
+    with pytest.raises(SizeNameRefusal):
         sync_variants(db_session, product.id, [(str(variants[1].id), "Small")])
     savepoint.rollback()
 

@@ -322,16 +322,20 @@ def test_elke_weigering_van_de_record_opslag(webshop_page):
     assert "Deze maat bestaat al." in banner.inner_text()
     assert page.locator("[data-group-row]").count() == 2
 
-    # 4. a size with movements removed
+    # 4. a size with movements removed — the row comes back and the sentence
+    #    names the size (S1)
     _open_artikel_in_bewerkmodus(page)
     row = page.locator("[data-group-row]").first
+    size_name = row.locator('input[name^="v."]').input_value()
+    count_before = page.locator("[data-group-row]").count()
     row.locator("[data-row-menu-trigger]").click()
     row.locator('[data-row-action="remove"]').click()
     with htmx_afgerond(page):
         page.locator("[data-form-save]").click()
     banner.wait_for(state="visible")
     assert page.locator("h1").count() == 1
-    assert "voorraadbewegingen" in banner.inner_text()
+    assert f"Maat {size_name} heeft voorraadbewegingen" in banner.inner_text()
+    assert page.locator("[data-group-row]").count() == count_before
 
 
 def test_de_knoppen_op_het_bewerkscherm_op_390_px(webshop_page):
@@ -354,3 +358,42 @@ def test_de_knoppen_op_het_bewerkscherm_op_390_px(webshop_page):
                 f"{form_id} knop {i} rechts van de kaart"
             )
             assert box["y"] >= field["y"] + field["height"], f"{form_id} knop {i} over het veld"
+
+
+def test_de_fotos_op_390_px_staan_onder_elkaar(webshop_page):
+    """At 390 px the edit screen's six pictures stand one per row: a picture with
+    its wide "Verwijderen" button takes the whole card, so the flex-wrap stacks
+    them (S3)."""
+    from io import BytesIO
+
+    from PIL import Image
+
+    page = webshop_page
+    page.set_viewport_size({"width": 390, "height": 844})
+    record = _open_artikel_in_bewerkmodus(page)
+
+    buf = BytesIO()
+    Image.new("RGB", (40, 30), (10, 90, 200)).save(buf, format="PNG")
+    for i in range(6):
+        page.locator('form[hx-post$="/fotos"] input[type="file"]').set_input_files(
+            {"name": f"foto-{i}.png", "mimeType": "image/png", "buffer": buf.getvalue()}
+        )
+        with htmx_afgerond(page):
+            page.locator('button[form="foto-form"]').click()
+
+    page.goto(record + "?bewerken=1")
+    page.wait_for_selector('img[src^="/api/v1/media/"]')
+    imgs = page.locator('img[src^="/api/v1/media/"]')
+    assert imgs.count() == 6
+    tops = sorted(round(imgs.nth(i).bounding_box()["y"]) for i in range(imgs.count()))
+    assert len(set(tops)) == 6, f"foto's staan niet onder elkaar: {tops}"
+
+    # put the record back to the seed (no pictures)
+    for _ in range(6):
+        page.goto(record + "?bewerken=1")
+        page.wait_for_selector('button[hx-post*="/bijlage/"]')
+        page.locator('button[hx-post*="/bijlage/"]').first.click()
+        ok = page.locator("[data-dialog] [data-dialog-ok]")
+        ok.wait_for(state="visible")
+        with htmx_afgerond(page):
+            ok.click()
