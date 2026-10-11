@@ -255,15 +255,38 @@ def sync_variants(db: Session, product_id: int, ordered: list[tuple[str, str]]) 
     new key adds a size, and an existing variant not in the list is deleted. One
     transaction: a refusal in a delete (a size with movements, through `stock`'s
     handler) rolls every change of this save back.
+
+    Two sizes with the same name on one article are refused (Koen, 11 October
+    2026) — on adding and on renaming, compared without regard to case or spaces
+    around it — so the check runs here, in the service, before anything changes.
     """
     existing = {str(variant.id): variant for variant in variants_of(db, product_id)}
     kept: set[str] = set()
+    final_names: dict[str, str] = {}
+
+    # The names this save leaves, checked before anything is written.
+    for key, name in ordered:
+        name = (name or "").strip()
+        if key in existing:
+            if not name:
+                from app.i18n import _
+
+                raise ProductError(_("Geef de maat een naam."))
+            kept.add(key)
+        elif not name:
+            continue
+        normalized = name.casefold()
+        if normalized in final_names:
+            from app.i18n import _
+
+            raise ProductError(_("Deze maat bestaat al."))
+        final_names[normalized] = key
+
     for key, name in ordered:
         name = (name or "").strip()
         if key in existing:
             if name != size_of(existing[key]):
                 rename_variant(db, existing[key].id, name)
-            kept.add(key)
         elif name:
             add_variant(db, product_id, name)
     for key in list(existing):

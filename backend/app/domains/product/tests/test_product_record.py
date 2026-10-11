@@ -122,3 +122,17 @@ def test_a_size_renamed_to_nothing_is_refused(client, db_session, every_module_o
     answer = _save_sizes(client, db_session, every_module_on, product, [(str(m.id), "")])
     assert answer.status_code == 422
     assert "naam" in answer.text
+
+
+def test_a_second_size_with_the_same_name_is_refused(client, db_session, every_module_on):
+    from app.domains.product.api import variants_of
+
+    product = create_product(db_session, "T-shirt Raak")
+    m = add_variant(db_session, product.id, "M")
+
+    answer = _save_sizes(
+        client, db_session, every_module_on, product, [(str(m.id), "M"), ("n1", "m")]
+    )
+    assert answer.status_code == 422
+    assert "bestaat al" in answer.text
+    assert [v.id for v in variants_of(db_session, product.id)] == [m.id]
