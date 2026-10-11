@@ -9,7 +9,7 @@
   <tbody>
     {% for r in rows %}
     <tr data-row data-household="{{ r.id }}" class="align-middle">
-      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">{{ ui.row_link(r.name, "/admin/leden/gezin/" ~ r.id, sub=r.address or none) }}</td>
+      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">{{ ui.row_link(r.name, "/admin/leden/gezin/" ~ r.id, sub=r.address or none, sub_mono=False) }}</td>
       <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right tabular-nums">{{ r.persons }}</td>
       <td data-cell="status" class="border-b border-line px-3 py-2">{{ ui.badge(r.badge[0], r.badge[1]) }}</td>
     </tr>

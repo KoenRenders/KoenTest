@@ -3218,10 +3218,12 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 
 {# The row's own link, in its first cell: its click area covers the row (CSS),
    so a click on the amount opens the record too. `sub` is the grey line under
-   it (a reference number). Never "Bewerken" in a row: the row is the way in. #}
-{% macro row_link(label, href, sub=None, cls="") -%}
+   it: monospace for a code (a reference number, the default), plain with
+   `sub_mono=False` for text (an address — #1899). Never "Bewerken" in a row:
+   the row is the way in. #}
+{% macro row_link(label, href, sub=None, cls="", sub_mono=True) -%}
 <a href="{{ href }}" data-row-link class="font-semibold text-ink hover:no-underline{% if cls %} {{ cls }}{% endif %}">{{ label }}</a>
-{% if sub %}<small class="block font-mono text-xs font-normal text-ink-soft">{{ sub }}</small>{% endif %}
+{% if sub %}<small data-row-sub class="block{% if sub_mono %} font-mono{% endif %} text-xs font-normal text-ink-soft">{{ sub }}</small>{% endif %}
 {%- endmacro %}
 
 {# What a row may carry beside its link (block 4, Q35): **at most one visible

@@ -550,7 +550,8 @@ superseded on every screen that moves to the layout:
   with it.
 - **Since K2 (#1556, merged 4 October 2026) the table of the `list_page`
   is the kit's** (`ui.table`), Betalingen first: sort in the head; **the row
-  is the way in** — a row on a top-level list opens the record page (P8; a
+  is the way in** (`ui.row_link`; its second line is monospace for a code,
+  plain for text such as an address) — a row on a top-level list opens the record page (P8; a
   booking got its own page `/admin/betalingen/<id>` with #1574, where FINANCE
   and OPERATOR mutate); **one visible row action**, the positive action of
   the row's state ("Bevestig" on an open booking), plus `⋯`, following

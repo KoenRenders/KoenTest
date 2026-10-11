@@ -122,6 +122,8 @@ SHAPE = """() => { const q = s => document.querySelector(s), all = s => [...docu
           rows: all('tr[data-row]').length,
           row_actions: all('tr[data-row] [data-row-menu-trigger], tr[data-row] button').length,
           first_row_y: first ? Math.round(first.getBoundingClientRect().top + scrollY) : null,
+          fonts: first ? [getComputedStyle(first.querySelector('[data-row-link]')).fontFamily,
+                          (first.querySelector('[data-row-sub]') ? getComputedStyle(first.querySelector('[data-row-sub]')).fontFamily : null)] : null,
           page: [document.documentElement.scrollWidth, innerWidth]}; }"""
 
 
@@ -137,6 +139,10 @@ def test_the_list_opens_on_actief_on_the_kit_table(browser, households, width, h
     assert shape["figures"] == ["Actieve gezinnen", "Actieve personen", "Te vernieuwen"], shape
     assert PAGE in shape["marked"], "Leden is not the marked menu item"
     assert shape["rows"] >= 1 and shape["row_actions"] == 0, "a row carries an action"
+    # An address is no code: the row's second line reads in the name's typeface.
+    # Proven red by taking `sub_mono=False` off the list's row link.
+    assert shape["fonts"][1] is not None, "the first row has no address line — still looking?"
+    assert shape["fonts"][0] == shape["fonts"][1], f"the address line is set in {shape['fonts'][1]}"
     if width >= 1440:
         assert shape["heads"] == ["Gezin", "Personen", "Lidmaatschap"], shape["heads"]
     assert shape["page"][0] == shape["page"][1], "wider than the window"
