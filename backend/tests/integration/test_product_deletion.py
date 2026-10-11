@@ -108,6 +108,25 @@ def test_a_movement_refusal_rolls_the_prices_back_too(db_session):
     assert prices_of(db_session, product.id) != []
 
 
+def test_a_refused_size_removal_rolls_back_the_rename_of_the_same_save(db_session):
+    """A save that renames one size and removes another (with movements) in one go:
+    the refusal of the removal rolls the whole save back, so the rename is gone
+    too (the review of the sizes commit)."""
+    from app.domains.product.api import size_of, sync_variants, variants_of
+
+    product, variants = _product_with_variants(db_session, "M", "S")
+    receive(db_session, variant_id=variants[0].id, quantity=5)
+
+    savepoint = db_session.begin_nested()
+    with pytest.raises(StockError):
+        sync_variants(db_session, product.id, [(str(variants[1].id), "Small")])
+    savepoint.rollback()
+
+    db_session.expire_all()
+    names = {variant.id: size_of(variant) for variant in variants_of(db_session, product.id)}
+    assert names == {variants[0].id: "M", variants[1].id: "S"}
+
+
 def test_deleting_a_size_keeps_the_products_own_price(db_session):
     product, variants = _product_with_variants(db_session, "M", "L")
     db_session.add_all(

@@ -113,3 +113,12 @@ def test_removing_a_size_through_the_record(client, db_session, every_module_on)
 
     variants = variants_of(db_session, product.id)
     assert [v.id for v in variants] == [m.id]
+
+
+def test_a_size_renamed_to_nothing_is_refused(client, db_session, every_module_on):
+    product = create_product(db_session, "T-shirt Raak")
+    m = add_variant(db_session, product.id, "M")
+
+    answer = _save_sizes(client, db_session, every_module_on, product, [(str(m.id), "")])
+    assert answer.status_code == 422
+    assert "naam" in answer.text

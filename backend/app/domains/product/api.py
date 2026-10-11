@@ -26,19 +26,11 @@ from app.domains.product.service import (  # noqa: F401
     rename_variant,
     set_pre_order,
     set_status,
+    size_of,
     sync_variants,
     update_product,
     variants_of,
 )
-
-
-def size_of(variant: ProductVariant) -> str:
-    """The size of a variant, from its one `Maat` property (B3a)."""
-    for prop in variant.properties or []:
-        if prop.get("name") == "Maat":
-            return str(prop.get("value", ""))
-    return ""
-
 
 __all__ = [
     "PRODUCT_STATUS",
@@ -60,6 +52,7 @@ __all__ = [
     "rename_variant",
     "set_pre_order",
     "set_status",
+    "size_of",
     "sync_variants",
     "update_product",
     "variants_of",

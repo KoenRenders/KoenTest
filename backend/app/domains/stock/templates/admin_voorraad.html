@@ -20,7 +20,9 @@
   {% for row in rows %}
   <tr class="align-middle">
     <td data-cell="name" class="border-b border-line px-3 py-2 font-medium">{{ row.product }}</td>
-    <td data-cell="context" class="border-b border-line px-3 py-2 text-ink-soft">{{ row.size }}</td>
+    <td data-cell="context" class="border-b border-line px-3 py-2">
+      <a href="/admin/voorraad/{{ row.variant_id }}" class="text-blue-500 underline hover:no-underline">{{ row.size }}</a>
+    </td>
     <td data-cell="amount" class="border-b border-line px-3 py-2 text-right tabular-nums">{{ row.on_hand }}</td>
     <td data-cell="amount" class="border-b border-line px-3 py-2 text-right tabular-nums text-ink-soft">{{ row.reserved }}</td>
     <td data-cell="amount" class="border-b border-line px-3 py-2 text-right tabular-nums">{{ row.available }}</td>

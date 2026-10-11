@@ -35,3 +35,16 @@ class StockCorrectionView(ViewModel):
     csrf_token: str
     error: Optional[str] = None
     nav_items: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True, kw_only=True)
+class StockMovementsView(ViewModel):
+    """`admin_voorraad_maat.html` — the movements of one size, newest first (AC16)."""
+
+    product_name: str
+    size: str
+    #: One dict per movement: `reason` (a MovementReason), `quantity`, `note`,
+    #: and `occurred` (the moment in the tenant's time zone, pre-formatted).
+    movements: list[dict[str, Any]]
+    error: Optional[str] = None
+    nav_items: list[dict[str, Any]] = field(default_factory=list)

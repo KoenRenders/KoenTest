@@ -11,22 +11,28 @@ module, the routes and the parameters are English like all new code.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import SESSION_COOKIE, Right, csrf_token_for, require_csrf, require_right
-from app.domains.product.api import list_products, size_of, variants_of
+from app.domains.product.api import get_product, get_variant, list_products, size_of, variants_of
 from app.domains.stock.api import (
     StockError,
     apply_correction,
     available,
     book_receipt,
+    movements_of,
     on_hand,
     reserved,
 )
-from app.domains.stock.viewmodels import StockCorrectionView, StockReceiptView, StockView
+from app.domains.stock.viewmodels import (
+    StockCorrectionView,
+    StockMovementsView,
+    StockReceiptView,
+    StockView,
+)
 from app.i18n import _
 from app.kernel.refusals import FieldError
 from app.ui import admin_nav, refusal_response, templates
@@ -85,6 +91,7 @@ def _rows(db: Session) -> list[dict]:
                 {
                     "product": product.name,
                     "size": size_of(variant),
+                    "variant_id": variant.id,
                     "on_hand": on_hand(db, variant.id),
                     "reserved": reserved(db, variant.id),
                     "available": max(available(db, variant.id), 0),
@@ -191,3 +198,37 @@ def correction_create(
     except StockError as refusal:
         return refusal_response(request, [FieldError("", str(refusal))], "#correctie-melding")
     return _redirect(request, "/admin/voorraad")
+
+
+@router.get("/admin/voorraad/{variant_id}", response_class=HTMLResponse)
+def size_movements(
+    request: Request,
+    variant_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.STOCK_VIEW)),
+):
+    """The movements of one size, newest first (AC16): a receipt and a correction
+    stand apart, each with its reason."""
+    from app.i18n import short_datetime
+    from app.kernel.clock import BELGIUM
+
+    variant = get_variant(db, variant_id)
+    if variant is None:
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
+    product = get_product(db, variant.product_id)
+    movements = [
+        {
+            "reason": movement.reason,
+            "quantity": movement.quantity,
+            "note": movement.note,
+            "occurred": short_datetime(movement.occurred_at.astimezone(BELGIUM)),
+        }
+        for movement in movements_of(db, variant_id)
+    ]
+    view = StockMovementsView(
+        product_name=product.name if product else "",
+        size=size_of(variant),
+        movements=movements,
+        nav_items=admin_nav(NAV, request),
+    )
+    return templates.TemplateResponse(request, "admin_voorraad_maat.html", view.as_context())

@@ -241,7 +241,7 @@ def delete_variant(db: Session, variant_id: int) -> None:
     db.flush()
 
 
-def _size_of(variant: ProductVariant) -> str:
+def size_of(variant: ProductVariant) -> str:
     """The size of a variant, from its one `Maat` property (B3a)."""
     for prop in variant.properties or []:
         if prop.get("name") == "Maat":
@@ -261,7 +261,7 @@ def sync_variants(db: Session, product_id: int, ordered: list[tuple[str, str]]) 
     for key, name in ordered:
         name = (name or "").strip()
         if key in existing:
-            if name and name != _size_of(existing[key]):
+            if name != size_of(existing[key]):
                 rename_variant(db, existing[key].id, name)
             kept.add(key)
         elif name:

@@ -171,3 +171,22 @@ def test_no_size_chosen_reads_as_its_own_sentence(client, db_session, every_modu
     )
     assert answer.status_code == 422
     assert "Kies een maat" in answer.text
+
+
+def test_the_movements_of_one_size_render_with_their_reason(client, db_session, every_module_on):
+    """AC16: a receipt and a correction stand apart on the size's own page, each
+    with its reason and the correction's note."""
+    from app.domains.stock.api import correct
+
+    _operator(client, db_session, every_module_on)
+    product = create_product(db_session, "T-shirt Raak")
+    variant = add_variant(db_session, product.id, "M")
+    receive(db_session, variant.id, quantity=10)
+    correct(db_session, variant.id, quantity=-2, note="retour")
+
+    page = client.get(f"/admin/voorraad/{variant.id}")
+    assert page.status_code == 200
+    assert "T-shirt Raak" in page.text
+    assert "Ontvangst" in page.text
+    assert "Correctie" in page.text
+    assert "retour" in page.text

@@ -113,6 +113,13 @@ def _open_artikel_in_bewerkmodus(page) -> str:
     return record
 
 
+def _maten_van_de_pagina(page) -> list[str]:
+    """The size names as the record shows them in read mode — the sizes' own
+    chips, not a substring of the whole page."""
+    page.wait_for_selector("[data-record-head]")
+    return [t.strip() for t in page.locator("span.rounded-md.border.border-line").all_inner_texts()]
+
+
 def test_maten_worden_toegevoegd_hernoemd_en_verwijderd(webshop_page):
     """The record's one save adds, renames and removes sizes, and the result is
     read on the record after a fresh load — the browser is the layer that proves
@@ -128,9 +135,7 @@ def test_maten_worden_toegevoegd_hernoemd_en_verwijderd(webshop_page):
     page.wait_for_url("**" + record)
 
     page.goto(record)
-    page.wait_for_selector("[data-record-head]")
-    body = page.locator("main").inner_text()
-    assert "Mx" in body and "L" in body
+    assert _maten_van_de_pagina(page) == ["Mx", "L"]
 
     # Remove L again, so the seeded size stays what it was for the next run.
     page.goto(record + "?bewerken=1")
@@ -142,5 +147,16 @@ def test_maten_worden_toegevoegd_hernoemd_en_verwijderd(webshop_page):
     page.wait_for_url("**" + record)
 
     page.goto(record)
+    assert "L" not in _maten_van_de_pagina(page)
+
+
+def test_de_bewegingen_van_een_maat_worden_getoond(webshop_page):
+    """A size in the list leads to its own movements, where the receipt stands
+    apart from a correction (AC16)."""
+    page = webshop_page
+    page.goto("/admin/voorraad")
+    page.locator('td[data-cell="context"] a').first.click()
     page.wait_for_selector("[data-record-head]")
-    assert "L" not in page.locator("main").inner_text()
+    text = page.locator("main").inner_text()
+    assert "Webshop T-shirt" in text
+    assert "Ontvangst" in text

@@ -12,7 +12,7 @@
     {% call ui.section() %}
       {{ ui.field("variant_id", _("Artikel en maat"), kind="select", options=options, required=True) }}
       {{ ui.field("direction", _("Richting"), kind="segmented", value="up", options=directions, required=True) }}
-      {{ ui.field("quantity", _("Aantal"), kind="number", required=True) }}
+      {{ ui.field("quantity", _("Aantal"), kind="number", required=True, attrs='min="1"') }}
       {{ ui.field("note", _("Reden"), kind="text", long=True, required=True) }}
     {% endcall %}
   </div>

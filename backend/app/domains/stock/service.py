@@ -125,6 +125,25 @@ def reserved(db: Session, variant_id: int, location_id: int | None = None) -> in
     return _open_reservations_sum(db, variant_id, location.id)
 
 
+def movements_of(
+    db: Session, variant_id: int, location_id: int | None = None
+) -> list[StockMovement]:
+    """The movements of one size, newest first (AC16): a receipt and a correction
+    stand apart, each with its reason."""
+    location = _resolve_location(db, location_id)
+    if location is None:
+        return []
+    return (
+        db.query(StockMovement)
+        .filter(
+            StockMovement.variant_id == variant_id,
+            StockMovement.location_id == location.id,
+        )
+        .order_by(StockMovement.occurred_at.desc(), StockMovement.id.desc())
+        .all()
+    )
+
+
 def receive(
     db: Session,
     variant_id: int,

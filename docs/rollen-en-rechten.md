@@ -369,11 +369,12 @@ Every route whose gate asks the right. A right without a route here opens nothin
 
 - none
 
-### `stock.view` — 3 routes
+### `stock.view` — 4 routes
 
 - `GET /admin/voorraad`
 - `GET /admin/voorraad/correctie`
 - `GET /admin/voorraad/ontvangst`
+- `GET /admin/voorraad/{variant_id}`
 
 ### `stock.manage` — 2 routes
 
