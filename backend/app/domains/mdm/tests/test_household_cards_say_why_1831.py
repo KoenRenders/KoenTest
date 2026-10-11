@@ -37,6 +37,7 @@ list on a person's card was dropped without a word.
 from __future__ import annotations
 
 import html
+import re
 
 import pytest
 
@@ -49,8 +50,8 @@ from app.domains.mdm.api import (
     PostalCode,
     new_contact_detail,
 )
-from tests._refusal import message_line, page_banner
-from tests.conftest import SEEDED_ADMIN_EMAIL, record_fields, save_record
+from tests._refusal import message_line
+from tests.conftest import SEEDED_ADMIN_EMAIL, new_household_form, record_fields, save_record
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -99,7 +100,7 @@ def world(client, db_session) -> World:
     client.cookies.set(SESSION_COOKIE, value)
     w = World()
     w.headers = {"X-CSRF-Token": csrf_token_for(value)}
-    made = client.post("/admin/leden", data=NEW, headers=w.headers)
+    made = client.post("/admin/leden", data=new_household_form(NEW), headers=w.headers)
     assert made.status_code == 204, made.text
     w.household = int(made.headers["HX-Redirect"].rsplit("/", 1)[-1])
     links = (
@@ -263,17 +264,21 @@ def test_a_good_save_answers_the_record_without_a_refusal(client, db_session, wo
 # and a name over its column or a gender outside the list ended the request in a
 # 500. Its shape stays; every case answers its sentence now, and makes nothing.
 
+# Since #1899 Nieuw lid is the form of Word lid: what that form's reader refuses
+# at a field carries the reader's sentence (the first, second, sixth, tenth and
+# eleventh case); what only the household's own rules know keeps the sentence
+# of #1831.
 NEW_HOUSEHOLD = [
     (
         "no_person",
         {key: "" for key in NEW if key.endswith("_name")},
-        "Vul minstens het hoofdlid in.",
+        "Voornaam en achternaam zijn verplicht.",
     ),
-    ("no_street", {"street": ""}, ADDRESS_RULE),
+    ("no_street", {"street": ""}, "Vul de straat in."),
     ("unknown_postal_code", {"postal_code": "9999"}, "Onbekende postcode: 9999"),
     ("no_date_of_birth", {"m1_date_of_birth": ""}, DETAILS_RULE),
     ("no_gender", {"m1_gender_code": ""}, DETAILS_RULE),
-    ("two_main_members", {"m1_relation_type": "HOOFDLID"}, ONE_MAIN),
+    ("two_main_members", {"m1_relation_type": "HOOFDLID"}, "Kies partner of kind."),
     # Each of these was something else than its sentence until #1831:
     ("main_without_address", {"m0_email": ""}, "E-mailadres is verplicht voor het hoofdgezinslid."),
     (
@@ -282,8 +287,8 @@ NEW_HOUSEHOLD = [
         "Mobiel nummer is verplicht voor het hoofdgezinslid.",
     ),
     ("address_that_is_none", {"m0_email": "geen-adres"}, NO_ADDRESS),
-    ("date_that_is_none", {"m1_date_of_birth": "gisteren"}, DATE_RULE),
-    ("relation_outside_the_list", {"m1_relation_type": "TANTE"}, RELATION_RULE),
+    ("date_that_is_none", {"m1_date_of_birth": "gisteren"}, "Ongeldige geboortedatum."),
+    ("relation_outside_the_list", {"m1_relation_type": "TANTE"}, "Kies partner of kind."),
     ("address_of_someone_else", {"m0_email": TAKEN}, IN_USE),
     ("name_too_long", {"m1_first_name": "x" * 101}, LENGTH_RULE),
     ("unknown_gender", {"m1_gender_code": "Q"}, GENDER_RULE),
@@ -311,9 +316,12 @@ def test_a_new_household_says_why_in_its_banner_and_makes_nothing(
 ):
     before = _state(db_session)
 
-    answer = client.post("/admin/leden", data=NEW | changes, headers=door)
+    answer = client.post("/admin/leden", data=new_household_form(NEW | changes), headers=door)
 
     assert answer.status_code == 422, (case, answer.status_code)
-    assert page_banner(answer) == sentence
+    assert "data-save-refusal" in answer.text, "not the kit's refusal banner"
+    said = " ".join(re.sub(r"<[^>]+>", " ", html.unescape(answer.text)).split())
+    assert sentence in said, (case, said)
+    assert message_line(answer) == "#lid-nieuw-melding"
     assert "Value error" not in answer.text
     assert _state(db_session) == before, f"{case}: something was made"

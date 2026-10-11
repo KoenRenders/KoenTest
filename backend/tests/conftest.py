@@ -508,6 +508,45 @@ def seed_postal_code(db, code="2400", municipality="Mol"):
     return pc
 
 
+def new_household_form(flat: dict) -> dict:
+    """The form the board's Nieuw lid sends (#1899: the form of Word lid, the
+    contract of `membership.signup_form` without the payment choice), from the
+    short flat description the tests of that screen use: `m<i>_<field>` for
+    person i (`m0` is the main member), and the four address fields by name.
+
+    `m<i>_email` is that person's one e-mail row — sent also when empty for the
+    main member, as the page does, so a refusal has a field to stand on;
+    `m<i>_email_new_<n>` is one more row. The main member's card sends no
+    relation. Anything else is passed on as it is."""
+    import re
+
+    form: dict = {}
+    # The page always carries the main member's card, also when nothing is filled in.
+    flat = {"m0_email": "", **flat}
+    rows = sorted({int(key[1 : key.index("_")]) for key in flat if re.match(r"m\d+_", key)})
+    form["h_order"] = [f"n{i}" for i in rows]
+    for key, value in flat.items():
+        person = re.match(r"m(\d+)_(.+)", key)
+        if person is None:
+            address = key in ("street", "house_number", "bus_number", "postal_code")
+            form[f"address.{key}" if address else key] = value
+            continue
+        i, name = person.groups()
+        if name == "email" or name.startswith("email_new_"):
+            if not value and not (name == "email" and i == "0"):
+                continue
+            row = f"n{i}e" if name == "email" else f"n{i}e{name.rsplit('_', 1)[-1]}"
+            form.setdefault(f"e_order.n{i}", []).append(row)
+            form[f"e.{row}.value"] = value
+            if name == "email":
+                form[f"e_primary.n{i}"] = row
+        elif name == "relation_type" and i == "0":
+            continue
+        else:
+            form[f"h.n{i}.{name}"] = value
+    return form
+
+
 def nieuw_lid_velden(db=None, **overrides) -> dict:
     """De velden die het beheer-aanmaakscherm verstuurt (#1110).
 
@@ -535,7 +574,7 @@ def nieuw_lid_velden(db=None, **overrides) -> dict:
         "postal_code": "2400",
     }
     velden.update(overrides)
-    return {k: v for k, v in velden.items() if v is not None}
+    return new_household_form({k: v for k, v in velden.items() if v is not None})
 
 
 def signup_fields(

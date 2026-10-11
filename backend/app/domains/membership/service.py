@@ -443,52 +443,6 @@ def membership_years(db) -> list[int]:
     ]
 
 
-def parse_member_rows(form) -> list[dict]:
-    """De `m<i>_`-velden van een gezinsformulier, als één rij per persoon.
-
-    Gedeeld door het publieke "Word lid" en het beheer-aanmaakscherm (#1110): twee
-    schermen met dezelfde veldnamen horen niet elk hun eigen ontleding te hebben.
-
-    Gat-bestendig (#456): een verwijderd gezinslid laat een gat in de nummering,
-    dus scan álle aanwezige indices in plaats van te stoppen bij het eerste
-    ontbrekende. Een rij zonder naam telt niet mee — dat is een lege rij die de
-    bezoeker openliet.
-    """
-    import re
-
-    indices = sorted(
-        {int(mo.group(1)) for k in form.keys() if (mo := re.match(r"m(\d+)_", str(k)))}
-    )
-    rijen: list[dict] = []
-    for index in indices:
-        rij = {
-            k: (form.get(f"m{index}_{k}") or "").strip()
-            for k in (
-                "first_name",
-                "last_name",
-                "date_of_birth",
-                "gender_code",
-                "email",
-                "phone",
-                "mobile",
-                "relation_type",
-            )
-        }
-        # #1246: the extra e-mail rows of Word lid, in the order they were added.
-        # `email` stays the first row — the primary address.
-        rij["extra_emails"] = [
-            value.strip()
-            for key, value in form.items()
-            if key.startswith(f"m{index}_email_new_") and isinstance(value, str) and value.strip()
-        ]
-        # #1327: the row's own number, so a screen that shows the form again after
-        # a refusal puts every person back in their own row.
-        rij["index"] = index
-        if rij["first_name"] or rij["last_name"]:
-            rijen.append(rij)
-    return rijen
-
-
 def activate_after_payment(
     db: Session, membership_id: int, *, source: str, actor: Optional[str]
 ) -> None:

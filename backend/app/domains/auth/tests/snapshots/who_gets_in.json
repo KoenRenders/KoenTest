@@ -250,10 +250,6 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
-  "GET /admin/leden/nieuw/persoon-rij": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
   "GET /admin/ledenwijzigingen": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
@@ -595,10 +591,6 @@
    "tenant": "everyone"
   },
   "GET /lid-worden": {
-   "platform": "everyone",
-   "tenant": "everyone"
-  },
-  "GET /lid-worden/email-rij": {
    "platform": "everyone",
    "tenant": "everyone"
   },

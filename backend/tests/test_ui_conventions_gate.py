@@ -338,7 +338,7 @@ def test_de_kit_levert_de_beloofde_macros():
         "toast_host",
         "success_banner",
         "error_banner",
-        "person_fields",
+        "person_card",
         "btn_primary",
         "btn_secondary",
         "btn_outline",

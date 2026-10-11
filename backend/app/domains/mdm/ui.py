@@ -21,21 +21,13 @@ from app.domains.auth.api import (
     require_csrf,
     require_right,
 )
-from app.domains.mdm.viewmodels import HouseholdRecordView, LedenView
+from app.domains.mdm.viewmodels import HouseholdRecordView, LedenView, NewHouseholdView
 from app.i18n import _
 from app.ui import admin_nav, filterparams, refusal_response, templates
 
 router = APIRouter(include_in_schema=False)
 
 NAV = "/admin/leden"
-
-
-def _codes(db: Session) -> dict:
-    """The code lists a person form shows, and the longest name it takes — the
-    number the server refuses at, so the field's `maxlength` cannot drift from it."""
-    from app.domains.mdm.api import PERSON_NAME_MAX, admin_code_lists
-
-    return {**admin_code_lists(db), "person_name_max": PERSON_NAME_MAX}
 
 
 def _lidmaatschapsjaren(db: Session) -> list[int]:
@@ -334,43 +326,21 @@ def lid_nieuw(
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
-    """Aanmaken als volledige pagina (#627, §2.8) i.p.v. een modal."""
-    from app.domains.mdm.api import list_postal_codes
+    """Nieuw lid as a full page (#627, §2.8) — since #1899 the form of Word lid
+    on the person card: the main member, the address, a card per extra person,
+    one "Opslaan"."""
+    from app.domains.mdm.api import form_code_lists
+    from app.domains.membership.api import new_household_group
 
-    return templates.TemplateResponse(
-        request,
-        "leden_nieuw.html",
-        {
-            "nav_items": admin_nav(NAV, request),
-            "csrf_token": csrf_from_request(request),
-            "postal_codes": list_postal_codes(db),
-            "values": {},
-            "error": None,
-            **_codes(db),
-        },
+    view = NewHouseholdView(
+        group=new_household_group(form_code_lists(db)),
+        csrf_token=csrf_from_request(request),
+        nav_items=admin_nav(NAV, request),
     )
+    return templates.TemplateResponse(request, "leden_nieuw.html", view.as_context())
 
 
-@router.get("/admin/leden/nieuw/persoon-rij", response_class=HTMLResponse)
-def lid_nieuw_persoon_rij(
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_right(Right.PARTY_VIEW)),
-):
-    """Een lege rij voor een extra gezinslid (#1110).
-
-    Hetzelfde fragment als het publieke formulier, want het zijn dezelfde velden;
-    een eigen admin-route omdat dit scherm achter de beheerdeur hoort te zitten.
-    Er gaat niets naar de databank en er wordt niets vervangen, dus wat je al
-    typte blijft staan.
-    """
-    try:
-        index = max(1, int(request.query_params.get("index", "1")))
-    except ValueError:
-        index = 1
-    return templates.TemplateResponse(
-        request, "_lid_persoon_rij.html", {**_codes(db), "i": index, "values": {}}
-    )
+NEW_HOUSEHOLD_MESSAGE = "#lid-nieuw-melding"
 
 
 @router.post("/admin/leden", dependencies=[Depends(require_csrf)])
@@ -379,58 +349,32 @@ async def gezin_aanmaken(
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
 ) -> Response:
-    """Nieuw gezin met hoofdlid, adres, contactgegevens en lidmaatschap (#1110).
+    """A new household with its main member, address, contact details and this
+    year's membership (#1110): one form, one save, one transaction — the form of
+    the public Word lid, read by the same reader (#1899) and written the same
+    way, so one rule for both (`FamilyCreate`).
 
-    Eén formulier, één opslaan-actie, één transactie — in de vorm van het publieke
-    "Word lid" en langs dezelfde schrijfweg. Tot #1110 waren het vier aparte
-    opslag-acties en vroeg dit scherm e-mail en gsm van het hoofdlid niet eens,
-    terwijl het publieke formulier ze verplicht: je kon via de beheerkant dus een
-    lid aanmaken dat publiek geweigerd zou worden. Dezelfde regel op één plek
-    (`FamilyCreate`) betekent dat dat niet meer kan.
+    A refusal writes nothing and leaves the form as it was typed: the answer is
+    the kit's banner for the page's message line, each refusal at its field.
 
-    #713: de beheerder tekent de auditregels.
+    #713: the board member signs the audit rows.
     """
-    from app.domains.mdm.api import EmailAddressInUse, list_postal_codes
-    from app.domains.membership.api import (
-        create_family_by_admin,
-        family_from_rows,
-        parse_member_rows,
-    )
+    from app.domains.mdm.api import EmailAddressInUse
+    from app.domains.membership.api import create_family_by_admin, new_household_from_form
+    from app.kernel.refusals import FieldError
 
-    form = await request.form()
-    values = {k: (v if isinstance(v, str) else "") for k, v in form.items()}
-
-    def _fout(melding: str):
-        """Het formulier opnieuw, mét wat er ingevuld stond en de reden.
-
-        De keuzelijsten worden hier opgehaald en niet bovenaan: een mislukte
-        opslag rolt de transactie terug (#1110), en objecten die vóór die rollback
-        geladen zijn, bestaan daarna niet meer. Ze alsnog renderen geeft een
-        harde fout in plaats van de nette foutpagina.
-        """
-        return templates.TemplateResponse(
-            request,
-            "leden_nieuw.html",
-            {
-                "nav_items": admin_nav(NAV, request),
-                "csrf_token": csrf_from_request(request),
-                "postal_codes": list_postal_codes(db),
-                "values": values,
-                "error": melding,
-                **_codes(db),
-            },
-            status_code=422,
-        )
-
+    data, errors = new_household_from_form(await request.form())
+    if data is None:
+        return refusal_response(request, errors, NEW_HOUSEHOLD_MESSAGE)
     try:
-        data = family_from_rows(values, parse_member_rows(form))
         gezin = create_family_by_admin(db, data, actor=email)
     except HTTPException as exc:
-        return _fout(str(exc.detail))
+        # What the service refuses has no field here: it stands in the banner.
+        return refusal_response(request, [FieldError("", str(exc.detail))], NEW_HOUSEHOLD_MESSAGE)
     except EmailAddressInUse as in_use:
         # mdm's own refusal, which the application answers as a JSON 422 for
         # every other door: here it belongs in the page's banner (#1831).
-        return _fout(str(in_use))
+        return refusal_response(request, [FieldError("", str(in_use))], NEW_HOUSEHOLD_MESSAGE)
 
     return Response(status_code=204, headers={"HX-Redirect": f"/admin/leden/gezin/{gezin.id}"})
 

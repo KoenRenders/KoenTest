@@ -5,8 +5,8 @@ One exact number per file, counted on 5 October 2026 on master after P1 (the
 shell) and P2 (the public form page). A count may only fall: lower the number
 in the change that removes a violation, and remove the entry when the file is
 clean. P3 (#1590: Word lid, renew, Mijn gezin) emptied the membership entries: the
-three pages are rebuilt on the kit, and the two partials of the old pages
-(`_lid_persoon_rij.html`, `_email_rij.html`) are reached by the board's screens only.
+three pages are rebuilt on the kit; the two partials of the old pages went with
+#1899, when the board's Nieuw lid became the form of Word lid.
 """
 
 #: A `<button>` or a submit written by the template — a button comes from the

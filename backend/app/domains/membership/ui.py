@@ -80,28 +80,6 @@ def signup_relation(others: str = ""):
     return default_relation(earlier)
 
 
-@router.get("/lid-worden/email-rij", response_class=HTMLResponse)
-def email_row(request: Request):
-    """One extra e-mail row of the board's "new member" form (#1246), which still
-    builds its persons from `_lid_persoon_rij.html`. The public page no longer
-    asks for it: its rows are the kit's repeating group (#1590)."""
-
-    def _int(name: str, default: int, minimum: int) -> int:
-        try:
-            return max(minimum, int(request.query_params.get(name, default)))
-        except ValueError:
-            return default
-
-    from app.domains.membership.viewmodels import EmailRowView
-
-    view = EmailRowView(
-        index=_int("index", 1, 1),
-        nummer=_int("nummer", 2, 2),
-        name_prefix=f"m{_int('member', 0, 0)}_",
-    )
-    return templates.TemplateResponse(request, "_email_rij.html", view.as_context())
-
-
 @router.post(
     "/lid-worden", response_class=HTMLResponse, dependencies=[Depends(registration_limiter)]
 )

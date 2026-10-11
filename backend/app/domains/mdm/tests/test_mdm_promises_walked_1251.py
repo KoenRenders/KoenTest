@@ -6,8 +6,9 @@ what the screen says cannot be stored. The rules gate walks each promise from th
 template to a column that keeps it (`collect_promises`). Three of mdm's it cannot
 follow (`PROMISE_UNWALKABLE`):
 
-- `_leden_adres_velden.html`: `street` and `house_number` — the partial has no
-  `<form>` of its own; two screens include it, each in its own form;
+- the address of a household: `street` and `house_number` — the section has no
+  `<form>` of its own; the screens include it, each in its own form (until
+  #1899 the partial `_leden_adres_velden.html`);
 - `leden_import.html`: `file` — an upload is no column.
 
 So each is walked here, by posting what the browser would refuse to every form
@@ -28,6 +29,7 @@ WHOLE = {"street": "Nieuwstraat", "house_number": "7", "bus_number": "", "postal
 #: mdm's one rule for an address (`require_whole_address`, #1603), which the
 #: portal's save always gave — the reason every form below must refuse for.
 RULE = "Een adres heeft een straat, een huisnummer en een postcode nodig."
+NEW_HOUSEHOLD_SAYS = {"street": "Vul de straat in.", "house_number": "Vul het huisnummer in."}
 
 
 def _login(client) -> dict[str, str]:
@@ -103,7 +105,8 @@ def test_a_new_household_without_it_is_refused(client, db_session, empty):
     response = client.post("/admin/leden", data=fields, headers=_login(client))
 
     assert response.status_code == 422, f"{empty} empty was accepted: {response.status_code}"
-    assert RULE in response.text, response.text[:300]
+    # #1899: Nieuw lid is the form of Word lid, whose reader names the one field.
+    assert NEW_HOUSEHOLD_SAYS[empty] in response.text, response.text[:300]
     assert db_session.query(Member).count() == households, "a household was stored without it"
 
 

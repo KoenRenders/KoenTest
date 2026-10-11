@@ -351,8 +351,9 @@ def test_nieuw_lid_scherm_vraagt_de_velden_en_dwingt_ze_af(client, db_session):
 
     scherm = client.get("/admin/leden/nieuw")
     assert scherm.status_code == 200
-    # #1110: één formulier met de gedeelde veldenset, dus m0_-namen.
-    assert 'name="m0_date_of_birth"' in scherm.text and 'name="m0_gender_code"' in scherm.text
+    # #1899: the form of Word lid, so the main member's card carries them.
+    assert 'name="h.n0.date_of_birth"' in scherm.text
+    assert 'name="h.n0.gender_code"' in scherm.text
 
     zonder = client.post(
         "/admin/leden",

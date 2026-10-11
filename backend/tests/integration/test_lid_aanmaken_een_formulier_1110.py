@@ -39,7 +39,7 @@ from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_va
 from app.domains.mdm.api import Address, ContactDetail, Member, MemberPerson, Person, RelationType
 from app.domains.membership.api import Membership
 from app.kernel.codes import code_of
-from tests.conftest import SEEDED_ADMIN_EMAIL, nieuw_lid_velden
+from tests.conftest import SEEDED_ADMIN_EMAIL, new_household_form, nieuw_lid_velden
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -106,16 +106,18 @@ def test_het_scherm_is_een_formulier_met_een_opslaan_actie(client, db_session):
 
     assert html.count('hx-post="/admin/leden"') == 1, "meer dan één opslaan-actie"
     for veld in (
-        'name="m0_first_name"',
-        'name="m0_email"',
-        'name="m0_mobile"',
-        'name="street"',
-        'name="house_number"',
-        'name="postal_code"',
+        'name="h.n0.first_name"',
+        'name="e.n0e.value"',
+        'name="h.n0.mobile"',
+        'name="address.street"',
+        'name="address.house_number"',
+        'name="address.postal_code"',
     ):
         assert veld in html, f"{veld} ontbreekt op het aanmaakscherm"
-    # Een gezinslid erbij haalt een lege rij op; dat is geen opslag.
-    assert 'hx-get="/admin/leden/nieuw/persoon-rij"' in html
+    # #1899: one more member is a card from the page's own template — no request
+    # at all, where it fetched an empty row.
+    assert 'name="h.__H__.first_name"' in html
+    assert "persoon-rij" not in html
 
 
 # ── 2. Dezelfde regel als publiek ────────────────────────────────────────────
@@ -187,7 +189,9 @@ def test_een_gezin_met_twee_extra_leden_komt_in_een_keer_binnen(client, db_sessi
         m2_relation_type="KIND",
     )
 
-    gezin = _gezin_uit(client.post("/admin/leden", data=velden, headers={"X-CSRF-Token": csrf}))
+    gezin = _gezin_uit(
+        client.post("/admin/leden", data=new_household_form(velden), headers={"X-CSRF-Token": csrf})
+    )
 
     db_session.expire_all()
     rollen = {

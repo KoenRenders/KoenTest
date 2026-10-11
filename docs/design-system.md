@@ -416,7 +416,7 @@ Import with `{% import "_macros.html" as ui %}`.
 |---|---|
 | Structure | `page_header` · `section_header` · `section_bar` · `card` · `nested_panel` · `tabs` · `detail_disclosure` |
 | Lists | `search` · `filter_bar` · `grouped_filter` · `chips` · `multiselect` · `media_picker` · `pager` · `row_actions` · `reorder` · `empty_state` · `loading` |
-| Forms | `field_input` · `field_select` · `field_textarea` · `label` · `vraag` · `input_control` · `select_control` · `textarea_control` · `person_fields` · `upload_field` · `export_links` · `copy_button` |
+| Forms | `field_input` · `field_select` · `field_textarea` · `label` · `vraag` · `input_control` · `select_control` · `textarea_control` · `person_card` · `upload_field` · `export_links` · `copy_button` |
 | Feedback | `toast` · `toast_oob` · `toast_host` · `success_banner` · `error_banner` · `modal` · `confirm_host` · `badge` |
 | Buttons | `btn_primary` · `btn_secondary` · `btn_outline` · `btn_danger` · `button` · `btn_class` · `edit_toggle` · `icon` · `icon_text` · `action_bar` |
 

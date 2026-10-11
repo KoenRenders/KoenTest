@@ -6,7 +6,8 @@ in the function the screen calls next:
 - the address of a household without persons (`mdm/ui.py::adres_opslaan`) →
   `membership.api.update_family_address`;
 - a new household without a single filled-in person (`mdm/ui.py::gezin_aanmaken`)
-  → `membership.api.family_from_rows`;
+  → `membership.api.family_from_rows` (since #1899 the reader of Word lid's
+  form, `membership.signup_form`: the recording of this one went with the page);
 - the board's registration form without a component
   (`activities/admin_ui.py::inschrijving_nieuw_opslaan`) →
   `activities.api.board_channel`.
@@ -40,6 +41,7 @@ from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     create_test_family,
     create_test_member,
+    new_household_form,
     seed_activity_with_product,
 )
 
@@ -140,15 +142,17 @@ def test_an_address_for_a_household_is_stored_as_before(client, db_session):
     ],
 )
 def test_a_new_household_without_a_person_is_refused_as_before(client, db_session, name, fields):
+    """Since #1899 Nieuw lid is the form of Word lid: a household without its main
+    member is refused by that form's reader, at the main member's fields, in the
+    kit's banner — the recording of the old page's answer went with the page."""
     _postal_code(db_session)
     db_session.commit()
     households = db_session.query(Member).count()
 
-    response = client.post("/admin/leden", data=fields, headers=_login(client))
+    response = client.post("/admin/leden", data=new_household_form(fields), headers=_login(client))
 
-    assert response.status_code == 422
-    assert "Vul minstens het hoofdlid in." in response.text
-    compare(SNAPSHOTS, name, _answer(response, {}), BEFORE)
+    assert response.status_code == 422, name
+    assert "data-save-refusal" in response.text and "Voornaam en achternaam" in response.text
     assert db_session.query(Member).count() == households
 
 

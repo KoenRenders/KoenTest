@@ -27,7 +27,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Member, MemberPerson, Person, PostalCode, RelationType
-from tests.conftest import SEEDED_ADMIN_EMAIL, record_fields, save_record
+from tests.conftest import SEEDED_ADMIN_EMAIL, new_household_form, record_fields, save_record
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -68,7 +68,7 @@ def headers(client, db_session):
 def household(client, db_session, headers) -> tuple[int, int, int]:
     """A household of a main member and a partner, made through the screen: its
     id, the main member's and the partner's."""
-    made = client.post("/admin/leden", data=NEW, headers=headers)
+    made = client.post("/admin/leden", data=new_household_form(NEW), headers=headers)
     assert made.status_code == 204, made.text
     household_id = int(made.headers["HX-Redirect"].rsplit("/", 1)[-1])
     links = _links(db_session, household_id)
@@ -92,12 +92,16 @@ def _main_members(db, household_id: int) -> int:
 
 def test_a_new_household_with_two_main_members_is_refused(client, db_session, headers):
     answer = client.post(
-        "/admin/leden", data=NEW | {"m1_relation_type": "HOOFDLID"}, headers=headers
+        "/admin/leden",
+        data=new_household_form(NEW | {"m1_relation_type": "HOOFDLID"}),
+        headers=headers,
     )
 
     assert answer.status_code == 422
     assert "text/html" in answer.headers["content-type"]
-    assert ONE in answer.text
+    # #1899: the form of Word lid offers partner and child only, and its reader
+    # refuses a second main member at that person's relation.
+    assert "Kies partner of kind." in answer.text
     assert db_session.query(Member).count() == 0, "a refused household was made"
     assert db_session.query(Person).filter(Person.last_name == "Proef").count() == 0
 

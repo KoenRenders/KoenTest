@@ -63,14 +63,14 @@ __all__ = [
     # Schrijfbewerkingen op gezinnen/personen/lidmaatschappen (#635 H)
     "create_family_by_admin",
     "create_family_with_members",
-    "family_from_rows",
-    "parse_member_rows",
     "FamilyCreate",
     "FamilyMemberCreate",
     "create_membership_for_family",
     "delete_membership",
     "remove_memberships",
     "board_household_group",
+    "new_household_group",
+    "new_household_from_form",
     "household_view_by_id",
     "family_label",
     "get_family",
@@ -114,6 +114,22 @@ def renewal_is_running(db, person) -> bool:
 # De implementaties staan in `portal_service.py`: net als bij de
 # activiteiteninschrijving roept het scherm één domeinbewerking aan en doet het
 # zelf niets. Alleen de weg ernaartoe loopt nu via de facade (#635 I).
+
+
+def new_household_group(codes: dict):
+    """An empty household to fill in, as Word lid shows it — for the board's
+    Nieuw lid (#1899): the main member's card, the address, a card per person."""
+    from app.domains.membership.household_page import signup_group
+
+    return signup_group(codes)
+
+
+def new_household_from_form(form):
+    """The household the board's Nieuw lid asks to create, or what stands in its
+    way — Word lid's reader, without the payment choice."""
+    from app.domains.membership.signup_form import signup_from_form
+
+    return signup_from_form(form, payment=False)
 
 
 def board_household_group(db, household_id: int, codes: dict, *, short_date, edit: bool = False):
@@ -203,7 +219,6 @@ from app.domains.membership.household_service import (  # noqa: E402, F401 — a
     create_family_with_members,
     create_membership_for_family,
     delete_membership,
-    family_from_rows,
     family_label,
     get_family,
     list_families,
@@ -212,7 +227,4 @@ from app.domains.membership.household_service import (  # noqa: E402, F401 — a
 from app.domains.membership.schemas_family import (  # noqa: E402, F401 — at the bottom on purpose: audit.service imports MembershipHistory from here at load time (cycle, see above)
     FamilyCreate,
     FamilyMemberCreate,
-)
-from app.domains.membership.service import (  # noqa: E402, F401 — at the bottom on purpose: audit.service imports MembershipHistory from here at load time (cycle, see above)
-    parse_member_rows,
 )

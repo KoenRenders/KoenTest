@@ -279,25 +279,8 @@
   </div>
 {% endcall %}
 
-{# ── 7. Persoonsvelden ─────────────────────────────────────────────────────── #}
-{{ ui.section_header(_("7 · Persoonsvelden"), _("Naar de leden"), action_href="/admin/leden", cls="mt-10") }}
-{% call ui.card() %}
-  <p class="text-sm text-gray-600 mb-3">
-    {{ _("Eén blok voor naam, geboortedatum en contact — overal dezelfde volgorde.") }}
-  </p>
-  {# #811: dezelfde stand als élk echt scherm — `require_birth_gender=True`, en met
-     gevulde keuzelijsten. Zonder die vlag toonde de demo een variant die nergens
-     bestaat, en dat is precies waar #783 voor waarschuwt: de gate telt macro's, niet
-     of de aanroep klopt. #}
-  {{ ui.person_fields(name_prefix="lid_", id_prefix="ds_", require_birth_gender=True,
-                      gender_codes=[{"code": "F", "value": _("Vrouw")},
-                                    {"code": "M", "value": _("Man")}],
-                      relation_types=[{"code": "PARTNER", "value": _("partner")},
-                                      {"code": "KIND", "value": _("(meerderjarig) kind")}]) }}
-{% endcall %}
-
-{# ── 7b. The person card, read mode (#1899; end state §2.2, §5.2) ─────────── #}
-{{ ui.section_header(_("7b · Persoonskaart (leesmodus)"), cls="mt-10") }}
+{# ── 7. The person card, read mode (#1899; end state §2.2, §5.2) ──────────── #}
+{{ ui.section_header(_("7 · Persoonskaart (leesmodus)"), _("Naar de leden"), action_href="/admin/leden", cls="mt-10") }}
 <p class="text-sm text-gray-600 mb-3">
   {{ _("Eén kaart per persoon: de naam als kop met rechts de relatie, daaronder de regels zonder label — het icoon zegt wat een waarde is, een lege leest “—”. Niets klapt in.") }}
 </p>

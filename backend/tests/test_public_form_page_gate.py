@@ -48,6 +48,8 @@ EXPECTED = {
     "domains/membership/templates/household_page.html",
     # CR-22 S6a (#1710): Mijn gegevens, the person block of Mijn gezin for oneself.
     "domains/mdm/templates/my_details.html",
+    # #1899: the board's Nieuw lid, the form of Word lid in the admin shell.
+    "domains/mdm/templates/leden_nieuw.html",
 }
 
 #: A page on the frame that SAVES a record instead of sending a form: its bar is
@@ -61,6 +63,10 @@ SAVES = {
     "domains/mdm/templates/my_details.html": (
         "Mijn gegevens is the same record for one person: the person block and the "
         "save path of Mijn gezin, read first, one Opslaan (CR-22 D6, R16; #1710)"
+    ),
+    "domains/mdm/templates/leden_nieuw.html": (
+        "the board's Nieuw lid makes a record: one Opslaan, and the page that follows "
+        "is the new household's record (#1899)"
     ),
 }
 

@@ -74,3 +74,13 @@ class HouseholdRecordView(ViewModel):
 
     csrf_token: str
     nav_items: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True, kw_only=True)
+class NewHouseholdView(ViewModel):
+    """`leden_nieuw.html` — the board's Nieuw lid (#1899): an empty household on
+    the person card (membership's `HouseholdGroup`, as Word lid shows it)."""
+
+    group: Any
+    csrf_token: str
+    nav_items: list[dict[str, Any]] = field(default_factory=list)

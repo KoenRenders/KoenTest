@@ -16,7 +16,7 @@ schillen die deze functies aanroepen.
 """
 
 from datetime import date
-from typing import Mapping, Optional
+from typing import Optional
 
 from fastapi import HTTPException
 from sqlalchemy import and_, func, or_
@@ -34,7 +34,6 @@ from app.domains.mdm.api import (
     email_refusal,
 )
 from app.domains.membership.models import Membership
-from app.domains.membership.schemas_family import FamilyCreate, FamilyMemberCreate
 from app.domains.membership.schemas_member import (  # noqa: F401
     EmailAddressResponse,
     FamilyMemberResponse,
@@ -624,49 +623,6 @@ def delete_memberships_of_household(db: Session, household_id: int, actor: str |
         )
         soft_delete(membership)
         _membership_deleted(db, membership, actor)
-
-
-def family_from_rows(values: Mapping[str, str], rows: list[dict]) -> FamilyCreate:
-    """What the board's "Nieuw lid" form carries, as the household to create: the
-    address fields and one member per filled-in row (`parse_member_rows`). The
-    first row is the main member unless the row says otherwise, the others are
-    partners.
-
-    A household has at least its main member: no row at all is refused here, in
-    the words the screen always gave. That rule stood in the screen until CR-13
-    phase 4c (#1251)."""
-    if not rows:
-        raise HTTPException(status_code=422, detail=_("Vul minstens het hoofdlid in."))
-    from pydantic import ValidationError
-
-    from app.domains.mdm.api import schema_refusal_words
-
-    try:
-        return FamilyCreate(
-            street=(values.get("street") or "").strip(),
-            house_number=(values.get("house_number") or "").strip(),
-            bus_number=(values.get("bus_number") or "").strip() or None,
-            postal_code=(values.get("postal_code") or "").strip(),
-            members=[
-                FamilyMemberCreate(
-                    first_name=row["first_name"],
-                    last_name=row["last_name"],
-                    date_of_birth=row["date_of_birth"] or None,
-                    gender_code=row["gender_code"] or None,
-                    email=row["email"] or None,
-                    phone=row["phone"] or None,
-                    mobile=row["mobile"] or None,
-                    relation_type=row["relation_type"] or ("HOOFDLID" if i == 0 else "PARTNER"),
-                )
-                for i, row in enumerate(rows)
-            ],
-        )
-    except ValidationError as refusal:
-        # What the schema refuses, in the screen's words (#1831) — until then the
-        # library's own message went to the banner, in English or with its
-        # "Value error, " in front.
-        words = schema_refusal_words(refusal) or _("Ongeldige invoer.")
-        raise HTTPException(status_code=422, detail=words) from refusal
 
 
 def remove_memberships(

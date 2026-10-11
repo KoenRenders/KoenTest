@@ -27,7 +27,7 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import MemberPerson, MemberPersonHistory, PostalCode
 from app.domains.reporting.api import member_changes_since
-from tests.conftest import SEEDED_ADMIN_EMAIL, record_fields, save_record
+from tests.conftest import SEEDED_ADMIN_EMAIL, new_household_form, record_fields, save_record
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -65,7 +65,7 @@ def headers(client, db_session):
 def partner(client, db_session, headers) -> tuple[int, MemberPerson]:
     """A household of a main member and a partner, made through the screen: its
     id and the partner's link."""
-    made = client.post("/admin/leden", data=NEW, headers=headers)
+    made = client.post("/admin/leden", data=new_household_form(NEW), headers=headers)
     assert made.status_code == 204, made.text
     household = int(made.headers["HX-Redirect"].rsplit("/", 1)[-1])
     link = (
