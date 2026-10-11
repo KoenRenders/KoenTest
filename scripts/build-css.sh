@@ -330,12 +330,13 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    640 px (964 px of frame), else above it. The form grid has four tracks, 12 px apart; it goes to
    one column when the section is narrower than 532 px inside (two half fields
    of 260 px and their gap) — a container query, which a utility cannot say.
-   32 px between the sections of a form column. */
+   16 px between the cards of a form column (#1899, CR-11 B10 of 10 October
+   2026; 32 px until then). */
 .admin-content:has([data-record-head]){max-width:none}
 .record-frame{container-type:inline-size;container-name:record}
 .record-columns{display:grid;grid-template-columns:minmax(0,768px);gap:24px;align-items:start}
 .record-form-column{min-width:0}
-.form-flow{display:grid;gap:32px;min-width:0}
+.form-flow{display:grid;gap:16px;min-width:0}
 /* CR-11 pilot B (#1589, §2.6): the public form page — one column of 768 px,
    centred in the site shell (720 on a tablet: the container's own width),
    left-aligned in the admin's. 24 px under the site's header on a phone, 32
@@ -351,8 +352,8 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 @media (min-width:768px){.public-form-title{font-size:40px}}
 @media (max-width:767.98px){body[data-shell="site"] .public-form-page{margin-top:-8px}}
 /* #1587: the flow's message line (where a refused or failed save stands) is a
-   child of the flow, and an empty one still took the 32 px gap under it — the
-   first card then started 32 px below the summary card beside it. Empty, it
+   child of the flow, and an empty one still took the flow's gap under it — the
+   first card then started that far below the summary card beside it. Empty, it
    is no part of the flow. `:has`, not `:empty`: the template leaves white
    space in it. */
 .form-flow>[data-form-message]:not(:has(*)){display:none}
@@ -535,7 +536,7 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    are gone — with a heavier line on top and, while it sticks, the shadow
    upward (`data-stuck`, set by record-form.js); in the flow at the form's end
    it is a plain row again. The same picture on a phone and in both shells. */
-.record-bar{position:sticky;bottom:0;z-index:20;display:flex;align-items:center;gap:8px;min-height:64px;margin-top:-8px;padding:0 16px;background:rgb(var(--c-surface));border-top:2px solid rgb(var(--c-line))}
+.record-bar{position:sticky;bottom:0;z-index:20;display:flex;align-items:center;gap:8px;min-height:64px;margin-top:8px;padding:0 16px;background:rgb(var(--c-surface));border-top:2px solid rgb(var(--c-line))}
 .record-bar[data-stuck]{box-shadow:0 -8px 24px -4px rgb(var(--c-ink)/.14)}
 .record-bar-delete{margin-right:auto}
 .record-bar-cancel{margin-left:auto}
@@ -550,7 +551,7 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 [data-group-row][data-refused]{box-shadow:inset 3px 0 0 rgb(var(--c-red-600))}
 [data-group-row][data-refused]>[data-refused-message],[data-group-row][data-refused] [data-row-body]>[data-refused-message]{margin:0 0 4px;padding-left:8px}
 @media (max-width:767.98px){
-  .record-bar{display:grid;grid-template-columns:1fr 1fr;gap:8px;min-height:121px;margin:-8px -16px 0;padding:11px 16px 12px}
+  .record-bar{display:grid;grid-template-columns:1fr 1fr;gap:8px;min-height:121px;margin:8px -16px 0;padding:11px 16px 12px}
   .record-bar-save{grid-column:1/-1;grid-row:1}
   .record-bar-delete{grid-column:1;grid-row:2;justify-self:start;margin:0}
   .record-bar-cancel{grid-column:2;grid-row:2;justify-self:end;margin:0}

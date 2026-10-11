@@ -253,7 +253,7 @@ def test_the_activity_section_keeps_its_measured_heights(setup):
     lower = e["fields"][0]["y"] - r["fields"][0]["y"]
     assert lower == e["summary"]["h"] + 24, (lower, e["summary"])
     gaps = [b["y"] - (a["y"] + a["h"]) for a, b in zip(e["sections"], e["sections"][1:])]
-    assert gaps == [32, 32], "32 px between sections"
+    assert gaps == [16, 16], "16 px between sections (#1899)"
 
 
 def test_bewerken_opens_the_editor_and_one_save_returns_to_reading(setup):
@@ -350,7 +350,8 @@ def test_the_first_card_starts_where_the_summary_card_starts(setup, width, suffi
     """#1587: seen on HDEV — the card "Activiteit" began 32 px below the summary
     beside it. Measured: the flow's empty message line was its first child and
     took the section gap. Proven red by taking the kit's rule for an empty
-    message line out of the stylesheet: 32 px at both widths, in both modes."""
+    message line out of the stylesheet: the gap twice at both widths, in both
+    modes. The gap is 16 px since #1899 (it was 32)."""
     page = _page(setup, width, f"/admin/activiteiten/{setup[2]}{suffix}")
     tops = page.evaluate(_TOPS)
     print("MEASURE tops", width, suffix or "read", tops)
@@ -385,7 +386,7 @@ def test_a_message_in_the_flow_takes_its_place_again(setup):
         """() => { const m = document.getElementById('aa-fiche-message').getBoundingClientRect(), s = document.getElementById('aa-section-activity').getBoundingClientRect();
                  return {height: Math.round(m.height), gap: Math.round(s.top - m.bottom)}; }"""
     )
-    assert box["height"] > 40 and box["gap"] == 32, box
+    assert box["height"] > 40 and box["gap"] == 16, box
     page.close()
 
 

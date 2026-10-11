@@ -452,7 +452,8 @@ the width** — `url`, `email`, `textarea` and rich text always full, `number`,
 `date`, `time`, a code, a short `select` and `switch` half or quarter, `text`
 half unless long; a template may widen a short field and never narrow a long
 one. A section is one card per meaningful section, never a nested card,
-16 px from its heading to the first field, 32 px between sections; fields
+16 px from its heading to the first field, 16 px between sections (32 px
+until #1899); fields
 share a row only when read together (street · number · bus; from · to). The
 **switch** (`ui.switch` of #1568, used by `field(kind=switch)`) has its knob
 at the left and the label at its right; in read mode a boolean is words
