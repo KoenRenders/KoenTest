@@ -48,7 +48,8 @@
                                count=years|length, empty=_("Nog geen lidmaatschap."), id="gezin-jaren",
                                hint=(_("Een jaar komt uit een lidmaatschap dat vernieuwd wordt (Lidmaatschap vernieuwen onder Acties).") if edit else None)) %}
       {% for y in years %}
-      {% call ui.group_row("y_order", y.id, edit=edit, menu=["remove"], label=_("lidmaatschap %(jaar)s", jaar=y.year)) %}
+      {% call ui.group_row("y_order", y.id, edit=edit, menu=["remove"], attrs="data-row-inline",
+                            label=_("lidmaatschap %(jaar)s", jaar=y.year)) %}
         <div data-span="full" data-membership-year="{{ y.year }}" class="flex items-center justify-between gap-3 min-h-11 md:min-h-9 text-sm leading-[21px] text-ink">
           <span>{{ y.year }}</span>
           {% if y.active %}{{ ui.badge(_("Actief"), "green") }}{% elif y.waiting %}{{ ui.badge(_("Wacht op betaling"), "yellow") }}{% endif %}

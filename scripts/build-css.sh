@@ -594,6 +594,9 @@ body[data-shell="admin"] #toasts [data-toast="success"]{background:rgb(var(--c-i
   .group-head{display:none}
   .group-row--edit.group-row--simple,.group-row--edit.group-row--simple.group-row--handle{grid-template-columns:44px minmax(0,1fr) 44px;row-gap:4px;align-items:center}
   .group-row--edit.group-row--simple>.group-body{grid-column:1/-1;grid-row:2}
+  /* #1899: a row that is a line of text and no field (a membership year) keeps
+     its menu beside it — there is no label to give the first row to. */
+  .group-row--edit.group-row--simple[data-row-inline]>.group-body{grid-column:1/3;grid-row:1}
   .group-row--edit.group-row--simple:not(.group-row--handle)>.relative{grid-column:3}
   .group-row--edit.group-row--simple.group-row--one{grid-template-columns:minmax(0,1fr) 44px;align-items:center;min-height:44px}
   .group-row--edit.group-row--simple.group-row--one>[data-row-one-tag],.group-row--edit.group-row--simple.group-row--one>[data-row-tag]{grid-column:1;grid-row:1;justify-self:start}

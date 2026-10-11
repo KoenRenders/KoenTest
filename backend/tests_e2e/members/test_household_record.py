@@ -324,6 +324,36 @@ EDIT = """() => { const r = e => e.getBoundingClientRect(), n = v => Math.round(
           page: [document.documentElement.scrollWidth, innerWidth]}; }"""
 
 
+def test_on_a_phone_a_year_stands_beside_its_menu(browser, household):
+    """A membership year is a line of text, no field: on a phone its `⋯` stands on
+    that line, at the right, where the kit gives a field's menu the row above it.
+
+    Proven red (locally, restored): `data-row-inline` renamed in the css rule →
+    "the menu stands 48 px above its year"."""
+    page = _board(browser, 390, 844)
+    try:
+        page.goto(f"/admin/leden/gezin/{household['id']}?bewerken=1")
+        pagina_klaar(page)
+        rows = page.evaluate(
+            """() => [...document.querySelectorAll('#gezin-jaren [data-group-row]')].map(row => {
+              const mid = e => { const b = e.getBoundingClientRect(); return Math.round(b.top + b.height / 2); };
+              const year = row.querySelector('[data-membership-year]');
+              const menu = row.querySelector('[data-row-menu-holder]');
+              return {year: mid(year), menu: mid(menu),
+                      right: Math.round(menu.getBoundingClientRect().left - year.getBoundingClientRect().right)};
+            })"""
+        )
+        print("MEASURE membership years 390", rows)
+        assert rows, "no membership year on the record — still looking?"
+        for row in rows:
+            apart = abs(row["year"] - row["menu"])
+            assert apart <= 2, f"the menu stands {apart} px above its year"
+            assert row["right"] >= 0, "the menu overlaps the year's line"
+        assert page.evaluate("document.documentElement.scrollWidth") == 390
+    finally:
+        page.close()
+
+
 def test_the_edit_mode_lines_up(browser, household):
     """The two positions that must line up (#1899): the `⋯` of every e-mail row on
     one x, and the e-mail fields equally wide — whatever tag a row carries."""
