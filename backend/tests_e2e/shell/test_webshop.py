@@ -155,7 +155,7 @@ def test_de_bewegingen_van_een_maat_worden_getoond(webshop_page):
     apart from a correction (AC16)."""
     page = webshop_page
     page.goto("/admin/voorraad")
-    page.locator('a[data-row-link]').first.click()
+    page.locator("a[data-row-link]").first.click()
     page.wait_for_selector("[data-record-head]")
     text = page.locator("main").inner_text()
     assert "Webshop T-shirt" in text
