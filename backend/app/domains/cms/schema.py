@@ -200,6 +200,24 @@ BLOCK_SETS: dict[str, dict[str, Any]] = {
 }
 
 
+#: The table menu of the editor (CR-17 phase 2, #1679): what the author may
+#: do to a table, in the order the menu shows her — the header row is the
+#: organiser's own choice and rows and columns come and go in the editor
+#: (C4.13). The words are UI copy behind `_()` and travel in the
+#: configuration like every word the editor shows; the ids are TableKit's
+#: command names, the only ones the pinned bundle ships.
+TABLE_MENU: tuple[tuple[str, str], ...] = (
+    ("addRowBefore", _("Rij boven toevoegen")),
+    ("addRowAfter", _("Rij onder toevoegen")),
+    ("addColumnBefore", _("Kolom links toevoegen")),
+    ("addColumnAfter", _("Kolom rechts toevoegen")),
+    ("deleteRow", _("Rij verwijderen")),
+    ("deleteColumn", _("Kolom verwijderen")),
+    ("toggleHeaderRow", _("Koprij aan of uit")),
+    ("deleteTable", _("Tabel verwijderen")),
+)
+
+
 #: The languages a document may be written in are the LANGUAGE codes of
 #: `mdm.language_codes` ("nl"), not the locale of the tenant setting
 #: ("nl_BE" decides how a date reads; the label lookup takes the language
@@ -523,6 +541,19 @@ def schema_for(set_name: str) -> dict[str, Any]:
                 {"id": name, "label": _toolbar_label(name)}
                 for name in BLOCK_SETS[set_name]["insert"]
             ],
+            # The table menu (phase 2, #1679): the commands the author gets
+            # on a table, generated here like the rest of the toolbar. The
+            # menu appears in the editor when the cursor stands in a table;
+            # `None` for a set that offers no table (the menu belongs to
+            # the sets that do — `page` and `notes`).
+            "tableMenu": (
+                {
+                    "label": _("Tabel"),
+                    "items": [{"id": cmd, "label": label} for cmd, label in TABLE_MENU],
+                }
+                if "table" in BLOCK_SETS[set_name]["insert"]
+                else None
+            ),
         },
         "values": [
             {"code": code, "label": PLACEHOLDER_LABELS[code], "value": _value_of(code)}

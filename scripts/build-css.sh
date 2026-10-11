@@ -728,8 +728,16 @@ body[data-shell="site"]>main{padding-bottom:24px}
   .prose-raak img.cms-beeld-klein,.prose-raak img.cms-beeld-half{max-width:100%}
 }
 .prose-raak hr{border-top:1px solid var(--line);margin:1rem 0}
-.prose-raak table{border-collapse:collapse;width:100%;margin:.5rem 0}
-.prose-raak :is(th,td){border:1px solid rgb(var(--c-line));padding:.375rem .625rem;text-align:left;vertical-align:top}
+/* CR-17 phase 2 (#1679, C4.13 — beslissing 14): the table's look. One 1 px
+   line between rows, no vertical lines, no bands; the header row the
+   author's own on surface-2, semibold; cells 12/16 px, text 14 px. Decided
+   with the look (Koen, 11 October 2026): NO line under a wide table — no
+   script on the public site — and NO right-aligned numbers; everything
+   stays left. */
+.prose-raak table{border-collapse:collapse;width:100%;margin:.5rem 0;font-size:.875rem;line-height:1.5}
+.prose-raak :is(th,td){border-bottom:1px solid rgb(var(--c-line));padding:.75rem 1rem;text-align:left;vertical-align:top}
+.prose-raak tbody tr:last-child :is(th,td){border-bottom:none}
+.prose-raak table>tr:last-child :is(th,td){border-bottom:none}
 .prose-raak th{font-weight:600;background:rgb(var(--c-surface-2))}
 @media (max-width:767.98px){
   .prose-raak table{display:block;width:max-content;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}

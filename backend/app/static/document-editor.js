@@ -228,7 +228,10 @@
     });
     if (insertable.length) {
       var menu = document.createElement("details");
-      menu.className = "de-menu";
+      /* Her own class next to the table menu's (phase 2, #1679): the two
+         menus share `.de-menu`, and a test or a screen that means one of
+         them names her — `details.de-menu-insert`, never "the summary". */
+      menu.className = "de-menu de-menu-insert";
       var summary = document.createElement("summary");
       summary.className = "de-btn de-menu-toggle";
       summary.textContent = config.toolbar.insertMenu + " ▾";
@@ -256,6 +259,46 @@
       });
       menu.appendChild(items);
       bar.appendChild(menu);
+    }
+
+    /* The table menu (CR-17 phase 2, #1679): the commands of C4.13 — the
+       header row the author's own, rows and columns added and removed. The
+       words come from the configuration like every word the editor shows;
+       the menu is hidden until the cursor stands in a table (the commands
+       refuse outside one, so showing her there would offer buttons that do
+       nothing). */
+    var tableMenu = config.toolbar.tableMenu;
+    if (tableMenu) {
+      var tmenu = document.createElement("details");
+      tmenu.className = "de-menu de-menu-table";
+      tmenu.hidden = true;
+      var tsummary = document.createElement("summary");
+      tsummary.className = "de-btn de-menu-toggle";
+      tsummary.textContent = tableMenu.label + " ▾";
+      tsummary.addEventListener("mousedown", function (event) {
+        event.preventDefault();
+      });
+      tmenu.appendChild(tsummary);
+      var titems = document.createElement("div");
+      titems.className = "de-menu-items";
+      tableMenu.items.forEach(function (item) {
+        var el = button(item.label, item.label);
+        el.className = "de-btn de-menu-item";
+        el.addEventListener("click", function () {
+          tmenu.removeAttribute("open");
+          editor.chain().focus()[item.id]().run();
+        });
+        titems.appendChild(el);
+      });
+      tmenu.appendChild(titems);
+      bar.appendChild(tmenu);
+      var tableVisible = function () {
+        var inTable = editor.isActive("table");
+        tmenu.hidden = !inTable;
+        if (!inTable) tmenu.removeAttribute("open");
+      };
+      editor.on("transaction", tableVisible);
+      tableVisible();
     }
 
     editor.on("selectionUpdate", function () {

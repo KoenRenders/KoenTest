@@ -74,8 +74,8 @@ def test_the_editor_saves_a_block_on_the_record_page(setup, width):
         assert "De woorden die er vandaag staan." in page.locator(f"{EDITOR}").inner_text()
 
         before = page.evaluate(_TABLES)
-        page.locator(f"{EDITOR} summary").click()
-        page.locator(f"{EDITOR} details button", has_text="Tabel").click()
+        page.locator(f"{EDITOR} details.de-menu-insert summary").click()
+        page.locator(f"{EDITOR} details.de-menu-insert button", has_text="Tabel").click()
         page.wait_for_function(f"{_TABLES} === {before + 1}")
 
         # Opslaan through the record form's bar: the one save of the whole
@@ -254,25 +254,29 @@ def test_a_refused_publiceren_lands_in_main_not_in_the_button(refused_setup, wid
     )
     page.errors = []
     page.on("pageerror", lambda e: page.errors.append(str(e)))
-    login_met_sessie(page, session)
-    page.goto(f"/admin/paginas/{page_id}")
-    pagina_klaar(page)
-    page.wait_for_selector(f"{EDITOR} .tiptap")
-    # The button confirms first (over a stored-HTML page she asks; the
-    # aside's Terugzetten always asks): the dialog's own OK sends her.
-    page.locator("button", has_text="Publiceren").click()
-    page.locator("[data-dialog-ok]").click()
-    # The wait that means the swap happened: the refusal's words IN #main —
-    # the head count is 1 before the response too, so she says nothing.
-    page.wait_for_function(
-        "() => document.querySelector('#main') && "
-        "document.querySelector('#main').textContent.includes('Onbekend blok')"
-    )
-    assert page.evaluate(_ONE_HEAD) == 1, "two heads: the swap landed in the button"
-    assert page.evaluate(_ONE_FORM) == 1, "two forms: the swap landed in the button"
-    assert page.evaluate("() => document.documentElement.scrollWidth <= innerWidth + 1"), (
-        "the page scrolls sideways after the refusal"
-    )
+    try:
+        login_met_sessie(page, session)
+        page.goto(f"/admin/paginas/{page_id}")
+        pagina_klaar(page)
+        page.wait_for_selector(f"{EDITOR} .tiptap")
+        # The button confirms first (over a stored-HTML page she asks; the
+        # aside's Terugzetten always asks): the dialog's own OK sends her.
+        page.locator("button", has_text="Publiceren").click()
+        page.locator("[data-dialog-ok]").click()
+        # The wait that means the swap happened: the refusal's words IN #main —
+        # the head count is 1 before the response too, so she says nothing.
+        page.wait_for_function(
+            "() => document.querySelector('#main') && "
+            "document.querySelector('#main').textContent.includes('Onbekend blok')"
+        )
+        assert page.evaluate(_ONE_HEAD) == 1, "two heads: the swap landed in the button"
+        assert page.evaluate(_ONE_FORM) == 1, "two forms: the swap landed in the button"
+        assert page.evaluate("() => document.documentElement.scrollWidth <= innerWidth + 1"), (
+            "the page scrolls sideways after the refusal"
+        )
+        assert page.errors == [], f"the screen throws: {page.errors}"
+    finally:
+        page.close()
 
 
 @pytest.mark.parametrize("width", [1100, 390])
@@ -285,18 +289,22 @@ def test_a_refused_terugzetten_lands_in_main_not_in_the_button(refused_setup, wi
     )
     page.errors = []
     page.on("pageerror", lambda e: page.errors.append(str(e)))
-    login_met_sessie(page, session)
-    page.goto(f"/admin/paginas/{page_id}")
-    pagina_klaar(page)
-    page.wait_for_selector("text=Terugzetten")
-    page.locator("button", has_text="Terugzetten").first.click()
-    page.locator("[data-dialog-ok]").click()
-    page.wait_for_function(
-        "() => document.querySelector('#main') && "
-        "document.querySelector('#main').textContent.includes('Onbekend blok')"
-    )
-    assert page.evaluate(_ONE_HEAD) == 1, "two heads: the swap landed in the button"
-    assert page.evaluate(_ONE_FORM) == 1, "two forms: the swap landed in the button"
-    assert page.evaluate("() => document.documentElement.scrollWidth <= innerWidth + 1"), (
-        "the page scrolls sideways after the refusal"
-    )
+    try:
+        login_met_sessie(page, session)
+        page.goto(f"/admin/paginas/{page_id}")
+        pagina_klaar(page)
+        page.wait_for_selector("text=Terugzetten")
+        page.locator("button", has_text="Terugzetten").first.click()
+        page.locator("[data-dialog-ok]").click()
+        page.wait_for_function(
+            "() => document.querySelector('#main') && "
+            "document.querySelector('#main').textContent.includes('Onbekend blok')"
+        )
+        assert page.evaluate(_ONE_HEAD) == 1, "two heads: the swap landed in the button"
+        assert page.evaluate(_ONE_FORM) == 1, "two forms: the swap landed in the button"
+        assert page.evaluate("() => document.documentElement.scrollWidth <= innerWidth + 1"), (
+            "the page scrolls sideways after the refusal"
+        )
+        assert page.errors == [], f"the screen throws: {page.errors}"
+    finally:
+        page.close()

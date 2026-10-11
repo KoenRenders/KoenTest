@@ -41,10 +41,15 @@ def setup():
 
 _TOOLBAR = """() => { const editor = document.querySelector('#ds-document');
   const bar = editor.querySelector('.document-editor > div');
+  const insert = bar.querySelector('details.de-menu-insert');
+  const table = bar.querySelector('details.de-menu-table');
   return {labels: [...bar.querySelectorAll('button')].filter(b => b.closest('details') === null)
              .map(b => ({text: b.innerText.trim(), aria: b.getAttribute('aria-label')})),
-          menu: bar.querySelector('summary') ? bar.querySelector('summary').innerText.trim() : null,
-          items: bar.querySelectorAll('details button').length,
+          menu: insert ? insert.querySelector('summary').innerText.trim() : null,
+          items: insert ? insert.querySelectorAll('button').length : 0,
+          tableMenu: table ? {label: table.querySelector('summary').innerText.trim(),
+                              items: table.querySelectorAll('button').length,
+                              hidden: table.hidden} : null,
           pressed: [...bar.querySelectorAll('button')].map(b => b.getAttribute('aria-pressed') || '')}; }"""
 
 _EDITOR = """() => { const editor = document.querySelector('#ds-document');
@@ -91,6 +96,11 @@ def test_the_editor_opens_with_the_page_sets_toolbar(setup, width):
         ], m["labels"]
         assert m["menu"] == "Blok invoegen ▾"
         assert m["items"] == 2, "the insert menu offers Tabel and Afbeelding"
+        # Phase 2 (#1679): the table menu stands beside the insert menu —
+        # her own commands, hidden while the cursor is outside a table.
+        assert m["tableMenu"]["label"] == "Tabel ▾", m["tableMenu"]
+        assert m["tableMenu"]["items"] == 8, m["tableMenu"]
+        assert m["tableMenu"]["hidden"] is True, "the table menu shows outside a table"
         e = page.evaluate(_EDITOR)
         print("MEASURE document editor blocks", width, e)
         assert e["headings"] == ["H1"], "the demo's Kop stands as a heading"
@@ -121,8 +131,8 @@ def test_inserting_a_block_and_typing_keeps_the_input_in_step(setup):
         page.wait_for_selector(f"{EDITOR} .tiptap")
         before = page.evaluate(_EDITOR)["tables"]
 
-        page.locator(f"{EDITOR} summary").click()
-        page.locator(f"{EDITOR} details button", has_text="Tabel").click()
+        page.locator(f"{EDITOR} details.de-menu-insert summary").click()
+        page.locator(f"{EDITOR} details.de-menu-insert button", has_text="Tabel").click()
         page.wait_for_function(
             f"document.querySelectorAll('{EDITOR} .tiptap table').length === {before + 1}"
         )

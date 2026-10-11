@@ -118,8 +118,8 @@ def _open_dialog(browser_and_photo, width: int):
         pytest.fail("e2e-seed geladen maar: geen cms-pagina")
     # The insert menu's figure item opens the dialog (B4: the toolbar's
     # buttons come from the configuration; the dialog is the macro's).
-    page.locator("#cp-document details summary").click()
-    page.locator("#cp-document details button", has_text="Afbeelding").click()
+    page.locator("#cp-document details.de-menu-insert summary").click()
+    page.locator("#cp-document details.de-menu-insert button", has_text="Afbeelding").click()
     dialoog = page.get_by_role("dialog")
     expect(dialoog).to_be_visible()
     # The picker loads when the dialog opens; type only once htmx has taken it

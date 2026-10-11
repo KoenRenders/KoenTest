@@ -46,6 +46,28 @@ def test_an_unknown_set_is_an_error():
         schema.validate_document({"type": "doc", "content": []}, "web")
 
 
+def test_the_table_menu_travels_in_the_configuration():
+    """The table menu of phase 2 (#1679, C4.13): the words the editor shows
+    on a table come from the configuration, like every word the toolbar
+    carries — never from the JS. A set without the table carries no menu
+    (`None`), so the editor builds nothing for her.
+
+    Proven red while building, additive (the gate convention): removing
+    `addRowAfter` from `TABLE_MENU` made the browser test of
+    `tests_e2e/pages/test_table_block_1679.py` time out on her button — the
+    menu no longer offered what the author must reach. Restored, she went
+    green on the same screen.
+    """
+    config = schema.schema_for("page")
+    menu = config["toolbar"]["tableMenu"]
+    assert menu["label"] == "Tabel"
+    ids = [item["id"] for item in menu["items"]]
+    assert ids[0] == "addRowBefore" and "toggleHeaderRow" in ids and ids[-1] == "deleteTable"
+    assert all(item["label"] for item in menu["items"])
+    # The `letter` set offers no table: no menu, nothing for the JS to build.
+    assert schema.schema_for("letter")["toolbar"]["tableMenu"] is None
+
+
 def test_an_unknown_attribute_is_refused_with_its_name():
     """An attribute outside the schema refuses with the names of node and
     attribute (proven: a `placement="schuin"` refused as `figure.placement`)."""
