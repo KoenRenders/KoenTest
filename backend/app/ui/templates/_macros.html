@@ -439,6 +439,10 @@
    - `facts`: [{text}] or [{text, href, kind}] with kind "reference" (a jump link)
      or "mail" (a real `mailto:`); the full words at every width.
    - `primary`: {label, href} or {label, attrs} — one, never more.
+   - `secondary` (#1901): {label, href} — the one button beside the primary, for
+     a record whose state has a positive action of its own: an open booking's
+     primary is "Bevestig" and "Bewerken" stands beside it (Koen, 11 October
+     2026). Never a second command: a link to another state of the page.
    - `actions`: [{kind, label, href|attrs, verb?, confirm?}]. `kind` is "record"
      (placed in the fixed order of `verb`: copy, print, export, send, state — the
      record's state action, such as publish or back to draft — and cancel, calling
@@ -456,7 +460,8 @@
    they take a line of their own under it, at the right. The flex rules are the
    prototype's (brief 05): the group may grow but not shrink on a phone, and from
    `md` it shares the row and never gets narrower than 360 px. #}
-{% macro record_header(title, badges=[], facts=[], primary=None, actions=[], back=None, editing=False) -%}
+{% macro record_header(title, badges=[], facts=[], primary=None, actions=[], back=None, editing=False,
+                       secondary=None) -%}
 {# `caller is defined`, not `if caller` (#643): StrictUndefined. #}
 {% set _extra = (caller() if caller is defined else "")|trim %}
 {% set _verbs = ["copy", "print", "export", "send", "state", "cancel"] %}
@@ -486,10 +491,13 @@
       </span>
       {% endif %}
     </div>
-    {% if (primary and not editing) or actions or _extra %}
+    {% if ((primary or secondary) and not editing) or actions or _extra %}
     <div data-head-controls class="flex flex-wrap justify-end items-center gap-2 ml-auto shrink-0 max-w-full">
       {% if primary and not editing %}
       {{ button(primary.label, variant="primary", type="button", href=primary.get("href"), size="sm", attrs=primary.get("attrs", ""), cls="min-h-11 md:min-h-9") }}
+      {% endif %}
+      {% if secondary and not editing %}
+      {{ button(secondary.label, variant="secondary", type="button", href=secondary.href, size="sm", attrs="data-head-secondary", cls="min-h-11 md:min-h-9") }}
       {% endif %}
       {% if actions %}
       <div class="relative" x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">

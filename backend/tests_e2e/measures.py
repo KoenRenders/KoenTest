@@ -263,6 +263,20 @@ def _household(edit: bool = False) -> Callable:
     return action
 
 
+def _booking(edit: bool = False) -> Callable:
+    """The record of the first open booking of the payments list, in read or in
+    edit mode (#1901)."""
+
+    def action(page) -> None:
+        link = page.locator("#betalingen-lijst a[data-row-link]").first
+        link.wait_for(state="visible", timeout=5000)
+        address = urljoin(page.url, link.get_attribute("href")).split("?")[0]
+        page.goto(address + ("?bewerken=1" if edit else ""))
+        page.wait_for_load_state("networkidle")
+
+    return action
+
+
 def _open_the_panel(page) -> None:
     page.locator("[data-raakje-trigger]").click()
     page.locator("[data-context-key]").wait_for(state="visible", timeout=5000)
@@ -343,6 +357,24 @@ SCREENS: tuple[Screen, ...] = (
         ("top bar title", "toolbar", "key figure", "content row"),
         session="admin",
         widths=ADMIN,
+    ),
+    # #1901: a booking's record on the record layout — the head, the summary card
+    # with its rows, the card Boeking — read and in edit mode.
+    Screen(
+        "boeking",
+        "/admin/betalingen?zicht=openstaand",
+        ("record head", "summary card", "form section"),
+        session="admin",
+        widths=ADMIN,
+        action=_booking(),
+    ),
+    Screen(
+        "boeking-bewerken",
+        "/admin/betalingen?zicht=openstaand",
+        ("record head", "summary card", "form section", "field", "action bar"),
+        session="admin",
+        widths=ADMIN,
+        action=_booking(edit=True),
     ),
     # #1899: Leden on the list-page layout, on its default segment Actief.
     Screen(

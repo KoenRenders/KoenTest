@@ -138,6 +138,10 @@
    "platform": "ADMIN FINANCE OPERATOR",
    "tenant": "ADMIN FINANCE OPERATOR"
   },
+  "GET /admin/betalingen/{record_id}/terugbetaling": {
+   "platform": "ADMIN FINANCE OPERATOR",
+   "tenant": "ADMIN FINANCE OPERATOR"
+  },
   "GET /admin/design-system": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"

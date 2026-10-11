@@ -362,13 +362,14 @@ Every route whose gate asks the right. A right without a route here opens nothin
 
 - none
 
-### `payment.view` — 7 routes
+### `payment.view` — 8 routes
 
 - `GET /admin/activiteiten/{activity_id}/betalingen`
 - `GET /admin/betalingen`
 - `GET /admin/betalingen/export`
 - `GET /admin/betalingen/lijst`
 - `GET /admin/betalingen/{record_id}`
+- `GET /admin/betalingen/{record_id}/terugbetaling`
 - `GET /admin/inschrijvingen/{registration_id}/betalingen`
 - `GET /admin/leden/gezin/{family_id}/betalingen`
 

@@ -1591,8 +1591,15 @@ def verwijder_betaling(
     db: Session, record_id: str, *, note: str | None = None, actor: str | None = None
 ):
     """Soft-delete: uit het saldo, maar bewaard als financieel feit (#455).
-    Corrigeert ook een foute terugbetaling."""
-    _bestaand_record(db, record_id)
+    Corrigeert ook een foute terugbetaling.
+
+    The rule is asked HERE (#1901): a payment on which money moved does not
+    disappear (`deletion_refusal`). Until then only the screen asked it, by not
+    showing the button — a request that did not come from that screen deleted
+    a paid booking."""
+    refusal = deletion_refusal(_bestaand_record(db, record_id))
+    if refusal:
+        raise BetalingFout(refusal)
     try:
         record = void_payment_record(db, record_id, actor=actor, note=(note or "").strip() or None)
     except ValueError as exc:

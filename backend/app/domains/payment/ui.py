@@ -35,7 +35,7 @@ from app.domains.payment.service import (
     verwijder_betaling,
     zet_betaalstatus,
 )
-from app.domains.payment.viewmodels import BetalingenView, BookingView
+from app.domains.payment.viewmodels import BetalingenView, BookingView, RefundScreenView
 from app.i18n import _
 from app.kernel.codes import code_labels
 from app.kernel.geld import bedrag as geld
@@ -308,7 +308,12 @@ def _row(
                 else _("Als volledig betaald bevestigen?"),
             }
         if may_mutate and rec.is_paid and not rec.is_refund:
-            menu.append({"label": _("Terugbetaling"), "href": f"{page}#terugbetaling"})
+            menu.append(
+                {
+                    "label": _("Terugbetaling"),
+                    "href": f"{BOOKINGS}/{rec.id}/terugbetaling?terug={from_booking if on_tab else back}",
+                }
+            )
         if rec.payable_href:
             menu.append(
                 {
@@ -1044,9 +1049,11 @@ def _booking_view(
     *,
     error: str | None = None,
     saved: bool = False,
+    edit: bool | None = None,
 ) -> BookingView | None:
     """The view-model of one booking's page, or None when there is no such
-    booking (any more)."""
+    booking (any more). `edit` overrules what the address says (`?bewerken=1`):
+    the answer of a save is the page in read mode."""
     from urllib.parse import quote
 
     from app.domains.payment.api import enriched_records
@@ -1065,6 +1072,7 @@ def _booking_view(
     # back (`keep`) — so the origin survives two steps.
     back_here = quote(here, safe="/")
     may_mutate = may(db, email, Right.PAYMENT_MANAGE)
+    editing = may_mutate and (frame["head_editing"] if edit is None else edit)
     badges = _status_badges()
     labels = _status_labels()
     name = rec.contact_name or "—"
@@ -1108,6 +1116,8 @@ def _booking_view(
 
     status_label, status_tone = _status_badge(rec)
     primary = None
+    secondary = None
+    delete = None
     actions: list[dict] = []
     if may_mutate:
         if not rec.is_paid:
@@ -1120,6 +1130,13 @@ def _booking_view(
                 "label": _("Bevestig"),
                 "attrs": f'{_page_post(rec.id, "bevestigen")} data-confirm="{question}"',
             }
+        # #1901 (Koen, 11 October 2026): Bevestig is the primary of an open
+        # booking, with Bewerken beside it; a settled booking's primary is Bewerken.
+        edit_link = {"label": _("Bewerken"), "href": here + ("&" if keep else "?") + "bewerken=1"}
+        if primary is None:
+            primary = edit_link
+        else:
+            secondary = edit_link
         if rec.is_online:
             actions.append(
                 {
@@ -1129,19 +1146,63 @@ def _booking_view(
                     "attrs": _page_post(rec.id, "verversen"),
                 }
             )
-        if card["mag_verwijderen"]:
+        # Registering a refund is a screen of its own, reached from here (#1901):
+        # it makes a new booking with an amount to pay back (#617-2b).
+        if rec.is_paid and not rec.is_refund:
             actions.append(
                 {
-                    "kind": "delete",
-                    "label": _("Verwijderen"),
-                    "attrs": _page_post(rec.id, "verwijderen"),
-                    "confirm": _("Deze terugbetaling verwijderen?")
-                    if rec.is_refund
-                    else _("Deze betaling verwijderen?"),
+                    "kind": "tool",
+                    "label": _("Terugbetaling registreren"),
+                    "href": f"{BOOKINGS}/{rec.id}/terugbetaling?terug={back_here}",
                 }
             )
+        if card["mag_verwijderen"]:
+            delete = {
+                "attrs": _page_post(rec.id, "verwijderen"),
+                "confirm": _("Deze terugbetaling verwijderen?")
+                if rec.is_refund
+                else _("Deze betaling verwijderen?"),
+            }
+            actions.append({"kind": "delete", "label": _("Verwijderen"), **delete})
 
     parent = next((r for r in records if rec.refund_of_id and r.id == rec.refund_of_id), None)
+    # The other bookings of the same registration (Koen, 11 October 2026): the
+    # list orders them under the oldest; here they are jump links. The refunds
+    # of this booking stand in their own card, and its own charge above.
+    others = (
+        [
+            r
+            for r in records
+            if r.id != rec.id
+            and r.payable_id == rec.payable_id
+            and r.payable_type == rec.payable_type
+            and r.refund_of_id != rec.id
+            and r.id != rec.refund_of_id
+        ]
+        if rec.payable_type == PayableType.REGISTRATION
+        else []
+    )
+    paid = Decimal(str(rec.amount_paid)) if rec.amount_paid is not None else Decimal(0)
+    balance = card["saldo"] if card["saldo"] is not None else card["bedrag"]
+    summary = {
+        "state": {"label": status_label, "tone": status_tone},
+        "figures": [
+            {"label": _("Bedrag"), "value": "€ " + geld(card["bedrag"])},
+            {
+                "label": _("Terugbetaald") if rec.is_refund else _("Ontvangen"),
+                "value": "€ " + geld(paid),
+            },
+            {"label": _("Saldo"), "value": "€ " + geld(balance), "warning": balance != 0},
+            {
+                "label": _("Wijze"),
+                "value": dict(code_labels("payment_method")).get(
+                    str(getattr(rec.method, "value", rec.method)), ""
+                )
+                or "—",
+            },
+            {"label": _("Aangemaakt"), "value": rec.created_at.strftime("%d/%m/%Y")},
+        ],
+    }
     return BookingView(
         rec=rec,
         card=card,
@@ -1153,16 +1214,22 @@ def _booking_view(
             "badges": [{"label": status_label, "tone": status_tone}],
             "facts": facts,
             "primary": primary,
+            "secondary": secondary,
             "actions": actions,
         },
         way_back=frame["way_back"],
+        head_editing=editing,
+        summary=summary,
+        others=[_booking_link(r) for r in others],
+        delete=delete,
+        # Plain numbers: what a number field holds.
+        paid_amount=f"{abs(paid):.2f}" if rec.amount_paid is not None else "",
+        full_amount=f"{abs(card['bedrag']):.2f}",
         parent=_booking_link(parent) if parent is not None else None,
         refunds=[_booking_link(r) for r in records if r.refund_of_id == rec.id],
         may_mutate=may_mutate,
         status_labels=labels,
-        method_label=dict(code_labels("payment_method")).get(
-            str(getattr(rec.method, "value", rec.method)), ""
-        ),
+        status_options=[(s, labels[s]) for s in ("pending", "paid", "failed", "cancelled")],
         here=here,
         csrf_token=csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),
         nav_items=admin_nav(BOOKINGS, request),
@@ -1179,13 +1246,27 @@ def _booking_answer(
     back the page had."""
     from app.ui import record_frame
 
-    view = _booking_view(request, db, email, record_id, error=error, saved=error is None)
+    # A good answer is the page in read mode; a refusal keeps the state the page
+    # was in (the editor stays open with its reason).
+    view = _booking_view(
+        request,
+        db,
+        email,
+        record_id,
+        error=error,
+        saved=error is None,
+        edit=None if error else False,
+    )
     if view is None:
         return Response(
             status_code=204,
             headers={"HX-Redirect": record_frame(request, db, BOOKINGS)["way_back"]["href"]},
         )
-    return templates.TemplateResponse(request, "betaling.html", view.as_context())
+    response = templates.TemplateResponse(request, "betaling.html", view.as_context())
+    if error is None:
+        # The address follows: reloading must not open the editor again.
+        response.headers["HX-Push-Url"] = view.here
+    return response
 
 
 @router.get("/admin/betalingen/{record_id}", response_class=HTMLResponse)
@@ -1231,16 +1312,62 @@ def betaling_refund(
     amount: str = Form(""),
     note: str = Form(""),
 ):
-    return _uitvoeren(
-        registreer_terugbetaling,
-        request,
-        db,
-        email,
-        record_id,
-        amount=amount,
-        note=note,
-        actor=email,
+    """Register a refund of this booking (#617-2b) and land on the NEW refund's
+    page (#1901): paying it out is done there. A refusal answers the reason at
+    the amount, in the message line of the screen that sent it."""
+    from urllib.parse import quote
+
+    from app.kernel.refusals import FieldError
+    from app.ui import record_frame, refusal_response
+
+    try:
+        refund = registreer_terugbetaling(db, record_id, amount=amount, note=note, actor=email)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc) or _("Betaling niet gevonden."))
+    except BetalingFout as exc:
+        return refusal_response(
+            request, [FieldError("amount", str(exc))], REFUND_MESSAGE, send=True
+        )
+    keep = record_frame(request, db, BOOKINGS)["way_back"]["keep"]
+    charge = f"{BOOKINGS}/{record_id}" + (f"?{keep}" if keep else "")
+    return Response(
+        status_code=204,
+        headers={"HX-Redirect": f"{BOOKINGS}/{refund.id}?terug={quote(charge, safe='/')}"},
     )
+
+
+REFUND_MESSAGE = "#terugbetaling-melding"
+
+
+@router.get("/admin/betalingen/{record_id}/terugbetaling", response_class=HTMLResponse)
+def refund_screen(
+    record_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PAYMENT_VIEW)),
+):
+    """Terugbetaling registreren (#1901): a small screen of its own — the amount,
+    the reason, one button — reached from Acties on a paid booking and from the
+    list's row menu. Where no refund can be registered (who may not change
+    payments, a booking that is not paid, a refund itself) the booking is the answer."""
+    from fastapi.responses import RedirectResponse
+
+    view = _booking_view(request, db, email, record_id, edit=False)
+    if view is None:
+        raise HTTPException(status_code=404, detail=_("Betaling niet gevonden."))
+    if not (view.may_mutate and view.rec.is_paid and not view.rec.is_refund):
+        return RedirectResponse(view.here, status_code=303)
+    screen = RefundScreenView(
+        title=_("Terugbetaling registreren"),
+        booking=view.record_head["title"],
+        post_url=f"{BOOKINGS}/{record_id}/refund"
+        + (f"?{view.way_back['keep']}" if view.way_back["keep"] else ""),
+        back_href=view.here,
+        received="€ " + geld(abs(Decimal(str(view.rec.amount_paid or 0)))),
+        csrf_token=view.csrf_token,
+        nav_items=view.nav_items,
+    )
+    return templates.TemplateResponse(request, "betaling_terugbetaling.html", screen.as_context())
 
 
 @router.post(

@@ -24,6 +24,9 @@
    - `vraag_fout` — the id of the question a refusal names, marked, where the
      page is redrawn with the refusal (the registration detail). A page with the
      kit's message line gets the mark from `record-form.js` instead;
+   - `title` — the form's title as a heading row above the cards: on the
+     registration page, where the form is one part of a longer page; the form's
+     own page has it as its page title;
    - `cards_attrs` — attributes on the wrapper of the cards (the registration's
      `x-show`), empty on the form's own page;
    - `path` — the form branches: each card carries its place (`data-step`) and
@@ -38,9 +41,14 @@
 {% if form.description %}<p class="text-gray-600 mb-6 whitespace-pre-wrap">{{ form.description }}</p>{% endif %}
 {% endmacro %}
 
-{% macro vragen_kaarten(grouped, loose_fields, vraag_fout=None, cards_attrs="", path=False) %}
+{% macro vragen_kaarten(grouped, loose_fields, vraag_fout=None, cards_attrs="", path=False, title=None) %}
 {% macro _vraag(f) %}{% if vraag_fout is not none and vraag_fout == f.id %}<div data-span="full" data-question-refused class="rounded-md ring-2 ring-red-600 p-2">{{ veld(f) }}</div>{% else %}{{ veld(f) }}{% endif %}{% endmacro %}
 <div data-question-cards class="grid gap-4 min-w-0" {{ cards_attrs|safe }}>
+  {#- The form's own title, once, above its section cards (#1901; Koen, 11 October
+      2026, to "once above the section cards, or one card with the sections as
+      headings?": "a") — so the start of the form is clear on a page that holds
+      more than the form. Inside the wrapper: it goes where the cards go. -#}
+  {% if title %}{{ ui.flow_heading(title) }}{% endif %}
   {% for g in grouped %}
   {% set _place %}{% if path %}data-step="{{ loop.index0 }}" x-show="shown({{ loop.index0 }})"{% endif %}{% endset %}
   {% call ui.section(g.section.title, intro=g.section.description, attrs=_place) %}

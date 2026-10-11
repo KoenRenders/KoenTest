@@ -111,6 +111,9 @@ def _page_post(client, headers, rec_id, action, data=None, current=None):
 
 
 def test_the_page_shows_the_booking_with_its_context_as_a_jump_link(client, db_session):
+    """Since #1901 on the record layout: the figures stand in the summary card,
+    every one a row; the card Boeking reads first; Bevestig is the primary of an
+    open booking, with Bewerken beside it."""
     rec, activity = _booking(db_session)
     _login(client, db_session, finance=True)
 
@@ -125,15 +128,28 @@ def test_the_page_shows_the_booking_with_its_context_as_a_jump_link(client, db_s
     assert reference, "the context is not a jump link"
     assert reference.group(1).startswith(f"/admin/activiteiten/{activity.id}?terug=")
     assert activity.name in reference.group(2)
-    figures = html[html.index("data-booking-figures") : html.index("</section>")]
-    assert "€ 30,00" in figures
+    card = html[html.index("data-summary-card") :].split("</section>", 1)[0]
+    figures = dict(re.findall(r"<dt[^>]*>([^<]+)</dt>\s*<dd[^>]*>([^<]+)</dd>", card))
+    assert list(figures) == ["Bedrag", "Ontvangen", "Saldo", "Wijze", "Aangemaakt"], figures
+    assert figures["Bedrag"] == "€ 30,00" and figures["Ontvangen"] == "€ 0,00"
     # Bedrag never coloured; a balance that is not zero in the warning tone.
-    assert re.search(r'class="tabular-nums text-ink" data-amount>€ 30,00<', figures)
-    assert re.search(r'class="[^"]*text-brand-warning[^"]*" data-balance>€ 30,00<', figures)
-    # What the unfold carried: the edit form, and "Bevestig" as the one primary.
-    assert 'hx-post="/admin/betalingen/%s/bewerken"' % rec.id in html
-    assert "Bevestig" in head
-    assert "data-booking-refund" not in html, "a refund form on a booking that is not paid"
+    amount, _received, balance = re.findall(r'<dd class="([^"]+)">€', card)[:3]
+    assert "text-brand-warning" not in amount and "text-brand-warning" in balance
+    # Read first: no form, the facts of the booking; Bevestig with Bewerken beside it.
+    assert (
+        'data-form-flow data-mode="read"' in html
+        and "<form" not in html[html.index("data-form-flow") :]
+    )
+    assert "Bevestig" in head and "data-head-secondary" in head
+    assert f'href="/admin/betalingen/{rec.id}?bewerken=1"' in head
+    assert "Terugbetaling registreren" not in head, "a refund on a booking that is not paid"
+
+    edit = client.get(f"/admin/betalingen/{rec.id}?bewerken=1").text
+    assert 'hx-post="/admin/betalingen/%s/bewerken"' % rec.id in edit
+    for name in ("status", "amount_paid", "note"):
+        assert f'name="{name}"' in edit, f"{name} is missing from the editor"
+    assert "data-summary-card" in edit, "the booking keeps its summary while editing"
+    assert "Bevestig" not in _head(edit), "the head keeps a command while editing"
 
 
 def test_an_unknown_booking_is_a_404(client, db_session):
@@ -154,7 +170,9 @@ def test_bevestig_reaches_the_service_and_answers_with_the_page(client, db_sessi
     assert _status(stored) == "paid" and stored.amount_paid == Decimal("30.00")
     head = _head(answer.text)
     assert "Vereffend" in head and "Bevestig" not in head
-    assert "data-booking-refund" in answer.text, "a paid charge offers the refund form"
+    # #1901: a paid charge offers the refund as a screen of its own, under Acties.
+    assert f'href="/admin/betalingen/{rec.id}/terugbetaling?terug=' in head
+    assert "Terugbetaling registreren" in head
 
 
 def test_the_edit_form_saves_status_amount_and_note(client, db_session):
@@ -177,31 +195,57 @@ def test_the_edit_form_saves_status_amount_and_note(client, db_session):
     assert "Deels betaald" in _head(answer.text)
 
 
-def test_a_refund_is_registered_on_the_page_and_a_refusal_shows_its_reason(client, db_session):
+def test_a_refund_is_registered_on_its_screen_and_a_refusal_shows_its_reason(client, db_session):
+    """#1901: Terugbetaling registreren is a screen of its own; a good answer is
+    the way to the NEW refund's page (the `X-Booking-Page` answer of the charge
+    went with the form at its foot), a refusal the kit's banner at the amount."""
     rec, _activity = _booking(db_session, status="paid", paid="30.00")
     headers = _login(client, db_session, finance=True)
+
+    screen = client.get(f"/admin/betalingen/{rec.id}/terugbetaling")
+    assert screen.status_code == 200
+    assert 'data-shell="admin"' in screen.text and "Terugbetaling registreren" in screen.text
+    assert f'hx-post="/admin/betalingen/{rec.id}/refund"' in screen.text
+    assert 'name="amount"' in screen.text and 'name="note"' in screen.text
+    assert "€ 30,00" in screen.text, "the screen does not say what was received"
 
     # A refusal the service makes before it touches the session ("abc" is no
     # amount): the one over the maximum rolls the session back, and in a test
     # that takes the fixture's uncommitted booking along.
-    refused = _page_post(client, headers, rec.id, "refund", {"amount": "abc", "note": ""})
-    assert refused.status_code == 200
-    assert "data-record-head" in refused.text, "the refusal answered with the list"
-    assert re.search(r'role="alert"[^>]*>[^<]*Ongeldig bedrag', refused.text)
+    refused = client.post(
+        f"/admin/betalingen/{rec.id}/refund", data={"amount": "abc", "note": ""}, headers=headers
+    )
+    assert refused.status_code == 422
+    assert refused.headers["HX-Retarget"] == "#terugbetaling-melding"
+    assert "Ongeldig bedrag" in refused.text and "data-save-refusal" in refused.text
     assert db_session.query(PaymentRecord).filter(PaymentRecord.refund_of_id == rec.id).count() == 0
 
-    answer = _page_post(client, headers, rec.id, "refund", {"amount": "10", "note": "annulering"})
-    assert answer.status_code == 200, answer.text[:300]
+    answer = client.post(
+        f"/admin/betalingen/{rec.id}/refund",
+        data={"amount": "10", "note": "annulering"},
+        headers=headers,
+    )
+    assert answer.status_code == 204, answer.text[:300]
     refund = db_session.query(PaymentRecord).filter(PaymentRecord.refund_of_id == rec.id).one()
     assert refund.amount == Decimal("-10.00")
+    assert answer.headers["HX-Redirect"].startswith(f"/admin/betalingen/{refund.id}?terug=")
     # The charge's page lists its refund, as a jump link to the refund's own page.
-    listed = answer.text[answer.text.index("data-booking-refunds") :]
+    charge = client.get(f"/admin/betalingen/{rec.id}").text
+    listed = charge[charge.index("data-booking-refunds") :]
     assert f'href="/admin/betalingen/{refund.id}?terug=' in listed
-
-    # The refund's page names the charge it belongs to.
+    # And the refund's page names the charge it belongs to.
     page = client.get(f"/admin/betalingen/{refund.id}").text
-    assert f"Terugbetaling aan {NAME}" in _head(page)
-    assert f'href="/admin/betalingen/{rec.id}?terug=' in page
+    parent = page[page.index("data-booking-parent") :].split("</p>", 1)[0]
+    assert f'href="/admin/betalingen/{rec.id}?terug=' in parent
+
+
+def test_the_refund_screen_is_only_for_a_paid_charge(client, db_session):
+    """An open booking has nothing to pay back: its screen lands on the booking."""
+    rec, _activity = _booking(db_session)
+    _login(client, db_session, finance=True)
+    answer = client.get(f"/admin/betalingen/{rec.id}/terugbetaling", follow_redirects=False)
+    assert answer.status_code == 303
+    assert answer.headers["location"] == f"/admin/betalingen/{rec.id}"
 
 
 def test_verwijderen_leads_back_to_where_the_page_came_from(client, db_session):
