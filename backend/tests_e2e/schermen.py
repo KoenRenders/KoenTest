@@ -544,37 +544,24 @@ class Ledenscherm:
         self.page.wait_for_selector("#leden-lijst", timeout=5000)
         return self
 
-    def open_gezin(self, naam: str):
-        self.page.get_by_text(naam).first.click()
-        self.page.wait_for_selector("#leden-detail, main")
-
-    def lidmaatschapskaart(self):
-        """De kaart met de lidmaatschapsjaren — herkenbaar aan haar eigen kop.
-
-        Niet ".last": op het gezinsdetail staan meerdere Verwijderen-knoppen
-        (personen, lidmaatschappen) en welke de laatste is, hangt af van de data
-        (#644-D).
-        """
-        # #997: anchored on the detail and on the card's own heading. The old
-        # `div has_text=… .last` also matched on the list page, which carries the
-        # word too — before the detail had arrived, it found some other div.
-        return (
-            self.page.locator("#leden-detail div")
-            .filter(has=self.page.locator("h3", has_text="Lidmaatschappen"))
-            .last
-        )
-
-    def lidmaatschapskop(self):
-        return self.page.locator("#leden-detail h3", has_text="Lidmaatschappen")
-
-    def lidmaatschap_verwijderknop(self):
-        return self.lidmaatschapskaart().get_by_role("button", name="Verwijderen").first
+    def lidmaatschapsjaren(self):
+        """The membership years on the household's record (#1899), one per row."""
+        return self.page.locator("#gezin-jaren [data-membership-year]")
 
     def verwijder_lidmaatschap(self):
-        self.lidmaatschap_verwijderknop().click()
-        # In-app bevestigingsmodal (#595), geen browser-confirm.
-        with htmx_afgerond(self.page):
-            self.page.get_by_role("button", name="Bevestigen").click()
+        """Remove the newest year (#1899): in edit mode, the year's `⋯` takes it out
+        of the form and the record's one Opslaan writes it. A row that is removed
+        asks nothing — Annuleren undoes it."""
+        self.page.goto(self.page.url.split("?")[0] + "?bewerken=1")
+        pagina_klaar(self.page)
+        self.page.wait_for_function("window.raakRecordForm && window.raakRecordForm.ready()")
+        years = self.page.locator("#gezin-jaren [data-group-rows] > [data-group-row]")
+        before = years.count()
+        years.first.locator("[data-row-menu-trigger]").click()
+        years.first.get_by_role("menuitem", name="Verwijderen").click()
+        assert years.count() == before - 1, "the year did not leave the form"
+        self.page.locator("[data-form-save]").click()
+        self.page.wait_for_selector('[data-form-flow][data-mode="read"]')
 
 
 class Adminschil:

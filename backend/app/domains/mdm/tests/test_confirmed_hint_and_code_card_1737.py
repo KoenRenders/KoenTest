@@ -29,19 +29,19 @@ EMAIL = "lid-1737@example.com"
 WAITING = "wacht-1737@example.com"
 
 
-def test_the_household_screen_promises_only_what_a_confirmed_address_does(client, db_session):
+def test_the_household_screen_promises_nothing_about_the_addresses(client, db_session):
+    """#1899 (AGENTS.md *Keep it simple*, 10 October 2026): the sentence about what
+    other domains do with a person's e-mail addresses is gone from the household
+    record, in both modes — a screen says what a value is."""
     household, _person = create_test_family(db_session, email=EMAIL)
     db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
-    page = client.get(f"/admin/leden/gezin/{household.id}")
-    assert page.status_code == 200, page.text[:300]
-    assert (
-        "Met elk bevestigd adres kan dit lid inloggen, "
-        "en de nieuwsbrief gaat naar elk bevestigd adres." in page.text
-    )
-    assert "Met elk van deze adressen" not in page.text and "naar allemaal" not in page.text
-    # The rest of the hint stays.
-    assert "Een gewijzigde tekst bewaar je met Opslaan" in page.text
+    for mode in ("", "?bewerken=1"):
+        page = client.get(f"/admin/leden/gezin/{household.id}{mode}")
+        assert page.status_code == 200, page.text[:300]
+        assert EMAIL in page.text
+        for words in ("kan dit lid inloggen", "nieuwsbrief gaat", "Met elk van deze adressen"):
+            assert words not in page.text, (mode, words)
 
 
 @pytest.mark.parametrize("page", ["/leden/gezin", "/mijn/gegevens"])
@@ -62,10 +62,12 @@ def test_the_members_own_screens_say_confirmed_too(client, db_session, page):
     answer = client.get(page)
     assert answer.status_code == 200, answer.text[:300]
     assert WAITING in answer.text, "the waiting address is not on the screen"
-    assert "Met elk bevestigd adres kan je inloggen." in answer.text
-    assert "Met elk adres kan je inloggen" not in answer.text
-    # What follows it stays.
-    assert "Het hoofdadres ontvangt de bevestiging." in answer.text
+    # #1899 (AGENTS.md *Keep it simple*, 10 October 2026): the sentence about
+    # what other domains do with the addresses is gone, in both spellings; a
+    # screen says what a value is — the waiting address says that it waits.
+    for mode in (answer.text, client.get(page + "?bewerken=1").text):
+        assert "kan je inloggen" not in mode and "ontvangt de bevestiging" not in mode
+        assert "wacht op bevestiging" in mode
 
 
 def test_the_code_page_stands_on_the_card_of_the_sign_in_screens(client, db_session):

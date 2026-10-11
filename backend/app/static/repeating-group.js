@@ -130,10 +130,18 @@
     if (item) item.disabled = off;
   }
 
+  // The first FIELD of the row: a control in the row's title line (the relation
+  // of a person card, #1899) comes first in the page and is not where one
+  // starts typing.
   function focusFirst(row) {
-    var field = row.querySelector(
+    var fields = row.querySelectorAll(
       "input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled])"
     );
+    var field = null;
+    for (var i = 0; i < fields.length && !field; i++) {
+      if (!fields[i].closest("[data-row-title-line]")) field = fields[i];
+    }
+    field = field || fields[0];
     if (field) field.focus();
   }
 

@@ -508,6 +508,45 @@ def seed_postal_code(db, code="2400", municipality="Mol"):
     return pc
 
 
+def new_household_form(flat: dict) -> dict:
+    """The form the board's Nieuw lid sends (#1899: the form of Word lid, the
+    contract of `membership.signup_form` without the payment choice), from the
+    short flat description the tests of that screen use: `m<i>_<field>` for
+    person i (`m0` is the main member), and the four address fields by name.
+
+    `m<i>_email` is that person's one e-mail row — sent also when empty for the
+    main member, as the page does, so a refusal has a field to stand on;
+    `m<i>_email_new_<n>` is one more row. The main member's card sends no
+    relation. Anything else is passed on as it is."""
+    import re
+
+    form: dict = {}
+    # The page always carries the main member's card, also when nothing is filled in.
+    flat = {"m0_email": "", **flat}
+    rows = sorted({int(key[1 : key.index("_")]) for key in flat if re.match(r"m\d+_", key)})
+    form["h_order"] = [f"n{i}" for i in rows]
+    for key, value in flat.items():
+        person = re.match(r"m(\d+)_(.+)", key)
+        if person is None:
+            address = key in ("street", "house_number", "bus_number", "postal_code")
+            form[f"address.{key}" if address else key] = value
+            continue
+        i, name = person.groups()
+        if name == "email" or name.startswith("email_new_"):
+            if not value and not (name == "email" and i == "0"):
+                continue
+            row = f"n{i}e" if name == "email" else f"n{i}e{name.rsplit('_', 1)[-1]}"
+            form.setdefault(f"e_order.n{i}", []).append(row)
+            form[f"e.{row}.value"] = value
+            if name == "email":
+                form[f"e_primary.n{i}"] = row
+        elif name == "relation_type" and i == "0":
+            continue
+        else:
+            form[f"h.n{i}.{name}"] = value
+    return form
+
+
 def nieuw_lid_velden(db=None, **overrides) -> dict:
     """De velden die het beheer-aanmaakscherm verstuurt (#1110).
 
@@ -535,7 +574,7 @@ def nieuw_lid_velden(db=None, **overrides) -> dict:
         "postal_code": "2400",
     }
     velden.update(overrides)
-    return {k: v for k, v in velden.items() if v is not None}
+    return new_household_form({k: v for k, v in velden.items() if v is not None})
 
 
 def signup_fields(
@@ -659,6 +698,36 @@ def household_fields(client) -> dict:
     page = client.get("/leden/gezin?bewerken=1")
     assert page.status_code == 200, f"/leden/gezin?bewerken=1 → {page.status_code}"
     return form_fields(page.text, "gezin-form")
+
+
+def board_session(client, email: str = SEEDED_ADMIN_EMAIL) -> dict:
+    """Sign the client in as a board member and answer the header its changes
+    carry (the CSRF token of that session)."""
+    from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+
+    value = make_session_value(email)
+    client.cookies.set(SESSION_COOKIE, value)
+    return {"X-CSRF-Token": csrf_token_for(value)}
+
+
+def record_fields(client, household_id: int) -> dict:
+    """The fields the board's household record sends when it is opened in edit
+    mode and saved untouched (#1899): read from the page itself, so a test
+    changes or adds what it is about and posts the rest as the page would
+    (`POST /admin/leden/gezin/{id}`). The client is signed in as the board."""
+    page = client.get(f"/admin/leden/gezin/{household_id}?bewerken=1")
+    assert page.status_code == 200, f"the record in edit mode → {page.status_code}"
+    return form_fields(page.text, "gezin-form")
+
+
+def save_record(client, household_id: int, fields: dict, headers: dict | None = None):
+    """Post the household record's one save, with the CSRF token of the client's
+    session unless `headers` says otherwise."""
+    from app.domains.auth.api import SESSION_COOKIE, csrf_token_for
+
+    if headers is None:
+        headers = {"X-CSRF-Token": csrf_token_for(client.cookies.get(SESSION_COOKIE))}
+    return client.post(f"/admin/leden/gezin/{household_id}", data=fields, headers=headers)
 
 
 def form_guard_fields() -> dict:

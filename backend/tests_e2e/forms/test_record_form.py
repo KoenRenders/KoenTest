@@ -132,7 +132,7 @@ _BAR = """() => {
           shadow: getComputedStyle(bar).boxShadow, line: getComputedStyle(bar).borderTopWidth,
           column: r(document.querySelector('[data-form-column]')),
           save: r(q('[data-form-save]')), cancel: r(q('[data-form-cancel]')), remove: r(q('[data-form-delete]')),
-          rare: r(document.querySelector('[data-rare-settings]')),
+          rare: r(document.querySelector('#aa-group-organisers')),
           in_card: !!bar.closest('.form-section, [data-group-row]')};
 }"""
 
@@ -211,7 +211,7 @@ def test_on_a_phone_the_bar_is_121_px_at_the_bottom_and_the_last_field_stays_rea
     page.evaluate("scrollTo(0, document.documentElement.scrollHeight)")
     end = page.evaluate(_BAR)
     last = page.evaluate(
-        """() => { const b = document.querySelector('[data-rare-settings]').getBoundingClientRect();
+        """() => { const b = document.querySelector('#aa-group-organisers').getBoundingClientRect();
                  return Math.round(b.bottom); }"""
     )
     print("MEASURE bar 390 end", end, "last section bottom", last)
@@ -390,7 +390,7 @@ def test_annuleren_without_changes_leaves_at_once_and_with_changes_asks(setup):
     _dialog(page)
     page.click(f"{DIALOG} [data-dialog-ok]")
     page.wait_for_selector('[data-form-flow][data-mode="read"]')
-    assert page.locator('[data-field="location"] [data-value]').inner_text() == "Parochiezaal"
+    assert page.locator("[data-activity-location]").inner_text().strip() == "Parochiezaal"
     assert page.errors == []
     page.close()
 
@@ -459,7 +459,7 @@ def test_ctrl_s_saves_and_the_toast_says_so_in_read_mode(setup):
     box = toast.bounding_box()
     print("MEASURE toast 1440", box)
     assert box["y"] >= 64 and box["x"] + box["width"] == 1440 - 16, "top right, under the top bar"
-    assert page.locator('[data-field="location"] [data-value]').inner_text() == "Dorpshuis"
+    assert page.locator("[data-activity-location]").inner_text().strip() == "Dorpshuis"
     assert page.errors == []
     # back to what the other tests expect
     page.goto(page.url.split("?")[0] + "?bewerken=1")

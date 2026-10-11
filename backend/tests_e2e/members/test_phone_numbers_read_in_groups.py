@@ -24,9 +24,11 @@ from tests_e2e.members.test_household_pages import (  # noqa: E402
 
 STORED = "0470000000"
 READ = "0470 00 00 00"
-_NUMBERS = """() => [...document.querySelectorAll('[data-field$=".mobile"]')].map(f => {
-  const shown = f.querySelector('[data-value]'), input = f.querySelector('input');
-  return {shown: shown ? shown.innerText.trim() : null, input: input ? input.value : null}; })"""
+#: Reading (#1899), the number is the first fact of a person card; editing, a field.
+_NUMBERS = """() => { const cards = [...document.querySelectorAll('[data-person-card]')];
+  if (cards.length) return cards.map(c => ({shown: c.querySelector('[data-icon-fact]').innerText.trim(), input: null}));
+  return [...document.querySelectorAll('[data-field$=".mobile"]')].map(f => {
+    const input = f.querySelector('input'); return {shown: null, input: input ? input.value : null}; }); }"""
 
 
 def test_mijn_gezin_and_the_member_record_read_the_number_in_groups(browser):  # noqa: F811

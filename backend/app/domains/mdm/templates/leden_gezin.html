@@ -1,13 +1,90 @@
 {% extends "admin_base.html" %}
-{% block title %}{{ _("Gezin") }} — {{ _("Raak beheer") }}{% endblock %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ page_title }} — {{ _("Raak beheer") }}{% endblock %}
 {% block content %}
-{# Paginabrede gezinseditor (C1, #582): de kaart-klik landt hier. De bewerkingen
-   binnen het gezin blijven htmx-fragmenten die #leden-detail vervangen. #}
-{{ ui.back_link(_("Alle leden"), "/admin/leden") }}
-<div id="gezin-recordkop">
-  {% include "_leden_recordkop.html" %}
+{# The household's record (#1899, CR-11 roll-out slice 1; end state §2.2, §5.2)
+   on the record layout: the head with Bewerken and Acties, the tabs, the
+   summary card beside the form column, and the cards — a card per person (the
+   cards of Mijn gezin: `_household_head.html`, `_household_address.html`,
+   `_household_group.html`), Verantwoordelijk bestuurslid, Lidmaatschapsjaren.
+
+   READ first; `?bewerken=1` is the edit mode with ONE "Opslaan" in the action
+   bar, which writes the address, the persons, their e-mail addresses and
+   relations, the board member and the removed years in one transaction
+   (`POST /admin/leden/gezin/{id}`). Nothing on the page saves on its own.
+   `#gezin-record` is what a good answer replaces. #}
+<div id="gezin-record">
+{% include "_leden_recordkop.html" %}
+{# No summary while editing (Koen, 11 October 2026, to "mag de samenvattingskaart
+   weg zolang je bewerkt?": "ja"; and to "alleen het gezin, of overal laten
+   staan?": "b" — the household only): on a phone the strip left one field and
+   a half between itself and the action bar, and nothing in it is needed to
+   edit a household. The activity keeps its strip, the booking its card. #}
+{% set _card %}{% if not edit %}{{ ui.summary_card(summary.state, summary.figures) }}{% endif %}{% endset %}
+{% set _edit = edit %}
+{% call ui.record_columns(aside=_card|trim) %}
+<div data-form-flow data-mode="{{ 'edit' if edit else 'read' }}" class="form-flow">
+  <div id="gezin-melding" data-form-message></div>
+  {% if edit %}
+  <form id="gezin-form" class="contents" data-record-form data-message="#gezin-melding" novalidate
+        hx-post="/admin/leden/gezin/{{ family_id }}" hx-target="#gezin-record" hx-select="#gezin-record"
+        hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap">
+  {# The form names the years it holds: a year that is not among them is removed. #}
+  <input type="hidden" name="y_sent" value="1">
+  {% endif %}
+    {% include "_household_head.html" %}
+    {% include "_household_address.html" %}
+    {% include "_household_group.html" %}
+
+    {% call ui.section(_("Verantwoordelijk bestuurslid"), id="gezin-bestuurslid") %}
+      {% if edit %}
+      {{ ui.field("board_member_id", _("Verantwoordelijk bestuurslid"), kind="select", value=board_member_id,
+                  edit=True, label_hidden=True, options=board_options, id="board_member_id",
+                  help=_("Het bestuurslid dat dit gezin opvolgt.")) }}
+      {% else %}
+      <p data-span="full" data-board-member class="text-sm leading-[21px] text-ink">{{ board_member_name or "—" }}</p>
+      {% endif %}
+    {% endcall %}
+
+    {# A renewal that runs stands here as it stands on Mijn gezin (#1899 §4):
+       the transfer to make, or the online payment to resume. #}
+    {% if renewal and not edit %}
+    {% set card = renewal %}
+    {% call ui.section(_("Lopende vernieuwing"), id="gezin-vernieuwing") %}
+      <div data-span="full" data-renewal-running>{% include "_renewal_running.html" %}</div>
+      {# #1903: the confirmation goes to the main member's confirmed address;
+         without one nothing was mailed, and the record says so. #}
+      {% if renewal_unmailed %}
+      <p data-span="full" data-renewal-unmailed class="text-sm leading-[21px] text-ink-soft">{{ _("Het hoofdlid heeft geen bevestigd e-mailadres: de bevestiging van deze vernieuwing is niet gemaild.") }}</p>
+      {% endif %}
+    {% endcall %}
+    {% endif %}
+    {# The years one under the other, the newest first (Koen, 10 October 2026). No
+       way to add one: a year is the result of a renewal. Editing, a year goes
+       with its `⋯`, and with the page's one save. #}
+    {% call ui.repeating_group(_("Lidmaatschapsjaren"), "y_order", edit=edit, variant="simple", plain=True,
+                               count=years|length, empty=_("Nog geen lidmaatschap."), id="gezin-jaren",
+                               hint=(_("Een jaar komt uit een lidmaatschap dat vernieuwd wordt (Lidmaatschap vernieuwen onder Acties).") if edit else None)) %}
+      {% for y in years %}
+      {% call ui.group_row("y_order", y.id, edit=edit, menu=["remove"], attrs="data-row-inline",
+                            label=_("lidmaatschap %(jaar)s", jaar=y.year)) %}
+        <div data-span="full" data-membership-year="{{ y.year }}" class="flex items-center justify-between gap-3 min-h-11 md:min-h-9 text-sm leading-[21px] text-ink">
+          <span>{{ y.year }}</span>
+          {% if y.active %}{{ ui.badge(_("Actief"), "green") }}{% elif y.waiting %}{{ ui.badge(_("Wacht op betaling"), "yellow") }}{% endif %}
+        </div>
+      {% endcall %}
+      {% endfor %}
+    {% endcall %}
+  {% if edit %}
+  </form>
+  {{ ui.action_bar(record=True, form="gezin-form", cancel_href=("/admin/leden/gezin/" ~ family_id),
+                   delete_attrs=('hx-post="/admin/leden/gezin/' ~ family_id ~ '/verwijderen"'),
+                   delete_label=_("Verwijderen"),
+                   delete_confirm=_("Het gezin, zijn personen en zijn lidmaatschappen worden verwijderd. Betalingen blijven bewaard.")) }}
+  {% endif %}
 </div>
-<div id="leden-detail">
-  {% include "_leden_detail.html" %}
+{% endcall %}
 </div>
+{# The toast lands in the shell's host, outside what the answer replaces. #}
+{% if saved %}{{ ui.toast_oob() }}{% endif %}
 {% endblock %}

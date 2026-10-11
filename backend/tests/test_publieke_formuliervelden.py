@@ -81,8 +81,8 @@ def test_the_word_lid_page_sends_what_the_reader_reads(client, db_session):
     portal = client.get("/leden/gezin")
     assert portal.status_code == 200, "the address the form sent does not sign in"
     for value in (
-        # #1632: the main member stands in the section "Hoofdlid", no row title.
-        ">Hoofdlid</h2>",
+        # #1899: the main member's card carries the badge "Hoofdlid".
+        ">Hoofdlid</span>",
         "Veldnaam",
         "Proef",
         "01-01-1980",

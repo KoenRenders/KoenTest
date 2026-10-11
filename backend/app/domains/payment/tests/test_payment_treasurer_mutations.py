@@ -137,21 +137,49 @@ def test_a_rejected_status_is_refused_in_words(client, db_session):
 
 
 def test_the_delete_route_takes_the_record_out_of_the_balance(client, db_session):
-    """Soft-delete: bewaard als financieel feit, weg uit het saldo (#455)."""
+    """Soft-delete: bewaard als financieel feit, weg uit het saldo (#455) — for a
+    booking on which no money moved. Since #1901 the route asks the rule itself
+    (`deletion_refusal`): a booking with money received is refused HERE, where
+    until then only the screen refused it by not showing the button — this test
+    posted the route directly and deleted a paid booking of € 25,00.
+
+    Proven red (locally, restored): `refusal = None` put under the line that asks
+    the rule → "the refusal does not say why": the paid booking was deleted."""
     from app.domains.payment.api import net_paid
 
     headers = _login(client, db_session)
-    record = _charge(db_session, status="paid", paid="25.00", payable_id=7702)
+    paid = _charge(db_session, status="paid", paid="25.00", payable_id=7702)
     assert net_paid(db_session, "membership", 7702) == Decimal("25.00")
 
+    refused = client.post(
+        f"/admin/betalingen/{paid.id}/verwijderen",
+        headers=headers,
+        data={"note": "dubbel geboekt"},
+    )
+
+    assert refused.status_code == 200, refused.text[:200]
+    assert "kan niet verwijderd worden" in refused.text, "the refusal does not say why"
+    db_session.expire_all()
+    assert db_session.get(PaymentRecord, paid.id).deleted_at is None, (
+        "a paid booking was deleted by a request the screen never sends"
+    )
+    assert net_paid(db_session, "membership", 7702) == Decimal("25.00")
+
+    # Set to nothing received, it may go — and then it is out of the balance.
+    paid.amount_paid = None
+    paid.status = "pending"
+    db_session.commit()
     resp = client.post(
-        f"/admin/betalingen/{record.id}/verwijderen",
+        f"/admin/betalingen/{paid.id}/verwijderen",
         headers=headers,
         data={"note": "dubbel geboekt"},
     )
 
     assert resp.status_code == 200, resp.text[:200]
     db_session.expire_all()
+    assert db_session.get(PaymentRecord, paid.id).deleted_at is not None, (
+        "the booking is still there"
+    )
     assert net_paid(db_session, "membership", 7702) == Decimal("0.00"), (
         "het verwijderde record telt nog mee in het saldo"
     )

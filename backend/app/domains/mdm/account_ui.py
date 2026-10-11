@@ -57,6 +57,7 @@ class MyDetailsPage(ViewModel):
 
 
 def _page(request: Request, db: Session, person, *, edit: bool, saved: bool = False):
+    from app.domains.mdm.api import form_code_lists
     from app.domains.membership.api import person_block
 
     nav = account_nav(db, household=bool(person.member_persons))
@@ -66,7 +67,12 @@ def _page(request: Request, db: Session, person, *, edit: bool, saved: bool = Fa
         title=_("Mijn gegevens"),
         nav=nav,
         active=MY_DETAILS,
-        block=person_block(person, edit=edit),
+        block=person_block(
+            person,
+            form_code_lists(db),
+            short_date=templates.env.filters["kortedatum"],
+            edit=edit,
+        ),
         edit=edit,
         saved=saved,
         household_href=household if in_menu and person.member_persons else None,

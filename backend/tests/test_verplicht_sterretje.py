@@ -86,10 +86,12 @@ def _named_by_its_group(html: str) -> set[str]:
 def _group_title_marked(html: str, group: str) -> bool:
     """Does the title of the repeating group `group` carry the red star?"""
     found = re.search(
-        rf'data-repeating-group="{re.escape(group)}".*?<h[23][^>]*>(.*?)</h[23]>', html, re.S
+        rf'data-repeating-group="{re.escape(group)}".*?<(h[23]|p data-group-title)[^>]*>(.*?)</(?:h[23]|p)>',
+        html,
+        re.S,
     )
     assert found, f"no repeating group {group}"
-    return bool(ROOD_STERRETJE.search(found.group(1)))
+    return bool(ROOD_STERRETJE.search(found.group(2)))
 
 
 def _controleer(html: str, *, minstens: set[str]) -> None:

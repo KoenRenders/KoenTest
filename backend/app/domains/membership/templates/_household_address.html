@@ -10,6 +10,12 @@
    the save says so at the field that is missing. #}
 {% set _a = group.address %}
 {% set _asked = group.address_required %}
+{% if not _edit %}
+{# Reading (#1899; end state §2.2): the address is one line behind its icon. #}
+{% call ui.section(_("Adres"), id="gezin-adres") %}
+  <p data-span="full" data-address-line class="text-sm leading-[21px] text-ink">{{ ui.icon_fact("map-pin", group.address_line or "—") }}</p>
+{% endcall %}
+{% else %}
 {% call ui.section(_("Adres"), id="gezin-adres",
                    intro=(None if _asked or not _edit else _("Je gezin heeft nog geen adres. Vul straat, huisnummer en postcode samen in, of laat ze leeg."))) %}
   {{ ui.field("address.street", _("Straat"), value=_a.street, edit=_edit, required=_asked, id="address-street",
@@ -22,3 +28,4 @@
               required=_asked, span="full", id="address-postal_code",
               options=[("", _("— kies je postcode —"))] + group.postal_options|list) }}
 {% endcall %}
+{% endif %}

@@ -115,6 +115,7 @@ ADMIN_HOOKS: dict[str, str] = {
     "pager": "[data-pager]",
     "record head": "[data-record-head]",
     "summary card": "[data-summary-card]",
+    "person card": "[data-person-card]",
     "related tabs": "[data-related-tabs]",
     "form column": "[data-form-column]",
     "form section": "[data-form-section]",
@@ -248,6 +249,34 @@ def _activity(tab: Optional[str] = None, edit: bool = False) -> Callable:
     return action
 
 
+def _household(edit: bool = False) -> Callable:
+    """The record of the first household of the member list (its default segment,
+    A–Z), in read or in edit mode (#1899)."""
+
+    def action(page) -> None:
+        link = page.locator("#leden-lijst a[data-row-link]").first
+        link.wait_for(state="visible", timeout=5000)
+        address = urljoin(page.url, link.get_attribute("href")).split("?")[0]
+        page.goto(address + ("?bewerken=1" if edit else ""))
+        page.wait_for_load_state("networkidle")
+
+    return action
+
+
+def _booking(edit: bool = False) -> Callable:
+    """The record of the first open booking of the payments list, in read or in
+    edit mode (#1901)."""
+
+    def action(page) -> None:
+        link = page.locator("#betalingen-lijst a[data-row-link]").first
+        link.wait_for(state="visible", timeout=5000)
+        address = urljoin(page.url, link.get_attribute("href")).split("?")[0]
+        page.goto(address + ("?bewerken=1" if edit else ""))
+        page.wait_for_load_state("networkidle")
+
+    return action
+
+
 def _open_the_panel(page) -> None:
     page.locator("[data-raakje-trigger]").click()
     page.locator("[data-context-key]").wait_for(state="visible", timeout=5000)
@@ -329,6 +358,51 @@ SCREENS: tuple[Screen, ...] = (
         session="admin",
         widths=ADMIN,
     ),
+    # #1901: a booking's record on the record layout — the head, the summary card
+    # with its rows, the card Boeking — read and in edit mode.
+    Screen(
+        "boeking",
+        "/admin/betalingen?zicht=openstaand",
+        ("record head", "summary card", "form section"),
+        session="admin",
+        widths=ADMIN,
+        action=_booking(),
+    ),
+    Screen(
+        "boeking-bewerken",
+        "/admin/betalingen?zicht=openstaand",
+        ("record head", "summary card", "form section", "field", "action bar"),
+        session="admin",
+        widths=ADMIN,
+        action=_booking(edit=True),
+    ),
+    # #1899: Leden on the list-page layout, on its default segment Actief.
+    Screen(
+        "leden",
+        "/admin/leden",
+        ("top bar title", "toolbar", "key figure", "table", "content row"),
+        session="admin",
+        widths=ADMIN,
+    ),
+    # #1899: the household's record on the record layout — the head, the tabs, the
+    # summary card, a card per person — read and in edit mode.
+    Screen(
+        "gezin",
+        "/admin/leden",
+        ("record head", "related tabs", "summary card", "person card", "form section"),
+        session="admin",
+        widths=ADMIN,
+        action=_household(),
+    ),
+    Screen(
+        "gezin-bewerken",
+        "/admin/leden",
+        # No summary while editing a household (Koen, 11 October 2026).
+        ("record head", "form section", "field", "action bar"),
+        session="admin",
+        widths=ADMIN,
+        action=_household(edit=True),
+    ),
     # CR-22 S7 (#1712): Personen, on its default view "Zonder gezin" — the one
     # person the measurement seed makes without a household.
     Screen(
@@ -381,7 +455,7 @@ SCREENS: tuple[Screen, ...] = (
     Screen(
         "design-system",
         "/admin/design-system",
-        ("top bar title", "field", "key figure"),
+        ("top bar title", "field", "key figure", "person card"),
         session="admin",
         widths=ADMIN,
     ),

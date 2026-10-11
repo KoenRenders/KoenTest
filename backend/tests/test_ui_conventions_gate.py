@@ -338,7 +338,7 @@ def test_de_kit_levert_de_beloofde_macros():
         "toast_host",
         "success_banner",
         "error_banner",
-        "person_fields",
+        "person_card",
         "btn_primary",
         "btn_secondary",
         "btn_outline",
@@ -468,14 +468,12 @@ LIJSTSCHERMEN = [
     "admin_media.html",
     "admin_gebruikers.html",
     "admin_tenants.html",
-    "leden.html",
 ]
 KAARTFRAGMENTEN = (
     "_aa_kaarten.html",
     "_fb_kaarten.html",
     "_cp_kaarten.html",
     "_tn_kaarten.html",
-    "_leden_lijst.html",
     "_me_lijst.html",
     "_gu_lijst.html",
 )
@@ -1744,7 +1742,8 @@ def test_een_verwijderknop_kiest_haar_maat():
             if "size=" not in argumenten:
                 fouten.append(f"{rel}:{regel}")
     # 9 since K2 (#1556): the payments row lost its unfold, and with it one call.
-    assert geteld >= 9, (
+    # Seven since #1899: the household's cards went, and their two delete buttons.
+    assert geteld >= 7, (
         f"maar {geteld} btn_danger-oproepen gevonden — de zoekopdracht mist er, "
         "een gate die nergens kijkt bewaakt niets"
     )

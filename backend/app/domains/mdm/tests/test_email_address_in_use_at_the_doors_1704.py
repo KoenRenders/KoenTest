@@ -23,7 +23,7 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import ContactDetail, Member, MemberPerson, Person, new_contact_detail
 from app.domains.mdm.import_service import upsert_families
-from tests._refusal import message_line, said
+from tests._refusal import message_line
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_postal_code
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -70,28 +70,32 @@ def _holders(db) -> int:
 
 def test_the_boards_person_screen_says_why(client, db_session, two_households):
     """Red without the handler: 500, "Interne serverfout". Since #1853 this door
-    answers into the line of the person's card (the kit's refusal) — the JSON it
-    answered before was a refusal the screen showed as its general message."""
+    answers the kit's refusal; since #1899 it is the household record's one save,
+    and the sentence stands at the row that was typed."""
+    from tests.conftest import record_fields, save_record
+
     _holder, other, household = two_households
-    answer = client.post(
-        f"/admin/leden/gezin/{household.id}/persoon/{other.id}/email",
-        data={"extra_email": TAKEN},
-        headers=_admin(client),
-    )
+    headers = _admin(client)
+    fields = record_fields(client, household.id)
+    fields[f"e_order.{other.id}"] = [*fields.get(f"e_order.{other.id}", []), "nx"]
+    fields["e.nx.value"] = TAKEN
+    answer = save_record(client, household.id, fields, headers)
     assert answer.status_code == 422, answer.text[:200]
-    assert said(answer) == [REASON]
-    assert message_line(answer) == f"#persoon-{other.id}-melding"
+    assert REASON in answer.text and "e.nx.value" in answer.text
+    assert message_line(answer) == "#gezin-melding"
     assert _holders(db_session) == 1, "the address got a second holder after all"
 
 
 def test_a_free_address_is_still_added_on_that_screen(client, db_session, two_households):
-    """The door is not simply shut: the same request with a free address works."""
+    """The door is not simply shut: the same save with a free address works."""
+    from tests.conftest import record_fields, save_record
+
     _holder, other, household = two_households
-    answer = client.post(
-        f"/admin/leden/gezin/{household.id}/persoon/{other.id}/email",
-        data={"extra_email": "vrij@example.com"},
-        headers=_admin(client),
-    )
+    headers = _admin(client)
+    fields = record_fields(client, household.id)
+    fields[f"e_order.{other.id}"] = [*fields.get(f"e_order.{other.id}", []), "nx"]
+    fields["e.nx.value"] = "vrij@example.com"
+    answer = save_record(client, household.id, fields, headers)
     assert answer.status_code == 200, answer.text[:200]
     db_session.expire_all()
     row = db_session.query(ContactDetail).filter_by(value="vrij@example.com").one()

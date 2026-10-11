@@ -231,8 +231,10 @@ def test_the_posters_help_is_one_sentence_on_its_three_pages(client, db_session)
 
 
 def test_a_components_question_form_is_called_formulier_on_the_boards_page(client, db_session):
-    """Koen, 5 October 2026 (Q66): "Formulier", "Geen", and what it does. Edit
-    and read mode; the public page keeps its own word, "Vragen"."""
+    """Koen, 5 October 2026 (Q66): "Formulier", "Geen", and what it does, in edit
+    mode; the public page keeps its own word, "Vragen". Since #1900 read mode
+    shows the form behind the clipboard icon, as a jump link to its admin page
+    or "—" — no label."""
     activity, component, *_rest = _world(db_session)
     _login(client)
     edit = _page(client, activity.id, edit=True)
@@ -243,6 +245,6 @@ def test_a_components_question_form_is_called_formulier_on_the_boards_page(clien
     assert "Extra vragen" not in edit and "Geen extra vragen" not in edit
 
     read = _page(client, activity.id)
-    field = read[read.index(f'data-field="c.{component.id}.form_id"') :][:400]
-    assert ">Formulier<" in field
+    assert f'data-field="c.{component.id}.form_id"' not in read
+    assert "data-component-facts" in read
     assert "Extra vragen" not in read

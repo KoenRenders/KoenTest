@@ -6,7 +6,7 @@ the column's width, the cards' radius, padding and background, the distance
 between two cards, and the primary button's background, radius, height and
 font. The values must be the SAME on every page — that is the acceptance — and
 they are pinned to the norm once (768 / 358 px, 14 px radius, 16 px padding,
-32 px between cards), so "the same" cannot become "equally wrong".
+16 px between cards since #1899), so "the same" cannot become "equally wrong".
 
 All five public forms are measured: register and a public form (P2, #1589),
 Word lid, renew and Mijn gezin in edit mode (P3, #1590). The last two are
@@ -31,7 +31,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests_e2e.schermen import BASE, login_met_sessie, pagina_klaar  # noqa: E402
 
 #: width → what the norm says (§2.6): column, card radius, card padding, gap.
-NORM = {390: (358, "14px", "16px", 32), 1440: (768, "14px", "16px", 32)}
+NORM = {390: (358, "14px", "16px", 16), 1440: (768, "14px", "16px", 16)}
 
 MEASURE = """() => {
   const px = n => Math.round(n);

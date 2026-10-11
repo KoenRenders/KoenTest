@@ -330,12 +330,13 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    640 px (964 px of frame), else above it. The form grid has four tracks, 12 px apart; it goes to
    one column when the section is narrower than 532 px inside (two half fields
    of 260 px and their gap) — a container query, which a utility cannot say.
-   32 px between the sections of a form column. */
+   16 px between the cards of a form column (#1899, CR-11 B10 of 10 October
+   2026; 32 px until then). */
 .admin-content:has([data-record-head]){max-width:none}
 .record-frame{container-type:inline-size;container-name:record}
 .record-columns{display:grid;grid-template-columns:minmax(0,768px);gap:24px;align-items:start}
 .record-form-column{min-width:0}
-.form-flow{display:grid;gap:32px;min-width:0}
+.form-flow{display:grid;gap:16px;min-width:0}
 /* CR-11 pilot B (#1589, §2.6): the public form page — one column of 768 px,
    centred in the site shell (720 on a tablet: the container's own width),
    left-aligned in the admin's. 24 px under the site's header on a phone, 32
@@ -351,8 +352,8 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 @media (min-width:768px){.public-form-title{font-size:40px}}
 @media (max-width:767.98px){body[data-shell="site"] .public-form-page{margin-top:-8px}}
 /* #1587: the flow's message line (where a refused or failed save stands) is a
-   child of the flow, and an empty one still took the 32 px gap under it — the
-   first card then started 32 px below the summary card beside it. Empty, it
+   child of the flow, and an empty one still took the flow's gap under it — the
+   first card then started that far below the summary card beside it. Empty, it
    is no part of the flow. `:has`, not `:empty`: the template leaves white
    space in it. */
 .form-flow>[data-form-message]:not(:has(*)){display:none}
@@ -379,11 +380,13 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .summary-card [data-summary-state]{grid-column:1;grid-row:1}
 .summary-card [data-summary-action]{grid-column:2;grid-row:1}
 .summary-card [data-summary-link]{display:none}
-.summary-card [data-summary-figures]{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+/* Every figure a row — label left, value right — in the card, in the strip and
+   above a wide form alike (Koen, 11 October 2026: "B voor elke kaart"). */
+.summary-card [data-summary-figures]{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+.summary-card [data-summary-figure]{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 @container (min-width:964px){
   .summary-card{grid-template-columns:minmax(0,1fr);padding:16px}
-  .summary-card [data-summary-figures]{grid-column:1;grid-template-columns:repeat(2,minmax(0,1fr))}
-  .summary-card [data-summary-figure]:nth-child(3){grid-column:1/-1;display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+  .summary-card [data-summary-figures]{grid-column:1}
   .summary-card [data-summary-action]{grid-column:1;grid-row:auto;display:flex;align-items:center;gap:8px;border-top:1px solid rgb(var(--c-line));padding-top:12px}
   .summary-card [data-summary-link]{display:block;flex:1}
 }
@@ -391,8 +394,7 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    one shape for "above" — so the card shape just said is taken back there. */
 @container record (min-width:1092px){
   .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card{grid-template-columns:minmax(0,1fr) auto;padding:12px}
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-figures]{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr))}
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-figure]:nth-child(3){grid-column:auto;display:block}
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-figures]{grid-column:1/-1}
   .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-action]{grid-column:2;grid-row:1;display:block;border-top:0;padding-top:0}
   .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-link]{display:none}
 }
@@ -482,6 +484,23 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    behind a vertical line: 16 px, 12 on a phone. While dragging: the origin
    dotted and dimmed, a brand line where the row will land. */
 .group-rows>[data-group-row]+[data-group-row]{margin-top:12px;padding-top:12px;border-top:1px solid rgb(var(--c-line))}
+/* #1899: a group of CARDS — every item a card of the form flow, 16 px apart
+   like the flow's own cards, no line between them (a card has its border). */
+.group-cards,.group-rows--cards{display:grid;gap:16px;min-width:0}
+.group-rows--cards:not(:has(*)){display:none}
+.group-rows--cards>[data-group-row]+[data-group-row]{margin-top:0;padding-top:16px;border-top:1px solid rgb(var(--c-line))}
+.group-row--card>.group-body>[data-row-title-line]{margin-bottom:4px}
+/* #1899: the plain child list (a person's e-mail addresses) — no rule at its
+   left, no line between its rows, and the tag in a slot of one width so the
+   fields are equally wide whatever a row carries. */
+.group-child.group-child--plain{margin-top:0;padding-left:0;border-left:0}
+.group-rows.group-rows--plain>[data-group-row]+[data-group-row]{margin-top:8px;padding-top:0;border-top:0}
+@container (min-width:532px){
+  .group-child--plain .group-row--simple.group-row--one{grid-template-columns:minmax(0,1fr) 9.5rem}
+  .group-child--plain .group-row--edit.group-row--simple.group-row--one{grid-template-columns:minmax(0,1fr) 9.5rem 44px}
+  .group-child--plain .group-row--simple.group-row--one>[data-row-one-tag],.group-child--plain .group-row--simple.group-row--one>[data-row-tag]{grid-column:2}
+  .group-child--plain .group-row--edit.group-row--simple.group-row--one>[data-row-menu-holder]{grid-column:3}
+}
 .group-row--edit.group-row--simple{display:grid;grid-template-columns:minmax(0,1fr) 44px;column-gap:8px;align-items:end}
 .group-row--edit.group-row--simple.group-row--handle{grid-template-columns:44px minmax(0,1fr) 44px}
 /* #1610: a composite item's handle stands in a gutter of 28 px (it was 44): the
@@ -535,7 +554,7 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    are gone — with a heavier line on top and, while it sticks, the shadow
    upward (`data-stuck`, set by record-form.js); in the flow at the form's end
    it is a plain row again. The same picture on a phone and in both shells. */
-.record-bar{position:sticky;bottom:0;z-index:20;display:flex;align-items:center;gap:8px;min-height:64px;margin-top:-8px;padding:0 16px;background:rgb(var(--c-surface));border-top:2px solid rgb(var(--c-line))}
+.record-bar{position:sticky;bottom:0;z-index:20;display:flex;align-items:center;gap:8px;min-height:64px;margin-top:8px;padding:0 16px;background:rgb(var(--c-surface));border-top:2px solid rgb(var(--c-line))}
 .record-bar[data-stuck]{box-shadow:0 -8px 24px -4px rgb(var(--c-ink)/.14)}
 .record-bar-delete{margin-right:auto}
 .record-bar-cancel{margin-left:auto}
@@ -550,7 +569,7 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 [data-group-row][data-refused]{box-shadow:inset 3px 0 0 rgb(var(--c-red-600))}
 [data-group-row][data-refused]>[data-refused-message],[data-group-row][data-refused] [data-row-body]>[data-refused-message]{margin:0 0 4px;padding-left:8px}
 @media (max-width:767.98px){
-  .record-bar{display:grid;grid-template-columns:1fr 1fr;gap:8px;min-height:121px;margin:-8px -16px 0;padding:11px 16px 12px}
+  .record-bar{display:grid;grid-template-columns:1fr 1fr;gap:8px;min-height:121px;margin:8px -16px 0;padding:11px 16px 12px}
   .record-bar-save{grid-column:1/-1;grid-row:1}
   .record-bar-delete{grid-column:1;grid-row:2;justify-self:start;margin:0}
   .record-bar-cancel{grid-column:2;grid-row:2;justify-self:end;margin:0}
@@ -571,6 +590,9 @@ body[data-shell="admin"] #toasts [data-toast="success"]{background:rgb(var(--c-i
   .group-head{display:none}
   .group-row--edit.group-row--simple,.group-row--edit.group-row--simple.group-row--handle{grid-template-columns:44px minmax(0,1fr) 44px;row-gap:4px;align-items:center}
   .group-row--edit.group-row--simple>.group-body{grid-column:1/-1;grid-row:2}
+  /* #1899: a row that is a line of text and no field (a membership year) keeps
+     its menu beside it — there is no label to give the first row to. */
+  .group-row--edit.group-row--simple[data-row-inline]>.group-body{grid-column:1/3;grid-row:1}
   .group-row--edit.group-row--simple:not(.group-row--handle)>.relative{grid-column:3}
   .group-row--edit.group-row--simple.group-row--one{grid-template-columns:minmax(0,1fr) 44px;align-items:center;min-height:44px}
   .group-row--edit.group-row--simple.group-row--one>[data-row-one-tag],.group-row--edit.group-row--simple.group-row--one>[data-row-tag]{grid-column:1;grid-row:1;justify-self:start}

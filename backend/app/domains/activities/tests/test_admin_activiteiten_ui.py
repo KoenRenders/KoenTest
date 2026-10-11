@@ -35,16 +35,21 @@ def test_admin_activiteit_aanmaken_en_detail(client, db_session):
 
 
 def test_activiteit_geneste_producten_paneel(client, db_session):
-    """#509: products stand under their component, indented behind a line — since
-    #1559 as the child group of the kit's repeating group (no nested card)."""
+    """#509: products stand under their component — since #1559 as the child group
+    of the kit's repeating group (no nested card), since #1900 as a list under
+    its label \"Producten\", in the component's own card."""
     activity, component, product = seed_activity_with_product(db_session)
     _login(client)
     html = client.get(f"/admin/activiteiten/{activity.id}").text
     assert ">Onderdelen</h2>" in html
     components = html[html.index('id="aa-group-components"') :]
     child = components[components.index(f'data-repeating-group="p_order.{component.id}"') :]
-    assert 'class="group-child"' in child.split(">", 1)[0] + ">"
-    assert ">Producten</h3>" in child
+    assert 'class="group-child group-child--plain"' in child.split(">", 1)[0] + ">"
+    title = child[child.index("data-group-title") :].split("</p>", 1)[0]
+    assert title.split(">", 1)[1].strip() == "Producten"
+    assert "data-group-cards" in components.split(">", 1)[0], (
+        "a component is not a card of the flow"
+    )
     assert product.name in child
 
 
@@ -64,9 +69,9 @@ def test_activiteit_affiche_upload_in_edit_modus(client, db_session):
     form = html.split('<form id="aa-act-form"', 1)[1].split("</form>", 1)[0]
     assert 'type="file"' in form, "the file field belongs in that form"
     assert 'name="name"' in form and 'name="description"' in form
-    # The poster address sits in the closed last section, outside the form
-    # element, and names the form it belongs to.
-    assert 'name="poster_url" form="aa-act-form"' in html
+    # #1900: the poster address sits in the closed line of the card Activiteit,
+    # inside the form.
+    assert 'name="poster_url"' in form and "data-rare-line" in form
 
 
 def test_admin_inschrijvingen_en_export(client, db_session):

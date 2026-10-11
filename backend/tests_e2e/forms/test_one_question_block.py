@@ -35,6 +35,7 @@ MEASURE = """(title) => {
   const s = h ? getComputedStyle(h) : null;
   return {
     title: s ? {size: s.fontSize, weight: s.fontWeight, color: s.color} : null,
+    titles: [...document.querySelectorAll('h1, h2, h3')].filter(e => e.innerText.trim() === title).length,
     gap: blocks.length > 1
       ? Math.round(blocks[1].getBoundingClientRect().top - blocks[0].getBoundingClientRect().bottom)
       : null,
@@ -93,8 +94,13 @@ def test_the_registration_asks_in_the_forms_own_block(browser, setup, width):
     # #1589 (§2.6): the form's name stands in the name card of its own page; the
     # registration asks under its own section "Vragen bij de inschrijving". What
     # the two share is the question cards — the same label, distance and card.
+    # #1901 §3 (Koen, 11 October 2026: "a"): the registration page names the form
+    # too, ONCE, as a heading row above its section cards — a heading of the page,
+    # which the site's shell sizes (24 px, semibold, as every h2 of a public page).
     assert form["title"] is not None, f"the form's own page lost its title: {form}"
-    assert reg["title"] is None, "the registration page repeats the form's title"
+    assert reg["title"] is not None, "the registration page does not name the form"
+    assert reg["titles"] == 1, f"the form is named {reg['titles']} times on the page"
+    assert (reg["title"]["size"], reg["title"]["weight"]) == ("24px", "600"), reg["title"]
     assert form["label"] is not None and reg["label"] == form["label"], (form, reg)
     assert reg["gap"] == form["gap"], f"gap between two questions @{width}: {form} — {reg}"
     assert reg["card"] == form["card"] == "rgb(255, 255, 255)", (form, reg)

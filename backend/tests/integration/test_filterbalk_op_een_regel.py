@@ -179,7 +179,6 @@ SCHERMEN = [
     ("/admin/e-maillog", {"recipient", "email_type", "status"}),
     ("/admin/organisaties", {"q", "org_type"}),
     ("/admin/tenants", {"q", "status"}),
-    ("/admin/leden", {"q", "status", "jaar"}),
     # #1527: the tree chooses the kind and the activity; the row keeps the search.
     ("/admin/media", {"q"}),
     ("/admin/ledenwijzigingen", {"actor", "since", "group"}),
@@ -229,7 +228,6 @@ def test_het_zoekveld_wint_de_restbreedte(client, db_session):
             "domains/mail/templates/email_log.html",
             "ui/templates/admin_organisaties.html",
             "ui/templates/admin_tenants.html",
-            "domains/mdm/templates/leden.html",
             "domains/media/templates/admin_media.html",
             "ui/templates/admin_ledenwijzigingen.html",
             "domains/auth/templates/admin_gebruikers.html",

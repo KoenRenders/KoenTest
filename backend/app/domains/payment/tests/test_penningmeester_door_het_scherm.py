@@ -61,6 +61,11 @@ def _charge(db, bedrag="30.00", betaald=None, status="pending"):
 
 def _post(client, hdr, pad, **data):
     resp = client.post(pad, data=data, headers=hdr)
+    # #1901: registering a refund answers with the way to the new refund's page.
+    if pad.endswith("/refund"):
+        assert resp.status_code == 204, resp.text
+        # What the treasurer sees next on the list.
+        return client.get("/admin/betalingen/lijst").text
     assert resp.status_code == 200, resp.text
     return resp.text
 

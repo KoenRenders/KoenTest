@@ -80,26 +80,34 @@ def _gezin(db, achternaam="Recordmans", voornaam="Rita"):
 
 
 def test_recordkop_draagt_label_tabs_en_verwijderen(client, db_session):
+    """#1899: the kit's record head — the household's name, no household number —
+    and the related tabs: Gegevens, then the lists with their count."""
+    import re
+
     m, p, _ms, _reg = _gezin(db_session)
     db_session.commit()
     _login(client)
     html = client.get(f"/admin/leden/gezin/{m.id}").text
 
     assert "Recordmans Rita" in html  # gezinslabel = hoofdlid, zoals de lijst
-    assert f"Gezin #{m.id}" in html
-    assert ">Overzicht</a>" in html
-    # De Wijzigingen-tab verviel op Koens vraag (15 sep); Inschrijvingen
-    # kwam ervoor in de plaats — met het aantal (één inschrijving gezaaid).
-    # ("Wijzigingen" als woord staat nog in de linkernav — die blijft.)
+    assert f"Gezin #{m.id}" not in html, "the household number is back in the head"
+    tabs = html[html.index("data-related-tabs") :]
+    tabs = re.sub(r"<[^>]+>", " ", tabs[: tabs.index("</nav>")])
+    assert re.findall(r"(Gegevens|Inschrijvingen|Betalingen)\s*(?:\((\d+)\))?", tabs) == [
+        ("Gegevens", ""),
+        # één inschrijving gezaaid
+        ("Inschrijvingen", "1"),
+        # De gezaaide beheerder draagt FINANCE (migratie 056) → Betalingen-tab
+        # met het aantal: lidgeld + inschrijvingsbetaling.
+        ("Betalingen", "2"),
+    ]
+    # De Wijzigingen-tab verviel op Koens vraag (15 sep).
     assert f"/admin/leden/gezin/{m.id}/wijzigingen" not in html
     assert f'href="/admin/leden/gezin/{m.id}/inschrijvingen"' in html
-    assert "Inschrijvingen 1" in html
-    # De oude Gezin#-kaart is weg; Verwijderen zit in de kop.
-    assert ">Verwijderen<" in html
-    # De gezaaide beheerder draagt FINANCE (migratie 056) → Betalingen-tab
-    # met het aantal: lidgeld + inschrijvingsbetaling.
     assert f'href="/admin/leden/gezin/{m.id}/betalingen"' in html
-    assert "Betalingen 2" in html
+    # Verwijderen staat onder Acties in de kop; Bewerken is de hoofdknop.
+    head = html[html.index("data-record-head") : html.index("data-related-tabs")]
+    assert "Verwijderen" in head and f'href="/admin/leden/gezin/{m.id}?bewerken=1"' in head
 
 
 def test_admin_zonder_finance_ziet_de_tab_wel(client, db_session):
@@ -206,26 +214,23 @@ def test_mijn_profiel_toont_rollen_per_werkruimte(client, db_session):
     assert "#963" in html
 
 
-def test_opslaan_ververst_de_kop_out_of_band(client, db_session):
-    """Zelfde HDEV-melding als de activiteit: de kop (naam, adres) staat
-    buiten #leden-detail en reist nu oob mee met elk mutatie-antwoord."""
+def test_opslaan_ververst_de_kop(client, db_session):
+    """Zelfde HDEV-melding als de activiteit: na Opslaan zegt de kop de nieuwe
+    naam. Sinds #1899 antwoordt de ene save met het hele record in leesmodus —
+    de kop zit erin, er reist niets meer out-of-band mee."""
+    from tests.conftest import record_fields, save_record
+
     m, p, _ms, _reg = _gezin(db_session)
     db_session.commit()
-    csrf = _login(client)
-    r = client.post(
-        f"/admin/leden/gezin/{m.id}/persoon/{p.id}",
-        data={
-            "first_name": "Rita",
-            "last_name": "Nieuwnaam",
-            "date_of_birth": "1980-01-01",
-            "gender_code": "M",
-            "relation_type": "HOOFDLID",
-        },
-        headers={"X-CSRF-Token": csrf},
-    )
+    _login(client)
+    fields = record_fields(client, m.id)
+    fields[f"h.{p.id}.last_name"] = "Nieuwnaam"
+
+    r = save_record(client, m.id, fields)
+
     assert r.status_code == 200
-    assert 'id="gezin-recordkop" hx-swap-oob="true"' in r.text
-    assert "Nieuwnaam Rita" in r.text
+    head = r.text[r.text.index("data-record-head") : r.text.index("data-related-tabs")]
+    assert "Nieuwnaam Rita" in head and "hx-swap-oob" not in head
 
 
 def test_inschrijvingen_tab_overleeft_geschrapte_activiteit(client, db_session):

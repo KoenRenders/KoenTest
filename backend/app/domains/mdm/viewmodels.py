@@ -12,34 +12,92 @@ from app.ui.viewmodel import ViewModel
 
 @dataclass(frozen=True, kw_only=True)
 class LedenView(ViewModel):
-    """`leden.html` en haar fragment `_leden_lijst.html`.
+    """`leden.html` and its fragment `_leden_lijst.html` (#1899: the list-page
+    layout — the title row with its figures, the toolbar, the kit's table).
 
-    Het fragment wordt los gerenderd bij zoeken, filteren en pagineren, dus alles
-    wat het nodig heeft staat hier — ook de pagineervelden, want `ui.pager()` toont
-    "x–y van n".
-    """
+    The fragment is rendered on its own at a search, a filter, a sort and a page,
+    so everything it needs stands here."""
 
-    families: list[Any]
-    # Paginering (#580).
-    page: int
-    total: int
-    per_page: int
-    total_pages: int
-    # Actieve filterstand; de balk leest ze terug.
-    q: str
+    #: One per household: {id, name, address, persons, badge (label, tone)}.
+    rows: list[dict[str, Any]]
+    columns: list[dict[str, Any]]
+    segments: list[dict[str, Any]]
+    #: The three figures of the title row (`ui.figures`).
+    figures: list[dict[str, Any]]
+    # The list's state; the toolbar reads it back.
     status: str
+    q: str
     jaar: int | None
     jaren: list[int]
-    gefilterd: bool
-    # KPI-rij (#582/#611). `kpi_doeljaar` en `kpi_referentiejaar` staan in de
-    # labels: het campagnejaar kantelt op een tenant-datum en mag dus nergens
-    # hardgecodeerd staan.
-    kpi_gezinnen: int
-    kpi_personen: int
-    kpi_niet_vernieuwd: int
-    kpi_doeljaar: int
-    kpi_referentiejaar: int
+    sort: str
+    sort_options: list[tuple[str, str]]
+    page: int
+    per_page: int
+    total: int
+    page_sizes: list[int]
+    pager_url: str
+    empty_reason: str
 
     csrf_token: str
-    # Alleen de volledige pagina draagt de navigatie; het fragment niet.
+    #: The fragment refreshes the toolbar's count and segment counts out-of-band.
+    oob: bool = False
+    # Only the full page carries the navigation; the fragment does not.
+    nav_items: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True, kw_only=True)
+class HouseholdRecordView(ViewModel):
+    """`leden_gezin.html` — the household's record (#1899; end state §5.2)."""
+
+    family_id: int
+    page_title: str
+    #: `ui.record_header` and `ui.related_tabs`, as data (`mdm.household_record_head`,
+    #: `mdm.gezin_tabs`), with the way back (`app.ui.record_frame`).
+    record_head: dict[str, Any]
+    record_tabs: list[dict[str, Any]]
+    way_back: dict[str, Any]
+    head_editing: bool
+    #: `ui.summary_card`: {state, figures}.
+    summary: dict[str, Any]
+    #: The persons and the address: membership's `HouseholdGroup`, the cards of
+    #: Mijn gezin.
+    group: Any
+    edit: bool
+    #: The page answers a save: it says "Opgeslagen ✓".
+    saved: bool
+    #: The membership years, newest first: {id, year, active, waiting}.
+    years: list[dict[str, Any]]
+    board_member_id: str
+    board_member_name: str
+    #: (person id, name) for the select, in edit mode only.
+    board_options: list[tuple[str, str]]
+    #: A renewal that runs — the transfer to make or the online payment to
+    #: resume — as membership's `MembershipCard`; None when none runs.
+    renewal: Any
+    #: That renewal was confirmed to nobody (#1903): the main member has no
+    #: confirmed e-mail address.
+    renewal_unmailed: bool
+
+    csrf_token: str
+    nav_items: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True, kw_only=True)
+class RenewMembershipView(ViewModel):
+    """`renew_membership_admin.html` — the board renews a household's membership
+    (#1899): membership's `RenewPage`, in the admin shell."""
+
+    page: Any
+    household_name: str
+    csrf_token: str
+    nav_items: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True, kw_only=True)
+class NewHouseholdView(ViewModel):
+    """`leden_nieuw.html` — the board's Nieuw lid (#1899): an empty household on
+    the person card (membership's `HouseholdGroup`, as Word lid shows it)."""
+
+    group: Any
+    csrf_token: str
     nav_items: list[dict[str, Any]] = field(default_factory=list)

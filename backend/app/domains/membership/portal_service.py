@@ -46,13 +46,67 @@ def _member_for(person, db: Session) -> Member:
 
 # No route of its own since CR-13 phase 4b (#1251): no caller. The facade (`api.py`) calls this
 # function for the screen; it stays in this file until phase 4c moves it.
-def renew_membership(*, person, db: Session, payment_method: str = "online") -> dict:
+def main_person_of(db: Session, household_id: int):
+    """The main member of the household with this id — whom a renewal runs for
+    when the board starts it (#1899). None when the household has none; 404
+    when there is no such household."""
+    from app.domains.mdm.api import RelationType
+
+    member = db.query(Member).filter(Member.id == household_id).first()
+    if member is None:
+        raise HTTPException(status_code=404, detail=_("Gezin niet gevonden"))
+    return next(
+        (
+            link.person
+            for link in member.member_persons
+            if link.deleted_at is None
+            and link.relation_type == RelationType.PRIMARY_MEMBER
+            and link.person is not None
+        ),
+        None,
+    )
+
+
+def renewal_mail_address(db: Session, household_id: int) -> tuple[str, str] | None:
+    """Where the confirmation of a renewal goes (#1903): the main member's
+    confirmed e-mail address — the primary one first — with his name. None when
+    the household has no main member, or he has no confirmed address: then no
+    mail leaves, and the board's record says so."""
+    main = main_person_of(db, household_id)
+    if main is None:
+        return None
+    confirmed = sorted(
+        (
+            c
+            for c in main.contact_details
+            if c.contact_type_code == CONTACT.EMAIL and c.confirmed_at is not None and c.value
+        ),
+        key=lambda c: (not c.is_primary, c.id or 0),
+    )
+    if not confirmed:
+        return None
+    return confirmed[0].value, f"{main.first_name} {main.last_name}".strip()
+
+
+def renew_membership(
+    *,
+    person,
+    db: Session,
+    payment_method: str = "online",
+    by: str | None = None,
+    return_path: str | None = None,
+) -> dict:
     """Activeer/vernieuw het lidmaatschap van het eigen gezin via een online
     betaling (#113). Maakt géén nieuw gezin: het bestaande Member-record wordt
     hergebruikt. Een nieuw (nog niet-actief) Membership wordt aangemaakt; de
     Mollie-webhook activeert het bij betaling (zie handle_gateway_update).
 
     Weigert als er al een geldig lidmaatschap is — geen dubbele betaling.
+
+    `by` is the board member who starts the renewal from the household's record
+    (#1899): the history then names him and the board's source, where a member's
+    own renewal names the member. `return_path` is where the provider sends the
+    payer back — the household's record for the board, the payment page otherwise.
     """
 
     from app.domains.membership.api import Membership, has_valid_membership
@@ -60,9 +114,10 @@ def renew_membership(*, person, db: Session, payment_method: str = "online") -> 
     from app.domains.payment.api import create_payment_record
 
     member = _member_for(person, db)
-    actor = next(
+    actor = by or next(
         (c.value for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL), None
     )
+    source = "admin_manual" if by else "member_self"
 
     today = date.today()
 
@@ -115,7 +170,7 @@ def renew_membership(*, person, db: Session, payment_method: str = "online") -> 
             membership,
             operation="update",
             action="membership_renewal_started",
-            source="member_self",
+            source=source,
             actor=actor,
         )
     else:
@@ -133,7 +188,7 @@ def renew_membership(*, person, db: Session, payment_method: str = "online") -> 
             membership,
             operation="insert",
             action="membership_renewal_started",
-            source="member_self",
+            source=source,
             actor=actor,
         )
 
@@ -142,7 +197,7 @@ def renew_membership(*, person, db: Session, payment_method: str = "online") -> 
     )
     from app.kernel.tenant_config import tenant_base_url
 
-    redirect_url = f"{tenant_base_url(db)}/betaling/succes?member={member.id}"
+    redirect_url = tenant_base_url(db) + (return_path or f"/betaling/succes?member={member.id}")
     try:
         # A call at the door, not an event handler (CR-13 phase 2, master CLI): an online payment
         # reaches the provider, the route needs the checkout URL now, and a failure rolls
@@ -155,7 +210,7 @@ def renew_membership(*, person, db: Session, payment_method: str = "online") -> 
             method=payment_method,
             redirect_url=redirect_url,
             description=description,
-            audit_source="member_self",
+            audit_source=source,
             audit_actor=actor,
         )
     except ValueError as e:
@@ -182,6 +237,29 @@ def renew_membership(*, person, db: Session, payment_method: str = "online") -> 
                 detail=_("De online betaling kon niet gestart worden. Probeer het later opnieuw."),
             )
 
+    # #1903: the renewal is an order, and an order is confirmed by mail — to the
+    # main member, whoever placed it. An event in this transaction: `mail` queues
+    # the message, so it leaves after the commit and never for a renewal that
+    # was rolled back.
+    addressee = renewal_mail_address(db, member.id)
+    if addressee is not None:
+        from app.kernel.contracts.membership import MembershipRenewalPlaced
+        from app.kernel.events import publish
+
+        publish(
+            MembershipRenewalPlaced(
+                member_id=member.id,
+                to_email=addressee[0],
+                name=addressee[1],
+                year=valid_to.year,
+                valid_to=valid_to,
+                amount=amount,
+                payment_method=payment_method,
+                payment_record_id=payment_record.id,
+            ),
+            db,
+        )
+
     # Bij overschrijving (#497): geen checkout; de OGM staat op het record en de
     # instructies worden op het gezinsportaal getoond.
     db.commit()
@@ -196,7 +274,19 @@ def renew_membership(*, person, db: Session, payment_method: str = "online") -> 
 # No route of its own since CR-13 phase 4b (#1251): no caller. The facade (`api.py`) calls this
 # function for the screen; it stays in this file until phase 4c moves it.
 def get_household(*, person, db: Session) -> dict:
-    member = _member_for(person, db)
+    return household_payload(_member_for(person, db))
+
+
+def get_household_by_id(db: Session, household_id: int) -> dict:
+    """The same view for the board's household record (#1899), which names the
+    household and not a person of it. 404 when there is none."""
+    member = db.query(Member).filter(Member.id == household_id).first()
+    if member is None:
+        raise HTTPException(status_code=404, detail=_("Gezin niet gevonden"))
+    return household_payload(member)
+
+
+def household_payload(member: Member) -> dict:
     # One order for the JSON and the portal page (Koen, 29 September 2026): the
     # household's own, not the order the database happens to return the rows in.
     links = sorted(member.member_persons, key=MemberPerson.household_position)

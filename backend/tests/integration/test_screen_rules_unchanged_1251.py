@@ -6,7 +6,8 @@ in the function the screen calls next:
 - the address of a household without persons (`mdm/ui.py::adres_opslaan`) →
   `membership.api.update_family_address`;
 - a new household without a single filled-in person (`mdm/ui.py::gezin_aanmaken`)
-  → `membership.api.family_from_rows`;
+  → `membership.api.family_from_rows` (since #1899 the reader of Word lid's
+  form, `membership.signup_form`: the recording of this one went with the page);
 - the board's registration form without a component
   (`activities/admin_ui.py::inschrijving_nieuw_opslaan`) →
   `activities.api.board_channel`.
@@ -40,6 +41,7 @@ from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     create_test_family,
     create_test_member,
+    new_household_form,
     seed_activity_with_product,
 )
 
@@ -84,35 +86,40 @@ def _postal_code(db) -> None:
 
 
 def test_an_address_for_a_household_without_persons_is_refused_as_before(client, db_session):
+    from tests.conftest import record_fields, save_record
+
     household = create_test_member(db_session)
     _postal_code(db_session)
     db_session.commit()
+    headers = _login(client)
+    fields = record_fields(client, household.id)
+    fields.update({f"address.{name}": value for name, value in ADDRESS.items()})
 
-    response = client.post(
-        f"/admin/leden/gezin/{household.id}/adres", data=ADDRESS, headers=_login(client)
-    )
+    response = save_record(client, household.id, fields, headers)
 
-    # Recorded again with #1831: the address card says it in its message line —
-    # the kit's refusal, a 422 — where it was a bare 400 the screen could not
-    # show; and the card of the stored address below carries that line.
+    # The kit's refusal, a 422, at the address (#1831; the record's one save
+    # since #1899): an address hangs on a person, and there is none.
     assert response.status_code == 422
     assert "Gezin zonder personen." in response.text
-    compare(SNAPSHOTS, "address_refused", _answer(response, {household.id: "<HOUSEHOLD>"}), BEFORE)
     assert db_session.query(Address).count() == 0
 
 
 def test_an_address_for_a_household_is_stored_as_before(client, db_session):
+    """Since #1899 the address rides the household record's one save; the answer
+    is the record, so its recording of the old card's answer went — what is
+    stored is what this holds."""
+    from tests.conftest import record_fields, save_record
+
     household, main = create_test_family(db_session, email="adres-1251@example.com")
     _postal_code(db_session)
     db_session.commit()
+    headers = _login(client)
+    fields = record_fields(client, household.id)
+    fields.update({f"address.{name}": value for name, value in ADDRESS.items()})
 
-    response = client.post(
-        f"/admin/leden/gezin/{household.id}/adres", data=ADDRESS, headers=_login(client)
-    )
+    response = save_record(client, household.id, fields, headers)
 
     assert response.status_code == 200, response.text[:300]
-    names = {household.id: "<HOUSEHOLD>", main.id: "<MAIN>"}
-    compare(SNAPSHOTS, "address_stored", _answer(response, names), BEFORE)
     db_session.expire_all()
     stored = db_session.query(Address).one()
     assert (stored.person_id, stored.street, stored.house_number, stored.bus_number) == (
@@ -135,15 +142,17 @@ def test_an_address_for_a_household_is_stored_as_before(client, db_session):
     ],
 )
 def test_a_new_household_without_a_person_is_refused_as_before(client, db_session, name, fields):
+    """Since #1899 Nieuw lid is the form of Word lid: a household without its main
+    member is refused by that form's reader, at the main member's fields, in the
+    kit's banner — the recording of the old page's answer went with the page."""
     _postal_code(db_session)
     db_session.commit()
     households = db_session.query(Member).count()
 
-    response = client.post("/admin/leden", data=fields, headers=_login(client))
+    response = client.post("/admin/leden", data=new_household_form(fields), headers=_login(client))
 
-    assert response.status_code == 422
-    assert "Vul minstens het hoofdlid in." in response.text
-    compare(SNAPSHOTS, name, _answer(response, {}), BEFORE)
+    assert response.status_code == 422, name
+    assert "data-save-refusal" in response.text and "Voornaam en achternaam" in response.text
     assert db_session.query(Member).count() == households
 
 

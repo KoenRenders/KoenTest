@@ -25,13 +25,20 @@ import re
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from app.domains.mdm.api import ContactDetail, Person
-from app.domains.membership.api import person_block
+from app.domains.mdm.api import ContactDetail, Person, new_contact_detail
+from app.domains.membership.api import person_block as _person_block
 from tests.conftest import create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
 
 EMAIL = "lid-1710@example.org"
+ACCOUNT = "account-1899@example.org"
+
+
+def person_block(person, *, edit: bool = False):
+    """The block as the page builds it. The code lists play no part in what these
+    tests send or read, so they are empty here."""
+    return _person_block(person, {"gender_codes": []}, short_date=str, edit=edit)
 
 
 def _main(html: str) -> str:
@@ -59,7 +66,10 @@ def _form(person, block, **changes) -> dict:
         "h_order": key,
         f"h.{key}.first_name": block.person.first_name,
         f"h.{key}.last_name": block.person.last_name,
+        f"h.{key}.date_of_birth": block.person.date_of_birth,
+        f"h.{key}.gender_code": block.person.gender_code,
         f"h.{key}.mobile": block.person.mobile,
+        f"h.{key}.phone": block.person.phone,
         f"e_order.{key}": [m.key for m in block.person.emails],
         f"e_primary.{key}": block.person.primary_key,
     }
@@ -89,10 +99,19 @@ def test_the_page_shows_the_own_block_and_nothing_of_the_household(client, membe
     edit = _main(client.get("/mijn/gegevens?bewerken=1").text)
     key = str(member.id)
     names = set(re.findall(rf'name="h\.{key}\.([a-z_]+)"', edit))
-    assert names == {"first_name", "last_name", "mobile"}, names
+    # #1899 (CR-22 R17 as corrected on 10 October 2026): the whole person card
+    # without the relation — birth date, gender and telephone included.
+    assert names == {
+        "first_name",
+        "last_name",
+        "date_of_birth",
+        "gender_code",
+        "mobile",
+        "phone",
+    }, names
     assert f'name="e_order.{key}"' in edit and 'hx-post="/mijn/gegevens"' in edit
-    # R17: none of the household's questions, in neither mode.
-    for word in ("Geboortedatum", "Geslacht", "Telefoon", "Postcode", "Straat", "Relatie"):
+    # R17: nothing of the household — no address and no relation — in neither mode.
+    for word in ("Postcode", "Straat", "Relatie", "Hoofdlid", "Partner"):
         assert word not in read and word not in edit, word
     # The menu marks this page.
     menu = edit[edit.index("data-account-page-menu") : edit.index("</nav>")]
@@ -236,3 +255,82 @@ def test_the_block_reads_only_live_rows_main_address_first(db_session, member):
     assert (
         block.person.primary_key == block.person.emails[0].key and block.contact_required is False
     )
+
+
+# ── #1899: the whole person card — birth date, gender and telephone ─────────────
+
+
+@pytest.fixture
+def account(client, db_session):
+    """An account alone: a person who signs in and belongs to no household —
+    without a birth date and a gender, as the sign-up of an account leaves him."""
+    person = Person(first_name="Alex", last_name="Alleen")
+    db_session.add(person)
+    db_session.flush()
+    db_session.add(
+        new_contact_detail(db_session, person, "EMAIL", ACCOUNT, is_primary=True, confirmed=True)
+    )
+    db_session.commit()
+    client.cookies.set(SESSION_COOKIE, make_session_value(ACCOUNT))
+    return person
+
+
+def test_birth_date_gender_and_telephone_are_written(client, db_session, member):
+    """CR-22 R17 as corrected on 10 October 2026: Mijn gegevens holds the whole
+    person card. Red (restored after): `date_of_birth` and `gender_code` taken out
+    of what `save_person` writes → the stored date is the old one."""
+    block = person_block(member, edit=True)
+    answer = _save(
+        client,
+        _form(member, block, date_of_birth="1985-06-07", gender_code="F", phone="014 12 34 56"),
+    )
+    assert answer.status_code == 200, answer.text[:300]
+    db_session.expire_all()
+    person = db_session.get(Person, member.id)
+    assert person.date_of_birth.isoformat() == "1985-06-07" and str(person.gender_code) == "F"
+    phones = [c.value for c in person.contact_details if c.contact_type_code == "PHONE"]
+    assert len(phones) == 1 and "".join(ch for ch in phones[0] if ch.isdigit()) == "014123456"
+    read = _main(client.get("/mijn/gegevens").text)
+    assert "° 07-06-1985" in read
+
+
+def test_a_person_of_a_household_is_asked_birth_date_and_gender(client, db_session, member):
+    """Asked of a person in a household (#681), at the field that is missing, and
+    nothing is written. Red (restored after): `details_required` always False in
+    `save_person` → the empty date is stored."""
+    block = person_block(member, edit=True)
+    before = db_session.get(Person, member.id).date_of_birth
+    answer = _save(client, _form(member, block, date_of_birth="", first_name="Anders"))
+    assert answer.status_code == 422, answer.status_code
+    assert f"h.{member.id}.date_of_birth" in answer.text
+    db_session.expire_all()
+    person = db_session.get(Person, member.id)
+    assert person.date_of_birth == before and person.first_name == "Emma"
+    edit = _main(client.get("/mijn/gegevens?bewerken=1").text)
+    assert re.search(rf'name="h\.{member.id}\.date_of_birth"[^>]* required', edit)
+
+
+def test_an_account_alone_is_not_asked_birth_date_and_gender(client, db_session, account):
+    """Optional for an account without a household: the save goes through without
+    them, the fields carry no star, and given, they are stored. Red (restored
+    after): `details_required` always True in `save_person` → the save is refused."""
+    edit = _main(client.get("/mijn/gegevens?bewerken=1").text)
+    key = str(account.id)
+    for name in ("date_of_birth", "gender_code"):
+        field = re.search(rf'<(?:input|select)[^>]*name="h\.{key}\.{name}"[^>]*>', edit)
+        assert field and " required" not in field.group(0), name
+    block = person_block(account, edit=True)
+    answer = _save(client, _form(account, block, first_name="Alexa"))
+    assert answer.status_code == 200, answer.text[:300]
+    db_session.expire_all()
+    person = db_session.get(Person, account.id)
+    assert person.first_name == "Alexa" and person.date_of_birth is None
+    answer = _save(
+        client,
+        _form(
+            account, person_block(person, edit=True), date_of_birth="1990-02-03", gender_code="M"
+        ),
+    )
+    assert answer.status_code == 200, answer.text[:300]
+    db_session.expire_all()
+    assert db_session.get(Person, account.id).date_of_birth.isoformat() == "1990-02-03"

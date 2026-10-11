@@ -231,8 +231,10 @@ def _session(email: str) -> str:
     return make_session_value(email)
 
 
-_FOLDS = """() => [...document.querySelectorAll('#gezinsleden > [data-group-rows] > [data-group-row]')]
-  .map(r => r.querySelector('details[data-row-fold]').open)"""
+#: #1899: a person is a card and nothing folds — the page holds no fold at all.
+_FOLDS = "() => document.querySelectorAll('main details[data-row-fold]').length"
+#: The person cards of the page in read mode, the main member's not among them.
+READ_PERSONS = "#gezinsleden > [data-person-card]"
 _TAGS = """(row) => [...row.querySelectorAll('[data-row-one-tag]')].filter(t => t.checkVisibility()).length"""
 _BAR = """() => { const b = document.querySelector('[data-action-bar]').getBoundingClientRect();
   return {top: Math.round(b.top), bottom: Math.round(b.bottom), window: innerHeight,
@@ -247,7 +249,7 @@ def test_word_lid_on_a_phone_from_the_first_field_to_the_stored_household(browse
         # ── As it opens: the main member's section, no row yet (#1632); a
         # postal code that is a select ──
         expect(page.locator(HEAD)).to_be_visible()
-        assert page.evaluate(_FOLDS) == []
+        assert page.evaluate(_FOLDS) == 0, "nothing folds (#1899)"
         assert page.locator("#address-postal_code").evaluate("e => e.tagName") == "SELECT"
         bar = page.evaluate(_BAR)
         assert bar["width"] == 390, f"the page scrolls sideways: {bar}"
@@ -265,7 +267,6 @@ def test_word_lid_on_a_phone_from_the_first_field_to_the_stored_household(browse
             "e => e === document.activeElement"
         )
         expect(partner.locator('select[name$=".relation_type"]')).to_have_value("PARTNER")
-        expect(partner.locator("[data-row-title-prefix]")).to_have_text("Partner")
         # the next one is a child: the rule is asked, not copied
         page.get_by_role("button", name="Gezinslid toevoegen").click()
         child = rows.nth(1)
@@ -277,8 +278,8 @@ def test_word_lid_on_a_phone_from_the_first_field_to_the_stored_household(browse
 
         # ── A row that was never saved goes without a question ──
         # the person's own menu — the e-mail field they open with has one too (#1641)
-        child.locator(".group-fold-menu [data-row-menu-trigger]").click()
-        child.locator(".group-fold-menu").get_by_role("menuitem", name="Verwijderen").click()
+        child.locator("[data-row-aside] [data-row-menu-trigger]").click()
+        child.locator("[data-row-aside]").get_by_role("menuitem", name="Verwijderen").click()
         expect(rows).to_have_count(1)
         assert page.locator("[data-dialog]:visible").count() == 0, (
             "removing an unsaved row asked something"
@@ -317,10 +318,8 @@ def test_word_lid_on_a_phone_from_the_first_field_to_the_stored_household(browse
         page.check('input[name="payment_method"][value="transfer"]')
         expect(save.locator("[data-save-idle]")).to_have_text("Word lid")
 
-        # ── A refusal: the banner names the field in the folded row, opens it ──
+        # ── A refusal: the banner names the field in the partner's card ──
         partner.locator('input[name$=".first_name"]').fill("")
-        partner.locator("summary").click()
-        assert page.evaluate(_FOLDS) == [False]
         page.fill("#address-street", "Teststraat")
         page.fill("#address-house_number", "1")
         page.posts.clear()
@@ -330,7 +329,6 @@ def test_word_lid_on_a_phone_from_the_first_field_to_the_stored_household(browse
         expect(banner).to_contain_text("Verzenden kan nog niet: controleer 2 velden.")
         refused = partner.locator('input[name$=".first_name"]')
         expect(refused).to_be_visible()
-        assert page.evaluate(_FOLDS) == [True], "the refused row stayed folded"
         expect(refused).to_be_focused()
         expect(refused).to_have_attribute("aria-invalid", "true")
         expect(page.locator('[data-field="address.postal_code"]')).to_have_attribute(
@@ -390,8 +388,9 @@ def test_mijn_gezin_reads_first_and_saves_everything_with_one_opslaan(browser):
         )
         assert page.locator("[data-action-bar]").count() == 0
         expect(page.get_by_role("link", name="Bewerken")).to_have_count(1)
-        assert page.evaluate(_FOLDS) == [False]
-        expect(page.locator('[data-field$=".phone"] [data-value]').first).to_have_text("—")
+        assert page.evaluate(_FOLDS) == 0
+        # the read card: mobile first, then the telephone — empty, a dash
+        expect(page.locator(f"{HEAD} [data-icon-fact]").nth(1)).to_have_text("—")
         before = _history(_household(email)["member_id"])
 
         # ── Edit mode: one badge, one bar; change four things ──
@@ -419,8 +418,8 @@ def test_mijn_gezin_reads_first_and_saves_everything_with_one_opslaan(browser):
         expect(page.locator("#toasts")).to_contain_text("Opgeslagen ✓")
         assert page.posts == [f"{BASE}/leden/gezin"], page.posts
         assert page.url == f"{BASE}/leden/gezin"
-        expect(page.locator(PERSONS)).to_have_count(2)
-        expect(page.locator('[data-field$=".first_name"] [data-value]').first).to_have_text("Theo")
+        expect(page.locator(READ_PERSONS)).to_have_count(2)
+        expect(page.locator(f"{HEAD} [data-person-name]")).to_contain_text("Theo")
         assert page.errors == []
 
         # ── Stored, read in a session of our own; one history row per thing ──
@@ -445,15 +444,15 @@ def test_mijn_gezin_reads_first_and_saves_everything_with_one_opslaan(browser):
         _remove(email)
 
 
-def test_a_refused_save_opens_the_folded_row_and_keeps_the_rest(browser):
+def test_a_refused_save_marks_the_field_and_keeps_the_rest(browser):
     tag = uuid.uuid4().hex[:8]
     email = _sign_up(browser, tag)
     page = _open(browser, "/leden/gezin?bewerken=1", session=_session(email))
     try:
         page.wait_for_function("window.raakRecordForm && window.raakRecordForm.ready()")
         rows = page.locator(PERSONS)
-        assert page.evaluate(_FOLDS) == [False]
-        # the partner's row is folded; its first name is emptied without opening it
+        assert page.evaluate(_FOLDS) == 0
+        # the partner's first name is emptied
         rows.nth(0).locator('input[name$=".first_name"]').evaluate(
             "e => { e.value = ''; e.dispatchEvent(new Event('input', {bubbles: true})); }"
         )
@@ -465,7 +464,6 @@ def test_a_refused_save_opens_the_folded_row_and_keeps_the_rest(browser):
         refused = rows.nth(0).locator('input[name$=".first_name"]')
         expect(refused).to_be_visible()
         expect(refused).to_be_focused()
-        assert page.evaluate(_FOLDS) == [True]
         expect(page.locator("#address-street")).to_have_value("Blijfstraat")
         expect(page.locator("[data-form-flow]")).to_have_attribute("data-mode", "edit")
         stored = _household(email)
@@ -497,9 +495,7 @@ def test_annuleren_and_leaving_ask_before_changes_are_lost(browser):
         dialog.locator("[data-dialog-ok]").click()
         pagina_klaar(page)
         expect(page.locator("[data-form-flow]")).to_have_attribute("data-mode", "read")
-        expect(page.locator('[data-field="address.street"] [data-value]')).to_have_text(
-            "Teststraat"
-        )
+        expect(page.locator("[data-address-line]")).to_contain_text("Teststraat")
         assert _household(email)["address"][0] == "Teststraat"
     finally:
         page.close()
@@ -626,7 +622,7 @@ def test_word_lid_on_a_phone_the_default_and_the_choice_of_partner_or_child(brow
             "KIND",
         ]
         first.locator(_RELATION).select_option("KIND")
-        expect(first.locator("[data-row-title-prefix]")).not_to_have_text("Partner")
+        expect(first.locator(_RELATION)).to_have_value("KIND")
         # nobody is the partner now, so the next person is
         page.get_by_role("button", name="Gezinslid toevoegen").click()
         expect(rows.nth(1).locator(_RELATION)).to_have_value("PARTNER")
@@ -642,7 +638,8 @@ def test_mijn_gezin_on_a_phone_the_default_and_the_choice_of_partner_or_child(br
     """Rule 2 on Mijn gezin, the same control and the same rule: in a household of
     one the person added is the partner; the member chooses child instead; the
     next is the partner again; and what was chosen is what is stored. A person
-    who is already there has no such list."""
+    who is already there keeps the list (#1899; Koen, 11 October 2026: "b maar
+    uiteraard niet het hoofdlid") — the main member's card has none."""
     tag = uuid.uuid4().hex[:8]
     email = _sign_up(browser, tag, partner=False)
     page = _open(browser, "/leden/gezin?bewerken=1", PHONE, session=_session(email))
@@ -653,9 +650,8 @@ def test_mijn_gezin_on_a_phone_the_default_and_the_choice_of_partner_or_child(br
         page.get_by_role("button", name="Gezinslid toevoegen").click()
         child = rows.nth(0)
         expect(child.locator(_RELATION)).to_have_value("PARTNER")
-        expect(child.locator("[data-row-title-prefix]")).to_have_text("Partner")
         child.locator(_RELATION).select_option("KIND")
-        expect(child.locator("[data-row-title-prefix]")).not_to_have_text("Partner")
+        expect(child.locator(_RELATION)).to_have_value("KIND")
         fill_person(child, "Kind", f"Gezin {tag}", born="2014-04-04", gender="F")
         page.get_by_role("button", name="Gezinslid toevoegen").click()
         partner = rows.nth(1)
@@ -671,10 +667,14 @@ def test_mijn_gezin_on_a_phone_the_default_and_the_choice_of_partner_or_child(br
             "Kind": "KIND",
             "Lief": "PARTNER",
         }
-        # saved, the two are persons of the household: no list any more
+        # saved, the two are persons of the household: each keeps its list, on
+        # what was stored, and the main member still has none
         page.goto("/leden/gezin?bewerken=1")
         pagina_klaar(page)
-        assert page.locator(f"{PERSONS} {_RELATION}").count() == 0
+        stored_choice = page.locator(f"{PERSONS} {_RELATION}")
+        expect(stored_choice).to_have_count(2)
+        assert sorted(stored_choice.evaluate_all("s => s.map(x => x.value)")) == ["KIND", "PARTNER"]
+        assert page.locator(HEAD).locator(_RELATION).count() == 0
         assert page.errors == []
     finally:
         page.close()
@@ -705,10 +705,10 @@ def test_a_household_without_an_address_can_give_itself_one(browser):
     assert _household(email)["address"] is None
     page = _open(browser, "/leden/gezin", session=_session(email))
     try:
-        # read mode: the section stands, every value a dash
+        # read mode: the section stands, its one line a dash
         section = page.locator("#gezin-adres")
         expect(section).to_be_visible()
-        assert section.locator("[data-value]").all_inner_texts() == ["—", "—", "—", "—"]
+        expect(section.locator("[data-address-line]")).to_have_text("—")
 
         page.goto("/leden/gezin?bewerken=1")
         pagina_klaar(page)
@@ -737,9 +737,7 @@ def test_a_household_without_an_address_can_give_itself_one(browser):
         page.select_option("#address-postal_code", index=1)
         page.locator("[data-form-save]").click()
         expect(page.locator("[data-form-flow]")).to_have_attribute("data-mode", "read")
-        expect(page.locator('[data-field="address.street"] [data-value]')).to_have_text(
-            "Kerkstraat"
-        )
+        expect(page.locator("[data-address-line]")).to_contain_text("Kerkstraat 5")
         assert _household(email)["address"] == ("Kerkstraat", "5", None)
         assert page.errors == []
     finally:
@@ -785,10 +783,12 @@ def test_the_main_member_has_no_verwijderen_for_anyone(browser):
     try:
         page.wait_for_function("window.raakRecordForm && window.raakRecordForm.ready()")
         rows = page.locator(PERSONS)
-        menus = "> [data-row-body] > .group-fold-menu [data-row-menu-trigger]"
+        menus = "> [data-row-body] > [data-row-title-line] [data-row-aside] [data-row-menu-trigger]"
         head = page.locator(HEAD)
         expect(head.locator('input[name$=".first_name"]')).to_have_value("Hoofd")
-        assert head.locator("[data-row-fold], .group-fold-menu").count() == 0
+        assert (
+            head.locator("[data-row-fold], [data-row-aside] [data-row-menu-trigger]").count() == 0
+        )
         expect(rows).to_have_count(1)
         assert rows.nth(0).locator(menus).count() == 0
         page.get_by_role("button", name="Gezinslid toevoegen").click()
@@ -935,7 +935,6 @@ def test_every_person_opens_with_one_email_field_and_an_empty_one_is_not_saved(b
     try:
         page.wait_for_function("window.raakRecordForm && window.raakRecordForm.ready()")
         partner = page.locator(PERSONS).nth(0)
-        partner.locator("summary").click()
         mail = partner.locator('input[type="email"]')
         expect(mail).to_have_count(1)
         expect(mail).to_be_visible()
@@ -949,8 +948,8 @@ def test_every_person_opens_with_one_email_field_and_an_empty_one_is_not_saved(b
         page.get_by_role("button", name="Gezinslid toevoegen").click()
         new = page.locator(PERSONS).nth(1)
         expect(new.locator('input[type="email"]')).to_have_count(1)
-        new.locator(".group-fold-menu [data-row-menu-trigger]").click()
-        new.locator(".group-fold-menu").get_by_role("menuitem", name="Verwijderen").click()
+        new.locator("[data-row-aside] [data-row-menu-trigger]").click()
+        new.locator("[data-row-aside]").get_by_role("menuitem", name="Verwijderen").click()
 
         page.fill("#address-street", "Legestraat")
         page.locator("[data-form-save]").click()

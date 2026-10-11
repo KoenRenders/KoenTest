@@ -1,47 +1,39 @@
 {% import "_macros.html" as ui %}
 {% import "_household_rows.html" as rows %}
-{# The other persons of the household — partner and children — as a repeating
-   group (CR-11 pilot B, #1590; end state §2.6, §3.3), for Word lid and for Mijn
-   gezin, which set before the include:
+{# The other persons of the household — partner and children — each a card of
+   the page's flow (#1899; end state §2.2, §5.2), for Word lid, Mijn gezin and
+   the board's household record, which set before the include:
 
    - `group`   the `HouseholdGroup` view (`membership.household_page`);
    - `_edit`   edit or read mode.
 
-   It stands under the main member's section and the address (#1632, Q72): the
-   main member is no row here. Each person is a composite row that folds,
-   closed; no handle, because the persons of a household have no order the
-   visitor sets. Nothing here saves on its own: the rows are part of the page's
-   one form and its one bar.
+   They stand under the main member's card and the address (#1632, Q72): the
+   main member is no row here. Reading, a person is the kit's person card;
+   editing, a card of the kit's group of cards — no handle, because the persons
+   of a household have no order the visitor sets, and nothing folds. Nothing
+   here saves on its own: the cards are part of the page's one form and its one
+   bar.
 
-   A person added in the page chooses partner or child (#1603), on both pages.
-   The page asks the server which of the two the one rule gives them
-   (`default_relation`: a partner while the household has none, a child after
-   that) — the rule stays in one place. The persons already there say their
-   relation in a `data-relation` mark, so the question counts them too. #}
-{% macro _person_row(p) -%}
-{% call ui.group_row("h_order", p.key, edit=_edit, variant="composite",
-                     menu=(["remove"] if p.removable else []), title=p.title, title_prefix=p.prefix,
-                     subtitle=p.subtitle, fold=p.fold, label=p.title) %}
-  {% if not p.choose_relation %}<span hidden data-relation="{{ p.relation_type }}"></span>{% endif %}
-  {% call ui.form_grid() %}{{ rows.person_fields(group, p, _edit) }}{% endcall %}
-  {{ rows.email_group(group, p, _edit) }}
-{% endcall %}
-{%- endmacro %}
-
-{% set _person_template %}{{ _person_row(group.new_person) }}{% endset %}
+   A person added in the page starts as partner or child (#1603): the page asks
+   the server which of the two the one rule gives them (`default_relation`: a
+   partner while the household has none, a child after that) — the rule stays in
+   one place — and counts the relations the other cards show. #}
+{% if _edit %}
+{% set _person_template %}{{ rows.person(group, group.new_person, True) }}{% endset %}
 <div data-household class="contents" x-data
      @row-added="
        const mine = $event.target.querySelector('select[name$=&quot;.relation_type&quot;]');
        if (!mine || $event.target.parentElement.parentElement.dataset.repeatingGroup !== 'h_order') return;
-       const others = [...$el.querySelectorAll('[data-relation]')].map(m => m.dataset.relation)
-         .concat([...$el.querySelectorAll('select[name$=&quot;.relation_type&quot;]')].filter(s => s !== mine).map(s => s.value));
+       const others = [...$el.querySelectorAll('select[name$=&quot;.relation_type&quot;]')].filter(s => s !== mine).map(s => s.value);
        fetch('/lid-worden/relatie?others=' + encodeURIComponent(others.join(',')))
          .then(answer => answer.ok ? answer.text() : '')
          .then(code => { if (code) { mine.value = code; mine.dispatchEvent(new Event('change', { bubbles: true })); } })">
 {% call ui.repeating_group(_("Gezinsleden"), "h_order", token=group.new_person.key,
-                           add_label=_("Gezinslid toevoegen"), edit=_edit, variant="composite",
-                           count=group.members|length, empty=_("Nog geen gezinsleden."),
-                           template=_person_template, id="gezinsleden") %}
-  {% for p in group.members %}{{ _person_row(p) }}{% endfor %}
+                           add_label=_("Gezinslid toevoegen"), edit=True, variant="composite", cards=True,
+                           count=group.members|length, template=_person_template, id="gezinsleden") %}
+  {% for p in group.members %}{{ rows.person(group, p, True) }}{% endfor %}
 {% endcall %}
 </div>
+{% else %}
+<div id="gezinsleden" class="contents">{% for p in group.members %}{{ rows.person(group, p, False) }}{% endfor %}</div>
+{% endif %}
