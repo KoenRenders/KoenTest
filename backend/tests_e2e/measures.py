@@ -115,6 +115,7 @@ ADMIN_HOOKS: dict[str, str] = {
     "pager": "[data-pager]",
     "record head": "[data-record-head]",
     "summary card": "[data-summary-card]",
+    "person card": "[data-person-card]",
     "related tabs": "[data-related-tabs]",
     "form column": "[data-form-column]",
     "form section": "[data-form-section]",
@@ -381,7 +382,7 @@ SCREENS: tuple[Screen, ...] = (
     Screen(
         "design-system",
         "/admin/design-system",
-        ("top bar title", "field", "key figure"),
+        ("top bar title", "field", "key figure", "person card"),
         session="admin",
         widths=ADMIN,
     ),

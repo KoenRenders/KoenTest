@@ -296,6 +296,25 @@
                                       {"code": "KIND", "value": _("(meerderjarig) kind")}]) }}
 {% endcall %}
 
+{# ── 7b. The person card, read mode (#1899; end state §2.2, §5.2) ─────────── #}
+{{ ui.section_header(_("7b · Persoonskaart (leesmodus)"), cls="mt-10") }}
+<p class="text-sm text-gray-600 mb-3">
+  {{ _("Eén kaart per persoon: de naam als kop met rechts de relatie, daaronder de regels zonder label — het icoon zegt wat een waarde is, een lege leest “—”. Niets klapt in.") }}
+</p>
+<div data-kit-person-cards class="form-flow max-w-[768px]">
+  {{ ui.person_card("Lore Voorbeeld", relation=_("Hoofdlid"), main=True, birth="14-03-1978", gender=_("Vrouw"),
+                    mobile="0470 12 34 56",
+                    emails=[{"value": "lore@voorbeeld.test", "primary": True, "pending": False},
+                            {"value": "lore.werk@voorbeeld.test", "primary": False, "pending": False},
+                            {"value": "lore.nieuw@voorbeeld.test", "primary": False, "pending": True}]) }}
+  {{ ui.person_card("Sam Staal", relation=_("Partner"), birth="12-07-1979", gender=_("Man"),
+                    mobile="0471 98 76 54", emails=[{"value": "sam@voorbeeld.test", "primary": True, "pending": False}]) }}
+  {{ ui.person_card("Noor Voorbeeld", relation=_("Kind"), birth="03-11-2012", gender=_("Vrouw"), phone="014 12 34 56") }}
+</div>
+<p class="text-xs text-gray-500 mt-3 mb-2">
+  <code>ui.person_card(name, relation, main, birth, gender, mobile, phone, emails)</code> · <code>ui.icon_fact(name, text, href)</code>
+</p>
+
 {# ── 8. Schermtype: de records-lijst, in de vaste volgorde ─────────────────── #}
 {{ ui.section_header(_("8 · Schermtype: records-lijst"), _("Naar de activiteiten"), action_href="/admin/activiteiten", cls="mt-10") }}
 {% call ui.card() %}
@@ -654,6 +673,26 @@
 {% call ui.record_columns(aside=_kit_card) %}
   <div class="bg-surface-2 border border-dashed border-control-line rounded-2xl p-4 text-sm text-ink-soft">{{ _("Het formulier van Gegevens") }}</div>
 {% endcall %}
+{# #1901 §2 — a PROPOSAL for Koen to judge: more than three figures, in the two
+   shapes. A: the card as it is, every figure given. B: every figure a row. #}
+{% set _five = [{"label": _("Bedrag"), "value": "€ 30,00"}, {"label": _("Ontvangen"), "value": "€ 10,00"},
+                {"label": _("Saldo"), "value": "€ 20,00", "warning": True},
+                {"label": _("Wijze"), "value": _("Overschrijving")}, {"label": _("Aangemaakt"), "value": "01-10-2026"}] %}
+<p class="text-sm text-gray-600 mt-6 mb-3">{{ _("Voorstel — meer dan drie cijfers. A: de kaart zoals ze is, met elk cijfer. B: elk cijfer een rij, label links en waarde rechts.") }}</p>
+<div data-kit-summary-variant="a">
+<p class="text-xs font-semibold text-ink-soft mb-1">{{ _("Variant A") }}</p>
+{% set _card_a %}{{ ui.summary_card({"label": _("Openstaand"), "tone": "yellow"}, _five) }}{% endset %}
+{% call ui.record_columns(aside=_card_a) %}
+  <div class="bg-surface-2 border border-dashed border-control-line rounded-2xl p-4 text-sm text-ink-soft">{{ _("Het formulier van Gegevens") }}</div>
+{% endcall %}
+</div>
+<div data-kit-summary-variant="b" class="mt-4">
+<p class="text-xs font-semibold text-ink-soft mb-1">{{ _("Variant B") }}</p>
+{% set _card_b %}{{ ui.summary_card({"label": _("Openstaand"), "tone": "yellow"}, _five, rows=True) }}{% endset %}
+{% call ui.record_columns(aside=_card_b) %}
+  <div class="bg-surface-2 border border-dashed border-control-line rounded-2xl p-4 text-sm text-ink-soft">{{ _("Het formulier van Gegevens") }}</div>
+{% endcall %}
+</div>
 <div class="mt-4">
 {% call ui.data_table([
      {"key": "naam", "label": _("Naam"), "cell": "name", "sort_url": "/admin/design-system", "sorted": "asc"},

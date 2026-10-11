@@ -573,6 +573,47 @@
 </section>
 {%- endmacro %}
 
+{# `icon_fact(name, text)` — one fact of a compact read line: the icon says
+   what the value is, so the line carries no label (CR-11 B10 of 10 October
+   2026; end state §2.2). `href` makes the value a link. An empty value is
+   the caller's "—". #}
+{% macro icon_fact(name, text, href=None) -%}
+<span data-icon-fact class="inline-flex items-center gap-1.5 min-w-0">{{ icon(name, cls="shrink-0 text-ink-soft") }}{% if href %}<a href="{{ href }}" class="text-blue-500 underline hover:no-underline truncate">{{ text }}</a>{% else %}<span class="truncate">{{ text }}</span>{% endif %}</span>
+{%- endmacro %}
+
+{# `person_card(name, …)` — one person as a card of the form flow, in READ
+   mode (#1899; end state §2.2, §5.2): the name is the card's heading with the
+   relation at its right as a badge, and under it the lines in the editor's
+   order — birth date and gender, mobile and phone on one line, one line per
+   e-mail address. No labels: the icon says what a value is; an empty one
+   reads "—". Nothing folds.
+
+   * `relation`: the label of the badge (Hoofdlid · Partner · Kind), or None
+     where there is no household (Mijn gegevens); `main` gives the main
+     member's badge its tone.
+   * `birth`, `gender`: as they are read ("14-03-1978", "Vrouw").
+   * `emails`: [{value, primary, pending}] — the grey tag "hoofdadres" on the
+     primary one only when there is more than one; an address that waits for
+     its code says so (CR-22 R15, #1733). On a narrow card the tag goes
+     under its address; the address is not cut for it. #}
+{% macro person_card(name, relation=None, main=False, birth="", gender="", mobile="", phone="", emails=[], attrs="") -%}
+{% call section(attrs=("data-person-card " ~ attrs)) %}
+<div data-span="full" class="min-w-0">
+  <div class="flex items-baseline justify-between gap-3">
+    <h2 data-person-name class="text-base font-semibold leading-6 text-ink min-w-0 break-words">{{ name }}</h2>
+    {% if relation %}<span data-person-relation class="shrink-0">{{ badge(relation, "blue" if main else "gray") }}</span>{% endif %}
+  </div>
+  <div class="mt-1 flex flex-col gap-y-1 text-sm leading-[21px] text-ink">
+    {% if birth or gender %}<p data-person-birth class="text-ink-soft">{% if birth %}° {{ birth }}{% endif %}{% if birth and gender %} · {% endif %}{{ gender }}</p>{% endif %}
+    <p class="flex flex-wrap gap-x-5 gap-y-1">{{ icon_fact("mobile", (mobile|phone) if mobile else "—") }} {{ icon_fact("phone", (phone|phone) if phone else "—") }}</p>
+    {% for e in emails %}{% set _tag = _("wacht op bevestiging") if e.pending else (_("hoofdadres") if e.primary and emails|length > 1 else None) %}
+    <p data-person-email class="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">{{ icon_fact("mail", e.value, href="mailto:" ~ e.value) }}{% if _tag %}<span data-person-email-tag class="shrink-0">{{ badge(_tag) }}</span>{% endif %}</p>
+    {% else %}<p data-person-email>{{ icon_fact("mail", "—") }}</p>{% endfor %}
+  </div>
+</div>
+{% endcall %}
+{%- endmacro %}
+
 {# `flow_card(title)` — a card of the form flow that holds WORDS, not fields
    (#1589, §2.6): the name card of a public form, what a confirmation says is
    still to pay, the thanks. The same surface as `section`, without the form
@@ -3302,24 +3343,28 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    300 px in the right column on a desktop, a strip under the tabs on a phone
    (badge and the action's icon on the first line, the figures on the second).
    **Only on the Gegevens tab**: a list tab has neither
-   (`tests/test_summary_card_gate.py`).
+   (`tests/test_record_tab_gate.py`).
 
    * `state`: {label, tone} — the badge, first.
-   * `figures`: up to three {label, value, warning?}; in the card the first two
-     stand side by side and a third under them, label left, value right. An
-     open balance that is not zero takes the warning tone.
+   * `figures`: {label, value, warning?}, every one given (#1899; three at
+     most until then). In the card the first two stand side by side and a
+     third under them, label left, value right. An open balance that is not
+     zero takes the warning tone.
+   * `rows` (#1901 §2, a PROPOSAL shown on the design-system page until Koen
+     has judged it): every figure a row — label left, value right — in the
+     text size, in the card and in the strip alike.
    * `action`: {href, text, label} — the public link with the copy button
      (`copy_button`: one press copies, the check mark shows in place; never a
      screen, never a toast — Q49). `text` is the address as it is read; when
      the browser refuses the copy, the helper selects it (`data-copy-bron`). #}
-{% macro summary_card(state=None, figures=[], action=None) -%}
-<section data-summary-card class="summary-card rounded-card border border-line bg-surface shadow-sm" aria-label="{{ _('Samenvatting') }}">
+{% macro summary_card(state=None, figures=[], action=None, rows=False) -%}
+<section data-summary-card{% if rows %} data-summary-rows{% endif %} class="summary-card rounded-card border border-line bg-surface shadow-sm" aria-label="{{ _('Samenvatting') }}">
   {% if state %}<div data-summary-state>{{ badge(state.label, state.get("tone", "gray")) }}</div>{% endif %}
   <dl data-summary-figures class="m-0">
-    {% for f in figures[:3] %}
+    {% for f in figures %}
     <div data-summary-figure>
       <dt class="text-[13px] leading-5 text-ink-soft">{{ f.label }}</dt>
-      <dd class="m-0 text-2xl font-semibold leading-[30px] tracking-tight tabular-nums whitespace-nowrap {{ 'text-brand-warning' if f.get('warning') else 'text-ink' }}">{{ f.value }}</dd>
+      <dd class="m-0 {{ 'text-[15px] leading-[21px]' if rows else 'text-2xl leading-[30px] tracking-tight' }} font-semibold tabular-nums whitespace-nowrap {{ 'text-brand-warning' if f.get('warning') else 'text-ink' }}">{{ f.value }}</dd>
     </div>
     {% endfor %}
   </dl>
