@@ -47,6 +47,11 @@
     {% set card = renewal %}
     {% call ui.section(_("Lopende vernieuwing"), id="gezin-vernieuwing") %}
       <div data-span="full" data-renewal-running>{% include "_renewal_running.html" %}</div>
+      {# #1903: the confirmation goes to the main member's confirmed address;
+         without one nothing was mailed, and the record says so. #}
+      {% if renewal_unmailed %}
+      <p data-span="full" data-renewal-unmailed class="text-sm leading-[21px] text-ink-soft">{{ _("Het hoofdlid heeft geen bevestigd e-mailadres: de bevestiging van deze vernieuwing is niet gemaild.") }}</p>
+      {% endif %}
     {% endcall %}
     {% endif %}
     {# The years one under the other, the newest first (Koen, 10 October 2026). No

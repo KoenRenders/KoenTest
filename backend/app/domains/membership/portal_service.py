@@ -67,6 +67,27 @@ def main_person_of(db: Session, household_id: int):
     )
 
 
+def renewal_mail_address(db: Session, household_id: int) -> tuple[str, str] | None:
+    """Where the confirmation of a renewal goes (#1903): the main member's
+    confirmed e-mail address — the primary one first — with his name. None when
+    the household has no main member, or he has no confirmed address: then no
+    mail leaves, and the board's record says so."""
+    main = main_person_of(db, household_id)
+    if main is None:
+        return None
+    confirmed = sorted(
+        (
+            c
+            for c in main.contact_details
+            if c.contact_type_code == CONTACT.EMAIL and c.confirmed_at is not None and c.value
+        ),
+        key=lambda c: (not c.is_primary, c.id or 0),
+    )
+    if not confirmed:
+        return None
+    return confirmed[0].value, f"{main.first_name} {main.last_name}".strip()
+
+
 def renew_membership(
     *,
     person,
@@ -215,6 +236,29 @@ def renew_membership(
                 status_code=502,
                 detail=_("De online betaling kon niet gestart worden. Probeer het later opnieuw."),
             )
+
+    # #1903: the renewal is an order, and an order is confirmed by mail — to the
+    # main member, whoever placed it. An event in this transaction: `mail` queues
+    # the message, so it leaves after the commit and never for a renewal that
+    # was rolled back.
+    addressee = renewal_mail_address(db, member.id)
+    if addressee is not None:
+        from app.kernel.contracts.membership import MembershipRenewalPlaced
+        from app.kernel.events import publish
+
+        publish(
+            MembershipRenewalPlaced(
+                member_id=member.id,
+                to_email=addressee[0],
+                name=addressee[1],
+                year=valid_to.year,
+                valid_to=valid_to,
+                amount=amount,
+                payment_method=payment_method,
+                payment_record_id=payment_record.id,
+            ),
+            db,
+        )
 
     # Bij overschrijving (#497): geen checkout; de OGM staat op het record en de
     # instructies worden op het gezinsportaal getoond.

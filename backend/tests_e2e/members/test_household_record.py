@@ -155,6 +155,18 @@ def household():
         db.close()
 
 
+def _queued_mails(address: str) -> list[dict]:
+    """The messages that wait in the job queue for this address."""
+    from app.kernel.jobs import KernelJob
+
+    db = _db()
+    try:
+        jobs = db.query(KernelJob).filter(KernelJob.name == "mail.send").all()
+        return [j.payload for j in jobs if (j.payload or {}).get("to_email") == address]
+    finally:
+        db.close()
+
+
 def _stored(household_id: int) -> dict:
     from app.domains.mdm.api import Member
     from app.domains.membership.api import Membership
@@ -330,7 +342,10 @@ EDIT = """() => { const r = e => e.getBoundingClientRect(), n = v => Math.round(
 def test_the_board_renews_from_the_record(browser, household):
     """#1899 §4, in the browser at 390 px: Acties → Lidmaatschap vernieuwen is the
     renewal page in the admin shell; a transfer is ONE request and lands on the
-    record with the running renewal — no second renewal on offer.
+    record with the running renewal — no second renewal on offer. And the
+    household's main member is mailed the confirmation (#1903), at his main
+    address: read where the mail waits, the queue — the server of the browser
+    tests runs no jobs, so nothing reaches the mail log there.
 
     Proven red (locally, restored): `hx-post` of the shared form pointed at a
     path that does not exist → no request reaches the board's route and the
@@ -360,7 +375,12 @@ def test_the_board_renews_from_the_record(browser, household):
         page.get_by_role("button", name="Acties").click()
         expect(page.get_by_role("menuitem", name="Verwijderen")).to_be_visible()
         expect(page.get_by_role("menuitem", name="Lidmaatschap vernieuwen")).to_have_count(0)
+        expect(page.locator("[data-renewal-unmailed]")).to_have_count(0)
         assert page.errors == []
+        queued = _queued_mails(f"record-{household['tag']}-1@example.org")
+        assert len(queued) == 1, f"{len(queued)} mails wait for the main member"
+        assert "Betaalinstructies (overschrijving)" in queued[0]["body_html"]
+        assert "lidmaatschap" in queued[0]["subject"].lower()
     finally:
         page.close()
 

@@ -224,6 +224,7 @@ def _record_view(
         board_household_group,
         board_membership_card,
         get_family,
+        renewal_is_mailed,
     )
     from app.ui import record_frame
 
@@ -265,6 +266,7 @@ def _record_view(
     ]
     board = family.board_member
     card = board_membership_card(db, family_id)
+    renewal = card if card and (card.transfer or card.online) else None
     return HouseholdRecordView(
         family_id=family_id,
         page_title=family_label_of(family),
@@ -283,7 +285,8 @@ def _record_view(
         + [(str(p.id), f"{p.last_name} {p.first_name}".strip()) for p in list_persons(db)]
         if edit
         else [],
-        renewal=card if card and (card.transfer or card.online) else None,
+        renewal=renewal,
+        renewal_unmailed=renewal is not None and not renewal_is_mailed(db, family_id),
         csrf_token=csrf_from_request(request),
         nav_items=admin_nav(NAV, request),
     )

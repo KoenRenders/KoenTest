@@ -22,6 +22,9 @@ SMTP-call ná de response uitgevoerd, zónder synchroon.
 - Abonnee van `MailRequested` (`app.kernel.contracts.mail`): componenten
   zonder directe mail-afhankelijkheid publiceren dit event; het mail-component
   verstuurt en logt via het `_send`-chokepoint.
+- Subscriber of `MembershipRenewalPlaced` (`app.kernel.contracts.membership`, #1903): mail
+  words the confirmation of a membership renewal (`membership_renewal_message`, with
+  payment's transfer block for a transfer) and queues it in the publisher's transaction.
 - Subscriber of `SubmissionCreated` (`app.kernel.contracts.forms`, CR-13 phase 4d): when
   forms names an address in `confirm_to`, mail words the confirmation of the submission
   (`form_confirmation_message`, from `forms.api.submission_confirmation`) and queues it in

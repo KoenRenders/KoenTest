@@ -199,6 +199,15 @@ def board_membership_card(db, household_id: int):
     return membership_card(db, person) if person is not None else None
 
 
+def renewal_is_mailed(db, household_id: int) -> bool:
+    """Does the confirmation of a renewal reach this household (#1903)? False
+    when its main member has no confirmed e-mail address: the board's record
+    says so beside a running renewal."""
+    from app.domains.membership.portal_service import renewal_mail_address
+
+    return renewal_mail_address(db, household_id) is not None
+
+
 def board_renewal_page(db, household_id: int, codes: dict):
     """The renewal page as the board sees it for this household (#1899): the
     page of the public renewal, speaking of the household. None when there is

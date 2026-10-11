@@ -74,6 +74,9 @@ class HouseholdRecordView(ViewModel):
     #: A renewal that runs — the transfer to make or the online payment to
     #: resume — as membership's `MembershipCard`; None when none runs.
     renewal: Any
+    #: That renewal was confirmed to nobody (#1903): the main member has no
+    #: confirmed e-mail address.
+    renewal_unmailed: bool
 
     csrf_token: str
     nav_items: list[dict[str, Any]] = field(default_factory=list)
