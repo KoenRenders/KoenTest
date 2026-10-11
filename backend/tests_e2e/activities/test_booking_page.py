@@ -8,9 +8,10 @@ and leaves one shell, one record head and a confirmation.
   the status badge and the facts line are in view; on a phone the head's
   controls do not push the title away (the title is at the left edge, above or
   beside them).
-- Saving the note on the page: the answer is the page again — one shell, one
-  record head, the note in the figures, a toast — and the way back still leads
-  to the list as it was left.
+- Saving the note in the page's editor (#1901: the page reads first): the
+  answer is the page again, in read mode at its own address — one shell, one
+  record head, the note in the card Boeking, a toast — and the way back still
+  leads to the list as it was left.
 
 The booking is the first open one of the seeded list. Only its note changes,
 and the test puts the old note back.
@@ -23,6 +24,7 @@ head left).
 import os
 import re
 import sys
+from urllib.parse import unquote
 
 import pytest
 from playwright.sync_api import sync_playwright
@@ -38,8 +40,8 @@ _GEOMETRY = """() => {
     const r = e.getBoundingClientRect(); return {x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height)}; };
   return {
     back: box('[data-way-back]'), title: box('[data-record-head] h1'), badges: box('[data-badges]'),
-    controls: box('[data-head-controls]'), figures: box('[data-booking-figures]'),
-    edit: box('[data-booking-edit]'),
+    controls: box('[data-head-controls]'), figures: box('[data-summary-card]'),
+    edit: box('[data-booking-facts]'),
     heads: document.querySelectorAll('[data-record-head]').length,
     shells: document.querySelectorAll('#admin-zijbalk').length,
     scroll: document.documentElement.scrollWidth, width: innerWidth, height: innerHeight,
@@ -102,12 +104,16 @@ def test_the_page_fits_and_the_head_is_in_view(browser, size):
         assert g["controls"]["y"] >= g["title"]["y"]
     else:
         assert g["controls"]["x"] > g["title"]["x"] + g["title"]["w"] - 1
-    assert g["edit"], "the edit form is not on the page"
+    assert g["edit"], "the card Boeking is not on the page"
 
 
 def test_a_save_on_the_page_answers_with_the_page(browser):
     page = _page(browser, (1440, 900))
     address = _open_booking(page)
+    # #1901: the page reads first; its edit state is the address with `bewerken=1`.
+    editor = address + "&bewerken=1"
+    page.goto(editor)
+    pagina_klaar(page)
     before = page.locator("#bk-note").input_value()
     note = "e2e-notitie 1574"
     try:
@@ -115,22 +121,23 @@ def test_a_save_on_the_page_answers_with_the_page(browser):
         with page.expect_response(
             lambda r: r.request.method == "POST" and r.url.endswith("/bewerken")
         ):
-            page.locator("[data-booking-edit] button[type=submit]").click()
+            page.locator("[data-form-save]").first.click()
         pagina_klaar(page)
 
         g = page.evaluate(_GEOMETRY)
         assert g["heads"] == 1 and g["shells"] == 1, f"the page nested or lost its head: {g}"
-        assert note in page.locator("[data-booking-figures]").inner_text()
+        assert note in page.locator("[data-booking-facts]").inner_text()
         assert toasts(page).count() >= 1, "no confirmation after the save"
-        assert page.url.endswith(address), "the address changed with the save"
+        # The same address, without the edit flag (its `terug` may be encoded anew).
+        assert unquote(page.url).endswith(unquote(address)), "the address changed with the save"
         assert page.locator("[data-way-back]").get_attribute("href") == LIST
     finally:
-        page.goto(address)
+        page.goto(editor)
         pagina_klaar(page)
         page.locator("#bk-note").fill(before)
         with page.expect_response(
             lambda r: r.request.method == "POST" and r.url.endswith("/bewerken")
         ):
-            page.locator("[data-booking-edit] button[type=submit]").click()
+            page.locator("[data-form-save]").first.click()
         pagina_klaar(page)
         page.close()

@@ -4,9 +4,9 @@
 {% import "_household_rows.html" as rows %}
 {% block title %}{{ title }} · {{ site_name }}{% endblock %}
 {% block content %}
-{# Mijn gegevens (CR-22 S6a, #1710; R16, R17): one's own name, mobile number and
-   e-mail addresses — the person block of Mijn gezin (`_household_rows.html`),
-   for this one person. READ first, "Bewerken" in the head, `?bewerken=1` the
+{# Mijn gegevens (CR-22 S6a, #1710; R16, R17; #1899): one's own person card —
+   the card of Mijn gezin (`_household_rows.html`) without a relation, birth
+   date, gender and telephone included — for this one person. READ first, "Bewerken" in the head, `?bewerken=1` the
    edit mode with ONE "Opslaan", as Mijn gezin (#1590). `#gegevens-pagina` is
    what a good answer replaces. #}
 {% set _p = block.person %}
@@ -23,11 +23,7 @@
         hx-post="/mijn/gegevens" hx-target="#gegevens-pagina" hx-select="#gegevens-pagina"
         hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap">
   {% endif %}
-  {% call ui.section(_("Persoonsgegevens"), id="mijn-gegevens", attrs="data-my-details") %}
-    {% if edit %}{{ ui.fixed_row("h_order", _p.key) }}{% endif %}
-    {{ rows.person_fields(block, _p, edit, in_row=False, own=True) }}
-    <div data-span="full" data-main-emails>{{ rows.email_group(block, _p, edit) }}</div>
-  {% endcall %}
+  {{ rows.person(block, _p, edit, fixed=True, relation=False, attrs='id="mijn-gegevens" data-my-details') }}
   {% if edit %}
   </form>
   {{ ui.action_bar(record=True, form="gegevens-form", cancel_href="/mijn/gegevens") }}

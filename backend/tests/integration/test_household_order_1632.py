@@ -102,7 +102,12 @@ def test_an_email_row_carries_no_label_of_its_own(client, db_session, path):
     html = _main(_page(client, "rijen@example.com", path))
 
     assert html.count("rijen@example.com") >= 2, "the addresses are not on the page"
-    assert html.count(">E-mailadressen</h3>") == 2, "the group's title is the label"
+    # #1899: editing, the list's title is the label, once per person; reading,
+    # an address is a line behind its icon and nothing says "E-mailadressen".
+    titles = len(re.findall(r"<p data-group-title[^>]*>E-mailadressen", html))
+    assert titles == (2 if path == EDIT else 0), "the list's title is the label"
+    if path == READ:
+        assert "E-mailadressen" not in html and html.count("data-person-email") >= 2
     assert LABEL.findall(html) == [] and not LABEL.search(html), "a row says E-mail itself"
 
 
@@ -142,8 +147,11 @@ def test_geslacht_is_a_select_of_half_width_after_the_date_of_birth(client, db_s
 def test_in_read_mode_the_gender_is_one_word(client, db_session):
     _member, main, _partner = _household(db_session, "woord@example.com")
     html = _main(_page(client, "woord@example.com", READ))
-    block = html[html.index(f'data-field="h.{main.id}.gender_code"') :][:500]
-    assert "<select" not in block and "data-value" in block
+    # #1899: the read card says it on the line of the birth date, without a label.
+    card = html[html.index(f'data-person="{main.id}"') :]
+    card = card[: card.index("</section>")]
+    assert "<select" not in card and "Geslacht" not in card
+    assert re.search(r"<p data-person-birth[^>]*>° [0-9-]+ · \w+</p>", card), card[:600]
 
 
 # ── 3. The order, and the main member outside the group ──────────────────────
@@ -155,12 +163,10 @@ def test_mijn_gezin_reads_hoofdlid_then_adres_then_gezinsleden(client, db_sessio
     html = _main(_page(client, "volgorde@example.com", path))
     places = [html.index(f'id="{mark}"') for mark in ("hoofdlid", "gezin-adres", "gezinsleden")]
     assert places == sorted(places), places
-    titles = re.findall(r"<h2[^>]*>([^<]+)</h2>", html)
-    assert [t for t in titles if t in ("Hoofdlid", "Adres", "Gezinsleden")] == [
-        "Hoofdlid",
-        "Adres",
-        "Gezinsleden",
-    ]
+    # #1899: a card per person — the name is its heading; no card is titled
+    # "Hoofdlid" or "Gezinsleden" any more, and "Adres" keeps its own.
+    titles = [t.strip() for t in re.findall(r"<h[23][^>]*>([^<]+)</h[23]>", html)]
+    assert "Adres" in titles and "Hoofdlid" not in titles and "Gezinsleden" not in titles
 
 
 def test_word_lid_ends_with_the_price_and_starts_with_an_empty_group(client, db_session):
@@ -170,7 +176,7 @@ def test_word_lid_ends_with_the_price_and_starts_with_an_empty_group(client, db_
     ]
     assert places == sorted(places), places
     group = html[html.index('id="gezinsleden"') : html.index('id="lidgeld"')]
-    assert "Nog geen gezinsleden." in group and "Gezinslid toevoegen" in group
+    assert "Gezinslid toevoegen" in group
     assert not re.search(r"data-group-row\b(?!s)", group), "a row before anyone is added"
 
 
@@ -338,7 +344,9 @@ def test_only_the_card_writes_what_a_running_renewal_asks():
     assert holding('attrs="data-transfer-due"') == ["_transfer_due.html"]
     # Since CR-22 S5 (#1709) a registration still to be paid shows the same block.
     assert holding('"_transfer_due.html"') == ["_my_registration.html", "_renewal_running.html"]
-    assert holding('"_renewal_running.html"') == ["_membership_card.html"]
+    # #1899: the board's household record shows a running renewal too — the same
+    # partial, included, never a second wording.
+    assert holding('"_renewal_running.html"') == ["_membership_card.html", "leden_gezin.html"]
     assert holding('attrs="data-membership-status"') == ["_membership_card.html"]
     # Since CR-22 S3 (#1706) the landing page shows the same card.
     assert holding('"_membership_card.html"') == ["account_home.html", "household_page.html"]

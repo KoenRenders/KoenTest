@@ -46,8 +46,8 @@ from app.domains.mdm.api import (
 )
 from app.domains.membership.api import Membership, MembershipHistory
 from app.domains.payment.api import PaymentRecord
-from tests._snapshot import compare, fixed_ids, main_region, normalise
-from tests.conftest import SEEDED_ADMIN_EMAIL, sign_up_at_the_door
+from tests._snapshot import compare, fixed_ids, normalise
+from tests.conftest import SEEDED_ADMIN_EMAIL, new_household_form, sign_up_at_the_door
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -178,11 +178,16 @@ BOARD = {
 
 
 def _board(client, headers, db, name: str, fields: dict) -> None:
-    response = client.post("/admin/leden", data=fields, headers=headers)
+    response = client.post("/admin/leden", data=new_household_form(fields), headers=headers)
     if response.status_code == 204:
         said = f"HX-Redirect: {response.headers.get('HX-Redirect')}"
     else:
-        said = main_region(response.text)
+        # #1899: a refusal of Nieuw lid is the kit's banner for the page's message
+        # line (the form of Word lid), where it was the whole page again: what the
+        # screen gets is the banner's words. Recorded again with that change — the
+        # status, the rows and the history rows beside it did not move.
+        assert "data-save-refusal" in response.text, "not the kit's refusal banner"
+        said = " ".join(re.sub(r"<[^>]+>", " ", response.text).split())
     _record(name, response.status_code, said, db)
 
 
@@ -318,7 +323,7 @@ def test_the_board_deletes_a_household_with_the_same_rows(client, db_session, wo
     its memberships on hearing it. The rows are the same, their order within the
     one deletion is not: until this cut the memberships went first. So this
     recording compares the set of rows, not their sequence."""
-    created = client.post("/admin/leden", data=BOARD, headers=world)
+    created = client.post("/admin/leden", data=new_household_form(BOARD), headers=world)
     household = created.headers["HX-Redirect"].rsplit("/", 1)[-1]
 
     response = client.post(f"/admin/leden/gezin/{household}/verwijderen", headers=world)

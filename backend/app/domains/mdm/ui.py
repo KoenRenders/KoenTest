@@ -15,29 +15,24 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (
-    SESSION_COOKIE,
     Right,
     admin_user_by_email,
     csrf_from_request,
     require_csrf,
     require_right,
 )
-from app.domains.mdm.api import RelationType, says_why_in
-from app.domains.mdm.viewmodels import LedenView
+from app.domains.mdm.viewmodels import (
+    HouseholdRecordView,
+    LedenView,
+    NewHouseholdView,
+    RenewMembershipView,
+)
 from app.i18n import _
-from app.ui import admin_nav, filterparams, is_fragment_request, refusal_response, templates
+from app.ui import admin_nav, filterparams, refusal_response, templates
 
 router = APIRouter(include_in_schema=False)
 
 NAV = "/admin/leden"
-
-
-def _codes(db: Session) -> dict:
-    """The code lists a person form shows, and the longest name it takes — the
-    number the server refuses at, so the field's `maxlength` cannot drift from it."""
-    from app.domains.mdm.api import PERSON_NAME_MAX, admin_code_lists
-
-    return {**admin_code_lists(db), "person_name_max": PERSON_NAME_MAX}
 
 
 def _lidmaatschapsjaren(db: Session) -> list[int]:
@@ -46,145 +41,268 @@ def _lidmaatschapsjaren(db: Session) -> list[int]:
     return membership_years(db)
 
 
-def _kpi(db: Session) -> dict:
-    """De drie kengetallen boven het ledenbeheer (C1-KPI-rij, #582).
-
-    "Nog niet vernieuwd" draagt het doeljaar in zijn label, want dat jaar kantelt
-    op de tenant-datum ``membership_next_year_from_md``: vóór die dag gaat de
-    campagne over het lopende jaar, erna over het volgende. De logica zelf staat
-    in het membership-domein — dit scherm telt niet zelf.
-    """
-    from app.domains.membership.api import (
-        current_membership_counts,
-        not_renewed_count,
-        renewal_years,
-    )
-
-    gezinnen, personen = current_membership_counts(db)
-    # Het referentiejaar (#611): de KPI-kaart noemt het jaar waarin iemand lid wás,
-    # zodat duidelijk is dat we naar vorig jaar kijken en niet twee jaar terug. Het
-    # kantelt mee met de tenant-datum, dus het mag niet hardgecodeerd zijn.
-    referentiejaar, doeljaar = renewal_years()
-    return {
-        "kpi_gezinnen": gezinnen,
-        "kpi_personen": personen,
-        "kpi_niet_vernieuwd": not_renewed_count(db),
-        "kpi_doeljaar": doeljaar,
-        "kpi_referentiejaar": referentiejaar,
-    }
+LIST = NAV + "/lijst"
+#: The list's segments (#1899): no "Alle" — a list opens on a status.
+STATUSES = ("actief", "vernieuwen", "opgezegd")
+SORTS = ("naam", "-naam")
 
 
-def _lijst_view(request: Request, db: Session, nav_items: list | None = None) -> LedenView:
-    """View-model van het ledenoverzicht (#643): pagina én fragment.
+def _figures(db: Session, to_renew: int) -> list[dict]:
+    """The three figures in the title row (#582, #1899). "Te vernieuwen" carries
+    its target year, which tilts on the tenant's date
+    ``membership_next_year_from_md``; the rules are membership's — this screen
+    counts nothing itself. `to_renew` comes with the list (`to_renew_total`):
+    the same set its segment filters on."""
+    from app.domains.membership.api import current_membership_counts, renewal_years
 
-    Het fragment wordt los gerenderd bij zoeken, filteren en pagineren, dus het
-    krijgt hetzelfde model — inclusief de KPI-rij, die anders bij een swap zou
-    verdwijnen.
-    """
-    from app.domains.membership.api import list_families
+    households, persons = current_membership_counts(db)
+    reference, target = renewal_years()
+    return [
+        {
+            "value": str(households),
+            "label": _("Actieve gezinnen"),
+            "title": _("Gezinnen met een lidmaatschap dat vandaag geldig is."),
+        },
+        {
+            "value": str(persons),
+            "label": _("Actieve personen"),
+            "title": _("Personen in die gezinnen."),
+        },
+        {
+            "value": str(to_renew),
+            "label": _("Te vernieuwen %(jaar)s") % {"jaar": target},
+            "title": _("Lid in %(referentie)s, nog niet vernieuwd voor %(doel)s.")
+            % {"referentie": reference, "doel": target},
+            "warning": to_renew > 0,
+        },
+    ]
 
-    # #671: uit HX-Current-URL als htmx die meestuurt, anders uit de query-string.
+
+def _empty_reason(status: str, q: str, jaar: int | None) -> str:
+    if q or jaar:
+        return _("Geen gezinnen gevonden voor deze zoekopdracht.")
+    if status == "vernieuwen":
+        return _("Er is geen gezin te vernieuwen.")
+    if status == "opgezegd":
+        return _("Er zijn geen opgezegde gezinnen.")
+    return _("Er zijn nog geen actieve gezinnen.")
+
+
+def _lijst_view(request: Request, db: Session, **extra) -> LedenView:
+    """The view-model of the member list (#643, #1899): the page and its fragment.
+
+    The list's state — segment, search, year, sort, page, page size — lives in
+    the URL (#671: from HX-Current-URL when htmx sends it, else the query)."""
+    from urllib.parse import urlencode
+
+    from app.domains.mdm.api import household_address_line, membership_badge
+    from app.domains.membership.api import family_label, list_families
+    from app.ui import PER_PAGE_OPTIONS, per_page_from
+
     stand = filterparams(request)
     q = (stand.get("q") or "").strip()
     status = (stand.get("status") or "").strip()
+    if status not in STATUSES:
+        status = STATUSES[0]
+    sort = (stand.get("sort") or "").strip()
+    if sort not in SORTS:
+        sort = SORTS[0]
     jaar_raw = (stand.get("jaar") or "").strip()
     jaar = int(jaar_raw) if jaar_raw.isdigit() else None
+    per_page = per_page_from(stand.get("per_page"))
     try:
-        page = max(1, int(stand.get("page", "1")))
+        page = max(1, int(stand.get("page") or 1))
     except ValueError:
         page = 1
-    data = list_families(
-        db, page=page, page_size=25, q=q or None, status=status or None, membership_year=jaar
-    )
-    # total + page_size erbij zodat ui.pager() "x–y van n" kan tonen (#580).
+
+    def _found(at: int):
+        return list_families(
+            db,
+            page=at,
+            page_size=per_page,
+            q=q or None,
+            status=status,
+            membership_year=jaar,
+            sort=sort,
+        )
+
+    data = _found(page)
+    last = max(1, data.total_pages)
+    if page > last:
+        page = last
+        data = _found(page)
+    state = {"status": status, "q": q, "jaar": jaar or "", "per_page": per_page}
+
+    def _query(**more) -> str:
+        return urlencode({k: v for k, v in {**state, **more}.items() if v != ""})
+
+    # A click on the head turns the sort; it keeps the rest and goes to page 1.
+    turned = "-naam" if sort == "naam" else "naam"
+    labels = {
+        "actief": _("Actief"),
+        "vernieuwen": _("Te vernieuwen"),
+        "opgezegd": _("Opgezegd"),
+    }
     return LedenView(
-        families=data.items,
-        page=data.page,
-        total=data.total,
-        per_page=data.page_size,
-        total_pages=data.total_pages,
-        q=q,
+        rows=[
+            {
+                "id": f.id,
+                "name": family_label(f),
+                "address": household_address_line(f),
+                "persons": len(f.members),
+                "badge": membership_badge(f),
+            }
+            for f in data.items
+        ],
+        columns=[
+            {
+                "key": "gezin",
+                "label": _("Gezin"),
+                "cell": "name",
+                "sort_url": f"{LIST}?{_query(sort=turned)}",
+                "sort_page_url": f"{NAV}?{_query(sort=turned)}",
+                "sorted": "desc" if sort.startswith("-") else "asc",
+            },
+            {
+                "key": "personen",
+                "label": _("Personen"),
+                "cell": "extra",
+                "num": True,
+                "priority": 1,
+            },
+            {"key": "lidmaatschap", "label": _("Lidmaatschap"), "cell": "status"},
+        ],
+        segments=[
+            # Opgezegd carries no count (#1899): the two others are what the
+            # board acts on.
+            {
+                "value": s,
+                "label": labels[s],
+                **({"count": data.counts[s]} if s in data.counts else {}),
+            }
+            for s in STATUSES
+        ],
+        figures=_figures(db, data.to_renew_total),
         status=status,
+        q=q,
         jaar=jaar,
         jaren=_lidmaatschapsjaren(db),
-        gefilterd=bool(q or status or jaar),
+        sort=sort,
+        sort_options=[("naam", _("Gezin (A–Z)")), ("-naam", _("Gezin (Z–A)"))],
+        page=page,
+        per_page=per_page,
+        total=data.total,
+        page_sizes=list(PER_PAGE_OPTIONS),
+        pager_url=f"{LIST}?{_query(sort=sort)}",
+        empty_reason=_empty_reason(status, q, jaar),
         csrf_token=csrf_from_request(request),
-        nav_items=nav_items or [],
-        **_kpi(db),
+        **extra,
     )
 
 
-def _detail_ctx(request: Request, db: Session, family_id: int) -> dict:
-    from app.domains.membership.api import get_family
+RECORD_MESSAGE = "#gezin-melding"
+
+
+def _record_view(
+    request: Request, db: Session, family_id: int, email: str, *, edit: bool, saved: bool = False
+) -> HouseholdRecordView:
+    """The household's record (#1899; end state §5.2): the head, the tabs, the
+    summary, and the cards — the persons from membership's one group of person
+    cards (the cards of Mijn gezin), the board member and the years.
+
+    `edit` is asked AND allowed: without the right to change master data the
+    record is read."""
+    from app.domains.auth.api import may
+    from app.domains.mdm.api import (
+        form_code_lists,
+        gezin_tabs,
+        household_record_head,
+        list_persons,
+        membership_badge,
+    )
+    from app.domains.membership.api import (
+        board_household_group,
+        board_membership_card,
+        get_family,
+        renewal_is_mailed,
+    )
+    from app.ui import record_frame
+
+    geld = templates.env.filters["geld"]
 
     family = get_family(db, family_id)
-    from app.domains.mdm.api import list_persons, list_postal_codes
-
-    persons = list_persons(db)
-    postal_codes = list_postal_codes(db)
-    hoofdlid = next(
-        (m for m in family.members if m.relation_type == RelationType.PRIMARY_MEMBER),
-        family.members[0] if family.members else None,
+    may_change = may(db, email, Right.PARTY_MASTERDATA)
+    edit = edit and may_change
+    frame = record_frame(request, db, NAV)
+    group = board_household_group(
+        db,
+        family_id,
+        form_code_lists(db),
+        short_date=templates.env.filters["kortedatum"],
+        edit=edit,
     )
-    overige = [m for m in family.members if hoofdlid is None or m.id != hoofdlid.id]
-    from datetime import date
+    label, tone = membership_badge(family)
+    figures: list[dict[str, object]] = [{"label": _("Personen"), "value": str(len(family.members))}]
+    if may(db, email, Right.PAYMENT_VIEW):
+        from app.domains.payment.api import balance_of_family
 
-    return {
-        "family": family,
-        "hoofdlid": hoofdlid,
-        "overige": overige,
-        "current_year": date.today().year,
-        "all_persons": persons,
-        "postal_codes": postal_codes,
-        "csrf_token": csrf_from_request(request),
-        **_codes(db),
-    }
+        open_amount = balance_of_family(db, family_id)
+        figures.append(
+            {
+                "label": _("Openstaand"),
+                "value": "€ " + geld(open_amount),
+                "warning": open_amount != 0,
+            }
+        )
+    years = [
+        {
+            "id": m.id,
+            "year": m.year,
+            # The year the household is a member through today.
+            "active": bool(m.is_active and m.valid_to and family.member_until == m.valid_to.year),
+            "waiting": not m.is_active,
+        }
+        for m in sorted(family.memberships, key=lambda m: m.year, reverse=True)
+    ]
+    board = family.board_member
+    card = board_membership_card(db, family_id)
+    renewal = card if card and (card.transfer or card.online) else None
+    return HouseholdRecordView(
+        family_id=family_id,
+        page_title=family_label_of(family),
+        record_head=household_record_head(db, family, may_change=may_change),
+        record_tabs=gezin_tabs(db, family, email, "overzicht"),
+        way_back=frame["way_back"],
+        head_editing=edit,
+        summary={"state": {"label": label, "tone": tone}, "figures": figures},
+        group=group,
+        edit=edit,
+        saved=saved,
+        years=years,
+        board_member_id=str(board.id) if board else "",
+        board_member_name=f"{board.first_name} {board.last_name}".strip() if board else "",
+        board_options=[("", _("— Geen —"))]
+        + [(str(p.id), f"{p.last_name} {p.first_name}".strip()) for p in list_persons(db)]
+        if edit
+        else [],
+        renewal=renewal,
+        renewal_unmailed=renewal is not None and not renewal_is_mailed(db, family_id),
+        csrf_token=csrf_from_request(request),
+        nav_items=admin_nav(NAV, request),
+    )
 
 
-def _detail_response(request: Request, db: Session, family_id: int, *, toast: bool = False):
-    ctx = _detail_ctx(request, db, family_id)
-    ctx["toast_opgeslagen"] = toast
-    # Oob-kopverversing (HDEV-melding 15 sep) — zie _aa_detail.html.
-    from app.domains.auth.api import read_session_value
-    from app.domains.mdm.api import gezin_tabs
+def family_label_of(family) -> str:
+    from app.domains.membership.api import family_label
 
-    email = read_session_value(request.cookies.get(SESSION_COOKIE))
-    if email:
-        ctx["record_tabs"] = gezin_tabs(db, ctx["family"], email, "overzicht")
-        ctx["oob_kop"] = True
-    return templates.TemplateResponse(request, "_leden_detail.html", ctx)
+    return family_label(family)
 
 
-def _kaart_response(
-    request: Request,
-    db: Session,
-    family_id: int,
-    *,
-    kaarten: list[str],
-    toast: bool = False,
-    kop: bool = False,
-    bestuurslid: bool = False,
+def _record_page(
+    request: Request, db: Session, family_id: int, email: str, *, edit: bool, saved: bool = False
 ):
-    """The answer to one partial action (#1111): only the card(s) it changed.
-
-    Every action used to answer with the whole block, re-read from the database;
-    that wiped whatever the board member had typed in another card and reset the
-    Alpine state, so the panel closed and nothing seemed to happen. Now the route
-    names its cards; what changes elsewhere travels out-of-band: the record
-    header (`kop`, name and address) and the board-member card (`bestuurslid`,
-    which lists every person by name).
-    """
-    ctx = _detail_ctx(request, db, family_id)
-    ctx.update(kaarten=kaarten, toast_opgeslagen=toast, oob_bestuurslid=bestuurslid)
-    if kop:
-        from app.domains.auth.api import SESSION_COOKIE, read_session_value
-        from app.domains.mdm.api import gezin_tabs
-
-        email = read_session_value(request.cookies.get(SESSION_COOKIE))
-        if email:
-            ctx["record_tabs"] = gezin_tabs(db, ctx["family"], email, "overzicht")
-            ctx["oob_kop"] = True
-    return templates.TemplateResponse(request, "_leden_deel.html", ctx)
+    view = _record_view(request, db, family_id, email, edit=edit, saved=saved)
+    return templates.TemplateResponse(request, "leden_gezin.html", view.as_context())
 
 
 # ── Overzicht ──────────────────────────────────────────────────────────────────
@@ -209,10 +327,10 @@ def leden_lijst(
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
-    """Enkel de kaarten: de filterbalk swapt dit fragment, zodat het zoekveld niet
-    onder je vingers vervangen wordt."""
+    """The list alone: the toolbar swaps this fragment, so the search field is
+    not replaced under the fingers."""
     return templates.TemplateResponse(
-        request, "_leden_lijst.html", _lijst_view(request, db).as_context()
+        request, "_leden_lijst.html", _lijst_view(request, db, oob=True).as_context()
     )
 
 
@@ -222,43 +340,97 @@ def lid_nieuw(
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
-    """Aanmaken als volledige pagina (#627, §2.8) i.p.v. een modal."""
-    from app.domains.mdm.api import list_postal_codes
+    """Nieuw lid as a full page (#627, §2.8) — since #1899 the form of Word lid
+    on the person card: the main member, the address, a card per extra person,
+    one "Opslaan"."""
+    from app.domains.mdm.api import form_code_lists
+    from app.domains.membership.api import new_household_group
 
-    return templates.TemplateResponse(
-        request,
-        "leden_nieuw.html",
-        {
-            "nav_items": admin_nav(NAV, request),
-            "csrf_token": csrf_from_request(request),
-            "postal_codes": list_postal_codes(db),
-            "values": {},
-            "error": None,
-            **_codes(db),
-        },
+    view = NewHouseholdView(
+        group=new_household_group(form_code_lists(db)),
+        csrf_token=csrf_from_request(request),
+        nav_items=admin_nav(NAV, request),
     )
+    return templates.TemplateResponse(request, "leden_nieuw.html", view.as_context())
 
 
-@router.get("/admin/leden/nieuw/persoon-rij", response_class=HTMLResponse)
-def lid_nieuw_persoon_rij(
+RENEW_MESSAGE = "#vernieuw-melding"
+
+
+@router.get("/admin/leden/gezin/{family_id}/vernieuwen", response_class=HTMLResponse)
+def renew_membership_page(
+    family_id: int,
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
-    """Een lege rij voor een extra gezinslid (#1110).
+    """Lidmaatschap vernieuwen from the household's record (#1899 §4): the page of
+    the member's own renewal, in the admin shell. Where nothing can start — no
+    main member, no renewal available, one that runs, or a reader who may not
+    change master data — the record is the answer: the page never invites to an
+    act that cannot succeed (#618)."""
+    from fastapi.responses import RedirectResponse
 
-    Hetzelfde fragment als het publieke formulier, want het zijn dezelfde velden;
-    een eigen admin-route omdat dit scherm achter de beheerdeur hoort te zitten.
-    Er gaat niets naar de databank en er wordt niets vervangen, dus wat je al
-    typte blijft staan.
-    """
-    try:
-        index = max(1, int(request.query_params.get("index", "1")))
-    except ValueError:
-        index = 1
-    return templates.TemplateResponse(
-        request, "_lid_persoon_rij.html", {**_codes(db), "i": index, "values": {}}
+    from app.domains.auth.api import may
+    from app.domains.mdm.api import form_code_lists
+    from app.domains.membership.api import board_renewal_page, get_family
+
+    family = get_family(db, family_id)
+    page = (
+        board_renewal_page(db, family_id, form_code_lists(db))
+        if may(db, email, Right.PARTY_MASTERDATA)
+        else None
     )
+    if page is None:
+        return RedirectResponse(f"/admin/leden/gezin/{family_id}", status_code=303)
+    view = RenewMembershipView(
+        page=page,
+        household_name=family_label_of(family),
+        csrf_token=csrf_from_request(request),
+        nav_items=admin_nav(NAV, request),
+    )
+    return templates.TemplateResponse(request, "renew_membership_admin.html", view.as_context())
+
+
+@router.post(
+    "/admin/leden/gezin/{family_id}/vernieuwen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def renew_membership(
+    family_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
+    payment_method: str = Form(""),
+):
+    """The board starts the renewal. Online: the hard redirect to the provider,
+    as on the public side — the board may pay itself. A transfer: back to the
+    record, where the running renewal stands with its payment details."""
+    from app.domains.membership.api import PAYMENT_METHODS, board_renew_membership
+    from app.kernel.refusals import FieldError
+
+    if payment_method not in PAYMENT_METHODS:
+        return refusal_response(
+            request,
+            [FieldError("payment_method", _("Kies een betaalwijze."))],
+            RENEW_MESSAGE,
+            send=True,
+        )
+    try:
+        result = board_renew_membership(db, family_id, payment_method, by=email)
+    except HTTPException as refusal:
+        return refusal_response(
+            request, [FieldError("", str(refusal.detail))], RENEW_MESSAGE, send=True
+        )
+    response = HTMLResponse("")
+    response.headers["HX-Redirect"] = (
+        result.get("checkout_url") or f"/admin/leden/gezin/{family_id}"
+    )
+    return response
+
+
+NEW_HOUSEHOLD_MESSAGE = "#lid-nieuw-melding"
 
 
 @router.post("/admin/leden", dependencies=[Depends(require_csrf)])
@@ -267,58 +439,32 @@ async def gezin_aanmaken(
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
 ) -> Response:
-    """Nieuw gezin met hoofdlid, adres, contactgegevens en lidmaatschap (#1110).
+    """A new household with its main member, address, contact details and this
+    year's membership (#1110): one form, one save, one transaction — the form of
+    the public Word lid, read by the same reader (#1899) and written the same
+    way, so one rule for both (`FamilyCreate`).
 
-    Eén formulier, één opslaan-actie, één transactie — in de vorm van het publieke
-    "Word lid" en langs dezelfde schrijfweg. Tot #1110 waren het vier aparte
-    opslag-acties en vroeg dit scherm e-mail en gsm van het hoofdlid niet eens,
-    terwijl het publieke formulier ze verplicht: je kon via de beheerkant dus een
-    lid aanmaken dat publiek geweigerd zou worden. Dezelfde regel op één plek
-    (`FamilyCreate`) betekent dat dat niet meer kan.
+    A refusal writes nothing and leaves the form as it was typed: the answer is
+    the kit's banner for the page's message line, each refusal at its field.
 
-    #713: de beheerder tekent de auditregels.
+    #713: the board member signs the audit rows.
     """
-    from app.domains.mdm.api import EmailAddressInUse, list_postal_codes
-    from app.domains.membership.api import (
-        create_family_by_admin,
-        family_from_rows,
-        parse_member_rows,
-    )
+    from app.domains.mdm.api import EmailAddressInUse
+    from app.domains.membership.api import create_family_by_admin, new_household_from_form
+    from app.kernel.refusals import FieldError
 
-    form = await request.form()
-    values = {k: (v if isinstance(v, str) else "") for k, v in form.items()}
-
-    def _fout(melding: str):
-        """Het formulier opnieuw, mét wat er ingevuld stond en de reden.
-
-        De keuzelijsten worden hier opgehaald en niet bovenaan: een mislukte
-        opslag rolt de transactie terug (#1110), en objecten die vóór die rollback
-        geladen zijn, bestaan daarna niet meer. Ze alsnog renderen geeft een
-        harde fout in plaats van de nette foutpagina.
-        """
-        return templates.TemplateResponse(
-            request,
-            "leden_nieuw.html",
-            {
-                "nav_items": admin_nav(NAV, request),
-                "csrf_token": csrf_from_request(request),
-                "postal_codes": list_postal_codes(db),
-                "values": values,
-                "error": melding,
-                **_codes(db),
-            },
-            status_code=422,
-        )
-
+    data, errors = new_household_from_form(await request.form())
+    if data is None:
+        return refusal_response(request, errors, NEW_HOUSEHOLD_MESSAGE)
     try:
-        data = family_from_rows(values, parse_member_rows(form))
         gezin = create_family_by_admin(db, data, actor=email)
     except HTTPException as exc:
-        return _fout(str(exc.detail))
+        # What the service refuses has no field here: it stands in the banner.
+        return refusal_response(request, [FieldError("", str(exc.detail))], NEW_HOUSEHOLD_MESSAGE)
     except EmailAddressInUse as in_use:
         # mdm's own refusal, which the application answers as a JSON 422 for
         # every other door: here it belongs in the page's banner (#1831).
-        return _fout(str(in_use))
+        return refusal_response(request, [FieldError("", str(in_use))], NEW_HOUSEHOLD_MESSAGE)
 
     return Response(status_code=204, headers={"HX-Redirect": f"/admin/leden/gezin/{gezin.id}"})
 
@@ -330,22 +476,68 @@ def gezin_detail(
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.PARTY_VIEW)),
 ):
-    """Een kaart opent de paginabrede gezinseditor (C1, #582); de bewerkingen
-    daarbinnen blijven htmx-fragmenten die in #leden-detail landen."""
-    if is_fragment_request(request):
-        return _detail_response(request, db, family_id)
-    from app.domains.mdm.api import gezin_tabs
-
-    ctx = _detail_ctx(request, db, family_id)
-    return templates.TemplateResponse(
-        request,
-        "leden_gezin.html",
-        {
-            "nav_items": admin_nav(NAV, request),
-            **ctx,
-            "record_tabs": gezin_tabs(db, ctx["family"], email, "overzicht"),
-        },
+    """The household's record (#1899): read first, `?bewerken=1` the edit mode
+    with ONE "Opslaan" — the shape of Mijn gezin, in the admin shell."""
+    return _record_page(
+        request, db, family_id, email, edit=request.query_params.get("bewerken") == "1"
     )
+
+
+@router.post(
+    "/admin/leden/gezin/{family_id}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def save_household_record(
+    family_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
+):
+    """The one "Opslaan" of the household's record (#1899): the address, the
+    persons with their e-mail addresses and relations, the board member and the
+    removed membership years, in ONE transaction — mdm's `save_household` with
+    the board as its caller, and the years handed to membership inside it.
+
+    Until #1899 the record had eleven partial routes that each committed on
+    their own. A refusal writes nothing and leaves the form as it was typed: the
+    answer is the banner alone, with every refused field or row named. A good
+    save answers the record in read mode."""
+    from app.domains.mdm.api import (
+        HouseholdSaveRefused,
+        household_from_form,
+        household_refusals_as_http,
+        household_with_id,
+        save_household,
+    )
+    from app.domains.membership.api import get_family, remove_memberships
+
+    form = await request.form()
+    payload = household_from_form(form)
+    with household_refusals_as_http():
+        household = household_with_id(db, family_id)
+    kept = {key for key in form.getlist("y_order")}
+    removed = [m.id for m in get_family(db, family_id).memberships if str(m.id) not in kept]
+    board_member = str(form.get("board_member_id") or "").strip()
+
+    def _years(session: Session) -> None:
+        remove_memberships(session, family_id, removed, actor=email)
+
+    try:
+        save_household(
+            db,
+            household,
+            payload,
+            by=None,
+            actor=email,
+            board_member=int(board_member) if board_member.isdigit() else None,
+            also=_years if removed and "y_sent" in form else None,
+        )
+    except HouseholdSaveRefused as refusal:
+        return refusal_response(request, refusal.errors, RECORD_MESSAGE)
+    response = _record_page(request, db, family_id, email, edit=False, saved=True)
+    response.headers["HX-Push-Url"] = f"/admin/leden/gezin/{family_id}"
+    return response
 
 
 @router.get("/admin/leden/gezin/{family_id}/inschrijvingen", response_class=HTMLResponse)
@@ -366,7 +558,7 @@ def gezin_inschrijvingen_tab(
     and the rest of the household's page are pilot B."""
     from app.domains.activities.api import parse_registration_sort, registration_table
     from app.domains.auth.api import Right, may
-    from app.domains.mdm.api import family_registrations, gezin_tabs
+    from app.domains.mdm.api import family_registrations, household_record_frame
     from app.domains.membership.api import get_family
 
     try:
@@ -391,7 +583,7 @@ def gezin_inschrijvingen_tab(
         {
             "nav_items": admin_nav(NAV, request),
             "family": family,
-            "record_tabs": gezin_tabs(db, family, email, "inschrijvingen"),
+            **household_record_frame(request, db, family, email, "inschrijvingen"),
             **table,
             # No list fragment of its own: a sort link is the page.
             "reg_target": "",
@@ -400,358 +592,7 @@ def gezin_inschrijvingen_tab(
     )
 
 
-# ── Mutaties (allemaal: sessie + CSRF; herrenderen het detail) ─────────────────
-
-
-@router.post(
-    "/admin/leden/gezin/{family_id}/persoon/{person_id}",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-@says_why_in("#persoon-{person_id}-melding")
-async def persoon_opslaan(
-    family_id: int,
-    person_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
-    first_name: str = Form(""),
-    last_name: str = Form(""),
-    date_of_birth: str = Form(""),
-    gender_code: str = Form(""),
-    contact_email: str = Form("", alias="email"),
-    phone: str = Form(""),
-    mobile: str = Form(""),
-    relation_type: str = Form(""),
-):
-    from app.domains.mdm.api import (
-        ContactsUpdate,
-        PersonUpdate,
-        board_request,
-        require_relation_allowed,
-        update_person,
-        update_person_contacts,
-    )
-
-    # Asked before anything is written: this save commits in steps, and a
-    # relation refused at the end would leave the card half saved.
-    require_relation_allowed(db, family_id, person_id, relation_type)
-    update_person(
-        db,
-        person_id,
-        board_request(
-            PersonUpdate,
-            first_name=first_name.strip(),
-            last_name=last_name.strip(),
-            date_of_birth=date_of_birth or None,
-            gender_code=gender_code or None,
-        ),
-        admin=admin_user_by_email(db, email),
-    )
-    # #1219: het e-mailveld zit niet meer in de veldenset van een BESTAANDE
-    # persoon — de adressen zijn rijen geworden. `email` dus alleen meegeven als
-    # het formulier het droeg: `ContactsUpdate` laat een niet-meegegeven veld met
-    # rust, en een lege waarde zou het hoofdadres verwijderen.
-    contacten: dict = {"phone": phone.strip() or None, "mobile": mobile.strip() or None}
-    if contact_email.strip():
-        contacten["email"] = contact_email.strip()
-    update_person_contacts(
-        db,
-        person_id,
-        board_request(ContactsUpdate, **contacten),
-        admin=admin_user_by_email(db, email),
-    )
-    # De adresrijen uit ditzelfde formulier — één opslaan, één transactie (#1110).
-    from app.domains.mdm.api import apply_email_rows
-
-    apply_email_rows(db, person_id, await request.form(), actor=email)
-    # Relatietype op de MemberPerson-junctie (#498). De regel — een gezin heeft
-    # één hoofdlid, en een bestaand HOOFDLID wordt niet overschreven — staat
-    # in de service.
-    from app.domains.mdm.api import set_relation_type
-
-    set_relation_type(db, family_id, person_id, relation_type, admin=admin_user_by_email(db, email))
-    # #742: een afsluitende "Opslaan", dus mét bevestiging. Een persoon toevoegen of
-    # verwijderen is een deelactie en krijgt er géén — dezelfde grens als bij #717.
-    # #1111: alleen deze kaart; de naam staat ook in de kop en in de
-    # bestuurslidlijst, dus die twee reizen oob mee.
-    return _kaart_response(
-        request,
-        db,
-        family_id,
-        kaarten=[f"persoon:{person_id}"],
-        toast=True,
-        kop=True,
-        bestuurslid=True,
-    )
-
-
-# ── E-mailadressen van één persoon (#1174) ───────────────────────────────────
-#
-# Drie aparte acties en geen veld in het Opslaan-formulier. Een adres toevoegen of
-# weghalen is een deelactie op één rij, net als een persoon toevoegen of een
-# bijlage verwijderen: die krijgen géén bevestigingstoast (#742/#717). Het
-# e-mailVELD in dat formulier blijft wat het was — het hoofdadres — zodat de
-# gewone weg onveranderd is voor wie maar één adres heeft.
-
-
-@router.get(
-    "/admin/leden/gezin/{family_id}/persoon/{person_id}/email-rij", response_class=HTMLResponse
-)
-def email_rij(
-    family_id: int,
-    person_id: int,
-    request: Request,
-    index: str = "",
-    nummer: str = "",
-    db: Session = Depends(get_db),
-    email: str = Depends(require_right(Right.PARTY_VIEW)),
-):
-    """Een lege e-mailrij om onderaan te plakken (#1219).
-
-    Zelfde vorm als `/admin/leden/nieuw/persoon-rij` (#1110): niets naar de
-    databank, niets vervangen, dus wat er al getypt staat blijft staan. De rij
-    krijgt nog geen id — pas bij Opslaan van het lid ontstaat er een rij — en
-    draagt daarom geen knop die er een nodig heeft.
-    """
-    return templates.TemplateResponse(
-        request,
-        "_email_rij.html",
-        {
-            "rij": None,
-            "index": index or "0",
-            "nummer": nummer or "1",
-            "basis_url": f"/admin/leden/gezin/{family_id}/persoon/{person_id}/email",
-            "doel": f"#persoon-{person_id}",
-            "swap": "outerHTML",
-        },
-    )
-
-
-@router.post(
-    "/admin/leden/gezin/{family_id}/persoon/{person_id}/email",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-@says_why_in("#persoon-{person_id}-melding")
-def email_toevoegen(
-    family_id: int,
-    person_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
-    extra_email: str = Form(""),
-):
-    from app.domains.mdm.api import add_email_address
-
-    add_email_address(db, person_id, extra_email, actor=email)
-    return _kaart_response(request, db, family_id, kaarten=[f"persoon:{person_id}"])
-
-
-@router.post(
-    "/admin/leden/gezin/{family_id}/persoon/{person_id}/email/{contact_id}/hoofd",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def email_hoofdadres(
-    family_id: int,
-    person_id: int,
-    contact_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
-):
-    from app.domains.mdm.api import make_email_primary
-
-    make_email_primary(db, person_id, contact_id, actor=email)
-    # Ook de kop en de bestuurslidlijst: die noemen het adres van de persoon.
-    return _kaart_response(request, db, family_id, kaarten=[f"persoon:{person_id}"], kop=True)
-
-
-@router.post(
-    "/admin/leden/gezin/{family_id}/persoon/{person_id}/email/{contact_id}/verwijderen",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def email_verwijderen(
-    family_id: int,
-    person_id: int,
-    contact_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
-):
-    from app.domains.mdm.api import remove_email_address
-
-    remove_email_address(db, person_id, contact_id, actor=email)
-    return _kaart_response(request, db, family_id, kaarten=[f"persoon:{person_id}"], kop=True)
-
-
-@router.post(
-    "/admin/leden/gezin/{family_id}/adres",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-@says_why_in("#adres-melding")
-def adres_opslaan(
-    family_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
-    street: str = Form(""),
-    house_number: str = Form(""),
-    bus_number: str = Form(""),
-    postal_code: str = Form(""),
-):
-    from app.domains.mdm.api import AddressUpdate, update_family_address
-
-    update_family_address(
-        db,
-        family_id,
-        AddressUpdate(
-            street=street.strip(),
-            house_number=house_number.strip(),
-            bus_number=bus_number.strip() or None,
-            postal_code=postal_code.strip(),
-        ),
-        admin=admin_user_by_email(db, email),
-    )
-    # #1111: alleen de adreskaart; het adres staat ook in de kop.
-    return _kaart_response(request, db, family_id, kaarten=["adres"], toast=True, kop=True)
-
-
-@router.post(
-    "/admin/leden/gezin/{family_id}/personen",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-@says_why_in("#persoon-toevoegen-melding")
-def persoon_toevoegen(
-    family_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
-    first_name: str = Form(""),
-    last_name: str = Form(""),
-    date_of_birth: str = Form(""),
-    gender_code: str = Form(""),
-    contact_email: str = Form("", alias="email"),
-    phone: str = Form(""),
-    mobile: str = Form(""),
-    relation_type: str = Form("PARTNER"),
-):
-    from app.domains.mdm.api import PersonAddToFamily, add_person_to_family, board_request
-
-    # `add_person_to_family` answers with the new person's id (#1111: that
-    # person's card is the answer).
-    nieuw_id = add_person_to_family(
-        db,
-        family_id,
-        board_request(
-            PersonAddToFamily,
-            first_name=first_name.strip(),
-            last_name=last_name.strip(),
-            date_of_birth=date_of_birth or None,
-            gender_code=gender_code or None,
-            email=contact_email.strip() or None,
-            phone=phone.strip() or None,
-            mobile=mobile.strip() or None,
-            relation_type=relation_type,
-        ),
-        admin=admin_user_by_email(db, email),
-    )
-    # #1111: de nieuwe persoonkaart plus een verse toevoegkaart, in de plaats van
-    # de toevoegkaart die postte; de bestuurslidlijst krijgt de nieuwe naam oob.
-    return _kaart_response(
-        request, db, family_id, kaarten=[f"persoon:{nieuw_id}", "toevoegen"], bestuurslid=True
-    )
-
-
-@router.post(
-    "/admin/leden/gezin/{family_id}/persoon/{person_id}/verwijderen",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-@says_why_in("#persoon-{person_id}-melding")
-def persoon_verwijderen(
-    family_id: int,
-    person_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
-):
-    from app.domains.mdm.api import delete_household_person
-
-    delete_household_person(db, person_id, admin=admin_user_by_email(db, email))
-    # #1111: de kaart verdwijnt (leeg antwoord op haar eigen outerHTML-doel); de
-    # bestuurslidlijst noemde deze persoon en reist oob mee.
-    return _kaart_response(request, db, family_id, kaarten=[], bestuurslid=True)
-
-
-@router.post(
-    "/admin/leden/gezin/{family_id}/bestuurslid",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def bestuurslid_zetten(
-    family_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
-    person_id: str = Form(""),
-):
-    from app.domains.mdm.api import BoardMemberAssign, assign_board_member
-
-    assign_board_member(
-        db,
-        family_id,
-        BoardMemberAssign(
-            person_id=int(person_id) if person_id else None,
-        ),
-        admin=admin_user_by_email(db, email),
-    )
-    return _kaart_response(request, db, family_id, kaarten=["bestuurslid"])
-
-
-@router.post(
-    "/admin/leden/gezin/{family_id}/lidmaatschappen",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def lidmaatschap_toevoegen(
-    family_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
-    year: int = Form(...),
-):
-    from app.domains.membership.api import MembershipCreate, create_membership_for_family
-
-    create_membership_for_family(
-        db,
-        family_id,
-        MembershipCreate(year=year, is_active=True),
-        admin=admin_user_by_email(db, email),
-    )
-    return _kaart_response(request, db, family_id, kaarten=["lidmaatschappen"])
-
-
-@router.post(
-    "/admin/leden/gezin/{family_id}/lidmaatschappen/{membership_id}/verwijderen",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def lidmaatschap_verwijderen(
-    family_id: int,
-    membership_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_right(Right.PARTY_MASTERDATA)),
-):
-    from app.domains.membership.api import delete_membership
-
-    delete_membership(db, membership_id, admin=admin_user_by_email(db, email))
-    return _kaart_response(request, db, family_id, kaarten=["lidmaatschappen"])
+# ── The delete of the household ───────────────────────────────────────────────
 
 
 @router.post(

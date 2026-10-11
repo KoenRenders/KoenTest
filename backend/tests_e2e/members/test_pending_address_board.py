@@ -95,14 +95,16 @@ def household():
         db.close()
 
 
-ROWS = """(person) => { const card = document.querySelector('#persoon-' + person);
-  const rows = [...card.querySelectorAll('[data-email-rij]')].filter(r => r.checkVisibility());
-  return {rows: rows.map(r => { const box = r.getBoundingClientRect(), badge = r.querySelector('[data-email-waiting]');
+#: #1899: the rows of the person's e-mail list on the record in edit mode. What a
+#: row offers stands in its `⋯`: the actions that are not hidden.
+ROWS = """(person) => { const list = document.querySelector(`[data-repeating-group="e_order.${person}"]`);
+  const rows = [...list.querySelectorAll('[data-group-rows] > [data-group-row]')].filter(r => r.checkVisibility());
+  return {rows: rows.map(r => { const box = r.getBoundingClientRect(), badge = r.querySelector('[data-row-tag]');
       const b = badge ? badge.getBoundingClientRect() : null;
       return {address: r.querySelector('input[type=email]').value,
               waiting: !!badge && badge.checkVisibility(),
               inside: b ? (b.left >= box.left - 0.5 && b.right <= box.right + 0.5 && b.top >= box.top - 0.5 && b.bottom <= box.bottom + 0.5) : null,
-              buttons: [...r.querySelectorAll('button')].filter(x => x.checkVisibility()).map(x => x.innerText.trim())}; }),
+              buttons: [...r.querySelectorAll('[data-row-action]')].filter(x => !x.hidden).map(x => x.textContent.trim())}; }),
     page: [document.documentElement.scrollWidth, innerWidth]}; }"""
 
 
@@ -117,11 +119,11 @@ def test_a_waiting_row_carries_the_mark_and_no_main_address_button(
     page = browser.new_page(base_url=BASE, viewport={"width": width, "height": height})
     try:
         login_als_admin(page, email, make_session_value(email))
-        page.goto(f"/admin/leden/gezin/{household['member']}")
+        page.goto(f"/admin/leden/gezin/{household['member']}?bewerken=1")
         pagina_klaar(page)
-        card = page.locator(f"#persoon-{household['person']}")
-        card.get_by_role("button", name="Bewerken").click()
-        card.locator("[data-email-rij]").first.wait_for(state="visible")
+        page.locator(
+            f'[data-repeating-group="e_order.{household["person"]}"] input[type=email]'
+        ).first.wait_for(state="visible")
         found = page.evaluate(ROWS, household["person"])
         print("MEASURE pending address board", width, found)
         rows = {r["address"].split("-")[0]: r for r in found["rows"]}

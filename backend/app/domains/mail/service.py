@@ -618,6 +618,56 @@ def family_welcome_message(
     )
 
 
+def membership_renewal_message(
+    to_email: str,
+    name: str,
+    year: int,
+    valid_to,
+    amount,
+    payment_method: str,
+    transfer=None,
+) -> dict:
+    """The confirmation of a membership renewal, as a finished message for
+    `queue_mail` (#1903): the year and its validity, the amount and the way of
+    paying. A transfer carries payment's transfer block, the one of the
+    registration mail and of the screens (#1775); an online payment says when
+    the membership becomes active. One mail, whoever placed the renewal."""
+    from app.kernel.geld import bedrag
+
+    method_labels = {"online": _("Online"), "transfer": _("Overschrijving")}
+    facts = [
+        (_("Lidmaatschap"), str(year)),
+        (_("Geldig tot en met"), valid_to.strftime("%d/%m/%Y")),
+        (_("Bedrag"), f"€ {bedrag(amount)}"),
+        (_("Betaalwijze"), method_labels.get(payment_method, payment_method)),
+    ]
+    rows = "".join(
+        f"<li><strong>{escape(label)}:</strong> {escape(value)}</li>" for label, value in facts
+    )
+    online = (
+        "<p>"
+        + escape(_("Het lidmaatschap wordt actief zodra we je betaling ontvangen hebben."))
+        + "</p>"
+        if payment_method == "online"
+        else ""
+    )
+    return dict(
+        to_email=to_email,
+        email_type="membership_confirmation",
+        subject=_("Je lidmaatschap %(jaar)s bij %(naam)s")
+        % {"jaar": year, "naam": _display_name()},
+        cc=None,
+        body_html=f"""
+        <p>Beste {escape(name)},</p>
+        <p>{escape(_("We hebben de aanvraag voor het lidmaatschap van je gezin ontvangen."))}</p>
+        <ul data-renewal-facts>{rows}</ul>
+        {online}
+        {_transfer_instructions_html(transfer)}
+        <p>Met vriendelijke groeten,<br>{_display_name()}</p>
+        """,
+    )
+
+
 def activity_confirmation_message(
     to_email: str,
     name: str,

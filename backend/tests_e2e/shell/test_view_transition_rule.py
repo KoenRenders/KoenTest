@@ -19,7 +19,7 @@ one test per shape of swap that lost its transition, and two for what keeps it
 | 2 a recalculation while typing | the total | register |
 | 3 a search while typing, no address | the circle's candidates | `test_vergaderkring_focus.py` |
 | 4 a swap at load | the Assistent's button | the admin shell |
-| 5 a row added | a member of the family | Word lid |
+| 5 a row added | — since #1899 no form fetches a row any more: each adds its card in the page | — |
 | 6 a command that redraws a part | a payment confirmed | `test_betalingen_tab_houdt_scope.py` |
 | 8 a good answer that takes the page | the confirmation | register |
 | **keeps it:** 7 a list's sort (updates the address) | | Betalingen |
@@ -150,21 +150,6 @@ def test_a_confirmation_takes_the_page_without_a_transition(page, setup):
         "Je inschrijving is ontvangen"
     )
     assert transition_frames(page) == 0, "the confirmation cross-fades in"
-
-
-def test_a_row_added_arrives_without_a_transition(admin):
-    """On the board's "new member" page: since #1590 the public Word lid page adds
-    its rows in the page (the kit's repeating group, no request), so the row that
-    still arrives through htmx is the board's."""
-    admin.goto("/admin/leden/nieuw")
-    pagina_klaar(admin)
-    rows = admin.locator('[id^="persoon-rij-"]')
-    before = rows.count()
-    watch_transitions(admin)
-    with htmx_afgerond(admin):
-        admin.locator('[hx-get="/admin/leden/nieuw/persoon-rij"]').click()
-    expect(rows).to_have_count(before + 1)
-    assert transition_frames(admin) == 0, "the page cross-fades when a row is added"
 
 
 def test_a_swap_at_load_runs_no_transition(browser, setup):

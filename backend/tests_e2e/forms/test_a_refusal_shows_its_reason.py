@@ -131,15 +131,11 @@ def test_the_tenant_editor_shows_why(page):
 
 
 def test_a_new_member_without_a_person_shows_why(page):
+    """#1899: the form of Word lid — the kit's own check is off on it (`novalidate`),
+    and the reader refuses the main member's empty name at its fields."""
     page.goto("/admin/leden/nieuw")
     pagina_klaar(page)
-    page.evaluate(
-        "() => { const f = document.querySelector('form[hx-post=\"/admin/leden\"]');"
-        " f.noValidate = true; f.querySelectorAll('[required]').forEach(e => e.removeAttribute('required')); }"
-    )
 
-    status, state = _submit(
-        page, page.locator("form[hx-post='/admin/leden'] button[type=submit]").first, "/admin/leden"
-    )
+    status, state = _submit(page, page.locator("[data-form-save]").first, "/admin/leden")
 
-    _assert_shown(status, state, "hoofdlid")
+    _assert_shown(status, state, "Voornaam en achternaam")

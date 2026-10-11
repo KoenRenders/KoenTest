@@ -25,6 +25,7 @@ from app.domains.mail.service import (
     _env_prefix,
     activity_confirmation_message,
     family_welcome_message,
+    membership_renewal_message,
     queue_mail,
 )
 from app.i18n import _
@@ -32,7 +33,7 @@ from app.kernel.contracts.activities import AnswerLinkSent, RegistrationConfirme
 from app.kernel.contracts.auth import CodeMailRequested
 from app.kernel.contracts.forms import SubmissionCreated
 from app.kernel.contracts.mail import MailRequested
-from app.kernel.contracts.membership import FamilyRegistered
+from app.kernel.contracts.membership import FamilyRegistered, MembershipRenewalPlaced
 from app.kernel.events import subscribe
 from app.kernel.jobs import job
 
@@ -247,6 +248,31 @@ def queue_family_welcome(event: FamilyRegistered, db: Session) -> None:
         queue_mail(db, **message)
     except Exception as e:  # noqa: BLE001 — a mail never stops a registration
         logger.error("Lidmaatschap bevestigingsmail mislukt naar %s: %s", event.to_email, e)
+
+
+@subscribe(MembershipRenewalPlaced)
+def queue_renewal_confirmation(event: MembershipRenewalPlaced, db: Session) -> None:
+    """The confirmation of a membership renewal (#1903), built now and queued to
+    leave after the commit — the same mail whether the household or the board
+    placed the renewal."""
+    from app.domains.payment.api import PaymentRecord
+
+    try:
+        payment_record = (
+            db.get(PaymentRecord, event.payment_record_id) if event.payment_record_id else None
+        )
+        message = membership_renewal_message(
+            to_email=event.to_email,
+            name=event.name,
+            year=event.year,
+            valid_to=event.valid_to,
+            amount=event.amount,
+            payment_method=event.payment_method,
+            transfer=_transfer_of(db, payment_record),
+        )
+        queue_mail(db, **message)
+    except Exception as e:  # noqa: BLE001 — a mail never stops a renewal
+        logger.error("Bevestigingsmail van de vernieuwing mislukt naar %s: %s", event.to_email, e)
 
 
 @subscribe(SubmissionCreated)

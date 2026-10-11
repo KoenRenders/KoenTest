@@ -37,6 +37,7 @@ from app.domains.payment.models import (  # noqa: F401
 from app.domains.payment.service import (  # noqa: F401
     aggregate,
     apply_zicht,
+    balance_of_family,
     checkout_url_for,
     confirm_manual_payment,
     count_records_for_family,
@@ -106,6 +107,7 @@ __all__ = [
     "group_cards",
     "matches_filter",
     "may_delete",
+    "balance_of_family",
     "count_records_for_family",
     "count_registration_records_by_activity",
     "family_payables",

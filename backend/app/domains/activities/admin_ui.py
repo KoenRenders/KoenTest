@@ -135,7 +135,6 @@ def _aa_detail_ctx(
         question_forms,
     )
     from app.domains.activities.settlement import PAID, settlement_of, settlement_options
-    from app.domains.designstudio.api import on_the_poster
     from app.domains.mdm.api import household_ids
 
     organisers = organisers_for(db, activiteit.id)
@@ -148,8 +147,6 @@ def _aa_detail_ctx(
         # elke rendering van dit fragment.
         "organisers": organisers,
         "contact_count": sum(1 for o in organisers if o.is_contact),
-        # #1433: who the poster names, asked of Design Studio — the rule is theirs.
-        "poster_ids": {o.id for o in on_the_poster(organisers)},
         # #1559: the occupancy stands on the component itself in read mode
         # (the same count as the full-check, #451).
         "component_booked": booked_per_component(db, [activiteit.id]),
@@ -322,7 +319,6 @@ def _new_record_ctx(request: Request, db: Session) -> dict:
         "error": None,
         "organisers": [],
         "contact_count": 0,
-        "poster_ids": set(),
         "component_booked": {},
         "organiser_households": {},
         "board_notes": "",

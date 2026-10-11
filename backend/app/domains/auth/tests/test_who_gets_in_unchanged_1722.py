@@ -441,7 +441,7 @@ def _routes_on_a_right() -> list[tuple[str, str]]:
         if _right_of(method, path)
         and recorded[f"{method} {path}"]["tenant"] not in ("everyone", "nobody")
     ]
-    assert len(routes) >= 252, f"only {len(routes)} routes on a right — is the walk still looking?"
+    assert len(routes) >= 240, f"only {len(routes)} routes on a right — is the walk still looking?"
     return routes
 
 

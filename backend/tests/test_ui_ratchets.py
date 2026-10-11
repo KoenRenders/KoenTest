@@ -207,12 +207,17 @@ def shell_extended_directly(text: str) -> int:
     layout. There is one layout today, `list_page.html`; a record page has no
     layout file yet and counts as on the kit when it renders the record head
     (`ui.record_header`, itself or through what it includes) — `measure` hands
-    this collector the page with its includes folded in.
+    this collector the page with its includes folded in. A form page counts
+    as on the kit when it stands in the kit's form page (`ui.public_form_page`,
+    the one frame of a form in both shells — #1899: the board's Nieuw lid, its
+    renewal page and its registration page are that frame in the admin shell).
 
-    Proven red by letting `betalingen.html` extend `admin_base.html`."""
+    Proven red by letting `betalingen.html` extend `admin_base.html`; and, for
+    the form page, by taking `ui.public_form_page(` out of the board's renewal
+    page (1 × shell_extended_directly, the baseline says 0)."""
     if not _EXTENDS_SHELL.search(text):
         return 0
-    return 0 if "ui.record_header(" in text else 1
+    return 0 if "ui.record_header(" in text or "ui.public_form_page(" in text else 1
 
 
 def _with_includes(rel: str, sources: dict[str, str]) -> str:
@@ -258,7 +263,8 @@ RULES: dict[str, tuple[Callable[[str], int], str]] = {
     ),
     "shell_extended_directly": (
         shell_extended_directly,
-        "a list extends `list_page.html`; a record renders `ui.record_header`",
+        "a list extends `list_page.html`; a record renders `ui.record_header`; a form "
+        "stands in `ui.public_form_page`",
     ),
 }
 

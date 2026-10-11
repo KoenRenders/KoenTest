@@ -376,13 +376,68 @@ def test_never_a_second_main_member_and_nothing_outside_the_list(db_session, ask
     assert _counts(db_session) == before
 
 
-def test_the_relation_of_a_person_who_is_there_is_not_read(db_session):
-    """Whether an existing person's kind can be changed stays as it was: it
-    cannot. A form that sends one for Cas changes nothing."""
+def test_the_relation_of_a_person_who_is_there_is_written_with_its_history(db_session):
+    """#1899 (Koen, 11 October 2026, to "may a member change the relation of a
+    person already in the household": "b maar uiteraard niet het hoofdlid"):
+    partner or child, with the history row the board's door wrote (#1833). The
+    same relation again writes nothing.
+
+    Red (restored after): the `apply_relation` call taken out of `_save_person`
+    → Cas stays a child."""
+    from app.domains.mdm.api import MemberPersonHistory
+
     world = _household(db_session)
     payload = _as_is(db_session, world["household"])
     _row(payload, world["Cas"]).relation_type = "PARTNER"
     _save(db_session, world, payload)
+    db_session.expire_all()
+    link = db_session.query(MemberPerson).filter_by(person_id=world["Cas"].id).one()
+    assert link.relation_type == RelationType.PARTNER
+    changed = (
+        db_session.query(MemberPersonHistory)
+        .filter_by(member_person_id=link.id, action="relation_changed")
+        .all()
+    )
+    assert [row.source for row in changed] == ["member_self"]
+    # The same again: no second row.
+    payload = _as_is(db_session, world["household"])
+    _row(payload, world["Cas"]).relation_type = "PARTNER"
+    _save(db_session, world, payload)
+    assert (
+        db_session.query(MemberPersonHistory)
+        .filter_by(member_person_id=link.id, action="relation_changed")
+        .count()
+        == 1
+    )
+
+
+def test_nobody_is_made_or_unmade_main_member_through_the_relation(db_session):
+    """The main member keeps his place whatever the form sends for him, and a
+    form that asks the main member's place for someone else is refused at that
+    person's relation, with nothing written.
+
+    Red (restored after): `ADDED_RELATIONS` widened with the main member in
+    `apply_relation` → the household has two main members."""
+    world = _household(db_session)
+    main = next(
+        link.person
+        for link in world["household"].member_persons
+        if link.relation_type == RelationType.PRIMARY_MEMBER
+    )
+    payload = _as_is(db_session, world["household"])
+    _row(payload, main).relation_type = "KIND"
+    _save(db_session, world, payload)
+    db_session.expire_all()
+    assert (
+        db_session.query(MemberPerson).filter_by(person_id=main.id).one().relation_type
+        == RelationType.PRIMARY_MEMBER
+    )
+
+    payload = _as_is(db_session, world["household"])
+    _row(payload, world["Cas"]).relation_type = "HOOFDLID"
+    with pytest.raises(HouseholdSaveRefused) as refusal:
+        _save(db_session, world, payload)
+    assert [e.field for e in refusal.value.errors] == [f"h.{world['Cas'].id}.relation_type"]
     db_session.expire_all()
     link = db_session.query(MemberPerson).filter_by(person_id=world["Cas"].id).one()
     assert link.relation_type == RelationType.ADULT_CHILD

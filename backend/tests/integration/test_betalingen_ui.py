@@ -83,7 +83,8 @@ def test_refund_via_scherm(client, db_session):
         data={"amount": "10,00", "note": "Deels terug"},
         headers={"X-CSRF-Token": csrf},
     )
-    assert resp.status_code == 200
+    # #1901: the answer is the way to the new refund's page.
+    assert resp.status_code == 204
     refund = db_session.query(PaymentRecord).filter(PaymentRecord.refund_of_id == rec.id).one()
     assert refund.type == PaymentType.REFUND and refund.amount == Decimal("-10.00")
 
@@ -97,7 +98,8 @@ def test_refund_via_scherm(client, db_session):
         data={"amount": "1000"},
         headers={"X-CSRF-Token": csrf},
     )
-    assert fout.status_code == 200
+    # #1901: the kit's refusal for the refund screen's message line.
+    assert fout.status_code == 422
     assert "terugbetalen" in fout.text
     db_session.expire_all()
     assert (
@@ -132,8 +134,12 @@ def test_geneste_refund_heeft_bewerken_editor(client, db_session):
     # K2 (#1556): the nested refund row opens the refund's own page, which
     # carries the editor (the unfold under the row is gone).
     assert f'href="/admin/betalingen/{refund.id}?terug=' in html
+    # #1901: the page reads first; Bewerken opens the editor.
     html = client.get(f"/admin/betalingen/{refund.id}").text
+    assert f'href="/admin/betalingen/{refund.id}?bewerken=1"' in html
+    html = client.get(f"/admin/betalingen/{refund.id}?bewerken=1").text
     assert f"/admin/betalingen/{refund.id}/bewerken" in html
+    assert "Terugbetaald bedrag" in html and "Zet op 0 om te corrigeren" in html
 
 
 def _registratie_record(db, naam: str, amount: str, ogm: str, status="pending"):

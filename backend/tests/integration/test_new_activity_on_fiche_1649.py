@@ -87,12 +87,11 @@ def test_the_route_renders_the_record_page_in_edit_mode_without_a_record(client,
     assert 'data-form-flow data-mode="edit"' in html
     for part in (
         'id="aa-section-activity"',
-        'id="aa-section-audience"',
         'id="aa-section-internal"',
         'id="aa-group-dates"',
         'id="aa-group-components"',
         'id="aa-group-organisers"',
-        "data-rare-settings",
+        "data-rare-line",
     ):
         assert part in html, f"{part} is not on the new fiche"
     form = re.search(r'<form id="aa-act-form"[^>]*>', html, re.S).group(0)

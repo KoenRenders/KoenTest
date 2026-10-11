@@ -1,0 +1,27 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ title }} — {{ _("Betalingen") }}{% endblock %}
+{% block content %}
+{# Terugbetaling registreren (#1901; Koen, 10 October 2026: a screen of its own,
+   reached from the menu, in the words the app already uses): the kit's form
+   page in the admin shell — the amount, the reason, one button. It makes a new
+   booking with an amount to pay back; paying it out is done on that booking's
+   own page (#617-2b), which is where a good answer lands. A refusal answers the
+   reason at the amount, in the page's message line. #}
+{% call ui.public_form_page(title, shell="admin", intro=booking, back_href=back_href, back_label=_("Terug naar de boeking")) %}
+<div data-form-flow data-mode="edit" class="form-flow">
+  <div id="terugbetaling-melding" data-form-message></div>
+  <form id="terugbetaling-form" class="contents" data-record-form data-message="#terugbetaling-melding" novalidate
+        hx-post="{{ post_url }}" hx-swap="none">
+    {% call ui.section(_("Terugbetaling"), id="terugbetaling") %}
+      <p data-span="full" data-refund-received class="text-sm leading-[21px] text-ink">{{ ui.label_fact(_("Ontvangen"), received) }}</p>
+      {{ ui.field("amount", _("Terug te betalen bedrag"), kind="number", unit="€", required=True, id="bk-refund-amount",
+                  placeholder="0.00", attrs='step="0.01" min="0" autofocus') }}
+      {{ ui.field("note", _("Reden"), id="bk-refund-note", long=True) }}
+    {% endcall %}
+  </form>
+  {{ ui.action_bar(record=True, send=True, form="terugbetaling-form", cancel_href=back_href,
+                   save_label=_("Registreren"), busy_label=_("Bezig…")) }}
+</div>
+{% endcall %}
+{% endblock %}

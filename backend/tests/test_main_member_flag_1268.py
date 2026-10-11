@@ -34,25 +34,51 @@ import re
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, household_fields
 
-HIDDEN = 'name="relation_type" value="HOOFDLID"'
-
 
 def test_the_admin_form_keeps_the_main_member_a_main_member(client, db_session):
+    """#1899: the main member's card carries the fixed badge and no relation
+    select, and its form sends no relation — the one save leaves his place alone."""
+    from tests.conftest import record_fields
+
     member, person = create_test_family(db_session, email="main-1268@example.org")
+    db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
-    html = client.get(f"/admin/leden/gezin/{member.id}").text
-    assert f'id="lp{person.id}-first_name"' in html, "the person's edit fields are not on the page"
-    assert HIDDEN in html, "the main member's form lost its hidden HOOFDLID field"
-    assert f'id="lp{person.id}-relation_type"' not in html, (
+    html = client.get(f"/admin/leden/gezin/{member.id}?bewerken=1").text
+    assert f'id="h-{person.id}-first_name"' in html, "the person's edit fields are not on the page"
+    card = html[html.index('id="hoofdlid"') :]
+    card = card[: card.index("data-form-grid")]
+    assert ">Hoofdlid</span>" in card, "the main member's card lost its badge"
+    assert f'id="h-{person.id}-relation_type"' not in html, (
         "the main member is offered a relation select, as if it could stop being the main member"
     )
+    assert f"h.{person.id}.relation_type" not in record_fields(client, member.id)
 
 
 def _row_titles(html: str) -> list[tuple[str, str]]:
-    """(relation label, name) of every person row on the portal."""
-    return re.findall(
-        r"<span data-row-title-prefix>([^<]*)</span>.*?<h3 data-row-title=\"([^\"]*)\"", html, re.S
-    )
+    """(relation label, name) of every person card on the portal that is no main
+    member (#1899: the name is the card's heading, the relation its badge when
+    the page is read and the chosen option of its select when it is edited)."""
+    cards = []
+    for name, relation in re.findall(
+        r"<h2 data-person-name[^>]*>([^<]*)</h2>\s*<span data-person-relation[^>]*>.*?>([^<>]+)</span>",
+        html,
+        re.S,
+    ):
+        cards.append((relation.strip(), name.strip()))
+    # Editing: per card its own title line — a card without a select (the main
+    # member's) must not borrow the next card's.
+    for card in html.split("<div data-row-title-line")[1:]:
+        # The title line ends where the card's fields begin.
+        line = card.split("data-form-grid")[0]
+        name = re.search(r"<h3 data-row-title=\"([^\"]*)\"", line)
+        select = re.search(
+            r"<select[^>]*name=\"h\.\w+\.relation_type\"[^>]*>(.*?)</select>", line, re.S
+        )
+        if not (name and select):
+            continue
+        chosen = re.search(r"<option[^>]* selected[^>]*>([^<]*)</option>", select.group(1))
+        cards.append((chosen.group(1).strip() if chosen else "", name.group(1)))
+    return [card for card in cards if card[0] != "Hoofdlid"]
 
 
 def test_the_portal_shows_the_main_member_as_the_main_member(client, db_session):
@@ -86,17 +112,18 @@ def test_the_portal_shows_the_main_member_as_the_main_member(client, db_session)
     for page in ("/leden/gezin", "/leden/gezin?bewerken=1"):
         html = client.get(page).text
         stored = [t for t in _row_titles(html) if t[1] != "Nieuw gezinslid"]
-        # #1632: the main member is no row of the group but the section
-        # "Hoofdlid" above it; the rows are the others.
+        # #1632, #1899: the main member is no row of the group but the first
+        # card, with the badge "Hoofdlid"; the others follow.
         assert stored == [("(meerderjarig) kind", "Tweede Persoon")], page
         head = html[html.index('id="hoofdlid"') : html.index('id="gezin-adres"')]
-        assert ">Hoofdlid</h2>" in head and "Tweede" not in head, page
-        assert f'data-field="h.{person.id}.first_name"' in head, page
-    # The edit mode asks no relation of a stored person: it cannot be changed here.
+        assert ">Hoofdlid</span>" in head and "Tweede" not in head, page
+    # #1899 (Koen, 11 October 2026): the edit mode asks the relation of every
+    # person but the main member, whose card carries the fixed badge.
     assert f'name="h.{person.id}.first_name"' in html, (
         "the person's edit fields are not on the page"
     )
     assert f'name="h.{person.id}.relation_type"' not in html
+    assert len(re.findall(r'<select[^>]*name="h\.\d+\.relation_type"', html)) == 1
     # #1603: Mijn gezin asks nobody's mobile number — also not the main member's.
     required = set(re.findall(r'id="h-(\d+)-mobile" name="h\.\d+\.mobile" required', html))
     asked = set(re.findall(r'id="h-(\d+)-mobile"', html))
@@ -112,12 +139,15 @@ def test_the_portal_shows_the_main_member_as_the_main_member(client, db_session)
 
 def test_a_partner_is_not_a_main_member(client, db_session):
     """The other half: without it, a template that always said "main member"
-    would pass the two tests above."""
+    would pass the test above. A household whose only person is a partner shows
+    that person first, with the relation it has — not as the main member."""
     member, person = create_test_family(
         db_session, email="partner-1268@example.org", relation_type="PARTNER"
     )
+    db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
-    html = client.get(f"/admin/leden/gezin/{member.id}").text
-    assert f'id="lp{person.id}-first_name"' in html, "the person's edit fields are not on the page"
-    assert HIDDEN not in html
-    assert f'id="lp{person.id}-relation_type"' in html
+    html = client.get(f"/admin/leden/gezin/{member.id}?bewerken=1").text
+    assert f'id="h-{person.id}-first_name"' in html, "the person's edit fields are not on the page"
+    card = html[html.index('id="hoofdlid"') :]
+    card = card[: card.index("data-form-grid")]
+    assert "partner" in card.lower() and "Hoofdlid" not in card

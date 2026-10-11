@@ -1,15 +1,11 @@
 {% import "_macros.html" as ui %}
-{# Recordkop van het gezin (golf 9, #913) — zelfde patroon als de activiteit:
-   naam als titel, adres eronder, de tabbalk (mdm.api.gezin_tabs) eronder.
-   Verwijderen van het gezin staat hier rechts: het record heeft geen eigen
-   bewerkvlak-cluster om hem in te zetten. #}
-<div class="mb-2 flex items-start justify-between gap-3">
-  <div>
-    <h1 class="text-3xl font-bold text-kop">{{ gezinslabel(family) }}</h1>
-    <p class="text-sm text-ink-soft mt-1">
-      {{ _("Gezin") }} #{{ family.id }}{% if family.street %} · {{ family.street }} {{ family.house_number }}{% if family.bus_number %} bus {{ family.bus_number }}{% endif %}, {{ family.postal_code }} {{ family.municipality }}{% endif %}
-    </p>
-  </div>
-  {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="/admin/leden/gezin/' ~ family.id ~ '/verwijderen" ' ~ confirm_attrs(_("Gezin"), gezinslabel(family))) }}
-</div>
-{{ ui.tabs(record_tabs) }}
+{# The head of the household's record (#1899; end state §5.2): one macro, its
+   actions as data, and the tabs under it. Shared by the record's three tabs —
+   Gegevens, Inschrijvingen, Betalingen. `record_head` comes from
+   `mdm.household_record_head`, the tabs from `mdm.gezin_tabs`, the way back and
+   the edit state from `app.ui.record_frame`. No button of its own here: a
+   `btn_*` beside the macro is red (`tests/test_record_header_gate.py`). #}
+{{ ui.record_header(record_head.title, badges=record_head.badges, facts=record_head.facts,
+                    primary=record_head.primary, actions=record_head.actions, back=way_back,
+                    editing=head_editing) }}
+{{ ui.related_tabs(record_tabs, keep=way_back.keep) }}

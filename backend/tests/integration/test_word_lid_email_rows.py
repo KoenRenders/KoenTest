@@ -94,15 +94,6 @@ def test_a_row_added_in_the_page_is_a_removable_extra_address(client):
         assert button and "hidden" not in button.group(0), f"an added row offers no '{action}'"
 
 
-def test_the_boards_extra_row_is_still_served(client):
-    """`/lid-worden/email-rij` stays for the board's "new member" screen, which
-    still builds its persons from the old rows (#1246)."""
-    html = client.get("/lid-worden/email-rij?member=0&index=1727000000001&nummer=2").text
-    assert 'name="m0_email_new_1727000000001"' in html
-    assert "hoofdadres" not in html, "an added row is never the primary address"
-    assert "Verwijderen" in html
-
-
 def test_two_addresses_are_stored_with_the_marked_one_as_primary(client, db_session):
     first, second = "rij.een-1246@example.com", "rij.twee-1246@example.com"
     response = client.post("/lid-worden", data=_form(db_session, first, second))

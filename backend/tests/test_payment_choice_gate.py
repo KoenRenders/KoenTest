@@ -33,7 +33,7 @@ BY_HAND = re.compile(r"""field\(\s*["']payment_method["']|_\(["']Online betalen[
 ASKERS = (
     "domains/activities/templates/_inschrijf_velden.html",
     "domains/membership/templates/lid_worden.html",
-    "domains/membership/templates/lidmaatschap_vernieuwen.html",
+    "domains/membership/templates/_renewal_form.html",
     "ui/templates/design_system.html",
 )
 

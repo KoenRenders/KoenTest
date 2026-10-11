@@ -91,7 +91,8 @@ def test_the_persons_group_adds_under_its_rows_and_the_email_group_in_its_head(c
 def test_an_empty_persons_group_shows_the_button_where_the_first_will_come(client, db_session):
     html = _on_the_page(client.get(SIGN_UP).text)
     persons = _group(html, "h_order")
-    assert persons.index("Nog geen gezinsleden.") < persons.index("data-group-add-below")
+    # #1899: a group of cards has no empty line — the button is all there is.
+    assert persons.index("data-group-rows") < persons.index("data-group-add-below")
     assert persons.count("data-group-add ") == 1
 
 
@@ -135,7 +136,11 @@ def test_every_person_opens_with_one_email_field_in_edit_mode(client, db_session
     assert sent[f"e_order.{partner.id}"] == [f"n{partner.id}e"]
     # reading, a person without an address shows none
     read = _on_the_page(client.get("/leden/gezin").text)
-    assert f"e.n{partner.id}e.value" not in read and "Nog geen e-mailadres." in read
+    # (#1899: the read card shows the mail icon with a dash)
+    assert f"e.n{partner.id}e.value" not in read
+    card = read[read.index(f'data-person="{partner.id}"') :]
+    card = card[: card.index("</section>")]
+    assert re.search(r"<p data-person-email>.*?>—<", card, re.S) and "mailto:" not in card
 
 
 def test_a_person_added_in_the_page_comes_with_an_email_field_of_their_own(client, db_session):

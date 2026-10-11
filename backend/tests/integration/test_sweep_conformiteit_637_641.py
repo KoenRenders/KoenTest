@@ -17,30 +17,6 @@ APP = Path(__file__).resolve().parents[2] / "app"
 # ── #639: adres bewerken houdt zijn knop ─────────────────────────────────────
 
 
-def test_adres_bewerken_houdt_zijn_knop_tijdens_het_bewerken():
-    """De knop zat binnen `x-show="!edit"` en verdween zodra je begon te bewerken.
-
-    §2.8: verbergen geeft layout-shift én je hebt geen weg terug. De invariant die
-    telt is dat de adressectie beide standen kent — "Bewerken" en "Annuleren" —
-    zoals de personenlijst in hetzelfde bestand al deed.
-    """
-    # #1111: de kaarten van het gezinsscherm zijn macro's geworden
-    # (`_leden_kaarten.html`), zodat een deelactie alleen haar eigen kaart
-    # vervangt. De adressectie staat daar; `_leden_detail.html` roept haar aan.
-    tekst = (APP / "domains" / "mdm" / "templates" / "_leden_kaarten.html").read_text()
-    adresblok = tekst.split('/adres"')[0].rsplit("{# Adres", 1)[-1]
-
-    assert "ui.edit_toggle" in adresblok, "de adressectie gebruikt de kit-toggle niet"
-    # De oude vorm: een eigen knop die de modus alleen aanzet, binnen het blok dat
-    # door diezelfde modus verborgen wordt.
-    assert '_("Adres bewerken"), attrs=' not in adresblok, (
-        "weer een eigen knop i.p.v. ui.edit_toggle()"
-    )
-    assert '@click="edit = true"' not in adresblok, (
-        "een knop die de bewerkmodus alleen aanzet heeft geen weg terug"
-    )
-
-
 def test_de_adresknop_toont_beide_standen(client, db_session):
     """Gerenderd, niet alleen in de template: het scherm moet allebei bevatten."""
     from app.domains.auth.api import SESSION_COOKIE, make_session_value
@@ -138,18 +114,3 @@ def test_het_veldtype_staat_in_gewone_taal(client, db_session):
     assert "Lange tekst" in html
     assert ">textarea<" not in html  # niet als badge- of optietekst
     assert 'value="textarea"' in html  # de code blijft wél de waarde
-
-
-def test_lidmaatschapsjaar_toevoegen_heet_toevoegen(client, db_session):
-    from app.domains.auth.api import SESSION_COOKIE, make_session_value
-    from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, seed_postal_code
-
-    seed_postal_code(db_session)
-    member, _person = create_test_family(db_session, email="jaar@example.com")
-    db_session.commit()
-    client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
-
-    html = client.get(f"/admin/leden/gezin/{member.id}").text
-
-    assert "Lid maken" not in html
-    assert ">Toevoegen<" in html

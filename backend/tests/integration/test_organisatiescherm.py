@@ -176,11 +176,12 @@ def test_a_member_address_still_saves(client, db_session, postcode):
     # #1348: after `_post`, which signs in again — the token of an earlier sign-in
     # belonged to a cookie the client no longer carries.
     csrf = _operator(client, db_session)
-    resp = client.post(
-        f"/admin/leden/gezin/{member.id}/adres",
-        data={"street": "Ledenlaan", "house_number": "9", "bus_number": "", "postal_code": "2400"},
-        headers={"X-CSRF-Token": csrf},
-    )
+    # #1899: the address rides the household record's one save.
+    from tests.conftest import record_fields, save_record
+
+    fields = record_fields(client, member.id)
+    fields.update({"address.street": "Ledenlaan", "address.house_number": "9"})
+    resp = save_record(client, member.id, fields, {"X-CSRF-Token": csrf})
 
     assert resp.status_code == 200
     van_lid = db_session.execute(

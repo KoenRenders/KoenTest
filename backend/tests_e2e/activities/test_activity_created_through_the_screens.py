@@ -159,7 +159,8 @@ def test_an_activity_created_through_the_screens_is_open_for_registration(admin)
             page.wait_for_url(re.compile(r"/admin/activiteiten/\d+$"), timeout=10_000)
             activity_id = int(page.url.rstrip("/").rsplit("/", 1)[1])
             # The record opens in its read state (#1558), the name in its own field.
-            expect(page.locator('#aa-detail [data-field="name"] [data-value]')).to_have_text(name)
+            # #1900: the name is the record's title and does not repeat in its card.
+            expect(page.locator("#aa-recordkop h1")).to_have_text(name)
 
         with _step("step 2 (onderdeel en product, in de pagina)"):
             # Since #1559 the fiche has one save: the component and its product are
