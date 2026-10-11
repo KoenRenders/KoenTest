@@ -360,7 +360,18 @@ def test_door_account_from_an_activity_to_mijn_inschrijvingen(page, seeded_activ
         names = door.locator("#gegevens-form input:not([type=hidden])").evaluate_all(
             "inputs => inputs.map(i => i.name.split('.').pop())"
         )
-        assert names == ["first_name", "last_name", "mobile", "value"], names
+        # #1899 (CR-22 R17 as corrected on 10 October 2026): the whole person card —
+        # and of an account alone birth date and gender are not asked.
+        assert names == [
+            "first_name",
+            "last_name",
+            "date_of_birth",
+            "mobile",
+            "phone",
+            "value",
+        ], names
+        assert door.locator("#gegevens-form [name$='.date_of_birth'][required]").count() == 0
+        assert door.locator("#gegevens-form [name$='.gender_code'][required]").count() == 0
         expect(door.locator('#gegevens-form input[type="email"]')).to_have_value(email)
     finally:
         door.context.close()

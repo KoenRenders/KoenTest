@@ -62,10 +62,12 @@ def test_the_members_own_screens_say_confirmed_too(client, db_session, page):
     answer = client.get(page)
     assert answer.status_code == 200, answer.text[:300]
     assert WAITING in answer.text, "the waiting address is not on the screen"
-    assert "Met elk bevestigd adres kan je inloggen." in answer.text
-    assert "Met elk adres kan je inloggen" not in answer.text
-    # What follows it stays.
-    assert "Het hoofdadres ontvangt de bevestiging." in answer.text
+    # #1899 (AGENTS.md *Keep it simple*, 10 October 2026): the sentence about
+    # what other domains do with the addresses is gone, in both spellings; a
+    # screen says what a value is — the waiting address says that it waits.
+    for mode in (answer.text, client.get(page + "?bewerken=1").text):
+        assert "kan je inloggen" not in mode and "ontvangt de bevestiging" not in mode
+        assert "wacht op bevestiging" in mode
 
 
 def test_the_code_page_stands_on_the_card_of_the_sign_in_screens(client, db_session):

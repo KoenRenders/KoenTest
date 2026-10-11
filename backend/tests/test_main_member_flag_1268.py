@@ -49,10 +49,30 @@ def test_the_admin_form_keeps_the_main_member_a_main_member(client, db_session):
 
 
 def _row_titles(html: str) -> list[tuple[str, str]]:
-    """(relation label, name) of every person row on the portal."""
-    return re.findall(
-        r"<span data-row-title-prefix>([^<]*)</span>.*?<h3 data-row-title=\"([^\"]*)\"", html, re.S
-    )
+    """(relation label, name) of every person card on the portal that is no main
+    member (#1899: the name is the card's heading, the relation its badge when
+    the page is read and the chosen option of its select when it is edited)."""
+    cards = []
+    for name, relation in re.findall(
+        r"<h2 data-person-name[^>]*>([^<]*)</h2>\s*<span data-person-relation[^>]*>.*?>([^<>]+)</span>",
+        html,
+        re.S,
+    ):
+        cards.append((relation.strip(), name.strip()))
+    # Editing: per card its own title line — a card without a select (the main
+    # member's) must not borrow the next card's.
+    for card in html.split("<div data-row-title-line")[1:]:
+        # The title line ends where the card's fields begin.
+        line = card.split("data-form-grid")[0]
+        name = re.search(r"<h3 data-row-title=\"([^\"]*)\"", line)
+        select = re.search(
+            r"<select[^>]*name=\"h\.\w+\.relation_type\"[^>]*>(.*?)</select>", line, re.S
+        )
+        if not (name and select):
+            continue
+        chosen = re.search(r"<option[^>]* selected[^>]*>([^<]*)</option>", select.group(1))
+        cards.append((chosen.group(1).strip() if chosen else "", name.group(1)))
+    return [card for card in cards if card[0] != "Hoofdlid"]
 
 
 def test_the_portal_shows_the_main_member_as_the_main_member(client, db_session):
@@ -86,17 +106,18 @@ def test_the_portal_shows_the_main_member_as_the_main_member(client, db_session)
     for page in ("/leden/gezin", "/leden/gezin?bewerken=1"):
         html = client.get(page).text
         stored = [t for t in _row_titles(html) if t[1] != "Nieuw gezinslid"]
-        # #1632: the main member is no row of the group but the section
-        # "Hoofdlid" above it; the rows are the others.
+        # #1632, #1899: the main member is no row of the group but the first
+        # card, with the badge "Hoofdlid"; the others follow.
         assert stored == [("(meerderjarig) kind", "Tweede Persoon")], page
         head = html[html.index('id="hoofdlid"') : html.index('id="gezin-adres"')]
-        assert ">Hoofdlid</h2>" in head and "Tweede" not in head, page
-        assert f'data-field="h.{person.id}.first_name"' in head, page
-    # The edit mode asks no relation of a stored person: it cannot be changed here.
+        assert ">Hoofdlid</span>" in head and "Tweede" not in head, page
+    # #1899 (Koen, 11 October 2026): the edit mode asks the relation of every
+    # person but the main member, whose card carries the fixed badge.
     assert f'name="h.{person.id}.first_name"' in html, (
         "the person's edit fields are not on the page"
     )
     assert f'name="h.{person.id}.relation_type"' not in html
+    assert len(re.findall(r'<select[^>]*name="h\.\d+\.relation_type"', html)) == 1
     # #1603: Mijn gezin asks nobody's mobile number — also not the main member's.
     required = set(re.findall(r'id="h-(\d+)-mobile" name="h\.\d+\.mobile" required', html))
     asked = set(re.findall(r'id="h-(\d+)-mobile"', html))

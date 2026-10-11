@@ -26,197 +26,60 @@
 <span data-membership-valid class="mr-1 align-middle"><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-green-100 text-green-800"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Geldig</span></span> Je lidmaatschap is geldig tot en met 31-12-2099.
  </p>
 </section>
-<section data-form-section id="hoofdlid" data-household-main class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
-<h2 class="text-base font-semibold leading-6 text-ink mb-4">Hoofdlid</h2>
+<section data-form-section data-person-card data-person="<MAIN>" id="hoofdlid" data-household-main class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
 <div data-form-grid class="form-grid">
-<div data-field="h.<MAIN>.first_name" data-kind="text" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Voornaam</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">Hanne</p>
+<div data-span="full" class="min-w-0">
+<div class="flex items-baseline justify-between gap-3">
+<h2 data-person-name class="text-base font-semibold leading-6 text-ink min-w-0 break-words">Hanne Proef</h2>
+<span data-person-relation class="shrink-0"><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">Hoofdlid</span></span>
 </div>
-<div data-field="h.<MAIN>.last_name" data-kind="text" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Achternaam</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">Proef</p>
-</div>
-<div data-field="h.<MAIN>.date_of_birth" data-kind="date" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Geboortedatum</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">04-03-1980</p>
-</div>
-<div data-field="h.<MAIN>.gender_code" data-kind="select" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Geslacht</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">Vrouw</p>
-</div>
-<div data-field="h.<MAIN>.mobile" data-kind="phone" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Mobiel</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">—</p>
-</div>
-<div data-field="h.<MAIN>.phone" data-kind="phone" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Telefoon</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">—</p>
-</div>
-<div data-span="full" data-main-emails>
-<div data-repeating-group="e_order.<MAIN>" data-variant="simple" data-token="__E__"
- class="group-child">
-<div class="flex items-center justify-between gap-3 min-h-9">
-<h3 class="text-base font-semibold leading-6 text-ink">E-mailadressen</h3>
-</div>
-<p class="mb-3 text-[13px] text-ink-soft">Met elk bevestigd adres kan je inloggen. Het hoofdadres ontvangt de bevestiging.</p>
-<div data-group-rows class="group-rows">
-<div data-group-row data-row-key="<CONTACT>" class="group-row group-row--simple group-row--one">
-<div data-row-body class="group-body min-w-0">
-<div data-form-grid class="form-grid">
-<div data-field="e.<CONTACT>.value" data-kind="email" data-span="full" class="min-w-0">
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]"><a href="mailto:portaal-hoofd@example.com" class="text-blue-500 underline">portaal-hoofd@example.com</a></p>
+<div class="mt-1 flex flex-col gap-y-1 text-sm leading-[21px] text-ink">
+<p data-person-birth class="text-ink-soft">° 04-03-1980 · Vrouw</p>
+<p class="flex flex-wrap gap-x-5 gap-y-1"><span data-icon-fact class="inline-flex items-center gap-1.5 min-w-0"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 shrink-0 text-ink-soft" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg><span class="truncate">—</span></span>
+<span data-icon-fact class="inline-flex items-center gap-1.5 min-w-0"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 shrink-0 text-ink-soft" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg><span class="truncate">—</span></span></p>
+<p data-person-email class="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0"><span data-icon-fact class="inline-flex items-center gap-1.5 min-w-0"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 shrink-0 text-ink-soft" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg><a href="mailto:portaal-hoofd@example.com" class="text-blue-500 underline hover:no-underline truncate">portaal-hoofd@example.com</a></span></p>
 </div>
 </div>
-</div>
-<span data-row-one-tag class="shrink-0"><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-blue-100 text-blue-700">hoofdadres</span></span>
-</div>
-</div>
-<p data-group-empty class="text-sm text-ink-soft" hidden>Nog geen e-mailadres.</p>
-</div></div>
 </div>
 </section>
 <section data-form-section id="gezin-adres" class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
 <h2 class="text-base font-semibold leading-6 text-ink mb-4">Adres</h2>
 <div data-form-grid class="form-grid">
-<div data-field="address.street" data-kind="text" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Straat</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">Proefstraat</p>
+<p data-span="full" data-address-line class="text-sm leading-[21px] text-ink"><span data-icon-fact class="inline-flex items-center gap-1.5 min-w-0"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 shrink-0 text-ink-soft" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg><span class="truncate">Proefstraat 1 · 2399 Proefdorp</span></span></p>
 </div>
-<div data-field="address.house_number" data-kind="text" data-span="quarter" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Huisnummer</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">1</p>
+</section>
+<div id="gezinsleden" class="contents">
+<section data-form-section data-person-card data-person="<PARTNER>" class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
+<div data-form-grid class="form-grid">
+<div data-span="full" class="min-w-0">
+<div class="flex items-baseline justify-between gap-3">
+<h2 data-person-name class="text-base font-semibold leading-6 text-ink min-w-0 break-words">Bram Proef</h2>
+<span data-person-relation class="shrink-0"><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-gray-100 text-gray-600">Partner</span></span>
 </div>
-<div data-field="address.bus_number" data-kind="text" data-span="quarter" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Bus</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">—</p>
+<div class="mt-1 flex flex-col gap-y-1 text-sm leading-[21px] text-ink">
+<p data-person-birth class="text-ink-soft">° 06-05-1979 · Man</p>
+<p class="flex flex-wrap gap-x-5 gap-y-1"><span data-icon-fact class="inline-flex items-center gap-1.5 min-w-0"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 shrink-0 text-ink-soft" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg><span class="truncate">—</span></span>
+<span data-icon-fact class="inline-flex items-center gap-1.5 min-w-0"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 shrink-0 text-ink-soft" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg><span class="truncate">—</span></span></p>
+<p data-person-email><span data-icon-fact class="inline-flex items-center gap-1.5 min-w-0"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 shrink-0 text-ink-soft" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg><span class="truncate">—</span></span></p>
 </div>
-<div data-field="address.postal_code" data-kind="select" data-span="full" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Postcode en gemeente</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">2399 · Proefdorp</p>
 </div>
 </div>
 </section>
-<div data-household class="contents" x-data
- @row-added="
- const mine = $event.target.querySelector('select[name$=&quot;.relation_type&quot;]');
- if (!mine || $<TOKEN> !== 'h_order') return;
- const others = [...$el.querySelectorAll('[data-relation]')].map(m => m.dataset.relation)
- .concat([...$el.querySelectorAll('select[name$=&quot;.relation_type&quot;]')].filter(s => s !== mine).map(s => s.value));
- fetch('/lid-worden/relatie?others=' + encodeURIComponent(others.join(',')))
- .then(answer => answer.ok ? answer.text() : '')
- .then(code => { if (code) { mine.value = code; mine.dispatchEvent(new Event('change', { bubbles: true })); } })">
-<section data-repeating-group="h_order" data-variant="composite" data-token="__H__" id="gezinsleden"
- class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
-<div class="flex items-center justify-between gap-3 min-h-9 mb-2">
-<h2 class="text-base font-semibold leading-6 text-ink">Gezinsleden</h2>
-</div>
-<div data-group-rows class="group-rows">
-<div data-group-row data-row-key="<PARTNER>" class="group-row group-row--composite group-row--fold">
-<div data-row-body class="group-body min-w-0">
-<details data-row-fold class="group-fold">
-<summary data-row-title-line class="group-fold-summary">
-<span class="min-w-0">
-<span class="flex flex-wrap items-center gap-x-2 text-base font-semibold leading-6 text-ink [overflow-wrap:anywhere]">
-<span><span data-row-title-prefix>Partner</span> ·</span>
-<h3 data-row-title="Bram Proef" class="min-w-0 text-base font-semibold leading-6 [overflow-wrap:anywhere]">Bram Proef</h3>
-</span>
-<span class="block text-[13px] leading-5 font-normal text-ink-soft">Persoonsgegevens en e-mailadressen</span>
-</span>
-<span class="group-fold-chevron" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
-</summary>
-<span hidden data-relation="PARTNER"></span>
+<section data-form-section data-person-card data-person="<CHILD>" class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
 <div data-form-grid class="form-grid">
-<div data-field="h.<PARTNER>.first_name" data-kind="text" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Voornaam</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">Bram</p>
+<div data-span="full" class="min-w-0">
+<div class="flex items-baseline justify-between gap-3">
+<h2 data-person-name class="text-base font-semibold leading-6 text-ink min-w-0 break-words">Lotte Proef</h2>
+<span data-person-relation class="shrink-0"><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-gray-100 text-gray-600">(meerderjarig) kind</span></span>
 </div>
-<div data-field="h.<PARTNER>.last_name" data-kind="text" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Achternaam</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">Proef</p>
-</div>
-<div data-field="h.<PARTNER>.date_of_birth" data-kind="date" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Geboortedatum</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">06-05-1979</p>
-</div>
-<div data-field="h.<PARTNER>.gender_code" data-kind="select" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Geslacht</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">Man</p>
-</div>
-<div data-field="h.<PARTNER>.mobile" data-kind="phone" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Mobiel</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">—</p>
-</div>
-<div data-field="h.<PARTNER>.phone" data-kind="phone" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Telefoon</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">—</p>
-</div></div>
-<div data-repeating-group="e_order.<PARTNER>" data-variant="simple" data-token="__E__"
- class="group-child">
-<div class="flex items-center justify-between gap-3 min-h-9">
-<h3 class="text-base font-semibold leading-6 text-ink">E-mailadressen</h3>
-</div>
-<p class="mb-3 text-[13px] text-ink-soft">Met elk bevestigd adres kan je inloggen. Het hoofdadres ontvangt de bevestiging.</p>
-<div data-group-rows class="group-rows">
-</div>
-<p data-group-empty class="text-sm text-ink-soft">Nog geen e-mailadres.</p>
-</div>
-</details>
-</div>
-</div><div data-group-row data-row-key="<CHILD>" class="group-row group-row--composite group-row--fold">
-<div data-row-body class="group-body min-w-0">
-<details data-row-fold class="group-fold">
-<summary data-row-title-line class="group-fold-summary">
-<span class="min-w-0">
-<span class="flex flex-wrap items-center gap-x-2 text-base font-semibold leading-6 text-ink [overflow-wrap:anywhere]">
-<span><span data-row-title-prefix>(meerderjarig) kind</span> ·</span>
-<h3 data-row-title="Lotte Proef" class="min-w-0 text-base font-semibold leading-6 [overflow-wrap:anywhere]">Lotte Proef</h3>
-</span>
-<span class="block text-[13px] leading-5 font-normal text-ink-soft">Persoonsgegevens</span>
-</span>
-<span class="group-fold-chevron" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
-</summary>
-<span hidden data-relation="KIND"></span>
-<div data-form-grid class="form-grid">
-<div data-field="h.<CHILD>.first_name" data-kind="text" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Voornaam</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">Lotte</p>
-</div>
-<div data-field="h.<CHILD>.last_name" data-kind="text" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Achternaam</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">Proef</p>
-</div>
-<div data-field="h.<CHILD>.date_of_birth" data-kind="date" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Geboortedatum</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">08-07-2010</p>
-</div>
-<div data-field="h.<CHILD>.gender_code" data-kind="select" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Geslacht</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">Vrouw</p>
-</div>
-<div data-field="h.<CHILD>.mobile" data-kind="phone" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Mobiel</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">—</p>
-</div>
-<div data-field="h.<CHILD>.phone" data-kind="phone" data-span="half" class="min-w-0">
-<p class="text-sm font-medium leading-[21px] text-ink mb-1">Telefoon</p>
-<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">—</p>
-</div></div>
-<div data-repeating-group="e_order.<CHILD>" data-variant="simple" data-token="__E__"
- class="group-child">
-<div class="flex items-center justify-between gap-3 min-h-9">
-<h3 class="text-base font-semibold leading-6 text-ink">E-mailadressen</h3>
-</div>
-<p class="mb-3 text-[13px] text-ink-soft">Met elk bevestigd adres kan je inloggen. Het hoofdadres ontvangt de bevestiging.</p>
-<div data-group-rows class="group-rows">
-</div>
-<p data-group-empty class="text-sm text-ink-soft">Nog geen e-mailadres.</p>
-</div>
-</details>
+<div class="mt-1 flex flex-col gap-y-1 text-sm leading-[21px] text-ink">
+<p data-person-birth class="text-ink-soft">° 08-07-2010 · Vrouw</p>
+<p class="flex flex-wrap gap-x-5 gap-y-1"><span data-icon-fact class="inline-flex items-center gap-1.5 min-w-0"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 shrink-0 text-ink-soft" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg><span class="truncate">—</span></span>
+<span data-icon-fact class="inline-flex items-center gap-1.5 min-w-0"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 shrink-0 text-ink-soft" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg><span class="truncate">—</span></span></p>
+<p data-person-email><span data-icon-fact class="inline-flex items-center gap-1.5 min-w-0"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 shrink-0 text-ink-soft" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg><span class="truncate">—</span></span></p>
 </div>
 </div>
 </div>
-<p data-group-empty class="text-sm text-ink-soft" hidden>Nog geen gezinsleden.</p>
 </section>
 </div>
 </div>

@@ -595,8 +595,10 @@
    * `emails`: [{value, primary, pending}] — the grey tag "hoofdadres" on the
      primary one only when there is more than one; an address that waits for
      its code says so (CR-22 R15, #1733). On a narrow card the tag goes
-     under its address; the address is not cut for it. #}
-{% macro person_card(name, relation=None, main=False, birth="", gender="", mobile="", phone="", emails=[], attrs="") -%}
+     under its address; the address is not cut for it.
+   * `extra`: what a page adds under the lines (the two ways on of a waiting
+     address, on one's own page). #}
+{% macro person_card(name, relation=None, main=False, birth="", gender="", mobile="", phone="", emails=[], attrs="", extra="") -%}
 {% call section(attrs=("data-person-card " ~ attrs)) %}
 <div data-span="full" class="min-w-0">
   <div class="flex items-baseline justify-between gap-3">
@@ -610,6 +612,7 @@
     <p data-person-email class="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">{{ icon_fact("mail", e.value, href="mailto:" ~ e.value) }}{% if _tag %}<span data-person-email-tag class="shrink-0">{{ badge(_tag) }}</span>{% endif %}</p>
     {% else %}<p data-person-email>{{ icon_fact("mail", "—") }}</p>{% endfor %}
   </div>
+  {{ extra }}
 </div>
 {% endcall %}
 {%- endmacro %}
@@ -921,23 +924,38 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    button was a screen away from the place it fills. A simple group (rows of
    one line) and a child group (Producten under a component) keep it in the
    head. A property of the form, not of a screen: no parameter chooses it. #}
+{# **Cards** (`cards=True`, #1899; end state §2.2, §5.2): a composite group whose
+   items are each a card of the form flow — the persons of a household — with
+   no frame and no heading around them: the page's flow is their frame, 16 px
+   apart. The rows pass `card=True`. The add button stands under the last card
+   (the rule above), as a full secondary button. `title` is then the group's
+   accessible name only.
+
+   **A plain child list** (`plain=True`, #1899; end state §3.3): a child group
+   whose title reads as a field's label — the e-mail addresses of a person —
+   with the add button at its right; the rows keep the simple row's shape, the
+   tag in a slot of one width so the fields are equally wide. #}
 {# `required` (#646, #1632): the group's rows are ONE field without a label of
    its own (`label_hidden`) and one of them is asked — the title is that field's
    label, so the red star stands on the title. #}
 {% macro repeating_group(title, name, token="__KEY__", add_label=None, edit=False, empty="",
                          variant="simple", columns=[], child=False, count=0, template="",
-                         handle=False, hint=None, id=None, footer="", one=None, required=False) -%}
-{%- set _tag = "div" if child else "section" -%}
+                         handle=False, hint=None, id=None, footer="", one=None, required=False,
+                         cards=False, plain=False) -%}
+{%- set _tag = "div" if (child or cards) else "section" -%}
 {%- set _add_below = variant == "composite" and not child -%}
 <{{ _tag }} data-repeating-group="{{ name }}" data-variant="{{ variant }}" data-token="{{ token }}"{% if id %} id="{{ id }}"{% endif %}
-   class="{% if child %}group-child{% else %}form-section bg-surface border border-line rounded-2xl shadow-sm p-4{% endif %}">
+   {% if cards %}data-group-cards role="group" aria-label="{{ title }}" {% endif %}class="{% if cards %}group-cards{% elif child %}group-child{% if plain %} group-child--plain{% endif %}{% else %}form-section bg-surface border border-line rounded-2xl shadow-sm p-4{% endif %}">
+  {% if not cards %}
   <div class="flex items-center justify-between gap-3 min-h-9{% if not child %} mb-2{% endif %}">
-    {% if child %}<h3 class="text-base font-semibold leading-6 text-ink">{{ title }}{% if required %} <span class="text-red-600">*</span>{% endif %}</h3>
+    {% if plain %}<p data-group-title class="m-0 text-sm font-medium leading-[21px] text-ink">{{ title }}{% if required %} <span class="text-red-600">*</span>{% endif %}</p>
+    {% elif child %}<h3 class="text-base font-semibold leading-6 text-ink">{{ title }}{% if required %} <span class="text-red-600">*</span>{% endif %}</h3>
     {% else %}<h2 class="text-base font-semibold leading-6 text-ink">{{ title }}{% if required %} <span class="text-red-600">*</span>{% endif %}</h2>{% endif %}
     {% if edit and add_label and not _add_below %}
     <button type="button" data-group-add class="{{ btn_class('secondary', 'sm') }} inline-flex items-center gap-1 min-h-11 md:min-h-9">{{ icon("plus", 16) }}{{ add_label }}</button>
     {% endif %}
   </div>
+  {% endif %}
   {% if hint %}<p class="mb-3 text-[13px] text-ink-soft">{{ hint }}</p>{% endif %}
   {% if edit and variant == "simple" and columns %}
   <div data-group-head aria-hidden="true" class="group-head{% if handle %} group-head--handle{% endif %}"{% if not count %} hidden{% endif %}>
@@ -947,9 +965,9 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   </div>
   {% endif %}
   {% if edit and one %}<input type="hidden" name="{{ one.name }}" value="{{ one.value or '' }}" data-group-one>{% endif %}
-  <div data-group-rows class="group-rows">{{ caller() }}</div>
-  <p data-group-empty class="text-sm text-ink-soft"{% if count %} hidden{% endif %}>{{ empty }}</p>
-  {% if edit and add_label and _add_below %}<div data-group-add-below class="mt-3"><button type="button" data-group-add class="{{ btn_class('secondary', 'sm') }} inline-flex items-center gap-1 min-h-11 md:min-h-9">{{ icon("plus", 16) }}{{ add_label }}</button></div>{% endif %}
+  <div data-group-rows class="group-rows{% if cards %} group-rows--cards{% endif %}">{{ caller() }}</div>
+  <p data-group-empty class="text-sm text-ink-soft"{% if count or (cards and not empty) %} hidden{% endif %}>{{ empty }}</p>
+  {% if edit and add_label and _add_below %}<div data-group-add-below{% if not cards %} class="mt-3"{% endif %}><button type="button" data-group-add class="{{ btn_class('secondary', 'md' if cards else 'sm') }} inline-flex items-center gap-1 min-h-11{% if not cards %} md:min-h-9{% endif %}">{{ icon("plus", 16) }}{{ add_label }}</button></div>{% endif %}
   {% if edit and footer %}<div data-group-footer class="mt-3">{{ footer }}</div>{% endif %}
   {% if edit and template %}<template data-group-template>{{ template }}</template>{% endif %}
 </{{ _tag }}>
@@ -1002,13 +1020,21 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    A SIMPLE row of a group that marks one row (`one`) shows `tag` where the
    one-tag stands — right of its field — for a row that cannot be the marked
    one: an e-mail address that "wacht op bevestiging" (#1711). Such a row
-   passes `one.choosable = False`, and its menu offers no "Maak …". #}
+   passes `one.choosable = False`, and its menu offers no "Maak …".
+
+   `card=True` (#1899): the composite item is a card of the form flow — a row
+   of a `cards` group, or the one member that is no row of it (`fixed=True`:
+   the main member of a household, who sends the group's order field first
+   and can be neither moved nor removed). `aside` stands in the title line,
+   left of the `⋯`: the relation of a person as a badge or a select. `attrs`
+   are the caller's hooks on the row (an id, a `data-…`). #}
 {% macro group_row(group, key, edit=False, variant="simple", handle=False,
                    menu=["up", "down", "duplicate", "remove"], title="", title_href=None, tag=None, label="",
-                   fold=None, subtitle=None, title_prefix=None, one=None) -%}
+                   fold=None, subtitle=None, title_prefix=None, one=None,
+                   card=False, aside="", fixed=False, attrs="") -%}
 {%- set _one_tag %}{% if one %}<span data-row-one-tag class="shrink-0"{% if not one.chosen %} hidden{% endif %}>{{ badge(one.tag, "blue") }}</span>{% endif %}{% endset -%}
-<div data-group-row data-row-key="{{ key }}" class="group-row group-row--{{ variant }}{% if edit %} group-row--edit{% endif %}{% if edit and handle %} group-row--handle{% endif %}{% if fold %} group-row--fold{% endif %}{% if one %} group-row--one{% endif %}">
-  {% if edit %}<input type="hidden" name="{{ group }}" value="{{ key }}" data-row-order>{% endif %}
+<div data-group-row data-row-key="{{ key }}" class="group-row group-row--{{ variant }}{% if edit %} group-row--edit{% endif %}{% if edit and handle %} group-row--handle{% endif %}{% if fold %} group-row--fold{% endif %}{% if one %} group-row--one{% endif %}{% if card %} group-row--card form-section bg-surface border border-line rounded-2xl shadow-sm p-4{% endif %}"{% if card %} data-form-section{% endif %}{% if attrs %} {{ attrs|safe }}{% endif %}>
+  {% if edit %}<input type="hidden" name="{{ group }}" value="{{ key }}" data-row-order{% if fixed %} data-row-fixed{% endif %}>{% endif %}
   {% if edit and handle %}<span data-row-handle aria-hidden="true" title="{{ _('Verslepen') }}" class="group-handle">{{ icon("grip-vertical", 16) }}</span>{% endif %}
   <div data-row-body class="group-body min-w-0">
     {% if variant == "composite" and fold %}
@@ -1028,14 +1054,14 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     </details>
     {% if edit and menu %}<div class="group-fold-menu">{{ _row_menu(menu, label or title, one) }}</div>{% endif %}
     {% elif variant == "composite" %}
-    <div data-row-title-line class="flex items-center justify-between gap-2 min-h-11">
+    <div data-row-title-line class="flex{% if card %} flex-wrap{% endif %} items-center justify-between gap-2 min-h-11">
       <span class="flex flex-wrap items-center gap-2 min-w-0">
         {% if title_href %}{{ reference(title, title_href, "font-semibold") }}
         {% else %}<h3 data-row-title="{{ title }}" class="min-w-0 text-base font-semibold leading-6 text-ink [overflow-wrap:anywhere]">{{ title }}</h3>{% endif %}
         {% if tag %}{{ badge(tag.label, tag.get("tone") or "gray") }}{% endif %}
         {{ _one_tag }}
       </span>
-      {% if edit and menu %}{{ _row_menu(menu, label or title, one) }}{% endif %}
+      {% if aside or (edit and menu) %}<span data-row-aside class="flex items-center gap-3 shrink-0 ml-auto">{{ aside }}{% if edit and menu %}{{ _row_menu(menu, label or title, one) }}{% endif %}</span>{% endif %}
     </div>
     {{ caller() }}
     {% else %}

@@ -81,12 +81,12 @@ __all__ = [
 # ── The person block for one person (CR-22 S6a, #1710) ───────────────────────
 
 
-def person_block(person, *, edit=False):
+def person_block(person, codes, *, short_date, edit=False):
     """The person block of Mijn gezin for this one person, for a page of their
     own (Mijn gegevens)."""
     from app.domains.membership.household_page import person_block as _impl
 
-    return _impl(person, edit=edit)
+    return _impl(person, codes, short_date=short_date, edit=edit)
 
 
 # ── The membership card (CR-22 S2, #1705) ────────────────────────────────────
