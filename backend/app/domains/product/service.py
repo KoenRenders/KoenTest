@@ -16,6 +16,7 @@ from app.domains.product.models import (
     ProductError,
     ProductStatus,
     ProductVariant,
+    SizeNameRefusal,
 )
 from app.kernel.contracts.media import RemoveAsset
 from app.kernel.contracts.product import ProductDeleted
@@ -96,6 +97,8 @@ def add_variant(db: Session, product_id: int, size: str) -> ProductVariant:
     size = (size or "").strip()
     if not size:
         raise ProductError(_("Geef de maat een naam."))
+    if _size_name_exists(db, product_id, size):
+        raise ProductError(_("Deze maat bestaat al."))
     product = get_product(db, product_id)
     if product is None:
         raise ProductError(_("Dit artikel bestaat niet."))
@@ -120,9 +123,26 @@ def rename_variant(db: Session, variant_id: int, size: str) -> ProductVariant:
     variant = get_variant(db, variant_id)
     if variant is None:
         raise ProductError(_("Deze maat bestaat niet."))
+    if _size_name_exists(db, variant.product_id, size, exclude_id=variant.id):
+        raise ProductError(_("Deze maat bestaat al."))
     variant.properties = [{"name": "Maat", "value": size}]
     db.flush()
     return variant
+
+
+def _size_name_exists(
+    db: Session, product_id: int, size: str, exclude_id: int | None = None
+) -> bool:
+    """Does another size of this article already carry this name, without regard
+    to case or spaces around it? One place: `add_variant` and `rename_variant`
+    ask it, so every caller of the facade meets the rule (Koen, 11 October 2026)."""
+    wanted = (size or "").strip().casefold()
+    if not wanted:
+        return False
+    return any(
+        variant.id != exclude_id and (size_of(variant) or "").strip().casefold() == wanted
+        for variant in variants_of(db, product_id)
+    )
 
 
 def list_products(db: Session, active_only: bool = False) -> list[Product]:
@@ -254,41 +274,24 @@ def sync_variants(db: Session, product_id: int, ordered: list[tuple[str, str]]) 
     record's repeating group. A key that is an existing variant's id renames it, a
     new key adds a size, and an existing variant not in the list is deleted. One
     transaction: a refusal in a delete (a size with movements, through `stock`'s
-    handler) rolls every change of this save back.
-
-    Two sizes with the same name on one article are refused (Koen, 11 October
-    2026) — on adding and on renaming, compared without regard to case or spaces
-    around it — so the check runs here, in the service, before anything changes.
+    handler) rolls every change of this save back. A size's name is refused by
+    `add_variant` and `rename_variant`; here the refusal is named at the field the
+    record's group carries.
     """
     existing = {str(variant.id): variant for variant in variants_of(db, product_id)}
     kept: set[str] = set()
-    final_names: dict[str, str] = {}
-
-    # The names this save leaves, checked before anything is written.
-    for key, name in ordered:
-        name = (name or "").strip()
-        if key in existing:
-            if not name:
-                from app.i18n import _
-
-                raise ProductError(_("Geef de maat een naam."))
-            kept.add(key)
-        elif not name:
-            continue
-        normalized = name.casefold()
-        if normalized in final_names:
-            from app.i18n import _
-
-            raise ProductError(_("Deze maat bestaat al."))
-        final_names[normalized] = key
 
     for key, name in ordered:
         name = (name or "").strip()
-        if key in existing:
-            if name != size_of(existing[key]):
-                rename_variant(db, existing[key].id, name)
-        elif name:
-            add_variant(db, product_id, name)
+        try:
+            if key in existing:
+                if name != size_of(existing[key]):
+                    rename_variant(db, existing[key].id, name)
+                kept.add(key)
+            elif name:
+                add_variant(db, product_id, name)
+        except ProductError as refusal:
+            raise SizeNameRefusal(f"v.{key}.name", str(refusal)) from refusal
     for key in list(existing):
         if key not in kept:
             delete_variant(db, existing[key].id)

@@ -54,6 +54,14 @@ class ProductError(ValueError):
     """
 
 
+class SizeNameRefusal(ProductError):
+    """A size's name was refused, at one field of the record's repeating group."""
+
+    def __init__(self, field: str, message: str):
+        super().__init__(message)
+        self.field = field
+
+
 class ProductStatus(CodeEnum):
     """The life cycle of an article (Q74): Concept → In verkoop → Afgevoerd.
 

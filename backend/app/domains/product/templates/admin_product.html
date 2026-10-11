@@ -45,7 +45,9 @@
 {% else %}
 {% call ui.record_columns() %}
 <div class="form-flow">
-  <form id="product-form" method="post" action="/admin/producten/{{ product.id }}">
+  <form id="product-form" method="post" action="/admin/producten/{{ product.id }}"
+        data-record-form data-message="#product-melding" novalidate
+        hx-post="/admin/producten/{{ product.id }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     {% call ui.section(_("Artikel")) %}
       {{ ui.field("name", _("Naam"), value=product.name, required=True, long=True) }}

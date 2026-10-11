@@ -178,7 +178,7 @@ def test_een_foto_wordt_opgeladen_en_verwijderd(webshop_page):
         {"name": "foto.png", "mimeType": "image/png", "buffer": buf.getvalue()}
     )
     with htmx_afgerond(page):
-        page.get_by_role("button", name="Foto opslaan").click()
+        page.locator('button[form="foto-form"]').click()
 
     page.goto(record)
     page.wait_for_selector("[data-record-head]")
@@ -214,7 +214,7 @@ def test_een_document_wordt_opgeladen_en_verwijderd(webshop_page):
         }
     )
     with htmx_afgerond(page):
-        page.get_by_role("button", name="Document opslaan").click()
+        page.locator('button[form="document-form"]').click()
 
     page.goto(record)
     page.wait_for_selector("[data-record-head]")
@@ -277,7 +277,7 @@ def test_een_geweigerde_upload_tekent_de_pagina_niet_dubbel(webshop_page):
         {"name": "not-an-image.png", "mimeType": "text/plain", "buffer": b"geen afbeelding"}
     )
     with htmx_afgerond(page):
-        page.get_by_role("button", name="Foto opslaan").click()
+        page.locator('button[form="foto-form"]').click()
 
     page.wait_for_selector("#product-melding [role=alert]")
     assert page.locator("h1").count() == 1

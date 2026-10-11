@@ -8,9 +8,10 @@
   <a href="{{ a.url }}" target="_blank" rel="noopener" class="text-blue-500 underline">{{ a.title or _("Document") }}</a>
   {% endif %}
   {% if editing %}
-  {{ ui.link_action(_("Verwijderen"),
-      attrs='hx-post="/admin/producten/' ~ product.id ~ '/bijlage/' ~ a.id ~ '/verwijderen"',
-      confirm=_("De bijlage wordt verwijderd."), cls="text-red-700") }}
+  <button type="button"
+          hx-post="/admin/producten/{{ product.id }}/bijlage/{{ a.id }}/verwijderen"
+          data-confirm="{{ _('De bijlage wordt verwijderd.') }}"
+          class="inline-flex items-center justify-center min-h-11 md:min-h-9 px-3 rounded-md border border-control-line bg-surface text-sm font-medium text-red-700 hover:bg-surface-2">{{ _("Verwijderen") }}</button>
   {% endif %}
 </div>
 {% endmacro %}
@@ -22,11 +23,13 @@
     {% endfor %}
   </div>
   {% if editing %}
-  <form id="foto-form" method="post" action="/admin/producten/{{ product.id }}/fotos" enctype="multipart/form-data"
-        hx-post="/admin/producten/{{ product.id }}/fotos" hx-encoding="multipart/form-data">
-    {{ ui.field("file", _("Foto toevoegen"), kind="upload", accept="image/*") }}
-  </form>
-  {{ ui.action_bar(save_label=_("Foto opslaan"), form="foto-form", cancel_href="/admin/producten/" ~ product.id ~ "?bewerken=1") }}
+  <div data-span="full" class="space-y-3">
+    <form id="foto-form" method="post" action="/admin/producten/{{ product.id }}/fotos" enctype="multipart/form-data"
+          hx-post="/admin/producten/{{ product.id }}/fotos" hx-encoding="multipart/form-data">
+      {{ ui.field("file", _("Foto toevoegen"), kind="upload", id="foto-file", accept="image/*") }}
+    </form>
+    {{ ui.action_bar(save_label=_("Opslaan"), form="foto-form", cancel_href="/admin/producten/" ~ product.id ~ "?bewerken=1") }}
+  </div>
   {% endif %}
 {% endcall %}
 
@@ -37,10 +40,12 @@
     {% endfor %}
   </div>
   {% if editing %}
-  <form id="document-form" method="post" action="/admin/producten/{{ product.id }}/documenten" enctype="multipart/form-data"
-        hx-post="/admin/producten/{{ product.id }}/documenten" hx-encoding="multipart/form-data">
-    {{ ui.field("file", _("Document toevoegen"), kind="upload", accept="application/pdf") }}
-  </form>
-  {{ ui.action_bar(save_label=_("Document opslaan"), form="document-form", cancel_href="/admin/producten/" ~ product.id ~ "?bewerken=1") }}
+  <div data-span="full" class="space-y-3">
+    <form id="document-form" method="post" action="/admin/producten/{{ product.id }}/documenten" enctype="multipart/form-data"
+          hx-post="/admin/producten/{{ product.id }}/documenten" hx-encoding="multipart/form-data">
+      {{ ui.field("file", _("Document toevoegen"), kind="upload", id="document-file", accept="application/pdf,image/*") }}
+    </form>
+    {{ ui.action_bar(save_label=_("Opslaan"), form="document-form", cancel_href="/admin/producten/" ~ product.id ~ "?bewerken=1") }}
+  </div>
   {% endif %}
 {% endcall %}

@@ -136,3 +136,18 @@ def test_a_second_size_with_the_same_name_is_refused(client, db_session, every_m
     assert answer.status_code == 422
     assert "bestaat al" in answer.text
     assert [v.id for v in variants_of(db_session, product.id)] == [m.id]
+
+
+def test_add_and_rename_refuse_a_second_size_with_the_same_name(db_session):
+    import pytest
+
+    from app.domains.product.api import ProductError, rename_variant
+
+    product = create_product(db_session, "T-shirt Raak")
+    add_variant(db_session, product.id, "M")
+    s = add_variant(db_session, product.id, "S")
+
+    with pytest.raises(ProductError):
+        add_variant(db_session, product.id, " m ")
+    with pytest.raises(ProductError):
+        rename_variant(db_session, s.id, "m")

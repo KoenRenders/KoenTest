@@ -11,6 +11,7 @@ from app.domains.product.models import (  # noqa: F401
     ProductError,
     ProductStatus,
     ProductVariant,
+    SizeNameRefusal,
 )
 from app.domains.product.service import (  # noqa: F401
     add_attachment,
@@ -43,6 +44,7 @@ __all__ = [
     "ProductError",
     "ProductStatus",
     "ProductVariant",
+    "SizeNameRefusal",
     "add_attachment",
     "add_variant",
     "attachment_cards",

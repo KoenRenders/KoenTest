@@ -24,6 +24,7 @@ from app.domains.auth.api import SESSION_COOKIE, Right, csrf_token_for, require_
 from app.domains.product.api import (
     ProductError,
     ProductStatus,
+    SizeNameRefusal,
     add_attachment,
     attachment_cards,
     create_product,
@@ -245,6 +246,10 @@ def product_update(
             pre_order_until=_parse_date(pre_order_until),
         )
         sync_variants(db, product_id, ordered)
+    except SizeNameRefusal as refusal:
+        return refusal_response(
+            request, [FieldError(refusal.field, str(refusal))], "#product-melding"
+        )
     except (ProductError, StockError) as refusal:
         return templates.TemplateResponse(
             request,
