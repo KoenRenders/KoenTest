@@ -15,6 +15,7 @@ from __future__ import annotations
 import io
 import re
 from datetime import date, time, timedelta
+from html import unescape as html_text
 
 import pytest
 
@@ -564,50 +565,60 @@ def _full(db):
 
 def test_read_mode_shows_the_rows_and_nothing_that_edits(client, db_session):
     """§2.2: read mode shows data and navigation — no add button, no handle, no
-    row menu, no input. A date is one line in words; a product two short lines;
-    an organiser's name links to the household."""
+    row menu, no input. A date is one line in words behind its icon; a product
+    ONE line that ends on how it is settled (#1900); an organiser's name links
+    to the household and says whether he is a contact — not what the poster
+    does with that."""
     activity, component, product, household = _full(db_session)
     _login(client)
     html = _page(client, activity.id)
-    flow = html[html.index("data-form-flow") : html.index("data-rare-settings")]
+    flow = html[html.index("data-form-flow") : html.index("</main>")]
     for edits in (
         "data-group-add",
         "data-row-handle",
         "data-row-menu",
+        "data-rare-line",
         "<input",
         "<select",
         "<template",
     ):
         assert edits not in flow, f"{edits} in read mode"
 
+    def words(part: str) -> str:
+        return " ".join(html_text(re.sub(r"<[^>]+>", " ", part)).split())
+
     dates = _group(html, "aa-group-dates")
-    lines = re.findall(r"data-date-line[^>]*>([^<]+)<", dates)
+    lines = [words(line) for line in re.findall(r"data-date-line[^>]*>(.*?)</p>", dates, re.S)]
     assert len(lines) == 3
     assert lines[0].endswith("· 14:00–17:00") and " – " in lines[2], lines
+    assert dates.count("data-icon-fact") == 3, "a date stands behind the calendar icon"
     assert "data-group-head" not in dates, "a head of labels is for the editor"
 
     components = _group(html, "aa-group-components")
+    assert "data-group-cards" in components.split(">", 1)[0], "a component is a card of the flow"
     assert re.findall(r"<h3 data-row-title[^>]*>([^<]+)</h3>", components) == ["Onderdeel", "Molen"]
-    product_lines = re.findall(r"data-product-line[^>]*>(.*?)</p>", components, re.S)
-    assert len(product_lines) == 2
-    assert "Testproduct · €&nbsp;10,00" in product_lines[0]
-    assert (
-        "Brood · €&nbsp;2,00 · leden €&nbsp;1,50" in product_lines[1]
-        and "Niet publiek" in product_lines[1]
-    )
-    # #1608: how a product is settled is one word.
-    assert re.findall(r"data-product-settlement[^>]*>([^<]+)<", components) == ["Betalend"] * 2
+    product_lines = [
+        words(line) for line in re.findall(r"data-product-line[^>]*>(.*?)</p>", components, re.S)
+    ]
+    assert product_lines == [
+        "Testproduct · € 10,00 · Betalend",
+        "Brood · € 2,00 · leden € 1,50 · Betalend Niet publiek",
+    ], product_lines
     assert "Nog geen producten." in components, "the second component's empty child group"
 
     organisers = _group(html, "aa-group-organisers")
     assert f'href="/admin/leden/gezin/{household}" data-reference' in organisers
-    assert "An Voorbeeld" in organisers and "op de affiche" in organisers
+    assert "An Voorbeeld" in organisers
+    assert "op de affiche" not in organisers, "the record says what another domain does with it"
+    assert ">Contactpersoon<" in organisers or ">Geen contactpersoon<" in organisers
 
 
 def test_read_mode_shows_the_occupancy_and_the_deadline_on_the_component(client, db_session):
-    """The Publicatie card leaves with #1560, so the component says it itself:
-    "2 / 20" where the maximum stands, the count alone without a maximum, and
-    "t/m <date>". The editor keeps the bare maximum."""
+    """The Publicatie card leaves with #1560, so the component says it itself —
+    since #1900 as the badge "2 ingeschreven" in its title line, the fact
+    `Maximum: 20` (or "—") under it, and "Inschrijven t/m <date>" behind the
+    clock (or "Inschrijven tot de activiteit"). The editor keeps the badge and
+    the bare maximum as a field."""
     activity, component, _p, _h = _full(db_session)
     component.max_participants = 20
     component.registration_closes_on = date(2031, 5, 4)
@@ -624,18 +635,24 @@ def test_read_mode_shows_the_occupancy_and_the_deadline_on_the_component(client,
     db_session.commit()
     _login(client)
 
-    def values(html: str, label: str) -> list[str]:
-        components = _group(html, "aa-group-components")
-        found = re.findall(rf">{label}</p>\s*<p data-value[^>]*>([^<]*)<", components)
-        return [v.strip() for v in found]
+    def words(part: str) -> str:
+        return " ".join(html_text(re.sub(r"<[^>]+>", " ", part)).split())
 
-    read = _page(client, activity.id)
-    assert values(read, "Bezetting") == ["2 / 20", "0"], "with a maximum, and without"
-    assert values(read, "Inschrijven tot")[0] == "t/m zondag 4 mei 2031"
-    assert values(read, "Maximum") == [], "read mode shows the occupancy, not the bare maximum"
+    read = _group(_page(client, activity.id), "aa-group-components")
+    badges = [words(b) for b in re.findall(r"data-occupancy>(.*?)</span>\s*</span>", read, re.S)]
+    assert badges == ["2 ingeschreven", "0 ingeschreven"], badges
+    facts = [words(f) for f in re.findall(r"data-component-facts[^>]*>(.*?)</div>", read, re.S)]
+    assert len(facts) == 2
+    assert facts[0].startswith(
+        "Maximum: 20 Inschrijven t/m zondag 4 mei 2031 Ploegnaam vereist: nee"
+    ), facts[0]
+    assert facts[1].startswith("Maximum: — Inschrijven tot de activiteit Ploegnaam vereist: nee"), (
+        facts[1]
+    )
+    assert "Bezetting" not in read and "2 / 20" not in read
 
     edit = _group(_page(client, activity.id, edit=True), "aa-group-components")
-    assert "Bezetting" not in edit and "2 / 20" not in edit
+    assert "2 ingeschreven" in words(edit), "the editor keeps the occupancy in the title line"
     field = re.search(rf'<input[^>]*name="c\.{component.id}\.max_participants"[^>]*>', edit)
     assert field and 'value="20"' in field.group(0), field
 
@@ -682,14 +699,16 @@ def test_edit_mode_gives_every_row_its_fields_under_its_key(client, db_session):
     assert 'data-row-action="up"' in organisers and "data-row-handle" in organisers
     assert "data-organiser-search" in organisers and 'name="organiser_q"' in organisers
 
-    # Every row field is inside the one form; the closed last section too.
+    # Every row field is inside the one form; a component's links stand in the
+    # closed line of its own card (#1900), not in a last section.
     for name in ("d_order", "c_order", "o_order", "fiche_groups", "bevestigd"):
         assert f'name="{name}"' in form
-    rare = form[form.index("data-rare-settings") :]
-    assert f'name="c.{component.id}.external_register_url"' in rare
-    assert "https://example.com/molen" in rare and ">Molen</p>" in rare, (
-        "the links of every component, named by it"
-    )
+    assert "data-rare-settings" not in html
+    card = components[components.index(f'data-row-key="{component.id}"') :]
+    card = card[: card.index(f'data-repeating-group="p_order.{component.id}"')]
+    line = card[card.index("data-rare-line") :].split("</details>", 1)[0]
+    assert f'name="c.{component.id}.external_register_url"' in line
+    assert "https://example.com/molen" in components, "the other component's link, in its card"
 
 
 def test_removing_a_row_asks_no_confirmation(client, db_session):

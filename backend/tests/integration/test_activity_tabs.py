@@ -239,8 +239,10 @@ def test_the_occupancy_stands_on_the_components_row(client, db_session, world):
     db_session.commit()
     _login(client, db_session)
     html = client.get(_base(world)).text
-    # #1559 shows it on the component: Bram 2 + An 1, of 20.
-    assert "3 / 20" in html
+    # #1559 shows it on the component: Bram 2 + An 1, of 20 — since #1900 as the
+    # badge in its title line, with the maximum as a fact under it.
+    assert "3 ingeschreven" in html
+    assert '<span class="text-ink-soft">Maximum:</span> 20' in html
 
 
 def test_the_list_tabs_carry_no_summary(client, db_session, world):

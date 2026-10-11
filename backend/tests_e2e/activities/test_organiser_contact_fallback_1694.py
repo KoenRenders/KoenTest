@@ -31,6 +31,16 @@ from tests_e2e.schermen import BASE, login_met_sessie, pagina_klaar  # noqa: E40
 NAME = "Kwis met drie trekkers 1694"
 PICKED = ("Pikbaar", "Zoekmaar")
 
+_READ = """() => {
+  const group = document.getElementById('aa-group-organisers');
+  const rows = [...group.querySelectorAll(':scope > [data-group-rows] > [data-group-row]')];
+  return {page: [document.documentElement.scrollWidth, innerWidth],
+          fields: group.querySelectorAll('[data-field]').length,
+          rows: rows.map(row => ({
+            name: row.querySelector('[data-row-title-line] [data-reference], [data-row-title]').innerText.trim(),
+            facts: [...row.querySelectorAll('[data-organiser-facts] [data-icon-fact]')].map(e => e.innerText.trim())}))};
+}"""
+
 _FIELDS = """() => {
   const group = document.getElementById('aa-group-organisers');
   const rows = [...group.querySelectorAll(':scope > [data-group-rows] > [data-group-row]')];
@@ -41,6 +51,7 @@ _FIELDS = """() => {
       const title = row.querySelector('[data-row-title-line] [data-reference], [data-row-title]');
       const field = name => {
         const box = [...row.querySelectorAll('[data-field]')].find(f => f.getAttribute('data-field').endsWith(name));
+        if (!box) return null;
         const input = box.querySelector('input');
         if (input) {
           // The width the grey text needs, measured in the control's own font.
@@ -55,9 +66,7 @@ _FIELDS = """() => {
           return {value: input.value, placeholder: input.placeholder, ink: colour(input), grey: colour(input, '::placeholder'),
                   fits: needed <= room + 0.5};
         }
-        const shown = box.querySelector('[data-value]');
-        const soft = shown.querySelector('[data-fallback]');
-        return {text: shown.innerText.trim(), ink: colour(shown), soft: soft ? colour(soft) : null};
+        return null;
       };
       return {name: title ? title.innerText.trim() : '', email: field('.email_override'), mobile: field('.mobile_override')};
     }),
@@ -226,17 +235,17 @@ def test_a_save_without_typing_stores_no_override_and_a_picked_member_brings_its
 @pytest.mark.parametrize("width", [1440, 390])
 def test_read_mode_shows_the_used_value_soft_and_marked(setup, width):
     page = _page(setup, width, edit=False)
-    seen = page.evaluate(_FIELDS)
-    rows = {row["name"]: row for row in seen["rows"]}
-    both, neither, other = rows["Beide Trekker"], rows["Geen Trekker"], rows["Ander Trekker"]
-    assert both["email"]["text"] == "beide.trekker@example.com (van de fiche)"
-    assert both["mobile"]["text"] == "0470 00 00 01 (van de fiche)"
-    assert neither["email"]["text"] == "geen e-mailadres op de fiche"
-    assert neither["mobile"]["text"] == "geen nummer op de fiche"
-    assert other["mobile"]["text"] == "0470 00 00 03" and other["mobile"]["soft"] is None
-    assert both["mobile"]["soft"] and both["mobile"]["soft"] != other["mobile"]["ink"], (
-        "the member's value reads as loud as a typed override"
-    )
+    # #1900: read mode shows WHAT is shown, behind its icon — the other value
+    # when one is typed, the member's own otherwise, "—" when there is none —
+    # and no longer says where the value comes from: that is the editor's
+    # (the grey fallback, measured above).
+    seen = page.evaluate(_READ)
+    rows = {row["name"]: row["facts"] for row in seen["rows"]}
+    assert rows["Beide Trekker"] == ["beide.trekker@example.com", "0470 00 00 01"]
+    assert rows["Geen Trekker"] == ["—", "—"]
+    assert rows["Ander Trekker"][1] == "0470 00 00 03"
+    assert all(len(facts) == 2 for facts in rows.values()), "an icon line is missing"
+    assert seen["fields"] == 0, "read mode shows a field block"
     assert seen["page"][0] <= seen["page"][1], f"the page scrolls sideways: {seen['page']}"
     _shot(page, f"lezen-{width}.png")
     page.close()

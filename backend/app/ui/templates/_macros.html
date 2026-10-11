@@ -509,11 +509,20 @@
     {% endif %}
   </div>
   {% if facts %}
-  <p data-facts class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 md:min-h-6 text-sm text-ink-soft">
-    {% for f in facts %}{% if not loop.first %}<span aria-hidden="true">·</span>{% endif %}
-    {% if f.get("kind") == "reference" %}{{ reference(f.text, f.href, "min-h-11 md:min-h-6") }}
-    {% elif f.get("kind") == "mail" %}<a href="mailto:{{ f.text }}" class="text-blue-500 underline hover:no-underline">{{ f.text }}</a>
-    {% else %}<span>{{ f.text }}</span>{% endif %}{% endfor %}
+  {# Every fact carries its separator IN FRONT, in a box of 16 px, and the line
+     is drawn 16 px to the left of a box that clips: the separator of the fact
+     that starts a line falls outside it. So a fact that wraps takes its dot
+     along and no line ends on one (#1900; seen on the household record, where
+     the e-mail address wrapped and " · " stayed behind the address). #}
+  <p data-facts class="mt-2 md:min-h-6 overflow-x-clip text-sm text-ink-soft">
+    <span class="-ml-4 flex flex-wrap items-center gap-y-1">
+    {% for f in facts %}
+    <span data-fact class="inline-flex items-center min-w-0 max-w-full"><span data-fact-dot aria-hidden="true" class="inline-block w-4 shrink-0 text-center">·</span>
+    {%- if f.get("kind") == "reference" %}{{ reference(f.text, f.href, "min-h-11 md:min-h-6") }}
+    {%- elif f.get("kind") == "mail" %}<a href="mailto:{{ f.text }}" class="min-w-0 text-blue-500 underline hover:no-underline [overflow-wrap:anywhere]">{{ f.text }}</a>
+    {%- else %}<span class="min-w-0">{{ f.text }}</span>{% endif %}</span>
+    {% endfor %}
+    </span>
   </p>
   {% endif %}
 </header>
@@ -578,7 +587,39 @@
    2026; end state §2.2). `href` makes the value a link. An empty value is
    the caller's "—". #}
 {% macro icon_fact(name, text, href=None) -%}
-<span data-icon-fact class="inline-flex items-center gap-1.5 min-w-0">{{ icon(name, cls="shrink-0 text-ink-soft") }}{% if href %}<a href="{{ href }}" class="text-blue-500 underline hover:no-underline truncate">{{ text }}</a>{% else %}<span class="truncate">{{ text }}</span>{% endif %}</span>
+<span data-icon-fact class="inline-flex items-center gap-1.5 min-w-0 max-w-full">{{ icon(name, cls="shrink-0 text-ink-soft") }}{% if href %}<a href="{{ href }}" class="text-blue-500 underline hover:no-underline truncate">{{ text }}</a>{% else %}<span class="truncate">{{ text }}</span>{% endif %}</span>
+{%- endmacro %}
+
+{# `label_fact(label, text)` — a value that keeps its label in read mode (#1900;
+   end state §5.2): the label in the soft ink with a colon, the value after it
+   on the same line — `Doelpubliek: Gezinnen`, `Maximum: 40`. For a value whose
+   kind has no icon of its own; a conventional kind takes `icon_fact`. #}
+{% macro label_fact(label, text) -%}
+<span data-label-fact class="text-sm leading-[21px] text-ink"><span class="text-ink-soft">{{ label }}:</span> {{ text }}</span>
+{%- endmacro %}
+
+{# `flow_heading(title)` — a heading row in the form flow, above a run of cards
+   that are each one of the same thing (#1900: "Onderdelen" above a card per
+   component) — the cards did not read as components without it. 8 px closer
+   to the cards under it than two cards are to each other. #}
+{% macro flow_heading(title, id=None) -%}
+<h2 data-flow-heading{% if id %} id="{{ id }}"{% endif %} class="-mb-2 text-base font-semibold leading-6 text-ink">{{ title }}</h2>
+{%- endmacro %}
+
+{# `rare_line(title, count)` — what is rarely set, as a closed line in the card
+   of its object (#1900; end state §3.4 as revised on 11 October 2026): the
+   external links of an activity stand under its poster, those of a component
+   under its info attachment. It opens in place to its fields; `count` is how
+   many of them are filled ("· 2 ingevuld"). The fields are sent closed or
+   open, and a refusal on one of them opens the line (`record-form.js`). In
+   edit mode only: read mode shows a filled value as a fact line. #}
+{% macro rare_line(title, count=0) -%}
+<details data-rare-line data-span="full" class="group">
+  <summary class="flex items-center gap-2 min-h-11 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden text-sm leading-[21px] text-ink">
+    {{ icon("chevron-right", 16, "shrink-0 transition-transform group-open:rotate-90") }}<span class="font-medium">{{ title }}</span>{% if count %}<span data-rare-count class="text-ink-soft">· {{ ngettext("%(num)d ingevuld", "%(num)d ingevuld", count) }}</span>{% endif %}
+  </summary>
+  <div data-form-grid class="form-grid pl-6 pb-2">{{ caller() }}</div>
+</details>
 {%- endmacro %}
 
 {# `person_card(name, …)` — one person as a card of the form flow, in READ
@@ -731,6 +772,10 @@
      the value would, in the soft ink, followed by `fallback_note` ("van de
      fiche") — so the reader sees what is used and that it was not typed here.
      A filled field shows its own value, as always.
+   - `beside_switch` (#1900): the field stands at the right of the switch that
+     says whether its value is used ("Toon e-mail" · "Ander e-mailadres"),
+     so an `email` field takes half the width there — the one case; anywhere
+     else its kind decides and it is full.
    - `delete_name` (upload): "Verwijderen" beside what hangs there does not
      delete it — it marks it (a hidden field of this name becomes "1") and the
      form's save removes it; until then it can be taken back. #}
@@ -743,10 +788,11 @@
                current_label=None, delete_attrs="", delete_confirm=None, disabled=False,
                display=None, help_in_read=False, preview_url=None, delete_name=None,
                beside_field=False, help_lines=False, label_hidden=False,
-               fallback=None, fallback_note=None) -%}
+               fallback=None, fallback_note=None, beside_switch=False) -%}
 {%- set _id = id or name -%}
 {%- if fallback and not placeholder -%}{%- set placeholder = fallback -%}{%- endif -%}
-{%- if kind in _field_full or (kind == "text" and long) -%}{%- set _span = "full" -%}
+{%- if kind == "email" and beside_switch -%}{%- set _span = "half" -%}
+{%- elif kind in _field_full or (kind == "text" and long) -%}{%- set _span = "full" -%}
 {%- elif span == "full" -%}{%- set _span = "full" -%}
 {%- elif span == "quarter" and kind in _field_quarter_ok -%}{%- set _span = "quarter" -%}
 {%- else -%}{%- set _span = "half" -%}{%- endif -%}
@@ -1016,7 +1062,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 
    `title` is the composite item's heading (in edit mode it follows the field
    marked `data-row-title-source`); `title_href` makes it a jump link; `tag` is
-   a badge beside it ("op de affiche", "hoofdadres"). `handle` only where the
+   a badge beside it ("hoofdadres"). `handle` only where the
    order means something. `label` names the row for its menu's accessible name.
 
    A SIMPLE row of a group that marks one row (`one`) shows `tag` where the
@@ -1056,8 +1102,12 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     </details>
     {% if edit and menu %}<div class="group-fold-menu">{{ _row_menu(menu, label or title, one) }}</div>{% endif %}
     {% elif variant == "composite" %}
-    <div data-row-title-line class="flex{% if card %} flex-wrap{% endif %} items-center justify-between gap-2 min-h-11">
-      <span class="flex flex-wrap items-center gap-2 min-w-0">
+    {#- A title line that carries a slot (`aside`) wraps where the two do not fit:
+        the name keeps the first line — 44 px high beside a handle, so the two stay
+        on one line — and the slot goes under it, at the right (#1900: an
+        organiser's Contactpersoon switch on a phone). -#}
+    <div data-row-title-line class="flex{% if card %} flex-wrap gap-2{% elif aside %} flex-wrap gap-x-2 gap-y-0{% else %} gap-2{% endif %} items-center justify-between min-h-11">
+      <span class="flex flex-wrap items-center gap-2 min-w-0{% if edit and handle %} min-h-11{% endif %}">
         {% if title_href %}{{ reference(title, title_href, "font-semibold") }}
         {% else %}<h3 data-row-title="{{ title }}" class="min-w-0 text-base font-semibold leading-6 text-ink [overflow-wrap:anywhere]">{{ title }}</h3>{% endif %}
         {% if tag %}{{ badge(tag.label, tag.get("tone") or "gray") }}{% endif %}

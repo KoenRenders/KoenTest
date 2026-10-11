@@ -459,8 +459,13 @@ share a row only when read together (street · number · bus; from · to). The
 at the left and the label at its right; in read mode a boolean is words
 ("Enkel leden: ja"), an empty field reads "—" in its place (reverses #1139).
 The rare settings (`rare_settings`) are the closed last section, placed by
-the layout above the action bar. The activity's sections are Activiteit ·
-Publiek · Intern; "Geannuleerd" is no field but the record actions
+the layout above the action bar — except where they belong to one object of
+the record: there they are a closed line in that object's card (`rare_line`,
+#1900: the activity's poster address under its poster, a component's links
+in its card), and the record has no last section. The activity's sections are
+Activiteit · Intern, a card per component under the heading row "Onderdelen"
+(`flow_heading`), and in read mode a value that needs its label reads
+`label: value` (`label_fact`); "Geannuleerd" is no field but the record actions
 "Activiteit annuleren" and "Annulering intrekken". No raw `<label>`,
 `<input>`, `<select>` or `<textarea>` in a template on the kit; elsewhere the
 ratchet `RAW_FORM_ELEMENTS` (105 in 29 files on 5 October 2026) may only

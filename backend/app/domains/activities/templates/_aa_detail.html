@@ -59,6 +59,14 @@
 {% set _read_url = "/admin/activiteiten" if _new else "/admin/activiteiten/" ~ a.id ~ ("?" ~ _keep if _keep else "") %}
 {% set _audience = namespace(value="") %}
 {% for code, label, selected in audience_options %}{% if selected %}{% set _audience.value = code %}{% endif %}{% endfor %}
+{# #1900 (CR-11 roll-out, slice 2; end state §5.2 Activiteit): the record laid
+   against the household record. Read mode shows FACTS in the editor's order —
+   an icon for a conventional kind, `label: value` where the value needs its
+   label — and nothing folds; a card per component; the external links stand in
+   the card of their object. #}
+{% set _yes_no = {true: _("ja"), false: _("nee")} %}
+{% set _audience_label = namespace(value="") %}
+{% for code, label, selected in audience_options %}{% if selected %}{% set _audience_label.value = label %}{% endif %}{% endfor %}
 <div data-form-flow data-mode="{{ 'edit' if _edit else 'read' }}" class="form-flow">
   {# The fiche's message line: a refused save answers here and nowhere else, so
      the form keeps what was typed (#1559). #}
@@ -74,40 +82,64 @@
   <input type="hidden" name="fiche_groups" value="dates components organisers">
   <input type="hidden" name="bevestigd" id="aa-bevestigd" value="">
   {% endif %}
+  {# One card for what the public reads (#1900: Publiek folded into it). #}
   {% call ui.section(_("Activiteit"), id="aa-section-activity") %}
+    {% if _edit %}
     {#- P2: on a new record attention goes to the first field. -#}
-    {{ ui.field("name", _("Naam"), value=a.name, edit=_edit, required=True, attrs=("autofocus" if _new else "")) }}
+    {{ ui.field("name", _("Naam"), value=a.name, edit=True, required=True, attrs=("autofocus" if _new else "")) }}
     {# #884: the friendly URL does NOT follow the name — one is proposed at
        creation, after that it stays. The help says why. #}
-    {{ ui.field("slug", _("Vriendelijke URL"), kind="slug", value=a.slug or "", edit=_edit,
+    {{ ui.field("slug", _("Vriendelijke URL"), kind="slug", value=a.slug or "", edit=True,
                 placeholder=_("bv. zomerfeest-2026"),
                 help=_("Optioneel. Leeg = enkel het nummer-adres. Wijzig je dit, dan werken eerder gedeelde links niet meer.")) }}
-    {{ ui.field("location", _("Locatie"), value=a.location or "", edit=_edit) }}
-    {{ ui.field("description", _("Omschrijving"), kind="textarea", value=a.description or "", edit=_edit,
+    {{ ui.field("location", _("Locatie"), value=a.location or "", edit=True) }}
+    {{ ui.field("description", _("Omschrijving"), kind="textarea", value=a.description or "", edit=True,
                 placeholder=_("Twee à drie zinnen die bezoekers lezen."),
                 help=_("Optioneel. Staat op de activiteitenpagina en komt mee in de nieuwsbrief.")) }}
     {# The poster is public, so it stands here and not under Intern (decision 06).
        An uploaded poster wins from the poster address (#223). #}
-    {{ ui.field("file", _("Affiche"), kind="upload", id="upl-file", edit=_edit,
+    {{ ui.field("file", _("Affiche"), kind="upload", id="upl-file", edit=True,
                 current_url=a.poster_asset_url,
                 current_label=a.poster_asset_title or _("Huidige affiche bekijken"),
                 preview_url=(a.poster_asset_url ~ "/thumb") if a.poster_asset_url else None,
                 delete_name="file_delete",
                 help=_("Afbeelding of PDF. Een opgeladen affiche primeert op de Poster-URL.")) }}
-  {% endcall %}
-  {% call ui.section(_("Publiek"), id="aa-section-audience") %}
     {# #1428: who the activity is for — one value, or not filled in. #}
-    {{ ui.field("target_audience", _("Doelpubliek"), kind="select", value=_audience.value, edit=_edit,
+    {{ ui.field("target_audience", _("Doelpubliek"), kind="select", value=_audience.value, edit=True,
                 options=[("", _("— niet ingevuld —"))] + audience_options) }}
     {# One word for the badge and the field (decision 06). #}
-    {{ ui.field("members_only", _("Enkel leden"), kind="switch", value=a.members_only, edit=_edit, beside_field=True) }}
+    {{ ui.field("members_only", _("Enkel leden"), kind="switch", value=a.members_only, edit=True, beside_field=True) }}
+    {# The poster address stands with the poster (end state §3.4): the old way —
+       the poster is made in the Design Studio or uploaded. #}
+    {% call ui.rare_line(_("Externe koppelingen"), count=1 if a.poster_url else 0) %}
+      {{ ui.field("poster_url", _("Poster-URL"), kind="url", value=a.poster_url or "", edit=True,
+                  placeholder="https://…", help=ui.poster_help()) }}
+    {% endcall %}
+    {% else %}
+    {# The name is the record's title and does not repeat here. #}
+    <div data-span="full" data-activity-facts class="flex flex-col gap-y-1 text-sm leading-[21px] text-ink">
+      <p class="flex flex-wrap gap-x-5 gap-y-1">{% if a.slug %}{{ ui.icon_fact("link", "/activiteiten/" ~ a.slug, href="/activiteiten/" ~ a.slug) }} {% endif %}<span data-activity-location class="contents">{{ ui.icon_fact("map-pin", a.location or "—") }}</span></p>
+      {% if a.description %}<p data-activity-description class="mt-1 whitespace-pre-line">{{ a.description }}</p>{% endif %}
+      <p class="mt-1">{{ ui.icon_fact("image", (a.poster_asset_title or _("Affiche")) if a.poster_asset_url else "—", href=a.poster_asset_url) }}</p>
+      {% if a.poster_url %}<p>{{ ui.icon_fact("link", _("Poster-URL: %(url)s", url=a.poster_url), href=a.poster_url) }}</p>{% endif %}
+      <p class="mt-1">{{ ui.label_fact(_("Doelpubliek"), _audience_label.value or "—") }}</p>
+      <p>{{ ui.label_fact(_("Enkel leden"), _yes_no[a.members_only|default(false, true)]) }}</p>
+    </div>
+    {% endif %}
   {% endcall %}
   {% call ui.section(_("Intern"), id="aa-section-internal") %}
     {# #1028/#1139: the promise stands where the note is typed AND where it is
        read — there someone decides whether to pass it on. #}
-    {{ ui.field("board_notes", _("Interne nota"), kind="textarea", value=board_notes or "", edit=_edit,
+    {% if _edit %}
+    {{ ui.field("board_notes", _("Interne nota"), kind="textarea", value=board_notes or "", edit=True,
                 placeholder=_("Afspraken, contacten, wat je jezelf wil herinneren."),
-                help=INTERNE_NOTA_BELOFTE, help_in_read=True if board_notes else False) }}
+                help=INTERNE_NOTA_BELOFTE) }}
+    {% else %}
+    <div data-span="full" data-internal-note class="text-sm leading-[21px]">
+      <p class="text-ink whitespace-pre-line">{{ board_notes or "—" }}</p>
+      {% if board_notes %}<p class="mt-1 text-[13px] leading-[19.5px] text-ink-soft">{{ INTERNE_NOTA_BELOFTE }}</p>{% endif %}
+    </div>
+    {% endif %}
   {% endcall %}
 
   {# ── The repeating groups (CR-11 block 7, #1559) ──────────────────────────────
@@ -117,7 +149,9 @@
      the group's token as its key, the template a new row is made from. #}
 
   {# Dates. They show in the order of the calendar and have no order of their
-     own to drag (the table has no such column): no handle, no up and down. #}
+     own to drag (the table has no such column): no handle, no up and down.
+     Read mode: one line per date behind the calendar icon, the end date only
+     when it differs. #}
   {% macro _date_row(key, d) %}
   {% call ui.group_row("d_order", key, edit=_edit, menu=["duplicate", "remove"], label=_("deze datum")) %}
     {% if _edit %}
@@ -130,12 +164,13 @@
     {{ ui.field("d." ~ key ~ ".end_time", _("Tot"), kind="time", id="d-" ~ key ~ "-end_time", span="quarter",
                 value=d.end_time.strftime("%H:%M") if d and d.end_time else "") }}
     {% else %}
-    <p data-span="full" data-date-line class="text-sm leading-[21px] text-ink">{{ d.start_date|langedatum }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date|langedatum }}{% endif %}{% if d.start_time %} · {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %}–{{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}</p>
+    {% set _when %}{{ d.start_date|langedatum }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date|langedatum }}{% endif %}{% if d.start_time %} · {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %}–{{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}{% endset %}
+    <p data-span="full" data-date-line class="text-sm leading-[21px] text-ink">{{ ui.icon_fact("calendar", _when) }}</p>
     {% endif %}
   {% endcall %}
   {% endmacro %}
   {% set _date_template %}{% if _edit %}{{ _date_row("__D__", none) }}{% endif %}{% endset %}
-  {% call ui.repeating_group(_("Datums"), "d_order", token="__D__", add_label=_("Datum"), edit=_edit,
+  {% call ui.repeating_group(_("Datums"), "d_order", token="__D__", add_label=_("Datum"), edit=_edit, plain=not _edit,
                              empty=_("Nog geen datums."), count=(a.dates|length) or (1 if _new else 0), template=_date_template, id="aa-group-dates",
                              columns=[{"label": _("Datum"), "span": "quarter", "required": True}, {"label": _("Van"), "span": "quarter"},
                                       {"label": _("Einddatum"), "span": "quarter"}, {"label": _("Tot"), "span": "quarter"}]) %}
@@ -147,8 +182,8 @@
   {% endcall %}
 
   {# A product: in the editor a composite item under its component, in read mode
-     two short lines. Free and pay-on-site are two switches (they were one
-     select); the service refuses both at once. #}
+     ONE line — name · price · member price · maximum · how it is settled — with
+     the badge only on a product that is not public. #}
   {% macro _product_row(ckey, key, p) %}
   {% call ui.group_row("p_order." ~ ckey, key, edit=_edit, variant="composite" if _edit else "simple", handle=True,
                        title=p.name if p else _("Nieuw product"), label=p.name if p else _("dit product")) %}
@@ -183,93 +218,135 @@
     {% endcall %}
     </div>
     {% else %}
-    <p data-span="full" data-product-line class="text-sm leading-[21px] text-ink">{{ p.name }} · €&nbsp;{{ p.price|geld }}{% if p.member_price is not none %} · {{ _("leden") }} €&nbsp;{{ p.member_price|geld }}{% endif %}{% if p.max_participants %} · {{ _("max") }} {{ p.max_participants }}{% endif %}{% if not p.is_active %} {{ ui.badge(PRODUCT_NIET_PUBLIEK_BADGE, "gray") }}{% endif %}</p>
-    <p data-span="full" data-product-settlement class="text-[13px] leading-[19.5px] text-ink-soft">{% for code, label in settlement_options if code == _settle %}{{ label }}{% endfor %}</p>
+    <p data-span="full" data-product-line class="flex items-center justify-between gap-3 text-sm leading-[21px] text-ink"><span>{{ p.name }}{% if _settle == settlement_paid %} · €&nbsp;{{ p.price|geld }}{% if p.member_price is not none %} · {{ _("leden") }} €&nbsp;{{ p.member_price|geld }}{% endif %}{% endif %}{% if p.max_participants %} · {{ _("max") }} {{ p.max_participants }}{% endif %} · <span data-product-settlement>{% for code, label in settlement_options if code == _settle %}{{ label }}{% endfor %}</span></span>{% if not p.is_active %}{{ ui.badge(PRODUCT_NIET_PUBLIEK_BADGE, "gray") }}{% endif %}</p>
     {% endif %}
   {% endcall %}
   {% endmacro %}
 
-  {# A component: its name is its heading (in the editor the heading follows
-     the name field), its fields under it, its products as a child group. Its
-     external links stand in the fiche's one closed last section. #}
+  {# A component is a card of the flow (#1900), as a person is on the household's
+     record: the title line carries the handle in a left gutter, the name (in the
+     editor it follows the name field), the occupancy as a badge and the `⋯`;
+     everything of it stands right of the handle. Its products are a list under
+     their label, its external links a closed line under its info attachment. #}
   {% macro _component_row(key, c) %}
-  {% call ui.group_row("c_order", key, edit=_edit, variant="composite", handle=True,
+  {% set _booked = component_booked.get(c.id, 0) if c else 0 %}
+  {% set _occupancy %}{% if c %}<span data-occupancy>{{ ui.badge(ngettext("%(num)d ingeschreven", "%(num)d ingeschreven", _booked), "gray") }}</span>{% endif %}{% endset %}
+  {% call ui.group_row("c_order", key, edit=_edit, variant="composite", handle=True, card=True, aside=_occupancy|trim,
                        title=c.name if c else _("Nieuw onderdeel"), label=c.name if c else _("dit onderdeel")) %}
+    {% if _edit %}
     {% call ui.form_grid() %}
-      {% if _edit %}
       {{ ui.field("c." ~ key ~ ".name", _("Naam"), id="c-" ~ key ~ "-name", required=True, value=c.name if c else "", attrs="data-row-title-source") }}
-      {% endif %}
-      {# Read mode shows the occupancy where the maximum stands: "12 / 20", or
-         the count alone without a maximum. #}
-      {% set _booked = component_booked.get(c.id, 0) if c else 0 %}
-      {{ ui.field("c." ~ key ~ ".max_participants", _("Maximum") if _edit else _("Bezetting"), kind="number", id="c-" ~ key ~ "-max_participants", span="quarter", edit=_edit,
-                  value=c.max_participants if c and c.max_participants else "", attrs='min="1" step="1"',
-                  display=(_booked ~ " / " ~ c.max_participants) if c and c.max_participants else _booked ~ "") }}
-      {{ ui.field("c." ~ key ~ ".registration_closes_on", _("Inschrijven tot"), kind="date", id="c-" ~ key ~ "-registration_closes_on", span="quarter", edit=_edit,
-                  value=c.registration_closes_on.isoformat() if c and c.registration_closes_on else "",
-                  display=(_("t/m") ~ " " ~ (c.registration_closes_on|langedatum)) if c and c.registration_closes_on else "") }}
-      {{ ui.field("c." ~ key ~ ".team_name_required", _("Ploegnaam vereist"), kind="switch", id="c-" ~ key ~ "-team_name_required", edit=_edit,
+      {{ ui.field("c." ~ key ~ ".max_participants", _("Maximum"), kind="number", id="c-" ~ key ~ "-max_participants", span="quarter",
+                  value=c.max_participants if c and c.max_participants else "", attrs='min="1" step="1"') }}
+      {{ ui.field("c." ~ key ~ ".registration_closes_on", _("Inschrijven tot"), kind="date", id="c-" ~ key ~ "-registration_closes_on", span="quarter",
+                  value=c.registration_closes_on.isoformat() if c and c.registration_closes_on else "") }}
+      {{ ui.field("c." ~ key ~ ".team_name_required", _("Ploegnaam vereist"), kind="switch", id="c-" ~ key ~ "-team_name_required",
                   value=c.team_name_required if c else False, beside_field=True) }}
       {# CR-14 phase 2 (§B4.5): the questions this component asks, a form of the
          form builder — open, one section, not anonymous, no maximum. #}
       {# #1608 (Koen, 5 October 2026; CR-11 Q66): on the board's page the choice
          is called what it is, a form. The public page keeps "Vragen". #}
-      {{ ui.field("c." ~ key ~ ".form_id", _("Formulier"), kind="select", id="c-" ~ key ~ "-form_id", edit=_edit,
+      {{ ui.field("c." ~ key ~ ".form_id", _("Formulier"), kind="select", id="c-" ~ key ~ "-form_id",
                   value=component_form.get(c.id, "") if c else "", options=[("", _("Geen"))] + question_forms,
                   help=_("De vragen van dit formulier staan op de inschrijfpagina.")) }}
       {# The info attachment (#451). An uploaded one wins from the external info
          address; removing it is part of the save, like everything else. #}
-      {{ ui.field("c." ~ key ~ ".file", _("Info-bijlage"), kind="upload", id="c-" ~ key ~ "-file", edit=_edit,
+      {{ ui.field("c." ~ key ~ ".file", _("Info-bijlage"), kind="upload", id="c-" ~ key ~ "-file",
                   current_url=c.info_asset_url if c else none, current_label=_("Huidige info-bijlage bekijken"),
                   delete_name="c." ~ key ~ ".info_delete",
                   help=_("Afbeelding of PDF. Een opgeladen bijlage primeert op de externe info-URL.")) }}
+      {# The component's own links, with it (end state §3.4). #}
+      {% call ui.rare_line(_("Externe koppelingen"), count=([c.external_register_url, c.external_registrations_url, c.info_url]|select|list|length) if c else 0) %}
+        {{ ui.field("c." ~ key ~ ".external_register_url", _("Externe inschrijf-URL"), kind="url", id="c-" ~ key ~ "-external_register_url",
+                    value=(c.external_register_url or "") if c else "", placeholder="https://…") }}
+        {{ ui.field("c." ~ key ~ ".external_registrations_url", _("Externe inschrijvingen-URL"), kind="url", id="c-" ~ key ~ "-external_registrations_url",
+                    value=(c.external_registrations_url or "") if c else "", placeholder="https://…") }}
+        {{ ui.field("c." ~ key ~ ".info_url", _("Externe info-URL"), kind="url", id="c-" ~ key ~ "-info_url",
+                    value=(c.info_url or "") if c else "", placeholder="https://…") }}
+      {% endcall %}
     {% endcall %}
+    {% else %}
+    {# Read mode, in the editor's order. #}
+    {% set _form_id = component_form.get(c.id, "") %}
+    {% set _form_name = namespace(value="") %}
+    {% for fid, flabel in question_forms %}{% if fid|string == _form_id|string and _form_id != "" %}{% set _form_name.value = flabel %}{% endif %}{% endfor %}
+    <div data-component-facts class="flex flex-col gap-y-1 text-sm leading-[21px] text-ink">
+      <p class="flex flex-wrap gap-x-5 gap-y-1">{{ ui.label_fact(_("Maximum"), c.max_participants or "—") }} {{ ui.icon_fact("clock", _("Inschrijven t/m %(date)s", date=c.registration_closes_on|langedatum) if c.registration_closes_on else _("Inschrijven tot de activiteit")) }} {{ ui.label_fact(_("Ploegnaam vereist"), _yes_no[c.team_name_required|default(false, true)]) }}</p>
+      <p class="flex flex-wrap gap-x-5 gap-y-1">{% if _form_name.value %}<span class="inline-flex items-center gap-1.5">{{ ui.icon("clipboard-list", cls="shrink-0 text-ink-soft") }}{{ ui.reference(_form_name.value, "/admin/formulieren/" ~ _form_id) }}</span>{% else %}{{ ui.icon_fact("clipboard-list", "—") }}{% endif %} {{ ui.icon_fact("file-text", _("Info-bijlage") if c.info_asset_url else "—", href=c.info_asset_url) }}</p>
+      {% for label, url in [(_("Externe inschrijf-URL"), c.external_register_url), (_("Externe inschrijvingen-URL"), c.external_registrations_url), (_("Externe info-URL"), c.info_url)] if url %}
+      <p data-external-link>{{ ui.icon_fact("link", label ~ ": " ~ url, href=url) }}</p>
+      {% endfor %}
+    </div>
+    {% endif %}
     {% set _product_template %}{% if _edit %}{{ _product_row(key, "__P__", none) }}{% endif %}{% endset %}
     {% call ui.repeating_group(_("Producten"), "p_order." ~ key, token="__P__", add_label=_("Product"), edit=_edit, variant="composite",
-                               child=True, empty=_("Nog geen producten."), count=c.products|length if c else 0, template=_product_template) %}
+                               child=True, plain=True, empty=_("Nog geen producten."), count=c.products|length if c else 0, template=_product_template) %}
       {% if c %}{% for p in c.products %}{{ _product_row(key, p.id, p) }}{% endfor %}{% endif %}
     {% endcall %}
   {% endcall %}
   {% endmacro %}
   {% set _component_template %}{% if _edit %}{{ _component_row("__C__", none) }}{% endif %}{% endset %}
-  {% call ui.repeating_group(_("Onderdelen"), "c_order", token="__C__", add_label=_("Onderdeel"), edit=_edit, variant="composite",
+  {# The heading row says what the cards under it are; "+ Onderdeel" stands under
+     the last one (Koen, 11 October 2026: one rule for both records, #1641). #}
+  {{ ui.flow_heading(_("Onderdelen"), id="aa-heading-components") }}
+  {% call ui.repeating_group(_("Onderdelen"), "c_order", token="__C__", add_label=_("Onderdeel"), edit=_edit, variant="composite", cards=True,
                              empty=_("Nog geen onderdelen. Voeg er een toe om inschrijven mogelijk te maken."),
                              count=a.sub_registrations|length, template=_component_template, id="aa-group-components") %}
     {% for c in a.sub_registrations %}{{ _component_row(c.id, c) }}{% endfor %}
   {% endcall %}
 
-  {# Organisers (#1004, CR-10 §3.9): a composite item each, with a handle — the
-     order decides the Design Studio poster's first three contacts (#1433), so it
-     means something. No roles. A new one comes through the member search inside
-     the group: pick a member and a row is added to the form. #}
+  {# Organisers (#1004, CR-10 §3.9): one card, a block each, with a handle — the
+     order means something (the Design Studio reads it, #1433). No roles. The
+     record says what a value is, not what another screen does with it (#1900):
+     the title line carries "Contactpersoon" — a badge to read, the switch to
+     edit. A new one comes through the member search inside the group. #}
   {% macro _organiser_row(key, o, name, href, person_id, own_email=none, own_mobile=none) %}
   {# #1694: an empty "Ander …" field shows in grey what the member's own record
-     gives — the value the poster prints — or says that the record holds none.
-     A row from the template (`o` is none) gets both through its tokens. #}
+     gives, or says that the record holds none. A row from the template (`o` is
+     none) gets both through its tokens. #}
   {% set _own_email = o.member_email if o else own_email %}
   {% set _own_mobile = (o.member_mobile|phone) if o else own_mobile %}
   {% set _has_email = o.member_email if o else none %}
   {% set _has_mobile = o.member_mobile if o else none %}
-  {# #1433: the order decides the poster — its first three contacts. #}
-  {% set _tag = none %}
-  {% if o and o.id in poster_ids %}{% set _tag = {"label": _("op de affiche"), "tone": "green"} %}
-  {% elif o and o.is_contact %}{% set _tag = {"label": _("niet op de affiche: alleen de eerste drie")} %}{% endif %}
+  {% set _show_email = o.show_email if o else True %}
+  {% set _show_mobile = o.show_mobile if o else True %}
+  {% set _contact %}
+    {%- if _edit %}{{ ui.field("o." ~ key ~ ".is_contact", _("Contactpersoon"), kind="switch", id="o-" ~ key ~ "-is_contact", value=o.is_contact if o else False) }}
+    {%- elif o and o.is_contact %}<span data-contact-state>{{ ui.badge(_("Contactpersoon"), "green") }}</span>
+    {%- else %}<span data-contact-state>{{ ui.badge(_("Geen contactpersoon"), "gray") }}</span>{% endif -%}
+  {% endset %}
   {% call ui.group_row("o_order", key, edit=_edit, variant="composite", handle=True, menu=["up", "down", "remove"],
-                       title=name, title_href=href, label=name, tag=_tag) %}
-    {% if _edit %}<input type="hidden" name="o.{{ key }}.person_id" value="{{ person_id }}">{% endif %}
+                       title=name, title_href=href, label=name, aside=_contact|trim) %}
+    {% if _edit %}
+    <input type="hidden" name="o.{{ key }}.person_id" value="{{ person_id }}">
+    {# The switch at the left, the value it is about at its right. While the
+       switch is off the field is READ-ONLY and looks switched off: a disabled
+       field is not sent, and the save would then erase the other address that
+       is stored (#1900, the build read). #}
+    {% set _off = "bg-surface-2 text-ink-soft cursor-not-allowed" %}
+    <div class="contents" data-organiser-shown x-data="{ e: {{ 'true' if _show_email else 'false' }}, m: {{ 'true' if _show_mobile else 'false' }} }"
+         @change="if ($event.target.name === 'o.{{ key }}.show_email') e = $event.target.checked; if ($event.target.name === 'o.{{ key }}.show_mobile') m = $event.target.checked">
     {% call ui.form_grid() %}
-      {{ ui.field("o." ~ key ~ ".is_contact", _("Contactpersoon"), kind="switch", id="o-" ~ key ~ "-is_contact", edit=_edit, value=o.is_contact if o else False) }}
-      {# #1032: unticked, this detail stays off the poster — also when no other
-         address is filled in. #}
-      {{ ui.field("o." ~ key ~ ".show_email", _("Toon e-mail"), kind="switch", id="o-" ~ key ~ "-show_email", span="quarter", edit=_edit, value=o.show_email if o else True) }}
-      {{ ui.field("o." ~ key ~ ".show_mobile", _("Toon mobiel"), kind="switch", id="o-" ~ key ~ "-show_mobile", span="quarter", edit=_edit, value=o.show_mobile if o else True) }}
-      {{ ui.field("o." ~ key ~ ".email_override", _("Ander e-mailadres"), kind="email", id="o-" ~ key ~ "-email_override", edit=_edit,
-                  value=o.email_override if o else "", help=_("Leeg: het adres van het lid, hierboven in het grijs."),
+      {# #1032: off, this detail is not shown — also when no other address is filled in. #}
+      {{ ui.field("o." ~ key ~ ".show_email", _("Toon e-mail"), kind="switch", id="o-" ~ key ~ "-show_email", value=_show_email, beside_field=True) }}
+      {{ ui.field("o." ~ key ~ ".email_override", _("Ander e-mailadres"), kind="email", id="o-" ~ key ~ "-email_override", beside_switch=True,
+                  value=o.email_override if o else "",
+                  attrs=':readonly="!e" :aria-disabled="(!e).toString()" :class="!e && \'' ~ _off ~ '\'"',
                   fallback=_own_email or _("geen e-mailadres op de fiche"), fallback_note=_("van de fiche") if _has_email else none) }}
-      {{ ui.field("o." ~ key ~ ".mobile_override", _("Ander mobiel nummer"), kind="phone", id="o-" ~ key ~ "-mobile_override", edit=_edit,
-                  value=o.mobile_override if o else "", help=_("Leeg: het nummer van het lid, hierboven in het grijs."),
+      {{ ui.field("o." ~ key ~ ".show_mobile", _("Toon mobiel"), kind="switch", id="o-" ~ key ~ "-show_mobile", value=_show_mobile, beside_field=True) }}
+      {{ ui.field("o." ~ key ~ ".mobile_override", _("Ander mobiel nummer"), kind="phone", id="o-" ~ key ~ "-mobile_override",
+                  value=o.mobile_override if o else "",
+                  attrs=':readonly="!m" :aria-disabled="(!m).toString()" :class="!m && \'' ~ _off ~ '\'"',
                   fallback=_own_mobile or _("geen nummer op de fiche"), fallback_note=_("van de fiche") if _has_mobile else none) }}
     {% endcall %}
+    </div>
+    {% else %}
+    {# Read mode: what is shown, behind its icon — the other value when one is
+       filled in, the member's own otherwise — or "niet getoond". #}
+    {% set _email = (o.email_override or o.member_email or "—") if o.show_email else _("niet getoond") %}
+    {% set _mobile = ((o.mobile_override or o.member_mobile)|phone or "—") if o.show_mobile else _("niet getoond") %}
+    <p data-organiser-facts class="flex flex-wrap gap-x-5 gap-y-1 text-sm leading-[21px]"><span data-shown="{{ 'yes' if o.show_email else 'no' }}" class="{{ 'text-ink' if o.show_email else 'text-ink-soft' }}">{{ ui.icon_fact("mail", _email) }}</span> <span data-shown="{{ 'yes' if o.show_mobile else 'no' }}" class="{{ 'text-ink' if o.show_mobile else 'text-ink-soft' }}">{{ ui.icon_fact("mobile", _mobile) }}</span></p>
+    {% endif %}
   {% endcall %}
   {% endmacro %}
   {% set _organiser_template %}{% if _edit %}{{ _organiser_row("__O__", none, "__NAME__", "__HREF__", "__PERSON__", own_email="__EMAIL__", own_mobile="__MOBILE__") }}{% endif %}{% endset %}
@@ -286,31 +363,9 @@
   {% endset %}
   {% call ui.repeating_group(_("Organisatoren"), "o_order", token="__O__", edit=_edit, variant="composite",
                              empty=_("Nog geen organisatoren."), count=organisers|length, template=_organiser_template, id="aa-group-organisers",
-                             footer=_organiser_search,
-                             hint=_("Wie contactpersoon is, komt met naam en gegevens op de affiches — de eerste drie, in deze volgorde.")) %}
+                             footer=_organiser_search) %}
     {% for o in organisers %}
     {{ _organiser_row(o.id, o, o.name, ("/admin/leden/gezin/" ~ organiser_households[o.person_id]) if o.person_id in organiser_households else none, o.person_id) }}
-    {% endfor %}
-  {% endcall %}
-  {# The closed last section (§3.4): what is rarely set, after everything else —
-     the poster address (the old way; the poster is made in the Design Studio)
-     and, since #1559, the external links of every component, named by it. A
-     component added in the page gets its place here once it is saved. #}
-  {% set _links = namespace(count=1 if a.poster_url else 0) %}
-  {% for c in a.sub_registrations %}{% set _links.count = _links.count + ([c.external_register_url, c.external_registrations_url, c.info_url]|select|list|length) %}{% endfor %}
-  {% call ui.rare_settings(_("Externe koppelingen"),
-                           summary=ngettext("%(num)d externe link", "%(num)d externe links", _links.count) if _links.count else "",
-                           note=ui.poster_help()) %}
-    {{ ui.field("poster_url", _("Poster-URL"), kind="url", value=a.poster_url or "", edit=_edit,
-                form="aa-act-form", placeholder="https://…") }}
-    {% for c in a.sub_registrations %}
-    <p data-span="full" data-links-of="{{ c.id }}" class="mt-2 text-sm font-semibold leading-[21px] text-ink">{{ c.name }}</p>
-    {{ ui.field("c." ~ c.id ~ ".external_register_url", _("Externe inschrijf-URL"), kind="url", id="c-" ~ c.id ~ "-external_register_url",
-                value=c.external_register_url or "", edit=_edit, placeholder="https://…") }}
-    {{ ui.field("c." ~ c.id ~ ".external_registrations_url", _("Externe inschrijvingen-URL"), kind="url", id="c-" ~ c.id ~ "-external_registrations_url",
-                value=c.external_registrations_url or "", edit=_edit, placeholder="https://…") }}
-    {{ ui.field("c." ~ c.id ~ ".info_url", _("Externe info-URL"), kind="url", id="c-" ~ c.id ~ "-info_url",
-                value=c.info_url or "", edit=_edit, placeholder="https://…") }}
     {% endfor %}
   {% endcall %}
   {% if _edit %}</form>{% endif %}

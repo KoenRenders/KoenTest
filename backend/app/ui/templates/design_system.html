@@ -298,6 +298,22 @@
   <code>ui.person_card(name, relation, main, birth, gender, mobile, phone, emails)</code> · <code>ui.icon_fact(name, text, href)</code>
 </p>
 
+{# #1900 — what a record's read mode and its cards are made of beside the icon
+   fact: a value with its label, a heading row above a run of cards, and the
+   closed line of what is rarely set, in the card of its object. #}
+<div data-kit-record-facts class="form-flow max-w-[768px] mt-6">
+  {{ ui.flow_heading(_("Onderdelen")) }}
+  {% call ui.section() %}
+    <p data-span="full" class="flex flex-wrap gap-x-5 gap-y-1 text-sm leading-[21px] text-ink">{{ ui.label_fact(_("Maximum"), 40) }} {{ ui.icon_fact("clock", _("Inschrijven tot de activiteit")) }} {{ ui.label_fact(_("Ploegnaam vereist"), _("nee")) }}</p>
+    {% call ui.rare_line(_("Externe koppelingen"), count=1) %}
+      {{ ui.field("ds_info_url", _("Externe info-URL"), kind="url", value="https://voorbeeld.test/info", placeholder="https://…") }}
+    {% endcall %}
+  {% endcall %}
+</div>
+<p class="text-xs text-gray-500 mt-3 mb-2">
+  <code>ui.label_fact(label, text)</code> · <code>ui.flow_heading(title)</code> · <code>ui.rare_line(title, count)</code>
+</p>
+
 {# ── 8. Schermtype: de records-lijst, in de vaste volgorde ─────────────────── #}
 {{ ui.section_header(_("8 · Schermtype: records-lijst"), _("Naar de activiteiten"), action_href="/admin/activiteiten", cls="mt-10") }}
 {% call ui.card() %}

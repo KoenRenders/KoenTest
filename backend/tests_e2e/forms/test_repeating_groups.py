@@ -230,22 +230,25 @@ def test_a_simple_group_shows_its_labels_once_and_a_composite_item_keeps_its_han
     # #1610 (Koen, 5 October 2026): the gutter is 28 px where it was 44 — the
     # handle 24 px wide in it, its target still 44 px high — and 8 px to the item.
     # Red on master: a gutter of 44 (the title 52 px in).
-    assert c["handle"]["x"] - c["box"]["x"] == 2 and c["handle"]["w"] == 24, c["handle"]
+    # #1900: a component is a card — the gutter starts inside its edge (16 px of
+    # padding and the border).
+    assert c["handle"]["x"] - c["box"]["x"] == 17 + 2 and c["handle"]["w"] == 24, c["handle"]
     assert c["handle"]["h"] == 44, "the handle's target shrank"
-    assert c["title"]["x"] - c["box"]["x"] == 28 + 8, "the gutter is not 28 px"
+    assert c["title"]["x"] - c["box"]["x"] == 17 + 28 + 8, "the gutter is not 28 px"
     assert c["title"]["x"] >= gutter and all(f["x"] >= gutter for f in c["fields"]), (
         "no field left of the handle"
     )
     assert (
         len({c["title"]["x"]} | {f["x"] for f in c["fields"] if f["x"] < c["title"]["x"] + 2}) == 1
     ), "the title line and the first field of each row share one left edge"
-    assert c["menu"]["right"] == c["box"]["right"], (
+    assert c["menu"]["right"] == c["box"]["right"] - 17, (
         "the item's menu on its title line, at the right"
     )
 
     child = g["child"]
-    # #1610: 12 px at every width (it was 16 on a desktop).
-    assert child["padding"] == "12px" and child["border"] == "1px", "indented 12 px behind a line"
+    # #1900: the products are a list under their label, in the component's own
+    # card — no indent and no line (until then 12 px behind a line, #1610).
+    assert child["padding"] == "0px" and child["border"] == "0px", "indented behind a line"
     assert (
         child["background"] in ("rgba(0, 0, 0, 0)", "transparent") and child["shadow"] == "none"
     ), "no card, no box"
@@ -275,7 +278,7 @@ def test_on_a_phone_the_rows_stack_with_handle_and_menu_on_the_first_line(setup)
     )
     c = g["component"]
     assert abs(c["handle"]["y"] - c["title"]["y"]) <= 2, "handle and title on the first line"
-    assert g["child"]["padding"] == "12px"
+    assert g["child"]["padding"] == "0px", "#1900: the products are a list under their label"
     assert g["targets"] and min(g["targets"]) >= 44, g["targets"]
     page.close()
 
@@ -475,9 +478,10 @@ def test_an_organiser_is_picked_from_the_member_search_into_the_form(setup):
     page.wait_for_selector('[data-form-flow][data-mode="read"]')
     pagina_klaar(page)
     saved = page.locator("#aa-group-organisers")
-    assert (
-        f"{MEMBER[0]} {MEMBER[1]}" in saved.inner_text() and "op de affiche" in saved.inner_text()
-    )
+    # #1900: the record says what the value is — a contact — not what the poster
+    # does with it.
+    assert f"{MEMBER[0]} {MEMBER[1]}" in saved.inner_text()
+    assert "Contactpersoon" in saved.inner_text() and "affiche" not in saved.inner_text()
     page.close()
 
 

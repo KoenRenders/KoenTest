@@ -103,7 +103,9 @@ def test_the_gate_finds_the_forms_on_the_kit():
     """A gate that finds nothing is green forever: the activity's fiche calls
     `ui.section` and `ui.field`, and the gate must see both."""
     text = _domain_templates()["domains/activities/templates/_aa_detail.html"]
-    assert text.count("ui.section(") >= 3
+    # #1900: two cards (Activiteit, Intern); the dates, components and organisers
+    # are repeating groups.
+    assert text.count("ui.section(") >= 2
     assert len(_field_calls(text)) >= 8
 
 

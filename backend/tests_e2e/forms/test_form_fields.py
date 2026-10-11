@@ -43,9 +43,11 @@ _FRAME = """() => {
     mode: q('[data-form-flow]').dataset.mode,
     // the one form is `display:contents` (#1559): its children are the flow's blocks
     blocks: [...q('[data-form-flow]').children].flatMap(e => e.matches('form') ? [...e.children] : [e]).filter(e => e.checkVisibility() && e.getBoundingClientRect().height > 0)
-      .map(e => e.matches('[data-rare-settings]') ? 'rare' : e.matches('[data-action-bar]') ? 'bar' : e.matches('[data-form-section]') ? 'section' : e.matches('form') ? 'form' : 'card'),
+      .map(e => e.matches('#aa-group-organisers') ? 'organisers' : e.matches('[data-action-bar]') ? 'bar' : e.matches('[data-form-section]') ? 'section' : e.matches('form') ? 'form' : 'card'),
     sections: [...document.querySelectorAll('[data-form-flow] [data-form-section]')].map(s => ({title: s.querySelector('h2').innerText, ...r(s)})),
-    fields: [...document.querySelectorAll('#aa-section-activity [data-field], #aa-section-audience [data-field], #aa-section-internal [data-field]')].map(f => ({name: f.dataset.field, ...r(f)})),
+    fields: [...document.querySelectorAll('#aa-section-activity [data-field], #aa-section-internal [data-field]')].map(f => ({name: f.dataset.field, ...r(f)})),
+    facts: [...document.querySelectorAll('#aa-section-activity [data-activity-facts] > p, #aa-section-internal [data-internal-note] > p')].map(f => r(f)),
+    last: (() => { const g = document.querySelector('#aa-group-organisers'); return g ? r(g) : null; })(),
     controls: [...document.querySelectorAll('#aa-act-form input:not([type=checkbox]):not([type=file]):not([type=hidden]), #aa-act-form select, #aa-act-form [data-kind=switch] label, #aa-act-form [data-upload] label')].map(e => Math.round(e.getBoundingClientRect().height)),
   };
 }"""
@@ -212,16 +214,17 @@ def test_the_fiche_on_a_phone_is_one_column_in_the_same_order(setup):
         {"read": r["sections"], "edit": e["sections"], "controls": e["controls"]},
     )
     assert r["page"] == [390, 390] and e["page"] == [390, 390]
-    assert [f["name"] for f in r["fields"]] == [f["name"] for f in e["fields"]], (
-        "the same fields in the same order"
-    )
-    for state in (r, e):
-        tops = [f["y"] for f in state["fields"]]
+    # #1900: read mode shows facts, the editor fields — each one column, in order.
+    assert r["fields"] == [] and len(r["facts"]) >= 4, "read mode shows facts, no field blocks"
+    assert len(e["fields"]) == 9, [f["name"] for f in e["fields"]]
+    for lines in (r["facts"], e["fields"]):
+        tops = [f["y"] for f in lines]
         assert tops == sorted(tops) and len(set(tops)) == len(tops), "one column"
-        assert [s["title"] for s in state["sections"]] == ["Activiteit", "Publiek", "Intern"]
+    for state in (r, e):
+        assert [s["title"] for s in state["sections"]][:2] == ["Activiteit", "Intern"]
     assert e["controls"] and min(e["controls"]) >= 44, f"touch targets: {e['controls']}"
-    assert e["blocks"][-2:] == ["rare", "bar"], "the closed section last, then the save"
-    assert r["blocks"][-1] == "rare"
+    assert e["blocks"][-2:] == ["organisers", "bar"], "the organisers last, then the save"
+    assert r["blocks"][-1] == "organisers", "a last section of links is back"
     edit.close()
 
 
@@ -239,21 +242,23 @@ def test_the_activity_section_keeps_its_measured_heights(setup):
         {
             "read": r["sections"][0],
             "edit": e["sections"][0],
-            "first_field": [r["fields"][0], e["fields"][0]],
+            "first_line": [r["facts"][0], e["fields"][0]],
         },
     )
-    assert 250 <= r["sections"][0]["h"] <= 340
-    assert 440 <= e["sections"][0]["h"] <= 560
+    # #1900: read mode is facts (the card is a third of what it was), the editor
+    # gained Doelpubliek, Enkel leden and the closed line of links.
+    assert 120 <= r["sections"][0]["h"] <= 240
+    assert 520 <= e["sections"][0]["h"] <= 700
     assert e["sections"][0]["h"] > r["sections"][0]["h"], (
         "the editor takes more room, in the same place"
     )
     # Until #1610 the first field stood on the same y in both states. The editor
     # now has the summary above it (the strip), so its first field starts lower —
     # by the strip and the 24 px under it, and by nothing else.
-    lower = e["fields"][0]["y"] - r["fields"][0]["y"]
+    lower = e["sections"][0]["y"] - r["sections"][0]["y"]
     assert lower == e["summary"]["h"] + 24, (lower, e["summary"])
     gaps = [b["y"] - (a["y"] + a["h"]) for a, b in zip(e["sections"], e["sections"][1:])]
-    assert gaps == [16, 16], "16 px between sections (#1899)"
+    assert gaps and set(gaps) == {16}, f"16 px between sections (#1899): {gaps}"
 
 
 def test_bewerken_opens_the_editor_and_one_save_returns_to_reading(setup):
@@ -274,8 +279,8 @@ def test_bewerken_opens_the_editor_and_one_save_returns_to_reading(setup):
     pagina_klaar(page)
 
     assert page.url.endswith(base), "the address lost its edit flag"
-    assert page.locator('[data-field="location"] [data-value]').inner_text() == "Dorpshuis"
-    assert page.locator('[data-field="members_only"] [data-value]').inner_text() == "ja"
+    assert page.locator("[data-activity-location]").inner_text().strip() == "Dorpshuis"
+    assert "Enkel leden: ja" in page.locator("[data-activity-facts]").inner_text()
     assert page.locator('[data-head-controls] a:has-text("Bewerken")').count() == 1, (
         "the head's primary is back"
     )
@@ -293,7 +298,7 @@ def test_bewerken_opens_the_editor_and_one_save_returns_to_reading(setup):
     page.click('[data-dialog][data-tone="keep"] [data-dialog-ok]')
     pagina_klaar(page)
     assert page.url.endswith(base)
-    assert page.locator('[data-field="location"] [data-value]').inner_text() == "Dorpshuis"
+    assert page.locator("[data-activity-location]").inner_text().strip() == "Dorpshuis"
     page.close()
 
 

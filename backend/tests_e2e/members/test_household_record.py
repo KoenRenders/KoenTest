@@ -385,6 +385,54 @@ def test_the_board_renews_from_the_record(browser, household):
         page.close()
 
 
+def test_no_line_of_the_heads_facts_ends_on_a_separator(browser, household):
+    """The head's facts — address · e-mail address — wrap on a narrow phone. The
+    fact that starts a line shows no separator, and no line ends on one: every
+    separator that can be seen stands between two facts of its line.
+
+    Proven red (locally, restored): the clip taken off the line (`overflow-x-clip`
+    renamed) → "a separator starts a line"."""
+    page = _board(browser, 320, 700)
+    try:
+        page.goto(f"/admin/leden/gezin/{household['id']}")
+        pagina_klaar(page)
+        seen = page.evaluate(
+            """() => { const line = document.querySelector('[data-facts]');
+              const edge = line.getBoundingClientRect().left;
+              const facts = [...line.querySelectorAll('[data-fact]')].map(f => {
+                const mark = f.querySelector('[data-fact-dot]'), dot = mark.getBoundingClientRect();
+                const box = f.getBoundingClientRect();
+                // What is clipped away is not hit: the point in the dot's middle then finds something else.
+                const hit = document.elementFromPoint(dot.left + dot.width / 2, dot.top + dot.height / 2);
+                return {top: Math.round(box.top), dot_visible: hit === mark,
+                        dot_left: Math.round(dot.left - edge)}; });
+              return {facts, clip: getComputedStyle(line).overflowX,
+                      page: [document.documentElement.scrollWidth, innerWidth]}; }"""
+        )
+        print("MEASURE head facts 320", seen)
+        facts = seen["facts"]
+        assert len(facts) == 2, "the household's head shows its address and its e-mail address"
+        assert facts[0]["top"] < facts[1]["top"], "the facts fit on one line — this proves nothing"
+        for fact in facts:
+            assert not fact["dot_visible"], "a separator starts a line"
+        assert seen["page"][0] == seen["page"][1], "the head is wider than the window"
+    finally:
+        page.close()
+
+    wide = _board(browser, 1440, 900)
+    try:
+        wide.goto(f"/admin/leden/gezin/{household['id']}")
+        pagina_klaar(wide)
+        dots = wide.evaluate(
+            """() => { const line = document.querySelector('[data-facts]');
+              return [...line.querySelectorAll('[data-fact-dot]')].map(d => { const b = d.getBoundingClientRect();
+                return document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2) === d; }); }"""
+        )
+        assert dots == [False, True], f"on one line the separator stands between the two: {dots}"
+    finally:
+        wide.close()
+
+
 def test_on_a_phone_a_year_stands_beside_its_menu(browser, household):
     """A membership year is a line of text, no field: on a phone its `⋯` stands on
     that line, at the right, where the kit gives a field's menu the row above it.

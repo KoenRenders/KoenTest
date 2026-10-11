@@ -140,12 +140,14 @@ def test_the_facts_line_keeps_plain_text_a_reference_and_a_mail_address_apart():
         ]
     )
     facts = html[html.index("data-facts") : html.index("</header>")]
-    assert "<span>zaterdag 14 juni 2031</span>" in facts
+    assert ">zaterdag 14 juni 2031</span>" in facts
     assert 'href="/activiteiten/zomerfeest" data-reference' in facts
     assert 'href="mailto:info@example.test"' in facts
-    assert facts.count('aria-hidden="true">·<') == 2, (
-        "a separator between facts, none before the first"
-    )
+    # #1900: every fact carries its separator in front, and the first one of a
+    # line is clipped away — so none is left behind when a fact wraps (measured
+    # in the browser, `tests_e2e/members/test_household_record.py`).
+    assert facts.count("data-fact-dot") == 3, "a separator per fact"
+    assert "overflow-x-clip" in facts.split(">", 1)[0]
 
 
 def test_a_head_without_facts_has_no_facts_line():
