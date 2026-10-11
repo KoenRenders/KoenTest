@@ -17,7 +17,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any, Optional
 
-from app.domains.mdm.api import CONTACT, RelationType
+from app.domains.mdm.api import CONTACT, PERSON_NAME_MAX, RelationType
 from app.domains.membership.membership_card import MembershipCard
 from app.i18n import _
 
@@ -84,7 +84,9 @@ class HouseholdGroup:
     The main member stands apart (#1632): a fixed section, first on the page.
     `members` are the others — the rows of the group Gezinsleden."""
 
-    main: PersonView
+    #: None for a household that holds nobody — the board's record can meet one
+    #: (#1899); the pages of a member always have theirs.
+    main: Optional[PersonView]
     members: tuple[PersonView, ...]
     new_person: PersonView
     new_email: EmailView
@@ -102,6 +104,9 @@ class HouseholdGroup:
     contact_required: bool = False
     #: Birth date and gender are asked of every person of a household (#681).
     details_required: bool = True
+    #: The longest name a person's columns hold: the name fields' `maxlength`,
+    #: the number the save refuses at (`mdm.PERSON_NAME_MAX`).
+    name_max: int = PERSON_NAME_MAX
     #: The reader is a person of this household: a waiting e-mail address
     #: offers its code on the read card (Mijn gezin; not the board's record).
     own_codes: bool = False
@@ -126,6 +131,7 @@ class PersonBlock:
     details_required: bool = False
     #: One's own page: a waiting address offers its code.
     own_codes: bool = True
+    name_max: int = PERSON_NAME_MAX
 
 
 def person_block(person: Any, codes: dict, *, short_date, edit: bool = False) -> PersonBlock:
@@ -370,8 +376,8 @@ def household_group(
                 bus_number=a.get("bus_number") or "",
                 postal_code=a.get("postal_code") or "",
             )
-    main = next((p for p in persons if p.is_main), persons[0])
-    if main.choose_relation:
+    main = next((p for p in persons if p.is_main), persons[0] if persons else None)
+    if main is not None and main.choose_relation:
         # A household without a flagged main member shows its first person there:
         # that card is fixed, so it chooses no relation.
         from dataclasses import replace

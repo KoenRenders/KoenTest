@@ -69,6 +69,9 @@ __all__ = [
     "FamilyMemberCreate",
     "create_membership_for_family",
     "delete_membership",
+    "remove_memberships",
+    "board_household_group",
+    "household_view_by_id",
     "family_label",
     "get_family",
     "list_families",
@@ -111,6 +114,29 @@ def renewal_is_running(db, person) -> bool:
 # De implementaties staan in `portal_service.py`: net als bij de
 # activiteiteninschrijving roept het scherm één domeinbewerking aan en doet het
 # zelf niets. Alleen de weg ernaartoe loopt nu via de facade (#635 I).
+
+
+def board_household_group(db, household_id: int, codes: dict, *, short_date, edit: bool = False):
+    """The household as the board's record shows it (#1899): the same group of
+    person cards as Mijn gezin, for a reader who is no person of it — every
+    other person may go, and a waiting address offers no code."""
+    from app.domains.membership.household_page import household_group
+
+    return household_group(
+        household_view_by_id(db, household_id),
+        codes,
+        me=None,
+        short_date=short_date,
+        edit=edit,
+        own_codes=False,
+    )
+
+
+def household_view_by_id(db, household_id: int):
+    """The household with this id, as the portal shows it — for the board's record."""
+    from app.domains.membership.portal_service import get_household_by_id as _impl
+
+    return _impl(db, household_id)
 
 
 def household_view(db, person):
@@ -181,6 +207,7 @@ from app.domains.membership.household_service import (  # noqa: E402, F401 — a
     family_label,
     get_family,
     list_families,
+    remove_memberships,
 )
 from app.domains.membership.schemas_family import (  # noqa: E402, F401 — at the bottom on purpose: audit.service imports MembershipHistory from here at load time (cycle, see above)
     FamilyCreate,

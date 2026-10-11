@@ -208,11 +208,11 @@ def test_a_registration_is_paid_online(visitor, admin, paid_activity):
 
 
 def _membership_line(admin, member_id: int) -> str:
-    """The household's Lidmaatschappen block on its admin page, one line."""
+    """The household's Lidmaatschapsjaren card on its record, one line (#1899: a
+    year that waits for its payment says so; the year of today reads "Actief")."""
     admin.goto(f"/admin/leden/gezin/{member_id}")
     pagina_klaar(admin)
-    block = admin.get_by_text("Lidmaatschappen", exact=True).locator("xpath=..")
-    return " ".join(block.inner_text().split())
+    return " ".join(admin.locator("#gezin-jaren").inner_text().split())
 
 
 def _valid_to(membership_id: int):
@@ -243,11 +243,13 @@ def test_word_lid_is_paid_online(visitor, admin):
     # The webhook BEFORE the payment: the membership stays inactive.
     _fire_webhook(visitor, payment_id)
     before = _membership_line(admin, member_id)
-    assert "Inactief" in before, f"active before anyone paid: {before}"
+    assert "Wacht op betaling" in before and "Actief" not in before, (
+        f"active before anyone paid: {before}"
+    )
 
     assert _pay(visitor, "member") == member_id
     after = _membership_line(admin, member_id)
-    assert "Actief" in after and "Inactief" not in after, after
+    assert "Actief" in after and "Wacht op betaling" not in after, after
     # And it runs as long as the domain's own rule says a payment today buys —
     # through the end of next year after 1 September (`membership_valid_period`).
     assert _valid_to(membership_id) == membership_valid_period(date.today())[1]

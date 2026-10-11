@@ -306,13 +306,12 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `GET /admin/rapporten/raakje/paneel`
 - `POST /admin/rapporten/raakje/scherm/{scherm}`
 
-### `party.view` — 11 routes
+### `party.view` — 10 routes
 
 - `GET /admin/leden`
 - `GET /admin/leden-import`
 - `GET /admin/leden/gezin/{family_id}`
 - `GET /admin/leden/gezin/{family_id}/inschrijvingen`
-- `GET /admin/leden/gezin/{family_id}/persoon/{person_id}/email-rij`
 - `GET /admin/leden/lijst`
 - `GET /admin/leden/nieuw`
 - `GET /admin/leden/nieuw/persoon-rij`
@@ -320,21 +319,12 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `GET /admin/personen`
 - `GET /admin/personen/lijst`
 
-### `party.masterdata` — 16 routes
+### `party.masterdata` — 7 routes
 
 - `POST /admin/leden`
 - `POST /admin/leden-import/commit`
 - `POST /admin/leden-import/preview`
-- `POST /admin/leden/gezin/{family_id}/adres`
-- `POST /admin/leden/gezin/{family_id}/bestuurslid`
-- `POST /admin/leden/gezin/{family_id}/lidmaatschappen`
-- `POST /admin/leden/gezin/{family_id}/lidmaatschappen/{membership_id}/verwijderen`
-- `POST /admin/leden/gezin/{family_id}/personen`
-- `POST /admin/leden/gezin/{family_id}/persoon/{person_id}`
-- `POST /admin/leden/gezin/{family_id}/persoon/{person_id}/email`
-- `POST /admin/leden/gezin/{family_id}/persoon/{person_id}/email/{contact_id}/hoofd`
-- `POST /admin/leden/gezin/{family_id}/persoon/{person_id}/email/{contact_id}/verwijderen`
-- `POST /admin/leden/gezin/{family_id}/persoon/{person_id}/verwijderen`
+- `POST /admin/leden/gezin/{family_id}`
 - `POST /admin/leden/gezin/{family_id}/verwijderen`
 - `POST /admin/organisatie`
 - `POST /admin/personen/{person_id}/verwijderen`

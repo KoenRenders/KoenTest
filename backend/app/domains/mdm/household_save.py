@@ -144,6 +144,10 @@ def _people(household: Member) -> dict[str, Person]:
     }
 
 
+#: What the history says of a change the board makes on the household's record —
+#: the source its eleven partial doors wrote until #1899. Stored data.
+BOARD_UPDATE = "admin_update"
+
 #: Passed as `board_member` when the form carries none: it is left alone.
 UNCHANGED: Any = object()
 
@@ -166,10 +170,10 @@ def save_household(
     the household, or None for nobody. `also` writes what is another domain's
     in this same transaction, without committing; what it raises rolls the
     whole save back."""
-    from app.domains.mdm.service import BOARD_SOURCE, delete_person
+    from app.domains.mdm.service import delete_person
 
     board = by is None
-    source = BOARD_SOURCE if board else hs.SOURCE
+    source = BOARD_UPDATE if board else hs.SOURCE
     # A savepoint around the whole save: a refusal takes back exactly what this
     # save wrote and nothing else, and the session stays usable for the answer
     # that says why.
@@ -247,6 +251,9 @@ def save_person(
             raise HouseholdSaveRefused(found.found)
         row = rows[0]
         at = f"h.{row.key}"
+        _storable(db, row, at, found)
+        if found.found:
+            raise HouseholdSaveRefused(found.found)
         in_household = any(link.deleted_at is None for link in person.member_persons)
         values: dict[str, Any] = {
             "first_name": row.first_name.strip(),
@@ -280,6 +287,19 @@ def save_person(
     return person
 
 
+def _storable(db: Session, row: PersonRow, at: str, errors: Refusals) -> None:
+    """What a person's columns cannot hold is refused at its field, before the
+    write (`require_storable_person`): a name longer than its column, a gender
+    that is not of the list. Asked here for both callers since #1899 — the
+    board's doors asked it, and a member's save let the database refuse (a
+    500)."""
+    for name in ("first_name", "last_name"):
+        with errors.at(f"{at}.{name}"):
+            hs.require_storable_person(db, getattr(row, name).strip(), "", None)
+    with errors.at(f"{at}.gender_code"):
+        hs.require_storable_person(db, "", "", row.gender_code or None)
+
+
 def _first_missing(row: PersonRow, order: tuple[str, ...]) -> str:
     """The field the person rules refuse first, in the order they ask — so the
     one message they give stands at the field it is about."""
@@ -301,6 +321,9 @@ def _save_person(
     board: bool,
 ) -> None:
     at = f"h.{row.key}"
+    if errors.touches(at):
+        return
+    _storable(db, row, at, errors)
     if errors.touches(at):
         return
     values: dict[str, Any] = {
@@ -375,7 +398,7 @@ def _save_emails(
     of this person is written (#1853): the contact detail holds that rule at the
     flush, and asked here it has a place the screen can mark."""
     from app.domains.mdm.models import require_email_address
-    from app.domains.mdm.service import promote_email_row, write_email_rows
+    from app.domains.mdm.service import promote_email_row, require_email_free, write_email_rows
 
     refused = False
     for given in row.emails:
@@ -384,6 +407,11 @@ def _save_emails(
         place = f"e.{given.key}.value"
         with errors.at(place):
             require_email_address(given.value.strip())
+            # An address that counts at once (the board's) claims its person at
+            # once: someone else's is refused here, at its row (#1704, #1899). A
+            # member's own waits for its code and is asked there.
+            if confirmed:
+                require_email_free(db, person, given.value.strip())
         refused = refused or errors.touches(place)
     if refused:
         return
@@ -456,7 +484,14 @@ def _save_address(
             return
         target = hs.main_member(household)
         if target is None:
-            return  # no main member to hang it on; nothing this page can repair
+            # No main member to hang it on. A household that holds nobody says so
+            # (the board's record can meet one, #1899); one whose persons carry no
+            # main member is nothing this page can repair.
+            if not _people(household):
+                from app.i18n import _
+
+                errors.add("address.street", _("Gezin zonder personen."))
+            return
         with errors.at(f"address.{missing or 'postal_code'}"):
             hs.apply_address(db, target, sent, actor=actor, source=source)
         return

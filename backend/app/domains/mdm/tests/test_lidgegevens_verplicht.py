@@ -33,6 +33,8 @@ from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     create_test_family,
     household_fields,
+    record_fields,
+    save_record,
     seed_postal_code,
     sign_up_at_the_door,
 )
@@ -120,19 +122,24 @@ def test_publieke_registratie_eist_ze_ook_van_een_bijkomend_lid(client, db_sessi
 
 def test_beheer_toevoegen_eist_de_velden(client, db_session):
     member, _ = create_test_family(db_session, email="beheer-add@example.com")
-    csrf = _admin(client)
-    velden = {"first_name": "Partner", "last_name": "Persoon", "relation_type": "PARTNER"}
+    db_session.commit()
+    _admin(client)
+    nieuw = {
+        "h.n1.first_name": "Partner",
+        "h.n1.last_name": "Persoon",
+        "h.n1.relation_type": "PARTNER",
+    }
 
-    zonder = client.post(
-        f"/admin/leden/gezin/{member.id}/personen", data=velden, headers={"X-CSRF-Token": csrf}
-    )
+    velden = record_fields(client, member.id)
+    velden["h_order"] = [*velden["h_order"], "n1"]
+    zonder = save_record(client, member.id, {**velden, **nieuw})
     assert zonder.status_code == 422, zonder.text
     assert not db_session.query(Person).filter(Person.first_name == "Partner").all()
 
-    met = client.post(
-        f"/admin/leden/gezin/{member.id}/personen",
-        data={**velden, "date_of_birth": "1985-05-05", "gender_code": "F"},
-        headers={"X-CSRF-Token": csrf},
+    met = save_record(
+        client,
+        member.id,
+        {**velden, **nieuw, "h.n1.date_of_birth": "1985-05-05", "h.n1.gender_code": "F"},
     )
     assert met.status_code == 200, met.text
     assert db_session.query(Person).filter(Person.first_name == "Partner").one()
@@ -146,29 +153,24 @@ def test_beheer_bewerken_kan_de_velden_niet_leegmaken(client, db_session):
 
     Dit was tot #681 geen 422 maar stille schade: het beheerformulier stuurt alle
     velden mee, dus een lege geboortedatum overschreef de bestaande waarde met
-    NULL zonder dat iemand het merkte.
+    NULL zonder dat iemand het merkte. Sinds #1899 is dat de ene save van het
+    gezinsrecord.
     """
     member, person = create_test_family(db_session, email="beheer-edit@example.com")
+    db_session.commit()
     origineel = person.date_of_birth
-    csrf = _admin(client)
-    velden = {"first_name": "Gewijzigd", "last_name": person.last_name, "relation_type": "HOOFDLID"}
+    _admin(client)
+    velden = record_fields(client, member.id)
+    velden[f"h.{person.id}.first_name"] = "Gewijzigd"
 
-    zonder = client.post(
-        f"/admin/leden/gezin/{member.id}/persoon/{person.id}",
-        data=velden,
-        headers={"X-CSRF-Token": csrf},
-    )
+    zonder = save_record(client, member.id, {**velden, f"h.{person.id}.date_of_birth": ""})
     assert zonder.status_code == 422, zonder.text
     db_session.expire_all()
     bewaard = db_session.get(Person, person.id)
     assert bewaard.date_of_birth == origineel, "de weigering mag niets wegschrijven"
     assert bewaard.first_name != "Gewijzigd"
 
-    met = client.post(
-        f"/admin/leden/gezin/{member.id}/persoon/{person.id}",
-        data={**velden, "date_of_birth": origineel.isoformat(), "gender_code": "M"},
-        headers={"X-CSRF-Token": csrf},
-    )
+    met = save_record(client, member.id, velden)
     assert met.status_code == 200, met.text
     db_session.expire_all()
     assert db_session.get(Person, person.id).first_name == "Gewijzigd"
@@ -276,19 +278,11 @@ def test_the_main_members_mobile_can_be_emptied_at_both_doors_and_word_lid_asks_
         )
     )
     db_session.commit()
-    csrf = _admin(client)
-    answer = client.post(
-        f"/admin/leden/gezin/{member.id}/persoon/{person.id}",
-        data={
-            "first_name": person.first_name,
-            "last_name": person.last_name,
-            "date_of_birth": person.date_of_birth.isoformat(),
-            "gender_code": person.gender_code,
-            "relation_type": "HOOFDLID",
-            "mobile": "",
-        },
-        headers={"X-CSRF-Token": csrf},
-    )
+    # The board's door: the household record's one save (#1899).
+    _admin(client)
+    record = record_fields(client, member.id)
+    assert record[f"h.{person.id}.mobile"] == "0470 00 00 02"
+    answer = save_record(client, member.id, {**record, f"h.{person.id}.mobile": ""})
     assert answer.status_code == 200, answer.text
     assert _mobiles(db_session, person) == []
 

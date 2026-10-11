@@ -9,4 +9,4 @@
    The form still reads the main member as the first person of the household:
    the card sends the same order field a row of the group carries (`fixed`), so
    `mdm.household_form` and the one save are untouched. #}
-{{ rows.person(group, group.main, _edit, fixed=True, attrs='id="hoofdlid" data-household-main') }}
+{% if group.main %}{{ rows.person(group, group.main, _edit, fixed=True, attrs='id="hoofdlid" data-household-main') }}{% endif %}

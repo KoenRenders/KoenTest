@@ -498,10 +498,12 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    left, no line between its rows, and the tag in a slot of one width so the
    fields are equally wide whatever a row carries. */
 .group-child.group-child--plain{margin-top:0;padding-left:0;border-left:0}
-.group-child--plain>.group-rows>[data-group-row]+[data-group-row]{margin-top:8px;padding-top:0;border-top:0}
+.group-rows.group-rows--plain>[data-group-row]+[data-group-row]{margin-top:8px;padding-top:0;border-top:0}
 @container (min-width:532px){
   .group-child--plain .group-row--simple.group-row--one{grid-template-columns:minmax(0,1fr) 9.5rem}
   .group-child--plain .group-row--edit.group-row--simple.group-row--one{grid-template-columns:minmax(0,1fr) 9.5rem 44px}
+  .group-child--plain .group-row--simple.group-row--one>[data-row-one-tag],.group-child--plain .group-row--simple.group-row--one>[data-row-tag]{grid-column:2}
+  .group-child--plain .group-row--edit.group-row--simple.group-row--one>[data-row-menu-holder]{grid-column:3}
 }
 .group-row--edit.group-row--simple{display:grid;grid-template-columns:minmax(0,1fr) 44px;column-gap:8px;align-items:end}
 .group-row--edit.group-row--simple.group-row--handle{grid-template-columns:44px minmax(0,1fr) 44px}

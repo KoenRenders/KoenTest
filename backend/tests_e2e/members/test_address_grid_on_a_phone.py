@@ -110,14 +110,11 @@ def _new_household_screen(page, _household) -> None:
     pagina_klaar(page)
 
 
-def _address_card(page, household) -> None:
-    page.goto(f"/admin/leden/gezin/{household}")
-    pagina_klaar(page)
-    page.locator("#adres-kaart").get_by_role("button", name="Bewerken").click()
-    page.locator("#house_number").wait_for(state="visible")
-
-
-SCREENS = {"the new household": _new_household_screen, "the address card": _address_card}
+# #1899: the household record's address left this file. It is a section of a kit
+# form now, as on Mijn gezin: on a phone the kit stacks its fields (Koen, 9
+# October 2026, on the address in a form of the kit), and its columns on a
+# desktop are measured with the record (`test_household_record.py`).
+SCREENS = {"the new household": _new_household_screen}
 
 
 @pytest.mark.parametrize("screen", SCREENS)

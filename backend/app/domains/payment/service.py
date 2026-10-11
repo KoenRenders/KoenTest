@@ -290,6 +290,28 @@ def count_records_for_family(db: Session, family_id: int) -> int:
     )
 
 
+def balance_of_family(db: Session, family_id: int) -> Decimal:
+    """What is still open on a household's bookings, signed: the sum of every
+    booking's amount minus what was booked as received, over the household's
+    payables (`family_payables`) — "Openstaand" on the household record's
+    summary card (#1899), the same sum as the activity's
+    (`registration_balance_by_activity`). One aggregate row."""
+    from sqlalchemy import tuple_
+
+    paren = family_payables(db, family_id)
+    if not paren:
+        return Decimal("0")
+    due, paid = (
+        db.query(
+            func.coalesce(func.sum(PaymentRecord.amount), 0),
+            func.coalesce(func.sum(PaymentRecord.amount_paid), 0),
+        )
+        .filter(tuple_(PaymentRecord.payable_type, PaymentRecord.payable_id).in_(list(paren)))
+        .one()
+    )
+    return _bedrag(due) - _bedrag(paid)
+
+
 def count_registration_records_by_activity(db: Session, activity_id: int) -> int:
     """Idem, maar per activiteit en als één COUNT met subquery (golf 8): de
     recordpagina mag niet schalen met het aantal inschrijvingen (#651)."""

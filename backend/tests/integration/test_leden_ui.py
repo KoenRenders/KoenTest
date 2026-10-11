@@ -2,7 +2,7 @@
 en de import-wizard (sessie + CSRF, zelfde patroon als werkbank/e-maillog)."""
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from app.domains.mdm.api import CONTACT, Address, ContactDetail, Person, RelationType
+from app.domains.mdm.api import Address
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     create_test_family,
@@ -45,99 +45,7 @@ def test_leden_lijst_and_detail(client, db_session):
 
     detail = client.get(f"/admin/leden/gezin/{member.id}")
     assert detail.status_code == 200
-    assert "Dorpsstraat 1" in detail.text and "Lidmaatschappen" in detail.text
-
-
-def test_persoon_bewerken_via_scherm(client, db_session):
-    member, person = _family_with_address(db_session)
-    csrf = _login(client)
-
-    # #511: de veldnaam is gestandaardiseerd naar `email` (was `contact_email`).
-    resp = client.post(
-        f"/admin/leden/gezin/{member.id}/persoon/{person.id}",
-        data={
-            "first_name": "Nieuw",
-            "last_name": "Naam",
-            "email": "nieuw@example.com",
-            "mobile": "0470000000",
-            "date_of_birth": person.date_of_birth.isoformat(),
-            "gender_code": person.gender_code,
-        },
-        headers={"X-CSRF-Token": csrf},
-    )
-    assert resp.status_code == 200 and "Nieuw Naam" in resp.text
-    db_session.expire_all()
-    assert db_session.get(Person, person.id).first_name == "Nieuw"
-    mails = [
-        c.value
-        for c in db_session.query(ContactDetail)
-        .filter(
-            ContactDetail.person_id == person.id, ContactDetail.contact_type_code == CONTACT.EMAIL
-        )
-        .all()
-    ]
-    assert "nieuw@example.com" in mails
-
-
-def test_persoon_toevoegen_met_relatietype(client, db_session):
-    """#498/#511: het relatietype zit nu IN de gedeelde veldenset en wordt bij het
-    toevoegen van een gezinslid via het admin-scherm bewaard."""
-    from app.domains.mdm.api import MemberPerson
-
-    member, person = _family_with_address(db_session)
-    csrf = _login(client)
-    resp = client.post(
-        f"/admin/leden/gezin/{member.id}/personen",
-        data={
-            "first_name": "Partner",
-            "last_name": "Test",
-            "email": "partner@example.com",
-            "date_of_birth": "1985-05-05",
-            "gender_code": "F",
-            "relation_type": "PARTNER",
-        },
-        headers={"X-CSRF-Token": csrf},
-    )
-    assert resp.status_code == 200 and "Partner Test" in resp.text
-    db_session.expire_all()
-    nieuw = db_session.query(Person).filter(Person.first_name == "Partner").one()
-    mp = db_session.query(MemberPerson).filter(MemberPerson.person_id == nieuw.id).one()
-    assert mp.relation_type == RelationType.PARTNER
-
-
-def test_mutatie_zonder_csrf_geweigerd(client, db_session):
-    member, person = _family_with_address(db_session)
-    _login(client)
-    resp = client.post(
-        f"/admin/leden/gezin/{member.id}/persoon/{person.id}",
-        data={"first_name": "X", "last_name": "Y"},
-    )
-    assert resp.status_code == 403
-
-
-def test_lidmaatschap_toevoegen_en_verwijderen(client, db_session):
-    member, _person = _family_with_address(db_session)
-    csrf = _login(client)
-
-    resp = client.post(
-        f"/admin/leden/gezin/{member.id}/lidmaatschappen",
-        data={"year": "2031"},
-        headers={"X-CSRF-Token": csrf},
-    )
-    assert resp.status_code == 200 and "2031" in resp.text
-
-    from app.domains.membership.api import Membership
-
-    ms = (
-        db_session.query(Membership)
-        .filter(Membership.member_id == member.id, Membership.year == 2031)
-        .one()
-    )
-    weg = client.post(
-        f"/admin/leden/gezin/{member.id}/lidmaatschappen/{ms.id}/verwijderen",
-        headers={"X-CSRF-Token": csrf},
-    )
-    assert weg.status_code == 200 and "2031" not in weg.text
+    assert "Dorpsstraat 1" in detail.text and "Lidmaatschapsjaren" in detail.text
 
 
 def test_leden_page_links_to_import(client):
@@ -164,70 +72,6 @@ def test_import_wizard_page_and_bad_file(client):
     assert resp.status_code == 200 and ".xlsx" in resp.text  # nette foutbanner
 
 
-def test_relatietype_bewerken(client, db_session):
-    """#498: het relatietype van een niet-hoofdlid is bewerkbaar (partner <-> kind);
-    de hoofdlid-rol blijft onaantastbaar."""
-    from app.domains.mdm.api import MemberPerson, Person
-
-    member, hoofd = _family_with_address(db_session)
-    csrf = _login(client)
-    client.post(
-        f"/admin/leden/gezin/{member.id}/personen",
-        data={
-            "first_name": "Partner",
-            "last_name": "Persoon",
-            "date_of_birth": "1985-05-05",
-            "gender_code": "F",
-            "relation_type": "PARTNER",
-        },
-        headers={"X-CSRF-Token": csrf},
-    )
-    partner = db_session.query(Person).filter(Person.first_name == "Partner").one()
-
-    # Partner -> KIND.
-    resp = client.post(
-        f"/admin/leden/gezin/{member.id}/persoon/{partner.id}",
-        data={
-            "first_name": "Partner",
-            "last_name": "Persoon",
-            "date_of_birth": "1985-05-05",
-            "gender_code": "F",
-            "relation_type": "KIND",
-        },
-        headers={"X-CSRF-Token": csrf},
-    )
-    assert resp.status_code == 200
-    db_session.expire_all()
-    assert (
-        db_session.query(MemberPerson)
-        .filter(MemberPerson.member_id == member.id, MemberPerson.person_id == partner.id)
-        .one()
-        .relation_type
-        == RelationType.ADULT_CHILD
-    )
-
-    # Een poging om het hoofdlid te degraderen wordt genegeerd.
-    client.post(
-        f"/admin/leden/gezin/{member.id}/persoon/{hoofd.id}",
-        data={
-            "first_name": hoofd.first_name,
-            "last_name": hoofd.last_name,
-            "date_of_birth": hoofd.date_of_birth.isoformat(),
-            "gender_code": hoofd.gender_code,
-            "relation_type": "KIND",
-        },
-        headers={"X-CSRF-Token": csrf},
-    )
-    db_session.expire_all()
-    assert (
-        db_session.query(MemberPerson)
-        .filter(MemberPerson.member_id == member.id, MemberPerson.person_id == hoofd.id)
-        .one()
-        .relation_type
-        == RelationType.PRIMARY_MEMBER
-    )
-
-
 def test_delete_knoppen_hx_post_niet_geescaped(client, db_session):
     """#514: de bevestig-delete-knoppen (persoon/gezin/lidmaatschap) mogen hun
     hx-post/target/swap NIET ge-escaped krijgen. De macro→Markup-concatenatie
@@ -242,7 +86,10 @@ def test_delete_knoppen_hx_post_niet_geescaped(client, db_session):
     db_session.commit()
     _login(client)
 
-    html = client.get(f"/admin/leden/gezin/{member.id}").text
-    assert 'hx-post="/admin/leden/gezin/' in html  # correcte, niet-geëscapete quotes
-    assert "hx-post=&#34;" not in html  # geen escaping meer
-    assert "data-confirm='" in html  # #595: in-app modal i.p.v. browser-confirm
+    # #1899: the record keeps one delete — the household's — under Acties when
+    # it is read and in the action bar when it is edited.
+    for mode in ("", "?bewerken=1"):
+        html = client.get(f"/admin/leden/gezin/{member.id}{mode}").text
+        assert f'hx-post="/admin/leden/gezin/{member.id}/verwijderen"' in html, mode
+        assert "hx-post=&#34;" not in html  # geen escaping meer
+        assert "data-confirm=" in html  # #595: in-app modal i.p.v. browser-confirm

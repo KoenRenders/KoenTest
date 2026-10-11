@@ -76,12 +76,12 @@ def test_hoofdlid_en_gezinslid_in_een_keer_bewaard(page):
     page.wait_for_url("**/admin/leden/gezin/**", timeout=10000)
     pagina_klaar(page)
 
-    hoofd = page.locator("#leden-detail", has_text=f"Hoofd {achternaam}")
+    hoofd = page.locator("#gezin-record", has_text=f"Hoofd {achternaam}")
     expect(hoofd, "het hoofdlid staat niet op de gezinspagina").to_be_visible()
     expect(
-        page.locator("#leden-detail", has_text=f"Partner {achternaam}"),
+        page.locator("#gezin-record", has_text=f"Partner {achternaam}"),
         "het tweede gezinslid is niet mee bewaard",
     ).to_be_visible()
-    expect(page.locator("#adres-kaart"), "het adres is niet mee bewaard").to_contain_text(
+    expect(page.locator("#gezin-adres"), "het adres is niet mee bewaard").to_contain_text(
         "Teststraat 1"
     )

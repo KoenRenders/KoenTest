@@ -47,17 +47,18 @@ def postal_code(db_session):
 
 @pytest.mark.parametrize("empty", ["street", "house_number"])
 def test_a_first_address_without_it_is_refused(client, db_session, postal_code, empty):
-    """The address card of a household (`_leden_kaarten.html`, `POST
-    /admin/leden/gezin/<id>/adres`): the field is posted empty, which the
+    """The address card of a household's record (`_household_address.html`, the
+    record's one save since #1899): the field is posted empty, which the
     browser's `required` would have stopped."""
+    from tests.conftest import record_fields, save_record
+
     household, _main = create_test_family(db_session, email="belofte-a@example.com")
     db_session.commit()
+    headers = _login(client)
+    fields = record_fields(client, household.id)
+    fields.update({f"address.{name}": value for name, value in {**WHOLE, empty: ""}.items()})
 
-    response = client.post(
-        f"/admin/leden/gezin/{household.id}/adres",
-        data={**WHOLE, empty: ""},
-        headers=_login(client),
-    )
+    response = save_record(client, household.id, fields, headers)
 
     assert response.status_code == 422, f"{empty} empty was accepted: {response.status_code}"
     assert RULE in response.text, response.text[:300]
@@ -66,15 +67,19 @@ def test_a_first_address_without_it_is_refused(client, db_session, postal_code, 
 
 @pytest.mark.parametrize("empty", ["street", "house_number"])
 def test_an_address_that_is_there_cannot_lose_it(client, db_session, postal_code, empty):
+    from tests.conftest import record_fields, save_record
+
     household, main = create_test_family(db_session, email="belofte-b@example.com")
     db_session.commit()
     headers = _login(client)
-    stored = client.post(f"/admin/leden/gezin/{household.id}/adres", data=WHOLE, headers=headers)
+    fields = record_fields(client, household.id)
+    fields.update({f"address.{name}": value for name, value in WHOLE.items()})
+    stored = save_record(client, household.id, fields, headers)
     assert stored.status_code == 200, "the set-up stored no address — the test looks at nothing"
 
-    response = client.post(
-        f"/admin/leden/gezin/{household.id}/adres", data={**WHOLE, empty: ""}, headers=headers
-    )
+    fields = record_fields(client, household.id)
+    fields[f"address.{empty}"] = ""
+    response = save_record(client, household.id, fields, headers)
 
     db_session.expire_all()
     address = db_session.query(Address).filter(Address.person_id == main.id).one()

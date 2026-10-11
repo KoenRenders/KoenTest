@@ -905,7 +905,7 @@ def gezin_betalingen_tab(
     """De Betalingen-tab van de gezinspagina (golf 9, #913): het gewone
     betalingenscherm, gefilterd op dit gezin, onder de gezins-recordkop.
     FINANCE-gated zoals /admin/betalingen zelf (#544)."""
-    from app.domains.mdm.api import gezin_tabs
+    from app.domains.mdm.api import household_record_frame
     from app.domains.membership.api import get_family
 
     try:
@@ -919,7 +919,7 @@ def gezin_betalingen_tab(
         request, db, email, nav_items=nav, forceer_gezin=family_id, scope_stil=True
     ).as_context()
     ctx["family"] = gezin
-    ctx["record_tabs"] = gezin_tabs(db, gezin, email, "betalingen")
+    ctx.update(household_record_frame(request, db, gezin, email, "betalingen"))
     return templates.TemplateResponse(request, "admin_gezin_betalingen.html", ctx)
 
 

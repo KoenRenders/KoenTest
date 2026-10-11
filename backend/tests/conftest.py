@@ -661,6 +661,36 @@ def household_fields(client) -> dict:
     return form_fields(page.text, "gezin-form")
 
 
+def board_session(client, email: str = SEEDED_ADMIN_EMAIL) -> dict:
+    """Sign the client in as a board member and answer the header its changes
+    carry (the CSRF token of that session)."""
+    from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+
+    value = make_session_value(email)
+    client.cookies.set(SESSION_COOKIE, value)
+    return {"X-CSRF-Token": csrf_token_for(value)}
+
+
+def record_fields(client, household_id: int) -> dict:
+    """The fields the board's household record sends when it is opened in edit
+    mode and saved untouched (#1899): read from the page itself, so a test
+    changes or adds what it is about and posts the rest as the page would
+    (`POST /admin/leden/gezin/{id}`). The client is signed in as the board."""
+    page = client.get(f"/admin/leden/gezin/{household_id}?bewerken=1")
+    assert page.status_code == 200, f"the record in edit mode → {page.status_code}"
+    return form_fields(page.text, "gezin-form")
+
+
+def save_record(client, household_id: int, fields: dict, headers: dict | None = None):
+    """Post the household record's one save, with the CSRF token of the client's
+    session unless `headers` says otherwise."""
+    from app.domains.auth.api import SESSION_COOKIE, csrf_token_for
+
+    if headers is None:
+        headers = {"X-CSRF-Token": csrf_token_for(client.cookies.get(SESSION_COOKIE))}
+    return client.post(f"/admin/leden/gezin/{household_id}", data=fields, headers=headers)
+
+
 def form_guard_fields() -> dict:
     """The guard fields of a public form a person loaded five seconds ago (#1297).
 

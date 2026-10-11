@@ -27,7 +27,7 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import MemberPerson, MemberPersonHistory, PostalCode
 from app.domains.reporting.api import member_changes_since
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests.conftest import SEEDED_ADMIN_EMAIL, record_fields, save_record
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -77,12 +77,11 @@ def partner(client, db_session, headers) -> tuple[int, MemberPerson]:
 
 
 def _save_card(client, headers, household: int, link: MemberPerson, relation: str):
-    card = {name[3:]: value for name, value in _person(9, "Bram", gender_code="M").items()}
-    answer = client.post(
-        f"/admin/leden/gezin/{household}/persoon/{link.person_id}",
-        data=card | {"relation_type": relation},
-        headers=headers,
-    )
+    """The household record's one save (#1899) with the partner's relation set —
+    until #1899 the partner's card had a route of its own."""
+    fields = record_fields(client, household)
+    fields[f"h.{link.person_id}.relation_type"] = relation
+    answer = save_record(client, household, fields, headers)
     assert answer.status_code == 200, answer.text
 
 

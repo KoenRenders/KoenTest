@@ -36,12 +36,12 @@
 <div data-field="h.<MAIN>.first_name" data-kind="text" data-span="half" class="min-w-0">
 <label for="h-<MAIN>-first_name" class="block text-sm font-medium leading-[21px] text-ink mb-1">Voornaam <span class="text-red-600">*</span></label>
 <input type="text" value="Hanne"
- class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<MAIN>-first_name" name="h.<MAIN>.first_name" required data-row-title-source autocomplete=given-name>
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<MAIN>-first_name" name="h.<MAIN>.first_name" required data-row-title-source autocomplete=given-name maxlength="100">
 </div>
 <div data-field="h.<MAIN>.last_name" data-kind="text" data-span="half" class="min-w-0">
 <label for="h-<MAIN>-last_name" class="block text-sm font-medium leading-[21px] text-ink mb-1">Achternaam <span class="text-red-600">*</span></label>
 <input type="text" value="Proef"
- class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<MAIN>-last_name" name="h.<MAIN>.last_name" required data-row-title-source autocomplete=family-name>
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<MAIN>-last_name" name="h.<MAIN>.last_name" required data-row-title-source autocomplete=family-name maxlength="100">
 </div>
 <div data-field="h.<MAIN>.date_of_birth" data-kind="date" data-span="half" class="min-w-0">
 <label for="h-<MAIN>-date_of_birth" class="block text-sm font-medium leading-[21px] text-ink mb-1">Geboortedatum <span class="text-red-600">*</span></label>
@@ -72,7 +72,7 @@
 <button type="button" data-group-add class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 inline-flex items-center gap-1 min-h-11 md:min-h-9"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>E-mailadres</button>
 </div>
 <input type="hidden" name="e_primary.<MAIN>" value="<CONTACT>" data-group-one>
-<div data-group-rows class="group-rows">
+<div data-group-rows class="group-rows group-rows--plain">
 <div data-group-row data-row-key="<CONTACT>" class="group-row group-row--simple group-row--edit group-row--one">
 <input type="hidden" name="e_order.<MAIN>" value="<CONTACT>" data-row-order>
 <div data-row-body class="group-body min-w-0">
@@ -182,12 +182,12 @@
 <div data-field="h.<PARTNER>.first_name" data-kind="text" data-span="half" class="min-w-0">
 <label for="h-<PARTNER>-first_name" class="block text-sm font-medium leading-[21px] text-ink mb-1">Voornaam <span class="text-red-600">*</span></label>
 <input type="text" value="Bram"
- class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<PARTNER>-first_name" name="h.<PARTNER>.first_name" required data-row-title-source autocomplete=given-name>
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<PARTNER>-first_name" name="h.<PARTNER>.first_name" required data-row-title-source autocomplete=given-name maxlength="100">
 </div>
 <div data-field="h.<PARTNER>.last_name" data-kind="text" data-span="half" class="min-w-0">
 <label for="h-<PARTNER>-last_name" class="block text-sm font-medium leading-[21px] text-ink mb-1">Achternaam <span class="text-red-600">*</span></label>
 <input type="text" value="Proef"
- class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<PARTNER>-last_name" name="h.<PARTNER>.last_name" required data-row-title-source autocomplete=family-name>
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<PARTNER>-last_name" name="h.<PARTNER>.last_name" required data-row-title-source autocomplete=family-name maxlength="100">
 </div>
 <div data-field="h.<PARTNER>.date_of_birth" data-kind="date" data-span="half" class="min-w-0">
 <label for="h-<PARTNER>-date_of_birth" class="block text-sm font-medium leading-[21px] text-ink mb-1">Geboortedatum <span class="text-red-600">*</span></label>
@@ -218,7 +218,7 @@
 <button type="button" data-group-add class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 inline-flex items-center gap-1 min-h-11 md:min-h-9"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>E-mailadres</button>
 </div>
 <input type="hidden" name="e_primary.<PARTNER>" value="n<PARTNER>e" data-group-one>
-<div data-group-rows class="group-rows">
+<div data-group-rows class="group-rows group-rows--plain">
 <div data-group-row data-row-key="n<PARTNER>e" class="group-row group-row--simple group-row--edit group-row--one">
 <input type="hidden" name="e_order.<PARTNER>" value="n<PARTNER>e" data-row-order>
 <div data-row-body class="group-body min-w-0">
@@ -291,12 +291,12 @@
 <div data-field="h.<CHILD>.first_name" data-kind="text" data-span="half" class="min-w-0">
 <label for="h-<CHILD>-first_name" class="block text-sm font-medium leading-[21px] text-ink mb-1">Voornaam <span class="text-red-600">*</span></label>
 <input type="text" value="Lotte"
- class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<CHILD>-first_name" name="h.<CHILD>.first_name" required data-row-title-source autocomplete=given-name>
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<CHILD>-first_name" name="h.<CHILD>.first_name" required data-row-title-source autocomplete=given-name maxlength="100">
 </div>
 <div data-field="h.<CHILD>.last_name" data-kind="text" data-span="half" class="min-w-0">
 <label for="h-<CHILD>-last_name" class="block text-sm font-medium leading-[21px] text-ink mb-1">Achternaam <span class="text-red-600">*</span></label>
 <input type="text" value="Proef"
- class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<CHILD>-last_name" name="h.<CHILD>.last_name" required data-row-title-source autocomplete=family-name>
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-<CHILD>-last_name" name="h.<CHILD>.last_name" required data-row-title-source autocomplete=family-name maxlength="100">
 </div>
 <div data-field="h.<CHILD>.date_of_birth" data-kind="date" data-span="half" class="min-w-0">
 <label for="h-<CHILD>-date_of_birth" class="block text-sm font-medium leading-[21px] text-ink mb-1">Geboortedatum <span class="text-red-600">*</span></label>
@@ -327,7 +327,7 @@
 <button type="button" data-group-add class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 inline-flex items-center gap-1 min-h-11 md:min-h-9"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>E-mailadres</button>
 </div>
 <input type="hidden" name="e_primary.<CHILD>" value="n<CHILD>e" data-group-one>
-<div data-group-rows class="group-rows">
+<div data-group-rows class="group-rows group-rows--plain">
 <div data-group-row data-row-key="n<CHILD>e" class="group-row group-row--simple group-row--edit group-row--one">
 <input type="hidden" name="e_order.<CHILD>" value="n<CHILD>e" data-row-order>
 <div data-row-body class="group-body min-w-0">
@@ -404,12 +404,12 @@
 <div data-field="h.__H__.first_name" data-kind="text" data-span="half" class="min-w-0">
 <label for="h-__H__-first_name" class="block text-sm font-medium leading-[21px] text-ink mb-1">Voornaam <span class="text-red-600">*</span></label>
 <input type="text"
- class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-__H__-first_name" name="h.__H__.first_name" required data-row-title-source autocomplete=given-name>
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-__H__-first_name" name="h.__H__.first_name" required data-row-title-source autocomplete=given-name maxlength="100">
 </div>
 <div data-field="h.__H__.last_name" data-kind="text" data-span="half" class="min-w-0">
 <label for="h-__H__-last_name" class="block text-sm font-medium leading-[21px] text-ink mb-1">Achternaam <span class="text-red-600">*</span></label>
 <input type="text"
- class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-__H__-last_name" name="h.__H__.last_name" required data-row-title-source autocomplete=family-name>
+ class="block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed border-control-line" id="h-__H__-last_name" name="h.__H__.last_name" required data-row-title-source autocomplete=family-name maxlength="100">
 </div>
 <div data-field="h.__H__.date_of_birth" data-kind="date" data-span="half" class="min-w-0">
 <label for="h-__H__-date_of_birth" class="block text-sm font-medium leading-[21px] text-ink mb-1">Geboortedatum <span class="text-red-600">*</span></label>
@@ -440,7 +440,7 @@
 <button type="button" data-group-add class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 inline-flex items-center gap-1 min-h-11 md:min-h-9"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>E-mailadres</button>
 </div>
 <input type="hidden" name="e_primary.__H__" value="__H__e" data-group-one>
-<div data-group-rows class="group-rows">
+<div data-group-rows class="group-rows group-rows--plain">
 <div data-group-row data-row-key="__H__e" class="group-row group-row--simple group-row--edit group-row--one">
 <input type="hidden" name="e_order.__H__" value="__H__e" data-row-order>
 <div data-row-body class="group-body min-w-0">

@@ -34,18 +34,24 @@ import re
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, household_fields
 
-HIDDEN = 'name="relation_type" value="HOOFDLID"'
-
 
 def test_the_admin_form_keeps_the_main_member_a_main_member(client, db_session):
+    """#1899: the main member's card carries the fixed badge and no relation
+    select, and its form sends no relation — the one save leaves his place alone."""
+    from tests.conftest import record_fields
+
     member, person = create_test_family(db_session, email="main-1268@example.org")
+    db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
-    html = client.get(f"/admin/leden/gezin/{member.id}").text
-    assert f'id="lp{person.id}-first_name"' in html, "the person's edit fields are not on the page"
-    assert HIDDEN in html, "the main member's form lost its hidden HOOFDLID field"
-    assert f'id="lp{person.id}-relation_type"' not in html, (
+    html = client.get(f"/admin/leden/gezin/{member.id}?bewerken=1").text
+    assert f'id="h-{person.id}-first_name"' in html, "the person's edit fields are not on the page"
+    card = html[html.index('id="hoofdlid"') :]
+    card = card[: card.index("data-form-grid")]
+    assert ">Hoofdlid</span>" in card, "the main member's card lost its badge"
+    assert f'id="h-{person.id}-relation_type"' not in html, (
         "the main member is offered a relation select, as if it could stop being the main member"
     )
+    assert f"h.{person.id}.relation_type" not in record_fields(client, member.id)
 
 
 def _row_titles(html: str) -> list[tuple[str, str]]:
@@ -133,12 +139,15 @@ def test_the_portal_shows_the_main_member_as_the_main_member(client, db_session)
 
 def test_a_partner_is_not_a_main_member(client, db_session):
     """The other half: without it, a template that always said "main member"
-    would pass the two tests above."""
+    would pass the test above. A household whose only person is a partner shows
+    that person first, with the relation it has — not as the main member."""
     member, person = create_test_family(
         db_session, email="partner-1268@example.org", relation_type="PARTNER"
     )
+    db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
-    html = client.get(f"/admin/leden/gezin/{member.id}").text
-    assert f'id="lp{person.id}-first_name"' in html, "the person's edit fields are not on the page"
-    assert HIDDEN not in html
-    assert f'id="lp{person.id}-relation_type"' in html
+    html = client.get(f"/admin/leden/gezin/{member.id}?bewerken=1").text
+    assert f'id="h-{person.id}-first_name"' in html, "the person's edit fields are not on the page"
+    card = html[html.index('id="hoofdlid"') :]
+    card = card[: card.index("data-form-grid")]
+    assert "partner" in card.lower() and "Hoofdlid" not in card

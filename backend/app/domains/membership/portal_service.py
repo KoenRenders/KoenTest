@@ -196,7 +196,19 @@ def renew_membership(*, person, db: Session, payment_method: str = "online") -> 
 # No route of its own since CR-13 phase 4b (#1251): no caller. The facade (`api.py`) calls this
 # function for the screen; it stays in this file until phase 4c moves it.
 def get_household(*, person, db: Session) -> dict:
-    member = _member_for(person, db)
+    return household_payload(_member_for(person, db))
+
+
+def get_household_by_id(db: Session, household_id: int) -> dict:
+    """The same view for the board's household record (#1899), which names the
+    household and not a person of it. 404 when there is none."""
+    member = db.query(Member).filter(Member.id == household_id).first()
+    if member is None:
+        raise HTTPException(status_code=404, detail=_("Gezin niet gevonden"))
+    return household_payload(member)
+
+
+def household_payload(member: Member) -> dict:
     # One order for the JSON and the portal page (Koen, 29 September 2026): the
     # household's own, not the order the database happens to return the rows in.
     links = sorted(member.member_persons, key=MemberPerson.household_position)

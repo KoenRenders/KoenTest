@@ -142,10 +142,15 @@ def _record_case(name: str, response, db, membership_id: int) -> None:
 
 
 def _delete_membership(client, membership) -> object:
-    return client.post(
-        f"/admin/leden/gezin/{membership.member_id}/lidmaatschappen/{membership.id}/verwijderen",
-        headers=_login(client),
-    )
+    """The year is removed with the household record's one save (#1899) — the
+    door that removes a single year since then. What it writes is held against
+    the recording of the route it replaced: the rows are the same."""
+    from tests.conftest import record_fields, save_record
+
+    headers = _login(client)
+    fields = record_fields(client, membership.member_id)
+    fields["y_order"] = [key for key in fields["y_order"] if key != str(membership.id)]
+    return save_record(client, membership.member_id, fields, headers)
 
 
 def _pay(client, db, membership_id: int) -> None:

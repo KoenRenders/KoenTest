@@ -207,19 +207,18 @@ def test_nieuw_lid_maakt_gezin_met_hoofdlid_en_opent_de_editor(client, db_sessio
     assert resp.headers["HX-Redirect"] == f"/admin/leden/gezin/{koppeling.member_id}"
 
 
-def test_kaart_opent_de_paginabrede_editor(client, db_session):
+def test_a_row_opens_the_households_record(client, db_session):
     _login(client)
     member = _gezin_met_lidmaatschap(db_session, "Klikbaar", [date.today().year])
 
     lijst = client.get("/admin/leden").text
     assert f'href="/admin/leden/gezin/{member.id}"' in lijst
 
-    editor = client.get(f"/admin/leden/gezin/{member.id}")
-    assert editor.status_code == 200
-    assert "Alle leden" in editor.text and 'id="leden-detail"' in editor.text
-    # htmx krijgt nog steeds het fragment, want de mutaties swappen #leden-detail
-    fragment = client.get(f"/admin/leden/gezin/{member.id}", headers={"HX-Request": "true"})
-    assert "<html" not in fragment.text.lower()
+    record = client.get(f"/admin/leden/gezin/{member.id}")
+    assert record.status_code == 200
+    # #1899: the record layout — its head with the way back, read first.
+    assert 'id="gezin-record"' in record.text and "data-record-head" in record.text
+    assert 'data-mode="read"' in record.text and 'id="leden-detail"' not in record.text
 
 
 # ── C1-referentiescherm (#611) ────────────────────────────────────────────────

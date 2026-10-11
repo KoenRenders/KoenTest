@@ -43,3 +43,34 @@ class LedenView(ViewModel):
     oob: bool = False
     # Only the full page carries the navigation; the fragment does not.
     nav_items: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True, kw_only=True)
+class HouseholdRecordView(ViewModel):
+    """`leden_gezin.html` — the household's record (#1899; end state §5.2)."""
+
+    family_id: int
+    page_title: str
+    #: `ui.record_header` and `ui.related_tabs`, as data (`mdm.household_record_head`,
+    #: `mdm.gezin_tabs`), with the way back (`app.ui.record_frame`).
+    record_head: dict[str, Any]
+    record_tabs: list[dict[str, Any]]
+    way_back: dict[str, Any]
+    head_editing: bool
+    #: `ui.summary_card`: {state, figures}.
+    summary: dict[str, Any]
+    #: The persons and the address: membership's `HouseholdGroup`, the cards of
+    #: Mijn gezin.
+    group: Any
+    edit: bool
+    #: The page answers a save: it says "Opgeslagen ✓".
+    saved: bool
+    #: The membership years, newest first: {id, year, active, waiting}.
+    years: list[dict[str, Any]]
+    board_member_id: str
+    board_member_name: str
+    #: (person id, name) for the select, in edit mode only.
+    board_options: list[tuple[str, str]]
+
+    csrf_token: str
+    nav_items: list[dict[str, Any]] = field(default_factory=list)

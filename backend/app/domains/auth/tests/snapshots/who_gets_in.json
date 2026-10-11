@@ -242,10 +242,6 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
-  "GET /admin/leden/gezin/{family_id}/persoon/{person_id}/email-rij": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
   "GET /admin/leden/lijst": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
@@ -918,43 +914,7 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
-  "POST /admin/leden/gezin/{family_id}/adres": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
-  "POST /admin/leden/gezin/{family_id}/bestuurslid": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
-  "POST /admin/leden/gezin/{family_id}/lidmaatschappen": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
-  "POST /admin/leden/gezin/{family_id}/lidmaatschappen/{membership_id}/verwijderen": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
-  "POST /admin/leden/gezin/{family_id}/personen": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
-  "POST /admin/leden/gezin/{family_id}/persoon/{person_id}": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
-  "POST /admin/leden/gezin/{family_id}/persoon/{person_id}/email": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
-  "POST /admin/leden/gezin/{family_id}/persoon/{person_id}/email/{contact_id}/hoofd": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
-  "POST /admin/leden/gezin/{family_id}/persoon/{person_id}/email/{contact_id}/verwijderen": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
-  "POST /admin/leden/gezin/{family_id}/persoon/{person_id}/verwijderen": {
+  "POST /admin/leden/gezin/{family_id}": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },

@@ -669,6 +669,39 @@ def family_from_rows(values: Mapping[str, str], rows: list[dict]) -> FamilyCreat
         raise HTTPException(status_code=422, detail=words) from refusal
 
 
+def remove_memberships(
+    db: Session, household_id: int, membership_ids: list[int], *, actor: str | None
+) -> None:
+    """Remove these membership years of one household, WITHOUT a commit (#1899:
+    the household record removes a year with its one save, in mdm's
+    transaction). Each goes as a single year always went — a soft delete
+    (#166) with its history row, and the money follows (#619,
+    `MembershipDeleted`): an open charge goes, a received amount becomes a
+    pending refund (Koen, 11 October 2026, to the choice between that and a
+    refusal: "a" — as today). A year that is not this household's is refused:
+    the form named something it does not hold."""
+    from app.domains.membership.history import snapshot_membership
+
+    for membership_id in membership_ids:
+        membership = (
+            db.query(Membership)
+            .filter(Membership.id == membership_id, Membership.member_id == household_id)
+            .first()
+        )
+        if membership is None:
+            raise HTTPException(status_code=404, detail=_("Membership not found"))
+        snapshot_membership(
+            db,
+            membership,
+            operation="delete",
+            action="membership_deleted",
+            source="admin_manual",
+            actor=actor,
+        )
+        soft_delete(membership)
+        _membership_deleted(db, membership, actor)
+
+
 def delete_membership(db: Session, membership_id: int, admin=None):
     from app.domains.membership.history import snapshot_membership
 

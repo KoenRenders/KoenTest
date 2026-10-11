@@ -81,6 +81,16 @@ def actor_of(person: Person) -> Optional[str]:
     )
 
 
+def household_with_id(db: Session, household_id: int) -> Member:
+    """The household the board names by its id (#1899: the record's one save)."""
+    from app.i18n import _
+
+    household = db.query(Member).filter(Member.id == household_id).first()
+    if household is None:
+        raise HouseholdNotFound(_("Geen gezin gevonden."))
+    return household
+
+
 def household_of(db: Session, person: Person) -> Member:
     """The household the logged-in person belongs to."""
     from app.i18n import _

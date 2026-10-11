@@ -934,7 +934,9 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    **A plain child list** (`plain=True`, #1899; end state §3.3): a child group
    whose title reads as a field's label — the e-mail addresses of a person —
    with the add button at its right; the rows keep the simple row's shape, the
-   tag in a slot of one width so the fields are equally wide. #}
+   tag in a slot of one width so the fields are equally wide. On a group that
+   is no child (the membership years of a household) `plain` only takes the
+   line between the rows away: a short list, one under the other. #}
 {# `required` (#646, #1632): the group's rows are ONE field without a label of
    its own (`label_hidden`) and one of them is asked — the title is that field's
    label, so the red star stands on the title. #}
@@ -948,7 +950,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    {% if cards %}data-group-cards role="group" aria-label="{{ title }}" {% endif %}class="{% if cards %}group-cards{% elif child %}group-child{% if plain %} group-child--plain{% endif %}{% else %}form-section bg-surface border border-line rounded-2xl shadow-sm p-4{% endif %}">
   {% if not cards %}
   <div class="flex items-center justify-between gap-3 min-h-9{% if not child %} mb-2{% endif %}">
-    {% if plain %}<p data-group-title class="m-0 text-sm font-medium leading-[21px] text-ink">{{ title }}{% if required %} <span class="text-red-600">*</span>{% endif %}</p>
+    {% if plain and child %}<p data-group-title class="m-0 text-sm font-medium leading-[21px] text-ink">{{ title }}{% if required %} <span class="text-red-600">*</span>{% endif %}</p>
     {% elif child %}<h3 class="text-base font-semibold leading-6 text-ink">{{ title }}{% if required %} <span class="text-red-600">*</span>{% endif %}</h3>
     {% else %}<h2 class="text-base font-semibold leading-6 text-ink">{{ title }}{% if required %} <span class="text-red-600">*</span>{% endif %}</h2>{% endif %}
     {% if edit and add_label and not _add_below %}
@@ -965,7 +967,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   </div>
   {% endif %}
   {% if edit and one %}<input type="hidden" name="{{ one.name }}" value="{{ one.value or '' }}" data-group-one>{% endif %}
-  <div data-group-rows class="group-rows{% if cards %} group-rows--cards{% endif %}">{{ caller() }}</div>
+  <div data-group-rows class="group-rows{% if cards %} group-rows--cards{% endif %}{% if plain %} group-rows--plain{% endif %}">{{ caller() }}</div>
   <p data-group-empty class="text-sm text-ink-soft"{% if count or (cards and not empty) %} hidden{% endif %}>{{ empty }}</p>
   {% if edit and add_label and _add_below %}<div data-group-add-below{% if not cards %} class="mt-3"{% endif %}><button type="button" data-group-add class="{{ btn_class('secondary', 'md' if cards else 'sm') }} inline-flex items-center gap-1 min-h-11{% if not cards %} md:min-h-9{% endif %}">{{ icon("plus", 16) }}{{ add_label }}</button></div>{% endif %}
   {% if edit and footer %}<div data-group-footer class="mt-3">{{ footer }}</div>{% endif %}

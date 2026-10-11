@@ -23,12 +23,14 @@ import pytest
 from app.domains.mdm.api import ContactDetail, EmailAddressInvalid
 from app.domains.mdm.models import require_email_address
 from app.domains.mdm.tests.test_household_cards_say_why_1831 import (  # noqa: F401
-    CARD,
+    RECORD_LINE,
     World,
+    _post,
     _state,
     world,
 )
-from tests._refusal import heading, message_line, said
+from tests._refusal import message_line
+from tests.conftest import record_fields, save_record
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -88,24 +90,21 @@ def test_a_telephone_row_is_not_judged_as_an_address(db_session, world):  # noqa
 # ── a person's card on the Leden screen ──────────────────────────────────────
 
 
-def _refused_in_the_card(answer, person_id: int) -> None:
+def _refused_in_the_card(answer) -> None:
     assert answer.status_code == 422, answer.text[:200]
-    assert heading(answer) == "Opslaan is niet gelukt."
-    assert said(answer) == [RULE]
-    assert message_line(answer) == f"#persoon-{person_id}-melding"
+    assert "data-save-refusal" in answer.text, "not the kit's refusal banner"
+    assert RULE in answer.text
+    assert message_line(answer) == RECORD_LINE
 
 
 @NO_ADDRESS
 def test_a_new_row_on_a_persons_card_says_why(client, db_session, world, typed):  # noqa: F811
     before = _state(db_session)
 
-    answer = client.post(
-        f"/admin/leden/gezin/{world.household}/persoon/{world.partner}",
-        data=CARD | {"email_new_0": typed},
-        headers=world.headers,
-    )
+    answer = _post(client, world, "card", {"email": typed})
 
-    _refused_in_the_card(answer, world.partner)
+    _refused_in_the_card(answer)
+    assert "e.nx.value" in answer.text, "the refusal does not name its row"
     assert _state(db_session) == before
 
 
@@ -115,39 +114,19 @@ def test_an_existing_row_changed_into_no_address_says_why(client, db_session, wo
         .filter_by(person_id=world.main, contact_type_code="EMAIL")
         .one()
     )
-    card = CARD | {"first_name": "Hanne", "gender_code": "F", "relation_type": "HOOFDLID"}
     before = _state(db_session)
+    fields = record_fields(client, world.household)
+    fields[f"e.{row.id}.value"] = "hanne-zonder-apenstaart"
 
-    answer = client.post(
-        f"/admin/leden/gezin/{world.household}/persoon/{world.main}",
-        data=card
-        | {"mobile": "0470 00 00 01", f"email_existing_{row.id}": "hanne-zonder-apenstaart"},
-        headers=world.headers,
-    )
+    answer = save_record(client, world.household, fields, world.headers)
 
-    _refused_in_the_card(answer, world.main)
-    assert _state(db_session) == before
-
-
-def test_the_add_address_button_of_a_card_says_why(client, db_session, world):  # noqa: F811
-    before = _state(db_session)
-
-    answer = client.post(
-        f"/admin/leden/gezin/{world.household}/persoon/{world.partner}/email",
-        data={"extra_email": "bram zonder adres"},
-        headers=world.headers,
-    )
-
-    _refused_in_the_card(answer, world.partner)
+    _refused_in_the_card(answer)
+    assert f"e.{row.id}.value" in answer.text
     assert _state(db_session) == before
 
 
 def test_a_good_row_is_still_written(client, db_session, world):  # noqa: F811
-    answer = client.post(
-        f"/admin/leden/gezin/{world.household}/persoon/{world.partner}",
-        data=CARD | {"email_new_0": "bram-1853@example.com"},
-        headers=world.headers,
-    )
+    answer = _post(client, world, "card", {"email": "bram-1853@example.com"})
 
     assert answer.status_code == 200, answer.text[:200]
     db_session.expire_all()
@@ -165,24 +144,17 @@ def test_a_door_without_an_answer_of_its_own_still_says_the_rule(
 ):
     """The rule is held at the flush, so it can surface at any door. One that does
     not answer it itself gets the application's answer — the rule's sentence in a
-    422, never "Interne serverfout". Shown on a door that writes no address text:
-    its service is made to refuse the way a flush would."""
+    422, never "Interne serverfout". Shown on a door that writes no address text
+    (the delete of a household): its service is made to refuse the way a flush
+    would."""
     import app.domains.mdm.api as mdm
 
     def refuses(*_args, **_kwargs):
         raise EmailAddressInvalid(RULE)
 
-    monkeypatch.setattr(mdm, "make_email_primary", refuses)
-    row = (
-        db_session.query(ContactDetail)
-        .filter_by(person_id=world.main, contact_type_code="EMAIL")
-        .one()
-    )
+    monkeypatch.setattr(mdm, "delete_household", refuses)
 
-    answer = client.post(
-        f"/admin/leden/gezin/{world.household}/persoon/{world.main}/email/{row.id}/hoofd",
-        headers=world.headers,
-    )
+    answer = client.post(f"/admin/leden/gezin/{world.household}/verwijderen", headers=world.headers)
 
     assert answer.status_code == 422
     assert answer.json()["detail"] == RULE

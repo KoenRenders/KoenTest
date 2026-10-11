@@ -149,17 +149,13 @@ def test_lidmaatschap_schrappen_geeft_een_terugbetaling(admin_page):
     for row in range(links.count()):
         links.nth(row).click()
         expect(
-            leden.lidmaatschapskop(), "geen lidmaatschapssectie op het gezinsdetail"
+            admin_page.locator("#gezin-jaren"), "geen lidmaatschapsjaren op het gezinsrecord"
         ).to_be_visible()
-        knop = leden.lidmaatschap_verwijderknop()
-        if knop.count():
+        if leden.lidmaatschapsjaren().count():
             break
         leden.open()
     else:
         _ontbreekt("geen lidmaatschap om te schrappen")
-    # De knop vraagt om bevestiging via de in-app modal (#595), niet via
-    # confirm() — het attribuut is wat die modal aanstuurt.
-    assert knop.get_attribute("data-confirm"), "verwijderknop zonder bevestiging"
 
     leden.verwijder_lidmaatschap()
 

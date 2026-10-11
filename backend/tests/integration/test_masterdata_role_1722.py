@@ -118,21 +118,29 @@ def test_masterdata_alone_opens_the_member_screens(client, world):
 
 
 def test_masterdata_alone_changes_a_household_and_its_memberships(client, db_session, world):
-    headers = _as(client, world.users["MASTERDATA"])
-    household = f"/admin/leden/gezin/{world.member}"
-
-    removed = client.post(f"{household}/persoon/{world.partner}/verwijderen", headers=headers)
-    assert removed.status_code == 200, removed.text[:200]
-    db_session.expire_all()
-    assert db_session.get(Person, world.partner) is None, "the partner is still there"
+    """Since #1899 the household's record has one save: with `party.masterdata`
+    alone it takes a person out and removes a membership year in one request."""
+    from app.domains.membership.api import Membership
+    from tests.conftest import record_fields, save_record
 
     year = date.today().year
-    membership = client.post(
-        f"{household}/lidmaatschappen",
-        headers=headers,
-        data={"year": str(year), "valid_from": f"{year}-01-01", "valid_to": f"{year}-12-31"},
-    )
-    assert membership.status_code not in (401, 403), membership.text[:200]
+    membership = Membership(member_id=world.member, year=year - 5, is_active=True)
+    db_session.add(membership)
+    db_session.commit()
+    membership_id = membership.id
+    headers = _as(client, world.users["MASTERDATA"])
+
+    fields = record_fields(client, world.member)
+    fields["h_order"] = [key for key in fields["h_order"] if key != str(world.partner)]
+    fields["y_order"] = [key for key in fields["y_order"] if key != str(membership_id)]
+    # The imported household holds no gender; the one save asks it of every person
+    # (#681), so the board fills it in with the change.
+    fields[f"h.{world.head}.gender_code"] = "F"
+    saved = save_record(client, world.member, fields, headers)
+    assert saved.status_code == 200, saved.text[:200]
+    db_session.expire_all()
+    assert db_session.get(Person, world.partner) is None, "the partner is still there"
+    assert db_session.query(Membership).filter(Membership.id == membership_id).first() is None
 
     person = client.post(f"/admin/personen/{world.head}/verwijderen", headers=headers)
     assert person.status_code not in (401, 403), person.text[:200]

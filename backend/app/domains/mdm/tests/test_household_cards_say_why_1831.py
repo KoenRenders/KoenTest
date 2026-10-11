@@ -1,4 +1,17 @@
-"""The Leden screen says why it refuses, in the card that was saved (#1831).
+"""The Leden screen says why it refuses (#1831) — since #1899 at the record's one save.
+
+#1899 gave the household's record ONE save in place of a form per card. What
+this file holds stayed: every refusal of the address, of a person who is there
+and of a person who is added answers the kit's refusal — an HTML 422 for the
+record's message line, the rule's own sentence in it, nothing written. Where
+it stands changed: one message line for the record (`#gezin-melding`), and
+the sentence at its field. Three sentences are the one save's own: a date that
+is none reads as the form's reader says it, and the main member's place
+asked for someone else reads "Kies partner of kind." — as does a relation
+outside the list.
+
+The text below is the history of #1831.
+
 
 A household's page has a form per card. Every refusal of the address card, of a
 person's card and of "persoon toevoegen" answered a bare JSON error, and the
@@ -23,6 +36,8 @@ list on a person's card was dropped without a word.
 
 from __future__ import annotations
 
+import html
+
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
@@ -34,8 +49,8 @@ from app.domains.mdm.api import (
     PostalCode,
     new_contact_detail,
 )
-from tests._refusal import heading, message_line, page_banner, said
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests._refusal import message_line, page_banner
+from tests.conftest import SEEDED_ADMIN_EMAIL, record_fields, save_record
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -126,6 +141,10 @@ RELATION_RULE = "Kies een relatie uit de lijst."
 IN_USE = "Dit e-mailadres is al in gebruik door iemand anders."
 NO_ADDRESS = "Vul een geldig e-mailadres in."
 MAIN_STAYS = "Een gezin heeft een hoofdlid nodig."
+#: The one save's own sentences (#1899).
+READER_DATE = "Ongeldige geboortedatum."
+CHOOSE = "Kies partner of kind."
+RECORD_LINE = "#gezin-melding"
 
 #: (case, the card, what is sent beside a complete form, the sentence)
 CASES = [
@@ -134,105 +153,105 @@ CASES = [
     ("address_unknown_postal_code", "address", {"postal_code": "9999"}, "Onbekende postcode: 9999"),
     ("card_no_first_name", "card", {"first_name": "  "}, NAME_RULE),
     ("card_name_too_long", "card", {"last_name": "x" * 101}, LENGTH_RULE),
-    ("card_date_that_is_none", "card", {"date_of_birth": "32-13-2020"}, DATE_RULE),
+    ("card_date_that_is_none", "card", {"date_of_birth": "32-13-2020"}, READER_DATE),
     ("card_no_date_of_birth", "card", {"date_of_birth": ""}, DETAILS_RULE),
     ("card_no_gender", "card", {"gender_code": ""}, DETAILS_RULE),
     ("card_unknown_gender", "card", {"gender_code": "Q"}, GENDER_RULE),
-    ("card_second_main_member", "card", {"relation_type": "HOOFDLID"}, ONE_MAIN),
+    ("card_second_main_member", "card", {"relation_type": "HOOFDLID"}, CHOOSE),
     ("card_address_of_someone_else", "card", {"email": TAKEN}, IN_USE),
     ("add_no_last_name", "add", {"last_name": ""}, NAME_RULE),
     ("add_name_too_long", "add", {"first_name": "x" * 101}, LENGTH_RULE),
-    ("add_date_that_is_none", "add", {"date_of_birth": "gisteren"}, DATE_RULE),
+    ("add_date_that_is_none", "add", {"date_of_birth": "gisteren"}, READER_DATE),
     ("add_no_date_of_birth", "add", {"date_of_birth": ""}, DETAILS_RULE),
-    ("add_second_main_member", "add", {"relation_type": "HOOFDLID"}, ONE_MAIN),
+    ("add_second_main_member", "add", {"relation_type": "HOOFDLID"}, CHOOSE),
     ("add_address_of_someone_else", "add", {"email": TAKEN}, IN_USE),
 ]
 #: No refusal until #1831 — stored as typed, or dropped without a word.
 NEW_REFUSALS = [
-    ("card_relation_outside_the_list", "card", {"relation_type": "TANTE"}, RELATION_RULE),
+    ("card_relation_outside_the_list", "card", {"relation_type": "TANTE"}, CHOOSE),
     ("card_address_that_is_none", "card", {"email": "geen-adres"}, NO_ADDRESS),
     ("add_address_that_is_none", "add", {"email": "geen-adres"}, NO_ADDRESS),
 ]
 
 
 def _post(client, w: World, card: str, changes: dict):
-    """Post one card's form; returns the answer and the message line it owns."""
-    base = f"/admin/leden/gezin/{w.household}"
+    """The record's one save with one thing wrong: in the address, in the
+    partner's card, or in a person who is added. An e-mail address is a row of
+    that person's list."""
+    fields = record_fields(client, w.household)
     if card == "address":
-        return client.post(
-            f"{base}/adres", data=ADDRESS | changes, headers=w.headers
-        ), "#adres-melding"
-    if card == "card":
-        path, line = f"{base}/persoon/{w.partner}", f"#persoon-{w.partner}-melding"
-        return client.post(path, data=CARD | changes, headers=w.headers), line
-    path, line = f"{base}/personen", "#persoon-toevoegen-melding"
-    return client.post(path, data=CARD | changes, headers=w.headers), line
+        fields.update({f"address.{name}": value for name, value in (ADDRESS | changes).items()})
+        return save_record(client, w.household, fields, w.headers)
+    key = str(w.partner) if card == "card" else "n9"
+    if card == "add":
+        fields["h_order"] = [*fields["h_order"], key]
+        fields.update(
+            {f"h.{key}.{name}": value for name, value in CARD.items() if name != "email" and value}
+        )
+    for name, value in changes.items():
+        if name == "email":
+            fields[f"e_order.{key}"] = ["nx"]
+            fields["e.nx.value"] = value
+        else:
+            fields[f"h.{key}.{name}"] = value
+    return save_record(client, w.household, fields, w.headers)
 
 
 @pytest.mark.parametrize(("case", "card", "changes", "sentence"), CASES + NEW_REFUSALS)
-def test_a_card_says_why_in_its_own_line_and_writes_nothing(
+def test_the_record_says_why_and_writes_nothing(
     client, db_session, world, case, card, changes, sentence
 ):
     before = _state(db_session)
 
-    answer, line = _post(client, world, card, changes)
+    answer = _post(client, world, card, changes)
 
     assert answer.status_code == 422, (case, answer.status_code, answer.text[:200])
-    assert heading(answer) == "Opslaan is niet gelukt."
-    assert said(answer) == [sentence]
-    assert message_line(answer) == line, "the sentence goes to another card's line"
+    assert "data-save-refusal" in answer.text, "not the kit's refusal banner"
+    assert sentence in html.unescape(answer.text), (case, answer.text[:500])
+    assert message_line(answer) == RECORD_LINE
     assert _state(db_session) == before, f"{case}: something was written"
 
 
-def test_deleting_the_main_member_says_why_in_his_card(client, db_session, world):
+def test_deleting_the_main_member_says_why_at_his_card(client, db_session, world):
     before = _state(db_session)
+    fields = record_fields(client, world.household)
+    fields["h_order"] = [key for key in fields["h_order"] if key != str(world.main)]
 
-    answer = client.post(
-        f"/admin/leden/gezin/{world.household}/persoon/{world.main}/verwijderen",
-        headers=world.headers,
-    )
+    answer = save_record(client, world.household, fields, world.headers)
 
     assert answer.status_code == 422
-    assert said(answer) == [MAIN_STAYS]
-    assert message_line(answer) == f"#persoon-{world.main}-melding"
+    assert MAIN_STAYS in html.unescape(answer.text) and f"h.{world.main}" in answer.text
+    assert message_line(answer) == RECORD_LINE
     assert _state(db_session) == before
 
 
-def test_a_card_that_is_not_there_is_no_refusal(client, db_session, world):
-    """A household or a person that does not exist stays a 404: there is no card
-    to say anything in."""
-    answer = client.post(
-        f"/admin/leden/gezin/{world.household}/persoon/999999",
-        data=CARD,
-        headers=world.headers,
-    )
+def test_a_household_that_is_not_there_is_no_refusal(client, db_session, world):
+    """A household that does not exist stays a 404: there is no record to say
+    anything on."""
+    fields = record_fields(client, world.household)
+
+    answer = save_record(client, 999999, fields, world.headers)
 
     assert answer.status_code == 404
-    assert answer.json() == {"detail": "Person not found"}
 
 
-def test_every_card_carries_its_message_line_once(client, db_session, world):
-    page = client.get(f"/admin/leden/gezin/{world.household}").text
-
-    for line in (
-        "adres-melding",
-        f"persoon-{world.main}-melding",
-        f"persoon-{world.partner}-melding",
-        "persoon-toevoegen-melding",
-    ):
-        assert page.count(f'id="{line}" data-form-message') == 1, line
-        # …and brings itself into view when its sentence arrives.
-        assert page.count("hx-on::after-swap=\"this.scrollIntoView({block: 'nearest'})\"") == 4
+def test_the_record_carries_its_message_line_once(client, db_session, world):
+    for mode in ("", "?bewerken=1"):
+        page = client.get(f"/admin/leden/gezin/{world.household}{mode}").text
+        assert page.count('id="gezin-melding" data-form-message') == 1, mode
 
 
-def test_a_good_save_answers_the_card_with_an_empty_line(client, db_session, world):
-    """The card is redrawn by its good answer, and its message line with it: a
-    sentence of an earlier refusal does not stay."""
-    answer, _line = _post(client, world, "card", {"first_name": "Bram-Jan"})
+def test_a_good_save_answers_the_record_without_a_refusal(client, db_session, world):
+    """The record is redrawn by its good answer, in read mode, and its message
+    line with it: a sentence of an earlier refusal does not stay."""
+    fields = record_fields(client, world.household)
+    fields[f"h.{world.partner}.first_name"] = "Bram-Jan"
+
+    answer = save_record(client, world.household, fields, world.headers)
 
     assert answer.status_code == 200
-    assert f'<div id="persoon-{world.partner}-melding" data-form-message' in answer.text
-    assert "data-save-refusal" not in answer.text
+    assert '<div id="gezin-melding" data-form-message' in answer.text
+    assert "data-save-refusal" not in answer.text and "Bram-Jan" in answer.text
 
 
 # ── "Nieuw lid": the page's own banner, the list's sentences ─────────────────

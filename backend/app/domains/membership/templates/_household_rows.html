@@ -52,9 +52,9 @@
    CR-22 R17 as corrected on 10 October 2026). #}
 {% macro person_fields(group, p) -%}
 {{ ui.field("h." ~ p.key ~ ".first_name", _("Voornaam"), value=p.first_name, edit=True, required=True,
-            id="h-" ~ p.key ~ "-first_name", attrs="data-row-title-source autocomplete=given-name") }}
+            id="h-" ~ p.key ~ "-first_name", attrs='data-row-title-source autocomplete=given-name maxlength=' ~ '"' ~ group.name_max ~ '"') }}
 {{ ui.field("h." ~ p.key ~ ".last_name", _("Achternaam"), value=p.last_name, edit=True, required=True,
-            id="h-" ~ p.key ~ "-last_name", attrs="data-row-title-source autocomplete=family-name") }}
+            id="h-" ~ p.key ~ "-last_name", attrs='data-row-title-source autocomplete=family-name maxlength=' ~ '"' ~ group.name_max ~ '"') }}
 {{ ui.field("h." ~ p.key ~ ".date_of_birth", _("Geboortedatum"), kind="date", value=p.date_of_birth,
             edit=True, required=group.details_required, id="h-" ~ p.key ~ "-date_of_birth") }}
 {{ ui.field("h." ~ p.key ~ ".gender_code", _("Geslacht"), kind="select", value=p.gender_code, edit=True,
