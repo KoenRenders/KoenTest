@@ -206,3 +206,50 @@ def correct(
     db.add(movement)
     db.flush()
     return movement
+
+
+def _require_existing_variant(db: Session, variant_id: int) -> None:
+    """The screen's door only writes for a size that exists here (Q83). `receive`
+    and `correct` are shared with `sales` (phase 2), which has already resolved
+    its variants, so the check belongs to the door, not to those two."""
+    from app.domains.product.api import get_variant
+    from app.i18n import _
+
+    if get_variant(db, variant_id) is None:
+        raise StockError(_("Deze maat bestaat niet."))
+
+
+def book_receipt(
+    db: Session,
+    variant_id: int,
+    quantity: int,
+    *,
+    actor: str | None = None,
+    location_id: int | None = None,
+) -> StockMovement:
+    """The screen's door for a receipt (R37): one request, one transaction.
+
+    The movement is written through `receive` (which `sales` also calls inside
+    its own transaction in phase 2) and committed here, the one place the screen
+    enters.
+    """
+    _require_existing_variant(db, variant_id)
+    movement = receive(db, variant_id, quantity, actor=actor, location_id=location_id)
+    db.commit()
+    return movement
+
+
+def apply_correction(
+    db: Session,
+    variant_id: int,
+    quantity: int,
+    *,
+    note: str,
+    actor: str | None = None,
+    location_id: int | None = None,
+) -> StockMovement:
+    """The screen's door for a correction (R36): one request, one transaction."""
+    _require_existing_variant(db, variant_id)
+    movement = correct(db, variant_id, quantity, note=note, actor=actor, location_id=location_id)
+    db.commit()
+    return movement

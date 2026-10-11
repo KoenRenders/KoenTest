@@ -1,11 +1,16 @@
-"""E2E CR-21 (#1887) — the refused delete of an article with a movement.
+"""E2E CR-21 (#1887) — the shop's back-office, on a tenant of its own.
 
 The shop is off by default for every kind of tenant, and a tenant's module set is
-cached in the server process, so the browser test runs on a seeded tenant of its
+cached in the server process, so the browser tests run on a seeded tenant of its
 own (`webshop` in `seed_e2e.py`), reached by hostname (`TENANT_HOSTNAMES` in
 `e2e.env` — back-office screens are not reached by a path prefix). The
-association's tenant stays untouched. The test asks visibility of the refusal —
-a box with a size, in view — not the answer's text.
+association's tenant stays untouched.
+
+- The refused delete of an article with a movement asks visibility of the refusal
+  — a box with a size, in view — not the answer's text (AC19, W23).
+- A receipt and a correction are booked through their forms and the number on the
+  list is read after a fresh load — the browser is the one layer that sees
+  whether the movement was really committed.
 """
 
 from __future__ import annotations
@@ -47,6 +52,12 @@ def webshop_page(browser):
     page.close()
 
 
+def _on_hand_van_de_lijst(page) -> str:
+    """The "In voorraad" of the seeded article, from the list's first amount cell."""
+    row = page.locator("tbody tr", has_text="Webshop T-shirt").first
+    return row.locator("td[data-cell=amount]").nth(0).inner_text().strip()
+
+
 def test_een_verwijdering_met_voorraad_is_zichtbaar_geweigerd(webshop_page):
     """A delete of an article with a movement is refused in a box the user can
     see (AC19, W23). The browser is the only layer that proves that (#613)."""
@@ -62,3 +73,31 @@ def test_een_verwijdering_met_voorraad_is_zichtbaar_geweigerd(webshop_page):
         ok.click()
 
     expect(page.locator("#product-melding [role=alert]")).to_be_visible()
+
+
+def test_een_ontvangst_en_een_correctie_worden_bewaard(webshop_page):
+    """A receipt and a correction book through their forms and land on the list —
+    read after a fresh load, so only a real commit shows the new number (the
+    lesson of the review: the same session cannot tell a flush from a commit)."""
+    page = webshop_page
+
+    page.goto("/admin/voorraad")
+    assert _on_hand_van_de_lijst(page) == "5"
+
+    page.goto("/admin/voorraad/ontvangst")
+    page.locator("select[name=variant_id]").select_option(index=0)
+    page.locator("input[name=quantity]").fill("7")
+    with htmx_afgerond(page):
+        page.get_by_role("button", name="Ontvangst boeken").click()
+    page.goto("/admin/voorraad")
+    assert _on_hand_van_de_lijst(page) == "12"
+
+    page.goto("/admin/voorraad/correctie")
+    page.locator("select[name=variant_id]").select_option(index=0)
+    page.locator("label", has_text="Eraf").click()
+    page.locator("input[name=quantity]").fill("3")
+    page.locator("input[name=note]").fill("retour")
+    with htmx_afgerond(page):
+        page.get_by_role("button", name="Correctie opslaan").click()
+    page.goto("/admin/voorraad")
+    assert _on_hand_van_de_lijst(page) == "9"

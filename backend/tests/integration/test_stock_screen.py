@@ -100,3 +100,32 @@ def test_a_correction_without_a_reason_is_refused_in_words(client, db_session, e
     assert answer.status_code == 422
     assert "reden" in answer.text
     assert on_hand(db_session, variant.id) == 10
+
+
+def test_a_receipt_for_a_size_that_does_not_exist_is_refused(client, db_session, every_module_on):
+    headers = _operator(client, db_session, every_module_on)
+
+    answer = client.post(
+        "/admin/voorraad/ontvangst",
+        data={"variant_id": "999999", "quantity": "10"},
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert answer.status_code == 422
+    assert "bestaat niet" in answer.text
+
+
+def test_an_empty_quantity_reads_as_a_dutch_sentence(client, db_session, every_module_on):
+    headers = _operator(client, db_session, every_module_on)
+    product = create_product(db_session, "T-shirt Raak")
+    variant = add_variant(db_session, product.id, "M")
+
+    answer = client.post(
+        "/admin/voorraad/ontvangst",
+        data={"variant_id": str(variant.id), "quantity": ""},
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert answer.status_code == 422
+    assert "invalid literal" not in answer.text
+    assert "aantal" in answer.text

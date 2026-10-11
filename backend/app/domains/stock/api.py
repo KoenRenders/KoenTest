@@ -16,7 +16,9 @@ from app.domains.stock.models import (  # noqa: F401
     StockReservation,
 )
 from app.domains.stock.service import (  # noqa: F401
+    apply_correction,
     available,
+    book_receipt,
     correct,
     lock_key,
     on_hand,
@@ -35,7 +37,9 @@ __all__ = [
     "StockLocation",
     "StockMovement",
     "StockReservation",
+    "apply_correction",
     "available",
+    "book_receipt",
     "correct",
     "lock_key",
     "on_hand",

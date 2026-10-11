@@ -20,15 +20,16 @@ from app.domains.auth.api import SESSION_COOKIE, Right, csrf_token_for, require_
 from app.domains.product.api import list_products, size_of, variants_of
 from app.domains.stock.api import (
     StockError,
+    apply_correction,
     available,
-    correct,
+    book_receipt,
     on_hand,
-    receive,
     reserved,
 )
 from app.domains.stock.viewmodels import StockCorrectionView, StockReceiptView, StockView
 from app.i18n import _
-from app.ui import admin_nav, templates
+from app.kernel.refusals import FieldError
+from app.ui import admin_nav, refusal_response, templates
 
 router = APIRouter()
 
@@ -45,6 +46,15 @@ def _redirect(request: Request, url: str) -> Response:
     if request.headers.get("HX-Request"):
         return Response(status_code=204, headers={"HX-Redirect": url})
     return RedirectResponse(url, status_code=303)
+
+
+def _int(value: str) -> int:
+    """The form's number as an int; a non-number reads as a Dutch sentence, not a
+    Python `ValueError`."""
+    try:
+        return int(value)
+    except ValueError:
+        raise StockError(_("Vul een geldig aantal in.")) from None
 
 
 def _options(db: Session) -> list[tuple[str, str]]:
@@ -124,14 +134,9 @@ def receipt_create(
     _csrf: None = Depends(require_csrf),
 ):
     try:
-        receive(db, int(variant_id), int(quantity), actor=_email)
-    except (StockError, ValueError) as refusal:
-        return templates.TemplateResponse(
-            request,
-            "admin_ontvangst.html",
-            _receipt_view(request, db, error=str(refusal)).as_context(),
-            status_code=422,
-        )
+        book_receipt(db, _int(variant_id), _int(quantity), actor=_email)
+    except StockError as refusal:
+        return refusal_response(request, [FieldError("", str(refusal))], "#ontvangst-melding")
     return _redirect(request, "/admin/voorraad")
 
 
@@ -158,15 +163,10 @@ def correction_create(
     _csrf: None = Depends(require_csrf),
 ):
     try:
-        amount = int(quantity)
+        amount = _int(quantity)
         if direction == "down":
             amount = -amount
-        correct(db, int(variant_id), amount, note=note, actor=_email)
-    except (StockError, ValueError) as refusal:
-        return templates.TemplateResponse(
-            request,
-            "admin_correctie.html",
-            _correction_view(request, db, error=str(refusal)).as_context(),
-            status_code=422,
-        )
+        apply_correction(db, _int(variant_id), amount, note=note, actor=_email)
+    except StockError as refusal:
+        return refusal_response(request, [FieldError("", str(refusal))], "#correctie-melding")
     return _redirect(request, "/admin/voorraad")
