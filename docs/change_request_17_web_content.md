@@ -1,7 +1,7 @@
 # Change Request 17 — Web content: pages as structured documents, one editor for three places
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 1 October 2026, reframed on 4 October 2026 (the CMS must carry a company tenant's whole public site; the association's sites do not change) · **decided on 5 October 2026** (B8 empty) · **not assigned to a release** (Koen, 7 October 2026; the assignments to v2.14.0 and v2.15.0 of 5 and 6 October are withdrawn): the Mistral CLI builds phase 1 (#1671) and phase 2 (#1679) on the integration branch `cr17/web-content`, every pull request read by a Claude dev CLI, and the branch goes to `master` only after Koen's own approval on a local test version; the spike of phase 0 (#1626) was **built on 6 October 2026, TipTap confirmed** (C8; branch `spike/cr17-tiptap`)
+**Status:** shaped on 1 October 2026, reframed on 4 October 2026 (the CMS must carry a company tenant's whole public site; the association's sites do not change) · **decided on 5 October 2026** (B8 empty) · **not assigned to a release** (Koen, 7 October 2026; the assignments to v2.14.0 and v2.15.0 of 5 and 6 October are withdrawn): the Mistral CLI builds phase 1 (#1671) and phase 2 (#1679) on the integration branch `cr17/web-content`, every pull request read by a Claude dev CLI, and the branch goes to `master` only after Koen's own approval on a local test version; the spike of phase 0 (#1626) was **built on 6 October 2026, TipTap confirmed** (C8; branch `spike/cr17-tiptap`) · **scope closed on 11 October 2026: this change request goes live after phase 5**, in one merge of `cr17/web-content` on Koen's word after his own test — not per phase; phases 6 (the menu) and 7 (the letter and the notes) leave it for a change request of their own, still to be shaped (B9, 11 October)
 **Tracking issue:** #1427 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the cms domain (pages, the home blocks, the footer, placeholders, the renderer, the menu); the rich-text editor and its three users (CMS pages, the newsletter, meeting notes); the public page template; the kit macro `ui.rich_text`; the media picker of CR-15; the forms module (a form placed on a page); the public site of a tenant of the kind *company* (CR-19).
 **Reading:** A 1487 words · B 2497 · C 6764 — words to read, code fences excluded, Part C up to the Q&A log; measured on 5 October 2026 after the review of PR #1625; the budget is A ≤ 1 500, B ≤ 2 500
@@ -384,11 +384,11 @@ Purchases: none. **Running cost:** none. **Operations:** no env var; the bundle 
 | **3 — a second language** (Should) | the language selector, a second translation row, `/en/`, the fallback, the switch | none | a page without a translation falls back | walkthrough |
 | **4 — the JSON door** | export and import on the page; the API: pages, draft, publish, the reference lists; the schema served | none | an unknown block refused by name | AC10 |
 | **5 — the value block and the gallery** | the value block in the toolbar (the renderer replaces codes meanwhile); the gallery block on an album | none | none | AC4 |
-| **6 — sections in the menu** (Must) | a parent page with pages, app pages and outside addresses under it | additive | none | AC12 |
-| **7 — the letter and the notes** (a follow-up change request) | the newsletter on the editor, markers gone, the mail renderer from blocks; the notes | none | a letter the mail renderer refuses is refused at "Versturen…" | AC5 |
+| **6 — sections in the menu** (Could since 5 Oct, R8; **out of this change request since 11 Oct 2026**, a follow-up change request) | a parent page with pages, app pages and outside addresses under it | additive | none | AC12 |
+| **7 — the letter and the notes** (a follow-up change request, confirmed 11 Oct 2026) | the newsletter on the editor, markers gone, the mail renderer from blocks; the notes | none | a letter the mail renderer refuses is refused at "Versturen…" | AC5 |
 | **later** | the print rendering, the preview's width switch, autosave of the draft; drop `content` two releases after phase 1 | contract for the drop | — | — |
 
-Dependencies: CR-15's picker and a company tenant (CR-19) exist. **Order** (Koen, 7 Oct 2026): 0 → 1 → 2 → 3 → 4 → 5 → 6 are the change; 7 is a follow-up change request.
+Dependencies: CR-15's picker and a company tenant (CR-19) exist. **Order** (Koen, 7 Oct 2026): 0 → 1 → 2 → 3 → 4 → 5 → 6 are the change; 7 is a follow-up change request. **Revised on 11 Oct 2026** (Koen, to "Gaat de PR van CR-17 (web content) naar master na fase 5, of pas na fase 7?": "CR-17 gaat live na fase 5, de rest zal voor later zijn, via een aparte CR"; and on the merge: "De PR van CR-17 gaat toch pas naar master als gans CR-17 voltooid is?"): **0 → 1 → 2 → 3 → 4 → 5 are the change, merged into `master` once, after phase 5 and after Koen's test of the local version; 6 and 7 go to one change request of their own**, numbered and given a tracking issue when Koen asks for it.
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
@@ -405,6 +405,7 @@ None (B9, 5 Oct 2026).
 
 | Date | Decision | By |
 |---|---|---|
+| 11 Oct 2026 | **Scope closed: live after phase 5, one merge.** To the master CLI's question whether the pull request of CR-17 goes to master after phase 5 or after phase 7: "CR-17 gaat live na fase 5, de rest zal voor later zijn, via een aparte CR"; on the merge: "De PR van CR-17 gaat toch pas naar master als gans CR-17 voltooid is?" — one merge of `cr17/web-content` after phase 5, on Koen's word after his own test, not per phase. Phases 6 (the menu, R8) and 7 (the letter and the notes, R6) leave for a change request still to be shaped; AC5 and AC12 go with them. Status line and B6. | Koen |
 | 18 Jul 2026 | Trix as the CMS editor, self-hosted, zero Node (#520). | Koen |
 | 16 Sep 2026 | One `ui.rich_text` macro for every editor (CR-05). | Koen |
 | 30 Sep 2026 | A block editor is its own change request (CR-11). | Koen |
@@ -663,6 +664,7 @@ Not yet: on hold, nothing built. Filled in when the release that builds this cha
 
 ## Non-goals — deliberately outside this change
 
+- The menu with sections (phase 6, R8) and the letter and the notes on the editor (phase 7, R6): a change request of their own, after this one is live (Koen, 11 October 2026).
 - Merged cells in tables, and the activity's description on the same editor — both Could, follow-ups when wanted (Koen, 5 October 2026).
 - A site builder: themes, free placement, per-page templates, colours or widths per block, a plugin system, a second site per tenant (R10).
 - Embedded frames (video, maps): the CSP forbids them; a link card instead (R11).
