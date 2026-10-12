@@ -369,8 +369,7 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 
    #1906 (Koen, 12 October 2026: "indien scherm breed genoeg --> rechts"): the
    summary stands beside that wide form where the frame holds both — 1 092 +
-   24 + 300 = 1 416 px — and otherwise above it as the card it is, 300 px wide
-   and left-aligned, never as a strip of the form's width.
+   24 + 300 = 1 416 px — and otherwise above it as the band (#1912, below).
 
    #1635 (Koen, 5 October 2026; CR-11 Q74): every field of full width fills
    the wider column, a text box included — the width of a field follows its
@@ -378,18 +377,27 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    Omschrijving and Interne nota with a gap of 290 px at their right. */
 @container record (min-width:1092px){
   .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]){grid-template-columns:minmax(0,1092px)}
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"])>.record-summary-column{order:-1;width:300px}
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"])>.record-summary-column{order:-1}
 }
 @container record (min-width:1416px){
   .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]):has(>.record-summary-column){grid-template-columns:minmax(0,1092px) 300px}
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"])>.record-summary-column{order:0;width:auto}
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"])>.record-summary-column{order:0}
 }
 .summary-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:12px;align-items:center}
 .summary-card [data-summary-state]{grid-column:1;grid-row:1}
 .summary-card [data-summary-action]{grid-column:2;grid-row:1}
 .summary-card [data-summary-link]{display:none}
 /* Every figure a row — label left, value right — in the card, in the strip and
-   above a wide form alike (Koen, 11 October 2026: "B voor elke kaart"). */
+   in the band alike (Koen, 11 October 2026: "B voor elke kaart").
+
+   #1912 (Koen, 12 October 2026; end state §3.10): one card, two places. Beside
+   the content it is the card of 300 px. Above it — the frame does not hold
+   both — it is the band: it fills the content's column, the badge at the left,
+   the figures as the same rows side by side, each as wide as its label and its
+   value, 32 px between the pairs, the action at the right; what does not fit
+   one line runs on to a second. Under 640 px of frame, the strip. The band
+   stands twice because it has two reasons: a frame under 964 px, and a wide
+   editor on a frame under 1 416 px. */
 .summary-card [data-summary-figures]{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
 .summary-card [data-summary-figure]{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 @container (min-width:964px){
@@ -397,6 +405,17 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
   .summary-card [data-summary-figures]{grid-column:1}
   .summary-card [data-summary-action]{grid-column:1;grid-row:auto;display:flex;align-items:center;gap:8px;border-top:1px solid rgb(var(--c-line));padding-top:12px}
   .summary-card [data-summary-link]{display:block;flex:1}
+}
+@container (min-width:640px) and (max-width:963.98px){
+  .summary-card{grid-template-columns:auto minmax(0,1fr) auto;column-gap:24px;padding:12px 16px}
+  .summary-card [data-summary-figures]{grid-column:2;grid-row:1;display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 32px}
+  .summary-card [data-summary-action]{grid-column:3;grid-row:1;display:flex;align-items:center;gap:8px;max-width:360px;border-top:0;padding-top:0}
+  .summary-card [data-summary-link]{display:block;flex:1}
+}
+@container record (min-width:1092px) and (max-width:1415.98px){
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card{grid-template-columns:auto minmax(0,1fr) auto;column-gap:24px;padding:12px 16px}
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-figures]{grid-column:2;grid-row:1;display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 32px}
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-action]{grid-column:3;grid-row:1;display:flex;align-items:center;gap:8px;max-width:360px;border-top:0;padding-top:0}
 }
 .form-section{container-type:inline-size;min-width:0}
 .form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start}
