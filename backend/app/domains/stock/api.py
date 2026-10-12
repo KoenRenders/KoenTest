@@ -20,11 +20,15 @@ from app.domains.stock.service import (  # noqa: F401
     available,
     book_receipt,
     correct,
+    issue,
     lock_key,
     movements_of,
     on_hand,
     receive,
+    release,
+    reserve,
     reserved,
+    waiting,
 )
 
 __all__ = [
@@ -42,9 +46,13 @@ __all__ = [
     "available",
     "book_receipt",
     "correct",
+    "issue",
     "lock_key",
     "movements_of",
     "on_hand",
     "receive",
+    "release",
+    "reserve",
     "reserved",
+    "waiting",
 ]

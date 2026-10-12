@@ -13,15 +13,21 @@ import pytest
 from app.domains.stock.api import (
     MovementReason,
     NotEnoughStock,
+    ReservationStatus,
     StockError,
     StockLocation,
     StockMovement,
+    StockReservation,
     available,
     correct,
+    issue,
     movements_of,
     on_hand,
     receive,
+    release,
+    reserve,
     reserved,
+    waiting,
 )
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -107,3 +113,87 @@ def test_movements_of_returns_newest_first(db_session):
         MovementReason.CORRECTION,
         MovementReason.RECEIPT,
     ]
+
+
+def test_reserve_holds_back_and_refuses_when_short(db_session):
+    """F1/R13: a reservation reduces available, not on hand, and a second reserve
+    past what is left is refused."""
+    receive(db_session, variant_id=1, quantity=2)
+    reserve(db_session, order_line_id=1, variant_id=1, quantity=1)
+
+    assert on_hand(db_session, 1) == 2
+    assert available(db_session, 1) == 1
+    assert reserved(db_session, 1) == 1
+
+    with pytest.raises(NotEnoughStock):
+        reserve(db_session, order_line_id=2, variant_id=1, quantity=2)
+
+
+def test_reserve_allow_short_reserves_beyond_on_hand(db_session):
+    """F15/R39: an article "Op bestelling" reserves beyond what is on hand."""
+    reserve(db_session, order_line_id=1, variant_id=1, quantity=3, allow_short=True)
+
+    assert on_hand(db_session, 1) == 0
+    assert available(db_session, 1) == -3
+    assert reserved(db_session, 1) == 3
+
+
+def test_release_frees_the_reservation(db_session):
+    """F8/R13: a cancelled reservation is no longer held back."""
+    receive(db_session, variant_id=1, quantity=1)
+    reserve(db_session, order_line_id=1, variant_id=1, quantity=1)
+    release(db_session, order_line_id=1)
+
+    assert available(db_session, 1) == 1
+    assert reserved(db_session, 1) == 0
+
+
+def test_issue_delivers_the_line(db_session):
+    """F6/R21: delivering writes a GOODS_ISSUE movement and sets the reservation
+    DELIVERED, so the stock goes down and the reservation closes."""
+    receive(db_session, variant_id=1, quantity=2)
+    reserve(db_session, order_line_id=1, variant_id=1, quantity=2)
+    issue(db_session, order_line_id=1)
+
+    assert on_hand(db_session, 1) == 0
+    assert reserved(db_session, 1) == 0
+    movement = db_session.query(StockMovement).filter(StockMovement.order_line_id == 1).one()
+    assert movement.reason is MovementReason.GOODS_ISSUE
+    assert movement.quantity == -2
+    reservation = (
+        db_session.query(StockReservation).filter(StockReservation.order_line_id == 1).one()
+    )
+    assert reservation.status is ReservationStatus.DELIVERED
+
+
+def test_waiting_returns_the_lines_not_covered_oldest_first(db_session):
+    """F5/Q87: on hand covers the oldest reservations first; the line whose
+    reservation is beyond it is "waiting"."""
+    receive(db_session, variant_id=1, quantity=3)
+    reserve(db_session, order_line_id=1, variant_id=1, quantity=2)
+    reserve(db_session, order_line_id=2, variant_id=1, quantity=2, allow_short=True)
+
+    assert waiting(db_session, [1, 2]) == [2]
+
+
+def test_waiting_sees_an_allow_short_reservation_as_uncovered(db_session):
+    reserve(db_session, order_line_id=1, variant_id=1, quantity=3, allow_short=True)
+
+    assert waiting(db_session, [1]) == [1]
+
+
+def test_reserve_holds_the_advisory_lock(db_session):
+    """C4.1: `reserve` is a writer and holds the transaction-scoped lock, so two
+    orders for the last unit serialize."""
+    from sqlalchemy import text
+
+    from app.database import engine
+    from app.domains.stock.api import lock_key
+
+    reserve(db_session, order_line_id=1, variant_id=1, quantity=1, allow_short=True)
+    location = db_session.query(StockLocation).filter(StockLocation.is_default.is_(True)).one()
+    key = lock_key(location.tenant_id, 1, location.id)
+
+    with engine.connect() as conn:
+        got = conn.execute(text("SELECT pg_try_advisory_xact_lock(:key)"), {"key": key}).scalar()
+    assert got is False, "reserve holds the lock; a second connection took it"

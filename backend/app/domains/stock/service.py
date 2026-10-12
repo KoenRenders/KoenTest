@@ -1,11 +1,12 @@
 """The stock ledger (CR-21), behind `api.py`.
 
-Phase 1 gives the ledger its writers `receive` and `correct` and its readers
-`on_hand` and `available`; `reserve`, `release` and `issue` come with phase 2.
-On hand is the sum of the movements; available is that minus the open
-reservations (D2). Every writer takes the same transaction-scoped advisory lock
-per tenant, variant and location — "available never below zero" has no home at
-rest, so the lock is its one home (C4.1).
+Phase 1 gave the ledger its writers `receive` and `correct` and its readers
+`on_hand` and `available`. Phase 2 adds the reservation side: `reserve`,
+`release` and `issue` write it, `waiting` reads it. On hand is the sum of the
+movements; available is that minus the open reservations (D2). Every writer
+takes the same transaction-scoped advisory lock per tenant, variant and location
+— "available never below zero" has no home at rest, so the lock is its one home
+(C4.1).
 """
 
 import hashlib
@@ -225,6 +226,138 @@ def correct(
     db.add(movement)
     db.flush()
     return movement
+
+
+def reserve(
+    db: Session,
+    order_line_id: int,
+    variant_id: int,
+    quantity: int,
+    *,
+    allow_short: bool = False,
+    location_id: int | None = None,
+) -> StockReservation:
+    """Reserve a quantity of a variant for one order line (F1, R13).
+
+    Under the advisory lock the available quantity is checked and the reservation
+    written, so two orders for the last unit cannot both pass. `allow_short` lets
+    an article "Op bestelling" reserve beyond what is on hand (F15, R39); then
+    the reservation is one the stock does not cover until a receipt comes.
+    """
+    from app.i18n import _
+
+    location = (
+        _ensure_default_location(db) if location_id is None else db.get(StockLocation, location_id)
+    )
+    if location is None:
+        raise StockError("Onbekende locatie.")
+    _acquire_lock(db, location, variant_id)
+    if quantity <= 0:
+        raise StockError(_("Een reservering is een positief aantal."))
+    if not allow_short:
+        in_hand = _movements_sum(db, variant_id, location.id)
+        open_reserved = _open_reservations_sum(db, variant_id, location.id)
+        if in_hand - open_reserved < quantity:
+            raise NotEnoughStock(variant_id, in_hand - open_reserved)
+    reservation = StockReservation(
+        order_line_id=order_line_id,
+        variant_id=variant_id,
+        location_id=location.id,
+        quantity=quantity,
+    )
+    db.add(reservation)
+    db.flush()
+    return reservation
+
+
+def _open_reservation(db: Session, order_line_id: int) -> StockReservation | None:
+    return (
+        db.query(StockReservation)
+        .filter(
+            StockReservation.order_line_id == order_line_id,
+            StockReservation.status == ReservationStatus.OPEN,
+        )
+        .first()
+    )
+
+
+def release(db: Session, order_line_id: int) -> None:
+    """Cancel the reservation of an order line (F8, R13): the article is free
+    again. Nothing happens when the line has no open reservation."""
+    reservation = _open_reservation(db, order_line_id)
+    if reservation is None:
+        return
+    _acquire_lock(db, reservation.location, reservation.variant_id)
+    reservation.status = ReservationStatus.CANCELLED
+    db.flush()
+
+
+def issue(db: Session, order_line_id: int, *, actor: str | None = None) -> None:
+    """Deliver a line (F6, R21): a GOODS_ISSUE movement of its quantity and the
+    reservation DELIVERED, in one transaction with the line's `delivered_at`.
+    Nothing happens when the line has no open reservation."""
+    reservation = _open_reservation(db, order_line_id)
+    if reservation is None:
+        return
+    _acquire_lock(db, reservation.location, reservation.variant_id)
+    movement = StockMovement(
+        variant_id=reservation.variant_id,
+        location_id=reservation.location_id,
+        quantity=-reservation.quantity,
+        reason=MovementReason.GOODS_ISSUE,
+        order_line_id=order_line_id,
+        actor=actor,
+    )
+    db.add(movement)
+    reservation.status = ReservationStatus.DELIVERED
+    db.flush()
+
+
+def waiting(db: Session, order_line_ids: list[int]) -> list[int]:
+    """The order lines whose reservation the stock on hand does not cover yet —
+    the oldest reservations covered first, by reservation id ascending (F5, Q87).
+    A reservation written with `allow_short` is one the stock does not cover."""
+    if not order_line_ids:
+        return []
+    wanted = set(order_line_ids)
+    requested = (
+        db.query(StockReservation)
+        .filter(
+            StockReservation.order_line_id.in_(wanted),
+            StockReservation.status == ReservationStatus.OPEN,
+        )
+        .all()
+    )
+    by_variant: dict[tuple[int, int], list[StockReservation]] = {}
+    for reservation in requested:
+        by_variant.setdefault((reservation.variant_id, reservation.location_id), []).append(
+            reservation
+        )
+    uncovered: set[int] = set()
+    for (variant_id, location_id), these in by_variant.items():
+        on_hand = _movements_sum(db, variant_id, location_id)
+        all_open = (
+            db.query(StockReservation)
+            .filter(
+                StockReservation.variant_id == variant_id,
+                StockReservation.location_id == location_id,
+                StockReservation.status == ReservationStatus.OPEN,
+            )
+            .order_by(StockReservation.id.asc())
+            .all()
+        )
+        remaining = on_hand
+        covered: set[int] = set()
+        for reservation in all_open:
+            if remaining >= reservation.quantity:
+                remaining -= reservation.quantity
+                covered.add(reservation.id)
+            else:
+                break
+        for reservation in these:
+            if reservation.id not in covered:
+                uncovered.add(reservation.order_line_id)
+    return [line_id for line_id in order_line_ids if line_id in uncovered]
 
 
 def _require_existing_variant(db: Session, variant_id: int) -> None:

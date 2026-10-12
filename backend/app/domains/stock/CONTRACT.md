@@ -9,8 +9,8 @@ reservations (D2). Managed on Voorraadbeheer behind `stock.manage` (CR-24).
 - The ORM classes `StockLocation`, `StockMovement`, `StockReservation`, the
   `movement_reason` and `reservation_status` code lists, and `StockError` /
   `NotEnoughStock`.
-- `on_hand`, `available`, `receive`, `correct` (phase 1). `reserve`, `release`,
-  `issue` come with phase 2.
+- `on_hand`, `available`, `reserved`, `receive`, `correct` (phase 1) and
+  `reserve`, `release`, `issue`, `waiting` (phase 2).
 
 ## Data
 
