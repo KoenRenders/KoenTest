@@ -197,3 +197,257 @@ def test_reserve_holds_the_advisory_lock(db_session):
     with engine.connect() as conn:
         got = conn.execute(text("SELECT pg_try_advisory_xact_lock(:key)"), {"key": key}).scalar()
     assert got is False, "reserve holds the lock; a second connection took it"
+
+
+def test_a_negative_correction_against_a_reservation_is_refused(db_session):
+    """Available never goes below zero: a reserved unit cannot be corrected away."""
+    receive(db_session, variant_id=1, quantity=2)
+    reserve(db_session, order_line_id=1, variant_id=1, quantity=2)
+
+    with pytest.raises(NotEnoughStock):
+        correct(db_session, variant_id=1, quantity=-1, note="retour")
+
+
+def test_release_twice_changes_nothing(db_session):
+    reserve(db_session, order_line_id=1, variant_id=1, quantity=1, allow_short=True)
+    release(db_session, order_line_id=1)
+    release(db_session, order_line_id=1)
+
+    assert reserved(db_session, 1) == 0
+
+
+def test_issue_twice_delivers_once(db_session):
+    receive(db_session, variant_id=1, quantity=2)
+    reserve(db_session, order_line_id=1, variant_id=1, quantity=2)
+    issue(db_session, order_line_id=1)
+    issue(db_session, order_line_id=1)
+
+    assert on_hand(db_session, 1) == 0
+    assert db_session.query(StockMovement).filter(StockMovement.order_line_id == 1).count() == 1
+
+
+def test_issue_after_release_changes_nothing(db_session):
+    reserve(db_session, order_line_id=1, variant_id=1, quantity=1, allow_short=True)
+    release(db_session, order_line_id=1)
+    issue(db_session, order_line_id=1)
+
+    assert db_session.query(StockMovement).filter(StockMovement.order_line_id == 1).count() == 0
+    assert on_hand(db_session, 1) == 0
+
+
+def test_issue_of_a_short_reservation_without_stock_is_refused(db_session):
+    """F2: a line that waits for the supplier cannot be handed over."""
+    reserve(db_session, order_line_id=1, variant_id=1, quantity=3, allow_short=True)
+
+    with pytest.raises(NotEnoughStock):
+        issue(db_session, order_line_id=1)
+
+
+def test_a_second_reserve_for_the_same_line_is_refused(db_session):
+    """F3: one open reservation per order line."""
+    reserve(db_session, order_line_id=1, variant_id=1, quantity=1, allow_short=True)
+
+    with pytest.raises(StockError):
+        reserve(db_session, order_line_id=1, variant_id=1, quantity=1, allow_short=True)
+
+
+def test_the_open_reservation_index_is_there(db_session):
+    from sqlalchemy import text
+
+    row = db_session.execute(
+        text(
+            "SELECT indexname FROM pg_indexes "
+            "WHERE schemaname = 'stock' AND indexname = 'uq_stock_reservations_open_line'"
+        )
+    ).first()
+    assert row is not None, "the partial unique index is missing"
+
+
+# ── Two committed connections (F1, F4) ────────────────────────────────────────
+
+
+def _race_two(first_action, second_action):
+    """Two committed writers. `first_action` writes and holds its transaction
+    0.6 s; `second_action` starts meanwhile, blocks on the lock, and then acts on
+    what the first committed. Returns the outcomes: "committed" or "refused"."""
+    import threading
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+
+    from app.database import SessionLocal
+
+    ready = threading.Event()
+    outcomes: dict[str, str] = {}
+
+    def run(name, action, leads):
+        db = SessionLocal()
+        try:
+            if leads:
+                action(db)
+                ready.set()
+                time.sleep(0.6)
+                db.commit()
+                outcomes[name] = "committed"
+            else:
+                assert ready.wait(timeout=10)
+                try:
+                    action(db)
+                except NotEnoughStock:
+                    db.rollback()
+                    outcomes[name] = "refused"
+                    return
+                db.commit()
+                outcomes[name] = "committed"
+        finally:
+            db.close()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(run, "first", first_action, True)
+        second = pool.submit(run, "second", second_action, False)
+        first.result()
+        second.result()
+    return outcomes
+
+
+def _committed_stock(variant_id: int, quantity: int) -> None:
+    from app.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        receive(db, variant_id=variant_id, quantity=quantity)
+        db.commit()
+    finally:
+        db.close()
+
+
+def _clean_variant(variant_id: int) -> None:
+    from app.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        db.query(StockMovement).filter(StockMovement.variant_id == variant_id).delete(
+            synchronize_session=False
+        )
+        db.query(StockReservation).filter(StockReservation.variant_id == variant_id).delete(
+            synchronize_session=False
+        )
+        db.commit()
+    finally:
+        db.close()
+
+
+def _read(db, variant_id: int) -> tuple[int, int, int]:
+    return (
+        on_hand(db, variant_id),
+        reserved(db, variant_id),
+        available(db, variant_id),
+    )
+
+
+def test_two_committed_reservations_for_the_last_unit_one_is_refused():
+    variant_id = 71_001
+    _committed_stock(variant_id, 1)
+    try:
+
+        def first(db):
+            reserve(db, order_line_id=91_001, variant_id=variant_id, quantity=1)
+
+        def second(db):
+            reserve(db, order_line_id=91_002, variant_id=variant_id, quantity=1)
+
+        outcomes = _race_two(first, second)
+        assert outcomes == {"first": "committed", "second": "refused"}
+
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        try:
+            assert _read(db, variant_id) == (1, 1, 0)
+        finally:
+            db.close()
+    finally:
+        _clean_variant(variant_id)
+
+
+def test_two_committed_issues_of_one_line_deliver_once():
+    variant_id = 71_002
+    _committed_stock(variant_id, 2)
+    reserve_line = 91_003
+    try:
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        try:
+            reserve(db, order_line_id=reserve_line, variant_id=variant_id, quantity=2)
+            db.commit()
+        finally:
+            db.close()
+
+        def issue_line(db):
+            issue(db, order_line_id=reserve_line)
+
+        outcomes = _race_two(issue_line, issue_line)
+        assert outcomes == {"first": "committed", "second": "committed"}
+
+        db = SessionLocal()
+        try:
+            assert on_hand(db, variant_id) == 0
+            movements = (
+                db.query(StockMovement).filter(StockMovement.order_line_id == reserve_line).count()
+            )
+            assert movements == 1, "one line issued twice wrote two movements"
+        finally:
+            db.close()
+    finally:
+        _clean_variant(variant_id)
+
+
+def test_a_release_does_not_undo_a_committed_issue_and_vice_versa():
+    for lead in ("issue", "release"):
+        variant_id = 71_003 if lead == "issue" else 71_004
+        _committed_stock(variant_id, 2)
+        reserve_line = 91_004 if lead == "issue" else 91_005
+        try:
+            from app.database import SessionLocal
+
+            db = SessionLocal()
+            try:
+                reserve(db, order_line_id=reserve_line, variant_id=variant_id, quantity=2)
+                db.commit()
+            finally:
+                db.close()
+
+            def issue_line(db):
+                issue(db, order_line_id=reserve_line)
+
+            def release_line(db):
+                release(db, order_line_id=reserve_line)
+
+            if lead == "issue":
+                first, second = issue_line, release_line
+            else:
+                first, second = release_line, issue_line
+
+            _race_two(first, second)
+
+            db = SessionLocal()
+            try:
+                movement_count = (
+                    db.query(StockMovement)
+                    .filter(StockMovement.order_line_id == reserve_line)
+                    .count()
+                )
+                status = (
+                    db.query(StockReservation)
+                    .filter(StockReservation.order_line_id == reserve_line)
+                    .one()
+                    .status
+                )
+                if lead == "issue":
+                    assert movement_count == 1 and status is ReservationStatus.DELIVERED
+                else:
+                    assert movement_count == 0 and status is ReservationStatus.CANCELLED
+            finally:
+                db.close()
+        finally:
+            _clean_variant(variant_id)

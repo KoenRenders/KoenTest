@@ -254,6 +254,8 @@ def reserve(
     _acquire_lock(db, location, variant_id)
     if quantity <= 0:
         raise StockError(_("Een reservering is een positief aantal."))
+    if _open_reservation(db, order_line_id) is not None:
+        raise StockError(_("Deze lijn is al gereserveerd."))
     if not allow_short:
         in_hand = _movements_sum(db, variant_id, location.id)
         open_reserved = _open_reservations_sum(db, variant_id, location.id)
@@ -281,13 +283,25 @@ def _open_reservation(db: Session, order_line_id: int) -> StockReservation | Non
     )
 
 
+def _open_reservation_under_lock(db: Session, order_line_id: int) -> StockReservation | None:
+    """The line's open reservation, read under the lock (F1).
+
+    The first read only finds the key of the lock; the second, under the lock, is
+    the one that decides — so two deliveries of one line cannot both read "open".
+    """
+    reservation = _open_reservation(db, order_line_id)
+    if reservation is None:
+        return None
+    _acquire_lock(db, reservation.location, reservation.variant_id)
+    return _open_reservation(db, order_line_id)
+
+
 def release(db: Session, order_line_id: int) -> None:
     """Cancel the reservation of an order line (F8, R13): the article is free
     again. Nothing happens when the line has no open reservation."""
-    reservation = _open_reservation(db, order_line_id)
+    reservation = _open_reservation_under_lock(db, order_line_id)
     if reservation is None:
         return
-    _acquire_lock(db, reservation.location, reservation.variant_id)
     reservation.status = ReservationStatus.CANCELLED
     db.flush()
 
@@ -295,11 +309,15 @@ def release(db: Session, order_line_id: int) -> None:
 def issue(db: Session, order_line_id: int, *, actor: str | None = None) -> None:
     """Deliver a line (F6, R21): a GOODS_ISSUE movement of its quantity and the
     reservation DELIVERED, in one transaction with the line's `delivered_at`.
-    Nothing happens when the line has no open reservation."""
-    reservation = _open_reservation(db, order_line_id)
+    Refused while the on hand does not cover the line (F2) — a line that waits
+    for the supplier cannot be handed over. Nothing happens when the line has no
+    open reservation."""
+    reservation = _open_reservation_under_lock(db, order_line_id)
     if reservation is None:
         return
-    _acquire_lock(db, reservation.location, reservation.variant_id)
+    in_hand = _movements_sum(db, reservation.variant_id, reservation.location_id)
+    if in_hand < reservation.quantity:
+        raise NotEnoughStock(reservation.variant_id, in_hand)
     movement = StockMovement(
         variant_id=reservation.variant_id,
         location_id=reservation.location_id,
