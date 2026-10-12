@@ -209,7 +209,7 @@ def size_movements(
 ):
     """The movements of one size, newest first (AC16): a receipt and a correction
     stand apart, each with its reason."""
-    from app.i18n import short_datetime_no_year
+    from app.i18n import short_datetime
     from app.kernel.clock import BELGIUM
 
     variant = get_variant(db, variant_id)
@@ -221,7 +221,7 @@ def size_movements(
             "reason": movement.reason,
             "quantity": movement.quantity,
             "note": movement.note,
-            "occurred": short_datetime_no_year(movement.occurred_at.astimezone(BELGIUM)),
+            "occurred": short_datetime(movement.occurred_at.astimezone(BELGIUM)),
         }
         for movement in movements_of(db, variant_id)
     ]
