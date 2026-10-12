@@ -921,9 +921,14 @@ bal aan het misslaan ben" — on the concept in his project folder,
 2. **The content chooses its width; the card follows**: 768 px, or
    1 092 px for a form with a composite repeating group in edit mode when
    the frame holds it; an open panel takes its width from the frame first.
-   The card never pushes the content.
+   The card never pushes the wide editor; a 768 px column gives way to
+   640 px beside the card, as §1.4 has said since 2 October (frame 964 px).
+   On a frame under 1 092 px the wide editor is a 768 px column like any
+   other — the scale has no width between them (Q89).
 3. **The card has two places**: beside the content, at its right, top
-   aligned, when the frame holds content + 24 + 300 px; otherwise above it
+   aligned, while the content keeps its width beside it — a column of at
+   least 640 px (frame 964 px), the whole 1 092 px for the wide editor
+   (frame 1 416 px); otherwise above it
    as **the band** — the card fills the column, the badge at the left, the
    figures as the same rows side by side, each as wide as its label and
    value with 32 px between them, the action at the right; what does not
@@ -942,7 +947,8 @@ text with a colon — was not taken: it would make one record the exception.
 | 1 920 | Assistent | 1 232 | beside | band | beside |
 | 1 440 | closed | 1 168 | beside | band | beside |
 | 1 440 | Assistent | 768 | band | band (the form falls back to 768) | band |
-| 1 024 | closed | ± 910 | band | band (form ± 910) | band |
+| 1 280 | closed | 1 008 | beside (column 684) | band (form 768) | beside (column 684) |
+| 1 024 | closed | ± 910 | band | band (form 768) | band |
 | 390 | — | 358 | strip | strip | strip |
 
 Against master of 12 October 2026 this changes two things: the card of
