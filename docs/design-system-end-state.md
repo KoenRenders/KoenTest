@@ -329,8 +329,11 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
   rest (photos, Design Studio, print, delete…). Never a button named after
   the fields it edits. [39, 29, 20]
 - **In edit mode a record with a composite repeating group takes the whole
-  reading group** — 1 092 px on a desktop, the summary card as the strip
-  above the form, the way K8 does it beside the Assistent panel; **every
+  reading group** — 1 092 px on a desktop; the summary card stands at the
+  form's right where the frame holds both (1 416 px) and otherwise above the
+  form as the card of 300 px, left-aligned, never as a strip of the form's
+  width (Koen, 12 October 2026, #1906: "indien scherm breed genoeg -->
+  rechts"); **every
   full-width field, the text areas included (Omschrijving, interne nota),
   fills the wider column** — the 768 px cap on long text fields that K5c
   built left a gap beside the Omschrijving and went (Koen, 5 October 2026);
