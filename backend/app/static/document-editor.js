@@ -579,8 +579,12 @@
 
   function build(mount) {
     if (mount.dataset.ready) return;
-    mount.dataset.ready = "1";
     var RaakTiptap = window.RaakTiptap;
+    /* Ready only once the library is there: a build without her would
+       mark the mount ready and close the door for good — the scan below
+       returns on her own arrival (review M1 of 12 October 2026). */
+    if (!RaakTiptap) return;
+    mount.dataset.ready = "1";
     var config = {};
     try {
       config = JSON.parse(mount.dataset.config || "{}");
@@ -682,9 +686,34 @@
     mount.insertBefore(toolbar(editor, config, mount.id), surface);
   }
 
+  /* The library can still be on her way: a swapped fragment brings both
+     scripts as her own requests, and they run in the network's order,
+     not the tags' (review M1 of 12 October 2026). Every script in the
+     document that has not run yet gets a listener; the one that brings
+     the library wakes the scan. A script that already ran never fires
+     her `load` again — harmless: then the library is there and the scan
+     below builds at once. */
+  var watchedScripts = [];
+  function watchScripts() {
+    document.querySelectorAll("script").forEach(function (script) {
+      if (watchedScripts.indexOf(script) < 0) {
+        watchedScripts.push(script);
+        script.addEventListener("load", scan);
+      }
+    });
+  }
+
   function scan() {
+    if (!window.RaakTiptap) watchScripts();
     document.querySelectorAll("[data-document-editor]").forEach(build);
   }
+  /* Build what stands on the page when this script runs, not only at a
+     later event: a page reached through a boosted link brings this
+     script inside the swapped fragment, and the swap that carried her
+     is past when she runs — what builds the editor today is a later
+     swap of something else, with some 35 ms to spare (review M1 of 12
+     October 2026). */
+  scan();
   document.addEventListener("DOMContentLoaded", scan);
   document.addEventListener("htmx:afterSwap", scan);
 })();

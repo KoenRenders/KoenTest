@@ -236,6 +236,23 @@ def test_an_outside_address_is_https_only():
             )
 
 
+def test_an_outside_address_is_one_unbroken_word():
+    """The review of 12 October 2026: `https://a b` passed the dialog and
+    the save — both rules agreed on the start only. One rule refuses her
+    at both ends. Red on the tip before this repair: both documents
+    validated."""
+    for adres in ("https://a b", "https://x.test/pad met spatie"):
+        with pytest.raises(UnknownAttribute, match="button.href"):
+            validate_document(
+                _doc(
+                    {
+                        "type": "button",
+                        "attrs": {"label": "Klik", "variant": "primary", "href": adres},
+                    }
+                )
+            )
+
+
 def test_columns_inside_a_column_are_refused():
     """B5 of the design review: a column holds blocks, not a second columns
     block that breaks out of her column. Refused with both names at the

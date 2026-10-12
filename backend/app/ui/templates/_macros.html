@@ -1686,8 +1686,11 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
                                    var adres = bKind === 'href' ? bHref.trim() : '';
                                    var schemaOk = (adres.indexOf('http://') === 0 && adres.length > 7)
                                                 || (adres.indexOf('https://') === 0 && adres.length > 8);
+                                   var spatieOk = !/\s/.test(adres);
                                    if (bKind === 'href' && !schemaOk) {
                                      bFout = '{{ _("Een adres buiten de site begint met http:// of https://.") }}';
+                                   } else if (bKind === 'href' && !spatieOk) {
+                                     bFout = '{{ _("Een adres bevat geen spaties.") }}';
                                    } else if (bLabel.trim() && (bKind !== 'href' || adres)) {
                                      $dispatch('raak-button-chosen', { editor: '{{ editor_id }}',
                                                                        label: bLabel, variant: bVariant, kind: bKind,

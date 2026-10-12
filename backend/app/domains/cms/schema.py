@@ -424,8 +424,11 @@ def _validate_node(node: Any, path: str, renderable: bool = False) -> None:
         # Koen's four destinations (11 October 2026) are the button's own
         # shape rule: exactly one of them is set — two is a document the
         # resolver cannot resolve, none a button that leads nowhere. An
-        # outside address is http(s) only, refused at the save (C4.11:
-        # nothing is stripped at render).
+        # outside address is http(s) only and one unbroken word — a space
+        # inside is refused here and in the dialog, by the same rule
+        # (C4.11: nothing is stripped at render; review of 12 October
+        # 2026: `https://a b` passed both ends, which agreed on the start
+        # only).
         targets = [
             k for k in ("page_id", "href", "form_slug", "screen") if attrs.get(k) is not None
         ]
@@ -436,7 +439,11 @@ def _validate_node(node: Any, path: str, renderable: bool = False) -> None:
             )
         if "href" in targets:
             href = attrs["href"]
-            if not isinstance(href, str) or not href.startswith(("http://", "https://")):
+            if (
+                not isinstance(href, str)
+                or not href.startswith(("http://", "https://"))
+                or any(ch.isspace() for ch in href)
+            ):
                 raise UnknownAttribute(f"button.href={href!r}")
     if spec.get("text"):
         # A text node carries words: the key is there and the string is not

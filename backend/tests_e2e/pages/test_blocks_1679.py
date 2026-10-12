@@ -233,6 +233,17 @@ def test_the_three_blocks_through_the_screen(setup):
             in page.locator("div[x-show='button'] p[x-show='bFout']").inner_text()
         )
         assert page.locator(f"{EDITOR} .tiptap a.prose-button").count() == 1
+        # Een adres met een spatie erin (de lezing van 12 oktober 2026):
+        # geweigerd aan het veld, met haar eigen zin — niet de zin van
+        # het schema, want het adres begint wel met https://.
+        page.locator("div[x-show='button'] input[placeholder='https://']").fill("https://a b")
+        page.locator("div[x-show='button'] button", has_text="Invoegen").last.click()
+        page.wait_for_selector("div[x-show='button'] p[x-show='bFout']", state="visible")
+        assert (
+            "bevat geen spaties"
+            in page.locator("div[x-show='button'] p[x-show='bFout']").inner_text()
+        )
+        assert page.locator(f"{EDITOR} .tiptap a.prose-button").count() == 1
         page.locator("div[x-show='button'] input[placeholder='https://']").fill(
             " https://voorbeeld.test/buiten"
         )
