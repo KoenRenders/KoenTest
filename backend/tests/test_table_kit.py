@@ -87,6 +87,22 @@ def test_the_head_sorts_with_links_and_marks_the_one_that_sorts():
     assert "<caption" in html and "data-table-frame" in html
 
 
+def test_a_moment_has_a_width_in_both_sets_and_free_text_has_none():
+    """#1915. Broken on purpose: `'moment': 'w-[152px]'` taken out of the set
+    for eight columns and more → red on the second table."""
+    few = [
+        {"key": "wanneer", "label": "Wanneer", "cell": "moment"},
+        {"key": "opmerking", "label": "Opmerking", "cell": "text"},
+    ]
+    many = few + [{"key": f"k{n}", "label": f"K{n}", "cell": "extra"} for n in range(6)]
+    for columns in (few, many):
+        heads = _heads(_render(TABLE, columns=columns, modes={}))
+        assert len(heads) == len(columns)
+        moment, text = heads[0], heads[1]
+        assert 'data-cell="moment"' in moment and "w-[152px]" in moment
+        assert 'data-cell="text"' in text and "w-[" not in text
+
+
 def test_a_descending_column_points_down():
     columns = [dict(COLUMNS[0], sorted="desc")]
     head = _heads(_render(TABLE, columns=columns, modes={}))[0]
