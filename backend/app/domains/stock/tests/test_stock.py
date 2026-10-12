@@ -260,6 +260,70 @@ def test_a_second_reserve_for_the_same_line_on_another_variant_is_refused(db_ses
         reserve(db_session, order_line_id=1, variant_id=2, quantity=1, allow_short=True)
 
 
+def test_a_second_reserve_on_two_connections_is_refused_in_words():
+    """S2, the pin on the index's fault: two committed writers of one line for two
+    variants — the service's check cannot see the other's uncommitted row, so the
+    unique index refuses and the service words it. Red with the `except
+    IntegrityError` branch taken out."""
+    import threading
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+
+    from app.database import SessionLocal
+
+    variant_a, variant_b, line = 72_001, 72_002, 92_001
+    _committed_stock(variant_a, 1)  # makes the default location, committed
+
+    ready = threading.Event()
+    outcome: dict[str, str] = {}
+
+    def first():
+        db = SessionLocal()
+        try:
+            reserve(db, order_line_id=line, variant_id=variant_a, quantity=1, allow_short=True)
+            ready.set()
+            time.sleep(0.6)
+            db.commit()
+        finally:
+            db.close()
+
+    def second():
+        db = SessionLocal()
+        try:
+            assert ready.wait(timeout=10)
+            try:
+                reserve(db, order_line_id=line, variant_id=variant_b, quantity=1, allow_short=True)
+            except StockError:
+                db.rollback()
+                outcome["second"] = "refused"
+                return
+            db.rollback()
+            outcome["second"] = "stored"
+        finally:
+            db.close()
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            a = pool.submit(first)
+            b = pool.submit(second)
+            a.result()
+            b.result()
+        assert outcome["second"] == "refused"
+    finally:
+        db = SessionLocal()
+        try:
+            db.query(StockMovement).filter(
+                StockMovement.variant_id.in_([variant_a, variant_b])
+            ).delete(synchronize_session=False)
+            db.query(StockReservation).filter(
+                StockReservation.variant_id.in_([variant_a, variant_b])
+            ).delete(synchronize_session=False)
+            db.query(StockLocation).delete(synchronize_session=False)
+            db.commit()
+        finally:
+            db.close()
+
+
 def test_the_open_reservation_index_is_there(db_session):
     from sqlalchemy import text
 

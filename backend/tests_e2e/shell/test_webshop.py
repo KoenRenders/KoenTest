@@ -446,32 +446,39 @@ def test_de_actiebalk_is_zo_breed_als_het_formulier(webshop_page):
     assert _geen_zijwaartse_scroll(page)
 
 
-def test_ontvangst_en_correctie_staan_naast_elkaar(webshop_page):
-    """Ontvangst first and primary, Correctie beside it, both in view at 390 px
-    (Koen's fourth point)."""
+def test_ontvangst_in_de_kop_en_correctie_onder_het_menu(webshop_page):
+    """'+ Ontvangst' alone in the head, 'Correctie' under the toolbar's `⋯` — the
+    list norm (Koen's fourth point, corrected by the read)."""
     page = webshop_page
     page.set_viewport_size({"width": 390, "height": 844})
     page.goto("/admin/voorraad")
     page.wait_for_selector("[data-list-primary]")
-    buttons = page.locator("[data-list-primary] a, [data-list-primary] button")
-    assert buttons.count() == 2
-    assert "Ontvangst" in buttons.first.inner_text()
-    assert "Correctie" in buttons.nth(1).inner_text()
+
+    primary = page.locator("[data-list-primary] a, [data-list-primary] button")
+    assert primary.count() == 1
+    assert "Ontvangst" in primary.first.inner_text()
+
+    page.locator("[data-more-button]").click()
+    menu = page.locator("[data-more-menu]")
+    menu.wait_for(state="visible")
+    assert "Correctie" in menu.inner_text()
     assert _geen_zijwaartse_scroll(page)
 
 
-def test_de_bewegingen_lopen_niet_uit(webshop_page):
-    """No cell of the movements list crosses its own right edge, at both widths
-    (Koen's fifth point)."""
+def test_de_bewegingen_hebben_de_juiste_kolommen(webshop_page):
+    """The movements columns at 1 440 px: "Wat" no wider than its kind, "Reden"
+    the widest; at 390 px no sideways scroll (Koen's fifth point)."""
     page = webshop_page
-    for width in (390, 1440):
-        page.set_viewport_size({"width": width, "height": 844})
-        page.goto("/admin/voorraad")
-        page.locator("tr[data-row] a[data-row-link]").first.click()
-        page.wait_for_selector("table.data-table")
-        overflow = page.evaluate(
-            "() => [...document.querySelectorAll('table.data-table td')].some("
-            "td => td.scrollWidth > td.clientWidth + 1)"
-        )
-        assert not overflow, f"een cel loopt uit op {width}px"
-        assert _geen_zijwaartse_scroll(page)
+    page.goto("/admin/voorraad")
+    page.locator("tr[data-row] a[data-row-link]").first.click()
+    page.wait_for_selector("table.data-table")
+
+    page.set_viewport_size({"width": 1440, "height": 844})
+    headers = page.locator("table.data-table th")
+    wat = headers.filter(has_text="Wat").bounding_box()
+    reden = headers.filter(has_text="Reden").bounding_box()
+    assert wat["width"] <= 137, "Wat is breder dan zijn kolomsoort (136 px)"
+    assert reden["width"] > wat["width"], "Reden is niet de breedste kolom"
+
+    page.set_viewport_size({"width": 390, "height": 844})
+    assert _geen_zijwaartse_scroll(page)

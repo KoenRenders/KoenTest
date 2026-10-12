@@ -522,6 +522,10 @@
    "platform": "OPERATOR",
    "tenant": "OPERATOR"
   },
+  "GET /admin/voorraad/lijst": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
   "GET /admin/voorraad/ontvangst": {
    "platform": "OPERATOR",
    "tenant": "OPERATOR"

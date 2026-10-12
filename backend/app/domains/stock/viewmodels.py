@@ -11,6 +11,9 @@ class StockView(ViewModel):
     """`admin_voorraad.html` — one row per size, with its stock figures."""
 
     rows: list[dict[str, Any]]  # product, size, on_hand, reserved, available
+    #: The toolbar's state: the search term and how many rows it left.
+    q: str = ""
+    total: int = 0
     error: Optional[str] = None
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 

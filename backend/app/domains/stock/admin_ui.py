@@ -83,9 +83,12 @@ def _options(db: Session) -> list[tuple[str, str]]:
     return result
 
 
-def _rows(db: Session) -> list[dict]:
+def _rows(db: Session, q: str = "") -> list[dict]:
+    needle = (q or "").strip().casefold()
     rows = []
     for product in list_products(db):
+        if needle and needle not in (product.name or "").casefold():
+            continue
         for variant in variants_of(db, product.id):
             rows.append(
                 {
@@ -124,11 +127,27 @@ def _correction_view(
 @router.get("/admin/voorraad", response_class=HTMLResponse)
 def stock_list(
     request: Request,
+    q: str = "",
     db: Session = Depends(get_db),
     _email: str = Depends(require_right(Right.STOCK_VIEW)),
 ):
-    view = StockView(rows=_rows(db), nav_items=admin_nav(NAV, request))
+    rows = _rows(db, q)
+    view = StockView(rows=rows, q=q, total=len(rows), nav_items=admin_nav(NAV, request))
     return templates.TemplateResponse(request, "admin_voorraad.html", view.as_context())
+
+
+@router.get("/admin/voorraad/lijst", response_class=HTMLResponse)
+def stock_list_fragment(
+    request: Request,
+    q: str = "",
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.STOCK_VIEW)),
+):
+    """The list alone: the toolbar swaps this fragment, so the search field is
+    not replaced under the fingers."""
+    rows = _rows(db, q)
+    view = StockView(rows=rows, q=q, total=len(rows))
+    return templates.TemplateResponse(request, "_voorraad_lijst.html", view.as_context())
 
 
 @router.get("/admin/voorraad/ontvangst", response_class=HTMLResponse)

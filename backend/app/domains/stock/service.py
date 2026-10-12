@@ -272,9 +272,10 @@ def reserve(
         db.add(reservation)
         db.flush()
     except IntegrityError as exc:
-        # The unique index `uq_stock_reservations_open_line` is the net under the
-        # check above: two writers of one line for two variants do not wait on
-        # each other's lock, so the database says what the service could not.
+        # Only the fault of the one-open-reservation index is this rule; any
+        # other integrity fault is not and keeps the database's own words.
+        if "uq_stock_reservations_open_line" not in str(exc.orig):
+            raise
         raise StockError(_("Deze lijn is al gereserveerd.")) from exc
     return reservation
 
