@@ -179,23 +179,25 @@ def test_een_maat_wordt_via_het_menu_verplaatst(webshop_page):
     page.locator("[data-form-save]").click()
     page.wait_for_url("**" + record)
 
-    page.goto(record)
-    assert _maten_van_de_pagina(page) == ["L", eerste]
+    try:
+        page.goto(record)
+        assert _maten_van_de_pagina(page) == ["L", eerste]
 
-    page.goto("/admin/prijzen/" + record.rstrip("/").split("/")[-1])
-    page.wait_for_selector("select[name=variant_id]")
-    options = page.locator("select[name=variant_id] option").all_inner_texts()
-    assert options[0] == "Alle maten"
-    assert options[1] == "L" and options[2] == eerste
-
-    # put the record back to the seed (remove the added size)
-    page.goto(record + "?bewerken=1")
-    page.wait_for_selector("[data-group-row]")
-    row = page.locator("[data-group-row]").filter(has=page.locator('input[value="L"]'))
-    row.locator("[data-row-menu-trigger]").click()
-    row.locator('[data-row-action="remove"]').click()
-    page.locator("[data-form-save]").click()
-    page.wait_for_url("**" + record)
+        page.goto("/admin/prijzen/" + record.rstrip("/").split("/")[-1])
+        page.wait_for_selector("select[name=variant_id]")
+        options = page.locator("select[name=variant_id] option").all_inner_texts()
+        assert options[0] == "Alle maten"
+        assert options[1] == "L" and options[2] == eerste
+    finally:
+        # put the record back to the seed (remove the added size), also on a red
+        # assertion
+        page.goto(record + "?bewerken=1")
+        page.wait_for_selector("[data-group-row]")
+        row = page.locator("[data-group-row]").filter(has=page.locator('input[value="L"]'))
+        row.locator("[data-row-menu-trigger]").click()
+        row.locator('[data-row-action="remove"]').click()
+        page.locator("[data-form-save]").click()
+        page.wait_for_url("**" + record)
 
 
 def test_een_foto_wordt_opgeladen_en_verwijderd(webshop_page):
@@ -520,10 +522,10 @@ def test_de_bewegingen_hebben_de_juiste_kolommen(webshop_page):
     assert reden["width"] > max(wat["width"], aantal["width"]), "Reden is niet de breedste kolom"
 
     page.set_viewport_size({"width": 390, "height": 844})
-    assert page.locator("table.data-table td[data-cell='date']").count() >= 1, (
-        "geen moment in de rij"
+    assert page.locator("table.data-table td[data-cell='date']").first.is_visible(), (
+        "het moment is niet zichtbaar in de gestapelde rij"
     )
-    assert page.locator("table.data-table td[data-cell='amount']").count() >= 1, (
-        "geen aantal in de rij"
+    assert page.locator("table.data-table td[data-cell='amount']").first.is_visible(), (
+        "het aantal is niet zichtbaar in de gestapelde rij"
     )
     assert _geen_zijwaartse_scroll(page)
