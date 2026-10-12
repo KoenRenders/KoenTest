@@ -947,7 +947,7 @@ text with a colon — was not taken: it would make one record the exception.
 | 1 920 | Assistent | 1 232 | beside | band | beside |
 | 1 440 | closed | 1 168 | beside | band | beside |
 | 1 440 | Assistent | 768 | band | band (the form falls back to 768) | band |
-| 1 280 | closed | 1 008 | beside (column 684) | band (form 768) | beside (column 684) |
+| 1 280 | closed | 1 168 (the 64 px rail) | beside | band (form 1 092) | beside |
 | 1 024 | closed | ± 910 | band | band (form 768) | band |
 | 390 | — | 358 | strip | strip | strip |
 
