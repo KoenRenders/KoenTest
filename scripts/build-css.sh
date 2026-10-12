@@ -489,6 +489,14 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
      its place beside the status, the date goes under them, the products last. */
   .data-table tr:has(>[data-cell="amount"])>[data-cell="date"]{grid-column:1/-1;grid-row:4}
   .data-table tr:has(>[data-cell="amount"])>[data-cell="more"]{grid-row:5}
+  /* #1915: a moment stands where a date stands. Free text is a line of its
+     own after everything else — the place of `more`, which it never shares a
+     row with — and an empty one leaves nothing, not even the grid's gap. */
+  .data-table [data-cell="moment"]{grid-column:2;grid-row:3;align-self:center}
+  .data-table tr:has(>[data-cell="amount"])>[data-cell="moment"]{grid-column:1/-1;grid-row:4}
+  .data-table [data-cell="text"]{display:block!important;grid-column:1/-1;grid-row:4}
+  .data-table tr:has(>[data-cell="amount"]):has(>[data-cell="date"],>[data-cell="moment"])>[data-cell="text"]{grid-row:5}
+  .data-table [data-cell="text"]:empty{display:none!important}
   .data-table [data-group-row]{align-items:center;padding:0 12px}
   .data-table [data-sum] [data-cell="context"],.data-table [data-sum] [data-cell="status"],.data-table [data-sum] [data-cell="actions"]{display:none!important}
   .data-table [data-sum] [data-cell="amount"]{grid-row:1}
