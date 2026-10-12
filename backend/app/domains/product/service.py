@@ -335,7 +335,7 @@ def sync_variants(db: Session, product_id: int, ordered: list[tuple[str, str]]) 
             except SizeDeleteRefused as refusal:
                 raise SizeNameRefusal(
                     f"v.{key}",
-                    f"{_('Maat')} {size_of(existing[key])} {refusal.reason}",
+                    f"{_('Maat')} {size_of(existing[str(refusal.variant_id)])} {refusal.reason}",
                 ) from refusal
     db.commit()
 
