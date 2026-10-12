@@ -466,8 +466,9 @@ def test_ontvangst_in_de_kop_en_correctie_onder_het_menu(webshop_page):
 
 
 def test_de_bewegingen_hebben_de_juiste_kolommen(webshop_page):
-    """The movements columns at 1 440 px: "Wat" no wider than its kind, "Reden"
-    the widest; at 390 px no sideways scroll (Koen's fifth point)."""
+    """The movements columns at 1 440 px: "Wat" no wider than its kind, "Aantal"
+    next to it, "Reden" the widest; at 390 px the stacked row shows the moment
+    and the figure (Koen's fifth point)."""
     page = webshop_page
     page.goto("/admin/voorraad")
     page.locator("tr[data-row] a[data-row-link]").first.click()
@@ -476,9 +477,17 @@ def test_de_bewegingen_hebben_de_juiste_kolommen(webshop_page):
     page.set_viewport_size({"width": 1440, "height": 844})
     headers = page.locator("table.data-table th")
     wat = headers.filter(has_text="Wat").bounding_box()
+    aantal = headers.filter(has_text="Aantal").bounding_box()
     reden = headers.filter(has_text="Reden").bounding_box()
     assert wat["width"] <= 137, "Wat is breder dan zijn kolomsoort (136 px)"
-    assert reden["width"] > wat["width"], "Reden is niet de breedste kolom"
+    assert abs(aantal["x"] - (wat["x"] + wat["width"])) <= 1, "Aantal staat niet naast Wat"
+    assert reden["width"] > max(wat["width"], aantal["width"]), "Reden is niet de breedste kolom"
 
     page.set_viewport_size({"width": 390, "height": 844})
+    assert page.locator("table.data-table td[data-cell='date']").count() >= 1, (
+        "geen moment in de rij"
+    )
+    assert page.locator("table.data-table td[data-cell='amount']").count() >= 1, (
+        "geen aantal in de rij"
+    )
     assert _geen_zijwaartse_scroll(page)

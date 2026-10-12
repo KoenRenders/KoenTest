@@ -124,6 +124,23 @@ def _correction_view(
     )
 
 
+def _stock_view(db: Session, q: str, *, oob: bool = False, nav_items=None) -> StockView:
+    rows = _rows(db, q)
+    empty_reason = (
+        _("Geen artikel gevonden voor deze zoekopdracht.")
+        if q.strip()
+        else _("Nog geen maten met voorraad. Boek eerst een ontvangst.")
+    )
+    return StockView(
+        rows=rows,
+        q=q,
+        total=len(rows),
+        empty_reason=empty_reason,
+        oob=oob,
+        nav_items=nav_items or [],
+    )
+
+
 @router.get("/admin/voorraad", response_class=HTMLResponse)
 def stock_list(
     request: Request,
@@ -131,8 +148,7 @@ def stock_list(
     db: Session = Depends(get_db),
     _email: str = Depends(require_right(Right.STOCK_VIEW)),
 ):
-    rows = _rows(db, q)
-    view = StockView(rows=rows, q=q, total=len(rows), nav_items=admin_nav(NAV, request))
+    view = _stock_view(db, q, nav_items=admin_nav(NAV, request))
     return templates.TemplateResponse(request, "admin_voorraad.html", view.as_context())
 
 
@@ -145,9 +161,9 @@ def stock_list_fragment(
 ):
     """The list alone: the toolbar swaps this fragment, so the search field is
     not replaced under the fingers."""
-    rows = _rows(db, q)
-    view = StockView(rows=rows, q=q, total=len(rows))
-    return templates.TemplateResponse(request, "_voorraad_lijst.html", view.as_context())
+    return templates.TemplateResponse(
+        request, "_voorraad_lijst.html", _stock_view(db, q, oob=True).as_context()
+    )
 
 
 @router.get("/admin/voorraad/ontvangst", response_class=HTMLResponse)

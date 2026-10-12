@@ -5,7 +5,7 @@
 {% block list_primary %}{{ ui.btn_primary(_("+ Ontvangst"), href="/admin/voorraad/ontvangst") }}{% endblock %}
 {% block list_toolbar %}
 {{ ui.toolbar("/admin/voorraad/lijst", "#voorraad-lijst", "voorraad-filter",
-              q=q, search_placeholder=_("Zoek op artikel…"), total=total,
+              q=q, search_placeholder=_("Zoek op artikel…"), total=total, per_page=total,
               menu=[{"label": _("Correctie"), "href": "/admin/voorraad/correctie"}]) }}
 {% endblock %}
 {% block list_body %}

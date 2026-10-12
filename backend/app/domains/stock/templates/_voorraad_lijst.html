@@ -1,6 +1,6 @@
 {% import "_macros.html" as ui %}
 {% if not rows %}
-  {{ ui.empty_state(_("Nog geen maten met voorraad. Boek eerst een ontvangst.")) }}
+  {{ ui.empty_state(empty_reason) }}
 {% else %}
 {% call ui.data_table([
     {"key": "artikel", "label": _("Artikel en maat"), "cell": "name"},
@@ -22,3 +22,4 @@
 </tbody>
 {% endcall %}
 {% endif %}
+{% if oob %}{{ ui.toolbar_oob("voorraad-filter", page=1, per_page=total, total=total) }}{% endif %}

@@ -8,12 +8,17 @@ from app.ui.viewmodel import ViewModel
 
 @dataclass(frozen=True, kw_only=True)
 class StockView(ViewModel):
-    """`admin_voorraad.html` — one row per size, with its stock figures."""
+    """`admin_voorraad.html` and its fragment `_voorraad_lijst.html`."""
 
     rows: list[dict[str, Any]]  # product, size, on_hand, reserved, available
     #: The toolbar's state: the search term and how many rows it left.
     q: str = ""
     total: int = 0
+    #: What the empty state says: one sentence for a search without a hit, another
+    #: for a shop with no sizes at all.
+    empty_reason: str = ""
+    #: True on the fragment answer, so it sends the toolbar's count out-of-band.
+    oob: bool = False
     error: Optional[str] = None
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 

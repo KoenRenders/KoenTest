@@ -208,6 +208,9 @@ class StockReservation(TenantMixin, Base):
         CheckConstraint("quantity > 0", name="ck_stock_reservations_quantity_positive"),
         # One open reservation per order line (F3): a line reserved twice is
         # refused at rest — the same rule `reserve` refuses in the service.
+        # `service.reserve` recognises THIS fault by the index's name in the
+        # driver's message (`uq_stock_reservations_open_line`), so the name is a
+        # contract between the model and the service.
         Index(
             "uq_stock_reservations_open_line",
             "tenant_id",
