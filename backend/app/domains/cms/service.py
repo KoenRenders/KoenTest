@@ -422,6 +422,16 @@ def is_site_block(slug: str) -> bool:
     return slug in SITE_BLOCK_SLUGS
 
 
+def serves_at_address(page: CmsPage) -> bool:
+    """Whether this page is served at an address of her own (review A2 of
+    12 October 2026): the site's own blocks (the home intro, the footer)
+    render inside other pages and stand at no address of their own — a
+    button that points at her leads to a 404. The button's page list asks
+    the same question, so the picker offers exactly what the resolver
+    resolves — one rule, one place, both callers."""
+    return not is_site_block(page.slug)
+
+
 def published_html(db, page: CmsPage, language: Optional[str] = None) -> str:
     """What a visitor sees: the page's published document, rendered; her
     pre-CR-17 HTML as long as nothing is published (snede 3, #1671 — the
@@ -538,7 +548,41 @@ def document_from_editor(document: Any) -> Any:
             result["content"] = [transform(child, depth + 1) for child in result["content"]]
         return result
 
-    return transform(document)
+    def unwrap_one_column(nodes: Any, depth: int = 0) -> Any:
+        """A columns block with one column comes back as her plain blocks
+        (review S4 of 12 October 2026): the author reaches her with a
+        Backspace in the empty second column, and on the site she leaves
+        half the width empty. The save unwraps her rather than refusing —
+        the editor has no command that adds a column back, so a refused
+        document could only be fixed by deleting the block and retyping
+        her words."""
+        if depth > MAX_DEPTH:
+            raise InvalidShape("Te diep genest: het document heeft te veel niveaus")
+        if not isinstance(nodes, list):
+            return nodes
+        unwrapped: list[Any] = []
+        for child in nodes:
+            if (
+                isinstance(child, dict)
+                and child.get("type") == "columns"
+                and isinstance(child.get("content"), list)
+                and len(child["content"]) == 1
+                and isinstance(child["content"][0], dict)
+                and child["content"][0].get("type") == "column"
+            ):
+                unwrapped.extend(
+                    unwrap_one_column(child["content"][0].get("content") or [], depth + 1)
+                )
+            else:
+                if isinstance(child, dict) and isinstance(child.get("content"), list):
+                    child = {**child, "content": unwrap_one_column(child["content"], depth + 1)}
+                unwrapped.append(child)
+        return unwrapped
+
+    document = transform(document)
+    if isinstance(document, dict) and isinstance(document.get("content"), list):
+        document = {**document, "content": unwrap_one_column(document["content"])}
+    return document
 
 
 def save_draft(

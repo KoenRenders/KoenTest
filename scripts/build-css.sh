@@ -801,7 +801,15 @@ body[data-shell="site"]>main{padding-bottom:24px}
 }
 .prose-raak a.prose-button{display:inline-flex;align-items:center;justify-content:center;border-radius:.5rem;padding:.625rem 1rem;margin:.5rem 0;font-weight:600;font-size:.875rem;line-height:1.25rem;text-decoration:none}
 .prose-raak a.prose-button--primary{background:var(--primary);color:#fff}
-.prose-raak a.prose-button--secondary{border:1px solid rgb(var(--c-control-line));color:var(--ink)}
+/* Review S2 of 12 October 2026: her border made the secondary 2 px taller
+   beside a primary one (42 against 40) — her padding gives back what her
+   border takes, so the two stand one height. Two buttons after each other
+   touched: 8 px between them, on a wide screen only (on a phone each is a
+   full row of her own, and a left margin there would push her out). */
+.prose-raak a.prose-button--secondary{border:1px solid rgb(var(--c-control-line));padding:calc(.625rem - 1px) 1rem;color:var(--ink)}
+@media (min-width:640px){
+  .prose-raak a.prose-button + a.prose-button{margin-left:.5rem}
+}
 .prose-callout{border:1px solid rgb(var(--c-line));border-radius:14px;background:var(--surface-2);padding:16px;margin:.5rem 0}
 @media (max-width:639.98px){
   .prose-raak a.prose-button{display:flex;width:100%;min-height:44px}

@@ -584,8 +584,13 @@ def _block_html(node: dict, cell: bool = False, preview: bool = False, db=None) 
     if kind == "callout":
         # C4.13: text only, on a neutral surface with the line and radius
         # 14, 16 px inside — no title, icon or colour stripe. Her words are
-        # inline content, sanitised with everything else.
-        return f'<div class="prose-callout">{_inline_html(content)}</div>'
+        # inline content, sanitised with everything else. An empty callout
+        # renders NOTHING (review S5 of 12 October 2026): on the site she
+        # was an empty box of 34 px.
+        words = _inline_html(content)
+        if not words.strip():
+            return ""
+        return f'<div class="prose-callout">{words}</div>'
 
     raise ValueError(f"unknown block node: {kind}")
 
@@ -617,6 +622,16 @@ def _figure_html(node: dict) -> str:
     if attrs.get("caption"):
         figure += f"<figcaption>{escape(attrs['caption'])}</figcaption>"
     return figure + "</figure>"
+
+
+#: The look of a refused button in the admin preview (review S7 of 12 October
+#: 2026): the kit's own notice — the same surface, line and left accent as
+#: `ui.save_refusal`, on the span the sentences already carry. One constant,
+#: one look: the sentences below say her in plain words.
+REFUSED_CLS = (
+    "prose-refused inline-block rounded-md border border-red-200 border-l-[3px] "
+    "border-l-red-600 bg-red-50 px-3 py-1.5 text-sm text-ink"
+)
 
 
 def _button_html(node: dict, preview: bool = False, db=None) -> str:
@@ -651,6 +666,7 @@ def _button_html(node: dict, preview: bool = False, db=None) -> str:
     try:
         if attrs.get("page_id") is not None:
             from app.domains.cms.models import CmsPage
+            from app.domains.cms.service import serves_at_address
 
             page = (
                 db.query(CmsPage)
@@ -663,12 +679,23 @@ def _button_html(node: dict, preview: bool = False, db=None) -> str:
                 )
                 .first()
             )
+            # The site's own blocks stand at no address of their own
+            # (review A2 of 12 October 2026): the page list asks the same
+            # `serves_at_address`, so what the picker offers is exactly
+            # what the resolver resolves.
+            if page is not None and not serves_at_address(page):
+                if preview:
+                    return (
+                        f'<span class="{REFUSED_CLS}">Deze knop wijst naar een siteblok '
+                        "dat op geen eigen adres staat.</span>"
+                    )
+                return ""
             if page is None:
                 # A4's one rule: nothing on the site, the words in the
                 # admin preview (the span carries the look's own class).
                 if preview:
                     return (
-                        '<span class="prose-refused">Deze knop wijst naar een pagina '
+                        f'<span class="{REFUSED_CLS}">Deze knop wijst naar een pagina '
                         "die niet (meer) bestaat.</span>"
                     )
                 return ""
@@ -681,7 +708,7 @@ def _button_html(node: dict, preview: bool = False, db=None) -> str:
             if resolved is None:
                 if preview:
                     return (
-                        '<span class="prose-refused">Deze knop wijst naar een formulier '
+                        f'<span class="{REFUSED_CLS}">Deze knop wijst naar een formulier '
                         "dat geen inzendingen meer aanneemt.</span>"
                     )
                 return ""
@@ -691,6 +718,21 @@ def _button_html(node: dict, preview: bool = False, db=None) -> str:
                 f'href="{escape(form_path, quote=True)}">{label}</a>'
             )
         if attrs.get("screen"):
+            # The one application screen is mounted behind the membership
+            # module (main.py): for a tenant without her the button is not
+            # offered in the dialog and an existing one is unreachable —
+            # the same one rule as every unreachable target (review A3 of
+            # 12 October 2026).
+            from app.domains.mdm.api import module_enabled
+            from app.kernel.modules import ModuleCode
+
+            if not module_enabled(ModuleCode.MEMBERSHIP):
+                if preview:
+                    return (
+                        f'<span class="{REFUSED_CLS}">Deze knop wijst naar een scherm '
+                        "dat deze vereniging niet aanbiedt.</span>"
+                    )
+                return ""
             return (
                 f'<a class="prose-button prose-button--{variant}" '
                 f'href="{escape(path_for("/lid-worden"), quote=True)}">{label}</a>'

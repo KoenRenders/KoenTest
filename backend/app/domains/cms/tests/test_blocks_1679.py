@@ -288,3 +288,118 @@ def test_the_adapter_derives_the_columns_alignment():
         )
     )
     assert boven["content"][0]["attrs"]["align"] == "top"
+
+
+# ── The repair of the review of 12 October 2026 ─────────────────────────────
+
+
+def test_a_button_on_a_site_block_leads_nowhere(db_session):
+    """A2 of the review: the site's own blocks (the home intro, the footer)
+    render inside other pages and stand at no address of their own — a
+    button that points at her is refused by the ONE rule both the picker
+    and the resolver ask (`serves_at_address`), so what the dialog offers
+    is exactly what the site renders. Red on the tip before the repair:
+    the resolver asked only `is_published`, and a site-block button stood
+    on the site with a 404 for her address."""
+    from app.domains.cms.api import CmsPage
+    from app.domains.cms.service import serves_at_address
+
+    # The seed carries the home intro herself (one per tenant): the block
+    # the button may not point at is the real one, not a copy of her.
+    intro = db_session.query(CmsPage).filter(CmsPage.slug == "home-intro").first()
+    assert intro is not None, "de zaaisel draagt geen home-intro"
+    # Published, so the refusal below can only come from her being a site
+    # block — not from her draft state.
+    intro.is_published = True
+    gewoon = CmsPage(title="Een pagina", slug="een-pagina-test", is_published=True)
+    db_session.add(gewoon)
+    db_session.flush()
+
+    assert serves_at_address(intro) is False
+    assert serves_at_address(gewoon) is True
+
+    knop = _doc(
+        {
+            "type": "button",
+            "attrs": {"label": "Naar het intro", "variant": "primary", "page_id": intro.id},
+        }
+    )
+    assert render_document(knop, db_session) == ""
+    assert "siteblok" in render_document(knop, db_session, preview=True)
+
+
+def test_the_screen_button_needs_the_membership_module(db_session):
+    """A3 of the review: the one application screen is mounted behind the
+    membership module (main.py), so for a tenant without her the button
+    is offered nowhere and an existing one is unreachable — the same one
+    rule as every unreachable target: nothing on the site, the words in
+    the preview. Red on the tip before the repair: the resolver wrote the
+    link without a question."""
+    from app.kernel.modules import ModuleCode, current_modules
+
+    knop = _doc(
+        {
+            "type": "button",
+            "attrs": {"label": "Word lid", "variant": "primary", "screen": "lid-worden"},
+        }
+    )
+
+    # A tenant without the module: offered nowhere, rendered nowhere.
+    token = current_modules.set(frozenset())
+    try:
+        assert render_document(knop, db_session) == ""
+        assert "niet aanbiedt" in render_document(knop, db_session, preview=True)
+    finally:
+        current_modules.reset(token)
+
+    # A tenant with her: the screen stands.
+    token = current_modules.set(frozenset({str(ModuleCode.MEMBERSHIP)}))
+    try:
+        assert "/lid-worden" in render_document(knop, db_session)
+    finally:
+        current_modules.reset(token)
+
+
+def test_an_empty_callout_renders_nothing(db_session):
+    """S5 of the review: an empty callout stood on the site as an empty box
+    of 34 px. She renders NOTHING — the author sees her in the editor, the
+    visitor sees no empty frame. Red on the tip before the repair."""
+    leeg = _doc({"type": "callout", "content": []})
+    assert render_document(leeg, db_session) == ""
+    met_woorden = _doc({"type": "callout", "content": [{"type": "text", "text": "Wel woorden."}]})
+    assert "Wel woorden." in render_document(met_woorden, db_session)
+
+
+def test_one_column_comes_back_as_plain_blocks():
+    """S4 of the review: the author reaches a columns block with one
+    column by a Backspace in the empty second column, and on the site she
+    left half the width empty. The save unwraps her into her plain blocks
+    — chosen over a refusal because the editor has no command that adds a
+    column back: a refused document could only be fixed by deleting the
+    block and retyping her words. Red on the tip before the repair: the
+    one-column shape stored as she came."""
+    één = document_from_editor(
+        _doc(
+            {
+                "type": "columns",
+                "attrs": {"align": "top"},
+                "content": [{"type": "column", "content": [_par("Enige kolom")]}],
+            }
+        )
+    )
+    assert [node["type"] for node in één["content"]] == ["paragraph"], één["content"]
+    assert "Enige kolom" in één["content"][0]["content"][0]["text"]
+
+    twee = document_from_editor(
+        _doc(
+            {
+                "type": "columns",
+                "attrs": {"align": "top"},
+                "content": [
+                    {"type": "column", "content": [_par("Links")]},
+                    {"type": "column", "content": [_par("Rechts")]},
+                ],
+            }
+        )
+    )
+    assert twee["content"][0]["type"] == "columns"

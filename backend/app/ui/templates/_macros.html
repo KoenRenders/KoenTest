@@ -1574,7 +1574,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    the caption and the placement; the editor hears the choice as
    `raak-figure-chosen`. The link dialog replaces the browser's `prompt`
    (B5, review of #1699): the UI norm has no browser dialogs. #}
-{% macro document_editor(name, blocks, value_json, id=None, cls="", button_pages=None, button_forms=None) -%}
+{% macro document_editor(name, blocks, value_json, id=None, cls="", button_pages=None, button_forms=None, button_lid_worden=True) -%}
 {%- set editor_id = id or (name ~ "-editor") -%}
 <link rel="stylesheet" href="{{ statisch('vendor/tiptap-3.31.4.css') }}">
 <link rel="stylesheet" href="{{ statisch('prose-figures.css') }}">
@@ -1650,25 +1650,49 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 {% endif %}
 {% set _bied_paginas = button_pages is not none and button_pages|length > 0 %}
 {% set _bied_formulieren = button_forms is not none and button_forms|length > 0 %}
-{% set _eerste_soort = "page" if _bied_paginas else ("form" if _bied_formulieren else "screen") %}
+{% set _eerste_soort = "page" if _bied_paginas else ("form" if _bied_formulieren else ("screen" if button_lid_worden else "href")) %}
 {% if blocks.toolbar.insert and blocks.toolbar.insert | selectattr("id", "equalto", "button") | list %}
 {# The button's dialog (CR-17 #1679): her label, her variant, and the ONE
    destination she leads to — Koen, 11 October 2026: a page of the site, a
    form of the tenant, one application screen (Lid worden), or an outside
    address. The pages and the forms are the caller's own lists (cms's
    record screen passes the tenant's; the kit page passes invented ones);
-   an empty list hides her option — an offered choice must resolve. The
-   apply logic lives on the wrapper (the link dialog's pattern): the
-   button only says "klaar", the wrapper holds the guard. #}
+   an empty list hides her option — an offered choice must resolve. "Word
+   lid" is the caller's word too: the screen is mounted behind the
+   membership module, so a tenant without her is not offered the choice
+   (review A3 of 12 October 2026). The apply logic lives on the wrapper
+   (the link dialog's pattern): the button only says "klaar", the wrapper
+   holds the guard. The dialog opens filled with what the selected button
+   holds — the choose event carries her attrs (review A1) — and an
+   address that is no address is refused here, in a sentence at the
+   field, before anything travels to the editor (review S1). #}
 <div x-data="{ button: false, bLabel: '', bVariant: 'secondary', bKind: '{{ _eerste_soort }}',
-              bPage: {{ (button_pages[0][0] if button_pages else "null") }}, bForm: '{{ button_forms[0][0] if button_forms else "" }}', bHref: '' }"
-     @raak-button-choose.window="if ($event.detail.editor === '{{ editor_id }}') { button = true }"
-     @raak-button-apply.window="if (button && bLabel.trim() && (bKind !== 'href' || bHref.trim())) {
-                                   $dispatch('raak-button-chosen', { editor: '{{ editor_id }}',
-                                                                     label: bLabel, variant: bVariant, kind: bKind,
-                                                                     page_id: bPage ? Number(bPage) : null,
-                                                                     form_slug: bForm || null, href: bHref || null });
-                                   button = false }">
+              bPage: {{ (button_pages[0][0] if button_pages else "null") }}, bForm: '{{ button_forms[0][0] if button_forms else "" }}', bHref: '', bFout: '', bPos: null }"
+     @raak-button-choose.window="if ($event.detail.editor === '{{ editor_id }}') {
+                                   bLabel = ($event.detail.attrs && $event.detail.attrs.label) || '',
+                                   bVariant = ($event.detail.attrs && $event.detail.attrs.variant) || 'secondary',
+                                   bKind = $event.detail.attrs
+                                     ? ($event.detail.attrs.page_id ? 'page'
+                                        : ($event.detail.attrs.form_slug ? 'form'
+                                           : ($event.detail.attrs.screen ? 'screen' : 'href')))
+                                     : '{{ _eerste_soort }}',
+                                   bPage = ($event.detail.attrs && $event.detail.attrs.page_id) || {{ (button_pages[0][0] if button_pages else "null") }},
+                                   bForm = ($event.detail.attrs && $event.detail.attrs.form_slug) || '{{ button_forms[0][0] if button_forms else "" }}',
+                                   bHref = ($event.detail.attrs && $event.detail.attrs.href) || '',
+                                   bFout = '',
+                                   bPos = ($event.detail.pos !== undefined ? $event.detail.pos : null),
+                                   button = true }"
+     @raak-button-apply.window="if (button) {
+                                   if (bKind === 'href' && bHref.trim() && bHref.trim().indexOf('http://') !== 0 && bHref.trim().indexOf('https://') !== 0) {
+                                     bFout = '{{ _("Een adres buiten de site begint met http:// of https://.") }}';
+                                   } else if (bLabel.trim() && (bKind !== 'href' || bHref.trim())) {
+                                     $dispatch('raak-button-chosen', { editor: '{{ editor_id }}',
+                                                                       label: bLabel, variant: bVariant, kind: bKind,
+                                                                       page_id: bPage ? Number(bPage) : null,
+                                                                       form_slug: bForm || null, href: bHref || null,
+                                                                       pos: bPos });
+                                     button = false;
+                                   } }">
   {% call modal("button", _("Knop"), max_w="max-w-lg") %}
   {{ label(_("Tekst op de knop"), editor_id ~ "-btn-label") }}
   {{ input_control("", id=editor_id ~ "-btn-label", cls="w-full", attrs='x-model="bLabel"') }}
@@ -1696,9 +1720,11 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
               :class="bKind === 'form' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white border-gray-300 hover:bg-gray-50'"
               @click="bKind = 'form'">{{ _("Een formulier") }}</button>
       {% endif %}
+      {% if button_lid_worden %}
       <button type="button" class="px-3 py-1.5 text-sm rounded-lg border"
               :class="bKind === 'screen' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white border-gray-300 hover:bg-gray-50'"
               @click="bKind = 'screen'">{{ _("Word lid") }}</button>
+      {% endif %}
       <button type="button" class="px-3 py-1.5 text-sm rounded-lg border"
               :class="bKind === 'href' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white border-gray-300 hover:bg-gray-50'"
               @click="bKind = 'href'">{{ _("Een adres buiten de site") }}</button>
@@ -1720,9 +1746,12 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
       {% endif %}
       {# The x-show stands on her own wrapper, in plain markup: Jinja's
          single-quoted macro attribute knows no escape, so the input's
-         attrs carry the model only. #}
+         attrs carry the model only. The refusal sentence of a bad
+         address stands under her field, in the dialog — nothing is
+         dispatched, nothing inserted (review S1 of 12 October 2026). #}
       <div x-show="bKind === 'href'">
         {{ input_control("", cls="w-full", attrs='x-model="bHref" placeholder="https://"') }}
+        <p x-show="bFout" x-text="bFout" class="text-sm text-red-700 mt-1"></p>
       </div>
     </div>
   </div>

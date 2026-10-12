@@ -332,9 +332,11 @@
       menu.appendChild(summary);
       var items = document.createElement("div");
       items.className = "de-menu-items";
+      var kolommen_el = null;
       insertable.forEach(function (item) {
         var el = button(item.label, item.label);
         el.className = "de-btn de-menu-item";
+        if (item.id === "columns") kolommen_el = el;
         el.addEventListener("click", function () {
           menu.removeAttribute("open");
           if (item.id === "table") {
@@ -354,8 +356,20 @@
             /* The button never lands without her destination: the dialog
                of the macro carries the pages and forms of the tenant, and
                the server refuses a button with no destination anyway
-               (the shape rule, C6 2). */
-            announce("raak-button-choose", { editor: editorId });
+               (the shape rule, C6 2). With a button selected her own
+               words and position travel along (review A1): the dialog
+               opens showing what she holds, and Invoegen changes her at
+               her own place. */
+            var attrs_here = editor.getAttributes("button");
+            var gekozen =
+              attrs_here && attrs_here.label !== undefined
+                ? editor.state.selection.from
+                : null;
+            announce("raak-button-choose", {
+              editor: editorId,
+              attrs: attrs_here && attrs_here.label !== undefined ? attrs_here : null,
+              pos: gekozen,
+            });
           } else if (config.figure) {
             /* The figure never lands without her picture: the dialog of
                the macro opens the kit's picker, and the server's shape
@@ -367,7 +381,40 @@
       });
       menu.appendChild(items);
       menu.addEventListener("toggle", function () {
-        if (menu.open) openInRoom(menu, items);
+        if (menu.open) {
+          /* "Kolommen" is not offered inside a column (review S3 of 12
+             October 2026): the editor would insert the nested block and
+             the save would refuse her — the menu offers what the save
+             takes. The last click inside the editor tells where the
+             author means: the browser commits a clicked position to the
+             selection only a moment after the click, and that moment is
+             not deterministic. Until the first click the selection speaks
+             (the keyboard-only author), and the ancestors are asked by
+             hand (`isActive` answers the selection's own node). The
+             display goes on the style and not on the `hidden` attribute:
+             the editor's own css sets `display` on `.de-btn`, and an
+             attribute loses from her. */
+          if (kolommen_el) {
+            var inKolom = false;
+            var klik = editor.laatsteKlik;
+            var bron = editor.state.selection.$from;
+            if (klik !== null && klik !== undefined) {
+              try {
+                bron = editor.state.doc.resolve(klik);
+              } catch (error) {
+                bron = editor.state.selection.$from;
+              }
+            }
+            for (var d = bron.depth; d >= 1; d--) {
+              if (bron.node(d).type.name === "column") {
+                inKolom = true;
+                break;
+              }
+            }
+            kolommen_el.style.display = inKolom ? "none" : "";
+          }
+          openInRoom(menu, items);
+        }
       });
       bar.appendChild(menu);
     }
@@ -483,14 +530,41 @@
   document.addEventListener("raak-button-chosen", function (event) {
     var editor = editors[event.detail.editor];
     if (!editor || editor.isDestroyed) return;
-    var attrs = { label: event.detail.label || "", variant: event.detail.variant || "secondary" };
+    /* All four destinations travel with the update, the chosen one set and
+       the other three null (review A1 of 12 October 2026): an update that
+       carried only the new one kept the old on the node, and the save
+       refused the two of her with "precies één bestemming". */
+    var attrs = {
+      label: event.detail.label || "",
+      variant: event.detail.variant || "secondary",
+      page_id: null,
+      href: null,
+      form_slug: null,
+      screen: null,
+    };
     if (event.detail.kind === "page") attrs.page_id = event.detail.page_id;
     else if (event.detail.kind === "form") attrs.form_slug = event.detail.form_slug;
     else if (event.detail.kind === "screen") attrs.screen = "lid-worden";
     else attrs.href = event.detail.href || "";
-    var attrs_here = editor.getAttributes("button");
-    if (attrs_here && attrs_here.label !== undefined) {
-      editor.chain().focus().updateAttributes("button", attrs).run();
+    /* The change goes to the button AT THE POSITION the dialog opened for,
+       not to whatever the selection is at apply time: between her click
+       and Invoegen the dialog takes the focus, and a selection read at
+       apply time saw the editor's own state where the update did not
+       land (measured, review A1 of 12 October 2026). Nothing edits the
+       document while the dialog is open, so the position cannot move. */
+    var pos = event.detail.pos;
+    if (pos !== null && pos !== undefined) {
+      editor
+        .chain()
+        .focus()
+        .command(function (props) {
+          var node = props.state.doc.nodeAt(pos);
+          if (node && node.type.name === "button") {
+            props.dispatch(props.state.tr.setNodeMarkup(pos, null, attrs));
+          }
+          return true;
+        })
+        .run();
     } else {
       editor.chain().focus().insertContent({ type: "button", attrs: attrs }).run();
     }
@@ -569,6 +643,59 @@
       element: surface,
       extensions: extensions,
       content: input && input.value ? JSON.parse(input.value) : "",
+    });
+
+    /* Where the last click inside the editor landed — the menu's filter
+       reads her when the selection is still the editor's untouched start
+       (review S3 of 12 October 2026): the browser commits a clicked
+       position to the editor's selection a moment after the click, and
+       that moment is not deterministic; the click's own resolution is.
+       She sits on the editor herself: the toolbar reads her from her own
+       scope. */
+    editor.laatsteKlik = null;
+
+    /* A click on a button opens her own dialog, filled with what she holds
+       (review A1 of 12 October 2026): the node is selected first, and the
+       dialog carries her own position, so Invoegen changes her at that
+       place instead of inserting a second one beside her. The walk up
+       from the click asks every ancestor; a button at the top of the
+       document is no one's child, so the node the cursor lands beside is
+       asked too. */
+    surface.addEventListener("click", function (event) {
+      try {
+        var pos = editor.view.posAtDOM(event.target, 0);
+        editor.laatsteKlik = pos;
+        var from = editor.state.doc.resolve(pos);
+        for (var d = from.depth; d >= 1; d--) {
+          var node = from.node(d);
+          if (node.type.name === "button") {
+            editor.chain().focus().setNodeSelection(from.before(d)).run();
+            announce("raak-button-choose", {
+              editor: mount.id,
+              attrs: node.attrs,
+              pos: from.before(d),
+            });
+            return;
+          }
+        }
+        var erna = from.nodeAfter;
+        if (erna && erna.type.name === "button") {
+          editor.chain().focus().setNodeSelection(pos).run();
+          announce("raak-button-choose", { editor: mount.id, attrs: erna.attrs, pos: pos });
+          return;
+        }
+        var ervoor = from.nodeBefore;
+        if (ervoor && ervoor.type.name === "button") {
+          editor.chain().focus().setNodeSelection(pos - ervoor.nodeSize).run();
+          announce("raak-button-choose", {
+            editor: mount.id,
+            attrs: ervoor.attrs,
+            pos: pos - ervoor.nodeSize,
+          });
+        }
+      } catch (error) {
+        /* A click outside the text asks nothing. */
+      }
     });
     editors[mount.id] = editor;
     if (input) {

@@ -97,16 +97,24 @@ def _record_ctx(
         schema,
         versions,
     )
+    from app.domains.cms.service import serves_at_address
 
     # The button's dialog needs the tenant's pages and her button-eligible
     # forms (Koen, 11 October 2026: a button may lead to a page, a form,
-    # "Lid worden", or an outside address). The pages are cms's own; the
-    # forms ask forms' own door, so the picker offers exactly what the
-    # resolver resolves (#1679).
+    # "Lid worden", or an outside address). The pages are cms's own and
+    # ask `serves_at_address` — the same rule the resolver resolves with,
+    # so the picker offers exactly what she resolves (review A2 of 12
+    # October 2026: the site's own blocks stand at no address of their
+    # own). The forms ask forms' own door. "Word lid" is the module's
+    # own: the screen is mounted behind the membership module, so a
+    # tenant without her is not offered the choice (review A3).
     from app.domains.forms.api import form_button_choices
+    from app.domains.mdm.api import module_enabled
+    from app.kernel.modules import ModuleCode
 
-    button_pages = [(p.id, p.title) for p in list_pages(db)]
+    button_pages = [(p.id, p.title) for p in list_pages(db) if serves_at_address(p)]
     button_forms = form_button_choices(db)
+    button_lid_worden = module_enabled(ModuleCode.MEMBERSHIP)
 
     return {
         "p": page,
@@ -116,6 +124,7 @@ def _record_ctx(
         "editor_config": schema.schema_for("page"),
         "button_pages": button_pages,
         "button_forms": button_forms,
+        "button_lid_worden": button_lid_worden,
         # The value codes the author can type in the document (#1615): the
         # legend in WORDS, one source with the public renderer's examples —
         # the record page's aside shows her.

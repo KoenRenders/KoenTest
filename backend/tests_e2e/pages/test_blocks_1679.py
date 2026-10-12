@@ -186,9 +186,57 @@ def test_the_three_blocks_through_the_screen(setup):
         # De vijf dialogen van het scherm dragen alle role="dialog"; de
         # knop heeft haar eigen staat als x-show — daarop gericht.
         page.wait_for_selector("div[x-show='button'][role='dialog']", state="visible")
+        # A2 van de lezing van 12 oktober 2026: de paginalijst biedt de
+        # siteblokken niet aan — de keuzes zijn wat de resolver oplost.
+        page.locator("div[x-show='button'] button", has_text="Een pagina van de site").click()
+        opties = page.locator("div[x-show='button'] select option").all_inner_texts()
+        assert "Home intro" not in opties and "Site footer" not in opties, opties
         page.fill("#cp-document-btn-label", "Word lid via het scherm")
         page.locator("div[x-show='button'] button", has_text="Primair").click()
         page.locator("div[x-show='button'] button", has_text="Word lid").last.click()
+        page.locator("div[x-show='button'] button", has_text="Invoegen").last.click()
+
+        # Nog twee knoppen, NA ELKAAR op het bovenste niveau (S2 van de
+        # lezing: twee knoppen na elkaar krijgen 8 px tussen haar en één
+        # hoogte — de rand van de secundaire maakte haar 2 px groter dan
+        # de primaire naast haar; gemeten door de looktest hieronder). Een
+        # adres zonder http(s) wordt in de dialoog geweigerd, met een zin
+        # aan het veld, en niets ingevoegd (S1). De pijl-rechts stapt van
+        # de node-selectie af: na het invoegen staat de selectie OP de
+        # knop, en "Knop" in het menu wijzigt dan de geselecteerde (A1)
+        # i.p.v. een nieuwe te zetten.
+        page.keyboard.press("ArrowRight")
+        page.locator(f"{_MENU} summary").click()
+        page.locator(f"{_MENU} button", has_text="Knop").click()
+        page.wait_for_selector("div[x-show='button'][role='dialog']", state="visible")
+        page.fill("#cp-document-btn-label", "Naar buiten")
+        page.locator("div[x-show='button'] button", has_text="Secundair").click()
+        page.locator("div[x-show='button'] button", has_text="Een adres buiten de site").click()
+        page.locator("div[x-show='button'] input[placeholder='https://']").fill(
+            "www.voorbeeld.example"
+        )
+        page.locator("div[x-show='button'] button", has_text="Invoegen").last.click()
+        page.wait_for_selector("div[x-show='button'] p[x-show='bFout']", state="visible")
+        assert (
+            "begint met http:// of https://"
+            in page.locator("div[x-show='button'] p[x-show='bFout']").inner_text()
+        )
+        assert page.locator(f"{EDITOR} .tiptap a.prose-button").count() == 1
+        page.locator("div[x-show='button'] input[placeholder='https://']").fill(
+            "https://voorbeeld.test/buiten"
+        )
+        page.locator("div[x-show='button'] button", has_text="Invoegen").last.click()
+
+        page.keyboard.press("ArrowRight")
+        page.locator(f"{_MENU} summary").click()
+        page.locator(f"{_MENU} button", has_text="Knop").click()
+        page.wait_for_selector("div[x-show='button'][role='dialog']", state="visible")
+        page.fill("#cp-document-btn-label", "Ook buiten")
+        page.locator("div[x-show='button'] button", has_text="Primair").click()
+        page.locator("div[x-show='button'] button", has_text="Een adres buiten de site").click()
+        page.locator("div[x-show='button'] input[placeholder='https://']").fill(
+            "https://voorbeeld.test/nog"
+        )
         page.locator("div[x-show='button'] button", has_text="Invoegen").last.click()
 
         # Opslaan door de balk van het recordformulier; dan publiceren.
@@ -209,9 +257,13 @@ def test_the_three_blocks_through_the_screen(setup):
         body = page.locator(".doc-page").inner_text()
         for woorden in ("De eerste kolom.", "De tweede kolom.", "Een kader via het scherm."):
             assert woorden in body, f"het scherm verloor {woorden!r}"
-        knop = page.locator(".doc-page a.prose-button")
-        assert "Word lid via het scherm" in knop.inner_text()
+        assert page.locator(".doc-page a.prose-button").count() == 3
+        knop = page.locator(".doc-page a.prose-button", has_text="Word lid via het scherm")
         assert knop.get_attribute("href") == "/lid-worden"
+        buiten = page.locator(".doc-page a.prose-button", has_text="Naar buiten")
+        assert buiten.get_attribute("href") == "https://voorbeeld.test/buiten"
+        ook = page.locator(".doc-page a.prose-button", has_text="Ook buiten")
+        assert ook.get_attribute("href") == "https://voorbeeld.test/nog"
         assert page.errors == [], f"the screen throws: {page.errors}"
     finally:
         page.close()
@@ -237,13 +289,15 @@ def test_the_look_of_the_three_blocks(setup, width):
               const c2 = kolommen.children[1].getBoundingClientRect();
               const kader = document.querySelector('.prose-callout');
               const ks = getComputedStyle(kader);
-              const knop = document.querySelector('a.prose-button');
-              const kb = knop.getBoundingClientRect();
+              const knoppen = document.querySelectorAll('.doc-page a.prose-button');
+              const k1 = knoppen[knoppen.length - 2].getBoundingClientRect();
+              const k2 = knoppen[knoppen.length - 1].getBoundingClientRect();
               const kolom = document.querySelector('.doc-page').getBoundingClientRect();
               return {kolommen: [Math.round(c1.width), Math.round(c2.width), Math.round(c2.x - (c1.x + c1.width))],
                       display: getComputedStyle(kolommen).display,
                       kader: [ks.borderTopLeftRadius, ks.backgroundColor, ks.padding],
-                      knop: [Math.round(kb.width), Math.round(kb.height)],
+                      knop: [Math.round(k1.width), Math.round(k1.height)],
+                      knoppen: [Math.round(k1.height), Math.round(k2.height), Math.round(k2.x - (k1.x + k1.width)), Math.round(k2.width)],
                       kolom: [Math.round(kolom.width)],
                       page: [document.documentElement.scrollWidth, innerWidth]}; }"""
         )
@@ -252,12 +306,20 @@ def test_the_look_of_the_three_blocks(setup, width):
             assert look["display"] == "grid", look
             assert look["kolommen"][0] == look["kolommen"][1] == 496, look["kolommen"]
             assert look["kolommen"][2] == 32, f"de tussenruimte is geen 32 px: {look}"
+            # S2 van de lezing van 12 oktober 2026: twee knoppen na elkaar
+            # hebben 8 px tussen haar en één hoogte — de rand van de
+            # secundaire maakte haar 2 px groter vóór de reparatie.
+            assert look["knoppen"][0] == look["knoppen"][1], look["knoppen"]
+            assert look["knoppen"][2] == 8, f"twee knoppen raken elkaar: {look['knoppen']}"
         if width == 390:
             assert look["display"] == "flex", look
             assert look["knop"][0] >= look["kolom"][0] - 1, (
                 "de knop is op de telefoon niet volledige breedte"
             )
             assert look["knop"][1] >= 44, "de knop is op de telefoon geen 44 px hoog"
+            assert look["knoppen"][3] >= look["kolom"][0] - 1, (
+                "de tweede knop is op de telefoon niet volledige breedte"
+            )
         assert look["kader"][0] == "14px", f"het kader heeft niet haar radius 14: {look['kader']}"
         assert look["page"] == [width, width], f"de pagina schuift zijwaarts: {look['page']}"
         assert page.errors == [], f"the screen throws: {page.errors}"
@@ -296,6 +358,120 @@ def test_the_blocks_in_the_home_intro_stay_in_her_band(setup, width):
         )
         assert intro["breedte"][1] <= intro["page"][1], f"de intro breekt uit haar band: {intro}"
         assert intro["page"] == [width, width], f"de home schuift zijwaarts: {intro}"
+        assert page.errors == [], f"the screen throws: {page.errors}"
+    finally:
+        page.close()
+
+
+def _knop_uit_document(document):
+    """The first button's attrs, wherever she stands in the document."""
+    for node in document.get("content") or []:
+        if not isinstance(node, dict):
+            continue
+        if node.get("type") == "button":
+            return node.get("attrs") or {}
+        dieper = _knop_uit_document(node)
+        if dieper:
+            return dieper
+    return {}
+
+
+def _opgeslagen_knop(page_id):
+    """What the save stored: the draft's button, from the database."""
+    from app.database import SessionLocal
+    from app.domains.cms.models import CmsPageTranslation
+
+    s = SessionLocal()
+    try:
+        tr = s.query(CmsPageTranslation).filter(CmsPageTranslation.page_id == page_id).first()
+        return _knop_uit_document(tr.draft_json or {})
+    finally:
+        s.close()
+
+
+def test_a_buttons_destination_changes_and_exactly_one_survives(setup):
+    """A1 of the review of 12 October 2026: changing an existing button's
+    destination kept the old one standing — the save then refused the
+    whole document with "precies één bestemming". Now all four travel
+    with every change, the other three on null; the dialog opens on a
+    CLICK on the button in the editor, filled with what she holds; and
+    what is stored after each change is exactly one destination."""
+    import time
+
+    b, page_id, _slug, session = setup
+    page = b.new_page(base_url=BASE, viewport={"width": 1440, "height": 900})
+    page.errors = []
+    page.on("pageerror", lambda e: page.errors.append(str(e)))
+    try:
+        login_met_sessie(page, session)
+        page.goto(f"/admin/paginas/{page_id}")
+        pagina_klaar(page)
+        page.wait_for_selector(f"{EDITOR} .tiptap")
+
+        def bewaar(enkel, verwacht_sleutel, timeout=15):
+            # De opslag herlaadt het record, en de url blijft tussen
+            # opslagen dezelfde (opgeslagen=1) — een url-wacht keert dan
+            # direct terug. De navigatie zelf wordt afgewacht: pas daarna
+            # is de editor de nieuwe, en klikt de volgende stap niet op
+            # een pagina die op het punt staat te verdwijnen.
+            with page.expect_navigation(timeout=15000):
+                page.locator("[data-action-bar] button[data-form-save]").click()
+            pagina_klaar(page)
+            page.wait_for_selector(f"{EDITOR} .tiptap")
+            deadline = time.time() + timeout
+            laatst = None
+            while time.time() < deadline:
+                laatst = _opgeslagen_knop(page_id)
+                staat = {
+                    k: v
+                    for k, v in laatst.items()
+                    if k in ("page_id", "form_slug", "screen", "href") and v is not None
+                }
+                # Het label hoort erbij: de schermknop van de screentest
+                # hierboven staat óók in het document en draagt óók "screen"
+                # — de poll meet de knop die deze test maakte.
+                if (
+                    laatst.get("label") == "Wissel mij"
+                    and len(staat) == 1
+                    and verwacht_sleutel in staat
+                ):
+                    return
+                time.sleep(0.3)
+            raise AssertionError(
+                f"na de opslag draagt de knop niet precies één bestemming "
+                f"({verwacht_sleutel}): {laatst}"
+            )
+
+        # Een knop, bestemming "Word lid" — de wissel begint bij haar.
+        page.locator(f"{_MENU} summary").click()
+        page.locator(f"{_MENU} button", has_text="Knop").click()
+        page.wait_for_selector("div[x-show='button'][role='dialog']", state="visible")
+        page.fill("#cp-document-btn-label", "Wissel mij")
+        page.locator("div[x-show='button'] button", has_text="Word lid").last.click()
+        page.locator("div[x-show='button'] button", has_text="Invoegen").last.click()
+        bewaar(None, "screen")
+
+        # Elke wissel begint met een KLIK op de knop in de editor: de
+        # dialoog opent gevuld met wat zij draagt, de andere drie
+        # bestemmingen komen op null, en wat de opslag bewaart is precies
+        # de ene nieuwe.
+        for soort, knopje, vul in (
+            ("page", "Een pagina van de site", None),
+            ("form", "Een formulier", None),
+            ("href", "Een adres buiten de site", "https://voorbeeld.test/wissel"),
+            ("screen", "Word lid", None),
+        ):
+            page.click(f"{EDITOR} .tiptap a[data-button] >> nth=0")
+            page.wait_for_selector("div[x-show='button'][role='dialog']", state="visible")
+            assert page.locator("#cp-document-btn-label").input_value() == "Wissel mij", (
+                "de dialoog opent niet met de woorden van de aangeklikte knop"
+            )
+            page.locator("div[x-show='button'] button", has_text=knopje).last.click()
+            if vul:
+                page.locator("div[x-show='button'] input[placeholder='https://']").fill(vul)
+            page.locator("div[x-show='button'] button", has_text="Invoegen").last.click()
+            bewaar(None, {"page": "page_id", "form": "form_slug"}.get(soort, soort))
+
         assert page.errors == [], f"the screen throws: {page.errors}"
     finally:
         page.close()
