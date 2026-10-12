@@ -1683,13 +1683,16 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
                                    bPos = ($event.detail.pos !== undefined ? $event.detail.pos : null),
                                    button = true }"
      @raak-button-apply.window="if (button) {
-                                   if (bKind === 'href' && bHref.trim() && bHref.trim().indexOf('http://') !== 0 && bHref.trim().indexOf('https://') !== 0) {
+                                   var adres = bKind === 'href' ? bHref.trim() : '';
+                                   var schemaOk = (adres.indexOf('http://') === 0 && adres.length > 7)
+                                                || (adres.indexOf('https://') === 0 && adres.length > 8);
+                                   if (bKind === 'href' && !schemaOk) {
                                      bFout = '{{ _("Een adres buiten de site begint met http:// of https://.") }}';
-                                   } else if (bLabel.trim() && (bKind !== 'href' || bHref.trim())) {
+                                   } else if (bLabel.trim() && (bKind !== 'href' || adres)) {
                                      $dispatch('raak-button-chosen', { editor: '{{ editor_id }}',
                                                                        label: bLabel, variant: bVariant, kind: bKind,
                                                                        page_id: bPage ? Number(bPage) : null,
-                                                                       form_slug: bForm || null, href: bHref || null,
+                                                                       form_slug: bForm || null, href: adres || null,
                                                                        pos: bPos });
                                      button = false;
                                    } }">

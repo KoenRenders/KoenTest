@@ -212,6 +212,17 @@ def test_the_three_blocks_through_the_screen(setup):
         page.fill("#cp-document-btn-label", "Naar buiten")
         page.locator("div[x-show='button'] button", has_text="Secundair").click()
         page.locator("div[x-show='button'] button", has_text="Een adres buiten de site").click()
+        # De adresrestanten van de lezing van 12 oktober 2026: een leeg
+        # adres zegt het aan het veld (i.p.v. niets te doen), "https://"
+        # alleen is geen adres, en een voorloopspatie wordt vóór de proef
+        # én vóór de verzending afgeknipt — de opslag antwoordt nooit in
+        # de rauwe woorden.
+        page.locator("div[x-show='button'] button", has_text="Invoegen").last.click()
+        page.wait_for_selector("div[x-show='button'] p[x-show='bFout']", state="visible")
+        page.locator("div[x-show='button'] input[placeholder='https://']").fill("https://")
+        page.locator("div[x-show='button'] button", has_text="Invoegen").last.click()
+        page.wait_for_selector("div[x-show='button'] p[x-show='bFout']", state="visible")
+        assert page.locator(f"{EDITOR} .tiptap a.prose-button").count() == 1
         page.locator("div[x-show='button'] input[placeholder='https://']").fill(
             "www.voorbeeld.example"
         )
@@ -223,7 +234,7 @@ def test_the_three_blocks_through_the_screen(setup):
         )
         assert page.locator(f"{EDITOR} .tiptap a.prose-button").count() == 1
         page.locator("div[x-show='button'] input[placeholder='https://']").fill(
-            "https://voorbeeld.test/buiten"
+            " https://voorbeeld.test/buiten"
         )
         page.locator("div[x-show='button'] button", has_text="Invoegen").last.click()
 
@@ -471,6 +482,116 @@ def test_a_buttons_destination_changes_and_exactly_one_survives(setup):
                 page.locator("div[x-show='button'] input[placeholder='https://']").fill(vul)
             page.locator("div[x-show='button'] button", has_text="Invoegen").last.click()
             bewaar(None, {"page": "page_id", "form": "form_slug"}.get(soort, soort))
+
+        # F2 van de lezing van 12 oktober 2026: een klik in de lege ruimte
+        # van het oppervlak — hier naast de knop, op haar eigen regel —
+        # opent NIETS. Vóór de reparatie loste zo'n klik af op positie 0
+        # en opende de dialoog van de knop bovenaan: de auteur die ernaast
+        # doorklikt om verder te schrijven kreeg een dialoog. Gewacht
+        # wordt op de selectionchange van de klik — het event, niet de
+        # klok (de e2e-poort, #997).
+        teller = _selectie_teller(page)
+        oppervlak = page.locator(f"{EDITOR} .de-surface").bounding_box()
+        knop = page.locator(f"{EDITOR} .tiptap a[data-button]").first.bounding_box()
+        page.locator(f"{EDITOR} .de-surface").click(
+            position={
+                "x": knop["x"] + knop["width"] + 30 - oppervlak["x"],
+                "y": knop["y"] + knop["height"] / 2 - oppervlak["y"],
+            }
+        )
+        page.wait_for_function("(n) => window.__sel > n", arg=teller, timeout=5000)
+        assert page.locator("div[x-show='button'][role='dialog']").is_hidden()
+
+        assert page.errors == [], f"the screen throws: {page.errors}"
+    finally:
+        page.close()
+
+
+_IN_KOLOM = """() => {
+  const s = document.getSelection();
+  const kn = s && s.anchorNode;
+  return !!(kn && (kn.nodeType === 1 ? kn : kn.parentElement).closest('.prose-column'));
+}"""
+
+
+def _selectie_teller(page):
+    """A counter on the browser's own `selectionchange` events. Waiting
+    on her is waiting on the event that commits the editor's selection —
+    the editor reads her state back on exactly this event (review F1 of
+    12 October 2026: poll the editor's state, not the clock — and the
+    e2e gate, #997, forbids the clock)."""
+    page.evaluate(
+        "() => { window.__sel = 0;"
+        " document.addEventListener('selectionchange', () => { window.__sel++; }); }"
+    )
+    return page.evaluate("() => window.__sel")
+
+
+def _wacht_selectie(page, van, voorwaarde):
+    """Wait until the click's selectionchange has fired AND the browser's
+    own selection carries the condition (in a column, or outside)."""
+    page.wait_for_function("(n) => window.__sel > n", arg=van, timeout=5000)
+    page.wait_for_function(voorwaarde, timeout=5000)
+
+
+def test_kolommen_offers_what_the_save_takes(setup):
+    """F1 of the review of 12 October 2026: the insert menu reads the
+    SELECTION alone — not the last click, which stayed standing after the
+    author walked away from it and hid "Kolommen" where she was going.
+    Three cases: a click in a column (not offered), a click outside
+    (offered), and a column reached with the arrows after a click outside
+    (not offered). Every wait is on an event — the selection's own, and
+    the menu's `toggle` — never on the clock."""
+    b, page_id, _slug, session = setup
+    page = b.new_page(base_url=BASE, viewport={"width": 1440, "height": 900})
+    page.errors = []
+    page.on("pageerror", lambda e: page.errors.append(str(e)))
+    try:
+        login_met_sessie(page, session)
+        page.goto(f"/admin/paginas/{page_id}")
+        pagina_klaar(page)
+        page.wait_for_selector(f"{EDITOR} .tiptap")
+        teller = _selectie_teller(page)
+        page.evaluate(
+            "() => { window.__menu = 0;"
+            " document.querySelector('#cp-document details.de-menu-insert')"
+            ".addEventListener('toggle', () => { window.__menu++; }); }"
+        )
+
+        def lees_kolommen():
+            menuTel = page.evaluate("() => window.__menu")
+            page.locator(f"{_MENU} summary").click()
+            # De `toggle`-gebeurtenis komt asynchroon ná het attribuut —
+            # de teller wacht op haar; zonder haar las de test het
+            # antwoord van de vorige opening.
+            page.wait_for_function("(n) => window.__menu > n", arg=menuTel, timeout=5000)
+            verborgen = page.locator(f"{_MENU} button", has_text="Kolommen").is_hidden()
+            page.locator(f"{_MENU} summary").click()
+            return verborgen
+
+        # Een klik in de kolom: niet aangeboden.
+        page.click(f"{EDITOR} .tiptap .prose-column p >> nth=0")
+        _wacht_selectie(page, teller, _IN_KOLOM)
+        assert lees_kolommen(), "Kolommen wordt binnenin een kolom aangeboden"
+        teller = page.evaluate("() => window.__sel")
+
+        # Een klik buiten de kolommen: aangeboden.
+        page.click(f"{EDITOR} .tiptap > p")
+        _wacht_selectie(page, teller, "() => !(" + _IN_KOLOM + ")()")
+        assert not lees_kolommen(), "Kolommen wordt buiten de kolommen niet aangeboden"
+        teller = page.evaluate("() => window.__sel")
+
+        # En met de pijlen in de kolom, na een klik buiten: de selectie
+        # spreekt, niet de laatste klik. De klik valt hier bewust níet
+        # op het midden van de paragraaf: op exact dezelfde positie als
+        # de vorige klik verandert de selectie niet, en dan blijft
+        # `selectionchange` — het event waarop gewacht wordt — uit.
+        page.click(f"{EDITOR} .tiptap > p", position={"x": 2, "y": 2})
+        _wacht_selectie(page, teller, "() => !(" + _IN_KOLOM + ")()")
+        teller = page.evaluate("() => window.__sel")
+        page.keyboard.press("ArrowDown")
+        _wacht_selectie(page, teller, _IN_KOLOM)
+        assert lees_kolommen(), "Kolommen wordt in een via-de-pijlen bereikte kolom aangeboden"
 
         assert page.errors == [], f"the screen throws: {page.errors}"
     finally:

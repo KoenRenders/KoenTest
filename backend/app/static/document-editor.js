@@ -385,28 +385,23 @@
           /* "Kolommen" is not offered inside a column (review S3 of 12
              October 2026): the editor would insert the nested block and
              the save would refuse her — the menu offers what the save
-             takes. The last click inside the editor tells where the
-             author means: the browser commits a clicked position to the
-             selection only a moment after the click, and that moment is
-             not deterministic. Until the first click the selection speaks
-             (the keyboard-only author), and the ancestors are asked by
-             hand (`isActive` answers the selection's own node). The
-             display goes on the style and not on the `hidden` attribute:
-             the editor's own css sets `display` on `.de-btn`, and an
-             attribute loses from her. */
+             takes. The SELECTION is asked, alone (review F1 of 12
+             October 2026): the browser commits a clicked position to the
+             editor's selection a moment after the click, but the menu
+             opens on a second click — the summary — and by then the
+             selection stands where the author clicked, also after the
+             arrows and after typing. The click's own position, first
+             read here, stayed standing after the author walked away from
+             it and hid "Kolommen" where she was going. The ancestors are
+             asked by hand (`isActive` answers the selection's own node).
+             The display goes on the style and not on the `hidden`
+             attribute: the editor's own css sets `display` on `.de-btn`,
+             and an attribute loses from her. */
           if (kolommen_el) {
             var inKolom = false;
-            var klik = editor.laatsteKlik;
-            var bron = editor.state.selection.$from;
-            if (klik !== null && klik !== undefined) {
-              try {
-                bron = editor.state.doc.resolve(klik);
-              } catch (error) {
-                bron = editor.state.selection.$from;
-              }
-            }
-            for (var d = bron.depth; d >= 1; d--) {
-              if (bron.node(d).type.name === "column") {
+            var hier = editor.state.selection.$from;
+            for (var d = hier.depth; d >= 1; d--) {
+              if (hier.node(d).type.name === "column") {
                 inKolom = true;
                 break;
               }
@@ -645,52 +640,29 @@
       content: input && input.value ? JSON.parse(input.value) : "",
     });
 
-    /* Where the last click inside the editor landed — the menu's filter
-       reads her when the selection is still the editor's untouched start
-       (review S3 of 12 October 2026): the browser commits a clicked
-       position to the editor's selection a moment after the click, and
-       that moment is not deterministic; the click's own resolution is.
-       She sits on the editor herself: the toolbar reads her from her own
-       scope. */
-    editor.laatsteKlik = null;
-
     /* A click on a button opens her own dialog, filled with what she holds
        (review A1 of 12 October 2026): the node is selected first, and the
        dialog carries her own position, so Invoegen changes her at that
-       place instead of inserting a second one beside her. The walk up
-       from the click asks every ancestor; a button at the top of the
-       document is no one's child, so the node the cursor lands beside is
-       asked too. */
+       place instead of inserting a second one beside her. Only the button
+       herself opens it (review F2 of 12 October 2026): a click on the
+       editor's own element resolves to position 0, and asking "the node
+       beside it" opened the document's first button from the empty room
+       under the text — an author who clicks there to go on writing got a
+       dialog. The click's target (or her ancestor) must be the button. */
     surface.addEventListener("click", function (event) {
+      var knop = event.target.closest ? event.target.closest("a[data-button]") : null;
+      if (!knop) return;
       try {
-        var pos = editor.view.posAtDOM(event.target, 0);
-        editor.laatsteKlik = pos;
+        var pos = editor.view.posAtDOM(knop, 0);
         var from = editor.state.doc.resolve(pos);
-        for (var d = from.depth; d >= 1; d--) {
-          var node = from.node(d);
-          if (node.type.name === "button") {
-            editor.chain().focus().setNodeSelection(from.before(d)).run();
-            announce("raak-button-choose", {
-              editor: mount.id,
-              attrs: node.attrs,
-              pos: from.before(d),
-            });
-            return;
-          }
-        }
-        var erna = from.nodeAfter;
-        if (erna && erna.type.name === "button") {
-          editor.chain().focus().setNodeSelection(pos).run();
-          announce("raak-button-choose", { editor: mount.id, attrs: erna.attrs, pos: pos });
-          return;
-        }
-        var ervoor = from.nodeBefore;
-        if (ervoor && ervoor.type.name === "button") {
-          editor.chain().focus().setNodeSelection(pos - ervoor.nodeSize).run();
+        var node = from.nodeAfter || from.nodeBefore;
+        if (node && node.type.name === "button") {
+          var knopPos = node === from.nodeAfter ? pos : pos - node.nodeSize;
+          editor.chain().focus().setNodeSelection(knopPos).run();
           announce("raak-button-choose", {
             editor: mount.id,
-            attrs: ervoor.attrs,
-            pos: pos - ervoor.nodeSize,
+            attrs: node.attrs,
+            pos: knopPos,
           });
         }
       } catch (error) {

@@ -348,7 +348,7 @@ def test_the_screen_button_needs_the_membership_module(db_session):
     token = current_modules.set(frozenset())
     try:
         assert render_document(knop, db_session) == ""
-        assert "niet aanbiedt" in render_document(knop, db_session, preview=True)
+        assert "niet wordt aangeboden" in render_document(knop, db_session, preview=True)
     finally:
         current_modules.reset(token)
 

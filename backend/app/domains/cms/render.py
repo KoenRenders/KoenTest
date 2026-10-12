@@ -17,6 +17,8 @@ from typing import Dict, Optional
 
 import nh3
 
+from app.i18n import _
+
 # Sanitisatie-allowlist voor CMS-inhoud (#476): dezelfde soort bescherming als de
 # oude DOMPurify (React), maar server-side. Enkel de tags/attributen die de
 # WYSIWYG-editor produceert; nh3 verwijdert al de rest (<script>, on*-handlers) en
@@ -686,8 +688,9 @@ def _button_html(node: dict, preview: bool = False, db=None) -> str:
             if page is not None and not serves_at_address(page):
                 if preview:
                     return (
-                        f'<span class="{REFUSED_CLS}">Deze knop wijst naar een siteblok '
-                        "dat op geen eigen adres staat.</span>"
+                        f'<span class="{REFUSED_CLS}">'
+                        + _("Deze knop wijst naar een siteblok dat op geen eigen adres staat.")
+                        + "</span>"
                     )
                 return ""
             if page is None:
@@ -695,8 +698,9 @@ def _button_html(node: dict, preview: bool = False, db=None) -> str:
                 # admin preview (the span carries the look's own class).
                 if preview:
                     return (
-                        f'<span class="{REFUSED_CLS}">Deze knop wijst naar een pagina '
-                        "die niet (meer) bestaat.</span>"
+                        f'<span class="{REFUSED_CLS}">'
+                        + _("Deze knop wijst naar een pagina die niet (meer) bestaat.")
+                        + "</span>"
                     )
                 return ""
             return (
@@ -708,8 +712,11 @@ def _button_html(node: dict, preview: bool = False, db=None) -> str:
             if resolved is None:
                 if preview:
                     return (
-                        f'<span class="{REFUSED_CLS}">Deze knop wijst naar een formulier '
-                        "dat geen inzendingen meer aanneemt.</span>"
+                        f'<span class="{REFUSED_CLS}">'
+                        + _(
+                            "Deze knop wijst naar een formulier dat geen inzendingen meer aanneemt."
+                        )
+                        + "</span>"
                     )
                 return ""
             _title, form_path = resolved
@@ -729,8 +736,12 @@ def _button_html(node: dict, preview: bool = False, db=None) -> str:
             if not module_enabled(ModuleCode.MEMBERSHIP):
                 if preview:
                     return (
-                        f'<span class="{REFUSED_CLS}">Deze knop wijst naar een scherm '
-                        "dat deze vereniging niet aanbiedt.</span>"
+                        f'<span class="{REFUSED_CLS}">'
+                        # No "vereniging": the tenant that meets this
+                        # sentence is by nature not always one (review of
+                        # 12 October 2026).
+                        + _("Deze knop wijst naar een scherm dat hier niet wordt aangeboden.")
+                        + "</span>"
                     )
                 return ""
             return (
