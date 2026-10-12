@@ -317,6 +317,7 @@ def test_the_record_reads_first_and_edits_with_one_form(client, db_session, worl
     assert "data-summary-card" in read and "data-related-tabs" in read
     edit = client.get(f"/admin/leden/gezin/{world['id']}?bewerken=1").text
     assert edit.count('<form id="gezin-form"') == 1 and edit.count("data-action-bar") == 1
+    assert edit.count("data-summary-card") == 1, "#1912: the same card while editing"
     assert f'hx-post="/admin/leden/gezin/{world["id"]}"' in edit
     # Nothing on the page saves on its own: the one form, and the delete of the
     # household, are the only posts it holds.

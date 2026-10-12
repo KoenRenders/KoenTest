@@ -397,8 +397,7 @@ SCREENS: tuple[Screen, ...] = (
     Screen(
         "gezin-bewerken",
         "/admin/leden",
-        # No summary while editing a household (Koen, 11 October 2026).
-        ("record head", "form section", "field", "action bar"),
+        ("record head", "summary card", "form section", "field", "action bar"),
         session="admin",
         widths=ADMIN,
         action=_household(edit=True),

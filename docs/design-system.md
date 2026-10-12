@@ -1063,7 +1063,7 @@ in edit mode a record with a composite group takes the whole reading group
 (1 092 px, every full-width field filling it, text areas included — the
 768 px cap on long text fields went on 5 October 2026) with the summary
 card at the form's right where the frame holds both (1 416 px) and otherwise
-above it as the card of 300 px, left-aligned (Koen, 12 October 2026, #1906);
+above it as the band of the end state's §3.10 (Koen, 12 October 2026, #1912);
 a product row is one line naam · prijs · ledenprijs · maximum with
 the settlement choice and Publiek zichtbaar on the second; a component's
 head is naam · maximum · inschrijven tot on one line; the handle's gutter is
