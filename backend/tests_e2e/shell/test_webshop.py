@@ -510,40 +510,55 @@ def test_de_bewegingen_hebben_de_juiste_kolommen(webshop_page):
     kit's `moment` and `text` parts, #1915)."""
     page = webshop_page
 
-    # a correction with a reason, so the reason column has a value to show
     page.goto("/admin/voorraad/correctie")
-    page.locator("select[name=variant_id]").select_option(index=0)
+    variant_id = page.locator("select[name=variant_id] option").nth(0).get_attribute("value")
+    page.locator("select[name=variant_id]").select_option(variant_id)
     page.locator("label", has_text="Eraf").click()
     page.locator("input[name=quantity]").fill("1")
     page.locator("input[name=note]").fill("proefreden")
     with htmx_afgerond(page):
         page.get_by_role("button", name="Correctie opslaan").click()
 
-    page.goto("/admin/voorraad")
-    page.locator("tr[data-row] a[data-row-link]").first.click()
-    page.wait_for_selector("table.data-table")
+    try:
+        page.goto(f"/admin/voorraad/{variant_id}")
+        page.wait_for_selector("table.data-table")
 
-    page.set_viewport_size({"width": 1440, "height": 844})
-    headers = page.locator("table.data-table th")
-    wat = headers.filter(has_text="Wat").bounding_box()
-    aantal = headers.filter(has_text="Aantal").bounding_box()
-    reden = headers.filter(has_text="Reden").bounding_box()
-    assert wat["width"] <= 137, "Wat is breder dan zijn kolomsoort (136 px)"
-    assert abs(aantal["x"] - (wat["x"] + wat["width"])) <= 1, "Aantal staat niet naast Wat"
-    assert reden["width"] > max(wat["width"], aantal["width"]), "Reden is niet de breedste kolom"
-    fits = page.locator("table.data-table td[data-cell='moment']").first.evaluate(
-        "el => el.scrollWidth <= el.clientWidth + 1"
-    )
-    assert fits, "het moment loopt uit zijn cel op 1 440 px"
+        page.set_viewport_size({"width": 1440, "height": 844})
+        headers = page.locator("table.data-table th")
+        wat = headers.filter(has_text="Wat").bounding_box()
+        aantal = headers.filter(has_text="Aantal").bounding_box()
+        reden = headers.filter(has_text="Reden").bounding_box()
+        assert wat["width"] <= 137, "Wat is breder dan zijn kolomsoort (136 px)"
+        assert abs(aantal["x"] - (wat["x"] + wat["width"])) <= 1, "Aantal staat niet naast Wat"
+        assert reden["width"] > max(wat["width"], aantal["width"]), (
+            "Reden is niet de breedste kolom"
+        )
+        fits = page.locator("table.data-table td[data-cell='moment']").first.evaluate(
+            "el => el.scrollWidth <= el.clientWidth + 1"
+        )
+        assert fits, "het moment loopt uit zijn cel op 1 440 px"
 
-    page.set_viewport_size({"width": 390, "height": 844})
-    assert page.locator("table.data-table td[data-cell='moment']").first.is_visible(), (
-        "het moment is niet zichtbaar in de gestapelde rij"
-    )
-    assert page.locator("table.data-table td[data-cell='amount']").first.is_visible(), (
-        "het aantal is niet zichtbaar in de gestapelde rij"
-    )
-    assert page.locator("table.data-table td[data-cell='text']").first.is_visible(), (
-        "de reden is niet zichtbaar in de gestapelde rij"
-    )
-    assert _geen_zijwaartse_scroll(page)
+        page.set_viewport_size({"width": 390, "height": 844})
+        assert page.locator("table.data-table td[data-cell='moment']").first.is_visible(), (
+            "het moment is niet zichtbaar in de gestapelde rij"
+        )
+        assert page.locator("table.data-table td[data-cell='amount']").first.is_visible(), (
+            "het aantal is niet zichtbaar in de gestapelde rij"
+        )
+        assert page.locator("table.data-table td[data-cell='text']").first.is_visible(), (
+            "de reden is niet zichtbaar in de gestapelde rij"
+        )
+        # an empty reason leaves no empty line: a receipt (no note) hides its cell
+        empty = page.locator("table.data-table td[data-cell='text']:empty")
+        if empty.count() > 0:
+            assert not empty.first.is_visible(), "een lege reden toont een lege regel"
+        assert _geen_zijwaartse_scroll(page)
+    finally:
+        # put the piece back
+        page.goto("/admin/voorraad/correctie")
+        page.locator("select[name=variant_id]").select_option(variant_id)
+        page.locator("label", has_text="Erbij").click()
+        page.locator("input[name=quantity]").fill("1")
+        page.locator("input[name=note]").fill("proefreden terug")
+        with htmx_afgerond(page):
+            page.get_by_role("button", name="Correctie opslaan").click()

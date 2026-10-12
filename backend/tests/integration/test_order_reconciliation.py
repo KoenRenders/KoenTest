@@ -46,10 +46,12 @@ def _charges(db, order_id):
 
 
 def test_the_order_change_reconciles_to_the_orders_own_total_and_once(db_session):
-    """The total comes from the order's lines, published in the event; the charge
-    follows it, and the same event twice leaves one charge."""
+    """The charge follows the event's total — the publisher's own, computed from
+    the lines — and the same event twice leaves one charge. The totals are typed
+    here because no code computes an order's total yet (that test comes with the
+    commit that publishes the event)."""
     order = _order_with_line(db_session, quantity=2, price="18.00")
-    # 2 × 18 = 36, computed from the lines — the publisher's own total
+    # 2 × 18 = 36, the total the publisher would compute from the lines
     reconcile_charges(db_session, "order", order.id, Decimal("36.00"))
 
     publish(SalesOrderChanged(order_id=order.id, total_due="18.00"), db_session)
@@ -69,6 +71,18 @@ def test_the_describer_names_the_order(db_session):
     described = order_describer().describe(db_session, [order.id])
     assert described[order.id].description == f"Bestelling {order.id}"
     assert described[order.id].contact_name == "An Janssens"
+
+
+def test_the_describer_names_an_order_of_a_person(db_session):
+    person = Person(
+        first_name="Piet", last_name="Peeters", date_of_birth="1980-05-01", gender_code="M"
+    )
+    db_session.add(person)
+    db_session.flush()
+    order = _order_with_line(db_session, quantity=1, price="15.00", person_id=person.id)
+
+    described = order_describer().describe(db_session, [order.id])
+    assert described[order.id].contact_name == "Piet Peeters"
 
 
 def test_a_cancelled_order_stays_on_the_households_tab(db_session):
