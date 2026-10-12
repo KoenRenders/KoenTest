@@ -137,8 +137,8 @@ summary column (300 px), the margins (24 px) and a two-column form; **below 1 44
 the sidebar collapses to an icon rail of 64 px** (labels as tooltips, the
 same items in the same order) and **below 768 px into a drawer behind a
 menu button**; the frame collapses
-by content, not by device: the summary card moves above the content when
-the content column would drop under 640 px, and the form grid goes to one
+by content, not by device: the summary card moves above the content — as
+the band of §3.10 — when the content column would drop under 640 px, and the form grid goes to one
 column when a half field would be narrower than 260 px, down to the 390 px
 floor (Koen, 2 October 2026).
 At any width the user may collapse the navigation to an icon rail to gain
@@ -329,11 +329,12 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
   rest (photos, Design Studio, print, delete…). Never a button named after
   the fields it edits. [39, 29, 20]
 - **In edit mode a record with a composite repeating group takes the whole
-  reading group** — 1 092 px on a desktop; the summary card stands at the
+  reading group** — 1 092 px on a desktop; the summary stands at the
   form's right where the frame holds both (1 416 px) and otherwise above the
-  form as the card of 300 px, left-aligned, never as a strip of the form's
-  width (Koen, 12 October 2026, #1906: "indien scherm breed genoeg -->
-  rechts"); **every
+  form as the band of §3.10 — never as a strip of rows at the form's width,
+  and not as a lone card of 300 px either (Koen, 12 October 2026, #1906:
+  "indien scherm breed genoeg --> rechts"; the same day, on the band
+  rendered: "perfect"); **every
   full-width field, the text areas included (Omschrijving, interne nota),
   fills the wider column** — the 768 px cap on long text fields that K5c
   built left a gap beside the Omschrijving and went (Koen, 5 October 2026);
@@ -341,8 +342,8 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
   mode, Opslaan and Annuleren return to 768 px with the card at the right
   (Koen, 5 October 2026, after K5 on HDEV: "zeer veel ruimte verloren",
   "smaller dan vroeger"). [Q67]
-- **The summary card** at the right of the content column, `max-w-xs`:
-  the state, two or three figures, the main action; on a phone a compact
+- **The summary card** at the right of the content column, or above it as
+  the band — one card, two places, §3.10; on a phone a compact
   strip under the tabs, above the content. **Only on the Gegevens tab**
   (block 8, Koen, 4 October 2026): a list tab — Personen, Inschrijvingen,
   Betalingen — has no card and no strip, so the list starts directly under
@@ -907,6 +908,49 @@ Lidmaatschap <year> · Personen · Openstaand. Toegang is the head's badge and
 a form field, Inschrijven tot and Bezetting belong to the component. **Only
 on Gegevens**; a list tab has none (block 8, Koen, 4 October 2026). [25]
 
+**One card, two places** (Koen, 12 October 2026, in the design round he
+asked for — "Ik heb het gevoel dat ik hier met allemaal kleine antwoorden de
+bal aan het misslaan ben" — on the concept in his project folder,
+`05-samenvatting-band`; Q&A 2026-10-12 nr. 01):
+
+1. **There is one card**: 300 px, the badge, every figure a row (label
+   left, value right), the action under a line. The same card in read and
+   edit mode, with and without a panel, on every record on the record
+   layout — the household in edit mode included ("ja, a": the exception of
+   11 October goes). Only a list tab has none (block 8).
+2. **The content chooses its width; the card follows**: 768 px, or
+   1 092 px for a form with a composite repeating group in edit mode when
+   the frame holds it; an open panel takes its width from the frame first.
+   The card never pushes the content.
+3. **The card has two places**: beside the content, at its right, top
+   aligned, when the frame holds content + 24 + 300 px; otherwise above it
+   as **the band** — the card fills the column, the badge at the left, the
+   figures as the same rows side by side, each as wide as its label and
+   value with 32 px between them, the action at the right; what does not
+   fit one line runs on to a second. On a phone (a column under 640 px) the
+   strip above. Nothing else: no lone card of 300 px above a wide form, no
+   strip of rows at the form's width.
+
+Koen first saw the band with the rows in equal columns and found "het label
+en het bedrag onnatuurlijk ver uit elkaar"; the rows at their own width were
+"perfect". His alternative — the activity without a card, its figures as
+text with a colon — was not taken: it would make one record the exception.
+
+| Window | Panel | Frame | Read (768) | Edit, wide form (1 092) | Edit, 768 form |
+|---|---|---|---|---|---|
+| 1 920 | closed | 1 632 | beside | beside | beside |
+| 1 920 | Assistent | 1 232 | beside | band | beside |
+| 1 440 | closed | 1 168 | beside | band | beside |
+| 1 440 | Assistent | 768 | band | band (the form falls back to 768) | band |
+| 1 024 | closed | ± 910 | band | band (form ± 910) | band |
+| 390 | — | 358 | strip | strip | strip |
+
+Against master of 12 October 2026 this changes two things: the card of
+300 px above the wide form (#1906) and the strip of rows below a frame of
+964 px (K8) both become the band; and the household gets its card back in
+edit mode. One rule in the kit's stylesheet; the macro and the screens do
+not change.
+
 ### 3.11 `reference(record)` — the jump link
 
 The record's name as a link to its detail, `arrow-up-right` after it,
@@ -1021,8 +1065,8 @@ suggestions of the screen** as text lines above the question field; the
 field from 44 to 120 px with the microphone and the send button, Enter
 sends, Shift+Enter breaks. **The content moves aside, it is not covered**:
 at 1 920 px the whole reading group fits beside the panel; at 1 440 px
-exactly 768 px remain, the summary becomes the strip above the form and
-the form keeps its width; a list beside the panel at 1 440 px falls back
+exactly 768 px remain, the summary becomes the band above the form (§3.10)
+and the form keeps its width; a list beside the panel at 1 440 px falls back
 to its stacked rows (list width under 900) — accepted, the panel is
 occasional and closing restores the room. **Below 1 440 px** a centred
 dialog of at most 560 × 720 px (the background blocked); **at 390 px** a
