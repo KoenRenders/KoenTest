@@ -6,9 +6,10 @@ longer stood on one line. Three things, all geometry, so all measured from the
 rendered DOM:
 
 - **the wide column in edit mode**: a record with a composite group that is being
-  edited takes the reading group, 1 092 px, with its summary above it as a
-  strip; reading, saving and cancelling give 768 px and the card at the right
-  again; a field of full width fills the column, a text box included (#1635:
+  edited takes the reading group, 1 092 px; its summary stands beside it
+  where the frame holds both (1 416 px) and otherwise above it as the card
+  of 300 px, never as a strip of the form's width (#1906); reading, saving
+  and cancelling give 768 px and the card at the right again; a field of full width fills the column, a text box included (#1635:
   #1610 kept long text at 768 px, with a gap at its right); with less than
   1 092 px of frame (the Assistent's panel open) nothing changes;
 - **denser rows**: a product's name · price · member price · maximum on one
@@ -23,7 +24,9 @@ taken out of the stylesheet → 768 in edit mode; the long-text rule of #1610
 put back (#1635) → "Omschrijving is 768 px in a grid of 1 058"; the product's
 first grid back on four tracks → the
 maximum on a second line; the gutter back at 44 px; the child group's indent
-back at 16 px.
+back at 16 px. And for #1906 (12 October 2026): a rule added at the foot of the
+built stylesheet that gives the summary column the form's width again → "the
+summary is 1092 px wide, not the card's 300" at 1 440 px.
 """
 
 import os
@@ -94,18 +97,28 @@ def _page(setup, width: int, edit: bool = True):
 
 
 @pytest.mark.parametrize("width", [1440, 1920])
-def test_the_editor_takes_the_reading_group_and_the_summary_stands_above(setup, width):
-    """Red on master: 768 px in both modes, the summary beside the form."""
+def test_the_editor_takes_the_reading_group_and_the_summary_keeps_the_cards_width(setup, width):
+    """#1906: at 1 440 px the frame (1 168) has no room beside the form, so the
+    card stands above it, left-aligned; at 1 920 px (1 632) it stands at the
+    form's right, their tops level. 300 px wide either way, as in read mode."""
     page = _page(setup, width)
     try:
         m = page.evaluate(_M)
         print("MEASURE room edit", width, m["column"], m["summary"], m["description"], m["body"])
         assert m["mode"] == "edit" and m["column"]["w"] == 1092
-        assert (m["summary"]["x"], m["summary"]["w"]) == (m["column"]["x"], 1092)
-        assert m["summary"]["bottom"] + 24 == m["column"]["y"], (
-            "the strip is not 24 px above the form"
+        assert m["summary"]["w"] == 300, (
+            f"the summary is {m['summary']['w']} px wide, not the card's 300"
         )
-        assert m["summary"]["h"] < 160, "above the form the summary is a strip, not the card"
+        if width == 1440:
+            assert m["summary"]["x"] == m["column"]["x"], "above the form the card is left-aligned"
+            assert m["summary"]["bottom"] + 24 == m["column"]["y"], (
+                "the card is not 24 px above the form"
+            )
+        else:
+            assert m["summary"]["x"] == m["column"]["right"] + 24, (
+                "with room beside the form the card stands at its right"
+            )
+            assert m["summary"]["y"] == m["column"]["y"], "the card and the form start level"
         # #1635: a field of full width fills the column, a text box included —
         # Omschrijving and Interne nota from the left edge of Naam to the right
         # edge of Vriendelijke URL. Red on master: 768 px in a grid of 1 058.
@@ -260,6 +273,9 @@ def test_on_a_phone_nothing_widens_and_the_editor_is_shorter(setup):
         print("MEASURE phone", m["column"], m["body"], m["length"])
         assert m["page"] == [390, 390]
         assert m["column"]["w"] == 358
+        # #1906 leaves the phone as it was: the summary above the form, full width.
+        assert (m["summary"]["x"], m["summary"]["w"]) == (m["column"]["x"], 358)
+        assert m["summary"]["bottom"] <= m["column"]["y"]
         assert m["body"]["w"] >= 239
         # stacked: one field per line, in the order of the form
         ys = [m[k]["y"] for k in ("name", "price", "member", "max", "settle", "active")]
