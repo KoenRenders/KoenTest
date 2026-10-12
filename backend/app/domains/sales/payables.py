@@ -53,19 +53,20 @@ def describe_orders(db: Session, ids: Iterable[int]) -> dict[int, "PayableDescri
 
 
 def orders_of_household(db: Session, household_id: int) -> list[int]:
-    """The orders of a household's persons (the household's payments tab)."""
+    """The orders of a household's persons (the household's payments tab). A
+    cancelled order is read too — its payment and refund stay visible (#190)."""
     from app.domains.mdm.api import MemberPerson
 
     person_ids = [
         row[0]
-        for row in db.query(MemberPerson.person_id)
+        for row in _q(db, MemberPerson.person_id)
         .filter(MemberPerson.member_id == household_id)
         .all()
     ]
     if not person_ids:
         return []
     return [
-        row[0] for row in db.query(SalesOrder.id).filter(SalesOrder.person_id.in_(person_ids)).all()
+        row[0] for row in _q(db, SalesOrder.id).filter(SalesOrder.person_id.in_(person_ids)).all()
     ]
 
 

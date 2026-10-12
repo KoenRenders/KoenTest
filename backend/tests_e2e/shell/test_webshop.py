@@ -505,9 +505,20 @@ def test_ontvangst_in_de_kop_en_correctie_onder_het_menu(webshop_page):
 
 def test_de_bewegingen_hebben_de_juiste_kolommen(webshop_page):
     """The movements columns at 1 440 px: "Wat" no wider than its kind, "Aantal"
-    next to it, "Reden" the widest; at 390 px the stacked row shows the moment
-    and the figure (Koen's fifth point)."""
+    next to it, "Reden" (text) the widest, and the moment fits its 152 px cell;
+    at 390 px the stacked row shows the moment, the figure and the reason (the
+    kit's `moment` and `text` parts, #1915)."""
     page = webshop_page
+
+    # a correction with a reason, so the reason column has a value to show
+    page.goto("/admin/voorraad/correctie")
+    page.locator("select[name=variant_id]").select_option(index=0)
+    page.locator("label", has_text="Eraf").click()
+    page.locator("input[name=quantity]").fill("1")
+    page.locator("input[name=note]").fill("proefreden")
+    with htmx_afgerond(page):
+        page.get_by_role("button", name="Correctie opslaan").click()
+
     page.goto("/admin/voorraad")
     page.locator("tr[data-row] a[data-row-link]").first.click()
     page.wait_for_selector("table.data-table")
@@ -520,12 +531,19 @@ def test_de_bewegingen_hebben_de_juiste_kolommen(webshop_page):
     assert wat["width"] <= 137, "Wat is breder dan zijn kolomsoort (136 px)"
     assert abs(aantal["x"] - (wat["x"] + wat["width"])) <= 1, "Aantal staat niet naast Wat"
     assert reden["width"] > max(wat["width"], aantal["width"]), "Reden is niet de breedste kolom"
+    fits = page.locator("table.data-table td[data-cell='moment']").first.evaluate(
+        "el => el.scrollWidth <= el.clientWidth + 1"
+    )
+    assert fits, "het moment loopt uit zijn cel op 1 440 px"
 
     page.set_viewport_size({"width": 390, "height": 844})
-    assert page.locator("table.data-table td[data-cell='date']").first.is_visible(), (
+    assert page.locator("table.data-table td[data-cell='moment']").first.is_visible(), (
         "het moment is niet zichtbaar in de gestapelde rij"
     )
     assert page.locator("table.data-table td[data-cell='amount']").first.is_visible(), (
         "het aantal is niet zichtbaar in de gestapelde rij"
+    )
+    assert page.locator("table.data-table td[data-cell='text']").first.is_visible(), (
+        "de reden is niet zichtbaar in de gestapelde rij"
     )
     assert _geen_zijwaartse_scroll(page)

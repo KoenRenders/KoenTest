@@ -57,14 +57,17 @@ def _order_line_for(db, variant_id):
 
 def test_a_size_with_an_order_line_is_refused(db_session):
     """Removing a size that stands in an order is refused, and the save rolls
-    back — the size stays."""
+    back — the size stays. The refusal is sales' own (the reason says
+    "bestelling"), not the movement gate's."""
     product, variants = _product_with_variants(db_session, "M", "S")
     _order_line_for(db_session, variants[0].id)
 
     savepoint = db_session.begin_nested()
-    with pytest.raises(SizeNameRefusal):
+    with pytest.raises(SizeNameRefusal) as refusal:
         sync_variants(db_session, product.id, [(str(variants[1].id), "Small")])
     savepoint.rollback()
+
+    assert "bestelling" in str(refusal.value)
 
     db_session.expire_all()
     names = {variant.id: size_of(variant) for variant in variants_of(db_session, product.id)}
@@ -75,5 +78,9 @@ def test_a_product_with_an_order_line_cannot_be_deleted(db_session):
     product, variants = _product_with_variants(db_session, "M")
     _order_line_for(db_session, variants[0].id)
 
-    with pytest.raises(ProductHasOrderLines):
+    with pytest.raises(ProductHasOrderLines) as refusal:
         delete_product(db_session, product.id)
+    assert "bestelling" in str(refusal.value)
+
+    db_session.expire_all()
+    assert db_session.get(Product, product.id) is not None, "the article stays"

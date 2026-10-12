@@ -331,9 +331,26 @@ def test_the_history_table_has_no_payment_method_to_migrate(db_session):
     everywhere = db_session.execute(
         text("SELECT count(*) FROM information_schema.columns WHERE column_name = 'payment_method'")
     ).scalar_one()
-    # A registration and a webshop order both choose how the buyer pays (CR-21
-    # R14); nowhere else does a column carry the name.
+    # The column lives in the two places that choose how the buyer pays — a
+    # registration and a webshop order (CR-21 R14) — and each carries its
+    # foreign key to `mdm.payment_method_codes`.
     assert everywhere == 2, "payment_method is in more than registrations and sales_orders"
+
+    def _has_fk(table: str) -> int:
+        return db_session.execute(
+            text(
+                "SELECT count(*) FROM information_schema.table_constraints tc "
+                "JOIN information_schema.key_column_usage kcu "
+                "  ON tc.constraint_name = kcu.constraint_name "
+                "  AND tc.table_schema = kcu.table_schema "
+                "WHERE tc.constraint_type = 'FOREIGN KEY' "
+                "  AND tc.table_name = :table AND kcu.column_name = 'payment_method'"
+            ),
+            {"table": table},
+        ).scalar_one()
+
+    assert _has_fk("registrations") == 1, "registrations.payment_method lost its key"
+    assert _has_fk("sales_orders") == 1, "sales_orders.payment_method has no key"
 
 
 # ── The gateway keeps its own vocabulary (§B4.10) ────────────────────────────
