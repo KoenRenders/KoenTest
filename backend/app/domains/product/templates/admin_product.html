@@ -14,7 +14,7 @@
 <div id="product-melding" data-form-message>{{ ui.error_banner(error|default(None)) }}</div>
 
 {% macro _size_row(key, name) %}
-{% call ui.group_row("v_order", key, edit=True, menu=["remove"], label=name) %}
+{% call ui.group_row("v_order", key, edit=True, handle=True, menu=["up", "down", "remove"], label=name) %}
   {{ ui.field("v." ~ key ~ ".name", _("Maat"), value=name, required=True, label_hidden=True) }}
 {% endcall %}
 {% endmacro %}
@@ -55,7 +55,7 @@
     {% endcall %}
     {% set _size_template %}{{ _size_row("__V__", "") }}{% endset %}
     {% call ui.repeating_group(_("Maten"), "v_order", token="__V__", add_label=_("Maat"), edit=True,
-                               empty=_("Nog geen maten."), count=sizes|length, template=_size_template) %}
+                               handle=True, empty=_("Nog geen maten."), count=sizes|length, template=_size_template) %}
       {% for size in sizes %}{{ _size_row(size.id, size.name) }}{% endfor %}
     {% endcall %}
     {% call ui.section(_("Op bestelling")) %}

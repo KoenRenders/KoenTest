@@ -162,6 +162,42 @@ def test_de_bewegingen_van_een_maat_worden_getoond(webshop_page):
     assert "Ontvangst" in text
 
 
+def test_een_maat_wordt_via_het_menu_verplaatst(webshop_page):
+    """A size moved up through the row menu lands first after the save — on the
+    record and in Prijsbeheer's select (the sizes' order)."""
+    page = webshop_page
+    page.set_viewport_size({"width": 390, "height": 844})
+    record = _open_artikel_in_bewerkmodus(page)
+
+    eerste = page.locator("[data-group-row]").first.locator('input[name^="v."]').input_value()
+
+    page.locator("[data-group-add]").click()
+    page.locator("[data-group-row]").last.locator('input[name^="v."]').fill("L")
+    row = page.locator("[data-group-row]").last
+    row.locator("[data-row-menu-trigger]").click()
+    row.locator('[data-row-action="up"]').click()
+    page.locator("[data-form-save]").click()
+    page.wait_for_url("**" + record)
+
+    page.goto(record)
+    assert _maten_van_de_pagina(page) == ["L", eerste]
+
+    page.goto("/admin/prijzen/" + record.rstrip("/").split("/")[-1])
+    page.wait_for_selector("select[name=variant_id]")
+    options = page.locator("select[name=variant_id] option").all_inner_texts()
+    assert options[0] == "Alle maten"
+    assert options[1] == "L" and options[2] == eerste
+
+    # put the record back to the seed (remove the added size)
+    page.goto(record + "?bewerken=1")
+    page.wait_for_selector("[data-group-row]")
+    row = page.locator("[data-group-row]").filter(has=page.locator('input[value="L"]'))
+    row.locator("[data-row-menu-trigger]").click()
+    row.locator('[data-row-action="remove"]').click()
+    page.locator("[data-form-save]").click()
+    page.wait_for_url("**" + record)
+
+
 def test_een_foto_wordt_opgeladen_en_verwijderd(webshop_page):
     """A picture is uploaded through the record and really shows — its natural
     width above zero after a fresh load — then removed (R3)."""

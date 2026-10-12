@@ -128,13 +128,16 @@ def rename_variant(db: Session, variant_id: int, size: str) -> ProductVariant:
     return _set_variant_name(db, variant, size)
 
 
-def _new_variant(db: Session, product_id: int, size: str) -> ProductVariant:
+def _new_variant(
+    db: Session, product_id: int, size: str, *, sort_order: int | None = None
+) -> ProductVariant:
     """A size written with no name rule — `add_variant` checks, `sync_variants`
-    has already checked the names as they will stand after its save."""
+    has already checked the names as they will stand after its save. `sort_order`
+    is the append position when not given; `sync_variants` passes the row's place."""
     variant = ProductVariant(
         product_id=product_id,
         properties=[{"name": "Maat", "value": size}],
-        sort_order=len(variants_of(db, product_id)),
+        sort_order=len(variants_of(db, product_id)) if sort_order is None else sort_order,
     )
     db.add(variant)
     db.flush()
@@ -291,9 +294,10 @@ def size_of(variant: ProductVariant) -> str:
 
 def sync_variants(db: Session, product_id: int, ordered: list[tuple[str, str]]) -> None:
     """Bring the article's sizes to `ordered` — a list of `(key, name)` from the
-    record's repeating group. A key that is an existing variant's id renames it, a
-    new key adds a size, and an existing variant not in the list is deleted. One
-    transaction: a refusal in a delete (a size with movements, through `stock`'s
+    record's repeating group, whose order is the sizes' order. A key that is an
+    existing variant's id renames it and takes that place (`sort_order`); a new key
+    adds a size at its place; and an existing variant not in the list is deleted.
+    One transaction: a refusal in a delete (a size with movements, through `stock`'s
     handler) rolls every change of this save back.
 
     The name rule runs once, against the names as they will stand after this save
@@ -320,13 +324,14 @@ def sync_variants(db: Session, product_id: int, ordered: list[tuple[str, str]]) 
             raise SizeNameRefusal(f"v.{key}.name", _("Deze maat bestaat al."))
         seen[folded] = key
 
-    for key, name in ordered:
+    for index, (key, name) in enumerate(ordered):
         name = (name or "").strip()
         if key in existing:
+            existing[key].sort_order = index
             if name != size_of(existing[key]):
                 _set_variant_name(db, existing[key], name)
         elif name:
-            _new_variant(db, product_id, name)
+            _new_variant(db, product_id, name, sort_order=index)
 
     for key in list(existing):
         if key not in kept:

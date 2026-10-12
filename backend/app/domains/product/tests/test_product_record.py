@@ -168,6 +168,21 @@ def test_swapping_two_names_in_one_save_is_no_duplicate(client, db_session, ever
     assert [size_of(v) for v in variants_of(db_session, product.id)] == ["L", "M"]
 
 
+def test_sizes_are_reordered_through_the_record(client, db_session, every_module_on):
+    from app.domains.product.api import size_of, variants_of
+
+    product = create_product(db_session, "T-shirt Raak")
+    m = add_variant(db_session, product.id, "M")
+    second = add_variant(db_session, product.id, "L")
+
+    answer = _save_sizes(
+        client, db_session, every_module_on, product, [(str(second.id), "L"), (str(m.id), "M")]
+    )
+    assert answer.status_code == 303
+
+    assert [size_of(v) for v in variants_of(db_session, product.id)] == ["L", "M"]
+
+
 def test_a_name_over_255_characters_is_refused(client, db_session, every_module_on):
     import pytest
 
