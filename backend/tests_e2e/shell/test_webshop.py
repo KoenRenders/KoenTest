@@ -363,7 +363,7 @@ def test_de_knoppen_op_het_bewerkscherm_op_390_px(webshop_page):
 def test_de_fotos_op_390_px_staan_onder_elkaar(webshop_page):
     """At 390 px the edit screen's six pictures stand one per row: a picture with
     its wide "Verwijderen" button takes the whole card, so the flex-wrap stacks
-    them (S3)."""
+    them (S3). The six pictures are removed again even when an assertion fails."""
     from io import BytesIO
 
     from PIL import Image
@@ -374,26 +374,27 @@ def test_de_fotos_op_390_px_staan_onder_elkaar(webshop_page):
 
     buf = BytesIO()
     Image.new("RGB", (40, 30), (10, 90, 200)).save(buf, format="PNG")
-    for i in range(6):
-        page.locator('form[hx-post$="/fotos"] input[type="file"]').set_input_files(
-            {"name": f"foto-{i}.png", "mimeType": "image/png", "buffer": buf.getvalue()}
-        )
-        with htmx_afgerond(page):
-            page.locator('button[form="foto-form"]').click()
+    try:
+        for i in range(6):
+            page.locator('form[hx-post$="/fotos"] input[type="file"]').set_input_files(
+                {"name": f"foto-{i}.png", "mimeType": "image/png", "buffer": buf.getvalue()}
+            )
+            with htmx_afgerond(page):
+                page.locator('button[form="foto-form"]').click()
 
-    page.goto(record + "?bewerken=1")
-    page.wait_for_selector('img[src^="/api/v1/media/"]')
-    imgs = page.locator('img[src^="/api/v1/media/"]')
-    assert imgs.count() == 6
-    tops = sorted(round(imgs.nth(i).bounding_box()["y"]) for i in range(imgs.count()))
-    assert len(set(tops)) == 6, f"foto's staan niet onder elkaar: {tops}"
-
-    # put the record back to the seed (no pictures)
-    for _ in range(6):
         page.goto(record + "?bewerken=1")
-        page.wait_for_selector('button[hx-post*="/bijlage/"]')
-        page.locator('button[hx-post*="/bijlage/"]').first.click()
-        ok = page.locator("[data-dialog] [data-dialog-ok]")
-        ok.wait_for(state="visible")
-        with htmx_afgerond(page):
-            ok.click()
+        page.wait_for_selector('img[src^="/api/v1/media/"]')
+        imgs = page.locator('img[src^="/api/v1/media/"]')
+        assert imgs.count() == 6
+        tops = sorted(round(imgs.nth(i).bounding_box()["y"]) for i in range(imgs.count()))
+        assert len(set(tops)) == 6, f"foto's staan niet onder elkaar: {tops}"
+    finally:
+        # put the record back to the seed (no pictures)
+        for _ in range(6):
+            page.goto(record + "?bewerken=1")
+            page.wait_for_selector('button[hx-post*="/bijlage/"]')
+            page.locator('button[hx-post*="/bijlage/"]').first.click()
+            ok = page.locator("[data-dialog] [data-dialog-ok]")
+            ok.wait_for(state="visible")
+            with htmx_afgerond(page):
+                ok.click()

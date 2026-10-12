@@ -18,9 +18,8 @@ from app.domains.product.models import (
     ProductVariant,
     SizeNameRefusal,
 )
-from app.domains.stock.api import StockError
 from app.kernel.contracts.media import RemoveAsset
-from app.kernel.contracts.product import ProductDeleted
+from app.kernel.contracts.product import ProductDeleted, SizeDeleteRefused
 from app.kernel.events import has_subscribers, publish
 from app.kernel.ports import call
 
@@ -235,12 +234,12 @@ def delete_product(db: Session, product_id: int) -> None:
 
     Refused while the product has stock movements — such an article is set
     DISCONTINUED, never deleted. The gate lives in `stock`'s handler on
-    `ProductDeleted`, not here: the product does not know its movements. The
-    order-line gate joins in phase 2, when `sales` exists. The files of the
-    product's attachments are removed through media's `RemoveAsset` port, but
-    only when no other attachment points at them. Publishes `ProductDeleted`
-    inside the transaction, so a refusal in `pricing` or `stock` rolls the
-    delete back.
+    `ProductDeleted`, not here: the whole-article refusal raises `ProductHasMovements`
+    and reaches the door unchanged. The order-line gate joins in phase 2, when
+    `sales` exists. The files of the product's attachments are removed through
+    media's `RemoveAsset` port, but only when no other attachment points at them.
+    Publishes `ProductDeleted` inside the transaction, so a refusal in `pricing`
+    or `stock` rolls the delete back.
     """
     product = db.get(Product, product_id)
     if product is None:
@@ -261,8 +260,9 @@ def delete_variant(db: Session, variant_id: int) -> None:
     """Delete one size of a product, its prices going with it (Q75).
 
     The product and its own price stay; only the size's prices go. Refused while
-    the size has stock movements — the gate lives in `stock`'s handler. Flush
-    only: the door commits.
+    the size has stock movements: `stock`'s handler raises `SizeDeleteRefused`,
+    which `sync_variants` turns into a `SizeNameRefusal` at the size's row. A
+    direct caller hears the `SizeDeleteRefused`. Flush only: the door commits.
     """
     variant = db.get(ProductVariant, variant_id)
     if variant is None:
@@ -332,11 +332,10 @@ def sync_variants(db: Session, product_id: int, ordered: list[tuple[str, str]]) 
         if key not in kept:
             try:
                 delete_variant(db, existing[key].id)
-            except StockError as refusal:
+            except SizeDeleteRefused as refusal:
                 raise SizeNameRefusal(
                     f"v.{key}",
-                    _("Maat %(name)s heeft voorraadbewegingen en kan niet verwijderd worden.")
-                    % {"name": size_of(existing[key])},
+                    f"{_('Maat')} {size_of(existing[key])} {refusal.reason}",
                 ) from refusal
     db.commit()
 

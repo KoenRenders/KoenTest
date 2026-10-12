@@ -24,6 +24,8 @@ class ProductNewView(ViewModel):
 
     csrf_token: str
     error: Optional[str] = None
+    #: What was typed, so a refused save puts it back in the field (S3/N3).
+    name: str = ""
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 
 

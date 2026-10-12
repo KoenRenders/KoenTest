@@ -13,9 +13,9 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.domains.stock.models import ProductHasMovements, StockError
+from app.domains.stock.models import ProductHasMovements
 from app.domains.stock.service import has_movements
-from app.kernel.contracts.product import ProductDeleted
+from app.kernel.contracts.product import ProductDeleted, SizeDeleteRefused
 from app.kernel.events import subscribe
 
 
@@ -26,7 +26,9 @@ def refuse_delete_with_movements(event: ProductDeleted, db: Session) -> None:
     An article with a movement is decommissioned, never deleted (Q75, AC19). The
     sentence raised here is the bare fact; the screen that catches it decides the
     offer — an article already Afgevoerd is not offered the alternative again.
-    For a size the article stays; only the size is named.
+    For a size the article stays; the refusal carries the size's id and the reason
+    as a bare fragment, so `product` names the size at its row and words nothing
+    of movements itself.
     """
     if not has_movements(db, event.variant_ids):
         return
@@ -36,4 +38,7 @@ def refuse_delete_with_movements(event: ProductDeleted, db: Session) -> None:
         raise ProductHasMovements(
             _("Dit artikel heeft voorraadbewegingen en kan niet verwijderd worden.")
         )
-    raise StockError(_("Deze maat heeft voorraadbewegingen en kan niet verwijderd worden."))
+    raise SizeDeleteRefused(
+        event.variant_ids[0],
+        _("heeft voorraadbewegingen en kan niet verwijderd worden."),
+    )

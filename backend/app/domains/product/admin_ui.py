@@ -94,10 +94,13 @@ def _list_view(request: Request, db: Session, error: Optional[str] = None) -> Pr
     )
 
 
-def _new_view(request: Request, db: Session, error: Optional[str] = None) -> ProductNewView:
+def _new_view(
+    request: Request, db: Session, error: Optional[str] = None, name: str = ""
+) -> ProductNewView:
     return ProductNewView(
         csrf_token=_csrf(request),
         error=error,
+        name=name,
         nav_items=admin_nav(NAV, request),
     )
 
@@ -138,7 +141,7 @@ def product_create(
         return templates.TemplateResponse(
             request,
             "admin_product_nieuw.html",
-            _new_view(request, db, error=str(refusal)).as_context(),
+            _new_view(request, db, error=str(refusal), name=name).as_context(),
             status_code=422,
         )
     return RedirectResponse(f"/admin/producten/{product.id}", status_code=303)
@@ -252,8 +255,6 @@ def product_update(
         )
     except ProductError as refusal:
         return refusal_response(request, [FieldError("name", str(refusal))], "#product-melding")
-    except StockError as refusal:
-        return refusal_response(request, [FieldError("", str(refusal))], "#product-melding")
     return _redirect(request, f"/admin/producten/{product_id}")
 
 

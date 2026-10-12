@@ -30,7 +30,11 @@ facade.
 
 Publishes `ProductDeleted(product_id, variant_ids)` (`kernel/contracts/product.py`),
 inside the transaction of the delete, so `pricing` drops the prices and `stock`
-refuses a delete that still has movements in the same transaction (Q75).
+refuses a delete that still has movements in the same transaction (Q75). A
+subscriber that refuses a size raises `SizeDeleteRefused(variant_id, reason)`
+from that same contract; `sync_variants` catches it and names the size at its row,
+so the reason lives once, in the domain that refuses (today `stock`, later
+`sales`).
 
 ## Callers
 
