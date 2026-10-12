@@ -79,12 +79,13 @@ class PayableType(CodeEnum):
     """What the money is *for*: the polymorphic half of the ledger.
 
     The pair (`payable_type`, `payable_id`) is how a payment record points at a
-    registration or a membership without a foreign key to either — the ledger
-    serves two domains and may not depend on both.
+    registration, a membership or a webshop order without a foreign key to any
+    of them — the ledger serves several domains and may not depend on them.
     """
 
     REGISTRATION = "registration"
     MEMBERSHIP = "membership"
+    ORDER = "order"
 
 
 class PaymentProvider(CodeEnum):

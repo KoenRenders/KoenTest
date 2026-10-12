@@ -331,7 +331,9 @@ def test_the_history_table_has_no_payment_method_to_migrate(db_session):
     everywhere = db_session.execute(
         text("SELECT count(*) FROM information_schema.columns WHERE column_name = 'payment_method'")
     ).scalar_one()
-    assert everywhere == 1, "payment_method is in more than one place in the schema"
+    # A registration and a webshop order both choose how the buyer pays (CR-21
+    # R14); nowhere else does a column carry the name.
+    assert everywhere == 2, "payment_method is in more than registrations and sales_orders"
 
 
 # ── The gateway keeps its own vocabulary (§B4.10) ────────────────────────────

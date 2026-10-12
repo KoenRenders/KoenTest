@@ -15,6 +15,7 @@ from app.domains.payment.models import PayableType
 from app.domains.payment.service import reconcile_charges
 from app.kernel.contracts.activities import OrderChanged
 from app.kernel.contracts.membership import MembershipDeleted
+from app.kernel.contracts.sales import SalesOrderChanged
 from app.kernel.events import subscribe
 
 
@@ -51,4 +52,18 @@ def reconcile_charges_of_deleted_membership(event: MembershipDeleted, db: Sessio
         audit_actor=event.actor,
         source="membership-delete",
         refund_note="Automatisch bij schrappen lidmaatschap — terugstorting te bevestigen",
+    )
+
+
+@subscribe(SalesOrderChanged)
+def reconcile_order_on_change(event: SalesOrderChanged, db: Session) -> None:
+    """The money follows a changed order (D4, R16): bring its charges to the total
+    `sales` computed. A cancelled order is a change to a total of 0 (Q61)."""
+    reconcile_charges(
+        db,
+        PayableType.ORDER,
+        event.order_id,
+        Decimal(event.total_due),
+        audit_actor=event.actor,
+        source="sales-order-edit",
     )

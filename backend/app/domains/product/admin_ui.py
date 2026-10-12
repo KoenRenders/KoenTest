@@ -45,6 +45,7 @@ from app.domains.product.viewmodels import (
     ProductRefusalView,
     ProductView,
 )
+from app.domains.sales.api import ProductHasOrderLines
 from app.domains.stock.api import ProductHasMovements, StockError
 from app.i18n import _
 from app.kernel.refusals import FieldError
@@ -317,6 +318,16 @@ def product_delete(
             request,
             _(
                 "Dit artikel heeft voorraadbewegingen en kan niet verwijderd worden — zet het afgevoerd."
+            ),
+        )
+    except ProductHasOrderLines as refusal:
+        # The same offer for an article that stands in an order (T19, AC19).
+        if product.status is ProductStatus.DISCONTINUED:
+            return _refusal(request, str(refusal))
+        return _refusal(
+            request,
+            _(
+                "Dit artikel staat in een bestelling en kan niet verwijderd worden — zet het afgevoerd."
             ),
         )
     except (ProductError, StockError) as refusal:

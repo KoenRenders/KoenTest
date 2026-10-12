@@ -83,6 +83,9 @@ from app.domains.pricing.handlers import (  # noqa: F401 - event subscription (C
 )
 from app.domains.product.admin_ui import router as product_admin_ui_router
 from app.domains.reporting.admin_ui import router as reporting_admin_ui_router
+from app.domains.sales.handlers import (  # noqa: F401 - event subscription (CR-21)
+    refuse_delete_with_order_lines,
+)
 from app.domains.stock.admin_ui import router as stock_admin_ui_router
 from app.domains.stock.handlers import (  # noqa: F401 - event subscription (CR-21)
     refuse_delete_with_movements,
@@ -147,9 +150,11 @@ async def _lifespan(app: FastAPI):
 from app.domains.activities.api import registration_describer  # noqa: E402
 from app.domains.membership.api import membership_describer  # noqa: E402
 from app.domains.payment.api import PayableType, register_describer  # noqa: E402
+from app.domains.sales.api import order_describer  # noqa: E402
 
 register_describer(PayableType.REGISTRATION, registration_describer())
 register_describer(PayableType.MEMBERSHIP, membership_describer())
+register_describer(PayableType.ORDER, order_describer())
 
 app = FastAPI(
     lifespan=_lifespan,
