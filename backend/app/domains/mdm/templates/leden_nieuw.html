@@ -2,47 +2,27 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Nieuw lid — Raak beheer") }}{% endblock %}
 {% block content %}
-{# Aanmaakscherm als volledige pagina (#627, §2.8): geen modal.
-
-   Sinds #1110 is het één formulier met één opslaan-actie, in de vorm van het
-   publieke "Word lid": hoofdlid mét e-mail en gsm, het adres, eventueel extra
-   gezinsleden. Daarvóór waren het vier aparte opslag-acties — gezin, dan
-   contactgegevens, dan adres, dan lidmaatschap — en het scherm vroeg e-mail en
-   gsm zelfs niet, terwijl het publieke formulier ze verplicht. Eén schrijfweg
-   (`membership.api.create_family_with_members`), dus één regel voor beide. #}
-{{ ui.page_header(_("Nieuw lid"), _("Hoofdlid, adres en eventueel extra gezinsleden — in één keer bewaard.")) }}
-{{ ui.error_banner(error) }}
-
-{# Begrensde formulierkolom, zoals het publieke formulier (F18, #913): korte
-   persoonsvelden horen niet over de volle paginabreedte. #}
-<div class="max-w-2xl">
-{# #1515: a refusal answers this full page again (422, swapped since then); without
-   a target it landed inside the form itself — two shells, measured. The body is
-   its place, as for the organisation and tenant forms. Success redirects. #}
-<form hx-post="/admin/leden" hx-target="body" hx-swap="innerHTML" class="space-y-4">
-  {# Golf 6, kop-herziening: het cluster bovenaan. #}
-  {{ ui.action_bar(cancel_href="/admin/leden") }}
-
-  {# Hoofdlid — dezelfde veldenset als publiek (#511), dus e-mail en gsm
-     verplicht en de relatie vast op HOOFDLID. #}
-  <div id="hoofdlid">
-    {% with i = 0 %}{% include "_lid_persoon_rij.html" %}{% endwith %}
-  </div>
-
-  {% call ui.card() %}
-    {% with av = values %}{% include "_leden_adres_velden.html" %}{% endwith %}
-  {% endcall %}
-
-  {# Extra gezinsleden: een rij erbij is enkel een lege vorm, geen opslag — je
-     verliest dus niets van wat je al typte (#1110). #}
-  <div id="extra-personen" class="space-y-4"></div>
-  <button type="button" class="{{ ui.btn_class('secondary') }}"
-          hx-get="/admin/leden/nieuw/persoon-rij" hx-target="#extra-personen" hx-swap="beforeend"
-          hx-vals='js:{index: 1 + document.querySelectorAll("#extra-personen > div").length}'>
-    {{ _("+ Gezinslid toevoegen") }}
-  </button>
-
-  <p class="text-xs text-ink-soft">{{ _("Het lidmaatschap voor dit jaar wordt meteen aangemaakt. Een ander jaar voeg je toe op de gezinspagina.") }}</p>
-</form>
+{# Nieuw lid as a full page (#627, §2.8): no modal. Since #1899 it is the form
+   of the public Word lid on the person card — the main member's card with the
+   fixed badge, the address, a card per extra person with its relation, "+
+   Gezinslid toevoegen" — without the payment choice: the household is made a
+   member for this year at once. One form, one "Opslaan", one transaction, and
+   one reader and one rule for both doors (`membership.signup_form`,
+   `FamilyCreate`). A refusal answers the kit's banner in the page's message
+   line and leaves the form as typed; success redirects to the new record. #}
+{% set _edit = True %}
+{% call ui.public_form_page(_("Nieuw lid"), shell="admin",
+                            back_href="/admin/leden", back_label=_("Leden"),
+                            intro=_("Hoofdlid, adres en eventueel extra gezinsleden — in één keer bewaard. Het lidmaatschap voor dit jaar wordt meteen aangemaakt.")) %}
+<div data-form-flow data-mode="edit" class="form-flow">
+  <div id="lid-nieuw-melding" data-form-message></div>
+  <form id="lid-nieuw-form" class="contents" data-record-form data-message="#lid-nieuw-melding" novalidate
+        hx-post="/admin/leden" hx-swap="none">
+    {% include "_household_head.html" %}
+    {% include "_household_address.html" %}
+    {% include "_household_group.html" %}
+  </form>
+  {{ ui.action_bar(record=True, form="lid-nieuw-form", cancel_href="/admin/leden") }}
 </div>
+{% endcall %}
 {% endblock %}

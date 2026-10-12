@@ -51,10 +51,13 @@ def test_the_summary_card_says_the_state_first_then_the_figures():
     assert "data-summary-action" not in html and "data-copy" not in html
 
 
-def test_the_summary_card_shows_at_most_three_figures():
-    four = FIGURES + [{"label": "Vierde", "value": "4"}]
-    html = _render(CARD, state=None, figures=four, action=None)
-    assert html.count("<div data-summary-figure>") == 3 and "Vierde" not in html
+def test_the_summary_card_shows_every_figure_it_is_given():
+    """#1899 (CR-11 B10 of 10 October 2026): no cap of three any more. Goes red
+    on `figures[:3]` back in the macro."""
+    five = FIGURES + [{"label": "Vierde", "value": "4"}, {"label": "Vijfde", "value": "5"}]
+    html = _render(CARD, state=None, figures=five, action=None)
+    assert html.count("<div data-summary-figure>") == 5
+    assert html.index("Vierde") < html.index("Vijfde")
     assert "data-summary-state" not in html
 
 

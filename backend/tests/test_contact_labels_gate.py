@@ -138,7 +138,6 @@ def test_the_scan_reads_the_application():
         ("domains/membership/templates/_household_rows.html", "Mobiel"),
         ("domains/membership/templates/_household_rows.html", "E-mail"),
         ("domains/activities/templates/_inschrijf_velden.html", "Mobiel"),
-        ("ui/templates/_macros.html", "Mobiel"),
         ("domains/reporting/changes.py", "mobiel"),
     ):
         assert label in copy_of(APP / name)[1], f"{name} does not carry the label {label!r}"

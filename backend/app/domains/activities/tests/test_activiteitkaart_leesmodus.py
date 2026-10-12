@@ -63,10 +63,20 @@ def _leesdeel(html: str) -> str:
     return lees
 
 
-def _value(lees: str, field: str) -> str:
-    """What the read state shows as the value of one field."""
-    block = lees[lees.index(f'data-field="{field}"') :]
-    return block[block.index("data-value") :].split("</p>", 1)[0].split(">", 1)[1].strip()
+def _words(html: str) -> str:
+    """The text a reader sees, on one line."""
+    import re
+    from html import unescape
+
+    return " ".join(unescape(re.sub(r"<[^>]+>", " ", html)).split())
+
+
+def _block(lees: str, hook: str) -> str:
+    """The words of the read block with this hook (`data-activity-facts`,
+    `data-internal-note`). Since #1900 read mode shows facts, not the editor's
+    fields with their labels: a block per card, cut at the end of its section."""
+    start = lees.index(">", lees.index(hook)) + 1
+    return _words(lees[start : lees.index("</section>", start)])
 
 
 # ── 1. De kaart toont wat ze bevat ──────────────────────────────────────────
@@ -77,7 +87,7 @@ def test_description_and_internal_note_are_visible_without_clicking(client, db_s
 
     Counter-proof at the time: the two read lines removed → both assertions
     fail, while `OMSCHRIJVING in html` stayed true through the hidden form. The
-    hidden form is gone; the values are read from the fields' read blocks.
+    hidden form is gone; the values are read from the cards' read blocks.
     """
     activiteit.description = OMSCHRIJVING
     activiteit.board_notes = NOTA
@@ -85,8 +95,8 @@ def test_description_and_internal_note_are_visible_without_clicking(client, db_s
     _login(client)
 
     lees = _leesdeel(_kaart(client, activiteit))
-    assert _value(lees, "description") == OMSCHRIJVING
-    assert _value(lees, "board_notes") == NOTA
+    assert OMSCHRIJVING in _block(lees, "data-activity-facts")
+    assert _block(lees, "data-internal-note").startswith(NOTA)
 
 
 def test_the_internal_note_is_recognisably_internal_in_read_mode(client, db_session, activiteit):
@@ -95,18 +105,20 @@ def test_the_internal_note_is_recognisably_internal_in_read_mode(client, db_sess
     Het veld bestaat omdat de oude `notes`-kolom stil publiek uitleesbaar bleek
     (#1028). Wie de kaart leest, beslist of hij iets doorvertelt — dus staat de
     belofte er ook in leesmodus bij, met dezelfde woorden als bij het veld.
+    Since #1900 the card Intern is what names it: its border says what its
+    promise line says, and the note stands in it without a label.
     """
     activiteit.board_notes = NOTA
     db_session.commit()
     _login(client)
 
     lees = _leesdeel(_kaart(client, activiteit))
-    note = lees[lees.index('data-field="board_notes"') :]
-    assert "Interne nota" in note
+    note = _block(lees, "data-internal-note")
     assert "Alleen het bestuur ziet dit" in note, (
         "the read state does not say this text is internal"
     )
     assert "Intern</h2>" in lees, "and it stands in its own section"
+    assert lees.index("Intern</h2>") < lees.index("data-internal-note")
 
 
 def test_the_promise_about_the_internal_note_lives_in_one_place():
@@ -143,18 +155,19 @@ def test_the_promise_about_the_internal_note_lives_in_one_place():
 
 
 def test_an_empty_field_shows_a_dash_in_its_own_place(client, db_session, activiteit):
-    """Decision 06 (4 October 2026) reverses #1139's "leave an empty field out":
-    the read state shows every field the editor has, in the same order, an empty
-    one as "—" — so nothing moves when you start editing. The sentence "Nog niets
-    ingevuld" went with the card it explained."""
+    """Read mode shows facts, in the editor's order (#1900, which revises decision
+    06 for this record): the name is the record's title and does not repeat in
+    the card; a value that keeps its place shows "—" when empty (the location,
+    the poster, the audience, the note); the friendly URL and the description
+    are lines that are there when they are filled in."""
     _login(client)
     lees = _leesdeel(_kaart(client, activiteit))
+    facts = _block(lees, "data-activity-facts")
 
     assert "Nog niets ingevuld" not in lees
-    for field in ("slug", "description", "file", "target_audience", "board_notes"):
-        assert _value(lees, field) == "—", field
-    assert _value(lees, "name") == "Neteroute" and _value(lees, "location") == "Millegem"
-    assert _value(lees, "members_only") == "nee", "a setting reads in words"
+    assert "Neteroute" not in facts, "the name repeats in its card"
+    assert facts == "Millegem — Doelpubliek: — Enkel leden: nee", facts
+    assert _block(lees, "data-internal-note") == "—"
     assert "Alleen het bestuur ziet dit" not in lees, "no promise about a note that is not there"
 
 
@@ -168,6 +181,7 @@ FIELDS = [
     "file",
     "target_audience",
     "members_only",
+    "poster_url",
     "board_notes",
 ]
 
@@ -180,39 +194,52 @@ def _fields(html: str) -> list[str]:
 
 
 def test_read_and_edit_show_the_same_fields_in_the_same_order(client, db_session, activiteit):
-    """The same sections, the same fields, the same order in both states; the
-    edit state holds a control for each and the values that were read.
+    """Two cards — Activiteit and Intern, no Publiek — in both states (#1900). The
+    edit state holds a control for each field, in the issue's order, with the
+    poster address in the closed line of its card; the read state shows the same
+    values as facts in that same order.
 
     Proven red by removing the location field from the template only while
-    editing (`{% if not _edit %}` around it): the two lists differ.
+    editing (`{% if not _edit %}` around it): the list differs.
     """
     activiteit.description = OMSCHRIJVING
     activiteit.board_notes = NOTA
+    activiteit.slug = "neteroute-2026"
+    activiteit.poster_url = "https://example.org/affiche.png"
     db_session.commit()
     _login(client)
 
     read = _kaart(client, activiteit)
     edit = client.get(f"/admin/activiteiten/{activiteit.id}?bewerken=1").text
-    assert _fields(read) == FIELDS
     assert _fields(edit) == FIELDS
-    for heading in ("Activiteit</h2>", "Publiek</h2>", "Intern</h2>"):
-        assert heading in read and heading in edit
-    assert read.index("Activiteit</h2>") < read.index("Publiek</h2>") < read.index("Intern</h2>")
+    assert _fields(read) == [], "read mode shows facts, no field blocks"
+    for html in (read, edit):
+        assert "Activiteit</h2>" in html and "Intern</h2>" in html
+        assert "Publiek</h2>" not in html, "Publiek is folded into Activiteit"
+        assert html.index("Activiteit</h2>") < html.index("Intern</h2>")
+        assert "data-rare-settings" not in html, "the last section of links is back"
+
+    facts = _block(_leesdeel(read), "data-activity-facts")
+    order = [
+        facts.index(part)
+        for part in (
+            "/activiteiten/neteroute-2026",
+            "Millegem",
+            OMSCHRIJVING,
+            "Poster-URL: https://example.org/affiche.png",
+            "Doelpubliek:",
+            "Enkel leden:",
+        )
+    ]
+    assert order == sorted(order), f"the facts are not in the editor's order: {facts}"
 
     vorm = edit.split('<form id="aa-act-form"', 1)[1].split("</form>", 1)[0]
-    for veld in (
-        "name",
-        "slug",
-        "location",
-        "description",
-        "board_notes",
-        "target_audience",
-        "members_only",
-    ):
-        assert f'name="{veld}"' in vorm, f"{veld} is missing from the edit form"
+    for veld in FIELDS:
+        if veld != "file":
+            assert f'name="{veld}"' in vorm, f"{veld} is missing from the edit form"
     assert 'id="upl-file"' in vorm
     assert OMSCHRIJVING in vorm and NOTA in vorm
-    # The closed last section comes after everything, in both states.
-    for html in (read, edit):
-        assert html.index("data-rare-settings") > html.index("Organisatoren")
-    assert 'name="poster_url" form="aa-act-form"' in edit
+    # The poster address stands in the closed line of the card Activiteit.
+    line = vorm[vorm.index("data-rare-line") :].split("</details>", 1)[0]
+    assert 'name="poster_url"' in line and "1 ingevuld" in _words(line)
+    assert vorm.index("data-rare-line") < vorm.index('id="aa-section-internal"')

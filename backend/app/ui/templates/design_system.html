@@ -279,22 +279,40 @@
   </div>
 {% endcall %}
 
-{# ── 7. Persoonsvelden ─────────────────────────────────────────────────────── #}
-{{ ui.section_header(_("7 · Persoonsvelden"), _("Naar de leden"), action_href="/admin/leden", cls="mt-10") }}
-{% call ui.card() %}
-  <p class="text-sm text-gray-600 mb-3">
-    {{ _("Eén blok voor naam, geboortedatum en contact — overal dezelfde volgorde.") }}
-  </p>
-  {# #811: dezelfde stand als élk echt scherm — `require_birth_gender=True`, en met
-     gevulde keuzelijsten. Zonder die vlag toonde de demo een variant die nergens
-     bestaat, en dat is precies waar #783 voor waarschuwt: de gate telt macro's, niet
-     of de aanroep klopt. #}
-  {{ ui.person_fields(name_prefix="lid_", id_prefix="ds_", require_birth_gender=True,
-                      gender_codes=[{"code": "F", "value": _("Vrouw")},
-                                    {"code": "M", "value": _("Man")}],
-                      relation_types=[{"code": "PARTNER", "value": _("partner")},
-                                      {"code": "KIND", "value": _("(meerderjarig) kind")}]) }}
-{% endcall %}
+{# ── 7. The person card, read mode (#1899; end state §2.2, §5.2) ──────────── #}
+{{ ui.section_header(_("7 · Persoonskaart (leesmodus)"), _("Naar de leden"), action_href="/admin/leden", cls="mt-10") }}
+<p class="text-sm text-gray-600 mb-3">
+  {{ _("Eén kaart per persoon: de naam als kop met rechts de relatie, daaronder de regels zonder label — het icoon zegt wat een waarde is, een lege leest “—”. Niets klapt in.") }}
+</p>
+<div data-kit-person-cards class="form-flow max-w-[768px]">
+  {{ ui.person_card("Lore Voorbeeld", relation=_("Hoofdlid"), main=True, birth="14-03-1978", gender=_("Vrouw"),
+                    mobile="0470 12 34 56",
+                    emails=[{"value": "lore@voorbeeld.test", "primary": True, "pending": False},
+                            {"value": "lore.werk@voorbeeld.test", "primary": False, "pending": False},
+                            {"value": "lore.nieuw@voorbeeld.test", "primary": False, "pending": True}]) }}
+  {{ ui.person_card("Sam Staal", relation=_("Partner"), birth="12-07-1979", gender=_("Man"),
+                    mobile="0471 98 76 54", emails=[{"value": "sam@voorbeeld.test", "primary": True, "pending": False}]) }}
+  {{ ui.person_card("Noor Voorbeeld", relation=_("Kind"), birth="03-11-2012", gender=_("Vrouw"), phone="014 12 34 56") }}
+</div>
+<p class="text-xs text-gray-500 mt-3 mb-2">
+  <code>ui.person_card(name, relation, main, birth, gender, mobile, phone, emails)</code> · <code>ui.icon_fact(name, text, href)</code>
+</p>
+
+{# #1900 — what a record's read mode and its cards are made of beside the icon
+   fact: a value with its label, a heading row above a run of cards, and the
+   closed line of what is rarely set, in the card of its object. #}
+<div data-kit-record-facts class="form-flow max-w-[768px] mt-6">
+  {{ ui.flow_heading(_("Onderdelen")) }}
+  {% call ui.section() %}
+    <p data-span="full" class="flex flex-wrap gap-x-5 gap-y-1 text-sm leading-[21px] text-ink">{{ ui.label_fact(_("Maximum"), 40) }} {{ ui.icon_fact("clock", _("Inschrijven tot de activiteit")) }} {{ ui.label_fact(_("Ploegnaam vereist"), _("nee")) }}</p>
+    {% call ui.rare_line(_("Externe koppelingen"), count=1) %}
+      {{ ui.field("ds_info_url", _("Externe info-URL"), kind="url", value="https://voorbeeld.test/info", placeholder="https://…") }}
+    {% endcall %}
+  {% endcall %}
+</div>
+<p class="text-xs text-gray-500 mt-3 mb-2">
+  <code>ui.label_fact(label, text)</code> · <code>ui.flow_heading(title)</code> · <code>ui.rare_line(title, count)</code>
+</p>
 
 {# ── 8. Schermtype: de records-lijst, in de vaste volgorde ─────────────────── #}
 {{ ui.section_header(_("8 · Schermtype: records-lijst"), _("Naar de activiteiten"), action_href="/admin/activiteiten", cls="mt-10") }}
@@ -654,6 +672,18 @@
 {% call ui.record_columns(aside=_kit_card) %}
   <div class="bg-surface-2 border border-dashed border-control-line rounded-2xl p-4 text-sm text-ink-soft">{{ _("Het formulier van Gegevens") }}</div>
 {% endcall %}
+{# #1901 §2 — more than three figures: every figure a row, the one shape of the
+   card (Koen, 11 October 2026). #}
+{% set _five = [{"label": _("Bedrag"), "value": "€ 30,00"}, {"label": _("Ontvangen"), "value": "€ 10,00"},
+                {"label": _("Saldo"), "value": "€ 20,00", "warning": True},
+                {"label": _("Wijze"), "value": _("Overschrijving")}, {"label": _("Aangemaakt"), "value": "01-10-2026"}] %}
+<p class="text-sm text-gray-600 mt-6 mb-3">{{ _("Met meer dan drie cijfers: elk cijfer een rij, label links en waarde rechts.") }}</p>
+<div data-kit-summary-five class="mt-4">
+{% set _card_b %}{{ ui.summary_card({"label": _("Openstaand"), "tone": "yellow"}, _five) }}{% endset %}
+{% call ui.record_columns(aside=_card_b) %}
+  <div class="bg-surface-2 border border-dashed border-control-line rounded-2xl p-4 text-sm text-ink-soft">{{ _("Het formulier van Gegevens") }}</div>
+{% endcall %}
+</div>
 <div class="mt-4">
 {% call ui.data_table([
      {"key": "naam", "label": _("Naam"), "cell": "name", "sort_url": "/admin/design-system", "sorted": "asc"},

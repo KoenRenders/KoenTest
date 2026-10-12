@@ -21,10 +21,15 @@
 # Omgevingsvariabelen:
 #   E2E_DB_NAME   overschrijft de afgeleide databanknaam
 #   VERS=1        bouwt de hulpcontainer opnieuw op
+#   EXISTING_DB_URL, EXISTING_DB_SOCKET_DIR
+#                 a database server that already runs, in place of the dev
+#                 stack's (#1891) — see scripts/local-db-lib.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 COMPOSE=(docker compose -f "$ROOT/docker-compose.dev.yml")
+# shellcheck source=scripts/local-db-lib.sh
+. "$ROOT/scripts/local-db-lib.sh"
 
 slug="$(basename "$ROOT" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '_' | sed 's/_\+/_/g; s/^_//; s/_$//')"
 DB_NAAM="${E2E_DB_NAME:-raake2e_${slug}}"
@@ -44,6 +49,10 @@ case "$DB_NAAM" in
     ;;
 esac
 
+# #1891: a database server that already runs, in place of the dev stack's — also
+# decided before any docker call. What the switch is: scripts/local-db-lib.sh.
+existing_db e2e-local.sh "$DB_NAAM"
+
 NAAM="raake2e-${slug}"
 NETWERK="dev_internal"
 IMAGE="raaktest-backend:${slug}"
@@ -59,15 +68,18 @@ ENV_FILE="$ROOT/backend/tests_e2e/e2e.env"
 # changed configuration and REPLACES the db container on every run from another
 # worktree — killing the test run that worktree had going. With it, compose only
 # starts the database when it is not running, and leaves a running one alone.
-"${COMPOSE[@]}" up -d --no-recreate db >/dev/null
+if [ -z "${EXISTING_DB_URL:-}" ]; then
+  "${COMPOSE[@]}" up -d --no-recreate db >/dev/null
 
-# The credentials come from the running db container, not from this file: the
-# dev database carries whatever password its volume was initialised with, and a
-# hardcoded `postgres:postgres` fails the moment that is anything else (CLAUDE.md:
-# never hardcode them). Read after `up`, so the container exists.
-DB_USER="$("${COMPOSE[@]}" exec -T db printenv POSTGRES_USER)"
-DB_PASS="$("${COMPOSE[@]}" exec -T db printenv POSTGRES_PASSWORD)"
-URL="postgresql+psycopg2://${DB_USER}:${DB_PASS}@db:5432/${DB_NAAM}"
+  # The credentials come from the running db container, not from this file: the
+  # dev database carries whatever password its volume was initialised with, and a
+  # hardcoded `postgres:postgres` fails the moment that is anything else (CLAUDE.md:
+  # never hardcode them). Read after `up`, so the container exists.
+  DB_USER="$("${COMPOSE[@]}" exec -T db printenv POSTGRES_USER)"
+  DB_PASS="$("${COMPOSE[@]}" exec -T db printenv POSTGRES_PASSWORD)"
+  URL="postgresql+psycopg2://${DB_USER}:${DB_PASS}@db:5432/${DB_NAAM}"
+  RUN_ARGS=(--network "$NETWERK")
+fi
 docker build -q -t "$IMAGE" "$ROOT/backend" >/dev/null
 
 if [ "${VERS:-}" = "1" ]; then
@@ -77,7 +89,7 @@ fi
 if ! docker inspect -f '{{.State.Running}}' "$NAAM" >/dev/null 2>&1; then
   docker rm -f "$NAAM" >/dev/null 2>&1 || true
   echo "→ hulpcontainer $NAAM opbouwen (eenmalig; playwright + chromium, ~115 MB)…"
-  docker run -d --name "$NAAM" --network "$NETWERK" \
+  docker run -d --name "$NAAM" "${RUN_ARGS[@]}" \
     -v "$ROOT:/app" -w /app/backend \
     --env-file "$ENV_FILE" -e JOBS_ENABLED=false \
     -e DATABASE_URL="$URL" \
@@ -89,9 +101,15 @@ fi
 
 # ── Verse databank ───────────────────────────────────────────────────────────
 echo "→ ${DB_NAAM} opnieuw opbouwen"
-"${COMPOSE[@]}" exec -T db sh -c \
-  "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c 'DROP DATABASE IF EXISTS ${DB_NAAM} WITH (FORCE)' \
+if [ -n "${EXISTING_DB_URL:-}" ]; then
+  # No db container to ask: the helper container drops and makes it, over the given URL.
+  docker exec -e ADMIN_DATABASE_URL="$EXISTING_DB_URL" "$NAAM" \
+    python -m tests._local_db recreate "$DB_NAAM"
+else
+  "${COMPOSE[@]}" exec -T db sh -c \
+    "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c 'DROP DATABASE IF EXISTS ${DB_NAAM} WITH (FORCE)' \
    && psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c 'CREATE DATABASE ${DB_NAAM}'" >/dev/null
+fi
 
 # The URL at every exec and not only at creation: a helper container that already
 # exists keeps the environment it was created with, so a changed password would

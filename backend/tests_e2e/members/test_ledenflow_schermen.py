@@ -62,18 +62,17 @@ def _renew_link(page):
 
 
 def _persons(page) -> list[dict]:
-    """The persons of the read page, each with what their part of it shows: the
-    main member's section first (#1632), then the rows of the group. Read from
-    the DOM's text and not from what is visible: the rows are folded. The main
-    member has no row title; their name is their two name fields."""
+    """The persons of the read page, each with what their card shows (#1899): the
+    main member's card first (#1632), then the others'. The name is the card's
+    heading; birth date and gender share a line ("° 30-10-1955 · Man"); the
+    mobile number is the first fact behind an icon; an e-mail address is a link."""
     return page.evaluate(
-        """() => [document.querySelector('#hoofdlid'), ...document.querySelectorAll('#gezinsleden > [data-group-rows] > [data-group-row]')].map(row => {
-          const value = name => { const f = row.querySelector(`[data-field$=".${name}"] [data-value]`);
-                                  return f ? f.textContent.trim() : null; };
-          const title = row.querySelector('[data-row-title]');
-          return {title: title ? title.textContent.trim() : `${value('first_name')} ${value('last_name')}`,
-                  born: value('date_of_birth'), gender: value('gender_code'), mobile: value('mobile'),
-                  emails: [...row.querySelectorAll('[data-field$=".value"] [data-value]')].map(e => e.textContent.trim())};
+        """() => [document.querySelector('#hoofdlid'), ...document.querySelectorAll('#gezinsleden > [data-person-card]')].map(card => {
+          const birth = (card.querySelector('[data-person-birth]') || {textContent: ''}).textContent.replace('°', '').split('·').map(s => s.trim());
+          const facts = [...card.querySelectorAll('[data-icon-fact]')].map(f => f.textContent.trim());
+          return {title: card.querySelector('[data-person-name]').textContent.trim(),
+                  born: birth[0] || null, gender: birth[1] || null, mobile: facts[0] || null,
+                  emails: [...card.querySelectorAll('[data-person-email] a')].map(e => e.textContent.trim())};
         })"""
     )
 

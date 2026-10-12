@@ -6,11 +6,11 @@
 {# Renewing the membership, its own act on its own page (CR-11 pilot B, #1590;
    end state §2.6): the status line, the card with the price, the validity and
    the payment choice, the one button — then the household in a few lines with
-   the way to Mijn gezin. This page only STARTS a renewal (#1641, CR-11 Q79):
-   one that is already running stands in the Lidmaatschap card of Mijn gezin,
-   and opening this page meanwhile lands there — the page never invites to an
-   act that cannot succeed (#618). `#vernieuw-pagina` is what an answer
-   replaces. #}
+   the way to Mijn gezin (`_renewal_form.html`, shared with the board's page
+   since #1899). This page only STARTS a renewal (#1641, CR-11 Q79): one that
+   is already running stands in the Lidmaatschap card of Mijn gezin, and
+   opening this page meanwhile lands there — the page never invites to an act
+   that cannot succeed (#618). `#vernieuw-pagina` is what an answer replaces. #}
 {# Inside the account layout (CR-22, #1723): the menu of the account pages on
    the left with "Mijn gezin" marked — the one macro of S3, as Mijn gegevens.
    What an answer replaces stays inside it. #}
@@ -20,43 +20,7 @@
    on it — a household that never paid does not renew. #}
 {% call ui.public_form_page(_("Lidmaatschap betalen"), intro=_("Betaal het lidmaatschap voor je hele gezin."),
                             back_href="/leden/gezin", back_label=_("Mijn gezin")) %}
-<div data-form-flow data-mode="edit" class="form-flow" x-data="{ pm: 'online' }"
-     @change="if ($event.target.name === 'payment_method') pm = $event.target.value">
-  <p data-renewal-status class="text-base text-ink">
-    {% if page.valid_until %}{{ _("Je lidmaatschap is geldig tot en met %(date)s.", date=page.valid_until|kortedatum) }}
-    {% else %}{{ _("Je gezin heeft momenteel geen geldig lidmaatschap.") }}{% endif %}
-  </p>
-  <div id="vernieuw-melding" data-form-message></div>
-  {% if page.renewal_available and page.terms %}
-  <form id="vernieuw-form" class="contents" data-record-form data-message="#vernieuw-melding" novalidate
-        hx-post="/leden/gezin/vernieuwen" hx-target="#vernieuw-pagina" hx-select="#vernieuw-pagina"
-        hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap">
-    {% call ui.section(_("Lidmaatschap en betaling"), id="lidgeld") %}
-      <p data-span="full" data-membership-terms class="text-base leading-6 text-ink-soft">
-        {{ _("Lidgeld:") }} <strong class="text-2xl font-semibold text-ink">€ {{ page.terms.amount|geld }}</strong> {{ _("per gezin.") }}<br>
-        {{ _("Geldig tot en met %(date)s.", date=page.terms.valid_to|langedatum) }}
-      </p>
-      {{ ui.payment_choice() }}
-    {% endcall %}
-  </form>
-  {% set _follow %}data-pay="{{ _("Betalen") }}" data-plain="{{ _("Lidmaatschap aanvragen") }}" x-text="pm === 'online' ? $el.dataset.pay : $el.dataset.plain"{% endset %}
-  {{ ui.action_bar(record=True, send=True, form="vernieuw-form", cancel_href="/leden/gezin",
-                   save_label=_("Betalen"), busy_label=_("Bezig…"), save_label_attrs=_follow) }}
-  {% else %}
-  {% call ui.flow_card(_("Nu niets te vernieuwen"), attrs="data-renewal-none") %}
-    <p class="text-base text-ink">{{ _("Je lidmaatschap loopt nog. Vernieuwen kan zodra de vernieuwingsperiode open is.") }}</p>
-  {% endcall %}
-  {% endif %}
-  {% call ui.flow_card(_("Je gezin"), attrs="data-household-summary") %}
-    <ul class="text-base leading-7 text-ink">
-      {% for name, relation, main in page.summary %}
-      <li>{% if main %}<strong>{{ name }}</strong>{% else %}{{ name }}{% endif %}{% if relation %} · {{ relation }}{% endif %}</li>
-      {% endfor %}
-    </ul>
-    {% if page.address_line %}<p class="mt-1 text-[13px] text-ink-soft">{{ page.address_line }}</p>{% endif %}
-    <p class="mt-3">{{ ui.btn_secondary(_("Naar Mijn gezin"), href="/leden/gezin") }}</p>
-  {% endcall %}
-</div>
+{% include "_renewal_form.html" %}
 {% endcall %}
 </div>
 {% endcall %}

@@ -28,7 +28,13 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import ContactDetail, new_contact_detail
-from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, create_test_person
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    create_test_family,
+    create_test_person,
+    record_fields,
+    save_record,
+)
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -52,14 +58,15 @@ def _address(db, person, value: str, *, confirmed: bool) -> ContactDetail:
 
 
 def _rows(html: str) -> dict[str, str]:
-    """The e-mail rows of a screen, by the address in their field."""
+    """The e-mail rows of the record in edit mode (#1899: rows of the kit's list),
+    by the address in their field. Personen keeps its own row mark."""
     found = {}
-    for part in html.split("data-email-rij")[1:]:
+    for part in re.split(r'<div data-group-row data-row-key="', html)[1:]:
         value = re.search(r'<input[^>]*type="email"[^>]*value="([^"]*)"', part)
-        if value:
-            found[value.group(1)] = (
-                part.split("</div>\n</div>")[0] if "</div>\n</div>" in part else part
-            )
+        # A person's card holds its e-mail rows: only a part that STARTS as an
+        # e-mail row is one.
+        if value and 'name="e_order.' in part[:400]:
+            found[value.group(1)] = part
     return found
 
 
@@ -78,52 +85,71 @@ def world(client, db_session):
     }
 
 
-def _base(world) -> str:
-    return f"/admin/leden/gezin/{world['household']}/persoon/{world['person']}/email"
+def _primary(client, world, row_id: int):
+    """The record's one save (#1899) with this row marked as the main address."""
+    fields = record_fields(client, world["household"])
+    fields[f"e_primary.{world['person']}"] = str(row_id)
+    return save_record(client, world["household"], fields)
 
 
 def test_the_household_record_marks_a_waiting_address_and_offers_no_main_address(client, world):
     _board(client)
-    page = client.get(f"/admin/leden/gezin/{world['household']}")
+    page = client.get(f"/admin/leden/gezin/{world['household']}?bewerken=1")
     assert page.status_code == 200
     rows = _rows(page.text)
     assert set(rows) == {MAIN, SECOND, WAITING}, set(rows)
+    make, remove = 'data-row-action="choose"', 'data-row-action="remove"'
 
     waiting = rows[WAITING]
-    assert "data-email-waiting" in waiting and BADGE in waiting
-    assert "Maak hoofdadres" not in waiting and f"/{world['waiting']}/hoofd" not in waiting
-    assert f"/{world['waiting']}/verwijderen" in waiting, "a waiting address cannot be deleted"
+    assert "data-row-tag" in waiting and BADGE in waiting
+    assert make not in waiting and "Maak hoofdadres" not in waiting
+    assert remove in waiting, "a waiting address cannot be deleted"
 
     second = rows[SECOND]
-    assert BADGE not in second and "data-email-waiting" not in second
-    assert "Maak hoofdadres" in second and f"/{world['second']}/hoofd" in second
+    assert BADGE not in second and "data-row-tag" not in second
+    assert make in second and "Maak hoofdadres" in second
 
     main = rows[MAIN]
-    assert "hoofdadres" in main and BADGE not in main and "Maak hoofdadres" not in main
-    assert page.text.count(BADGE) == 1, "the mark stands on more than the waiting row"
+    assert re.search(r"<span data-row-one-tag class=\"shrink-0\">", main), "the main tag is hidden"
+    assert BADGE not in main
+    form = page.text[page.text.index('<form id="gezin-form"') :]
+    form = form[: form.index("<template data-group-template>")]
+    assert form.count(BADGE) == 1, "the mark stands on more than the waiting row"
 
 
-def test_the_route_still_refuses_a_waiting_address_as_the_main_one(client, db_session, world):
-    headers = _board(client)
-    refused = client.post(f"{_base(world)}/{world['waiting']}/hoofd", headers=headers)
-    assert refused.status_code == 409, refused.text[:200]
+def test_a_waiting_address_is_never_made_the_main_one(client, db_session, world):
+    """The page offers no "Maak hoofdadres" on a waiting row; a form that marks
+    it anyway changes nothing — the save does not promote what is not proven
+    (#1711) — and a confirmed one is made the main address by the same save."""
+    _board(client)
+    ignored = _primary(client, world, world["waiting"])
+    assert ignored.status_code == 200, ignored.text[:200]
     db_session.expire_all()
     rows = {
         c.value: (bool(c.is_primary), c.confirmed_at is not None)
         for c in db_session.query(ContactDetail).filter(ContactDetail.person_id == world["person"])
     }
     assert rows == {MAIN: (True, True), SECOND: (False, True), WAITING: (False, False)}
-    # … and a confirmed one is still made the main address by the same route.
-    done = client.post(f"{_base(world)}/{world['second']}/hoofd", headers=headers)
+
+    done = _primary(client, world, world["second"])
     assert done.status_code == 200
-    assert "hoofdadres" in _rows(done.text)[SECOND]
+    db_session.expire_all()
+    primary = [
+        c.value
+        for c in db_session.query(ContactDetail).filter(ContactDetail.person_id == world["person"])
+        if c.is_primary
+    ]
+    assert primary == [SECOND]
 
 
 def test_a_waiting_address_can_still_be_deleted(client, db_session, world):
-    headers = _board(client)
-    answer = client.post(f"{_base(world)}/{world['waiting']}/verwijderen", headers=headers)
+    _board(client)
+    fields = record_fields(client, world["household"])
+    key = f"e_order.{world['person']}"
+    fields[key] = [row for row in fields[key] if row != str(world["waiting"])]
+    answer = save_record(client, world["household"], fields)
     assert answer.status_code == 200
-    assert WAITING not in _rows(answer.text) and BADGE not in answer.text
+    assert WAITING not in answer.text and BADGE not in answer.text
     db_session.expire_all()
     assert (
         db_session.query(ContactDetail).filter(ContactDetail.id == world["waiting"]).first() is None
@@ -153,13 +179,13 @@ def test_personen_shows_an_address_that_counts_and_marks_one_that_only_waits(cli
     assert ">Account<" not in waiting.replace("\n", ""), "a waiting address makes no account"
 
 
-def test_the_read_line_of_a_person_card_shows_an_address_that_counts(client, db_session, world):
-    """The card's read line names "the" e-mail address: the main one — never a
-    waiting one while another counts. A partner whose only address waits shows
-    it with the mark.
+def test_the_read_card_marks_an_address_that_waits(client, db_session, world):
+    """#1899: the read card shows every address of a person on a line of its own
+    — the main one tagged, a waiting one with the mark, never as if it counted.
+    A partner whose only address waits shows it with the mark.
 
-    Red: `email_waiting` taken off the schema's call → the partner's waiting
-    address stands on the read line like any other."""
+    Red: the `pending` branch taken out of the kit's `person_card` → the waiting
+    addresses stand on their line like any other."""
     from app.domains.mdm.api import MemberPerson
 
     partner = create_test_person(db_session, first_name="Pia", last_name="Wachter")
@@ -171,12 +197,20 @@ def test_the_read_line_of_a_person_card_shows_an_address_that_counts(client, db_
     _board(client)
     html = client.get(f"/admin/leden/gezin/{world['household']}").text
 
-    def read_line(person_id: int) -> str:
-        card = html[html.index(f'id="persoon-{person_id}"') :]
-        return card[: card.index("<form")]
+    def lines(person_id: int) -> dict[str, str]:
+        card = html[html.index(f'data-person="{person_id}"') :]
+        card = card[: card.index("</section>")]
+        found = {}
+        for line in re.findall(r"<p data-person-email.*?</p>", card, re.S):
+            address = re.search(r'href="mailto:([^"]*)"', line)
+            found[address.group(1) if address else "—"] = line
+        return found
 
-    main = read_line(world["person"])
-    assert MAIN in main and WAITING not in main and BADGE not in main
-    waiting = read_line(partner.id)
-    assert "pia-wacht-1733@example.org" in waiting
-    assert "data-email-waiting" in waiting and BADGE in waiting
+    main = lines(world["person"])
+    assert set(main) == {MAIN, SECOND, WAITING}
+    assert "hoofdadres" in main[MAIN] and BADGE not in main[MAIN]
+    assert BADGE in main[WAITING] and BADGE not in main[SECOND]
+    waiting = lines(partner.id)
+    assert BADGE in waiting["pia-wacht-1733@example.org"]
+    # The board is no person of the household: it is offered no code.
+    assert "data-enter-code" not in html and "data-send-code" not in html

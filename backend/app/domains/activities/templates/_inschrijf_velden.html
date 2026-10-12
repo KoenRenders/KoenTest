@@ -70,7 +70,7 @@
               options=[("now", _("Nu invullen")), ("later", _("Later"), _("Via de link in de bevestigingsmail."))]) }}
   <p data-span="full" data-questions-later class="text-sm text-ink" x-show="!nu"{% if vragen_nu %} style="display: none"{% endif %}>{{ _("Je kan deze vragen later invullen via de link in je bevestigingsmail.") }}</p>
 {% endcall %}
-{{ vragen_kaarten(vraag_groepen, vraag_los,
+{{ vragen_kaarten(vraag_groepen, vraag_los, title=vraagformulier.title,
                   cards_attrs='id="inschrijf-vragen" x-show="nu"' ~ ('' if vragen_nu else ' style="display: none"')) }}
 {% endif %}
 

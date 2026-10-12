@@ -110,27 +110,6 @@ def test_membership_years_are_ordered_by_year_then_id():
     assert keys == ["year", "id"], keys
 
 
-@pytest.mark.ui_serverrendered
-def test_the_card_proposes_the_year_after_the_last(client, db_session):
-    from app.domains.auth.api import SESSION_COOKIE, make_session_value
-    from app.domains.mdm.api import Member
-    from app.domains.membership.api import Membership
-    from tests.conftest import SEEDED_ADMIN_EMAIL
-
-    member = Member()
-    db_session.add(member)
-    db_session.flush()
-    for year in (2025, 2027, 2026):
-        db_session.add(Membership(member_id=member.id, year=year))
-    db_session.commit()
-
-    client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
-    html = client.get(f"/admin/leden/gezin/{member.id}").text
-    field = re.search(r'<input[^>]*name="year"[^>]*>', html)
-    assert field, "no year field on the membership card"
-    assert 'value="2028"' in field.group(0), field.group(0)
-
-
 def test_the_board_sees_a_household_in_its_own_order(db_session):
     """The primary member first, then the partner, then the children oldest first —
     whatever order the rows were added in."""

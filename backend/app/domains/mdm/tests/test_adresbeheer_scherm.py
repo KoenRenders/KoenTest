@@ -17,7 +17,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Person
-from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family
+from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, record_fields, save_record
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -56,8 +56,33 @@ def _rij_id(db, person, waarde: int | str) -> int:
     )
 
 
-def _post(client, csrf, pad: str, **data):
-    return client.post(pad, data=data, headers={"X-CSRF-Token": csrf})
+def _voeg_toe(client, member, person, adres: str):
+    """Een adres erbij, met de ene save van het gezinsrecord (#1899): een nieuwe
+    rij in de lijst van die persoon. Tot #1899 had elke handeling op een adres
+    een eigen route."""
+    velden = record_fields(client, member.id)
+    velden[f"e_order.{person.id}"] = [*velden.get(f"e_order.{person.id}", []), "nx"]
+    velden["e.nx.value"] = adres
+    if len(velden[f"e_order.{person.id}"]) == 1:
+        # the first row added to an empty list is the chosen one, as the page does
+        velden[f"e_primary.{person.id}"] = "nx"
+    return save_record(client, member.id, velden)
+
+
+def _maak_hoofd(client, member, person, rij_id: int):
+    velden = record_fields(client, member.id)
+    velden[f"e_primary.{person.id}"] = str(rij_id)
+    return save_record(client, member.id, velden)
+
+
+def _verwijder(client, member, person, rij_id: int):
+    """De rij uit de lijst; was ze het hoofdadres, dan wijst de pagina geen ander
+    aan en stuurt ze geen gekozen rij mee."""
+    velden = record_fields(client, member.id)
+    velden[f"e_order.{person.id}"] = [k for k in velden[f"e_order.{person.id}"] if k != str(rij_id)]
+    if velden.get(f"e_primary.{person.id}") == str(rij_id):
+        velden[f"e_primary.{person.id}"] = ""
+    return save_record(client, member.id, velden)
 
 
 # ── Toevoegen ───────────────────────────────────────────────────────────────
@@ -70,14 +95,9 @@ def test_een_tweede_adres_erbij_zetten(client, db_session, gezin):
     Raak Nationaal in zijn programma heeft.
     """
     member, person = gezin
-    csrf = _login(client)
+    _login(client)
 
-    respons = _post(
-        client,
-        csrf,
-        f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email",
-        extra_email=TWEEDE,
-    )
+    respons = _voeg_toe(client, member, person, TWEEDE)
     assert respons.status_code == 200
     assert _adressen(db_session, person) == {HOOFD: True, TWEEDE: False}
 
@@ -89,11 +109,10 @@ def test_hetzelfde_adres_twee_keer_levert_een_rij_op(client, db_session, gezin):
     mailbox de nieuwsbrief dubbel, en mag iemand het later met de hand opruimen.
     """
     member, person = gezin
-    csrf = _login(client)
-    pad = f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email"
+    _login(client)
 
-    _post(client, csrf, pad, extra_email=TWEEDE)
-    _post(client, csrf, pad, extra_email=TWEEDE.upper())
+    _voeg_toe(client, member, person, TWEEDE)
+    _voeg_toe(client, member, person, TWEEDE.upper())
 
     assert _adressen(db_session, person) == {HOOFD: True, TWEEDE: False}
 
@@ -109,14 +128,9 @@ def test_het_eerste_adres_van_een_persoon_wordt_meteen_hoofdadres(client, db_ses
         if c.contact_type_code == "EMAIL":
             person.contact_details.remove(c)
     db_session.commit()
-    csrf = _login(client)
+    _login(client)
 
-    _post(
-        client,
-        csrf,
-        f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email",
-        extra_email=TWEEDE,
-    )
+    _voeg_toe(client, member, person, TWEEDE)
 
     assert _adressen(db_session, person) == {TWEEDE: True}
 
@@ -134,18 +148,11 @@ def test_een_ander_adres_aanwijzen_verplaatst_het_hoofdadres(client, db_session,
     goed, maar dit is de reden dat ze bestaat.
     """
     member, person = gezin
-    csrf = _login(client)
-    _post(
-        client,
-        csrf,
-        f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email",
-        extra_email=TWEEDE,
-    )
+    _login(client)
+    _voeg_toe(client, member, person, TWEEDE)
     tweede_id = _rij_id(db_session, person, TWEEDE)
 
-    _post(
-        client, csrf, f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email/{tweede_id}/hoofd"
-    )
+    _maak_hoofd(client, member, person, tweede_id)
 
     assert _adressen(db_session, person) == {HOOFD: False, TWEEDE: True}
 
@@ -155,20 +162,11 @@ def test_een_ander_adres_aanwijzen_verplaatst_het_hoofdadres(client, db_session,
 
 def test_een_extra_adres_verwijderen_laat_het_hoofdadres_staan(client, db_session, gezin):
     member, person = gezin
-    csrf = _login(client)
-    _post(
-        client,
-        csrf,
-        f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email",
-        extra_email=TWEEDE,
-    )
+    _login(client)
+    _voeg_toe(client, member, person, TWEEDE)
     tweede_id = _rij_id(db_session, person, TWEEDE)
 
-    _post(
-        client,
-        csrf,
-        f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email/{tweede_id}/verwijderen",
-    )
+    _verwijder(client, member, person, tweede_id)
 
     assert _adressen(db_session, person) == {HOOFD: True}
 
@@ -190,13 +188,12 @@ def test_het_hoofdadres_verwijderen_wijst_er_geen_ander_aan(client, db_session, 
     Tegenproef: de promotie terugzetten → deze test faalt met `TWEEDE: True`.
     """
     member, person = gezin
-    csrf = _login(client)
-    pad = f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email"
-    _post(client, csrf, pad, extra_email=TWEEDE)
-    _post(client, csrf, pad, extra_email=DERDE)
+    _login(client)
+    _voeg_toe(client, member, person, TWEEDE)
+    _voeg_toe(client, member, person, DERDE)
     hoofd_id = _rij_id(db_session, person, HOOFD)
 
-    _post(client, csrf, f"{pad}/{hoofd_id}/verwijderen")
+    _verwijder(client, member, person, hoofd_id)
 
     assert _adressen(db_session, person) == {TWEEDE: False, DERDE: False}, (
         "er hoort geen nieuw hoofdadres aangewezen te worden"
@@ -212,14 +209,10 @@ def test_ook_het_laatste_adres_mag_weg(client, db_session, gezin):
     blijft in de audit-snapshot bewaard.
     """
     member, person = gezin
-    csrf = _login(client)
+    _login(client)
     hoofd_id = _rij_id(db_session, person, HOOFD)
 
-    respons = _post(
-        client,
-        csrf,
-        f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email/{hoofd_id}/verwijderen",
-    )
+    respons = _verwijder(client, member, person, hoofd_id)
 
     assert respons.status_code == 200
     assert _adressen(db_session, person) == {}
@@ -236,15 +229,12 @@ def test_de_kaart_toont_alle_adressen_met_hun_rol(client, db_session, gezin):
     klik op het scherm krijgt.
     """
     member, person = gezin
-    csrf = _login(client)
-    _post(
-        client,
-        csrf,
-        f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email",
-        extra_email=TWEEDE,
-    )
+    _login(client)
+    _voeg_toe(client, member, person, TWEEDE)
 
     html = client.get(f"/admin/leden/gezin/{member.id}").text
     assert HOOFD in html and TWEEDE in html
     assert "hoofdadres" in html, "de kaart zegt niet welk adres het hoofdadres is"
-    assert "Maak hoofdadres" in html, "er is geen knop om een ander adres aan te wijzen"
+    # #1899: aanwijzen doe je in bewerkmodus, in het menu van de rij.
+    bewerken = client.get(f"/admin/leden/gezin/{member.id}?bewerken=1").text
+    assert "Maak hoofdadres" in bewerken, "er is geen knop om een ander adres aan te wijzen"

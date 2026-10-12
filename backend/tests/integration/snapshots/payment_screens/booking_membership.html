@@ -9,72 +9,67 @@
 <span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-green-100 text-green-800">Vereffend</span>
 </span>
 </div>
+<div data-head-controls class="flex flex-wrap justify-end items-center gap-2 ml-auto shrink-0 max-w-full">
+<a href="/admin/betalingen/<REC:membership>?bewerken=1" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 min-h-11 md:min-h-9" >Bewerken</a>
+<div class="relative" x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+<button type="button" x-ref="trigger" data-actions-trigger aria-haspopup="menu" :aria-expanded="open.toString()"
+ class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 min-h-11 md:min-h-9 inline-flex items-center gap-1" @click="open = !open">Acties<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+<div x-show="open" x-cloak @click.outside="open = false" role="menu" data-actions-menu
+ class="absolute right-0 z-30 mt-2 w-[272px] max-w-[calc(100vw-2rem)] max-h-[65dvh] overflow-auto py-1 bg-white border border-line rounded-lg shadow-lg">
+<a role="menuitem" href="/admin/betalingen/<REC:membership>/terugbetaling?terug=/admin/betalingen/<REC:membership>" class="flex items-center gap-2 w-full min-h-11 px-3 text-sm text-left hover:bg-surface-2 text-ink">Terugbetaling registreren</a>
 </div>
-<p data-facts class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 md:min-h-6 text-sm text-ink-soft">
-<a href="/admin/leden/gezin/<MEMBER>?terug=/admin/betalingen/<REC:membership>" data-reference class="inline-flex items-center gap-1 text-blue-500 underline hover:no-underline min-h-11 md:min-h-6">Lidmaatschap 2026<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a>
+</div>
+</div>
+</div>
+<p data-facts class="mt-2 md:min-h-6 overflow-x-clip text-sm text-ink-soft">
+<span class="-ml-4 flex flex-wrap items-center gap-y-1">
+<span data-fact class="inline-flex items-center min-w-0 max-w-full"><span data-fact-dot aria-hidden="true" class="inline-block w-4 shrink-0 text-center">·</span><a href="/admin/leden/gezin/<MEMBER>?terug=/admin/betalingen/<REC:membership>" data-reference class="inline-flex items-center gap-1 text-blue-500 underline hover:no-underline min-h-11 md:min-h-6">Lidmaatschap 2026<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a></span>
+</span>
 </p>
 </header>
-<section class="mb-6 max-w-2xl rounded-card border border-gray-200 bg-white p-4" data-booking-figures>
-<dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
-<div><dt class="text-xs text-ink-soft">Bedrag</dt>
-<dd class="tabular-nums text-ink" data-amount>€ 30,00</dd></div>
-<div><dt class="text-xs text-ink-soft">Ontvangen</dt>
-<dd class="tabular-nums text-ink">€ 30,00</dd></div>
-<div><dt class="text-xs text-ink-soft">Saldo</dt>
-<dd class="tabular-nums font-semibold text-ink" data-balance>€ 0,00</dd></div>
-<div><dt class="text-xs text-ink-soft">Wijze</dt>
-<dd class="text-ink">Overschrijving</dd></div>
-<div><dt class="text-xs text-ink-soft">Aangemaakt</dt>
-<dd class="text-ink">02/09/2026</dd></div>
+<div data-record-frame class="record-frame">
+<div data-record-columns class="record-columns">
+<div data-form-column class="record-form-column">
+<div data-form-flow data-mode="read" class="form-flow">
+<div id="bk-melding" data-form-message></div>
+<section data-form-section id="bk-boeking" class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
+<h2 class="text-base font-semibold leading-6 text-ink mb-4">Boeking</h2>
+<div data-form-grid class="form-grid">
+<div data-span="full" data-booking-facts class="flex flex-col gap-y-1 text-sm leading-[21px] text-ink">
+<p><span data-label-fact class="text-sm leading-[21px] text-ink"><span class="text-ink-soft">Status:</span> Vereffend</span></p>
+<p><span data-label-fact class="text-sm leading-[21px] text-ink"><span class="text-ink-soft">Betaald bedrag:</span> € 30,00</span></p>
+<p><span data-label-fact class="text-sm leading-[21px] text-ink"><span class="text-ink-soft">Opmerking:</span> —</span></p>
+</div>
+</div>
+</section>
+</div>
+</div>
+<aside data-summary-column class="record-summary-column"><section data-summary-card class="summary-card rounded-card border border-line bg-surface shadow-sm" aria-label="Samenvatting">
+<div data-summary-state><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-green-100 text-green-800">Vereffend</span></div>
+<dl data-summary-figures class="m-0">
+<div data-summary-figure>
+<dt class="text-[13px] leading-5 text-ink-soft">Bedrag</dt>
+<dd class="m-0 text-[15px] leading-[21px] font-semibold tabular-nums whitespace-nowrap text-ink">€ 30,00</dd>
+</div>
+<div data-summary-figure>
+<dt class="text-[13px] leading-5 text-ink-soft">Ontvangen</dt>
+<dd class="m-0 text-[15px] leading-[21px] font-semibold tabular-nums whitespace-nowrap text-ink">€ 30,00</dd>
+</div>
+<div data-summary-figure>
+<dt class="text-[13px] leading-5 text-ink-soft">Saldo</dt>
+<dd class="m-0 text-[15px] leading-[21px] font-semibold tabular-nums whitespace-nowrap text-ink">€ 0,00</dd>
+</div>
+<div data-summary-figure>
+<dt class="text-[13px] leading-5 text-ink-soft">Wijze</dt>
+<dd class="m-0 text-[15px] leading-[21px] font-semibold tabular-nums whitespace-nowrap text-ink">Overschrijving</dd>
+</div>
+<div data-summary-figure>
+<dt class="text-[13px] leading-5 text-ink-soft">Aangemaakt</dt>
+<dd class="m-0 text-[15px] leading-[21px] font-semibold tabular-nums whitespace-nowrap text-ink">02/09/2026</dd>
+</div>
 </dl>
-</section>
-<section class="mb-6 max-w-2xl" data-booking-edit>
-<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mb-3">
-<h3 class="text-xl font-semibold text-kop">Boeking bewerken</h3>
+</section></aside>
 </div>
-<form class="grid grid-cols-1 gap-3 rounded-card border border-gray-200 bg-white p-4 sm:grid-cols-3"
- x-data="{ status: 'paid', bedrag: '30,00' }"
- hx-post="/admin/betalingen/<REC:membership>/bewerken" hx-target="body" hx-swap="innerHTML" hx-headers='{"X-Booking-Page": "<REC:membership>"}'>
-<div><label for="bk-status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" id="bk-status" x-model="status" @change="if (status === 'paid' && !bedrag) bedrag = '30,00'">
-<option value="pending" >In afwachting</option>
-<option value="paid" selected>Betaald</option>
-<option value="failed" >Mislukt</option>
-<option value="cancelled" >Geannuleerd</option>
-</select></div>
-<div><label for="bk-amount-paid" class="block text-sm font-medium text-gray-700 mb-1">Betaald bedrag</label>
-<input type="text" name="amount_paid" id="bk-amount-paid" placeholder="0,00"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" x-model="bedrag" inputmode="decimal"></div>
-<div><label for="bk-note" class="block text-sm font-medium text-gray-700 mb-1">Opmerking</label>
-<input type="text" name="note" id="bk-note"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
-<div class="flex flex-wrap items-center justify-end gap-2 sm:col-span-3">
-<span class="flex gap-2">
-<a href="/admin/betalingen/<REC:membership>" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" >Annuleren</a>
-<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
-</span>
 </div>
-</form>
-</section>
-<section id="terugbetaling" class="mb-6 max-w-2xl scroll-mt-24" data-booking-refund>
-<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mb-3">
-<h3 class="text-xl font-semibold text-kop">Terugbetaling registreren</h3>
-</div>
-<form class="grid grid-cols-1 gap-3 rounded-card border border-gray-200 bg-white p-4 sm:grid-cols-3"
- hx-post="/admin/betalingen/<REC:membership>/refund" hx-target="body" hx-swap="innerHTML" hx-headers='{"X-Booking-Page": "<REC:membership>"}'>
-<div><label for="bk-refund-amount" class="block text-sm font-medium text-gray-700 mb-1">Terug te betalen bedrag <span class="text-red-600">*</span></label>
-<input type="text" name="amount" id="bk-refund-amount" placeholder="0,00" required
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" inputmode="decimal"></div>
-<div class="sm:col-span-2"><label for="bk-refund-note" class="block text-sm font-medium text-gray-700 mb-1">Reden</label>
-<input type="text" name="note" id="bk-refund-note"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
-<div class="flex flex-wrap items-center justify-end gap-2 sm:col-span-3">
-<span class="flex gap-2">
-<a href="/admin/betalingen/<REC:membership>" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" >Annuleren</a>
-<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Registreren</button>
-</span>
-</div>
-</form>
-</section>
 </div>
 </main>

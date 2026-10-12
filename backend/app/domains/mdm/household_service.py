@@ -81,6 +81,16 @@ def actor_of(person: Person) -> Optional[str]:
     )
 
 
+def household_with_id(db: Session, household_id: int) -> Member:
+    """The household the board names by its id (#1899: the record's one save)."""
+    from app.i18n import _
+
+    household = db.query(Member).filter(Member.id == household_id).first()
+    if household is None:
+        raise HouseholdNotFound(_("Geen gezin gevonden."))
+    return household
+
+
 def household_of(db: Session, person: Person) -> Member:
     """The household the logged-in person belongs to."""
     from app.i18n import _
@@ -117,6 +127,7 @@ def apply_person_fields(
     *,
     actor: Optional[str],
     details_required: bool = True,
+    source: str = SOURCE,
 ) -> bool:
     """Write these person fields with their history, without committing (#1590:
     the save of the whole household and of one's own details call it).
@@ -143,7 +154,7 @@ def apply_person_fields(
             changed = True
     if changed:
         snapshot_person(
-            db, target, operation="update", action="person_updated", source=SOURCE, actor=actor
+            db, target, operation="update", action="person_updated", source=source, actor=actor
         )
     return changed
 
@@ -207,7 +218,14 @@ def _postal_code(db: Session, code: str) -> PostalCode:
     return postal_code
 
 
-def apply_address(db: Session, target: Person, address_data: dict, *, actor: Optional[str]) -> None:
+def apply_address(
+    db: Session,
+    target: Person,
+    address_data: dict,
+    *,
+    actor: Optional[str],
+    source: str = SOURCE,
+) -> None:
     """Write this person's address with its history row, without committing.
 
     - The person has one: the fields `address_data` names are changed
@@ -250,12 +268,18 @@ def apply_address(db: Session, target: Person, address_data: dict, *, actor: Opt
             address_changed = True
     if address_changed:
         snapshot_address(
-            db, address, operation=operation, action=action, source=SOURCE, actor=actor
+            db, address, operation=operation, action=action, source=source, actor=actor
         )
 
 
 def _upsert_contact(
-    db: Session, target: Person, type_code: str, value: Optional[str], *, actor: Optional[str]
+    db: Session,
+    target: Person,
+    type_code: str,
+    value: Optional[str],
+    *,
+    actor: Optional[str],
+    source: str = SOURCE,
 ) -> None:
     from app.domains.mdm.history import snapshot_contact_detail
 
@@ -273,7 +297,7 @@ def _upsert_contact(
                     existing,
                     operation="update",
                     action="contacts_updated",
-                    source=SOURCE,
+                    source=source,
                     actor=actor,
                 )
         else:
@@ -285,7 +309,7 @@ def _upsert_contact(
                 contact,
                 operation="insert",
                 action="contacts_updated",
-                source=SOURCE,
+                source=source,
                 actor=actor,
             )
     elif existing is not None:
@@ -294,7 +318,7 @@ def _upsert_contact(
             existing,
             operation="delete",
             action="contacts_updated",
-            source=SOURCE,
+            source=source,
             actor=actor,
         )
         target.contact_details.remove(existing)
@@ -385,6 +409,75 @@ def require_one_main_member(relations: Sequence[object]) -> None:
         raise HouseholdRefused(_("Een gezin heeft één hoofdlid."))
 
 
+def apply_relation(
+    db: Session,
+    household: Member,
+    person: Person,
+    asked: object,
+    *,
+    actor: Optional[str],
+    source: str = SOURCE,
+) -> bool:
+    """Change the relation of a person who is already in the household, with its
+    history row, without committing (#1899; Koen, 11 October 2026: a member may
+    do it on Mijn gezin as the board does on the record — "maar uiteraard niet
+    het hoofdlid").
+
+    Partner or child: nobody is made main member through it (`HouseholdRefused`
+    for anything else), and the main member keeps his place whatever is asked —
+    for him this writes nothing. The same relation again is no change: nothing
+    is written, no row (#1833). Says whether it changed something."""
+    from app.domains.mdm.history import snapshot_member_person
+    from app.i18n import _
+
+    link = next(
+        (m for m in person.member_persons if m.member_id == household.id and m.deleted_at is None),
+        None,
+    )
+    if link is None or RelationType(link.relation_type) is RelationType.PRIMARY_MEMBER:
+        return False
+    try:
+        relation = RelationType(asked)
+    except ValueError:
+        relation = None
+    if relation not in ADDED_RELATIONS:
+        raise HouseholdRefused(_("Kies partner of kind."))
+    if RelationType(link.relation_type) is relation:
+        return False
+    link.relation_type = relation
+    db.flush()
+    snapshot_member_person(
+        db, link, operation="update", action="relation_changed", source=source, actor=actor
+    )
+    return True
+
+
+def apply_board_member(
+    db: Session, household: Member, person_id: Optional[int], *, actor: Optional[str], source: str
+) -> bool:
+    """Say which board member follows this household — or nobody (None) — with
+    its history row, without committing (#1899: part of the record's one save;
+    until then a door of its own that committed). Refuses a person that does
+    not exist. The same again is no change. Says whether it changed something."""
+    from app.domains.mdm.history import snapshot_member
+    from app.i18n import _
+
+    if household.board_member_id == person_id:
+        return False
+    if person_id is not None and db.query(Person).filter(Person.id == person_id).first() is None:
+        raise MasterDataError(_("Dit bestuurslid bestaat niet (meer)."))
+    household.board_member_id = person_id
+    snapshot_member(
+        db,
+        household,
+        operation="update",
+        action="board_member_assigned",
+        source=source,
+        actor=actor,
+    )
+    return True
+
+
 def household_relations(household: Member) -> list[str]:
     """The relations the household holds now, in its own order."""
     links = sorted(
@@ -395,7 +488,7 @@ def household_relations(household: Member) -> list[str]:
 
 
 def insert_household_person(
-    db: Session, household: Member, data: dict, *, actor: Optional[str]
+    db: Session, household: Member, data: dict, *, actor: Optional[str], source: str = SOURCE
 ) -> Person:
     """A new person of the household with the history rows, without committing
     (#1590): a partner while the household has none, otherwise a child, or what
@@ -424,7 +517,7 @@ def insert_household_person(
     db.add(person)
     db.flush()
     snapshot_person(
-        db, person, operation="insert", action="person_created", source=SOURCE, actor=actor
+        db, person, operation="insert", action="person_created", source=source, actor=actor
     )
 
     link = MemberPerson(member_id=household.id, person_id=person.id, relation_type=relation)
@@ -437,7 +530,7 @@ def insert_household_person(
         link,
         operation="insert",
         action="person_added_to_family",
-        source=SOURCE,
+        source=source,
         actor=actor,
     )
 
@@ -451,7 +544,7 @@ def insert_household_person(
                 contact,
                 operation="insert",
                 action="contacts_updated",
-                source=SOURCE,
+                source=source,
                 actor=actor,
             )
     return person

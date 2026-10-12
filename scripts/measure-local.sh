@@ -26,10 +26,15 @@
 #
 # Environment:
 #   MEASURE_DB_NAME   overrides the derived database name (must start with raakmeet)
+#   EXISTING_DB_URL   a database server that already runs, in place of the dev
+#                     stack's (#1891) — see scripts/local-db-lib.sh. The helper
+#                     container is e2e-local.sh's, so its socket mount is too.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 COMPOSE=(docker compose -f "$ROOT/docker-compose.dev.yml")
+# shellcheck source=scripts/local-db-lib.sh
+. "$ROOT/scripts/local-db-lib.sh"
 
 slug="$(basename "$ROOT" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '_' | sed 's/_\+/_/g; s/^_//; s/_$//')"
 DB_NAAM="${MEASURE_DB_NAME:-raakmeet_${slug}}"
@@ -44,6 +49,10 @@ case "$DB_NAAM" in
     ;;
 esac
 
+# #1891: a database server that already runs, in place of the dev stack's — also
+# decided before any docker call. What the switch is: scripts/local-db-lib.sh.
+existing_db measure-local.sh "$DB_NAAM"
+
 # The helper container of the e2e's: the same image, the same pinned browser.
 NAAM="raake2e-${slug}"
 ENV_FILE="$ROOT/backend/tests_e2e/e2e.env"
@@ -52,17 +61,25 @@ if ! docker inspect -f '{{.State.Running}}' "$NAAM" 2>/dev/null | grep -q true; 
   echo "measure-local.sh: the helper container $NAAM is not running — run scripts/e2e-local.sh once first (it builds it)." >&2
   exit 2
 fi
-"${COMPOSE[@]}" up -d --no-recreate db >/dev/null
-DB_USER="$("${COMPOSE[@]}" exec -T db printenv POSTGRES_USER)"
-DB_PASS="$("${COMPOSE[@]}" exec -T db printenv POSTGRES_PASSWORD)"
-URL="postgresql+psycopg2://${DB_USER}:${DB_PASS}@db:5432/${DB_NAAM}"
+if [ -z "${EXISTING_DB_URL:-}" ]; then
+  "${COMPOSE[@]}" up -d --no-recreate db >/dev/null
+  DB_USER="$("${COMPOSE[@]}" exec -T db printenv POSTGRES_USER)"
+  DB_PASS="$("${COMPOSE[@]}" exec -T db printenv POSTGRES_PASSWORD)"
+  URL="postgresql+psycopg2://${DB_USER}:${DB_PASS}@db:5432/${DB_NAAM}"
+fi
 
 # `faketime` from Debian's own archive, once per helper container.
 docker exec "$NAAM" sh -c 'command -v faketime >/dev/null || (apt-get update -q >/dev/null && apt-get install -y -q faketime >/dev/null)'
 
-"${COMPOSE[@]}" exec -T db sh -c \
-  "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c 'DROP DATABASE IF EXISTS ${DB_NAAM} WITH (FORCE)' \
+if [ -n "${EXISTING_DB_URL:-}" ]; then
+  # No db container to ask: the helper container drops and makes it, over the given URL.
+  docker exec -e ADMIN_DATABASE_URL="$EXISTING_DB_URL" "$NAAM" \
+    python -m tests._local_db recreate "$DB_NAAM"
+else
+  "${COMPOSE[@]}" exec -T db sh -c \
+    "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c 'DROP DATABASE IF EXISTS ${DB_NAAM} WITH (FORCE)' \
    && psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c 'CREATE DATABASE ${DB_NAAM}'" >/dev/null 2>&1
+fi
 
 status=0
 docker exec --env-file "$ENV_FILE" -e DATABASE_URL="$URL" "$NAAM" /app/scripts/measure-run.sh "$@" || status=$?

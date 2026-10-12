@@ -71,7 +71,9 @@ def test_the_page_stands_in_the_account_layout(browser, width, height, menu):
     edit = page.evaluate(PAGE)
     print("MEASURE my details edit", width, edit)
     own = [name.rsplit(".", 1)[-1] for name in edit["fields"] if name.startswith("h.")]
-    assert own == ["first_name", "last_name", "mobile"], edit["fields"]
+    # #1899 (CR-22 R17 as corrected): the whole person card — the gender is a
+    # select and not among these inputs.
+    assert own == ["first_name", "last_name", "date_of_birth", "mobile", "phone"], edit["fields"]
     assert any(name.startswith("e.") for name in edit["fields"]), "no e-mail field"
     assert edit["inside"] and edit["bar"] and edit["action"] is None, edit
     # A field is a finger high on a phone, a control high on a desktop.

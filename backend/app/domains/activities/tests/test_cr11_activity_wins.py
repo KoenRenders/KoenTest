@@ -53,20 +53,25 @@ def _component(db, activity, name="Deelname", **extra):
 
 
 def _details(html: str) -> list[str]:
-    return re.findall(
-        r"<details[^>]*data-(?:external-links|rare-settings).*?</details>", html, flags=re.S
-    )
+    """The closed lines of external links on the page itself — not the one in the
+    template a new component is made from."""
+    page = re.sub(r"<template\b.*?</template>", "", html, flags=re.S)
+    return re.findall(r"<details[^>]*data-rare-line.*?</details>", page, flags=re.S)
 
 
 # ── W2 ───────────────────────────────────────────────────────────────────────
 
 
 def test_the_external_links_are_folded_and_counted(client, db_session):
-    """Broken on purpose: `<details open ...>` → the first assertion fails;
-    the count dropped from the summary → the second."""
+    """Since #1900 the external links stand with their object (end state §3.4 as
+    revised): a closed line in the card Activiteit for the poster address, and one
+    in every component's card for its three links — each counting what is filled.
+
+    Broken on purpose: `<details open ...>` → "the line starts open"; the count
+    dropped from the summary → the counts differ."""
     a = _activity(db_session, "Kaas en wijn", poster_url="https://example.com/affiche.png")
-    _component(db_session, a, "Leeg")
-    _component(
+    empty = _component(db_session, a, "Leeg")
+    filled = _component(
         db_session,
         a,
         "Met links",
@@ -77,30 +82,43 @@ def test_the_external_links_are_folded_and_counted(client, db_session):
     _login(client)
     html = client.get(f"/admin/activiteiten/{a.id}?bewerken=1").text
 
-    folds = _details(html)
-    # Since #1559 one closed section for the whole fiche: the poster address and
-    # the external links of every component, named by it.
-    assert len(folds) == 1, len(folds)
-    assert not re.match(r"<details[^>]*\bopen\b", folds[0]), "the fold starts open"
-    summary = re.search(r"<summary.*?</summary>", folds[0], flags=re.S).group(0)
-    assert "3 externe links" in summary, "the poster address and two links of one component"
-    assert ">Met links</p>" in folds[0] and ">Leeg</p>" in folds[0]
-    # Every external URL field lives inside the fold.
-    outside = re.sub(
-        r"<details[^>]*data-(?:external-links|rare-settings).*?</details>", "", html, flags=re.S
-    )
+    lines = _details(html)
+    assert len(lines) == 3, f"{len(lines)} closed lines: one for the activity, one per component"
+    assert "data-rare-settings" not in html, "the last section of links is back"
+
+    def counted(line: str) -> str:
+        summary = re.search(r"<summary.*?</summary>", line, flags=re.S).group(0)
+        return " ".join(re.sub(r"<[^>]+>", " ", summary).split())
+
+    by_field = {}
+    for line in lines:
+        assert not re.match(r"<details[^>]*\bopen\b", line), "the line starts open"
+        for name in re.findall(r'name="([^"]+)"', line):
+            by_field[name] = counted(line)
+    assert by_field["poster_url"] == "Externe koppelingen · 1 ingevuld"
+    assert by_field[f"c.{filled.id}.info_url"] == "Externe koppelingen · 2 ingevuld"
+    assert by_field[f"c.{empty.id}.info_url"] == "Externe koppelingen", "an empty line counts"
+    # Each line stands in the card of its object.
+    activity_card = html[html.index('id="aa-section-activity"') :].split("</section>", 1)[0]
+    assert 'name="poster_url"' in activity_card
+    for component in (empty, filled):
+        card = html[html.index(f'data-row-key="{component.id}"') :]
+        card = card[: card.index(f'data-repeating-group="p_order.{component.id}"')]
+        assert f'name="c.{component.id}.external_register_url"' in card
+    # Every external URL field lives inside a closed line.
+    outside = re.sub(r"<details[^>]*data-rare-line.*?</details>", "", html, flags=re.S)
     for name in ("external_register_url", "external_registrations_url", "info_url", "poster_url"):
         assert f'.{name}"' not in outside and f'name="{name}"' not in outside, (
-            f"{name} outside the fold"
+            f"{name} outside its closed line"
         )
 
 
 def test_the_new_activity_form_folds_the_poster_url(client, db_session):
     _login(client)
     html = client.get("/admin/activiteiten/nieuw").text
-    folds = _details(html)
-    assert len(folds) == 1 and 'name="poster_url"' in folds[0]
-    assert "Design Studio" in folds[0]
+    lines = _details(html)
+    assert len(lines) == 1 and 'name="poster_url"' in lines[0]
+    assert "Design Studio" in lines[0]
 
 
 # ── W12 ──────────────────────────────────────────────────────────────────────

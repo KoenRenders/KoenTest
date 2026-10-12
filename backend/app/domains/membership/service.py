@@ -335,14 +335,46 @@ def current_membership_counts(db, today: Optional[date] = None) -> tuple[int, in
     return households, persons
 
 
-def not_renewed_count(db, today: Optional[date] = None) -> int:
-    """Gezinnen die lid waren in het referentiejaar maar het doeljaar nog niet
-    dekken (#582). Soft-deleted rijen vallen weg via de globale ORM-filter."""
+def members_to_renew(db, today: Optional[date] = None) -> set[int]:
+    """The households that were a member in the reference year and do not cover
+    the target year yet (#582) — the one rule of "te vernieuwen", for the
+    figure above the member list and for its segment (#1899). Soft-deleted
+    rows fall away through the global ORM filter."""
     referentie, doel = renewal_years(today)
-    return len(
-        members_with_membership_for_year(db, referentie)
-        - members_with_membership_for_year(db, doel)
+    return members_with_membership_for_year(db, referentie) - members_with_membership_for_year(
+        db, doel
     )
+
+
+def membership_states(
+    db, member_ids, today: Optional[date] = None, to_renew: Optional[set[int]] = None
+) -> dict[int, tuple[Optional[int], bool]]:
+    """Per household: the year its membership of today runs to (None when it is
+    no member today, `valid_on`), and whether it is to renew
+    (`members_to_renew`). What the member list and the household record say in
+    their badge (#1899) — the two rules, asked once for a page of households.
+    `to_renew`: the set of `members_to_renew` when the caller has it already."""
+    from sqlalchemy import func
+
+    from app.domains.membership.models import Membership
+
+    ids = list(member_ids)
+    if not ids:
+        return {}
+    until = dict(
+        db.query(Membership.member_id, func.max(Membership.valid_to))
+        .filter(Membership.member_id.in_(ids), *valid_on(today or date.today()))
+        .group_by(Membership.member_id)
+        .all()
+    )
+    if to_renew is None:
+        to_renew = members_to_renew(db, today)
+    return {i: (until[i].year if i in until else None, i in to_renew) for i in ids}
+
+
+def not_renewed_count(db, today: Optional[date] = None) -> int:
+    """How many households `members_to_renew` names."""
+    return len(members_to_renew(db, today))
 
 
 def is_first_membership(db, member) -> bool:
@@ -409,52 +441,6 @@ def membership_years(db) -> list[int]:
         for (jaar,) in db.query(Membership.year).distinct().order_by(Membership.year.desc()).all()
         if jaar
     ]
-
-
-def parse_member_rows(form) -> list[dict]:
-    """De `m<i>_`-velden van een gezinsformulier, als één rij per persoon.
-
-    Gedeeld door het publieke "Word lid" en het beheer-aanmaakscherm (#1110): twee
-    schermen met dezelfde veldnamen horen niet elk hun eigen ontleding te hebben.
-
-    Gat-bestendig (#456): een verwijderd gezinslid laat een gat in de nummering,
-    dus scan álle aanwezige indices in plaats van te stoppen bij het eerste
-    ontbrekende. Een rij zonder naam telt niet mee — dat is een lege rij die de
-    bezoeker openliet.
-    """
-    import re
-
-    indices = sorted(
-        {int(mo.group(1)) for k in form.keys() if (mo := re.match(r"m(\d+)_", str(k)))}
-    )
-    rijen: list[dict] = []
-    for index in indices:
-        rij = {
-            k: (form.get(f"m{index}_{k}") or "").strip()
-            for k in (
-                "first_name",
-                "last_name",
-                "date_of_birth",
-                "gender_code",
-                "email",
-                "phone",
-                "mobile",
-                "relation_type",
-            )
-        }
-        # #1246: the extra e-mail rows of Word lid, in the order they were added.
-        # `email` stays the first row — the primary address.
-        rij["extra_emails"] = [
-            value.strip()
-            for key, value in form.items()
-            if key.startswith(f"m{index}_email_new_") and isinstance(value, str) and value.strip()
-        ]
-        # #1327: the row's own number, so a screen that shows the form again after
-        # a refusal puts every person back in their own row.
-        rij["index"] = index
-        if rij["first_name"] or rij["last_name"]:
-            rijen.append(rij)
-    return rijen
 
 
 def activate_after_payment(

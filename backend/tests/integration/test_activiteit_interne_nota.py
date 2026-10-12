@@ -172,7 +172,10 @@ def test_het_beheerscherm_toont_de_nota_met_de_vermelding_erbij(client, db_sessi
     html = client.get(f"/admin/activiteiten/{activiteit.id}").text
 
     assert NOTA in html
-    assert "Interne nota" in html
+    # #1900: in read mode the card Intern names the note; the field's own label
+    # is the editor's.
+    assert ">Intern</h2>" in html
+    assert "Interne nota" in client.get(f"/admin/activiteiten/{activiteit.id}?bewerken=1").text
     assert "Alleen het bestuur ziet dit" in html, (
         "de vermelding hoort BIJ het veld te staan — daar beslist iemand wat hij typt"
     )

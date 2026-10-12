@@ -1,0 +1,18 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Lidmaatschap vernieuwen — Raak beheer") }}{% endblock %}
+{% block content %}
+{# The board renews a household's membership from its record (#1899 §4): the
+   page of the member's own renewal (`_renewal_form.html`) in the admin shell —
+   one page for the member and for the board, as a registration is (CR-14
+   §B4.1). The online choice goes to the provider with a hard redirect, as on
+   the public side; the transfer choice lands on the household's record, where
+   the running renewal stands. `#vernieuw-pagina` is what an answer replaces. #}
+<div id="vernieuw-pagina">
+{% call ui.public_form_page(_("Lidmaatschap vernieuwen"), shell="admin",
+                            intro=_("Vernieuw het lidmaatschap voor het hele gezin."),
+                            back_href=page.household_href, back_label=household_name) %}
+{% include "_renewal_form.html" %}
+{% endcall %}
+</div>
+{% endblock %}

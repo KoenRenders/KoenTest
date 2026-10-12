@@ -43,9 +43,11 @@ _FRAME = """() => {
     mode: q('[data-form-flow]').dataset.mode,
     // the one form is `display:contents` (#1559): its children are the flow's blocks
     blocks: [...q('[data-form-flow]').children].flatMap(e => e.matches('form') ? [...e.children] : [e]).filter(e => e.checkVisibility() && e.getBoundingClientRect().height > 0)
-      .map(e => e.matches('[data-rare-settings]') ? 'rare' : e.matches('[data-action-bar]') ? 'bar' : e.matches('[data-form-section]') ? 'section' : e.matches('form') ? 'form' : 'card'),
+      .map(e => e.matches('#aa-group-organisers') ? 'organisers' : e.matches('[data-action-bar]') ? 'bar' : e.matches('[data-form-section]') ? 'section' : e.matches('form') ? 'form' : 'card'),
     sections: [...document.querySelectorAll('[data-form-flow] [data-form-section]')].map(s => ({title: s.querySelector('h2').innerText, ...r(s)})),
-    fields: [...document.querySelectorAll('#aa-section-activity [data-field], #aa-section-audience [data-field], #aa-section-internal [data-field]')].map(f => ({name: f.dataset.field, ...r(f)})),
+    fields: [...document.querySelectorAll('#aa-section-activity [data-field], #aa-section-internal [data-field]')].map(f => ({name: f.dataset.field, ...r(f)})),
+    facts: [...document.querySelectorAll('#aa-section-activity [data-activity-facts] > p, #aa-section-internal [data-internal-note] > p')].map(f => r(f)),
+    last: (() => { const g = document.querySelector('#aa-group-organisers'); return g ? r(g) : null; })(),
     controls: [...document.querySelectorAll('#aa-act-form input:not([type=checkbox]):not([type=file]):not([type=hidden]), #aa-act-form select, #aa-act-form [data-kind=switch] label, #aa-act-form [data-upload] label')].map(e => Math.round(e.getBoundingClientRect().height)),
   };
 }"""
@@ -143,11 +145,20 @@ def test_the_reading_group_is_left_aligned_never_centred(setup, width, suffix):
     )
     if suffix:
         # #1610 (Koen, 5 October 2026): a record with a composite group that is
-        # being EDITED takes the whole reading group, and its summary stands
-        # above the form as a strip. Red on master: 768 beside 300.
+        # being EDITED takes the whole reading group. Red on master: 768 beside
+        # 300. #1906 (Koen, 12 October 2026): its summary keeps the card's 300 px
+        # — above the form and left-aligned where the frame has no room beside
+        # it (1 440 px), at the form's right where it has (1 920 px).
         assert f["form"]["w"] == 1092, "the editor does not take the reading group"
-        assert (f["summary"]["x"], f["summary"]["w"]) == (f["form"]["x"], 1092)
-        assert f["summary"]["y"] + f["summary"]["h"] <= f["form"]["y"], "the summary is not above"
+        assert f["summary"]["w"] == 300, "the summary takes the form's width again"
+        if width == 1440:
+            assert f["summary"]["x"] == f["form"]["x"]
+            assert f["summary"]["y"] + f["summary"]["h"] <= f["form"]["y"], (
+                "the summary is not above"
+            )
+        else:
+            assert f["summary"]["x"] == f["form"]["right"] + 24
+            assert f["summary"]["y"] == f["form"]["y"], "the summary is not level with the form"
     else:
         assert f["form"]["w"] == 768
         assert f["summary"]["x"] == f["form"]["right"] + 24 and f["summary"]["w"] == 300
@@ -212,16 +223,17 @@ def test_the_fiche_on_a_phone_is_one_column_in_the_same_order(setup):
         {"read": r["sections"], "edit": e["sections"], "controls": e["controls"]},
     )
     assert r["page"] == [390, 390] and e["page"] == [390, 390]
-    assert [f["name"] for f in r["fields"]] == [f["name"] for f in e["fields"]], (
-        "the same fields in the same order"
-    )
-    for state in (r, e):
-        tops = [f["y"] for f in state["fields"]]
+    # #1900: read mode shows facts, the editor fields — each one column, in order.
+    assert r["fields"] == [] and len(r["facts"]) >= 4, "read mode shows facts, no field blocks"
+    assert len(e["fields"]) == 9, [f["name"] for f in e["fields"]]
+    for lines in (r["facts"], e["fields"]):
+        tops = [f["y"] for f in lines]
         assert tops == sorted(tops) and len(set(tops)) == len(tops), "one column"
-        assert [s["title"] for s in state["sections"]] == ["Activiteit", "Publiek", "Intern"]
+    for state in (r, e):
+        assert [s["title"] for s in state["sections"]][:2] == ["Activiteit", "Intern"]
     assert e["controls"] and min(e["controls"]) >= 44, f"touch targets: {e['controls']}"
-    assert e["blocks"][-2:] == ["rare", "bar"], "the closed section last, then the save"
-    assert r["blocks"][-1] == "rare"
+    assert e["blocks"][-2:] == ["organisers", "bar"], "the organisers last, then the save"
+    assert r["blocks"][-1] == "organisers", "a last section of links is back"
     edit.close()
 
 
@@ -239,21 +251,24 @@ def test_the_activity_section_keeps_its_measured_heights(setup):
         {
             "read": r["sections"][0],
             "edit": e["sections"][0],
-            "first_field": [r["fields"][0], e["fields"][0]],
+            "first_line": [r["facts"][0], e["fields"][0]],
         },
     )
-    assert 250 <= r["sections"][0]["h"] <= 340
-    assert 440 <= e["sections"][0]["h"] <= 560
+    # #1900: read mode is facts (the card is a third of what it was), the editor
+    # gained Doelpubliek, Enkel leden and the closed line of links.
+    assert 120 <= r["sections"][0]["h"] <= 240
+    assert 520 <= e["sections"][0]["h"] <= 700
     assert e["sections"][0]["h"] > r["sections"][0]["h"], (
         "the editor takes more room, in the same place"
     )
     # Until #1610 the first field stood on the same y in both states. The editor
-    # now has the summary above it (the strip), so its first field starts lower —
-    # by the strip and the 24 px under it, and by nothing else.
-    lower = e["fields"][0]["y"] - r["fields"][0]["y"]
+    # now has the summary above it at this width (#1906: the card of 300 px), so
+    # its first field starts lower — by the card and the 24 px under it, and by
+    # nothing else.
+    lower = e["sections"][0]["y"] - r["sections"][0]["y"]
     assert lower == e["summary"]["h"] + 24, (lower, e["summary"])
     gaps = [b["y"] - (a["y"] + a["h"]) for a, b in zip(e["sections"], e["sections"][1:])]
-    assert gaps == [32, 32], "32 px between sections"
+    assert gaps and set(gaps) == {16}, f"16 px between sections (#1899): {gaps}"
 
 
 def test_bewerken_opens_the_editor_and_one_save_returns_to_reading(setup):
@@ -274,8 +289,8 @@ def test_bewerken_opens_the_editor_and_one_save_returns_to_reading(setup):
     pagina_klaar(page)
 
     assert page.url.endswith(base), "the address lost its edit flag"
-    assert page.locator('[data-field="location"] [data-value]').inner_text() == "Dorpshuis"
-    assert page.locator('[data-field="members_only"] [data-value]').inner_text() == "ja"
+    assert page.locator("[data-activity-location]").inner_text().strip() == "Dorpshuis"
+    assert "Enkel leden: ja" in page.locator("[data-activity-facts]").inner_text()
     assert page.locator('[data-head-controls] a:has-text("Bewerken")').count() == 1, (
         "the head's primary is back"
     )
@@ -293,7 +308,7 @@ def test_bewerken_opens_the_editor_and_one_save_returns_to_reading(setup):
     page.click('[data-dialog][data-tone="keep"] [data-dialog-ok]')
     pagina_klaar(page)
     assert page.url.endswith(base)
-    assert page.locator('[data-field="location"] [data-value]').inner_text() == "Dorpshuis"
+    assert page.locator("[data-activity-location]").inner_text().strip() == "Dorpshuis"
     page.close()
 
 
@@ -350,18 +365,19 @@ def test_the_first_card_starts_where_the_summary_card_starts(setup, width, suffi
     """#1587: seen on HDEV — the card "Activiteit" began 32 px below the summary
     beside it. Measured: the flow's empty message line was its first child and
     took the section gap. Proven red by taking the kit's rule for an empty
-    message line out of the stylesheet: 32 px at both widths, in both modes."""
+    message line out of the stylesheet: the gap twice at both widths, in both
+    modes. The gap is 16 px since #1899 (it was 32)."""
     page = _page(setup, width, f"/admin/activiteiten/{setup[2]}{suffix}")
     tops = page.evaluate(_TOPS)
     print("MEASURE tops", width, suffix or "read", tops)
     assert len(tops) == 1, "the fiche has one pair of columns"
     pair = tops[0]
     assert pair["form_is"] == "aa-section-activity", pair
-    if suffix:
-        # #1610: the editor is wide and its summary stands above it — the frame
-        # starts with the summary, and the first card comes under it.
-        assert not pair["beside"], "the summary still stands beside a wide editor"
-        assert abs(pair["summary"] - pair["columns"]) <= 1, "room above the summary strip"
+    if suffix and width == 1440:
+        # #1610, #1906: the editor is wide and the frame has no room beside it —
+        # the frame starts with the summary, and the first card comes under it.
+        assert not pair["beside"], "the summary stands beside a wide editor without the room"
+        assert abs(pair["summary"] - pair["columns"]) <= 1, "room above the summary card"
         assert pair["form"] > pair["summary"]
     else:
         assert pair["beside"], "the two cards stand beside each other at this width"
@@ -385,7 +401,7 @@ def test_a_message_in_the_flow_takes_its_place_again(setup):
         """() => { const m = document.getElementById('aa-fiche-message').getBoundingClientRect(), s = document.getElementById('aa-section-activity').getBoundingClientRect();
                  return {height: Math.round(m.height), gap: Math.round(s.top - m.bottom)}; }"""
     )
-    assert box["height"] > 40 and box["gap"] == 32, box
+    assert box["height"] > 40 and box["gap"] == 16, box
     page.close()
 
 

@@ -1,41 +1,23 @@
 {% import "_macros.html" as ui %}
-{# Alleen de kaarten + de pager (#582): de filterbalk swapt dít fragment, zodat
-   het zoekveld niet onder je vingers vervangen wordt. #}
-{% if families %}
-<div class="space-y-3">
-  {% for f in families %}
-  {# CR-12 phase 2: this used to be `selectattr("relation_type", "equalto", "HOOFDLID")`.
-     With a plain `Enum` on that column that comparison is silently false, and
-     then the list falls back to "the first person" without anything
-     complaining. §B4.7 already says it: a template does not compare a code.
-     Who the primary member is, is a rule, and it belongs to the household —
-     `f.primary` comes from the service. #}
-  {% set primary = f.primary or (f.members | first) %}
-  <a href="/admin/leden/gezin/{{ f.id }}"
-     class="block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
-    <div class="flex items-start justify-between gap-3">
-      <div>
-        <div class="font-semibold text-ink">{{ primary.last_name if primary else "—" }} {{ primary.first_name if primary else "" }}</div>
-        {# F34 (#996): scheidingstekens alleen tússen aanwezige waarden — een
-           gezin zonder adres toonde " , · " — en enkelvoud bij één persoon. #}
-        {% set _straat = ((f.street or "") ~ " " ~ (f.house_number or "")).strip() %}
-        {% set _adres = [_straat, f.municipality or ""] | select | join(", ") %}
-        {% set _n = f.members | length %}
-        <div class="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
-          {% if _adres %}<span class="text-sm text-ink-soft">{{ _adres }}</span>{% endif %}
-          <span class="text-sm text-ink-soft">{% if _adres %}· {% endif %}{{ _n }} {{ _("persoon") if _n == 1 else _("personen") }}</span>
-        </div>
-      </div>
-      <span class="shrink-0 text-sm text-ink-soft" aria-hidden="true">›</span>
-    </div>
-  </a>
-  {% endfor %}
-</div>
+{# The list of Leden (#1899): one row per household on the kit's table — the
+   household's name as the way in to its record with the address under it, the
+   number of persons, the membership as a badge. The toolbar swaps this
+   fragment; what changes with the list — the count, a segment's count, the
+   sort — travels out-of-band. #}
+{% if rows %}
+{% call ui.data_table(columns, hx_target="#leden-lijst", caption=_("Leden")) %}
+  <tbody>
+    {% for r in rows %}
+    <tr data-row data-household="{{ r.id }}" class="align-middle">
+      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">{{ ui.row_link(r.name, "/admin/leden/gezin/" ~ r.id, sub=r.address or none, sub_mono=False) }}</td>
+      <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right tabular-nums">{{ r.persons }}</td>
+      <td data-cell="status" class="border-b border-line px-3 py-2">{{ ui.badge(r.badge[0], r.badge[1]) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+{% endcall %}
+{{ ui.pager(page, per_page=per_page, total=total, hx_get=pager_url, hx_target="#leden-lijst", count=False, push=True) }}
 {% else %}
-{{ ui.empty_state(_("Geen gezinnen gevonden.")) }}
+{{ ui.empty_state(empty_reason) }}
 {% endif %}
-{# Kit-pager (#580): toont "x–y van n" en houdt zoekterm en filters vast bij het
-   bladeren — vandaar hx-include op de filterbalk. #}
-{{ ui.pager(page, per_page=per_page, total=total,
-            hx_get="/admin/leden/lijst?q=" ~ (q|urlencode) ~ "&status=" ~ (status|urlencode) ~ "&jaar=" ~ (jaar or ""),
-            hx_target="#leden-lijst") }}
+{% if oob %}{{ ui.toolbar_oob("leden-filter", segments=segments, page=page, per_page=per_page, total=total, sort=sort) }}{% endif %}

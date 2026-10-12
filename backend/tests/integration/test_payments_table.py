@@ -206,7 +206,9 @@ def test_the_row_is_the_way_in_with_one_action_and_the_rest_under_the_menu(
         paid.index("data-row-menu ") if "data-row-menu " in paid else paid.index('role="menu"') :
     ]
     assert menu.index("Terugbetaling") < menu.index("Inschrijving openen")
-    assert f'href="/admin/betalingen/{world["an"].id}?terug=' in menu and "#terugbetaling" in menu
+    # #1901: the refund is a screen of its own.
+    assert f'href="/admin/betalingen/{world["an"].id}/terugbetaling?terug=' in menu
+    assert "#terugbetaling" not in menu
     open_row = _row_of(html, world["bram"])
     assert "Terugbetaling" not in open_row.split('role="menu"')[1], "a refund on an unpaid booking"
     # Delete last, red, after a divider — on the refund, which may be deleted.

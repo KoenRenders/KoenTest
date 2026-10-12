@@ -139,7 +139,18 @@ class BookingView(ViewModel):
     #: is read-only: no primary, no actions, no forms.
     may_mutate: bool = False
     status_labels: dict[str, str]
-    method_label: str
+    #: (code, label) for the status select of the editor.
+    status_options: list[tuple[str, str]]
+    #: `ui.summary_card`: {state, figures} — amount, received, balance, way, made on.
+    summary: dict[str, Any]
+    #: The other bookings of the same registration, as `refunds`.
+    others: list[dict[str, Any]] = field(default_factory=list)
+    #: Verwijderen in the action bar while editing: {attrs, confirm}, or None.
+    delete: dict[str, Any] | None = None
+    #: What the amount field holds (the amount received or paid back, without
+    #: its sign), and what it takes when the status becomes "paid".
+    paid_amount: str
+    full_amount: str
     #: This page's own address with its way back, where its forms return to.
     here: str
     csrf_token: str
@@ -147,3 +158,18 @@ class BookingView(ViewModel):
     error: str | None = None
     #: A full-page answer after a save shows the toast itself (#748).
     toast_opgeslagen: bool = False
+
+
+@dataclass(frozen=True, kw_only=True)
+class RefundScreenView(ViewModel):
+    """`betaling_terugbetaling.html` — Terugbetaling registreren (#1901): the small
+    screen that makes a refund of one paid booking."""
+
+    title: str
+    #: The booking it refunds, as its record head names it, and what was received.
+    booking: str
+    received: str
+    post_url: str
+    back_href: str
+    csrf_token: str
+    nav_items: list[dict[str, Any]] = field(default_factory=list)

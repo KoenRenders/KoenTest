@@ -416,7 +416,7 @@ Import with `{% import "_macros.html" as ui %}`.
 |---|---|
 | Structure | `page_header` · `section_header` · `section_bar` · `card` · `nested_panel` · `tabs` · `detail_disclosure` |
 | Lists | `search` · `filter_bar` · `grouped_filter` · `chips` · `multiselect` · `media_picker` · `pager` · `row_actions` · `reorder` · `empty_state` · `loading` |
-| Forms | `field_input` · `field_select` · `field_textarea` · `label` · `vraag` · `input_control` · `select_control` · `textarea_control` · `person_fields` · `upload_field` · `export_links` · `copy_button` |
+| Forms | `field_input` · `field_select` · `field_textarea` · `label` · `vraag` · `input_control` · `select_control` · `textarea_control` · `person_card` · `upload_field` · `export_links` · `copy_button` |
 | Feedback | `toast` · `toast_oob` · `toast_host` · `success_banner` · `error_banner` · `modal` · `confirm_host` · `badge` |
 | Buttons | `btn_primary` · `btn_secondary` · `btn_outline` · `btn_danger` · `button` · `btn_class` · `edit_toggle` · `icon` · `icon_text` · `action_bar` |
 
@@ -452,14 +452,20 @@ the width** — `url`, `email`, `textarea` and rich text always full, `number`,
 `date`, `time`, a code, a short `select` and `switch` half or quarter, `text`
 half unless long; a template may widen a short field and never narrow a long
 one. A section is one card per meaningful section, never a nested card,
-16 px from its heading to the first field, 32 px between sections; fields
+16 px from its heading to the first field, 16 px between sections (32 px
+until #1899); fields
 share a row only when read together (street · number · bus; from · to). The
 **switch** (`ui.switch` of #1568, used by `field(kind=switch)`) has its knob
 at the left and the label at its right; in read mode a boolean is words
 ("Enkel leden: ja"), an empty field reads "—" in its place (reverses #1139).
 The rare settings (`rare_settings`) are the closed last section, placed by
-the layout above the action bar. The activity's sections are Activiteit ·
-Publiek · Intern; "Geannuleerd" is no field but the record actions
+the layout above the action bar — except where they belong to one object of
+the record: there they are a closed line in that object's card (`rare_line`,
+#1900: the activity's poster address under its poster, a component's links
+in its card), and the record has no last section. The activity's sections are
+Activiteit · Intern, a card per component under the heading row "Onderdelen"
+(`flow_heading`), and in read mode a value that needs its label reads
+`label: value` (`label_fact`); "Geannuleerd" is no field but the record actions
 "Activiteit annuleren" and "Annulering intrekken". No raw `<label>`,
 `<input>`, `<select>` or `<textarea>` in a template on the kit; elsewhere the
 ratchet `RAW_FORM_ELEMENTS` (105 in 29 files on 5 October 2026) may only
@@ -549,7 +555,8 @@ superseded on every screen that moves to the layout:
   with it.
 - **Since K2 (#1556, merged 4 October 2026) the table of the `list_page`
   is the kit's** (`ui.table`), Betalingen first: sort in the head; **the row
-  is the way in** — a row on a top-level list opens the record page (P8; a
+  is the way in** (`ui.row_link`; its second line is monospace for a code,
+  plain for text such as an address) — a row on a top-level list opens the record page (P8; a
   booking got its own page `/admin/betalingen/<id>` with #1574, where FINANCE
   and OPERATOR mutate); **one visible row action**, the positive action of
   the row's state ("Bevestig" on an open booking), plus `⋯`, following
@@ -1055,8 +1062,9 @@ a correction slice on K5), the price fields active only for Betalend;
 in edit mode a record with a composite group takes the whole reading group
 (1 092 px, every full-width field filling it, text areas included — the
 768 px cap on long text fields went on 5 October 2026) with the summary
-card as the strip above, as beside the Assistent
-panel; a product row is one line naam · prijs · ledenprijs · maximum with
+card at the form's right where the frame holds both (1 416 px) and otherwise
+above it as the card of 300 px, left-aligned (Koen, 12 October 2026, #1906);
+a product row is one line naam · prijs · ledenprijs · maximum with
 the settlement choice and Publiek zichtbaar on the second; a component's
 head is naam · maximum · inschrijven tot on one line; the handle's gutter is
 28 px and the child indent 12 px. **One save** writes the record with

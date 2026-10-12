@@ -74,16 +74,19 @@ def _remove(email: str) -> None:
 WAITING = """() => { const r = e => e.getBoundingClientRect(), n = v => Math.round(v);
   const line = document.querySelector('[data-email-waiting]');
   if (!line) return null;
-  const row = line.closest('[data-group-row]'), card = document.querySelector('[data-my-details]');
-  const value = row.querySelector('[data-value]');
+  const card = document.querySelector('[data-my-details]');
+  // #1899: reading, the address is a line of the person card with its tag; the two
+  // ways on stand under the card's lines.
+  const row = [...card.querySelectorAll('[data-person-email]')].find(p => p.querySelector('[data-person-email-tag]') && p.textContent.includes('wacht'));
+  const value = row.querySelector('a');
   const actions = [line.querySelector('[data-enter-code]'), line.querySelector('[data-send-code]')];
-  return {address: value.textContent.trim(), badge: line.querySelector('[data-badge]').textContent.trim(),
+  return {address: value.textContent.trim(), badge: row.querySelector('[data-badge]').textContent.trim(),
           actions: actions.map(a => a.textContent.trim()), heights: actions.map(a => n(r(a).height)),
           under: r(line).top >= r(value).bottom - 0.5,
           inside: r(line).left >= r(card).left && actions.every(a => r(a).right <= r(card).right + 0.5),
           line: [n(r(line).left), n(r(line).top), n(r(line).width), n(r(line).height)],
           card: [n(r(card).left), n(r(card).width)],
-          primary_tags: [...document.querySelectorAll('[data-row-one-tag]')].filter(t => t.checkVisibility()).length,
+          primary_tags: [...card.querySelectorAll('[data-person-email-tag]')].filter(t => t.textContent.trim() === 'hoofdadres').length,
           page: [document.documentElement.scrollWidth, innerWidth]}; }"""
 
 

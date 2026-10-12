@@ -25,8 +25,13 @@ cd "$ROOT/backend"
 PORT="${MEASURE_PORT:-8001}"
 
 : "${DATABASE_URL:?measure-run.sh: DATABASE_URL must name the measurement database}"
-case "$DATABASE_URL" in
-  */raakmeet|*/raakmeet_*) ;;
+# The name is parsed out of the URL (#1891): a pattern on the URL's text also
+# matched a socket directory in ?host= that merely contains "/raakmeet_".
+# shellcheck source=scripts/local-db-lib.sh
+. "$ROOT/scripts/local-db-lib.sh"
+db_url_parse "$DATABASE_URL" || DB_URL_NAME=""
+case "$DB_URL_NAME" in
+  raakmeet|raakmeet_*) ;;
   *)
     echo "measure-run.sh: REFUSED — the database in DATABASE_URL does not read as a measurement database (raakmeet…)." >&2
     exit 2

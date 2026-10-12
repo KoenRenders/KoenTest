@@ -90,9 +90,14 @@ def _addresses(row: PersonRow, errors: list[FieldError]) -> list[str]:
     return [value for _main, value in sorted(found, key=lambda pair: not pair[0])]
 
 
-def signup_from_form(form: Any) -> tuple[Optional[FamilyCreate], list[FieldError]]:
+def signup_from_form(
+    form: Any, *, payment: bool = True
+) -> tuple[Optional[FamilyCreate], list[FieldError]]:
     """The household this form asks to create, or what stands in its way —
-    everything at once, each refusal at its field."""
+    everything at once, each refusal at its field.
+
+    `payment=False`: the board's Nieuw lid (#1899), the same form without the
+    payment choice — the household is made a member at once, nothing is charged."""
     household = household_from_form(form)
     errors: list[FieldError] = list(household.errors)
     refused = {error.field for error in errors}
@@ -157,8 +162,12 @@ def signup_from_form(form: Any) -> tuple[Optional[FamilyCreate], list[FieldError
         if address is None or not getattr(address, name):
             errors.append(FieldError(f"address.{name}", message))
 
-    method = form.get("payment_method")
-    if method not in PAYMENT_METHODS:
+    method = (
+        form.get("payment_method")
+        if payment
+        else FamilyCreate.model_fields["payment_method"].default
+    )
+    if payment and method not in PAYMENT_METHODS:
         errors.append(FieldError("payment_method", _("Kies een betaalwijze.")))
 
     if errors or address is None:

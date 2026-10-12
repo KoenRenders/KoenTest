@@ -27,12 +27,14 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Member, MemberPerson, Person, PostalCode, RelationType
-from tests._refusal import said
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests.conftest import SEEDED_ADMIN_EMAIL, new_household_form, record_fields, save_record
 
 pytestmark = pytest.mark.ui_serverrendered
 
 ONE = "Een gezin heeft één hoofdlid."
+#: #1899: the household record's one save refuses the main member's place for
+#: anyone, at that person's relation, in these words.
+CHOOSE = "Kies partner of kind."
 
 
 def _person(n: int, first_name: str, **more) -> dict:
@@ -66,7 +68,7 @@ def headers(client, db_session):
 def household(client, db_session, headers) -> tuple[int, int, int]:
     """A household of a main member and a partner, made through the screen: its
     id, the main member's and the partner's."""
-    made = client.post("/admin/leden", data=NEW, headers=headers)
+    made = client.post("/admin/leden", data=new_household_form(NEW), headers=headers)
     assert made.status_code == 204, made.text
     household_id = int(made.headers["HX-Redirect"].rsplit("/", 1)[-1])
     links = _links(db_session, household_id)
@@ -90,27 +92,39 @@ def _main_members(db, household_id: int) -> int:
 
 def test_a_new_household_with_two_main_members_is_refused(client, db_session, headers):
     answer = client.post(
-        "/admin/leden", data=NEW | {"m1_relation_type": "HOOFDLID"}, headers=headers
+        "/admin/leden",
+        data=new_household_form(NEW | {"m1_relation_type": "HOOFDLID"}),
+        headers=headers,
     )
 
     assert answer.status_code == 422
     assert "text/html" in answer.headers["content-type"]
-    assert ONE in answer.text
+    # #1899: the form of Word lid offers partner and child only, and its reader
+    # refuses a second main member at that person's relation.
+    assert "Kies partner of kind." in answer.text
     assert db_session.query(Member).count() == 0, "a refused household was made"
     assert db_session.query(Person).filter(Person.last_name == "Proef").count() == 0
 
 
 def test_adding_a_second_main_member_is_refused(client, db_session, headers, household):
     household_id, _main, _partner = household
-    person = {name[3:]: value for name, value in _person(9, "Tweede").items()}
-
-    answer = client.post(
-        f"/admin/leden/gezin/{household_id}/personen",
-        data=person | {"relation_type": "HOOFDLID"},
-        headers=headers,
+    fields = record_fields(client, household_id)
+    fields["h_order"] = [*fields["h_order"], "n9"]
+    fields.update(
+        {
+            "h.n9.first_name": "Tweede",
+            "h.n9.last_name": "Proef",
+            "h.n9.date_of_birth": "1980-03-04",
+            "h.n9.gender_code": "F",
+            "h.n9.relation_type": "HOOFDLID",
+        }
     )
 
-    assert (answer.status_code, said(answer)) == (422, [ONE])
+    answer = save_record(client, household_id, fields, headers)
+
+    # The refusal stands at the person's relation, not as a sentence of the banner.
+    assert answer.status_code == 422 and CHOOSE in answer.text, answer.text[:300]
+    assert ".relation_type" in answer.text
     assert len(_links(db_session, household_id)) == 2, "the refused person was added"
     assert _main_members(db_session, household_id) == 1
 
@@ -118,33 +132,31 @@ def test_adding_a_second_main_member_is_refused(client, db_session, headers, hou
 def test_making_the_partner_a_main_member_is_refused_and_saves_nothing(
     client, db_session, headers, household
 ):
-    """The card's save commits in steps, so the rule is asked before the first:
-    the name sent with the refused relation is not written either."""
+    """One save, one transaction (#1899): the name sent with the refused relation
+    is not written either."""
     household_id, _main, partner = household
-    card = {name[3:]: value for name, value in _person(9, "Anders", gender_code="M").items()}
+    fields = record_fields(client, household_id)
+    fields[f"h.{partner}.first_name"] = "Anders"
+    fields[f"h.{partner}.relation_type"] = "HOOFDLID"
 
-    answer = client.post(
-        f"/admin/leden/gezin/{household_id}/persoon/{partner}",
-        data=card | {"relation_type": "HOOFDLID"},
-        headers=headers,
-    )
+    answer = save_record(client, household_id, fields, headers)
 
-    assert (answer.status_code, said(answer)) == (422, [ONE])
+    # The refusal stands at the person's relation, not as a sentence of the banner.
+    assert answer.status_code == 422 and CHOOSE in answer.text, answer.text[:300]
+    assert ".relation_type" in answer.text
     db_session.expire_all()
     assert db_session.get(Person, partner).first_name == "Bram", "half the card was saved"
     assert _main_members(db_session, household_id) == 1
 
 
 def test_the_main_member_saves_his_own_card_as_before(client, db_session, headers, household):
-    """His card sends the relation he has: that is no second main member."""
+    """His card carries the fixed badge and sends no relation: he keeps his place."""
     household_id, main, _partner = household
-    card = {name[3:]: value for name, value in _person(9, "Hanneke").items()}
+    fields = record_fields(client, household_id)
+    assert f"h.{main}.relation_type" not in fields
+    fields[f"h.{main}.first_name"] = "Hanneke"
 
-    answer = client.post(
-        f"/admin/leden/gezin/{household_id}/persoon/{main}",
-        data=card | {"relation_type": "HOOFDLID", "mobile": "0470 00 00 01"},
-        headers=headers,
-    )
+    answer = save_record(client, household_id, fields, headers)
 
     assert answer.status_code == 200, answer.text
     db_session.expire_all()
@@ -154,13 +166,10 @@ def test_the_main_member_saves_his_own_card_as_before(client, db_session, header
 
 def test_the_partner_becomes_a_child_as_before(client, db_session, headers, household):
     household_id, _main, partner = household
-    card = {name[3:]: value for name, value in _person(9, "Bram", gender_code="M").items()}
+    fields = record_fields(client, household_id)
+    fields[f"h.{partner}.relation_type"] = "KIND"
 
-    answer = client.post(
-        f"/admin/leden/gezin/{household_id}/persoon/{partner}",
-        data=card | {"relation_type": "KIND"},
-        headers=headers,
-    )
+    answer = save_record(client, household_id, fields, headers)
 
     assert answer.status_code == 200, answer.text
     relations = [link.relation_type.value for link in _links(db_session, household_id)]

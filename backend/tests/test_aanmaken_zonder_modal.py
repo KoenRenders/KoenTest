@@ -27,8 +27,8 @@ pytestmark = pytest.mark.ui_serverrendered
 # elke gebruiker, en dan toetst de test niets. De id's zijn uniek per formulier.
 SCHERMEN = [
     # #1110: het aanmaakscherm is één formulier met de gedeelde veldenset, dus
-    # het eerste veld heet m0_first_name.
-    ("/admin/leden", "/admin/leden/nieuw", 'id="m0_first_name"'),
+    # het eerste veld is de voornaam van het hoofdlid (#1899: h-n0-first_name).
+    ("/admin/leden", "/admin/leden/nieuw", 'id="h-n0-first_name"'),
     # #1649: the create screen is the activity's fiche, empty; its first date row.
     ("/admin/activiteiten", "/admin/activiteiten/nieuw", 'id="d-n1-start_date"'),
     ("/admin/formulieren", "/admin/formulieren/nieuw", 'id="f-title"'),

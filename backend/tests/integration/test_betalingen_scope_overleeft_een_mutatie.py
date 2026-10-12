@@ -164,8 +164,9 @@ def test_without_a_scope_the_list_stays_complete(client, db_session, world):
 def test_the_other_mutations_keep_the_scope_too(client, db_session, world):
     """Update, edit and refund share the helper; one scoped page, all three.
 
-    A refund adds a record of its own to this activity, so the check is the
-    other way round: nothing of activity B may come back.
+    Registering a refund is no mutation of the list any more (#1901): it is a
+    screen of its own whose answer is the new refund's page. The two others
+    answer with the list: nothing of activity B may come back.
     """
     csrf = _login(client, db_session)
     page = f"/admin/activiteiten/{world['a']}/betalingen"
@@ -181,7 +182,6 @@ def test_the_other_mutations_keep_the_scope_too(client, db_session, world):
     for route, data in (
         ("bijwerken", {"amount_paid": "10.00", "note": ""}),
         ("bewerken", {"status": "paid", "amount_paid": "10.00", "note": ""}),
-        ("refund", {"amount": "1.00", "note": "proef"}),
     ):
         answer = client.post(f"/admin/betalingen/{record}/{route}", data=data, headers=headers)
         assert answer.status_code == 200, (route, answer.text[:300])
