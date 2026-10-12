@@ -1062,8 +1062,9 @@ a correction slice on K5), the price fields active only for Betalend;
 in edit mode a record with a composite group takes the whole reading group
 (1 092 px, every full-width field filling it, text areas included — the
 768 px cap on long text fields went on 5 October 2026) with the summary
-card as the strip above, as beside the Assistent
-panel; a product row is one line naam · prijs · ledenprijs · maximum with
+card at the form's right where the frame holds both (1 416 px) and otherwise
+above it as the card of 300 px, left-aligned (Koen, 12 October 2026, #1906);
+a product row is one line naam · prijs · ledenprijs · maximum with
 the settlement choice and Publiek zichtbaar on the second; a component's
 head is naam · maximum · inschrijven tot on one line; the handle's gutter is
 28 px and the child indent 12 px. **One save** writes the record with

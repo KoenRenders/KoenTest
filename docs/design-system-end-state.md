@@ -329,8 +329,11 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
   rest (photos, Design Studio, print, delete…). Never a button named after
   the fields it edits. [39, 29, 20]
 - **In edit mode a record with a composite repeating group takes the whole
-  reading group** — 1 092 px on a desktop, the summary card as the strip
-  above the form, the way K8 does it beside the Assistent panel; **every
+  reading group** — 1 092 px on a desktop; the summary card stands at the
+  form's right where the frame holds both (1 416 px) and otherwise above the
+  form as the card of 300 px, left-aligned, never as a strip of the form's
+  width (Koen, 12 October 2026, #1906: "indien scherm breed genoeg -->
+  rechts"); **every
   full-width field, the text areas included (Omschrijving, interne nota),
   fills the wider column** — the 768 px cap on long text fields that K5c
   built left a gap beside the Omschrijving and went (Koen, 5 October 2026);
@@ -1265,7 +1268,11 @@ create button and "Instellingen" · the declared save model matches the
 macros used · the Raakje trigger by rule · one toolbar per rich text ·
 DOM-measurement baselines in JSON diffed — positions, sizes and counts per
 kit screen and width, no PNGs in the repository (Koen, 5 October 2026, CR-11
-Q60; the stability protocol of CR-11 B7 applies).
+Q60; the stability protocol of CR-11 B7 applies) · a list of records in the
+back office comes from `ui.data_table`: `test_list_table_gate.py` (#1911;
+Koen, 12 October 2026) refuses a screen on the list layout without the table
+and a loop of record links drawn by hand, outside a baseline of the ten
+templates that drew one that day, which only shrinks.
 
 **The eye** — the merge gate and the classification of Part 5, where a
 test can list candidates from word lists but a person decides: whether a

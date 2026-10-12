@@ -373,8 +373,7 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 @container (min-width:964px){.record-columns[data-wide]:has(>.record-summary-column){grid-template-columns:minmax(0,1056px) 300px}}
 /* #1610 (Koen, 5 October 2026; end state §2.2): room for the groups. A record
    that is being EDITED and holds a composite repeating group (components with
-   their products) takes the whole reading group and its summary
-   goes above the form as the strip it is on a narrow frame. The layout reads
+   their products) takes the whole reading group — 1 092 px. The layout reads
    that from what stands in it (`:has`), so a save or a cancel — the form back
    in read mode — gives the reading group and the card at the right again
    without anybody saying so. Only where the frame has the width: with the
@@ -384,13 +383,22 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    The wide variant of her (the page screen's) waits for a repeating group on
    a wide page — none carries one today; the rule stands for when one does.
 
+   #1906 (Koen, 12 October 2026: "indien scherm breed genoeg --> rechts"): the
+   summary stands beside that wide form where the frame holds both — 1 092 +
+   24 + 300 = 1 416 px — and otherwise above it as the card it is, 300 px wide
+   and left-aligned, never as a strip of the form's width.
+
    #1635 (Koen, 5 October 2026; CR-11 Q74): every field of full width fills
    the wider column, a text box included — the width of a field follows its
    column. #1610 kept `textarea`, `url` and `email` at 768 px here, which left
    Omschrijving and Interne nota with a gap of 290 px at their right. */
 @container record (min-width:1092px){
   .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]){grid-template-columns:minmax(0,1092px)}
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"])>.record-summary-column{order:-1}
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"])>.record-summary-column{order:-1;width:300px}
+}
+@container record (min-width:1416px){
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]):has(>.record-summary-column){grid-template-columns:minmax(0,1092px) 300px}
+  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"])>.record-summary-column{order:0;width:auto}
 }
 @container record (min-width:1380px){
   .record-columns[data-wide]:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]){grid-template-columns:minmax(0,1380px)}
@@ -409,14 +417,6 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
   .summary-card [data-summary-figures]{grid-column:1}
   .summary-card [data-summary-action]{grid-column:1;grid-row:auto;display:flex;align-items:center;gap:8px;border-top:1px solid rgb(var(--c-line));padding-top:12px}
   .summary-card [data-summary-link]{display:block;flex:1}
-}
-/* #1610: above a wide form the summary is the strip it is on a narrow frame —
-   one shape for "above" — so the card shape just said is taken back there. */
-@container record (min-width:1092px){
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card{grid-template-columns:minmax(0,1fr) auto;padding:12px}
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-figures]{grid-column:1/-1}
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-action]{grid-column:2;grid-row:1;display:block;border-top:0;padding-top:0}
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-link]{display:none}
 }
 .form-section{container-type:inline-size;min-width:0}
 .form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start}

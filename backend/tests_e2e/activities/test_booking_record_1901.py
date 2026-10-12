@@ -327,6 +327,17 @@ def test_a_refund_is_registered_corrected_to_zero_and_deleted(setup):
         banner = page.locator("#terugbetaling-melding [data-save-refusal]")
         expect(banner).to_be_visible()
         assert "terugbetalen" in banner.inner_text() and "20,00" in banner.inner_text()
+        # The kit shows a refusal in two steps (#1908): the banner comes with the
+        # answer's swap, and one settle later — 20 ms — the reason stands at the
+        # field and the focus moves to it. This test typed in between: the focus
+        # left the Reden field for the amount while its text was on the way, so
+        # "annulering" landed in the number field and the save posted an empty
+        # amount and an empty reason (measured: 9 of 80 walks). The refusal is
+        # shown when its reason stands at the field; only then is typing safe.
+        expect(page.locator('[data-field="amount"] [data-refused-message]')).to_contain_text(
+            "terugbetalen"
+        )
+        expect(page.locator("#bk-refund-amount")).to_be_focused()
         assert _refund_of(made["refund"]) is None, "a refused refund was made"
 
         # A good answer lands on the NEW refund's page.
