@@ -659,6 +659,34 @@
   <code>ui.data_table(columns, modes)</code> · <code>ui.row_link(label, href, sub)</code> ·
   <code>ui.row_actions_cell(action, items)</code> · <code>ui.amount(value, warning)</code>
 </p>
+{# #1915 — a list of events: a moment and a free sentence. #}
+<p class="text-sm text-gray-600 mt-6 mb-3">
+  {{ _("Een moment (datum met jaar en uur) heeft een eigen kolombreedte. Vrije tekst neemt de rest van de breedte en staat op een telefoon als laatste regel van de rij; een lege tekst laat geen regel achter.") }}
+</p>
+<div data-kit-moment-text>
+{% call ui.data_table([
+     {"key": "wanneer", "label": _("Wanneer"), "cell": "moment"},
+     {"key": "status", "label": _("Status"), "cell": "status"},
+     {"key": "aantal", "label": _("Aantal"), "cell": "amount", "num": True},
+     {"key": "opmerking", "label": _("Opmerking"), "cell": "text"}], caption=_("Voorbeeldlijst met een moment en vrije tekst")) %}
+  <tbody>
+    {% for moment, badge, tone, quantity, note in [
+        ("30-10-2026 14:05", _("Verwerkt"), "green", "+12", _("Eerste levering van de leverancier, met de bon van oktober erbij en twee dozen die later volgen")),
+        ("28-08-2025 08:08", _("Openstaand"), "yellow", "-2", ""),
+        ("01-11-2026 09:30", _("Verwerkt"), "green", "+5", _("Nageteld"))] %}
+    <tr class="align-middle">
+      <td data-cell="moment" class="border-b border-line px-3 py-2 whitespace-nowrap text-ink-soft">{{ moment }}</td>
+      <td data-cell="status" class="border-b border-line px-3 py-2">{{ ui.badge(badge, tone) }}</td>
+      <td data-cell="amount" class="border-b border-line px-3 py-2 text-right tabular-nums">{{ quantity }}</td>
+      <td data-cell="text" class="border-b border-line px-3 py-2 text-ink-soft">{{ note }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+{% endcall %}
+</div>
+<p class="text-xs text-gray-500 mb-2">
+  <code>"cell": "moment"</code> · <code>"cell": "text"</code>
+</p>
 
 {# ── 8g. A record's summary and its related list (CR-11 pilot A, K6 — #1560) ── #}
 {{ ui.section_header(_("8g · Samenvatting en gekoppelde lijst"), cls="mt-10") }}

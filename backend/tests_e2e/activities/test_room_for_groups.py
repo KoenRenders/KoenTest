@@ -7,11 +7,12 @@ rendered DOM:
 
 - **the wide column in edit mode**: a record with a composite group that is being
   edited takes the reading group, 1 092 px; its summary stands beside it
-  where the frame holds both (1 416 px) and otherwise above it as the card
-  of 300 px, never as a strip of the form's width (#1906); reading, saving
+  where the frame holds both (1 416 px) and otherwise above it as the band
+  (#1912; #1906 had a card of 300 px there); reading, saving
   and cancelling give 768 px and the card at the right again; a field of full width fills the column, a text box included (#1635:
   #1610 kept long text at 768 px, with a gap at its right); with less than
-  1 092 px of frame (the Assistent's panel open) nothing changes;
+  1 092 px of frame (the Assistent's panel open) the form keeps 768 px and
+  the band stands above it;
 - **denser rows**: a product's name · price · member price · maximum on one
   line, the settlement and "Publiek zichtbaar" on the second;
 - **a narrower gutter**: 28 px for a composite item's handle, the child group
@@ -24,9 +25,12 @@ taken out of the stylesheet → 768 in edit mode; the long-text rule of #1610
 put back (#1635) → "Omschrijving is 768 px in a grid of 1 058"; the product's
 first grid back on four tracks → the
 maximum on a second line; the gutter back at 44 px; the child group's indent
-back at 16 px. And for #1906 (12 October 2026): a rule added at the foot of the
-built stylesheet that gives the summary column the form's width again → "the
-summary is 1092 px wide, not the card's 300" at 1 440 px.
+back at 16 px. And for #1912 (12 October 2026), each locally and restored: the
+a rule added that makes the figures the card's rows again (`display:grid`) →
+"label and value are 278 px apart" at 1 440 px and with the panel open; a rule
+added that gives every figure a third of the band → "label and value are 75 px
+apart" (what Koen refused: "het label en het bedrag onnatuurlijk ver uit
+elkaar").
 """
 
 import os
@@ -38,7 +42,13 @@ from playwright.sync_api import expect, sync_playwright
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.activities.test_product_settlement import _db, _seed  # noqa: E402
-from tests_e2e.schermen import BASE, login_met_sessie, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    SUMMARY_SHAPE,
+    assert_summary_band,
+    login_met_sessie,
+    pagina_klaar,
+)
 
 _M = """() => { const r = e => { if (!e) return null; const b = e.getBoundingClientRect(); return {x: Math.round(b.left), y: Math.round(b.top + scrollY), w: Math.round(b.width), h: Math.round(b.height), right: Math.round(b.right), bottom: Math.round(b.bottom + scrollY)}; };
   const q = s => document.querySelector(s);
@@ -97,28 +107,34 @@ def _page(setup, width: int, edit: bool = True):
 
 
 @pytest.mark.parametrize("width", [1440, 1920])
-def test_the_editor_takes_the_reading_group_and_the_summary_keeps_the_cards_width(setup, width):
-    """#1906: at 1 440 px the frame (1 168) has no room beside the form, so the
-    card stands above it, left-aligned; at 1 920 px (1 632) it stands at the
-    form's right, their tops level. 300 px wide either way, as in read mode."""
+def test_the_editor_takes_the_reading_group_and_the_summary_is_a_band_or_beside(setup, width):
+    """#1912: at 1 440 px the frame (1 168) has no room beside the form, so the
+    summary stands above it as the band, filling the form's column; at 1 920 px
+    (1 632) it is the card of 300 px at the form's right, their tops level."""
     page = _page(setup, width)
     try:
         m = page.evaluate(_M)
+        shape = page.evaluate(SUMMARY_SHAPE)
         print("MEASURE room edit", width, m["column"], m["summary"], m["description"], m["body"])
+        print("MEASURE summary shape edit", width, shape)
         assert m["mode"] == "edit" and m["column"]["w"] == 1092
-        assert m["summary"]["w"] == 300, (
-            f"the summary is {m['summary']['w']} px wide, not the card's 300"
-        )
         if width == 1440:
-            assert m["summary"]["x"] == m["column"]["x"], "above the form the card is left-aligned"
-            assert m["summary"]["bottom"] + 24 == m["column"]["y"], (
-                "the card is not 24 px above the form"
+            assert (m["summary"]["x"], m["summary"]["w"]) == (m["column"]["x"], 1092), (
+                "the band does not fill the form's column"
             )
+            assert m["summary"]["bottom"] + 24 == m["column"]["y"], (
+                "the band is not 24 px above the form"
+            )
+            assert_summary_band(shape)
         else:
+            assert m["summary"]["w"] == 300, f"the card is {m['summary']['w']} px wide"
             assert m["summary"]["x"] == m["column"]["right"] + 24, (
                 "with room beside the form the card stands at its right"
             )
             assert m["summary"]["y"] == m["column"]["y"], "the card and the form start level"
+            assert len({f["mid"] for f in shape["figures"]}) == len(shape["figures"]), (
+                "beside the form every figure is a row of its own"
+            )
         # #1635: a field of full width fills the column, a text box included —
         # Omschrijving and Interne nota from the left edge of Naam to the right
         # edge of Vriendelijke URL. Red on master: 768 px in a grid of 1 058.
@@ -216,8 +232,9 @@ def test_a_product_stands_on_one_line_and_its_choice_on_the_second(setup):
 
 
 def test_with_the_assistents_panel_open_the_panel_wins_and_the_row_still_fits(setup):
-    """Less than 1 092 px of frame: the form is 768 px, the strip stays above, and
-    the product's four fields are still one line (the row has 649 px)."""
+    """Less than 1 092 px of frame: the form is 768 px, the summary is the band
+    above it (#1912: a strip of rows until then), and the product's four fields
+    are still one line (the row has 649 px)."""
     page = _page(setup, 1440)
     try:
         page.get_by_role("button", name="Assistent").first.click()
@@ -228,6 +245,9 @@ def test_with_the_assistents_panel_open_the_panel_wins_and_the_row_still_fits(se
         print("MEASURE panel open 1440", m["column"], m["summary"], m["body"])
         assert m["column"]["w"] == 768
         assert m["summary"]["bottom"] <= m["column"]["y"] and m["summary"]["w"] == 768
+        shape = page.evaluate(SUMMARY_SHAPE)
+        print("MEASURE summary shape panel open 1440", shape)
+        assert_summary_band(shape, lines=2)
         _one_line(m)
         assert m["page"][0] == 1440
     finally:
@@ -273,7 +293,7 @@ def test_on_a_phone_nothing_widens_and_the_editor_is_shorter(setup):
         print("MEASURE phone", m["column"], m["body"], m["length"])
         assert m["page"] == [390, 390]
         assert m["column"]["w"] == 358
-        # #1906 leaves the phone as it was: the summary above the form, full width.
+        # The phone is as it was: the strip above the form, full width (#1912).
         assert (m["summary"]["x"], m["summary"]["w"]) == (m["column"]["x"], 358)
         assert m["summary"]["bottom"] <= m["column"]["y"]
         assert m["body"]["w"] >= 239

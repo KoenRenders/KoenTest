@@ -329,11 +329,12 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
   rest (photos, Design Studio, print, delete…). Never a button named after
   the fields it edits. [39, 29, 20]
 - **In edit mode a record with a composite repeating group takes the whole
-  reading group** — 1 092 px on a desktop; the summary card stands at the
+  reading group** — 1 092 px on a desktop; the summary stands at the
   form's right where the frame holds both (1 416 px) and otherwise above the
-  form as the card of 300 px, left-aligned, never as a strip of the form's
-  width (Koen, 12 October 2026, #1906: "indien scherm breed genoeg -->
-  rechts"); **every
+  form as the band of §3.10 — never as a strip of rows at the form's width,
+  and not as a lone card of 300 px either (Koen, 12 October 2026, #1906:
+  "indien scherm breed genoeg --> rechts"; the same day, on the band
+  rendered: "perfect"); **every
   full-width field, the text areas included (Omschrijving, interne nota),
   fills the wider column** — the 768 px cap on long text fields that K5c
   built left a gap beside the Omschrijving and went (Koen, 5 October 2026);
@@ -1003,8 +1004,8 @@ suggestions of the screen** as text lines above the question field; the
 field from 44 to 120 px with the microphone and the send button, Enter
 sends, Shift+Enter breaks. **The content moves aside, it is not covered**:
 at 1 920 px the whole reading group fits beside the panel; at 1 440 px
-exactly 768 px remain, the summary becomes the strip above the form and
-the form keeps its width; a list beside the panel at 1 440 px falls back
+exactly 768 px remain, the summary becomes the band above the form (§3.10)
+and the form keeps its width; a list beside the panel at 1 440 px falls back
 to its stacked rows (list width under 900) — accepted, the panel is
 occasional and closing restores the room. **Below 1 440 px** a centred
 dialog of at most 560 × 720 px (the background blocked); **at 390 px** a
