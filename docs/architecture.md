@@ -34,7 +34,7 @@ Scope: every claim in this document is traceable to code in the repository; see 
 | Domain packages / Postgres schemas | 17 / 15, plus `public` for the kernel |
 | ORM-mapped tables, of which tenant-scoped | 84 / 63 |
 | Tests, of which browser end-to-end flows | 3,323 / 82 |
-| Gate files enforcing architecture and conventions | 18; ratchet lists empty, standing exceptions carry their reason inline |
+| Gate files enforcing architecture and conventions | 18 when this was written, 55 on 11 October 2026; two baselines that may only shrink (the Dutch identifiers, #780; the hand-drawn lists, #1911), every other ratchet list empty, standing exceptions carry their reason inline |
 
 # 2. Architecture principles
 
@@ -613,7 +613,9 @@ flowchart LR
   class G,RG g
 ```
 
-Two design choices explain the shape. First, every test session drops the fifteen schemas and rebuilds them through all 150 migrations against a real PostgreSQL 16, so the migration chain is exercised on every run. Second, gates use an *allowlist-to-zero* pattern: when a rule is introduced, the current violators are listed explicitly with a reason; every fix removes a line; when the list is empty the rule is absolute and adding an exception is a visible diff. On master the ratchet lists are empty; the handful of standing exceptions that remain each carry their reason on the line they excuse.
+Two design choices explain the shape. First, every test session drops the fifteen schemas and rebuilds them through all 150 migrations against a real PostgreSQL 16, so the migration chain is exercised on every run. Second, gates use an *allowlist-to-zero* pattern: when a rule is introduced, the current violators are listed explicitly with a reason; every fix removes a line; when the list is empty the rule is absolute and adding an exception is a visible diff. On master every ratchet list is empty but two, and those two are the same pattern at a larger scale — a *baseline that may only shrink*: the Dutch identifiers that existed on 29 September 2026 (437, #780) and the back-office lists drawn by hand on 12 October 2026 (ten templates, #1911). An entry that leaves the code must leave the baseline, nothing may join it, and a rule with a growing exemption list would be dead. The handful of standing exceptions that remain each carry their reason on the line they excuse.
+
+**The list gate** (`backend/tests/test_list_table_gate.py`, built 12 October 2026 on #1911, PR #1913) guards that a list of records in the back office is drawn by the kit's table, `ui.data_table` (CR-11 block 4, `docs/design-system-end-state.md` §2.1 and §6). It reads two signals from the templates' own text: a screen on the list layout (`list_page.html`) whose templates never call the table, and a loop that draws one link per item to that item's own back-office address by hand, outside a table call. The second signal has the baseline: the ten screens that drew such a list on 12 October 2026 (Activiteiten, Pagina's, Design Studio, Formulieren, Vergaderingen, Nieuwsbrieven, Rapporten, Werkbank, Organisaties, Tenants) stand in it until each moves onto the macro. The gate counts the templates it read and the lists it recognised, so a moved folder cannot turn it green, and it says what it cannot see: a hand-written table whose rows are no way in. Why it exists: on 12 October 2026 Koen found two list screens of the webshop drawn as hand-written cards while the same builder's third used the macro, after several reads — "Hebben we geen gate die bewaakt dat op lijst-schermen enkel nog via de macro mag gewerkt worden?". Nothing mechanical said it, so no review brought it back; now one does.
 
 ## 6.3 What the gates caught
 
