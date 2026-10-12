@@ -26,6 +26,21 @@ fails at 1 440 (and set to 56 px: fails with "56.0px"); the logo forbidden to
 shrink (`max-width:none;flex-shrink:0`) → the wide-logo test fails at 390, its
 box 576 px wide over the button (removing `max-width:100%` alone does NOT turn
 it red: the brand's flex box shrinks the image as well); the menu button's `w-11 h-11` removed → the touch-target test fails.
+
+**The menu this file measures beside (#1916).** The logo test was red in a full
+local suite, 188 px wide where 192 belongs, and green alone: no timing, but the
+menu. From 1 200 px the header's grid is brand · menu · account with the brand
+as `minmax(0,1fr)`, so the logo gets what the menu leaves. Measured at 1 440 px
+with pages of 13 characters added to the seed's three links: +5 pages the logo
+192 px, +6 143 px, +7 15 px, +8 gone. A full local suite runs every folder on
+one database, so the pages an earlier test left stood in the menu; CI runs the
+pages and the shell in two parts. The fixture now takes every page out of the
+menu while this file runs and puts them back. Proven red: a test before this
+file that leaves eight published pages → the logo test red in 5 of 5 runs
+without the fixture's lines, green in 5 of 5 with them, the eight pages back in
+the menu afterwards; and a rule added to the built css, `.site-brand
+img{height:60px!important}` → "het logo is op breed 60.0px"; a rule added,
+`.site-brand{max-width:150px}` → "het menu laat het logo op breed 150px".
 """
 
 import os
@@ -73,6 +88,7 @@ def logo_in_de_kopbalk():
     """
     import app.models  # noqa: F401  → alle mappers geconfigureerd
     from app.database import SessionLocal
+    from app.domains.cms.models import CmsPage
     from app.domains.media.api import MediaAsset
 
     db = SessionLocal()
@@ -84,6 +100,21 @@ def logo_in_de_kopbalk():
             data=_logo_bytes(),
         )
         db.add(asset)
+        # #1916: the menu this file measures beside is the modules' own, with no
+        # page in it. From 1 200 px the brand's column is what the menu leaves,
+        # and a published page stands in the menu by the model's default — so
+        # the pages another test left behind decided how wide the logo was.
+        # They leave the menu for as long as this file runs and come back as
+        # they were; `updated_at` is named so the update does not touch it.
+        uit_het_menu = [
+            rij.id
+            for rij in db.query(CmsPage.id).filter(
+                CmsPage.is_published.is_(True), CmsPage.show_in_nav.is_(True)
+            )
+        ]
+        db.query(CmsPage).filter(CmsPage.id.in_(uit_het_menu)).update(
+            {"show_in_nav": False, "updated_at": CmsPage.updated_at}, synchronize_session=False
+        )
         db.commit()
         nummer = asset.id
     finally:
@@ -94,6 +125,9 @@ def logo_in_de_kopbalk():
     db = SessionLocal()
     try:
         db.query(MediaAsset).filter(MediaAsset.id == nummer).delete()
+        db.query(CmsPage).filter(CmsPage.id.in_(uit_het_menu)).update(
+            {"show_in_nav": True, "updated_at": CmsPage.updated_at}, synchronize_session=False
+        )
         db.commit()
     finally:
         db.close()
@@ -143,6 +177,15 @@ def test_het_logo_is_groter(page, logo_in_de_kopbalk):
         gemeten[naam] = vak["height"]
 
         verwacht = RIJ[naam] - 2 * LUCHT
+        # #1916: the state this test measures in, said before the measurement —
+        # the brand's column holds the whole logo. A menu that takes that room
+        # is another question than the logo's height, and not this test's.
+        ruimte = page.locator("header [data-site-brand]").first.bounding_box()["width"]
+        assert ruimte >= 3 * verwacht, (
+            f"het menu laat het logo op {naam} {ruimte:.0f}px, minder dan de "
+            f"{3 * verwacht:.0f}px die het vraagt: staat er een pagina in het menu "
+            f"die deze test niet zelf weghaalde? (#1916)"
+        )
         assert abs(vak["height"] - verwacht) <= 0.5, (
             f"het logo is op {naam} {vak['height']:.1f}px; de rij van {RIJ[naam]:.0f}px "
             f"laat {verwacht:.0f}px toe (#1621)"
