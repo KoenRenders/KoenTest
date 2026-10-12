@@ -106,7 +106,26 @@ def price_list(
     db: Session = Depends(get_db),
     _email: str = Depends(require_right(Right.PRICE_VIEW)),
 ):
-    view = PriceListView(products=list_products(db), nav_items=admin_nav(NAV, request))
+    from app.kernel.codes import code_label, tone
+
+    view = PriceListView(
+        rows=[
+            {
+                "id": product.id,
+                "name": product.name,
+                "badge": (
+                    code_label("product_status", product.status),
+                    tone("product_status", product.status),
+                ),
+            }
+            for product in list_products(db)
+        ],
+        columns=[
+            {"key": "artikel", "label": _("Artikel"), "cell": "name"},
+            {"key": "status", "label": _("Status"), "cell": "status"},
+        ],
+        nav_items=admin_nav(NAV, request),
+    )
     return templates.TemplateResponse(request, "admin_prijzen.html", view.as_context())
 
 

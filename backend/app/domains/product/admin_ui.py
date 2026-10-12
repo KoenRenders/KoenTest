@@ -85,10 +85,27 @@ def _refusal(request: Request, message: str) -> Response:
 
 
 def _list_view(request: Request, db: Session, error: Optional[str] = None) -> ProductListView:
+    from app.kernel.codes import code_label, tone
+
     products = list_products(db)
     return ProductListView(
-        products=products,
-        sizes={product.id: len(variants_of(db, product.id)) for product in products},
+        rows=[
+            {
+                "id": product.id,
+                "name": product.name,
+                "sizes": len(variants_of(db, product.id)),
+                "badge": (
+                    code_label("product_status", product.status),
+                    tone("product_status", product.status),
+                ),
+            }
+            for product in products
+        ],
+        columns=[
+            {"key": "artikel", "label": _("Artikel"), "cell": "name"},
+            {"key": "maten", "label": _("Maten"), "cell": "extra", "num": True, "priority": 1},
+            {"key": "status", "label": _("Status"), "cell": "status"},
+        ],
         error=error,
         nav_items=admin_nav(NAV, request),
     )

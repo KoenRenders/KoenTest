@@ -116,6 +116,15 @@ def short_datetime(moment) -> str:
     return f"{short_date(moment)} {moment.strftime('%H:%M')}"
 
 
+def short_datetime_no_year(moment) -> str:
+    """A short moment without the year, `30-10 14:05` — for a narrow column of a
+    list whose rows are all within reach of the current year, where the year
+    would read as noise. Same one-place rule as `short_datetime`."""
+    if not moment:
+        return ""
+    return f"{moment.strftime('%d-%m')} {moment.strftime('%H:%M')}"
+
+
 def long_date_no_year(d) -> str:
     """The same long date without the year, e.g. 'zondag 8 november' (#1051).
 

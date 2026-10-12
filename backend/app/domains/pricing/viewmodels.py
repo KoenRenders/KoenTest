@@ -11,7 +11,10 @@ from app.ui.viewmodel import ViewModel
 class PriceListView(ViewModel):
     """`admin_prijzen.html` — the articles, to pick one to set its prices."""
 
-    products: list[Product]
+    #: One row per article: `{"id", "name", "badge"}` — `badge` is the
+    #: `(label, tone)` pair for `ui.badge`.
+    rows: list[dict[str, Any]]
+    columns: list[dict[str, Any]]
     error: Optional[str] = None
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 

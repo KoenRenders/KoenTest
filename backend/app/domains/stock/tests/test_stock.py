@@ -251,6 +251,15 @@ def test_a_second_reserve_for_the_same_line_is_refused(db_session):
         reserve(db_session, order_line_id=1, variant_id=1, quantity=1, allow_short=True)
 
 
+def test_a_second_reserve_for_the_same_line_on_another_variant_is_refused(db_session):
+    """A line has one variant; a second reserve of the line, for another variant,
+    is refused with a sentence — not by the index's 500 (S2)."""
+    reserve(db_session, order_line_id=1, variant_id=1, quantity=1, allow_short=True)
+
+    with pytest.raises(StockError):
+        reserve(db_session, order_line_id=1, variant_id=2, quantity=1, allow_short=True)
+
+
 def test_the_open_reservation_index_is_there(db_session):
     from sqlalchemy import text
 
@@ -331,6 +340,10 @@ def _clean_variant(variant_id: int) -> None:
         db.query(StockReservation).filter(StockReservation.variant_id == variant_id).delete(
             synchronize_session=False
         )
+        # the default location `receive` made: remove it too, so the file does
+        # not depend on its own order (S1) — a later read of "no location yet"
+        # must see none.
+        db.query(StockLocation).delete(synchronize_session=False)
         db.commit()
     finally:
         db.close()

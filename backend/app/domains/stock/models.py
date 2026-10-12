@@ -20,9 +20,11 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -204,6 +206,15 @@ class StockReservation(TenantMixin, Base):
     __tablename__ = "stock_reservations"
     __table_args__ = (
         CheckConstraint("quantity > 0", name="ck_stock_reservations_quantity_positive"),
+        # One open reservation per order line (F3): a line reserved twice is
+        # refused at rest — the same rule `reserve` refuses in the service.
+        Index(
+            "uq_stock_reservations_open_line",
+            "tenant_id",
+            "order_line_id",
+            unique=True,
+            postgresql_where=text("status = 'OPEN'"),
+        ),
         {"schema": "stock"},
     )
 

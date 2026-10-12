@@ -35,7 +35,7 @@ def test_the_product_list_renders_an_article_and_links_to_it(client, db_session,
     assert page.status_code == 200
     assert "T-shirt Raak" in page.text
     assert f'href="/admin/producten/{product.id}"' in page.text
-    assert "1 maat" in page.text
+    assert "Maten" in page.text  # the sizes column of the table
 
 
 def test_the_price_form_accepts_cents(client, db_session, every_module_on):

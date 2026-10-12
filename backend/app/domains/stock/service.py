@@ -12,6 +12,7 @@ takes the same transaction-scoped advisory lock per tenant, variant and location
 import hashlib
 
 from sqlalchemy import func, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.domains.stock.models import (
@@ -267,8 +268,14 @@ def reserve(
         location_id=location.id,
         quantity=quantity,
     )
-    db.add(reservation)
-    db.flush()
+    try:
+        db.add(reservation)
+        db.flush()
+    except IntegrityError as exc:
+        # The unique index `uq_stock_reservations_open_line` is the net under the
+        # check above: two writers of one line for two variants do not wait on
+        # each other's lock, so the database says what the service could not.
+        raise StockError(_("Deze lijn is al gereserveerd.")) from exc
     return reservation
 
 

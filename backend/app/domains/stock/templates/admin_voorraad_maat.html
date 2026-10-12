@@ -8,7 +8,7 @@
     back={"label": _("Voorraadbeheer"), "href": "/admin/voorraad"}) }}
 {% call ui.data_table([
     {"key": "datum", "label": _("Wanneer"), "cell": "date"},
-    {"key": "wat", "label": _("Wat"), "cell": "name"},
+    {"key": "wat", "label": _("Wat"), "cell": "status"},
     {"key": "aantal", "label": _("Aantal"), "cell": "amount", "num": True},
     {"key": "reden", "label": _("Reden"), "cell": "context"},
 ], caption=_("Bewegingen")) %}
@@ -16,7 +16,7 @@
   {% for m in movements %}
   <tr class="align-middle">
     <td data-cell="date" class="border-b border-line px-3 py-2 whitespace-nowrap text-ink-soft">{{ m.occurred }}</td>
-    <td data-cell="name" class="border-b border-line px-3 py-2 font-medium">{{ m.reason | code_label("movement_reason") }}</td>
+    <td data-cell="status" class="border-b border-line px-3 py-2 font-medium">{{ m.reason | code_label("movement_reason") }}</td>
     <td data-cell="amount" class="border-b border-line px-3 py-2 text-right tabular-nums">{{ ("+" ~ m.quantity) if m.quantity > 0 else m.quantity }}</td>
     <td data-cell="context" class="border-b border-line px-3 py-2 text-ink-soft">{{ m.note or "" }}</td>
   </tr>

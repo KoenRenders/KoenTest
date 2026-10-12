@@ -11,9 +11,11 @@ from app.ui.viewmodel import ViewModel
 class ProductListView(ViewModel):
     """`admin_producten.html` and its fragment `_producten_lijst.html`."""
 
-    products: list[Product]
-    # How many sizes each product has, for the "n maten" line of a card.
-    sizes: dict[int, int]
+    #: One row per product: `{"id", "name", "sizes", "badge"}` — `badge` is the
+    #: `(label, tone)` pair for `ui.badge`.
+    rows: list[dict[str, Any]]
+    #: The kit's table columns: Artikel · Maten · Status.
+    columns: list[dict[str, Any]]
     error: Optional[str] = None
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 

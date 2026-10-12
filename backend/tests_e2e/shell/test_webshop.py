@@ -398,3 +398,80 @@ def test_de_fotos_op_390_px_staan_onder_elkaar(webshop_page):
             ok.wait_for(state="visible")
             with htmx_afgerond(page):
                 ok.click()
+
+
+def _geen_zijwaartse_scroll(page) -> bool:
+    return page.evaluate(
+        "document.documentElement.scrollWidth <= document.documentElement.clientWidth"
+    )
+
+
+def test_productbeheer_en_prijsbeheer_zijn_tabellen(webshop_page):
+    """The two list screens are the kit's table: one `table`, a row is the way in,
+    no sideways scroll (Koen's sixth point)."""
+    page = webshop_page
+    for width in (390, 1440):
+        page.set_viewport_size({"width": width, "height": 844})
+        page.goto("/admin/producten")
+        page.wait_for_selector("table.data-table")
+        assert page.locator("table.data-table").count() == 1
+        page.locator("a[data-row-link]").first.click()
+        page.wait_for_selector("[data-record-head]")
+        assert _geen_zijwaartse_scroll(page)
+
+        page.goto("/admin/prijzen")
+        page.wait_for_selector("table.data-table")
+        assert page.locator("table.data-table").count() == 1
+        page.locator("a[data-row-link]").first.click()
+        page.wait_for_selector("[data-record-head]")
+        assert _geen_zijwaartse_scroll(page)
+
+
+def test_de_actiebalk_is_zo_breed_als_het_formulier(webshop_page):
+    """The article's action bar is as wide as its form column, not the whole
+    window (Koen's first point). On a phone the kit's bar full-bleeds, as on
+    every record."""
+    page = webshop_page
+    page.set_viewport_size({"width": 1440, "height": 844})
+    _open_artikel_in_bewerkmodus(page)
+    bar = page.locator("[data-action-bar]").bounding_box()
+    column = page.locator("[data-form-column]").bounding_box()
+    assert abs(bar["x"] - column["x"]) <= 1, "de balk staat links van de formulierkolom"
+    assert abs((bar["x"] + bar["width"]) - (column["x"] + column["width"])) <= 1, (
+        "de balk staat rechts van de formulierkolom"
+    )
+
+    page.set_viewport_size({"width": 390, "height": 844})
+    _open_artikel_in_bewerkmodus(page)
+    assert _geen_zijwaartse_scroll(page)
+
+
+def test_ontvangst_en_correctie_staan_naast_elkaar(webshop_page):
+    """Ontvangst first and primary, Correctie beside it, both in view at 390 px
+    (Koen's fourth point)."""
+    page = webshop_page
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.goto("/admin/voorraad")
+    page.wait_for_selector("[data-list-primary]")
+    buttons = page.locator("[data-list-primary] a, [data-list-primary] button")
+    assert buttons.count() == 2
+    assert "Ontvangst" in buttons.first.inner_text()
+    assert "Correctie" in buttons.nth(1).inner_text()
+    assert _geen_zijwaartse_scroll(page)
+
+
+def test_de_bewegingen_lopen_niet_uit(webshop_page):
+    """No cell of the movements list crosses its own right edge, at both widths
+    (Koen's fifth point)."""
+    page = webshop_page
+    for width in (390, 1440):
+        page.set_viewport_size({"width": width, "height": 844})
+        page.goto("/admin/voorraad")
+        page.locator("tr[data-row] a[data-row-link]").first.click()
+        page.wait_for_selector("table.data-table")
+        overflow = page.evaluate(
+            "() => [...document.querySelectorAll('table.data-table td')].some("
+            "td => td.scrollWidth > td.clientWidth + 1)"
+        )
+        assert not overflow, f"een cel loopt uit op {width}px"
+        assert _geen_zijwaartse_scroll(page)

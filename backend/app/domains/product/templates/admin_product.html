@@ -64,8 +64,8 @@
     {% endcall %}
   </form>
   {% include "_product_bijlagen.html" %}
+  {{ ui.action_bar(record=True, form="product-form", cancel_href="/admin/producten/" ~ product.id) }}
 </div>
 {% endcall %}
-{{ ui.action_bar(record=True, form="product-form", cancel_href="/admin/producten/" ~ product.id) }}
 {% endif %}
 {% endblock %}

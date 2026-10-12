@@ -3,7 +3,10 @@
 {% block title %}{{ _("Voorraadbeheer — Raak beheer") }}{% endblock %}
 {% block list_title %}{{ _("Voorraadbeheer") }}{% endblock %}
 {% block list_primary %}
-  {{ ui.btn_primary(_("+ Ontvangst"), href="/admin/voorraad/ontvangst") }}
+  <div class="flex gap-2">
+    {{ ui.btn_primary(_("+ Ontvangst"), href="/admin/voorraad/ontvangst") }}
+    {{ ui.btn_secondary(_("Correctie"), href="/admin/voorraad/correctie") }}
+  </div>
 {% endblock %}
 {% block list_body %}
 {% if not rows %}
@@ -28,8 +31,5 @@
   {% endfor %}
 </tbody>
 {% endcall %}
-<div class="mt-2">
-  {{ ui.btn_outline(_("Correctie"), href="/admin/voorraad/correctie") }}
-</div>
 {% endif %}
 {% endblock %}

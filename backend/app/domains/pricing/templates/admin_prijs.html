@@ -42,7 +42,7 @@
     {{ ui.field("member_amount", _("Ledenprijs"), kind="number", unit="€", attrs='step="0.01" min="0"', help=_("Leeg: leden betalen de gewone prijs.")) }}
   </form>
   {% endcall %}
+  {{ ui.action_bar(record=True, form="prijs-form", cancel_href="/admin/prijzen/" ~ product.id, save_label=_("Prijs toevoegen")) }}
 </div>
 {% endcall %}
-{{ ui.action_bar(record=True, form="prijs-form", cancel_href="/admin/prijzen/" ~ product.id, save_label=_("Prijs toevoegen")) }}
 {% endblock %}
