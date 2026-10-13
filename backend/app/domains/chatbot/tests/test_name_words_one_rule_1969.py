@@ -134,3 +134,39 @@ def test_an_address_and_a_number_are_found_and_cleaned_at_a_lines_start_too():
     ]
     cleaned = scrub_names(text, NAMES, "[naam]")
     assert findings([{"role": "user", "content": cleaned}], RULES) == []
+
+
+#: A JSON string in which a key stands twice, at the top and one level down.
+REPEATED_KEY = [
+    '{"notes": "Peeters komt", "notes": "niemand"}',
+    '{"rows": [{"contact": "Nina", "contact": "de voorzitter"}]}',
+]
+
+
+@pytest.mark.parametrize("text", REPEATED_KEY)
+def test_a_json_string_is_read_by_its_pairs(text):
+    """A JSON string is read by its pairs, so what is read is what leaves: every
+    value of a key that stands twice is read, as a typed text and as a tool's
+    result, and the cleaning returns a text the guard finds nothing in.
+
+    Proven red by reading the string as a mapping again (`json.loads` without
+    the pairs hook): both strings fail on the first assertion."""
+    for role in ("user", "tool"):
+        assert _named([text], role), f"not refused ({role}): {text!r}"
+    cleaned = scrub_names(text, NAMES, "[naam]")
+    for role in ("user", "tool"):
+        assert not _named([cleaned], role), cleaned
+
+
+def test_a_string_nested_too_deep_to_parse_is_read_as_plain_text():
+    """Very many opening brackets make the parser give up; the string is then
+    no tree but the text it is, for the guard and for the cleaning alike.
+
+    Proven red by catching `ValueError` only: the call raises `RecursionError`
+    instead of answering."""
+    text = "[" * 100_000 + " Peeters komt ook."
+    for role in ("user", "tool"):
+        assert _named([text], role)
+    cleaned = scrub_names(text, NAMES, "[naam]")
+    assert cleaned.endswith(" [naam] komt ook.")
+    assert not _named([cleaned])

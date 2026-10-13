@@ -164,23 +164,35 @@ def name_words(text: str, names: set[str]) -> list[re.Match[str]]:
     ]
 
 
+class _Pairs(list[tuple[str, Any]]):
+    """A JSON object as the string wrote it: its `(key, value)` pairs in order,
+    a key that stands twice included. A mapping would keep one value per key."""
+
+
 def _json_tree(text: str) -> Any:
     """What a string holds when it is itself JSON — an object or a list — else
     None. A tool's result and a tool call's arguments travel as such a string;
-    the text a person would read is in its values, not in its escapes."""
+    the text a person would read is in its values, not in its escapes.
+
+    A JSON string is read by its pairs (`_Pairs`), so what is read is what
+    leaves. A string nested too deep to parse is no tree: it is read as the
+    plain text it is.
+    """
     stripped = text.strip()
     if not stripped or stripped[0] not in "{[":
         return None
     try:
-        tree = json.loads(stripped)
-    except ValueError:
+        tree = json.loads(stripped, object_pairs_hook=_Pairs)
+    except (ValueError, RecursionError):
         return None
-    return tree if isinstance(tree, (dict, list)) else None
+    return tree if isinstance(tree, list) else None
 
 
 def _scrub_tree(node: Any, names: set[str], placeholder: str) -> Any:
     if isinstance(node, str):
         return scrub_names(node, names, placeholder)
+    if isinstance(node, _Pairs):
+        return {key: _scrub_tree(value, names, placeholder) for key, value in node}
     if isinstance(node, dict):
         return {key: _scrub_tree(value, names, placeholder) for key, value in node.items()}
     if isinstance(node, list):
@@ -390,8 +402,8 @@ def _texts(node: Any, *, machine: bool) -> Iterator[str]:
             yield node
         else:
             yield from _texts(tree, machine=machine)
-    elif isinstance(node, dict):
-        for key, value in node.items():
+    elif isinstance(node, (dict, _Pairs)):
+        for key, value in node if isinstance(node, _Pairs) else node.items():
             if machine and key in _ETIKETVELDEN:
                 continue
             if not machine:
