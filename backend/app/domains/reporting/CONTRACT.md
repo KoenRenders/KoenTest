@@ -1,12 +1,18 @@
 # reporting — component contract (CR-06, #832; written in CR-13 phase 4)
 
+## Purpose and process
+
 **Purpose.** Reports over the whole association: a universe of objects (dimensions
 and facts, in Dutch labels) that a board member picks from, run as a selection over
 the `reporting` views, shown as a table, a pivot or a chart, saved, shared and
 exported; the dashboard's numbers; and the assistant that turns a question into a
 selection, with every name masked on its way to the language model (CR-07).
 
-## Facade (`api.py`) — the only door for other components and for this component's screens
+*Process (A2.4.4 — reporting and the change report).* Its own records are `SavedReport` and `ExportLog`; everything else it shows is read from the other domains through views.
+
+## Publishes
+
+### Facade (`api.py`) — the only door for other components and for this component's screens
 
 - **The universe** (`universe.py`): `OBJECTS`, `BY_KEY`, `CLASSES`, `DIMENSIONS`,
   `FACTS`, `HIERARCHIES`, `HIERARCHY_OF`, `JOINS`, `UniverseObject`, `Fact`,
@@ -39,7 +45,23 @@ selection, with every name masked on its way to the language model (CR-07).
 Two modules outside this domain import it, both screens: `app/ui/system_ui.py`
 and `app/ui/changes_ui.py` (`test_reporting_terminus_gate.py` holds the list).
 
-## Data
+### Events
+
+None published, none subscribed.
+
+### JSON routes
+
+None. The screens are server-rendered (`admin_ui.py`); there is no `/api/v1` route.
+
+*Counted in the code on 13 October 2026:* the facade exports 91 names (46 functions, 23 classes, 22 values); events it owns (`kernel/contracts/`): none; ports it offers: none.
+
+## Consumes
+
+*Counted in the code on 13 October 2026:* imports the facades of activities, auth, chatbot, mdm, membership, newsletter, payment; subscribes to no event; calls no port.
+
+## Owns
+
+### Data
 
 Schema `reporting`: `saved_reports`, `export_log`, and the code list
 `export_kind_codes`/`export_kind_labels`. The views the reports read (`d_*`, `f_*`)
@@ -51,10 +73,31 @@ report computes in SQL what an owner computes in Python — the one declared sec
 computation of CR-13 (§B4.3), bound by parity tests (the open amount against
 `registration_balance`, #1249).
 
-## Events
+*Counted in the code on 13 October 2026:* schema `reporting`, 4 tables (2 data, 2 code and label), 2 of them with `tenant_id`; status columns: none; jobs: none.
 
-None published, none subscribed.
+## Screens
 
-## JSON routes
+`admin_ui.py`: 17 routes under `/admin/rapporten`. The dashboard and the two change screens are drawn by `app/ui/` and ask this facade.
 
-None. The screens are server-rendered (`admin_ui.py`); there is no `/api/v1` route.
+## Deprecations
+
+None: no part of this contract is in its deprecation cycle.
+
+## Standards
+
+| Standard | Element | Our name | Follows / deviates, with the reason |
+|---|---|---|---|
+| OpenDocument | Spreadsheet (ODS), cells typed | every export: a report, a pivot, a dataset, the change report (`exports.py`, `changes.py`) | follows (#200) |
+
+## Rules and gates
+
+- **Rules whose home is this module** — No `@validates` and no `check()` in `models.py`; no `CheckConstraint` there. Its rules stand in its service. The universe (`universe.py`) is the vocabulary a selection is checked against.
+- **Gates in this module's own `tests/`** — `test_reporting_detail_gate.py` (a report that groups on a detail attribute), `test_reporting_fanout_gate.py` (a measure that double-counts), `test_reporting_shipped_reports_gate.py` (a shipped report that no longer runs or exports), `test_reporting_universe_gate.py` (a universe object that does not resolve against the database). Beside them in `backend/tests/`: `test_reporting_terminus_gate.py`.
+
+## Evolutions
+
+Ids of part E of the architecture document, as it stood on 13 October 2026.
+
+- **E16** — Raakje in the back office (CR-07): built in v2.5.0.
+- **E24** — the tenant apart from the organisation (CR-20): the universe reads the tenant by its key; decided, on no release.
+- **E38** — the close-out of the status lines of CR-06 and CR-07.
