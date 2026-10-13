@@ -148,6 +148,7 @@ def test_a_refused_address_leaves_nothing_of_the_form(real_request):
     # #1515: the refusal keeps its 422, and carries its banner — the shells swap
     # an HTML 422 since then, so this is what reaches the screen.
     assert resp.status_code == 422
-    assert 'role="alert"' in resp.text and "Huisnummer" in resp.text, "the refusal is not shown"
+    assert 'role="alert"' in resp.text, "the refusal is not shown"
+    assert "data-error-for=" in resp.text, "the refusal names no field"
     assert _name() == before, "the name was saved although the form was refused"
     assert _address() is None

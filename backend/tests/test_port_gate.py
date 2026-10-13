@@ -1,4 +1,6 @@
-"""The gate rules of a port, proven on a small world of their own (#1251).
+"""Refuses a port without exactly one handler, a command that bypasses `kernel.ports.call`, or a second handler · hard · since #1251.
+
+The gate rules of a port, proven on a small world of their own (#1251).
 
 A port is a synchronous command between two domains (`docs/architecture.md`
 §3.2.1 step 2): a contract in `kernel/contracts/<owner>.py`, one handler in the

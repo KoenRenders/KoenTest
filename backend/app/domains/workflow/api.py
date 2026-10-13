@@ -319,3 +319,20 @@ def complete_task(
 
 # Alias uit het taakcontract (§20.5) — de werkbank spreekt over list_tasks.
 list_tasks = open_tasks
+
+# #1931: the workbench's own rules — whose task it is, signpost or workplace,
+# the next step per kind, what a task is about. At the end: `workbench` reads
+# this module's functions.
+from app.domains.workflow.workbench import (  # noqa: E402,F401
+    NotHandledHere,
+    age_days,
+    figures,
+    handle,
+    is_done,
+    is_signpost,
+    may_handle,
+    next_step,
+    subject_url,
+    subjects,
+    task_for,
+)

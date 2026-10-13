@@ -114,5 +114,7 @@ def test_the_screen_names_the_field_and_the_reason(client, platform_workspace, d
         headers={"X-CSRF-Token": csrf_token_for(value)},
     )
 
-    assert f"Ondernemingsnummer: {REFUSED}" in answer.text
-    assert 'value="123"' in answer.text, "what was typed stays in the field"
+    # The answer is the kit's banner (#1932): the reason as a link to its field.
+    link_at = answer.text.index('data-error-for="enterprise_number"')
+    assert REFUSED in answer.text[link_at : answer.text.index("</a>", link_at)]
+    assert "<form" not in answer.text, "the form stays as it was typed, in the browser"

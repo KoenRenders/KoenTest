@@ -1,34 +1,26 @@
-{% extends "admin_base.html" %}
+{% extends "list_page.html" %}
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Tenants — Raak beheer") }}{% endblock %}
-{% block content %}
-{# Lijst-index (design-system C1): paginatitel → "+ Nieuwe tenant" (los, geen
-   blauwe balk) → zoeken → filters → record-kaarten. Een tenant aanklikken opent
-   de paginabrede editor met álle settings — geen aparte Instellingen-pagina met
-   een tweede afdelingskiezer meer (#581). #}
+{# Tenants (#1933, CR-11 roll-out; end state §2.1, §5.1) on the `list_page`
+   layout: the title with the figures Actief · Inactief and the one primary
+   button, the toolbar (the segments Alle · Actief · Inactief with their counts,
+   the search on name and code, the sort and the page size) and the kit's table.
+   The primary is a LINK to the page-wide create screen (#627), not a modal. A
+   row opens the tenant's record. Platform administration — OPERATOR only. The
+   toolbar stands outside the list fragment. #}
+{% block list_title %}{{ _("Tenants") }}{% endblock %}
+{% block list_figures %}{{ ui.figures(figures) }}{% endblock %}
+{% block list_primary %}{{ ui.btn_primary(_("+ Nieuwe tenant"), href="/admin/tenants/nieuw") }}{% endblock %}
+{% block list_toolbar %}
 {{ ui.error_banner(error) }}
-{% if opgeslagen %}{{ ui.success_banner(_("Tenant aangemaakt.")) }}{% endif %}
-
-{# De primaire actie is een LINK naar het aanmaakscherm (#627, §2.8): aanmaken
-   opent een volledige-pagina-editor, geen modal. Je werkt na het aanmaken toch
-   verder in de editor, en de velden uit een dialoogje maken het object zelden
-   compleet. #}
-{% call ui.page_header(_("Tenants"), _("Platformbeheer — enkel OPERATOR. Een tenant is een afdeling met eigen branding, instellingen en data."), list_page=True) %}
-    {{ ui.btn_primary(_("+ Nieuwe tenant"), href="/admin/tenants/nieuw") }}
-  {% endcall %}
-
-
-{% call ui.filter_bar("/admin/tenants", "#tn-lijst") %}
-  <div class="flex flex-wrap gap-3 items-center">
-    <div class="flex-1 min-w-[14rem]">{{ ui.search(value=q, placeholder=_('Zoek op naam of code…'), standalone=False) }}</div>
-    {% call ui.select_control("status") %}
-      <option value="">{{ _("Alle statussen") }}</option>
-      <option value="actief" {% if status == "actief" %}selected{% endif %}>{{ _("Actief") }}</option>
-      <option value="inactief" {% if status == "inactief" %}selected{% endif %}>{{ _("Inactief") }}</option>
-    {% endcall %}
-  </div>
-{% endcall %}
-
+{% if created %}{{ ui.success_banner(_("Tenant aangemaakt.")) }}{% endif %}
+{{ ui.toolbar("/admin/tenants", "#tn-lijst", "tn-filter",
+              segments=segments, status_name="status", status_current=status, status_legend=_("Status"),
+              q=q, search_placeholder=_("Zoek op naam of code…"),
+              page=page, per_page=per_page, total=total, page_sizes=page_sizes,
+              sort=sort, sort_options=sort_options) }}
+{% endblock %}
+{% block list_body %}
 <div id="tn-lijst">
   {% include "_tn_kaarten.html" %}
 </div>

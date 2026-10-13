@@ -54,7 +54,8 @@ def _editor(page) -> str:
         .filter(has_text="Raak Millegem")
         .first.get_attribute("href")
     )
-    return PLATFORM + href
+    # #1933: the record is read first; the switches stand in its edit state.
+    return PLATFORM + href.split("?")[0] + "?bewerken=1"
 
 
 def _open(page, editor: str) -> None:
@@ -82,7 +83,9 @@ def _bell_on_the_site(page) -> bool:
 def test_the_card_holds_two_switches_knob_left_label_right(page):
     _open(page, _editor(page))
     card = page.locator("[data-card=chatbot]")
-    assert card.locator("input[role=switch]").count() == 2
+    # #1933: the module's own switch stands in the card's head; the two of
+    # Raakje are the card's settings.
+    assert card.locator("input[role=switch]:not([name=modules])").count() == 2
     for name, label in (
         ("admin_chat_enabled", "Raakje in de backoffice"),
         ("public_chat_enabled", "Raakje op de publieke site"),

@@ -1,4 +1,6 @@
-"""Query-budget per lijstscherm (#645 D) — een N+1 komt niet stil terug.
+"""Refuses a list screen that runs more queries than its budget, so that an N+1 cannot return silently · hard · since #645.
+
+Query-budget per lijstscherm (#645 D) — een N+1 komt niet stil terug.
 
 Met htmx is de snelheid van de UI gelijk aan de snelheid van de server. Een
 lijstscherm dat per rij een extra query doet, valt bij tien rijen niet op en bij

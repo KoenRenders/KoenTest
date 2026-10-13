@@ -1,4 +1,6 @@
-"""Golf 6 (#913, A2): het actiecluster staat nooit in een verborgen leeswrapper.
+"""Refuses an action cluster (Save/Cancel) inside a hidden read-mode wrapper · hard · since #913.
+
+Golf 6 (#913, A2): het actiecluster staat nooit in een verborgen leeswrapper.
 
 Tot #1091 stond hier ook de ratchet op handgerolde [Opslaan]-knopparen. Die
 telde de letterlijke tekst `btn_primary(_("Opslaan"))` en miste daardoor drie

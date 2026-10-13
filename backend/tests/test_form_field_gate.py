@@ -1,4 +1,6 @@
-"""The kit owns the field (CR-11 block 6, #1558; B7 tests 8, 9 and 19).
+"""Refuses a raw label, input, select or textarea inside a kit section, a narrowed long field, or a rare section that is not last · hard · since #1558.
+
+The kit owns the field (CR-11 block 6, #1558; B7 tests 8, 9 and 19).
 
 `design-system-end-state.md` §3.1, §3.2, §3.4, §3.5:
 

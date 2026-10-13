@@ -20,8 +20,6 @@ APP = Path(__file__).resolve().parents[1] / "app"
 
 CARD_LISTS = {
     "domains/forms/templates/_fb_kaarten.html": "Bewerken",
-    "ui/templates/_org_kaarten.html": "Bewerken",
-    "ui/templates/_tn_kaarten.html": "Instellingen bewerken",
     "domains/cms/templates/_cp_kaarten.html": "Bewerken",
 }
 

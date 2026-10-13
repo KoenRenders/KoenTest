@@ -34,8 +34,9 @@ def _operator(client, db) -> None:
 
 
 def _card(html: str, tenant_id: int) -> str:
-    start = html.index(f'href="/admin/tenants/{tenant_id}"')
-    return html[start : html.index("</a>", start)]
+    """The tenant's row of the list (#1933: the kit's table)."""
+    start = html.index(f'data-tenant="{tenant_id}"')
+    return html[start : html.index("</tr>", start)]
 
 
 def test_a_tenant_on_its_accounts_data_names_that_organisation(
@@ -50,17 +51,20 @@ def test_a_tenant_on_its_accounts_data_names_that_organisation(
 
     card = _card(client.get("/admin/tenants").text, brand.id)
 
+    # #1933: the list is the kit's table — the organisation stands in its own
+    # column, "Organisatie achter de site", after the tenant's name and code.
     assert card.count("data-site-org") == 1
-    line_at = card.index("data-site-org")
-    assert "Organisatie: Account Vier" in card[line_at : card.index("</div>", line_at)]
-    # Under the name, above the row of badges.
-    assert card.index(brand.name) < line_at < card.index("font-mono")
+    cell_at = card.index("data-site-org")
+    assert "Account Vier" in card[cell_at : card.index("</td>", cell_at)]
+    assert card.index(brand.name) < card.index("data-row-sub") < cell_at
 
     # The resolver's name, not a copy: a rename of the organisation reaches the card.
     save_organization(db_session, account.id, {"name": "Account Vijf"})
     db_session.commit()
     card = _card(client.get("/admin/tenants").text, brand.id)
-    assert "Organisatie: Account Vijf" in card and "Account Vier" not in card.split("font-mono")[0]
+    cell_at = card.index("data-site-org")
+    assert "Account Vijf" in card[cell_at : card.index("</td>", cell_at)]
+    assert "Account Vier" not in card
 
 
 def test_a_tenant_on_its_own_data_shows_no_such_line(client, platform_workspace, db_session):

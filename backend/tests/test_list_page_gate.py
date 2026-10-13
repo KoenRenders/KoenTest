@@ -1,4 +1,6 @@
-"""CR-11 pilot A, K1 (#1555): what a template on the `list_page` layout may not do.
+"""Refuses a `list_page` template that draws its own chrome beside the kit's title row and toolbar · hard · since #1555.
+
+CR-11 pilot A, K1 (#1555): what a template on the `list_page` layout may not do.
 
 `list_page.html` gives a list two rows of chrome — the title row with the key
 figures, and the toolbar — and the kit owns both (`docs/design-system-end-state.md`

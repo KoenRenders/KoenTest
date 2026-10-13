@@ -54,7 +54,7 @@ def _menu(html: str) -> set[str]:
 def test_an_admin_keeps_its_own_settings_and_the_mollie_key(client, db_session):
     csrf = _login(client, db_session, "admin-a-1535@example.com", "ADMIN", TENANT_MILLEGEM_ID)
 
-    page = client.get("/admin/instellingen")
+    page = client.get("/admin/instellingen?bewerken=1")
     assert page.status_code == 200
     assert 'name="mollie_api_key"' in page.text and 'type="password"' in page.text
     assert 'name="modules"' not in page.text and "modules_shown" not in page.text
@@ -71,9 +71,9 @@ def test_an_admin_keeps_its_own_settings_and_the_mollie_key(client, db_session):
         get_setting(db_session, "tagline", tenant_id=TENANT_MILLEGEM_ID) == "Onze eigen ondertitel"
     )
     assert get_setting(db_session, "mollie_api_key", tenant_id=TENANT_MILLEGEM_ID) == MOLLIE
-    assert MOLLIE not in saved.text and MOLLIE not in client.get("/admin/instellingen").text, (
-        "a secret is never shown back, only that it is set"
-    )
+    assert (
+        MOLLIE not in saved.text and MOLLIE not in client.get("/admin/instellingen?bewerken=1").text
+    ), "a secret is never shown back, only that it is set"
     assert (
         get_setting(db_session, "tagline", tenant_id=TENANT_VOORBEELD_ID) != "Onze eigen ondertitel"
     )
@@ -83,7 +83,9 @@ def test_an_admin_keeps_its_own_organisation(client, db_session):
     csrf = _login(client, db_session, "admin-b-1535@example.com", "ADMIN", TENANT_MILLEGEM_ID)
     page = client.get("/admin/organisatie")
     assert page.status_code == 200
-    assert 'hx-post="/admin/organisatie"' in page.text
+    # The record reads first; its editor posts to the workspace's own route (#1932).
+    assert 'hx-post="/admin/organisatie"' not in page.text
+    assert 'hx-post="/admin/organisatie"' in client.get("/admin/organisatie?bewerken=1").text
 
     saved = _post(client, csrf, "/admin/organisatie", {"name": "Raak Millegem 1535"})
     assert saved.status_code == 200, saved.text[-400:]

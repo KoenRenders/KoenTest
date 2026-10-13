@@ -1,4 +1,6 @@
-"""Gate: a public form page is built from the kit, and only from the kit
+"""Refuses a public form page that writes a card or section by hand instead of the kit · hard · since #1589.
+
+Gate: a public form page is built from the kit, and only from the kit
 (#1589, CR-11 pilot B; `docs/design-system-end-state.md` §2.6; B7 tests 2 and 10).
 
 A page that stands on `ui.public_form_page` — and every partial it includes —

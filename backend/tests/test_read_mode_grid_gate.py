@@ -1,4 +1,6 @@
-"""Read mode keeps the edit grid (#1928; end state §2.2, CR-11 Q98).
+"""Refuses read-mode spacing that differs from the edit grid, or a record template that sets its own distance · hard · since #1928.
+
+Read mode keeps the edit grid (#1928; end state §2.2, CR-11 Q98).
 
 Koen, 12 October 2026: "ik zou bij deze willen dat het bewerkscherm leidend is"
 and "gelieve de lijnafstand tussen de velden gelijk te zetten aan gezin en aan

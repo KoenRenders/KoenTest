@@ -124,7 +124,8 @@ def test_the_list_pages_are_the_headers_with_a_create_button():
 def test_the_organisations_header_links_to_no_other_module(client, platform_workspace, db_session):
     _login(client)
     html = client.get("/admin/organisaties").text
-    header = _element(html, "<div data-page-header")
+    # On the list-page layout since #1932: the head row of `list_page.html`.
+    header = _element(html, "<div data-list-head")
     assert "Organisaties" in header, "the measurement found the wrong header"
     # #1495: "+ Nieuw account" is the screen's own primary action, not a link to
     # another module — what this test is about.
@@ -180,6 +181,7 @@ def test_the_opened_menu_starts_with_who_is_signed_in(client, db_session):
 
 # The household's three pages left this list with #1899, as the activity's did
 # before them.
+# The organisation's record left this list with #1932, as the household's did.
 # The activity's three pages left this list with #1557: their way back is drawn
 # by `ui.record_header`, and `test_record_header_gate.py` pins that the head is
 # the first thing they render.
@@ -187,9 +189,6 @@ RECORD_PAGES = [
     "domains/cms/templates/admin_pagina.html",
     "domains/activities/templates/_insch_recordkop.html",
     "domains/forms/templates/_fb_recordkop.html",
-    "domains/workflow/templates/werkbank_taak.html",
-    "ui/templates/admin_tenant.html",
-    "ui/templates/admin_organisatie.html",
     "domains/designstudio/templates/admin_ontwerp.html",
     "domains/reporting/templates/admin_rapport_paneel.html",
 ]

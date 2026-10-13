@@ -1,4 +1,6 @@
-"""Gate: when a view transition runs is decided in ONE place (#1591).
+"""Refuses a view transition set per swap instead of in `ui.htmx_ux` · hard · since #1591.
+
+Gate: when a view transition runs is decided in ONE place (#1591).
 
 `ui.htmx_ux` — the script both shells share — lets a view transition run only
 for a navigation: a boosted request, or a swap that updates the address. Until

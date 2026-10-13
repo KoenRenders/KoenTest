@@ -50,10 +50,21 @@ def test_a_short_kind_is_half_and_may_be_widened(kind):
 def test_only_a_short_kind_may_be_a_quarter():
     """A short text joined them with #1590: a house number and a bus stand a
     quarter wide beside the street (end state §2.6)."""
-    for kind in ("number", "date", "time", "select", "switch", "text"):
+    for kind in ("number", "date", "time", "select", "switch", "text", "color"):
         assert _span(_field(kind=kind, span="quarter")) == "quarter", kind
     for kind in ("slug", "phone", "segmented"):
         assert _span(_field(kind=kind, span="quarter")) == "half", kind
+
+
+def test_a_secret_is_typed_hidden_and_reads_as_any_short_field():
+    """#1933: a secret (an API key) is typed as a password and is half wide like
+    a short text. That it carries no value is its screen's to keep — the kit
+    renders what it is given."""
+    html = _field(kind="secret", placeholder="niet gezet")
+    assert 'type="password"' in html and 'placeholder="niet gezet"' in html
+    assert " value=" not in html
+    assert _span(html) == "half"
+    assert 'type="text"' in _field(kind="text")
 
 
 def test_a_long_text_field_is_full():

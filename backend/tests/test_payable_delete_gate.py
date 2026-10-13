@@ -1,4 +1,6 @@
-"""#667 — geen hard verwijderen in een domein dat een payable bezit.
+"""Refuses a hard `db.delete()` in a domain that owns a payable · hard · since #667.
+
+#667 — geen hard verwijderen in een domein dat een payable bezit.
 
 Koen zag weesbetalingen in de werkbank. De verwijderpaden zelf blijken correct:
 `delete_membership` en `delete_registration` doen allebei `soft_delete`, en een

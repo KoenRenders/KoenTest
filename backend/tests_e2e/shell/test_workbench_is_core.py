@@ -52,12 +52,11 @@ def editor():
         login_met_sessie(page, make_session_value(email), PLATFORM)
         page.goto("/admin/tenants")
         pagina_klaar(page)
-        link = page.locator(
-            "xpath=//a[starts-with(@href,'/admin/tenants/') and "
-            "translate(substring-after(@href,'/admin/tenants/'),'0123456789','')='']"
-        ).first
+        # #1933: a row of the kit's table; the record is read first, and the
+        # switches stand in its edit state.
+        link = page.locator("tr[data-tenant] a[data-row-link]").first
         assert link.count(), "no tenant to edit in the seeded data"
-        page.goto(link.get_attribute("href"))
+        page.goto(link.get_attribute("href").split("?")[0] + "?bewerken=1")
         pagina_klaar(page)
         yield page, {m.code.value: m.label for m in MODULES}
         browser.close()

@@ -48,7 +48,6 @@ RAW_FORM_ELEMENTS: dict[str, int] = {
     "domains/newsletter/templates/admin_nieuwsbrief.html": 3,
     "domains/reporting/templates/_rp_paneel.html": 4,
     "ui/templates/admin_organisatie_nieuw.html": 2,
-    "ui/templates/admin_tenant.html": 7,
     "ui/templates/admin_tenant_nieuw.html": 3,
 }
 
@@ -63,7 +62,6 @@ RAW_CHECKBOXES: dict[str, int] = {
     "domains/media/templates/_me_lijst.html": 2,
     "domains/newsletter/templates/_nb_gesprek.html": 1,
     "domains/reporting/templates/_rp_paneel.html": 1,
-    "ui/templates/admin_tenant.html": 2,
 }
 
 #: B7 test 8 — margin/padding/gap/space class on a raw form element. 64 in 21 files.
@@ -85,7 +83,6 @@ SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
     "domains/newsletter/templates/_nb_versturen.html": 2,
     "domains/newsletter/templates/admin_nieuwsbrief.html": 3,
     "domains/reporting/templates/_rp_paneel.html": 2,
-    "ui/templates/admin_tenant.html": 3,
 }
 
 #: B7 test 8 — bg-white, bg-gray-50, bg-gray-100 written by the template. 91 in 47 files.
@@ -116,14 +113,10 @@ RAW_SURFACES: dict[str, int] = {
     "domains/reporting/templates/_rp_kaarten.html": 2,
     "domains/reporting/templates/_rp_paneel.html": 14,
     "domains/reporting/templates/_rp_raakje_antwoord.html": 1,
-    "domains/workflow/templates/_werkbank_lijst.html": 1,
     "ui/templates/_lw_inhoud.html": 2,
-    "ui/templates/_org_kaarten.html": 1,
-    "ui/templates/_tn_kaarten.html": 1,
     "ui/templates/admin_dashboard.html": 1,
     "ui/templates/admin_info.html": 4,
     "ui/templates/admin_organisatie_nieuw.html": 1,
-    "ui/templates/admin_tenant.html": 2,
     "ui/templates/admin_tenant_nieuw.html": 1,
     "ui/templates/admin_werkruimte_wisselen.html": 1,
 }
@@ -140,7 +133,6 @@ HEADER_EXTRAS: dict[str, int] = {
     "domains/newsletter/templates/admin_nieuwsbrief.html": 5,
     "domains/newsletter/templates/admin_nieuwsbrief_archief.html": 1,
     "domains/newsletter/templates/admin_nieuwsbrieven.html": 1,
-    "ui/templates/admin_tenant.html": 1,
 }
 
 #: B7 test 18 — a tile strip outside `ui.key_figures`. 3 in 3 files.
@@ -209,18 +201,12 @@ SHELL_EXTENDED_DIRECTLY: dict[str, int] = {
     "domains/payment/templates/admin_inschrijving_betalingen.html": 1,
     "domains/reporting/templates/admin_rapport_paneel.html": 1,
     "domains/reporting/templates/admin_rapporten.html": 1,
-    "domains/workflow/templates/werkbank.html": 1,
-    "domains/workflow/templates/werkbank_taak.html": 1,
     "ui/templates/admin_dashboard.html": 1,
     "ui/templates/admin_info.html": 1,
     "ui/templates/admin_ledenwijzigingen.html": 1,
-    "ui/templates/admin_organisatie.html": 1,
     "ui/templates/admin_organisatie_nieuw.html": 1,
-    "ui/templates/admin_organisaties.html": 1,
     "ui/templates/admin_profiel.html": 1,
-    "ui/templates/admin_tenant.html": 1,
     "ui/templates/admin_tenant_nieuw.html": 1,
-    "ui/templates/admin_tenants.html": 1,
     "ui/templates/admin_werkruimte_wisselen.html": 1,
     "ui/templates/list_page.html": 1,
     "ui/templates/no_access.html": 1,

@@ -1,4 +1,6 @@
-"""Render-gate: controleert de GERENDERDE HTML van elke adminpagina (#622, laag 1).
+"""Refuses escaped attributes, unusable htmx targets and `hx-confirm` in the rendered HTML of any admin page · hard · since #622.
+
+Render-gate: controleert de GERENDERDE HTML van elke adminpagina (#622, laag 1).
 
 De suite testte endpoints, niet schermen. Dat is precies de naad waar de bugs van de
 v2.0.0-validatie zaten: knoppen die niets doen omdat hun attributen ge-escaped raakten

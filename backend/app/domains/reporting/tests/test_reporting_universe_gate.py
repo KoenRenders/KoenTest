@@ -1,4 +1,6 @@
-"""Universe gate (#832 test 6, CR-06 §4.3): the declaration resolves, both ways.
+"""Refuses a declared universe object whose columns, facts or sources do not resolve against the database · hard · since #832.
+
+Universe gate (#832 test 6, CR-06 §4.3): the declaration resolves, both ways.
 
 The universe is a promise about columns that live in views somebody else may
 change. This gate makes a broken promise a red build with the object's name in the
