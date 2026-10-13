@@ -359,30 +359,10 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .form-flow>[data-form-message]:not(:has(*)){display:none}
 .record-summary-column{min-width:0;order:-1}
 @container (min-width:964px){.record-columns:has(>.record-summary-column){grid-template-columns:minmax(0,768px) 300px}.record-summary-column{order:0}}
-/* #1610 (Koen, 5 October 2026; end state §2.2): room for the groups. A record
-   that is being EDITED and holds a composite repeating group (components with
-   their products) takes the whole reading group — 1 092 px. The layout reads
-   that from what stands in it (`:has`), so a save or a cancel — the form back
-   in read mode — gives the 768 px column and the card at the right again
-   without anybody saying so. Only where the frame has the 1 092 px: with the
-   Assistent's panel open, or on a smaller window, nothing changes.
-
-   #1906 (Koen, 12 October 2026: "indien scherm breed genoeg --> rechts"): the
-   summary stands beside that wide form where the frame holds both — 1 092 +
-   24 + 300 = 1 416 px — and otherwise above it as the band (#1912, below).
-
-   #1635 (Koen, 5 October 2026; CR-11 Q74): every field of full width fills
-   the wider column, a text box included — the width of a field follows its
-   column. #1610 kept `textarea`, `url` and `email` at 768 px here, which left
-   Omschrijving and Interne nota with a gap of 290 px at their right. */
-@container record (min-width:1092px){
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]){grid-template-columns:minmax(0,1092px)}
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"])>.record-summary-column{order:-1}
-}
-@container record (min-width:1416px){
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]):has(>.record-summary-column){grid-template-columns:minmax(0,1092px) 300px}
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"])>.record-summary-column{order:0}
-}
+/* #1929 (Koen, 12 October 2026, to "Kies je c, één breedte van 768 px voor elk
+   record in beide modi?": "Ja"; CR-11 Q96): one width for every record, in read
+   and in edit mode. The 1 092 px editor of #1610 is gone; a full-width field
+   fills its column (#1635), and the column is 768 px. */
 .summary-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:12px;align-items:center}
 .summary-card [data-summary-state]{grid-column:1;grid-row:1}
 .summary-card [data-summary-action]{grid-column:2;grid-row:1}
@@ -396,8 +376,7 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    the figures as the same rows side by side, each as wide as its label and its
    value, 32 px between the pairs, the action at the right; what does not fit
    one line runs on to a second. Under 640 px of frame, the strip. The band
-   stands twice because it has two reasons: a frame under 964 px, and a wide
-   editor on a frame under 1 416 px. */
+   has one reason: a frame under 964 px (#1929). */
 .summary-card [data-summary-figures]{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
 .summary-card [data-summary-figure]{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 @container (min-width:964px){
@@ -412,11 +391,6 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
   .summary-card [data-summary-action]{grid-column:3;grid-row:1;display:flex;align-items:center;gap:8px;max-width:360px;border-top:0;padding-top:0}
   .summary-card [data-summary-link]{display:block;flex:1}
 }
-@container record (min-width:1092px) and (max-width:1415.98px){
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card{grid-template-columns:auto minmax(0,1fr) auto;column-gap:24px;padding:12px 16px}
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-figures]{grid-column:2;grid-row:1;display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 32px}
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-action]{grid-column:3;grid-row:1;display:flex;align-items:center;gap:8px;max-width:360px;border-top:0;padding-top:0}
-}
 .form-section{container-type:inline-size;min-width:0}
 .form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start}
 .form-grid>[data-span="full"]{grid-column:1/-1}
@@ -428,6 +402,10 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .form-grid--five{grid-template-columns:repeat(5,minmax(0,1fr))}
 /* Two grids under each other in one row (a product's two lines) keep the grid's own gap. */
 .form-grid+.form-grid{margin-top:12px}
+/* #1928 (Koen, 12 October 2026: "het bewerkscherm is leidend" and "gelieve de
+   lijnafstand tussen de velden gelijk te zetten aan gezin en aan de personen"):
+   read mode keeps the edit grid, with the person card's 4 px between its rows. */
+.form-flow[data-mode="read"] .form-grid{row-gap:4px}
 @container (max-width:531.98px){.form-grid>[data-span]{grid-column:1/-1}}
 /* ── CR-11 block 4 (#1556): the list's table ────────────────────────────────
    design-system-end-state §2.1 (the list, the row as the way in). What the
@@ -468,6 +446,15 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .data-table[data-p1="hide"] [data-p="1"],.data-table[data-p2="hide"] [data-p="2"]{display:none}
 @container datatable (max-width:1099px){.data-table[data-p1="auto"] [data-p="1"]{display:none}}
 @container datatable (max-width:979px){.data-table[data-p2="auto"] [data-p="2"]{display:none}}
+/* #1927: the name stands at its own width, or at what the other columns leave
+   of the frame; an optional column that left gives its room back. The sums are
+   the macro's (`ui.data_table`). */
+.data-table{--dt-o1:var(--dt-p1,0px);--dt-o2:var(--dt-p2,0px)}
+.data-table[data-p1="hide"]{--dt-o1:0px}
+.data-table[data-p2="hide"]{--dt-o2:0px}
+@container datatable (max-width:1099px){.data-table[data-p1="auto"]{--dt-o1:0px}}
+@container datatable (max-width:979px){.data-table[data-p2="auto"]{--dt-o2:0px}}
+.data-table thead th[data-cell="name"]{width:min(var(--dt-name,100cqw),calc(100cqw - var(--dt-rest,0px) - var(--dt-o1) - var(--dt-o2)))}
 @container datatable (max-width:899px){
   .data-table,.data-table tbody{display:block}
   .data-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}

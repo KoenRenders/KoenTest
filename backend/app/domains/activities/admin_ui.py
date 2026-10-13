@@ -7,7 +7,7 @@ router-functies als servicelaag; sessie-auth + CSRF zoals de andere schermen.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, time
 from typing import Any, Mapping, Optional
 
 from fastapi import (
@@ -89,23 +89,24 @@ def _lijst_ctx(db: Session, scope: str = "all", q: str = "") -> dict:
 
 
 def _kpi(activities: list) -> dict:
-    """De twee kengetallen boven het activiteitenbeheer (#528, design-system §7).
+    """De twee kengetallen boven het activiteitenbeheer (#528, #1930).
 
     Bewust GEEN betalings-KPI's hier: geld hoort op /admin/betalingen, en het
     dashboard linkt daar al naartoe. Wie activiteiten beheert, wil weten wat er
-    openstaat en wat vol zit.
+    openstaat en wat vol zit: `kpi_vol` telt de activiteiten met minstens één
+    vol onderdeel.
 
     Krijgt de reeds opgehaalde lijst mee i.p.v. zelf te bevragen — dezelfde
     gegevens twee keer ophalen voor twee cijfers is verspilling.
     """
-    onderdelen = [c for a in activities for c in a.sub_registrations]
     return {
         # The state and not `status`: that is the label, a translatable word, so
         # comparing it with "Open" counted only while the word happened to be
         # "Open" (CR-12 phase 4 residue).
         "kpi_open": sum(1 for a in activities if a.registration_open),
-        "kpi_vol": sum(1 for c in onderdelen if getattr(c, "is_full", False)),
-        "kpi_onderdelen": len(onderdelen),
+        "kpi_vol": sum(
+            1 for a in activities if any(getattr(c, "is_full", False) for c in a.sub_registrations)
+        ),
     }
 
 
@@ -237,42 +238,247 @@ def _detail_response(
     return templates.TemplateResponse(request, "_aa_detail.html", ctx, headers=headers)
 
 
+SORTS = ("datum", "-datum", "naam", "-naam")
+SORT_DEFAULT = SORTS[0]
+
+
+def _first_start(activity: Any) -> time | None:
+    """The start time of the date the list shows for this activity (#1930)."""
+    return next((d.start_time for d in activity.dates if d.start_date == activity.sort_date), None)
+
+
+def _moment_text(activity: Any) -> str:
+    """The first date with its start time, on one line; the date alone when the
+    board entered no time."""
+    from app.i18n import short_date, short_datetime
+
+    if activity.sort_date is None:
+        return "—"
+    start = _first_start(activity)
+    if start is None:
+        return short_date(activity.sort_date)
+    return short_datetime(datetime.combine(activity.sort_date, start))
+
+
+def _sorted(activities: list, sort: str) -> list:
+    """The list in the chosen order; an activity without a date stands last."""
+    if sort in ("naam", "-naam"):
+        return sorted(activities, key=lambda a: (a.name or "").casefold(), reverse=sort == "-naam")
+    dated = [a for a in activities if a.sort_date is not None]
+    undated = [a for a in activities if a.sort_date is None]
+    dated.sort(
+        key=lambda a: (a.sort_date, _first_start(a) or time.min, (a.name or "").casefold()),
+        reverse=sort == "-datum",
+    )
+    return dated + undated
+
+
+def _badges(activity: Any, publication: Any) -> list[tuple[str, str]]:
+    """What the Status cell shows, never empty (#1930; Koen, 13 October 2026):
+    one state badge — Geannuleerd, Concept, Volzet when every component is
+    full, otherwise Gepubliceerd — and Enkel leden after it."""
+    from app.domains.activities.api import ACTIVITY_STATUS
+    from app.kernel.codes import code_label
+
+    components = activity.sub_registrations
+    if activity.is_cancelled:
+        badges = [(_("Geannuleerd"), "red")]
+    elif publication is not None and publication.draft:
+        badges = [(code_label(ACTIVITY_STATUS.name, publication.status), "yellow")]
+    elif components and all(getattr(c, "is_full", False) for c in components):
+        badges = [(_("Volzet"), "red")]
+    else:
+        badges = [(code_label(ACTIVITY_STATUS.name, ActivityStatus.PUBLISHED), "green")]
+    if activity.members_only:
+        badges.append((_("Enkel leden"), "blue"))
+    return badges
+
+
 @router.get("/admin/activiteiten", response_class=HTMLResponse)
 def admin_activiteiten(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.ACTIVITY_VIEW)),
-    scope: str = "upcoming",
-    q: str = "",
 ) -> Response:
-    lijst = _lijst_ctx(db, scope, q)
-    # De kengetallen tellen wat er openstaat, niet wat er toevallig gefilterd is:
-    # een zoekterm mag "Open inschrijving" niet doen dalen. Zonder filter is de
-    # getoonde lijst al de juiste bron en blijft het bij één query.
-    kpi_bron = (
-        lijst["activities"]
-        if (scope == "upcoming" and not q.strip())
-        else _lijst_ctx(db, "upcoming")["activities"]
-    )
-    # De filterbalk vraagt enkel de kaarten op; zou ze de pagina vervangen, dan
-    # sneuvelt het zoekveld (en de focus) bij elke aanslag.
-    fragment = is_fragment_request(request)
-    from app.domains.activities.api import publication_of
-    from app.ui import list_return
+    """The list Activiteiten on the kit's table (#1930). The state — scope,
+    search, year, audience, sort, page, page size — lives in the URL; the
+    toolbar asks this same address for the fragment."""
+    from urllib.parse import quote, urlencode
 
+    from app.domains.activities.api import (
+        TARGET_AUDIENCE,
+        date_years,
+        publication_of,
+        scope_counts,
+    )
+    from app.kernel.codes import code_label, code_labels, code_of
+    from app.ui import PER_PAGE_DEFAULT, PER_PAGE_OPTIONS, filterparams, list_return, per_page_from
+
+    state = filterparams(request)
+    scope = state.get("scope") or SCOPES[0]
+    if scope not in SCOPES:
+        scope = SCOPES[0]
+    q = (state.get("q") or "").strip()
+    year_raw = (state.get("jaar") or "").strip()
+    year = int(year_raw) if year_raw.isdigit() else None
+    audiences = code_labels(TARGET_AUDIENCE.name)
+    audience = state.get("doelpubliek") or ""
+    if audience not in {code for code, _label in audiences}:
+        audience = ""
+    sort = (state.get("sort") or "").strip()
+    if sort not in SORTS:
+        sort = SORT_DEFAULT
+    per_page = per_page_from(state.get("per_page"))
+    try:
+        page = max(1, int(state.get("page") or 1))
+    except ValueError:
+        page = 1
+
+    shown = _lijst_ctx(db, scope, q)["activities"]
+    # The figures count what is open, not what happens to be filtered: a search
+    # must not make "Open activiteiten" drop. Without a filter the list shown is
+    # the source, and it stays one query.
+    figures_source = (
+        shown if (scope == "upcoming" and not q) else _lijst_ctx(db, "upcoming")["activities"]
+    )
+    publications = publication_of(db, [a.id for a in shown])
+    if year is not None:
+        shown = [a for a in shown if any(d.start_date.year == year for d in a.dates)]
+    if audience:
+        shown = [
+            a
+            for a in shown
+            if publications.get(a.id) is not None
+            and code_of(publications[a.id].audience) == audience
+        ]
+    shown = _sorted(shown, sort)
+
+    total = len(shown)
+    page = min(page, max(1, -(-total // per_page)))
+    shown = shown[(page - 1) * per_page : page * per_page]
+
+    way_back = list_return(
+        NAV,
+        scope=scope if scope != SCOPES[0] else "",
+        q=q,
+        jaar=year or "",
+        doelpubliek=audience,
+        sort=sort if sort != SORT_DEFAULT else "",
+        page=page if page > 1 else "",
+        per_page=per_page if per_page != PER_PAGE_DEFAULT else "",
+    )
+    rows = []
+    for a in shown:
+        publication = publications.get(a.id)
+        rows.append(
+            {
+                "id": a.id,
+                "name": a.name,
+                "audience": code_label(TARGET_AUDIENCE.name, publication.audience)
+                if publication is not None and publication.audience
+                else "",
+                "href": f"{NAV}/{a.id}?terug={quote(way_back, safe='/')}",
+                "moment": _moment_text(a),
+                "location": a.location or "",
+                "registration_count": a.registration_count,
+                "badges": _badges(a, publication),
+            }
+        )
+
+    link_state = {"scope": scope, "q": q, "jaar": year or "", "doelpubliek": audience}
+
+    def _query(**more: Any) -> str:
+        return urlencode(
+            {k: v for k, v in {**link_state, "per_page": per_page, **more}.items() if v != ""}
+        )
+
+    def _head(
+        key: str, label: str, cell: str, ascending: str, descending: str, **extra: Any
+    ) -> dict[str, Any]:
+        turned = descending if sort == ascending else ascending
+        head: dict[str, Any] = {
+            "key": key,
+            "label": label,
+            "cell": cell,
+            "sort_url": f"{NAV}?{_query(sort=turned)}",
+            "sort_page_url": f"{NAV}?{_query(sort=turned)}",
+            **extra,
+        }
+        if sort in (ascending, descending):
+            head["sorted"] = "asc" if sort == ascending else "desc"
+        return head
+
+    counts = scope_counts(db)
+    labels = {"upcoming": _("Komende"), "archived": _("Archief"), "all": _("Alles")}
+    kpi = _kpi(figures_source)
+    fragment = is_fragment_request(request)
     view = AdminActiviteitenView(
-        **lijst,
-        **_kpi(kpi_bron),
-        # #1557: a card hands the list as it stands to the record it opens, so
-        # the record's way back returns to the same search and scope.
-        list_url=list_return(NAV, scope=scope if scope != "upcoming" else "", q=q.strip()),
-        # #1428: "Concept" and the audience on the cards.
-        publication=publication_of(db, [a.id for a in lijst["activities"]]),
+        rows=rows,
+        columns=[
+            _head("naam", _("Activiteit"), "name", "naam", "-naam"),
+            _head("datum", _("Datum"), "moment", "datum", "-datum"),
+            {
+                "key": "locatie",
+                "label": _("Locatie"),
+                "cell": "context",
+                "priority": 2,
+                "width": 220,
+            },
+            {
+                "key": "inschrijvingen",
+                "label": _("Inschrijvingen"),
+                "cell": "extra",
+                "num": True,
+                "priority": 1,
+                "width": 136,
+            },
+            {"key": "status", "label": _("Status"), "cell": "status"},
+        ],
+        segments=[
+            {"value": s, "label": labels[s], **({"count": counts[s]} if s in counts else {})}
+            for s in SCOPES
+        ],
+        figures=[
+            {
+                "value": str(kpi["kpi_open"]),
+                "label": _("Open activiteiten"),
+                "title": _("Activiteiten waarvoor je nu kunt inschrijven."),
+            },
+            {
+                "value": str(kpi["kpi_vol"]),
+                "label": _("Volzet onderdeel"),
+                "title": _("Activiteiten met minstens één volzet onderdeel."),
+                "warning": kpi["kpi_vol"] > 0,
+            },
+        ],
+        scope=scope,
+        q=q,
+        year=year,
+        years=date_years(db),
+        audience=audience,
+        audiences=audiences,
+        sort=sort,
+        sort_options=[
+            ("datum", _("Eerste datum (oplopend)")),
+            ("-datum", _("Laatste eerst")),
+            ("naam", _("Naam")),
+        ],
+        page=page,
+        per_page=per_page,
+        total=total,
+        page_sizes=list(PER_PAGE_OPTIONS),
+        pager_url=f"{NAV}?{_query(sort=sort)}",
+        empty_reason=(
+            _("Geen activiteiten gevonden.")
+            if (q or year or audience or scope != SCOPES[0])
+            else _("Nog geen komende activiteiten.")
+        ),
         csrf_token=csrf_from_request(request),
         nav_items=[] if fragment else admin_nav(NAV, request),
+        oob=fragment,
     )
-    sjabloon = "_aa_kaarten.html" if fragment else "admin_activiteiten.html"
-    return templates.TemplateResponse(request, sjabloon, view.as_context())
+    template = "_aa_kaarten.html" if fragment else "admin_activiteiten.html"
+    return templates.TemplateResponse(request, template, view.as_context())
 
 
 def _blank_activity() -> Any:

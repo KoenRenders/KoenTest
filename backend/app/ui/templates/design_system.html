@@ -622,7 +622,7 @@
 {# ── 8f. The list's table (CR-11 pilot A, K2 — #1556) ───────────────────────── #}
 {{ ui.section_header(_("8f · De tabel van een lijst"), _("Naar de betalingen"), action_href="/admin/betalingen", cls="mt-10") }}
 <p class="text-sm text-gray-600 mb-3">
-  {{ _("De rij is de ingang: een klik ergens op de rij opent het record. Een rij toont hoogstens één actie, de rest staat onder ⋯. Een bedrag kleurt nooit; een saldo dat niet nul is, wel.") }}
+  {{ _("De rij is de ingang: een klik ergens op de rij opent het record. Een rij toont hoogstens één actie, de rest staat onder ⋯. Een bedrag kleurt nooit; een saldo dat niet nul is, wel. Elke kolom staat op haar eigen breedte, links aangesloten; de laatste kolom neemt de rest en een kolomkop breekt nooit.") }}
 </p>
 {% call ui.data_table([
      {"key": "naam", "label": _("Boeking"), "cell": "name", "sort_url": "/admin/design-system", "sorted": "asc"},

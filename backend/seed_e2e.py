@@ -293,7 +293,7 @@ def main() -> None:
         # past bij de vereniging zonder van iemand te zijn. De postcode moet uit DEZE
         # tabel komen: het postcodeveld in het gezinsformulier is een keuzelijst die
         # hieruit gevuld wordt, dus een adres met een postcode die er niet in staat is
-        # op het scherm niet te kiezen (`docs/postal_codes_seed.csv` regel 109 draagt
+        # op het scherm niet te kiezen (`backend/docs/postal_codes_seed.csv` regel 109 draagt
         # 2400 Mol, en die lijst is de bron).
         postcode = db.query(PostalCode).filter(PostalCode.postal_code == "2400").first()
         if postcode is None:

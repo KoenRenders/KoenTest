@@ -37,11 +37,11 @@
 <section data-form-section id="bk-boeking" class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
 <h2 class="text-base font-semibold leading-6 text-ink mb-4">Boeking</h2>
 <div data-form-grid class="form-grid">
-<div data-span="full" data-booking-facts class="flex flex-col gap-y-1 text-sm leading-[21px] text-ink">
-<p><span data-label-fact class="text-sm leading-[21px] text-ink"><span class="text-ink-soft">Status:</span> Terug te betalen</span></p>
-<p><span data-label-fact class="text-sm leading-[21px] text-ink"><span class="text-ink-soft">Terugbetaald bedrag:</span> —</span></p>
-<p><span data-label-fact class="text-sm leading-[21px] text-ink"><span class="text-ink-soft">Opmerking:</span> —</span></p>
-<p data-booking-parent><span class="text-ink-soft">Terugbetaling van:</span>
+<div data-span="full" data-booking-facts data-form-grid class="form-grid text-sm leading-[21px] text-ink">
+<p data-span="half"><span data-label-fact class="text-sm leading-[21px] text-ink"><span class="text-ink-soft">Status:</span> Terug te betalen</span></p>
+<p data-span="half"><span data-label-fact class="text-sm leading-[21px] text-ink"><span class="text-ink-soft">Terugbetaald bedrag:</span> —</span></p>
+<p data-span="full"><span data-label-fact class="text-sm leading-[21px] text-ink"><span class="text-ink-soft">Opmerking:</span> —</span></p>
+<p data-span="full" data-booking-parent><span class="text-ink-soft">Terugbetaling van:</span>
 <a href="/admin/betalingen/<REC:paid>?terug=/admin/betalingen/<REC:refund_due>" data-reference class="inline-flex items-center gap-1 text-blue-500 underline hover:no-underline ">Betaling · € 20,00<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a></p>
 </div>
 </div>

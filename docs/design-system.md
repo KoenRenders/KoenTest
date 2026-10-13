@@ -471,6 +471,42 @@ Activiteit · Intern, a card per component under the heading row "Onderdelen"
 ratchet `RAW_FORM_ELEMENTS` (105 in 29 files on 5 October 2026) may only
 fall. The family below is what the screens not yet migrated use.
 
+**Read mode keeps the edit grid (#1928).** Koen, 12 October 2026, on the
+organisation record in both modes: "ik zou bij deze willen dat het
+bewerkscherm leidend is en dat de leesversie … hertekend wordt zodanig dat
+dezelfde volgorde in acht wordt genomen en de positionering links en rechts
+ook", and "gelieve de lijnafstand tussen de velden gelijk te zetten aan gezin
+en aan de personen daar … consistent over al de schermen heen". As built:
+
+- A record in read mode keeps the cards and the order of edit mode, and a fact
+  stands in a cell of the form grid with the span of its field — half beside
+  half (Doelpubliek · Enkel leden; Status · Betaald bedrag), a text or an
+  upload full. The fact itself is the kit's: `icon_fact` for a conventional
+  kind, `label_fact` otherwise.
+- **The kit sets the rows apart, not the screen**: the form grid of a flow in
+  read mode has a row gap of 4 px, the person card's, where edit mode has
+  12 px (`.form-flow[data-mode="read"] .form-grid`); the column gap stays
+  12 px. A record template stacks no facts with a distance of its own — no
+  `flex-col` with a `gap-y-*`, no `space-y-*`
+  (`tests/test_read_mode_grid_gate.py`). Under 532 px inside the card every
+  cell is a row of its own, as in edit mode.
+- **What reads as one fact for several fields**: an address (street number
+  bus, postal code municipality, behind the map pin, in a card of its own),
+  and on the activity the lines #1900 drew — a date row, a product, an
+  organiser — each a full-width line for the fields of one row. A field whose
+  value is the record's title has no fact of its own (the activity's name),
+  and a line that #1900 shows only when it is filled in stays so (the
+  friendly URL, the description).
+- A long fact does not fit a quarter cell (`icon_fact` cuts, a `label_fact`
+  breaks in two at 149 px): a component's Maximum, "Inschrijven t/m" and
+  "Ploegnaam vereist" read in half cells, in the editor's order.
+- **Contact details stand in one order and one shape** on every record that
+  has them — person, household, organisation: telephone and mobile side by
+  side on one row, under them the e-mail address at full width, then the
+  website and each social link at full width. The person card is the measure.
+  **The address is a card of its own**, after the record's first card, as the
+  household has it. A screen does not choose its own order.
+
 - **`ui.input_control` / `select_control` / `textarea_control`** is the one
   field family: you set label (`ui.label`), id and width yourself. Explicit
   ids, because a derived id duplicates in repeated cards; explicit width,
@@ -571,13 +607,32 @@ superseded on every screen that moves to the layout:
   shows the balance under the amount when it differs (`ui.amount(value,
   balance=…)`, #1582: "nog € 20,00", "terug € 5,00"; nothing extra when fully
   open or settled). The embedded payment tabs follow.
+- **Every column stands at its own width, packed left, and the last column
+  takes the rest (#1927).** Koen, 12 October 2026, on a list at 1 920 px:
+  "vooral alles naar links", and "Kunnen we die kolom status niet, als er nog
+  ruimte is, laten sizen over gans de breedte, zodat die lijntjes niet
+  stoppen?". The table keeps the frame's full width, so the row lines run to
+  its edge; the white space falls behind the last column, never between the
+  first two. A width is the kit's by the column's part — a name 380 px (336 px
+  in a table of eight columns and more), context 24 % of the frame, status
+  136 px, a number 104 px, a date 112 px, a moment 152 px, an `extra` that is
+  no number 160 px, the actions 156 px — or the list's own, `width` in px on
+  the column, where the default does not fit its content (Personen: Gezin
+  200, Aangemaakt 112). **The name gives way before anything overflows**: it
+  is its width or what the other columns leave of the frame, whichever is
+  less, and the last column never gets less than its part's width (measured
+  on Betalingen: the name 282 px at 1 440 px with Acties at 156, and 380 px at
+  1 920 px with the rest behind Acties). An optional column that left gives
+  its room back to the name. The last column carries no width. **A column
+  head never wraps.** A date with its time is the `moment` part: one line, one
+  size, never a date over a smaller time.
 - **A moment and a free sentence in the kit's table (#1915).** A list of
   events — when, what, how many, why — has two column parts of its own.
   `moment` is a date with its year and its time (`short_datetime`): 152 px,
   the widest moment plus the cell's padding, where a `date` column (112 px)
   left the minutes in the next column. `text` is a free sentence (a reason, a
-  note): it has no width, so it takes the rest on a desktop, and in a stacked
-  row it is the last line; an empty one leaves no line and no gap. A row
+  note): it has no width, so it shares the rest with the last column on a
+  desktop (or is it), and in a stacked row it is the last line; an empty one leaves no line and no gap. A row
   carries `more` or `text`, not both. Shown live on `/admin/design-system`,
   section 8f.
 
@@ -1067,12 +1122,14 @@ its occupancy and "t/m" in read mode; **a product's settlement is one
 segmented choice — Betalend · Gratis · Ter plaatse** (Koen, 5 October 2026:
 K5's two switches with a refusal when both were on go back to one control;
 a correction slice on K5), the price fields active only for Betalend;
-**room for the groups** (Koen, 5 October 2026, the second correction on K5):
-in edit mode a record with a composite group takes the whole reading group
-(1 092 px, every full-width field filling it, text areas included — the
-768 px cap on long text fields went on 5 October 2026) with the summary
-card at the form's right where the frame holds both (1 416 px) and otherwise
-above it as the band of the end state's §3.10 (Koen, 12 October 2026, #1912);
+**one width for every record** (#1929; Koen, 12 October 2026, to "Kies je c,
+één breedte van 768 px voor elk record in beide modi?": "Ja", CR-11 Q96): the
+form column is 768 px in read and in edit mode, with the summary card of
+300 px at its right from a frame of 964 px and above it as the band of the
+end state's §3.10 under that (#1912) — the editor of a record with a
+composite group no longer takes 1 092 px (#1610, 5 October 2026, withdrawn),
+on the activity and on the household alike; every full-width field fills its
+column, text areas included (#1635);
 a product row is one line naam · prijs · ledenprijs · maximum with
 the settlement choice and Publiek zichtbaar on the second; a component's
 head is naam · maximum · inschrijven tot on one line; the handle's gutter is

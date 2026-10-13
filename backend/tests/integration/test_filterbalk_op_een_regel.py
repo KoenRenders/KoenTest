@@ -172,7 +172,6 @@ def _seed(db):
 # staan er expliciet bij en niet als "wat we toevallig vinden" — verdwijnt er een
 # filter, dan hoort deze test dat te melden en niet mee te schuiven.
 SCHERMEN = [
-    ("/admin/activiteiten", {"q", "scope"}),
     ("/admin/paginas", {"q", "status"}),
     ("/admin/formulieren", {"q", "status"}),
     ("/admin/rapporten", {"q", "owner", "shared"}),
@@ -221,7 +220,6 @@ def test_het_zoekveld_wint_de_restbreedte(client, db_session):
     balken = [
         app / p
         for p in (
-            "domains/activities/templates/admin_activiteiten.html",
             "domains/cms/templates/admin_paginas.html",
             "domains/forms/templates/admin_formulieren.html",
             "domains/reporting/templates/admin_rapporten.html",

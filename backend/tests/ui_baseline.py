@@ -90,10 +90,8 @@ SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
 
 #: B7 test 8 — bg-white, bg-gray-50, bg-gray-100 written by the template. 91 in 47 files.
 RAW_SURFACES: dict[str, int] = {
-    "domains/activities/templates/_aa_kaarten.html": 1,
     "domains/activities/templates/_inschrijving_detail.html": 4,
     "domains/activities/templates/admin_activiteit_kopieren.html": 1,
-    "domains/activities/templates/admin_activiteiten.html": 1,
     "domains/auth/templates/_gu_lijst.html": 1,
     "domains/auth/templates/admin_gebruiker_nieuw.html": 1,
     "domains/auth/templates/login_verlopen.html": 1,
@@ -147,7 +145,6 @@ HEADER_EXTRAS: dict[str, int] = {
 
 #: B7 test 18 — a tile strip outside `ui.key_figures`. 3 in 3 files.
 HAND_DRAWN_TILES: dict[str, int] = {
-    "domains/activities/templates/admin_activiteiten.html": 1,
     "domains/payment/templates/_bt_boven.html": 1,
 }
 
@@ -176,7 +173,6 @@ CHECKBOX_GROUPS_IN_TOOLBARS: dict[str, int] = {}
 #: B7 test 1 — an admin page on the shell itself, no layout and no record head. 60 in 60 files.
 SHELL_EXTENDED_DIRECTLY: dict[str, int] = {
     "domains/activities/templates/admin_activiteit_kopieren.html": 1,
-    "domains/activities/templates/admin_activiteiten.html": 1,
     "domains/activities/templates/admin_inschrijving.html": 1,
     "domains/auth/templates/admin_gebruiker_nieuw.html": 1,
     "domains/auth/templates/admin_gebruikers.html": 1,
