@@ -272,7 +272,21 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
   positive and negative, on the row and in the sum row**, zero in ink —
   red is for delete and errors and nothing else; **the empty state** says
   "0–0 van 0" and one sentence naming the filter or search that caused it,
-  with the create button where one exists.
+  with the create button where one exists. **Columns stand at their own
+  width, packed left, and the last column takes the rest** (Koen, 12
+  October 2026, on the Activiteiten and Organisaties concepts at 1 920 px:
+  "vooral alles naar links" and "Kunnen we die kolom status niet, als er
+  nog ruimte is, laten sizen over gans de breedte, zodat die lijntjes niet
+  stoppen?"; Q97): every column has a width its list names; the table
+  keeps the frame's full width so the row lines run to its edge; the white
+  space falls behind the last column, never between the first two. This
+  replaces the kit's "the name column takes the rest" and holds for
+  Betalingen, Leden and Personen too (Koen, on HDEV's Leden: "je hebt daar
+  gezin helemaal links, dan heb je echt 20 centimeter niets"). **A date
+  with its time stands on one line, in one size** (Koen: "ik vind dat echt
+  niet mooi" of the time small under the date), so the date column is
+  wider than today's 112 px. **A column head never wraps** ("de N van
+  Inschrijvingen op een tweede regel, dat kan niet de bedoeling zijn").
 - **The row is the way in:** click it and the record page opens; the whole
   row is the target (a link in the first cell with its click area over the
   row — no nested anchors; a reference inside the row is its own link),
@@ -328,20 +342,20 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
   the right the screen's one primary and one "Acties ▾" menu holding the
   rest (photos, Design Studio, print, delete…). Never a button named after
   the fields it edits. [39, 29, 20]
-- **In edit mode a record with a composite repeating group takes the whole
-  reading group** — 1 092 px on a desktop; the summary stands at the
-  form's right where the frame holds both (1 416 px) and otherwise above the
-  form as the band of §3.10 — never as a strip of rows at the form's width,
-  and not as a lone card of 300 px either (Koen, 12 October 2026, #1906:
-  "indien scherm breed genoeg --> rechts"; the same day, on the band
-  rendered: "perfect"); **every
-  full-width field, the text areas included (Omschrijving, interne nota),
-  fills the wider column** — the 768 px cap on long text fields that K5c
-  built left a gap beside the Omschrijving and went (Koen, 5 October 2026);
-  only rich text keeps the reading width, when it comes; read
-  mode, Opslaan and Annuleren return to 768 px with the card at the right
-  (Koen, 5 October 2026, after K5 on HDEV: "zeer veel ruimte verloren",
-  "smaller dan vroeger"). [Q67]
+- **One width for every record: 768 px, in read mode and in edit mode**
+  (Koen, 12 October 2026, to "Kies je c, één breedte van 768 px voor elk
+  record in beide modi?": "Ja"; Q96). The exception of 8 October — a record
+  with a composite repeating group took the whole reading group of 1 092 px
+  in edit mode (Q67, Q89, #1906) — lapses: the slice-2 concept Koen approved
+  on 10 October already stood at 768 px, and every record the kit holds
+  today is 768 px in both modes except that one. Every full-width field,
+  the text areas included (Omschrijving, interne nota), fills the 768 px
+  column — no cap narrower than the column (Koen, 5 October 2026); the
+  summary card stands at the form's right where the frame holds the reading
+  group (964 px) and otherwise above the form as the band of §3.10. The
+  kit's rule that widened the editor goes, with the band variant that
+  existed only for a frame of 1 092 to 1 415 px (#1912); `design-system.md`
+  follows when the kit is built. [Q67, Q89, Q96]
 - **The summary card** at the right of the content column, or above it as
   the band — one card, two places, §3.10; on a phone a compact
   strip under the tabs, above the content. **Only on the Gegevens tab**
@@ -381,6 +395,16 @@ red. (Phase 2; every screen moves onto its layout in phases 3–5.)
   grid. Which fields of a screen are conventional is settled per roll-out
   slice, on the concept (Q&A 03, point 6). The household read page went from
   1 503 px to 924 px at 1 440 px with it.
+  **The edit screen leads the read screen** (Koen, 12 October 2026, on the
+  organisation record: "ik zou bij deze willen dat het bewerkscherm leidend
+  is en dat de leesversie … hertekend wordt zodanig dat dezelfde volgorde
+  in acht wordt genomen en de positionering links en rechts ook"; Q98):
+  read mode keeps the grid of edit mode — the same cards, the same order,
+  every fact in the cell of its field, half beside half — with a row gap of
+  4 px instead of 12, the gap of the person card ("gelieve de lijnafstand
+  tussen de velden gelijk te zetten aan gezin en aan de personen daar …
+  consistent over al de schermen heen"). The one fold: an address reads as
+  one fact in its card.
   **Nothing folds on a record** (same answer, point 2): a composite group
   row stands open in read and in edit mode; the `fold` of `group_row` is not
   used on a record page. The same on Mijn gezin.
@@ -666,6 +690,18 @@ when read together (street · number · bus; price · member price; from ·
 to). Sections are separated by 32; a section is a card or a heading in a
 card, never a nested box. [2, 23]
 
+**Contact details stand in one order and one shape on every record that
+has them** — organisation, person, household (Koen, 12 October 2026, on
+the organisation record: "gelieve daar ook het e-mailadres onder telefoon
+en mobiel te zetten, dan is dat consistent aan personen" and "kan je die
+wens om dat consistent te maken ook ergens noteren? … organisaties,
+personen, gezinnen, dat we dat daar toch consistent houden"; Q98):
+telephone and mobile side by side on one row, under them the e-mail
+address at full width, then the website and each social link at full
+width; the person card (§2.2, 10 October) is the measure. The address is a
+card of its own, after the record's first card ("100% consistentie met
+gezinnen en personen"). A screen does not choose its own order.
+
 ### 3.3 `repeating_group(title, rows, add_url, …)` — two variants
 
 Heading with "+ <item>" at its right (in edit mode); `⋯` at the far right
@@ -918,22 +954,19 @@ bal aan het misslaan ben" — on the concept in his project folder,
    edit mode, with and without a panel, on every record on the record
    layout — the household in edit mode included ("ja, a": the exception of
    11 October goes). Only a list tab has none (block 8).
-2. **The content chooses its width; the card follows**: 768 px, or
-   1 092 px for a form with a composite repeating group in edit mode when
-   the frame holds it; an open panel takes its width from the frame first.
-   The card never pushes the wide editor; a 768 px column gives way to
-   640 px beside the card, as §1.4 has said since 2 October (frame 964 px).
-   On a frame under 1 092 px the wide editor is a 768 px column like any
-   other — the scale has no width between them (Q89).
+2. **The content is 768 px wide in every mode** (Q96, Koen, 12 October
+   2026: one width for every record; the 1 092 px editor of Q89 lapsed);
+   an open panel takes its width from the frame first. A 768 px column
+   gives way to 640 px beside the card, as §1.4 has said since 2 October
+   (frame 964 px).
 3. **The card has two places**: beside the content, at its right, top
    aligned, while the content keeps its width beside it — a column of at
-   least 640 px (frame 964 px), the whole 1 092 px for the wide editor
-   (frame 1 416 px); otherwise above it
+   least 640 px (frame 964 px); otherwise above it
    as **the band** — the card fills the column, the badge at the left, the
    figures as the same rows side by side, each as wide as its label and
    value with 32 px between them, the action at the right; what does not
    fit one line runs on to a second. On a phone (a column under 640 px) the
-   strip above. Nothing else: no lone card of 300 px above a wide form, no
+   strip above. Nothing else: no lone card of 300 px above a form, no
    strip of rows at the form's width.
 
 Koen first saw the band with the rows in equal columns and found "het label
@@ -941,21 +974,24 @@ en het bedrag onnatuurlijk ver uit elkaar"; the rows at their own width were
 "perfect". His alternative — the activity without a card, its figures as
 text with a colon — was not taken: it would make one record the exception.
 
-| Window | Panel | Frame | Read (768) | Edit, wide form (1 092) | Edit, 768 form |
-|---|---|---|---|---|---|
-| 1 920 | closed | 1 632 | beside | beside | beside |
-| 1 920 | Assistent | 1 232 | beside | band | beside |
-| 1 440 | closed | 1 168 | beside | band | beside |
-| 1 440 | Assistent | 768 | band | band (the form falls back to 768) | band |
-| 1 280 | closed | 1 168 (the 64 px rail) | beside | band (form 1 092) | beside |
-| 1 024 | closed | ± 910 | band | band (form 768) | band |
-| 390 | — | 358 | strip | strip | strip |
+| Window | Panel | Frame | Read and edit (768) |
+|---|---|---|---|
+| 1 920 | closed | 1 632 | beside |
+| 1 920 | Assistent | 1 232 | beside |
+| 1 440 | closed | 1 168 | beside |
+| 1 440 | Assistent | 768 | band |
+| 1 280 | closed | 1 168 (the 64 px rail) | beside |
+| 1 024 | closed | ± 910 | band |
+| 390 | — | 358 | strip |
 
-Against master of 12 October 2026 this changes two things: the card of
-300 px above the wide form (#1906) and the strip of rows below a frame of
-964 px (K8) both become the band; and the household gets its card back in
-edit mode. One rule in the kit's stylesheet; the macro and the screens do
-not change.
+Against master of 12 October 2026 this changed two things, built by #1912
+for v2.17.0: the card of 300 px above the wide form (#1906) and the strip
+of rows below a frame of 964 px (K8) both became the band, and the
+household got its card back in edit mode. #1912 also built the band for
+the wide editor between 1 092 and 1 415 px; with the wide editor gone
+(Q96, the same evening) that variant goes, and the band has one threshold:
+a frame under 964 px. One rule in the kit's stylesheet; the macro and the
+screens do not change.
 
 ### 3.11 `reference(record)` — the jump link
 
@@ -1240,7 +1276,7 @@ Shell width for every list: the wide frame (row 11); today three lists set
 
 | Screen | Today | End state: a row shows | Tiles (*proposed*) | Toolbar: status filter · search on · filters · sort | Header |
 |---|---|---|---|---|---|
-| Activiteiten | cards; tiles Open inschrijving · Volzette onderdelen (end state: Open activiteiten · Volzet onderdeel — "inschrijving" is too hard a word, Koen, 2 Oct 2026); search, chips Komende/Archief/Alles; no pager | name with status badges · first date and time · location · registrations count (omitted without a component) | Open inschrijving · Volzet onderdeel (activities with one) | Komende · Archief · Alles; name, location; year; date | + Nieuwe activiteit |
+| Activiteiten | cards; tiles Open inschrijving · Volzette onderdelen (end state: Open activiteiten · Volzet onderdeel — "inschrijving" is too hard a word, Koen, 2 Oct 2026); search, chips Komende/Archief/Alles; no pager | **decided on the rendered concept (Koen, 13 Oct 2026, Q99)**: name with the audience under it in `ink-soft` · first date with its time on one line · location (hides second) · registrations count, right-aligned, "—" without a component (hides first) · status badge — Gepubliceerd, Concept, Geannuleerd, Volzet, Enkel leden: **the cell is never empty** ("c": Gepubliceerd shown too, which sets aside for this list the quiet published state of #1428) | Open activiteiten · Volzet onderdeel (activities with one) | Komende · Archief · Alles with counts; name, location; year, audience; first date ascending, Activiteit and Datum sortable; nothing under ⋯ | + Nieuwe activiteit |
 | Leden | cards; three tiles; search, chips Alle/Actief/Opgezegd, year select; pager 25 | household name with the address under it (street · number · municipality) · persons · membership state badge — no Gemeente column, and no actions column: no row has an action, a household is deleted on its record (Koen, 10 Oct 2026) | Actieve gezinnen · Actieve personen · Te vernieuwen (year) — all three stay (Koen, 10 Oct 2026) | Actief · Te vernieuwen · Opgezegd, no Alle (block 3; (Koen, 10 Oct 2026)); name, street, e-mail; membership year; name | + Nieuw lid; Leden importeren under ⋯ (Koen, 10 Oct 2026) |
 | Betalingen | table grouped per registration; four tiles; status tabs with counts, search, context filter, status select; pager 50; export in the filter bar; `max-w-none` | name/reference · context · status badge · amount · received · balance (W1's two tiles carry the totals) | Netto te betalen · Nog te ontvangen · Nog terug te betalen (Koen, 2 Oct 2026; "Ontvangen" and the booking count go — the toolbar's count shows n) | Alle \| Openstaand n (Koen, 2 Oct 2026; Betaald, Terugbetaald and Terug te betalen get no segment); name, OGM, description; context, status; date · export under `⋯` | none (the breadcrumb goes; row 35) |
 | Formulieren | cards; search, status select; no pager | title · status badge · submissions count · last submission | Open · Inzendingen deze maand | Alle · Open · Gesloten; name; —; updated | Instellingen (holds "Formaat (voor AI)", row 34) · + Nieuw formulier |
@@ -1251,11 +1287,11 @@ Shell width for every list: the wide frame (row 11); today three lists set
 | Media | inline-edit cards in a 2-column grid; search, kind select, activity select; no pager | **cards (grid)** — the one admin exception: thumbnail · title · kind · origin (activity) · clearance badge (CR-15) | — | Alle · per kind; title; activity, year, in gebruik (CR-15); newest | + Uploaden |
 | Design Studio | cards without thumbnail; search; no pager | **thumbnail column** (the latest render) · activity · status badge · versions · updated | — | Alle · Gepubliceerd · Verouderd; activity; —; updated | + Nieuw ontwerp |
 | Gebruikers | inline-edit list, one form per row; search, role select, active chip | e-mail · active badge · roles as tags (row 44: the row opens the record) | Actief | Actief · Alle; e-mail; role; e-mail | + Nieuwe gebruiker |
-| Organisaties | cards; search, type select; empty header | name · type badge · code · legal form · inactive badge | — | Alle · per type; name, code; —; type, name | none (created elsewhere, by design) |
-| Tenants | cards; search, status select | name · /code · active badge · platform badge | — | Actief · Inactief; name, code; —; id | + Nieuwe tenant |
+| Organisaties | cards; search, type select; empty header | **decided (Koen, 13 Oct 2026, Q99)**: name with the code under it · kind · **Onder** — the account an afdeling hangs under (the card never showed it; since CR-19 it is why the list exists) · legal form · status: only "Inactief" as a badge, active quiet | — | the kind as the segments: Alle · Account · Afdeling · Platform; name, code; no Filters; name, or kind then name; nothing under ⋯ | + Nieuw account (stays) |
+| Tenants | cards; search, status select | **decided (Koen, 13 Oct 2026, Q99)**: name with /code under it · type · account (hides first) · the organisation behind the site (hides second) · status: only "Inactief" as a badge | Actief · Inactief (warning) | Alle · Actief · Inactief with counts; name, code; —; name | + Nieuwe tenant. A non-operator's *Instellingen* keeps opening the own tenant's record directly, as today (Koen asked, 13 Oct 2026) |
 | Rapporten | cards with description and chips; search, owner and shared selects; AI buttons in the header | name · shape icon · privé/meegeleverd badge · owner · last opened | — | Mijn · Meegeleverd · Alle; name, description; owner; name | + Nieuw rapport (the AI buttons go: Raakje is the shell's trigger, row 32) |
 | Wijzigingen | table, sortable, page size, pager; `max-w-none` | Tijdstip · Wijziging (badge) · Onderdeel · **Persoon** (the member the change concerns — kept on Koen's word, 2 Oct 2026, after ChatGPT dropped it) · Record (jump link) · Uitgevoerd door · Details; Details hides first, then Uitgevoerd door; no row menu (a log line is not deleted); the segments Alle \| Leden \| Activiteiten \| Betalingen without counts | — | per group; actor; from date; sortable columns | Ledenexport (.ods) under `⋯` |
-| Werkbank | cards polled every 30 s; search, kind filter, status chips | title · kind badge · state badge · created · decision when done | Open · Vandaag | status chips (code labels); task, subject; kind; status, created | none |
+| Werkbank | cards polled every 30 s; search, kind filter, status chips | **decided (Koen, 13 Oct 2026, Q99)**: title with the subject under it (the payment, the submission, the mail, the job — so nobody opens a task to learn what it is about) · kind · created, date with time ("a, ik zou wel de kolom Aangemaakt plaatsen vóór Open Sinds") · open since ("3 dagen", "vandaag"; hides first) · status badge · required role (hides second) · **the row button is the real next step per kind** (Koen, 12 Oct 2026: "ofwel behartig je het, omdat het een manuele stap is die je puur in de werkbank moet afvinken. Maar als het effectief een vervolgstap is, dan wil ik wel dat je … vanuit de lijst direct naartoe gaat"): Bericht behartigen → **Afgehandeld**, ⋯ Open de inzending; webhook mismatch and refund → **Ga naar de betaling**; mail failed → **Open in de e-maillog**, ⋯ Afgehandeld; background job failed → **Afgehandeld**; a handled task nothing; a new kind without a way to handle it in the row gets no button | Open · Vandaag · Ouder dan een week (warning) | Open · Afgehandeld · Alle with counts; task, subject; kind, role; newest first | none; the poll of 30 s stays on the list fragment with the toolbar outside it, as on Leden |
 | AI-kosten | two tables (month totals, calls); month buttons; pager 50 | month totals stay a table; calls: date · module · who · model · status · duration · cost | Deze maand (cost) | month ‹ ›; —; module, provider; date | none (a settings sub-page of Systeeminfo) |
 | AI-context | three cards of rows (documents, pages, notes) with an OCR toggle and inline edit | **tabs per kind** (row 37): Documenten · Pagina's · Notities, each a table: label · state badge · read at | — | per tab; label; —; label | + Notitie (on its tab) |
 | E-maillog | table, sortable, page size, pager; "Bekijk" opens a modal; `max-w-none` | date · recipient · subject · type · status badge | — | per status; recipient; type, status; sortable | none |
@@ -1281,9 +1317,9 @@ says so, and the default order is the one named above.
 | Pagina (CMS) | one card, sticky head with one save; `<details>` placeholders | **document** (CR-17): title, facts: /slug · gepubliceerd/concept · last published; header editor (title, slug, in navigatie); the body as blocks; primary Publiceren, menu Acties (Voorbeeld, Geschiedenis, Verwijderen) | autosave of the draft, publish as the act (CR-17) | none; none |
 | Ontwerp (Design Studio) | four action bars and loose buttons; preview right; `<details>` prompt | activity as the title; facts: template · status · versions; summary: the preview; sections Ontwerp · Beelden (the picker, CR-15) · Varianten · Versies; primary Bewaren en voorbeeld, menu Acties (Definitief maken, Publiceren als affiche, Inkscape, Verwijderen) | one save per section — a declared exception (Koen, 2 Oct 2026, Q28) | images, versions, generations; the prompt text last |
 | Gebruiker | inline row, no page (row 44) | record page: e-mail as the title; facts: active · roles; sections Account · Rollen (checkbox group per workspace) | one save | roles per workspace; none |
-| Organisatie | sections with one save at the end, `max-w-2xl`; header button to the site settings | name; facts: type · code · legal form; sections as today; menu Acties (Instellingen van de site) | one save (already) | identifications, accounts (CR Organisation: repeatable by standard); none |
-| Tenant | key list with a sticky save on top; header button to the organisation | name; facts: code · active; sections Instellingen · Secrets; menu Acties (De organisatie) | one save (already) | none; Secrets as the rare section (collapsed, last) |
-| Werkbank-taak | **no header**; `<dl>` rows; one inline form | title as the title; facts: kind · state · created; sections Taak · Besluit; primary Afhandelen | one save | none; none |
+| Organisatie | sections with one save at the end, `max-w-2xl`; header button to the site settings | **decided on the rendered concept (Koen, 12 and 13 Oct 2026, Q98, Q99)**: name; badge with the kind; facts: code · legal form · "Onder <account>" as a jump link; summary card: Actief, then Soort · Code · Onder; **four cards** — Organisatie (name and legal form side by side, the contact details in the order of §3.2), Adres (the fixed address shape in edit mode, one fact with the map-pin icon in read mode), Rekening, Nummers ("100% consistentie met gezinnen en personen"); menu Acties (Instellingen van de site, for an afdeling or the platform); a site that shows another organisation's data reads only: no Bewerken, one line under the head that says so; the help texts that told what the footer does with a value are gone (10 Oct 2026 rule) | one save (already) | identifications, accounts (CR Organisation: repeatable by standard); none |
+| Tenant | key list with a sticky save on top; header button to the organisation | **decided (Koen, 13 Oct 2026, Q99)**: name; badge with the type; facts: code · account · organisation behind the site (both jump links — "De organisatie" of today becomes the jump); summary: Actief, Type · Account · Modules aan; cards **Tenant** (type as a select, account, organisation behind the site) · **Site** (what no module owns: name, tagline, the three colours, canonical URL, language, mail mode as a select Verzenden / Alleen loggen, noindex as a switch, Gmail user, sender, app password with a *wissen* switch beside it, Umami script and ID) · **a card per module with its switch in the head** (CR-19 #1498; Koen, 12 Oct 2026: "we hadden beslist om dat allemaal gelijk te zetten"), **no record count in the head** (13 Oct: "Kan je de getallen die je ophaalt verwijderen"), the module's settings inside while it is on, a secret read as "gezet" / "niet gezet"; menu Acties (**Deactiveren** — new, "a"); the action bar at the bottom like every record; the platform (no Leden card, the type fixed) and the non-operator's Instellingen (the same cards without Tenant, the modules read-only) kept | one save (already) | none; no rare section — a secret stands in its module's card |
+| Werkbank-taak | **no header**; `<dl>` rows; one inline form | **decided (Koen, 13 Oct 2026, Q99)**: title; badge Open / Afgehandeld; facts: kind · created · the subject as a jump link; summary: kind, role, open since; cards **Onderwerp** (a submission's answers; a job's status, attempts and last error; a payment's amount and what the webhook said) and **Besluit**; **Afhandelen is the edit mode** ("a"): the primary opens the decision field, the action bar's save reads *Afgehandeld*; a handled task shows the decision, by whom and when, and has no button; a signpost task (a payment, which closes itself, #822) has no Besluit card and a primary *Ga naar het onderwerp* | one save | none; none |
 
 ### 5.3 Public pages — the kit, not the layouts (§2.4)
 
