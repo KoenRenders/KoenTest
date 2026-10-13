@@ -63,8 +63,10 @@ class CreatePayment(Port):
 
     Handled by payment. `amount` is a Decimal as a string — ports are plain data.
     For an online payment the provider is called here, in the caller's
-    transaction; when it refuses, the handler raises and the caller's door rolls
-    the whole order back (502). Nothing is committed here.
+    transaction. The handler lets through, by name, the payment seam's refusal:
+    `ValueError` (a missing key, a refusal or an error answer of the provider) and
+    `httpx.HTTPError` (the provider could not be reached, a timeout); the caller's
+    door rolls the whole order back on those. Nothing is committed here.
     """
 
     payable_type: str

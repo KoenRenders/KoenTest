@@ -184,6 +184,7 @@ def submit_order(
     back); raises `HTTPException(502)` when an online payment cannot start (the
     order is rolled back, nothing reserved).
     """
+    import httpx
     from fastapi import HTTPException
 
     from app.domains.mdm.api import PaymentMethod
@@ -241,11 +242,12 @@ def submit_order(
             checkout_url = started.checkout_url
             if method == PaymentMethod.ONLINE and not checkout_url:
                 raise ValueError("geen checkout_url")
-        except ValueError as exc:
-            # The payment seam's own refusal (the provider refused, or an online
-            # payment without a checkout url). A programming fault raises on, and
-            # is a 500 — never "the payment could not start". Both branches end the
-            # same way: nothing placed, nothing published (K1).
+        except (ValueError, httpx.HTTPError) as exc:
+            # The payment seam's own refusal (the provider refused, a missing key,
+            # or it could not be reached) and an online payment without a checkout
+            # url. A programming fault raises on, and is a 500 — never "the payment
+            # could not start". Both branches end the same way: nothing placed,
+            # nothing published (K1, L1).
             db.rollback()
             raise HTTPException(
                 status_code=502,
