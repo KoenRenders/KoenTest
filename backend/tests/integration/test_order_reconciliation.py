@@ -13,7 +13,7 @@ from decimal import Decimal
 import pytest
 
 from app.domains.mdm.api import Member, MemberPerson, Person
-from app.domains.payment.api import PaymentRecord, reconcile_charges
+from app.domains.payment.api import PayableType, PaymentRecord, reconcile_charges
 from app.domains.sales.api import SalesOrder, SalesOrderLine, order_describer
 from app.kernel.contracts.sales import SalesOrderChanged
 from app.kernel.events import publish
@@ -38,7 +38,7 @@ def _charges(db, order_id):
     return (
         db.query(PaymentRecord)
         .filter(
-            PaymentRecord.payable_type == "order",
+            PaymentRecord.payable_type == PayableType.ORDER,
             PaymentRecord.payable_id == order_id,
         )
         .all()
@@ -52,7 +52,7 @@ def test_the_order_change_reconciles_to_the_orders_own_total_and_once(db_session
     commit that publishes the event)."""
     order = _order_with_line(db_session, quantity=2, price="18.00")
     # 2 × 18 = 36, the total the publisher would compute from the lines
-    reconcile_charges(db_session, "order", order.id, Decimal("36.00"))
+    reconcile_charges(db_session, PayableType.ORDER, order.id, Decimal("36.00"))
 
     publish(SalesOrderChanged(order_id=order.id, total_due="18.00"), db_session)
     assert [r.amount for r in _charges(db_session, order.id)] == [Decimal("18.00")]
