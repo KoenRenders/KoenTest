@@ -81,9 +81,10 @@ def test_empty_the_site_follows_its_organisations_name(client, db_session):
 def test_filled_in_the_sites_own_name_wins_and_stays(client, db_session):
     account, site = _company_under_an_account(db_session)
     csrf = _login(client, db_session, "admin-1546@example.com", "ADMIN", site.id)
-    page = client.get(f"/{site.code}/admin/instellingen").text
+    # #1933: the record is read first; the field stands in its edit state.
+    page = client.get(f"/{site.code}/admin/instellingen?bewerken=1").text
     client.cookies.delete("raak_tenant")
-    field = re.search(r'<input name="site_name"[^>]*>', page).group(0)
+    field = re.search(r'<input\b[^>]*name="site_name"[^>]*>', page).group(0)
     assert 'placeholder="Account Tien"' in field, "the fallback, softly"
     assert page.index('name="site_name"') < page.index('name="tagline"'), "above Tagline"
 

@@ -166,15 +166,16 @@ def test_1_the_operator_creates_a_company(company):
 
 def test_2_its_editor_ticks_the_company_modules(browser, operator, company):
     page = _page(browser, operator, base=PLATFORM)  # #1535: Tenants, on the platform
-    page.goto(f"/admin/tenants/{company['id']}")
+    # #1933: the record is read first; the switches stand in its edit state.
+    page.goto(f"/admin/tenants/{company['id']}?bewerken=1")
     pagina_klaar(page)
     ticked = set(
         page.eval_on_selector_all(
             'input[type="checkbox"][name="modules"]:checked', "els => els.map(e => e.value)"
         )
     )
-    # #1533: the kind is a choice in the editor now, BEDRIJF ticked.
-    kind = page.eval_on_selector('input[name="kind"]:checked', "e => e.value")
+    # #1533: the kind is a choice in the editor; #1933: a select, BEDRIJF chosen.
+    kind = page.eval_on_selector('select[name="kind"]', "e => e.value")
     page.close()
     assert ticked == COMPANY_MODULES
     assert kind == "BEDRIJF"

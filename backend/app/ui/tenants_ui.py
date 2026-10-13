@@ -1,5 +1,10 @@
 """Tenantbeheer (/admin/tenants) — OPERATOR-only (#546, #581).
 
+Since #1933 (CR-11 roll-out; end state §5.1, §5.2) the list stands on the list
+layout with the kit's table, and a tenant is a record: read first, `?bewerken=1`
+the editor with one save — the cards Tenant, Site and one per module. A secret
+is typed and never shown back. Both screens' context comes from a view-model.
+
 Eén scherm voor één object. Een tenant is een UNIT-``Organization`` mét een set
 key/value-settings; die twee werden vroeger op twee schermen beheerd, met een
 "Afdeling"-dropdown op /admin/instellingen als tweede manier om een tenant te
@@ -14,6 +19,10 @@ mdm-/kernel-facades.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+from typing import Any
+from urllib.parse import quote, urlencode
+
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
@@ -23,6 +32,7 @@ from app.domains.auth.api import (  # noqa: F401
     Right,
     csrf_from_request,
     get_user_roles,
+    may,
     require_csrf,
     require_platform_right,
     require_right,
@@ -31,7 +41,18 @@ from app.domains.auth.api import (  # noqa: F401
 from app.domains.mdm.api import OrganizationType
 from app.i18n import _
 from app.kernel.tenant_config import SWITCH_SETTINGS, switch_is_on
-from app.ui import admin_nav, filterparams, is_fragment_request, templates
+from app.ui import (
+    PER_PAGE_DEFAULT,
+    PER_PAGE_OPTIONS,
+    admin_nav,
+    filterparams,
+    is_fragment_request,
+    list_return,
+    per_page_from,
+    record_frame,
+    templates,
+)
+from app.ui.viewmodel import ViewModel
 
 router = APIRouter(include_in_schema=False)
 
@@ -74,8 +95,10 @@ BEKENDE_SLEUTELS = [
         "Canonieke URL",
         "Publieke origin voor links in mails/Mollie/SEO, bv. https://raakmillegem.be.",
     ),
-    ("mail_mode", "Mail-modus", "'send' (default) of 'log_only' (mails enkel loggen — demo)."),
-    ("noindex", "Noindex", "'1' = niet indexeren door zoekmachines (demo)."),
+    # #1933: a choice and a switch, where a text field took "'send' of 'log_only'"
+    # and "'1'". The stored values are the same.
+    ("mail_mode", "Mail-modus", "Alleen loggen: mails worden niet verstuurd (demo)."),
+    ("noindex", "Niet indexeren", "Zoekmachines nemen de site niet op (demo)."),
     ("language", "Taal", "Catalogustaal, bv. nl_BE (default)."),
     ("membership_price_full", "Lidgeld volledig", "Bedrag, bv. 35.00. Leeg = .env-default."),
     ("membership_price_half", "Lidgeld half", "Bedrag, bv. 17.50."),
@@ -166,6 +189,17 @@ LEDENSLEUTELS = {
 }
 
 
+NAV = "/admin/tenants"
+OWN = "/admin/instellingen"
+STATUSES = ("", "actief", "inactief")
+SORT_DEFAULT = "naam"
+SORTS = (SORT_DEFAULT, "-naam", "type", "-type")
+
+#: Mail-modus as a choice (#1933): the stored values are the ones the mail
+#: domain reads; an empty setting means "send".
+MAIL_MODES = ("send", "log_only")
+
+
 def _units(db: Session, *, alleen_actief: bool = False):
     """Wat dit scherm mag instellen: de platform-tenant én de afdelingen (#854).
 
@@ -179,48 +213,198 @@ def _units(db: Session, *, alleen_actief: bool = False):
     return list_manageable_tenants(db, alleen_actief=alleen_actief)
 
 
-def _lijst_ctx(request: Request, db: Session) -> dict:
-    """Lijst-index (C1): zoeken op naam/code, filter op status."""
-    from app.domains.mdm.api import list_accounts
+# ── The list ──────────────────────────────────────────────────────────────────
 
-    # #671: uit HX-Current-URL als htmx die meestuurt, anders uit de query-string.
-    stand = filterparams(request)
-    zoek = (stand.get("q") or "").strip()
-    status = (stand.get("status") or "").strip()
-    units = _units(db)
-    if zoek:
-        naald = zoek.lower()
-        units = [
-            u for u in units if naald in (u.name or "").lower() or naald in (u.code or "").lower()
+
+@dataclass(frozen=True, kw_only=True)
+class TenantsView(ViewModel):
+    """`admin_tenants.html` and its fragment `_tn_kaarten.html`: the list of
+    tenants on the kit's table (#1933)."""
+
+    #: One dict per row: id, name, code, href, kind, account, site_org, inactive.
+    rows: list[dict[str, Any]]
+    columns: list[dict[str, Any]]
+    segments: list[dict[str, Any]]
+    figures: list[dict[str, Any]]
+    status: str
+    q: str
+    sort: str
+    sort_options: list[tuple[str, str]]
+    page: int
+    per_page: int
+    total: int
+    page_sizes: list[int]
+    pager_url: str
+    empty_reason: str
+    #: A refused creation, and the confirmation of a good one.
+    error: str | None = None
+    created: bool = False
+    csrf_token: str
+    nav_items: list[dict[str, Any]] = field(default_factory=list)
+    #: The fragment carries the toolbar's count and segment counts out-of-band.
+    oob: bool = False
+
+
+def _list_view(request: Request, db: Session, *, oob: bool = False, **extra: Any) -> TenantsView:
+    """The list Tenants (#1933): the segments Alle · Actief · Inactief with their
+    counts, the search on name and code, the sort by name or by type. The state
+    is in the URL; the toolbar asks this same address for the fragment."""
+    state = filterparams(request)
+    q = (state.get("q") or "").strip()
+    status = (state.get("status") or "").strip()
+    if status not in STATUSES:
+        status = ""
+    sort = (state.get("sort") or "").strip()
+    if sort not in SORTS:
+        sort = SORT_DEFAULT
+    per_page = per_page_from(state.get("per_page"))
+    try:
+        page = max(1, int(state.get("page") or 1))
+    except ValueError:
+        page = 1
+
+    everyone = _units(db)
+    kinds = _kind_labels()
+    kind_of = {u.id: kinds.get(u.kind.value, "") if u.kind is not None else "" for u in everyone}
+    shown = everyone
+    if q:
+        needle = q.lower()
+        shown = [
+            u for u in shown if needle in (u.name or "").lower() or needle in (u.code or "").lower()
         ]
     if status == "actief":
-        units = [u for u in units if u.is_active]
+        shown = [u for u in shown if u.is_active]
     elif status == "inactief":
-        units = [u for u in units if not u.is_active]
-    accounts = list_accounts(db)
-    kinds = _kind_labels()
+        shown = [u for u in shown if not u.is_active]
+
+    def by_name(u) -> tuple:
+        return ((u.name or "").casefold(),)
+
+    def by_kind(u) -> tuple:
+        return (kind_of[u.id].casefold(), (u.name or "").casefold())
+
+    shown = sorted(
+        shown, key=by_kind if sort in ("type", "-type") else by_name, reverse=sort[0] == "-"
+    )
+    total = len(shown)
+    page = min(page, max(1, -(-total // per_page)))
+    shown = shown[(page - 1) * per_page : page * per_page]
+
+    way_back = list_return(
+        NAV,
+        status=status,
+        q=q,
+        sort=sort if sort != SORT_DEFAULT else "",
+        page=page if page > 1 else "",
+        per_page=per_page if per_page != PER_PAGE_DEFAULT else "",
+    )
+    # #1542: the account each site hangs under; #1554: the organisation behind
+    # the site, where it is not the tenant's own.
+    accounts = _account_names(db, shown)
+    site_orgs = _site_org_names(db, shown)
+    rows = [
+        {
+            "id": u.id,
+            "name": u.name,
+            # #854: the platform is in this list but is no unit, and its code is
+            # no path prefix: it reads without a slash.
+            "code": u.code if u.org_type is OrganizationType.PLATFORM else f"/{u.code}",
+            "href": f"{NAV}/{u.id}?terug={quote(way_back, safe='/')}",
+            "kind": kind_of[u.id],
+            "account": accounts.get(u.id, ""),
+            "site_org": site_orgs.get(u.id, ""),
+            "inactive": not u.is_active,
+        }
+        for u in shown
+    ]
+
+    link_state = {"status": status, "q": q}
+
+    def _query(**more: Any) -> str:
+        return urlencode(
+            {k: v for k, v in {**link_state, "per_page": per_page, **more}.items() if v != ""}
+        )
+
+    def _head(
+        key: str, label: str, cell: str, ascending: str, descending: str, **more: Any
+    ) -> dict[str, Any]:
+        turned = descending if sort == ascending else ascending
+        head: dict[str, Any] = {
+            "key": key,
+            "label": label,
+            "cell": cell,
+            "sort_url": f"{NAV}?{_query(sort=turned)}",
+            "sort_page_url": f"{NAV}?{_query(sort=turned)}",
+            **more,
+        }
+        if sort in (ascending, descending):
+            head["sorted"] = "asc" if sort == ascending else "desc"
+        return head
+
+    active = sum(1 for u in everyone if u.is_active)
+    inactive = len(everyone) - active
+    if q:
+        empty_reason = _("Geen tenants gevonden voor “%(q)s”.") % {"q": q}
+    elif status == "inactief":
+        empty_reason = _("Geen inactieve tenants.")
+    else:
+        empty_reason = _("Nog geen tenants. Maak er een met “Nieuwe tenant”.")
+    values: dict[str, Any] = {
+        "rows": rows,
+        "columns": [
+            _head("naam", _("Tenant"), "name", "naam", "-naam"),
+            _head("type", _("Type"), "context", "type", "-type", width=150),
+            {"key": "account", "label": _("Account"), "cell": "extra", "priority": 1, "width": 200},
+            {
+                "key": "site_org",
+                "label": _("Organisatie achter de site"),
+                "cell": "extra",
+                "priority": 2,
+                "width": 240,
+            },
+            {"key": "status", "label": _("Status"), "cell": "status"},
+        ],
+        "segments": [
+            {"value": "", "label": _("Alle"), "count": len(everyone)},
+            {"value": "actief", "label": _("Actief"), "count": active},
+            {"value": "inactief", "label": _("Inactief"), "count": inactive},
+        ],
+        "figures": [
+            {"value": str(active), "label": _("Actief"), "title": _("Tenants die actief zijn.")},
+            {
+                "value": str(inactive),
+                "label": _("Inactief"),
+                "title": _("Tenants die niet actief zijn."),
+                "warning": inactive > 0,
+            },
+        ],
+        "status": status,
+        "q": q,
+        "sort": sort,
+        "sort_options": [(SORT_DEFAULT, _("Naam")), ("type", _("Type"))],
+        "page": page,
+        "per_page": per_page,
+        "total": total,
+        "page_sizes": list(PER_PAGE_OPTIONS),
+        "pager_url": f"{NAV}?{_query(sort=sort)}",
+        "empty_reason": empty_reason,
+        "csrf_token": csrf_from_request(request),
+        "nav_items": [] if oob else admin_nav(NAV, request),
+        "oob": oob,
+    }
+    values.update(extra)
+    return TenantsView(**values)
+
+
+def _new_ctx(request: Request, db: Session) -> dict:
+    """What the new-tenant form needs: the creatable kinds and the accounts."""
+    from app.domains.mdm.api import list_accounts
+
     return {
-        "nav_items": admin_nav("/admin/tenants", request),
-        "units": units,
-        # CR-19 (#1478): the kind of each tenant, as its label — the platform's
-        # own kind too, since #1523.
-        "kind_of": {u.id: kinds[u.kind.value] for u in units if u.kind is not None},
-        # #1542 (Koen): the account each site hangs under, the platform included
-        # once it has one; no account, no badge.
-        "account_of": _account_names(db, units),
-        # #1554: the organisation behind the site, where it is not the tenant's own.
-        "site_org_of": _site_org_names(db, units),
+        "nav_items": admin_nav(NAV, request),
         # #1523: a new tenant takes one of the creatable kinds, never PLATFORM.
         "kind_options": _creatable_kind_options(),
-        # #854: the platform is in this list but is no unit; the screen marks
-        # it. Decided here, because a template comparing the member with
-        # "PLATFORM" is always false (CR-12 phase 2).
-        "platform_id": next((u.id for u in units if u.org_type is OrganizationType.PLATFORM), None),
-        "accounts": accounts,
-        "q": zoek,
-        "status": status,
-        "error": None,
-        "opgeslagen": False,
+        "accounts": list_accounts(db),
         "csrf_token": csrf_from_request(request),
     }
 
@@ -252,7 +436,7 @@ def _account_names(db: Session, units) -> dict[int, str]:
 def _site_org_names(db: Session, units) -> dict[int, str]:
     """The name of the organisation behind each listed site, by the site's id,
     for the sites that show another organisation's data (#1554). Asked of the
-    resolver the footer uses (#1550), so the card and the site cannot disagree;
+    resolver the footer uses (#1550), so the list and the site cannot disagree;
     a site on its own data is left out."""
     from app.kernel.tenant_config import site_name_default, site_organization_id
 
@@ -278,12 +462,12 @@ def _kind_labels() -> dict[str, str]:
 
 
 def _settings_of(unit) -> tuple[list, list]:
-    """The settings and secrets this tenant's editor shows — and saves.
+    """The settings and secrets this tenant's record shows — and saves.
 
     #854: a platform tenant does not get the membership fields. Since #1498 the
-    settings of a module that is off are on the form too, folded away in its
-    card: the form carries every key, so saving a module off keeps its values
-    (switching off deletes nothing, #1478), and ticking it shows them again.
+    settings of a module that is off are on the form too: the form carries every
+    key, so saving a module off keeps its values (switching off deletes nothing,
+    #1478).
     """
     sleutels = [
         rij
@@ -300,34 +484,155 @@ def _hidden_cards(unit) -> set:
     return {ModuleCode.MEMBERSHIP} if unit.org_type == OrganizationType.PLATFORM else set()
 
 
-def _cards(db: Session, unit, *, modules_on, refused=None) -> list[dict]:
-    """The editor's cards (#1498): "Site" for the settings no module owns, then
-    one per module in registry order, its checkbox in the card's header.
+# ── The record ────────────────────────────────────────────────────────────────
+
+#: The shape of a setting's field on the record (#1933): its kind and how much
+#: of the grid's row it takes. A setting that is not named is a half text field.
+_QUARTER = {"span": "quarter"}
+_FIELD_SHAPES: dict[str, dict[str, Any]] = {
+    "tagline": {"long": True},
+    "base_url": {"kind": "url"},
+    "umami_src": {"kind": "url"},
+    "language": _QUARTER,
+    "mail_mode": {"kind": "select", **_QUARTER},
+    "membership_price_full": {"kind": "number", "unit": "€", **_QUARTER},
+    "membership_price_half": {"kind": "number", "unit": "€", **_QUARTER},
+    "membership_half_price_start_md": _QUARTER,
+    "membership_half_price_end_md": _QUARTER,
+    "membership_next_year_from_md": _QUARTER,
+    "membership_renewal_start_md": _QUARTER,
+    "payment_term_days": {"kind": "number", **_QUARTER},
+    # Half, so the label stays on one line (Koen: "maak je kolommen breder ofzo?").
+    "max_item_quantity": {"kind": "number"},
+    "max_registrations_per_email": {"kind": "number"},
+}
+
+
+def _setting_field(key: str, label: str, help_text: str, value: str) -> dict[str, Any]:
+    """One setting as the template draws it: a kit field in edit mode, a fact in
+    its cell in read mode (`display`)."""
+    from app.kernel.tenant_config import SITE_COLOR_DEFAULTS
+
+    shaped: dict[str, Any] = {
+        "key": key,
+        "label": _(label),
+        "help": _(help_text),
+        "value": value,
+        "kind": "text",
+        "span": "half",
+        "long": False,
+        "unit": None,
+        "options": [],
+        "placeholder": "",
+        "switch": None,
+        "display": value or "—",
+        **_FIELD_SHAPES.get(key, {}),
+    }
+    if shaped["kind"] == "url" or shaped["long"]:
+        shaped["span"] = "full"
+    if key in SITE_COLOR_DEFAULTS:
+        # #1643: a sample beside the input, the standard colour while it is empty.
+        shaped.update(kind="color", span="quarter", placeholder=SITE_COLOR_DEFAULTS[key])
+    elif key == "mail_mode":
+        shaped["options"] = [("send", _("Verzenden")), ("log_only", _("Alleen loggen"))]
+        shaped["value"] = value if value in MAIL_MODES else MAIL_MODES[0]
+        shaped["display"] = dict(shaped["options"])[shaped["value"]]
+    elif key == "noindex":
+        # A yes or a no: "1" is what the site reads (#1933; it was a text field).
+        shaped["switch"] = {"on": value == "1", "on_value": "1", "off_value": ""}
+    elif key in SWITCH_SETTINGS:
+        on_value, off_value, _default = SWITCH_SETTINGS[key]
+        shaped["switch"] = {
+            "on": switch_is_on(key, value),
+            "on_value": on_value,
+            "off_value": off_value,
+        }
+    if shaped["switch"] is not None:
+        shaped["kind"] = "switch"
+        shaped["display"] = _("ja") if shaped["switch"]["on"] else _("nee")
+    elif shaped["unit"] and value:
+        shaped["display"] = f"{shaped['unit']} {value}"
+    return shaped
+
+
+def _secret_field(key: str, label: str, help_text: str, is_set: bool) -> dict[str, Any]:
+    """A secret: typed, never shown back. Read, it says whether one is set."""
+    return {
+        "key": key,
+        "label": _(label),
+        "help": _(help_text),
+        "is_set": is_set,
+        "placeholder": _("•••• (gezet — leeg laten = ongewijzigd)")
+        if is_set
+        else _("niet gezet — .env-default geldt"),
+        "display": _("gezet") if is_set else _("niet gezet"),
+        "clear_label": _("Wissen"),
+    }
+
+
+@dataclass(frozen=True, kw_only=True)
+class TenantRecordView(ViewModel):
+    """`admin_tenant.html`: a tenant's record, read first (#1933)."""
+
+    tenant_id: int
+    #: #1535: a tenant workspace's own "Instellingen" — no Tenant card, the
+    #: modules read-only.
+    own: bool
+    edit: bool
+    record_head: dict[str, Any]
+    way_back: dict[str, Any] | None
+    summary: dict[str, Any]
+    modules_editable: bool
+    #: The card Tenant: {kind, account, site_org}, each {value, label, options};
+    #: None in the own scope.
+    tenant_card: dict[str, Any] | None
+    site_name: dict[str, str]
+    #: The card Site and one card per module: {code, label, on, fields, secrets,
+    #: error}; `code` None for Site.
+    cards: list[dict[str, Any]]
+    #: A module without a card keeps its state through the one save.
+    kept_modules: list[str]
+    error: str | None
+    save_url: str
+    cancel_href: str
+    toast_opgeslagen: bool
+    csrf_token: str
+    nav_items: list[dict[str, Any]] = field(default_factory=list)
+
+
+def _cards(db: Session, unit, *, modules_on, values, secrets_set, refused=None) -> list[dict]:
+    """The record's cards (#1498): "Site" for the settings no module owns, then
+    one per module in registry order.
 
     The grouping is the registry's (`owner_of("tenant_settings", key)`), not a
-    second list here. A module's record count is what becomes unreachable when
-    it goes off. `refused` = (module, message): a refused dependency shows on
-    the card of the module concerned.
+    second list here. `refused` = (module, message): a refused dependency shows
+    on the card of the module concerned.
     """
-    from app.kernel.modules import MODULES, owner_of, record_counts
+    from app.kernel.modules import MODULES, owner_of
 
     sleutels, geheim = _settings_of(unit)
-    counts = record_counts(db, unit.id)
 
     def owned_by(code) -> tuple[list, list]:
         return (
-            [r for r in sleutels if owner_of("tenant_settings", r[0]) == code],
-            [r for r in geheim if owner_of("tenant_settings", r[0]) == code],
+            [
+                _setting_field(key, label, hulp, values[key])
+                for key, label, hulp in sleutels
+                if owner_of("tenant_settings", key) == code
+            ],
+            [
+                _secret_field(key, label, hulp, secrets_set[key])
+                for key, label, hulp in geheim
+                if owner_of("tenant_settings", key) == code
+            ],
         )
 
-    settings, secrets = owned_by(None)
+    fields, secrets = owned_by(None)
     cards: list[dict] = [
         {
             "code": None,
             "label": _("Site"),
-            "count": None,
             "on": True,
-            "settings": settings,
+            "fields": fields,
             "secrets": secrets,
             "error": None,
         }
@@ -335,14 +640,13 @@ def _cards(db: Session, unit, *, modules_on, refused=None) -> list[dict]:
     for module in MODULES:
         if module.code in _hidden_cards(unit):
             continue
-        settings, secrets = owned_by(module.code)
+        fields, secrets = owned_by(module.code)
         cards.append(
             {
                 "code": module.code.value,
                 "label": module.label,
-                "count": counts.get(module.code),
                 "on": module.code.value in modules_on,
-                "settings": settings,
+                "fields": fields,
                 "secrets": secrets,
                 "error": refused[1] if refused and refused[0] == module.code else None,
             }
@@ -350,16 +654,31 @@ def _cards(db: Session, unit, *, modules_on, refused=None) -> list[dict]:
     return cards
 
 
-def _editor_ctx(
-    request: Request, db: Session, tenant_id: int, *, modules_on=None, refused=None, own=False
-) -> dict:
-    """The tenant editor's context. `own` (#1535) is the tenant workspace's own
-    "Instellingen": the same cards and the same save, with the modules shown
-    read-only and without the kind and account, which are platform
-    administration (#1533). Only the scope and those two differ."""
-    from app.domains.mdm.api import enabled_modules, list_accounts
+def _record_view(
+    request: Request,
+    db: Session,
+    email: str,
+    tenant_id: int,
+    *,
+    own: bool = False,
+    edit: bool | None = None,
+    modules_on=None,
+    refused=None,
+    typed: dict[str, str] | None = None,
+    error: str | None = None,
+    saved: bool = False,
+) -> TenantRecordView:
+    """A tenant's record (#1933; end state §2.2, §5.2): the head with Bewerken,
+    the summary beside the form column, and the cards Tenant, Site and one per
+    module — read first, `?bewerken=1` the editor with ONE save for every card.
+
+    `own` (#1535) is the tenant workspace's own "Instellingen": the same record
+    without the Tenant card and with the modules read-only — type, account and
+    modules are platform administration (#1533). `typed` are the values of a
+    refused save, shown again as they were sent (#797)."""
+    from app.domains.mdm.api import enabled_modules, list_accounts, organization_options
     from app.domains.mdm.api import secrets_gezet as _secrets_gezet
-    from app.kernel.tenant_config import SITE_COLOR_DEFAULTS, get_setting, site_name_default
+    from app.kernel.tenant_config import get_setting, site_name_default, site_organization_id
 
     unit = next((u for u in _units(db) if u.id == tenant_id), None)
     if unit is None:
@@ -367,61 +686,136 @@ def _editor_ctx(
     sleutels, geheim = _settings_of(unit)
     stored_on = enabled_modules(unit.id, db=db)
     on = set(modules_on) if modules_on is not None else stored_on
-    waarden = {
-        key: get_setting(db, key, tenant_id=tenant_id) or "" for key, _label, _hulp in sleutels
-    }
-    secrets_gezet = _secrets_gezet(db, tenant_id, [key for key, _label, _hulp in geheim])
-    return {
-        "nav_items": admin_nav("/admin/instellingen" if own else "/admin/tenants", request),
-        "unit": unit,
-        "tenant_id": tenant_id,
-        # #1535: where this editor posts and leads, per scope.
-        "own": own,
-        "back_href": None if own else "/admin/tenants",
-        "cancel_href": "/admin/instellingen" if own else "/admin/tenants",
-        "org_href": "/admin/organisatie" if own else f"/admin/organisaties/{tenant_id}",
-        "modules_editable": not own,
-        "kind_label": _kind_labels().get(unit.kind.value) if unit.kind is not None else None,
-        # #1533: a unit's kind can be changed here, between the creatable kinds;
-        # the platform's is fixed and only shown (`kind_label`).
-        "kind_options": _creatable_kind_options()
-        if unit.org_type is OrganizationType.UNIT and not own
-        else [],
-        "kind_value": unit.kind.value if unit.kind is not None else None,
-        # #1533 (Koen): beside the kind, the account the tenant hangs under, chosen
-        # from the active accounts (#1495); "" only while it has none. #1542: the
-        # platform too — its kind stays fixed, its account may be chosen.
-        "account_options": [(str(a.id), a.name) for a in list_accounts(db)]
-        if unit.org_type in (OrganizationType.UNIT, OrganizationType.PLATFORM) and not own
-        else [],
-        "account_value": str(unit.parent_id) if unit.parent_id is not None else "",
-        # #1550: whose data the site shows — its own, or another organisation of
-        # its account (the account included); only once it has an account.
-        "site_org_options": _site_org_options(db, unit) if not own else [],
-        "site_org_value": str(unit.site_organization_id or ""),
-        # #1546: the site's own name, and the organisation's name it falls back to
-        # (the placeholder), in both scopes — the tenant's ADMIN may set it too.
-        "site_name_value": unit.site_name or "",
-        "site_name_default": site_name_default(db, tenant_id),
-        # #1622: the colour fields with a sample — the stylesheet's own colour
-        # as the placeholder, and as the sample while the field is empty.
-        "colour_defaults": SITE_COLOR_DEFAULTS,
-        "cards": _cards(db, unit, modules_on=on, refused=refused),
-        # A module without a card keeps its state through the one Opslaan.
-        "kept_modules": sorted(c.value for c in _hidden_cards(unit) if c.value in stored_on),
-        "waarden": waarden,
-        # #1568: which settings are a switch, and whether each is on — by the
-        # rule that reads them (`switch_is_on`), not by a comparison here.
-        "schakelaars": {
-            key: {"on": switch_is_on(key, waarden[key]), "on_value": on, "off_value": off}
-            for key, (on, off, _default) in SWITCH_SETTINGS.items()
-            if key in waarden
+    values = {key: get_setting(db, key, tenant_id=tenant_id) or "" for key, _l, _h in sleutels}
+    if typed:
+        values.update({key: value for key, value in typed.items() if key in values})
+    secrets_set = _secrets_gezet(db, tenant_id, [key for key, _l, _h in geheim])
+
+    base = OWN if own else f"{NAV}/{tenant_id}"
+    frame = record_frame(request, db, NAV)
+    way_back = None if own else frame["way_back"]
+    keep = way_back["keep"] if way_back else ""
+    can_edit = may(db, email, Right.SETTINGS_MANAGE if own else Right.PLATFORM_MANAGE)
+    editing = (frame["head_editing"] if edit is None else edit) and can_edit
+
+    is_platform = unit.org_type is OrganizationType.PLATFORM
+    kind_label = _kind_labels().get(unit.kind.value, "") if unit.kind is not None else ""
+    everyone = {o["id"]: o for o in organization_options(db)}
+    account = everyone.get(unit.parent_id) if unit.parent_id else None
+    behind_id = site_organization_id(db, tenant_id)
+    behind = everyone.get(behind_id)
+
+    # The head's facts: the code, and the two organisations as jump links —
+    # platform administration answers in the platform workspace only, so the
+    # own scope links to its own "Onze organisatie" and names the account.
+    facts: list[dict[str, str]] = [{"text": unit.code if is_platform else f"/{unit.code}"}]
+    if account is not None:
+        under = _("Account %(naam)s") % {"naam": account["name"]}
+        facts.append(
+            {"text": under}
+            if own
+            else {
+                "text": under,
+                "kind": "reference",
+                "href": f"/admin/organisaties/{account['id']}",
+            }
+        )
+    if behind is not None:
+        facts.append(
+            {
+                "text": _("Organisatie %(naam)s") % {"naam": behind["name"]},
+                "kind": "reference",
+                "href": "/admin/organisatie" if own else f"/admin/organisaties/{behind_id}",
+            }
+        )
+    cards = _cards(db, unit, modules_on=on, values=values, secrets_set=secrets_set, refused=refused)
+    module_cards = [c for c in cards if c["code"]]
+    tenant_card = None
+    if not own:
+        site_org_options = _site_org_options(db, unit)
+        site_org_value = str(unit.site_organization_id or "")
+        account_options = [(str(a.id), a.name) for a in list_accounts(db)]
+        account_value = str(unit.parent_id) if unit.parent_id is not None else ""
+        tenant_card = {
+            # #1533: a unit's kind can be changed between the creatable kinds;
+            # the platform's is fixed and only shown.
+            "kind": {
+                "value": unit.kind.value if unit.kind is not None else "",
+                "label": kind_label or "—",
+                "options": [] if is_platform else _creatable_kind_options(),
+            },
+            # #1533 (Koen): the account the tenant hangs under, chosen from the
+            # active accounts (#1495); "" only while it has none. #1542: the
+            # platform too.
+            "account": {
+                "value": account_value,
+                "label": account["name"] if account else "—",
+                "options": ([] if account_value else [("", _("Geen account"))]) + account_options,
+            },
+            # #1550: whose data the site shows — its own, or another organisation
+            # of its account; only once it has an account.
+            "site_org": {
+                "value": site_org_value,
+                "label": dict(site_org_options).get(site_org_value, "—"),
+                "options": site_org_options,
+            },
+        }
+    return TenantRecordView(
+        tenant_id=tenant_id,
+        own=own,
+        edit=editing,
+        record_head={
+            "title": unit.site_name or site_name_default(db, tenant_id) or unit.name,
+            "badges": [{"label": kind_label, "tone": "gray"}] if kind_label else [],
+            "facts": facts,
+            "primary": {
+                "label": _("Bewerken"),
+                "href": f"{base}?bewerken=1" + (f"&{keep}" if keep else ""),
+            }
+            if can_edit
+            else None,
+            "actions": [],
         },
-        "secrets_gezet": secrets_gezet,
-        "error": None,
-        "opgeslagen": False,
-        "csrf_token": csrf_from_request(request),
-    }
+        way_back=way_back,
+        summary={
+            "state": {
+                "label": _("Actief") if unit.is_active else _("Inactief"),
+                "tone": "green" if unit.is_active else "red",
+            },
+            "figures": [
+                {"label": _("Type"), "value": kind_label or "—"},
+                {"label": _("Account"), "value": account["name"] if account else "—"},
+                {
+                    "label": _("Modules aan"),
+                    "value": _("%(on)s van %(all)s")
+                    % {"on": sum(1 for c in module_cards if c["on"]), "all": len(module_cards)},
+                },
+            ],
+        },
+        modules_editable=not own,
+        tenant_card=tenant_card,
+        # #1546: the site's own name, and the organisation's name it falls back to.
+        site_name={
+            "value": (typed or {}).get("site_name", unit.site_name or ""),
+            "default": site_name_default(db, tenant_id),
+        },
+        cards=cards,
+        kept_modules=sorted(c.value for c in _hidden_cards(unit) if c.value in stored_on),
+        error=error,
+        save_url=base,
+        cancel_href=base + (f"?{keep}" if keep else ""),
+        toast_opgeslagen=saved,
+        csrf_token=csrf_from_request(request),
+        nav_items=admin_nav(OWN if own else NAV, request),
+    )
+
+
+def _record_page(request: Request, db: Session, email: str, tenant_id: int, **kwargs):
+    status_code = kwargs.pop("status_code", 200)
+    view = _record_view(request, db, email, tenant_id, **kwargs)
+    return templates.TemplateResponse(
+        request, "admin_tenant.html", view.as_context(), status_code=status_code
+    )
 
 
 @router.get("/admin/instellingen", response_class=HTMLResponse)
@@ -431,15 +825,11 @@ def own_settings(
     email: str = Depends(require_right(Right.SETTINGS_VIEW)),
 ):
     """The tenant workspace's own site settings (#1535), for its ADMIN and the
-    operator: the tenant editor of this workspace's tenant, its secrets included
-    (never shown back), the modules read-only. Until #1535 this address was a
-    301 to /admin/tenants (#581), which is platform administration now.
+    operator: the record of this workspace's tenant, its secrets included (never
+    shown back), the modules read-only. Until #1535 this address was a 301 to
+    /admin/tenants (#581), which is platform administration now.
     """
-    return templates.TemplateResponse(
-        request,
-        "admin_tenant.html",
-        _editor_ctx(request, db, require_tenant_workspace(db), own=True),
-    )
+    return _record_page(request, db, email, require_tenant_workspace(db), own=True)
 
 
 @router.post(
@@ -459,10 +849,12 @@ def tenants(
     db: Session = Depends(get_db),
     email: str = Depends(require_platform_right(Right.PLATFORM_VIEW)),
 ):
-    # De filterbalk haalt enkel de kaarten op; een pagina-swap zou het zoekveld
-    # tijdens het typen vervangen en de focus wegnemen.
-    sjabloon = "_tn_kaarten.html" if is_fragment_request(request) else "admin_tenants.html"
-    return templates.TemplateResponse(request, sjabloon, _lijst_ctx(request, db))
+    """The list Tenants (#1933). The toolbar asks this same address for the
+    fragment: a page swap would replace the search field while it is typed in."""
+    fragment = is_fragment_request(request)
+    view = _list_view(request, db, oob=fragment)
+    template = "_tn_kaarten.html" if fragment else "admin_tenants.html"
+    return templates.TemplateResponse(request, template, view.as_context())
 
 
 @router.get("/admin/tenants/nieuw", response_class=HTMLResponse)
@@ -473,13 +865,11 @@ def tenant_nieuw(
 ):
     """Aanmaken als volledige pagina (#627, §2.8) i.p.v. een modal.
 
-    Hergebruikt de contextbouwer van de lijst voor de accounts-dropdown.
-
     CR-19 (#1478): operator-only on GET too. Until now only the POST was — an
     ADMIN could open the form, which leaked the accounts list and promised a
     save that was then refused.
     """
-    return templates.TemplateResponse(request, "admin_tenant_nieuw.html", _lijst_ctx(request, db))
+    return templates.TemplateResponse(request, "admin_tenant_nieuw.html", _new_ctx(request, db))
 
 
 @router.get("/admin/tenants/{tenant_id}", response_class=HTMLResponse)
@@ -489,9 +879,7 @@ def tenant_editor(
     db: Session = Depends(get_db),
     email: str = Depends(require_platform_right(Right.PLATFORM_VIEW)),
 ):
-    return templates.TemplateResponse(
-        request, "admin_tenant.html", _editor_ctx(request, db, tenant_id)
-    )
+    return _record_page(request, db, email, tenant_id)
 
 
 @router.post("/admin/tenants", response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
@@ -517,13 +905,10 @@ def tenant_aanmaken(
             kind=kind,
         )
     except TenantFout as fout:
-        ctx = _lijst_ctx(request, db)
-        ctx["error"] = _(str(fout))
-        return templates.TemplateResponse(request, "admin_tenants.html", ctx)
-
-    ctx = _lijst_ctx(request, db)
-    ctx["opgeslagen"] = True
-    return templates.TemplateResponse(request, "admin_tenants.html", ctx)
+        view = _list_view(request, db, error=_(str(fout)))
+        return templates.TemplateResponse(request, "admin_tenants.html", view.as_context())
+    view = _list_view(request, db, created=True)
+    return templates.TemplateResponse(request, "admin_tenants.html", view.as_context())
 
 
 @router.post(
@@ -535,10 +920,9 @@ async def tenant_opslaan(
     db: Session = Depends(get_db),
     email: str = Depends(require_platform_right(Right.PLATFORM_MANAGE)),
 ):
-    """The editor's one Opslaan (#1498): the module set and the settings in one
-    transaction (`save_tenant`); "Modules bewaren" and its route are gone. A
-    refusal shows the form again as it was sent, with the 422 both routes gave
-    (#797, #1478); whether htmx shows a 4xx is an open question to Koen."""
+    """The record's one Opslaan (#1498): the module set and the settings in one
+    transaction (`save_tenant`). A refusal shows the form again as it was sent,
+    with a 422 (#797, #1478), which the browser swaps in (#1515)."""
     return await _save(request, db, tenant_id, email, own=False)
 
 
@@ -565,18 +949,27 @@ async def _save(request: Request, db: Session, tenant_id: int, email: str, *, ow
         )
     # Only what the form carries is saved: a key that is not on it is left
     # alone, never emptied, and the module set only when the form sent its
-    # checkboxes (`modules_shown`) — an empty list then means "all off".
-    modules = [str(v) for v in form.getlist("modules")] if form.get("modules_shown") else None
+    # switches (`modules_shown`) — an empty list then means "all off". A switch
+    # that is off sends an empty value (the kit's hidden field): no module.
+    modules = [str(v) for v in form.getlist("modules") if v] if form.get("modules_shown") else None
     labels = {key: label for key, label, _h in BEKENDE_SLEUTELS}
 
-    def again(**kwargs) -> dict:
-        ctx = _editor_ctx(request, db, tenant_id, modules_on=modules, own=own, **kwargs)
+    def again(**kwargs) -> Any:
         # #797: the typed values stay; throwing them away makes the message worse
         # than the mistake.
-        ctx["waarden"] = {**ctx["waarden"], **{k: v for k, v in form.items() if k in labels}}
-        for key, switch in ctx["schakelaars"].items():
-            switch["on"] = switch_is_on(key, str(ctx["waarden"][key]))
-        return ctx
+        typed = {k: str(v) for k, v in form.items() if k in labels or k == "site_name"}
+        return _record_page(
+            request,
+            db,
+            email,
+            tenant_id,
+            own=own,
+            edit=True,
+            modules_on=modules,
+            typed=typed,
+            status_code=422,
+            **kwargs,
+        )
 
     # #971: enkel nog de instellingen van de site. Wat de organisatie IS, wordt op
     # `/admin/organisaties` bewerkt — één scherm per feit.
@@ -598,19 +991,14 @@ async def _save(request: Request, db: Session, tenant_id: int, email: str, *, ow
             actor=email,
         )
     except ModuleRefused as fout:
-        ctx = again(refused=(fout.module, _(str(fout))))
-        return templates.TemplateResponse(request, "admin_tenant.html", ctx, status_code=422)
+        return again(refused=(fout.module, _(str(fout))))
     except TenantFout as fout:
-        ctx = again()
-        ctx["error"] = _(str(fout))
-        return templates.TemplateResponse(request, "admin_tenant.html", ctx, status_code=422)
+        return again(error=_(str(fout)))
     except OngeldigeInstelling as fout:
-        ctx = again()
-        ctx["error"] = " ".join(f"{labels.get(k, k)}: {m}" for k, m in fout.fouten.items())
-        return templates.TemplateResponse(request, "admin_tenant.html", ctx, status_code=422)
-    ctx = _editor_ctx(request, db, tenant_id, own=own)
-    # #742: een toast in plaats van de bestaande success_banner. §2.9 schrijft één
-    # bevestigingspatroon voor; twee vormen naast elkaar is precies de inconsistentie
-    # die dat issue wegneemt.
-    ctx["toast_opgeslagen"] = True
-    return templates.TemplateResponse(request, "admin_tenant.html", ctx)
+        return again(error=" ".join(f"{_(labels.get(k, k))}: {m}" for k, m in fout.fouten.items()))
+    # #742: the one confirmation pattern (§2.9) — a toast, rendered by the shell
+    # in its host because this answer replaces the whole page. Back in read mode,
+    # at the record's own address.
+    response = _record_page(request, db, email, tenant_id, own=own, edit=False, saved=True)
+    response.headers["HX-Push-Url"] = OWN if own else f"{NAV}/{tenant_id}"
+    return response

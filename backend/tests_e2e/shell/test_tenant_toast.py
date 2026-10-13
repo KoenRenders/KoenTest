@@ -71,13 +71,13 @@ def _open_editor(page):
     "Nieuwe tenant", en daar staat een ander formulier."""
     page.goto("/admin/tenants")
     pagina_klaar(page)
-    link = page.locator(
-        "xpath=//a[starts-with(@href,'/admin/tenants/') and "
-        "translate(substring-after(@href,'/admin/tenants/'),'0123456789','')='']"
-    ).first
+    # #1933: a row of the kit's table opens the record, which is read first;
+    # "Bewerken" in its head opens the editor.
+    link = page.locator("tr[data-tenant] a[data-row-link]").first
     if link.count() == 0:
         _ontbreekt("geen tenant om te bewerken op deze omgeving")
     link.click()
+    page.locator("[data-head-controls] a", has_text="Bewerken").click()
     page.wait_for_selector("form[hx-post^='/admin/tenants/']", timeout=5000)
 
 

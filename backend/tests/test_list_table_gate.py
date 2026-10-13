@@ -73,12 +73,11 @@ HAND_DRAWN_LISTS: frozenset[str] = frozenset(
         "domains/meetings/templates/_vg_lijst.html",
         "domains/newsletter/templates/_nb_lijst.html",
         "domains/reporting/templates/_rp_kaarten.html",
-        "ui/templates/_tn_kaarten.html",
     }
 )
 
 #: How many entries the baseline may hold. Goes down with it, never up.
-CEILING = 7
+CEILING = 6
 
 _TAG = re.compile(r"{%-?\s*(for|endfor|call|endcall)\b(.*?)-?%}", re.S)
 

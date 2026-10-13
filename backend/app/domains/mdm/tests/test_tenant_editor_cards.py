@@ -63,10 +63,18 @@ def _form(page_html: str) -> dict:
     """What the browser would send: every text field with its value, and the
     ticked module checkboxes."""
     data: dict = {"modules_shown": "1"}
-    for name, value in re.findall(r'<input name="(\w+)" id="\w+" value="([^"]*)"', page_html):
-        data[name] = value
+    # #1933: the fields are the kit's (`ui.field`): the value is an attribute
+    # among others, and a field without one sends an empty string.
+    for tag in re.findall(r"<input\b[^>]*>", page_html):
+        kind = re.search(r'type="(\w+)"', tag)
+        name = re.search(r'name="(\w+)"', tag)
+        if not name or not kind or kind.group(1) in ("hidden", "checkbox", "password"):
+            continue
+        value = re.search(r'value="([^"]*)"', tag)
+        data[name.group(1)] = value.group(1) if value else ""
     data["modules"] = re.findall(
-        r'<input type="checkbox" name="modules" value="(\w+)"[^>]*checked', page_html
+        r'<input type="checkbox" role="switch" name="modules" id="[\w-]+" value="(\w+)"[^>]*checked',
+        page_html,
     ) + re.findall(r'<input type="hidden" name="modules" value="(\w+)">', page_html)
     return data
 
@@ -74,7 +82,7 @@ def _form(page_html: str) -> dict:
 def test_every_setting_sits_in_exactly_its_owners_card(client, platform_workspace, db_session):
     _operator(client, db_session)
     tenant = create_tenant(db_session, name="Kaartenclub", code="kaarten-1498")
-    cards = _cards(client.get(f"/admin/tenants/{tenant.id}").text)
+    cards = _cards(client.get(f"/admin/tenants/{tenant.id}?bewerken=1").text)
 
     assert set(cards) == {"site", *ALL_MODULES}, "one card per module, plus Site"
     for key in EVERY_KEY:
@@ -94,7 +102,7 @@ def test_every_registry_setting_has_a_field():
 def test_the_assistant_card_uses_the_house_word(client, platform_workspace, db_session):
     _operator(client, db_session)
     tenant = create_tenant(db_session, name="Woordclub", code="woord-1498")
-    card = _cards(client.get(f"/admin/tenants/{tenant.id}").text)["chatbot"]
+    card = _cards(client.get(f"/admin/tenants/{tenant.id}?bewerken=1").text)["chatbot"]
     assert ">Assistent</span>" in card and "Raakje" not in card.split("</label>")[0]
 
 
@@ -103,7 +111,7 @@ def test_one_save_writes_a_module_and_a_setting_together(client, platform_worksp
     tenant = create_tenant(
         db_session, name="Bakkerij", code="bakkerij-1498", kind=TenantKind.COMPANY
     )
-    data = _form(client.get(f"/admin/tenants/{tenant.id}").text)
+    data = _form(client.get(f"/admin/tenants/{tenant.id}?bewerken=1").text)
     data["modules"] = [*data["modules"], "newsletter"]
     data["tagline"] = "Brood en banket"
 
@@ -119,7 +127,7 @@ def test_a_refused_dependency_saves_nothing(client, platform_workspace, db_sessi
     headers = _operator(client, db_session)
     tenant = create_tenant(db_session, name="Garage", code="garage-1498", kind=TenantKind.COMPANY)
     before = enabled_modules(tenant.id, db=db_session)
-    data = _form(client.get(f"/admin/tenants/{tenant.id}").text)
+    data = _form(client.get(f"/admin/tenants/{tenant.id}?bewerken=1").text)
     data["modules"] = [*data["modules"], "designstudio"]  # needs activities, which is off
     data["tagline"] = "Niet bewaard"
 
@@ -150,7 +158,7 @@ def test_switching_a_module_off_keeps_its_settings(client, platform_workspace, d
         )
 
     before = rows()
-    data = _form(client.get(f"/admin/tenants/{tenant.id}").text)
+    data = _form(client.get(f"/admin/tenants/{tenant.id}?bewerken=1").text)
     data["modules"] = [m for m in data["modules"] if m not in ("membership", "payment")]
 
     answer = client.post(f"/admin/tenants/{tenant.id}", data=data, headers=headers)
@@ -169,7 +177,7 @@ def test_a_platform_has_no_membership_card_and_keeps_its_state(
     platform = platform_tenant_id(db_session)
     if platform is None:
         pytest.skip("no platform tenant in this database")
-    html = client.get(f"/admin/tenants/{platform}").text
+    html = client.get(f"/admin/tenants/{platform}?bewerken=1").text
     assert "membership" not in _cards(html)
     before = "membership" in enabled_modules(platform, db=db_session)
 

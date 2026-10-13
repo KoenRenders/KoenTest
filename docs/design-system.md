@@ -449,8 +449,9 @@ medium, above), control (40 px, 44 on a phone, radius 6), help (13 px) and
 error (under the control, in the danger tone, the border coloured) in one
 block; `required` marks the label with the red asterisk; **the kind decides
 the width** — `url`, `email`, `textarea` and rich text always full, `number`,
-`date`, `time`, a code, a short `select` and `switch` half or quarter, `text`
-half unless long; a template may widen a short field and never narrow a long
+`date`, `time`, a code, a short `select`, `switch` and a colour (`color`,
+since #1933) half or quarter, `text` half unless long; a `secret` (#1933) is
+a short field typed as a password, given no value by its screen; a template may widen a short field and never narrow a long
 one. A section is one card per meaningful section, never a nested card,
 16 px from its heading to the first field, 16 px between sections (32 px
 until #1899); fields

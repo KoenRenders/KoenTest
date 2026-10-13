@@ -390,7 +390,7 @@ def test_the_organisation_fields_have_a_screen(client, platform_workspace, db_se
     for veld in velden:
         assert f'name="{veld}"' in organisatie, f"{veld} is nergens te bewerken"
 
-    tenant = client.get(f"/admin/tenants/{TENANT}").text
+    tenant = client.get(f"/admin/tenants/{TENANT}?bewerken=1").text
     for veld in velden:
         assert f'name="{veld}"' not in tenant, (
             f"{veld} staat nog op het tenantscherm — dan is het gekopieerd en niet "

@@ -105,12 +105,13 @@ def test_the_tenant_list_marks_the_platform(client, platform_workspace, db_sessi
         text("SELECT code FROM mdm.organizations WHERE org_type = 'PLATFORM'")
     ).scalar_one()
 
-    assert f">{code}</span>" in html and f">/{code}</span>" not in html, (
+    # #1933: the code stands under the name in the row (`ui.row_link`'s sub).
+    assert f">{code}</small>" in html and f">/{code}</small>" not in html, (
         "the platform opens no site, so its code carries no slash"
     )
     # #1533: one badge, the kind's; the old blue "platform" badge is gone.
     # `>platform</span>` once: the code itself (its code is "platform"), no second badge.
-    assert html.count(">Platform</span>") == 1 and html.count(">platform</span>") == 1
+    assert html.count(">Platform</td>") == 1 and html.count(">platform</small>") == 1
 
 
 # ── #1945: the kind ACCOUNT is called "Account" ──────────────────────────────

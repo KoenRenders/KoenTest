@@ -86,7 +86,7 @@ def test_a_brand_shows_its_accounts_data_and_nothing_is_copied(
     assert "Achtstraat" not in _footer(client, brand.code)
     csrf = _login(client, db_session, "operator-1550@example.com", "OPERATOR", None)
 
-    editor = client.get(f"/admin/tenants/{brand.id}").text
+    editor = client.get(f"/admin/tenants/{brand.id}?bewerken=1").text
     assert 'name="site_organization_id"' in editor
     assert f'<option value="{account.id}">Account Acht</option>' in editor
 
