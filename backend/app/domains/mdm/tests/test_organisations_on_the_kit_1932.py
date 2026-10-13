@@ -104,6 +104,11 @@ def test_an_afdeling_carries_its_account_as_a_link_and_an_account_a_dash(
 
     under = _cell(_row(html, unit.id), "extra", 0)
     assert f'href="/admin/organisaties/{account.id}"' in under and "Account Elf" in under
+    # The legal form column shows the word of the code list, not the member.
+    unit.legal_form = "VZW"
+    db_session.commit()
+    again = client.get("/admin/organisaties").text
+    assert _cell(_row(again, unit.id), "extra", 1).strip() == "vzw"
     assert _cell(_row(html, account.id), "extra", 0).strip().endswith("—</span>")
 
 
@@ -246,6 +251,10 @@ def test_a_form_posted_as_the_old_screen_posted_it_reads_back_in_read_mode(clien
     assert 'data-mode="read"' in answer.text, "a good save answers the record in read mode"
 
     read = client.get(f"/admin/organisaties/{account.id}").text
+    # The legal form is read as its word, in the card and in the head (#1932).
+    assert "Rechtsvorm:</span> vzw" in read
+    head = read[read.index("data-record-head") : read.index("data-form-flow")]
+    assert "vzw" in head and "vijftien-1932" in head
     for shown in (
         "Account Vijftien",
         "014 12 34 56",

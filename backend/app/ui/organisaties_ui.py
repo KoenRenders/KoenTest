@@ -60,7 +60,7 @@ from app.domains.auth.api import (
 )
 from app.domains.mdm.api import ORGANIZATION_TYPE, OrganizationType
 from app.i18n import _
-from app.kernel.codes import code_labels, register_tones, tone
+from app.kernel.codes import code_labels, code_of, register_tones, tone
 from app.kernel.refusals import FieldError
 from app.ui import (
     PER_PAGE_DEFAULT,
@@ -206,7 +206,9 @@ def _list_view(request: Request, db: Session, *, oob: bool = False) -> Organisat
                 "parent": {"name": parent["name"], "href": f"{NAV}/{parent['id']}"}
                 if parent
                 else None,
-                "legal_form": legal_forms.get(o["legal_form"], "") if o["legal_form"] else "",
+                # The code, not the member: `organization_options` hands over the
+                # column as it is, an enum member that equals no string.
+                "legal_form": legal_forms.get(code_of(o["legal_form"]), ""),
                 "inactive": not o["is_active"],
             }
         )
@@ -420,7 +422,8 @@ def _record_view(
     kinds = dict(code_labels(ORGANIZATION_TYPE.name, db=db))
     kind_label = kinds.get(organisation["org_type"], organisation["org_type"])
     legal_forms = legal_form_options(db)
-    legal_form_label = dict(legal_forms).get(organisation["legal_form"], "")
+    values = organization_details(db, organization_id)
+    legal_form_label = dict(legal_forms).get(values["legal_form"], "")
     parent = next((o for o in everyone if o["id"] == organisation["parent_id"]), None)
     postal = {pc.postal_code: f"{pc.postal_code} {pc.municipality}" for pc in list_postal_codes(db)}
     address = organization_address(db, organization_id)
@@ -480,7 +483,7 @@ def _record_view(
         record_head=record_head,
         way_back=way_back,
         summary=summary,
-        values=organization_details(db, organization_id),
+        values=values,
         legal_form_label=legal_form_label,
         address=address,
         address_line=_address_line(address, postal),
