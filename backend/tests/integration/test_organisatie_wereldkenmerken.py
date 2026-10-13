@@ -386,7 +386,7 @@ def test_the_organisation_fields_have_a_screen(client, platform_workspace, db_se
     login(client, db_session, SEEDED_ADMIN_EMAIL, ("OPERATOR",))
     velden = ("payment_iban", "payment_beneficiary", "legal_form", "facebook_url", "email")
 
-    organisatie = client.get(f"/admin/organisaties/{TENANT}").text
+    organisatie = client.get(f"/admin/organisaties/{TENANT}?bewerken=1").text
     for veld in velden:
         assert f'name="{veld}"' in organisatie, f"{veld} is nergens te bewerken"
 

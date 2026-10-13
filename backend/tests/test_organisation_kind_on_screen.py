@@ -57,9 +57,10 @@ def _login(client, db, *, operator: bool = False):
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
 
 
-def _card(html: str, organisation_id: int) -> str:
-    start = html.index(f'href="/admin/organisaties/{organisation_id}"')
-    return html[start : html.index("</div>\n  </div>", start)]
+def _row(html: str, organisation_id: int) -> str:
+    """The `<tr>` of this organisation's row on the kit's table (#1932)."""
+    at = html.index(f'data-organisation="{organisation_id}"')
+    return html[html.rindex("<tr", 0, at) : html.index("</tr>", at)]
 
 
 def test_the_list_badge_names_the_kind_and_colours_the_account(
@@ -68,18 +69,19 @@ def test_the_list_badge_names_the_kind_and_colours_the_account(
     _login(client, db_session)
     html = client.get("/admin/organisaties").text
 
-    account = _card(html, _id_of(db_session, "ACCOUNT"))
-    unit = _card(html, _id_of(db_session, "UNIT"))
-    assert re.search(r"bg-blue-100[^>]*>rechtspersoon<", account), account
-    assert re.search(r">afdeling<", unit) and "bg-blue-100" not in unit, unit
+    account = _row(html, _id_of(db_session, "ACCOUNT"))
+    unit = _row(html, _id_of(db_session, "UNIT"))
+    # The word is the code list's own, in the Soort cell (#1932).
+    assert re.search(r"bg-blue-100[^>]*>Rechtspersoon<", account), account
+    assert re.search(r">Afdeling<", unit) and "bg-blue-100" not in unit, unit
 
 
 def test_the_kind_filter_keeps_only_that_kind(client, platform_workspace, db_session):
     _login(client, db_session)
     html = client.get("/admin/organisaties?org_type=UNIT").text
 
-    assert f'href="/admin/organisaties/{_id_of(db_session, "UNIT")}"' in html
-    assert f'href="/admin/organisaties/{_id_of(db_session, "ACCOUNT")}"' not in html
+    assert f'data-organisation="{_id_of(db_session, "UNIT")}"' in html
+    assert f'data-organisation="{_id_of(db_session, "ACCOUNT")}"' not in html
 
 
 def test_the_editor_of_a_unit_links_to_its_site_settings(client, platform_workspace, db_session):
