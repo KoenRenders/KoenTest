@@ -1,8 +1,9 @@
 """E2E: status and audience on the board's screens, at 390 px (#1428).
 
 Measured:
-- the card on /admin/activiteiten carries "Concept" and the audience in full,
-  on or under the date line, and stays within the width;
+- the row on /admin/activiteiten (the kit's table, stacked on a phone, #1930)
+  carries "Concept" and the audience in full, on or under the date line, and
+  stays within the width;
 - the record header carries "Concept", and "Publiceren" in its Acties menu;
 - the edit form offers the audience choice, within the width;
 - a draft says one status: no "actief" beside "Concept" in the header, and
@@ -30,13 +31,14 @@ PHONE = {"width": 390, "height": 900}
 WIDTH = "() => [document.documentElement.scrollWidth, innerWidth]"
 
 _CARD = """(id) => {
-  const card = document.querySelector(`a[href^="/admin/activiteiten/${id}?"]`);
+  const row = document.querySelector(`tr[data-activity="${id}"]`);
   const r = e => { const b = e.getBoundingClientRect(); return {x: Math.round(b.x), y: Math.round(b.y), right: Math.round(b.right), bottom: Math.round(b.bottom)}; };
-  const spans = [...card.querySelectorAll('span')];
-  const find = t => spans.find(s => s.textContent.trim() === t);
-  const date = [...card.querySelectorAll('span')].find(s => /\\d/.test(s.textContent) && s.className.includes('text-ink-soft'));
-  return {card: r(card), concept: find('Concept') && r(find('Concept')),
-          audience: find('Vrouwen') && r(find('Vrouwen')), date: date && r(date)};
+  const badge = t => [...row.querySelectorAll('[data-badge]')].find(s => s.textContent.trim() === t);
+  const audience = row.querySelector('[data-row-sub]');
+  const date = row.querySelector('[data-cell=moment]');
+  return {card: r(row), concept: badge('Concept') && r(badge('Concept')),
+          audience: audience && audience.textContent.trim() === 'Vrouwen' ? r(audience) : null,
+          date: date && r(date)};
 }"""
 
 
@@ -82,7 +84,7 @@ def _shot(page, name: str) -> None:
         page.screenshot(path=f"{SHOTS}/390-{name}.png", full_page=True)
 
 
-def test_the_card_carries_concept_and_the_audience(phone):
+def test_the_row_carries_concept_and_the_audience(phone):
     page, activity_id = phone
     page.goto("/admin/activiteiten?scope=all")
     pagina_klaar(page)

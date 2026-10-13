@@ -31,27 +31,36 @@ class ActivityProposalView(ViewModel):
 class AdminActiviteitenView(ViewModel):
     """`admin_activiteiten.html` en haar fragment `_aa_kaarten.html`.
 
-    De filterbalk vraagt enkel de kaarten op — zou ze de pagina vervangen, dan
-    sneuvelt het zoekveld (en de focus) bij elke aanslag. Beide krijgen daarom
-    hetzelfde model.
+    The list on the kit's table (#1930). The toolbar stands outside the
+    fragment and asks for the fragment of this same address, so the search
+    field is not replaced under the fingers; the page and the fragment get the
+    same model.
     """
 
-    activities: list[Any]
+    #: One dict per row: id, name, audience, href, moment, location,
+    #: registration_count, badges [(label, tone)].
+    rows: list[dict[str, Any]]
+    columns: list[dict[str, Any]]
+    segments: list[dict[str, Any]]
+    figures: list[dict[str, Any]]
     scope: str
     q: str
-    # #1557: this list as it stands, for the way back of the record a card opens.
-    list_url: str
-    # Kengetallen (#528). Ze tellen wat er openstaat, niet wat er toevallig
-    # gefilterd is: een zoekterm mag "Open inschrijving" niet doen dalen.
-    kpi_open: int
-    kpi_vol: int
-    kpi_onderdelen: int
-    # #1428: status and audience per activity id — not on the cards' schema,
-    # which is also the public JSON answer.
-    publication: dict[int, Any] = field(default_factory=dict)
-
+    year: int | None
+    years: list[int]
+    audience: str
+    audiences: list[tuple[str, str]]
+    sort: str
+    sort_options: list[tuple[str, str]]
+    page: int
+    per_page: int
+    total: int
+    page_sizes: list[int]
+    pager_url: str
+    empty_reason: str
     csrf_token: str
     nav_items: list[dict[str, Any]] = field(default_factory=list)
+    #: The fragment carries the toolbar's count and segment counts out-of-band.
+    oob: bool = False
 
 
 @dataclass(frozen=True, kw_only=True)

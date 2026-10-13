@@ -126,7 +126,7 @@ def test_the_new_activity_form_folds_the_poster_url(client, db_session):
 
 def test_a_card_counts_registrations_only_when_there_is_a_component(client, db_session):
     """Broken on purpose: the `model_copy(... None)` in `_lijst_ctx` removed →
-    the component-less card says "0 inschrijvingen" and the first assertion fails."""
+    the component-less row says 0 instead of "—" and the first assertion fails."""
     _activity(db_session, "Zonder onderdeel W12")
     closed = _activity(db_session, "Gesloten onderdeel W12")
     c = _component(db_session, closed, registration_closes_on=date.today() - timedelta(days=1))
@@ -145,20 +145,22 @@ def test_a_card_counts_registrations_only_when_there_is_a_component(client, db_s
     _login(client)
     html = client.get("/admin/activiteiten").text
 
-    def card(name):
+    def registrations(name):
+        """The text of the Inschrijvingen cell of the row of this activity (#1930)."""
         start = html.index(name)
-        return html[start : html.index("</a>", start)]
+        row = html[start : html.index("</tr>", start)]
+        return re.search(r'data-cell="extra"[^>]*>([^<]*)</td>', row).group(1).strip()
 
-    assert "inschrijvingen" not in card("Zonder onderdeel W12")
-    assert "· 3 inschrijvingen" in card("Gesloten onderdeel W12")
+    assert registrations("Zonder onderdeel W12") == "—"
+    assert registrations("Gesloten onderdeel W12") == "3"
 
 
 def test_the_tiles_say_what_they_count(client, db_session):
     _login(client)
     html = client.get("/admin/activiteiten").text
-    assert "Open inschrijving" in html
-    assert "Volzette onderdelen" in html
-    assert ">Open inschrijvingen<" not in html
+    assert ">Open activiteiten<" in html
+    assert ">Volzet onderdeel<" in html
+    assert "Open inschrijving" not in html
 
 
 # ── W15 ──────────────────────────────────────────────────────────────────────

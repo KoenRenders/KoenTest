@@ -92,6 +92,7 @@ from app.domains.activities.service import (  # noqa: F401
     component_book,
     copy_activity,
     copy_suggestions,
+    date_years,
     edit_answers,
     first_date_of,
     get_activity,
@@ -125,6 +126,7 @@ from app.domains.activities.service import (  # noqa: F401
     registrations_for,
     registrations_without_component_count,
     remove_organiser,
+    scope_counts,
     send_answer_link,
     set_activity_status,
     slug_is_vrij,
@@ -454,5 +456,7 @@ __all__ = [
     "published_only",
     "publication",
     "publication_of",
+    "scope_counts",
+    "date_years",
     "set_activity_status",
 ]
