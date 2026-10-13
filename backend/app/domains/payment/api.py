@@ -69,6 +69,7 @@ from app.domains.payment.service import (  # noqa: F401
     registration_payment_states,
     selection_count,
     set_payment_status,
+    task_subjects,
     void_payment_record,
 )
 from app.domains.payment.transfer_due import TransferDue, transfer_due  # noqa: F401
@@ -112,6 +113,7 @@ __all__ = [
     "count_registration_records_by_activity",
     "family_payables",
     "get_records_for",
+    "task_subjects",
     "open_refund_amount",
     "handle_gateway_update",
     "membership_price_for_date",

@@ -1,7 +1,77 @@
 {% extends "admin_base.html" %}
 {% import "_macros.html" as ui %}
-{% block title %}{{ _("Taak — Werkbank") }}{% endblock %}
+{% block title %}{{ record_head.title }} — {{ _("Werkbank") }}{% endblock %}
 {% block content %}
-{{ ui.back_link(_("Werkbank"), "/admin/werkbank") }}
-{% include "_werkbank_detail.html" %}
+{# One task on the record layout (#1931; end state §2.2, §5.2). The head names
+   the task, its status and what it is about; the summary card says its kind,
+   its role and how long it stands open.
+
+   - **Onderwerp**: what the task is about, as facts — each subject's own domain
+     supplied them. A subject with a screen of its own is reached from the
+     head's primary (a signpost, #822); another one from the quiet button under
+     the facts; a background job has no screen, so its data IS the way to it.
+   - **Besluit**: READ first — nothing yet, or the decision with by whom and
+     when — and with `?bewerken=1` (the head's "Afhandelen") the decision field
+     with ONE save, "Afgehandeld", in the action bar. A signpost task has no
+     decision of its own until the system closed it. #}
+{% if task_id is none %}
+{{ ui.record_header(record_head.title, back=way_back) }}
+{{ ui.empty_state(_("Taak niet gevonden (mogelijk al afgehandeld).")) }}
+{% else %}
+{{ ui.record_header(record_head.title, badges=record_head.badges, facts=record_head.facts,
+                    primary=record_head.primary, back=way_back, editing=head_editing) }}
+{% set _card %}{{ ui.summary_card(summary.state, summary.figures) }}{% endset %}
+{% call ui.record_columns(aside=_card) %}
+<div data-form-flow data-mode="{{ 'edit' if head_editing else 'read' }}" class="form-flow">
+  <div id="werkbank-melding" data-form-message>{{ ui.error_banner(error) }}</div>
+  {% call ui.section(_("Onderwerp"), id="wb-onderwerp") %}
+    <div data-span="full" data-task-subject data-form-grid class="form-grid text-sm leading-[21px] text-ink">
+      {% for r in subject_rows %}
+      <p data-span="full" class="min-w-0 whitespace-pre-line [overflow-wrap:anywhere]">{% if r.get("icon") %}{{ ui.icon_fact(r.icon, r.value, href=r.get("href")) }}{% else %}{{ ui.label_fact(r.label, r.value) }}{% endif %}</p>
+      {% else %}
+      <p data-span="full" data-subject-gone class="text-ink-soft">{{ _("Van het onderwerp van deze taak is niets meer te tonen.") }}</p>
+      {% endfor %}
+      {% if signpost and not done %}
+      {# #822: no decision field and no "Afgehandeld" — the subject's own screen
+         is where the work is, and the task closes itself once its cause is gone. #}
+      <p data-span="full" data-signpost-note class="text-ink-soft">{{ _("Deze taak sluit zichzelf zodra de aanleiding verdwenen is. Handel ze af op het scherm van het onderwerp.") }}</p>
+      {% endif %}
+      {% if subject_link %}
+      <p data-span="full" data-subject-link>{{ ui.reference(_("Bekijk het onderwerp"), subject_link) }}</p>
+      {% endif %}
+    </div>
+  {% endcall %}
+  {% if done or not signpost %}
+  {% if head_editing %}
+  <form id="wb-form" class="contents" data-record-form data-message="#werkbank-melding" novalidate
+        hx-post="/admin/werkbank/taken/{{ task_id }}/afgehandeld" hx-target="body" hx-swap="innerHTML">
+    {# #666: tells the route that the answer goes back to where this record was
+       opened from, not to a list that is not on this page. #}
+    <input type="hidden" name="standalone" value="1">
+  {% endif %}
+  {% call ui.section(_("Besluit"), id="wb-besluit") %}
+    {% if head_editing %}
+    {{ ui.field("besluit", _("Besluit"), kind="textarea", value="", id="wb-besluit-veld",
+                help=_("Optioneel — een afwijzing is ook een beslissing."), attrs="autofocus") }}
+    {% elif done %}
+    {# #674: a handled task shows its decision, by whom and when. #}
+    <div data-span="full" data-task-decision data-form-grid class="form-grid text-sm leading-[21px] text-ink">
+      <p data-span="full" class="whitespace-pre-line [overflow-wrap:anywhere]">{{ ui.label_fact(_("Besluit"), decision or _("Geen besluit genoteerd")) }}</p>
+      <p data-span="full">{{ ui.label_fact(_("Afgehandeld door"), (done_by or "—") ~ ((" · " ~ done_at) if done_at else "")) }}</p>
+    </div>
+    {% else %}
+    <p data-span="full" data-no-decision class="text-sm leading-[21px] text-ink-soft">{{ _("Nog geen besluit. Kies Afhandelen om deze taak af te sluiten.") }}</p>
+    {% endif %}
+  {% endcall %}
+  {% if head_editing %}
+  </form>
+  {# The kit's bar of a form that names its own step (`send`): handling a task
+     is not a save of fields. #}
+  {{ ui.action_bar(form="wb-form", record=True, send=True, cancel_href=here,
+                   save_label=_("Afgehandeld"), busy_label=_("Afhandelen…")) }}
+  {% endif %}
+  {% endif %}
+</div>
+{% endcall %}
+{% endif %}
 {% endblock %}

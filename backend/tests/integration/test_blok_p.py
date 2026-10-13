@@ -61,7 +61,8 @@ def test_werkbank_lists_and_closes_task(client, db_session):
     csrf = _login(client)
 
     page = client.get("/admin/werkbank")
-    assert page.status_code == 200 and "Roos" in page.text and "Behartigen" in page.text
+    # #1931: the row of a message carries its own "Afgehandeld".
+    assert page.status_code == 200 and "Roos" in page.text and "data-task-handle" in page.text
 
     task = db_session.query(WorkflowTask).order_by(WorkflowTask.id.desc()).first()
     detail = client.get(f"/admin/werkbank/taken/{task.id}")

@@ -215,6 +215,23 @@ def _cell(action=None, items=()) -> str:
     )
 
 
+def test_a_rows_action_that_is_another_screen_is_a_link_with_the_buttons_look():
+    """#1931: where a row's next step is another screen — a task that is handled
+    on its subject's own page — the one visible action is a link, drawn as the
+    button is. Broken on purpose (put back): the `href` branch out of
+    `row_actions_cell` → a `<button>` without the address, red on "no link"."""
+    link = _cell(action={"label": "Ga naar de betaling", "href": "/admin/betalingen?record=7"})
+    button = _cell(action={"label": "Bevestig", "attrs": 'hx-post="/x"'})
+
+    found = re.search(r"<a\b[^>]*data-row-action[^>]*>", link)
+    assert found, f"no link: {link[:200]}"
+    assert 'href="/admin/betalingen?record=7"' in found.group(0)
+    assert "<button" not in link.split("data-row-controls", 1)[1].split("</a>", 1)[0]
+    shape = re.search(r"<button\b[^>]*data-row-action[^>]*>", button).group(0)
+    for cls in ("h-11", "md:h-8", "whitespace-nowrap"):
+        assert cls in found.group(0) and cls in shape, f"the link and the button differ in {cls}"
+
+
 def test_a_row_shows_one_action_and_the_menu_puts_delete_last():
     html = _cell(ACTION, ITEMS)
     assert html.count("data-row-action") == 1
