@@ -18,6 +18,7 @@ from app.domains.mail.service import (  # noqa: F401  # noqa: F401
     SendingQuotaReached,
     SendOutcome,
     delete_email_log,
+    email_log_subjects,
     email_log_url,
     list_email_log,
     purge_old_email_logs,
@@ -28,6 +29,7 @@ from app.domains.mail.service import (  # noqa: F401  # noqa: F401
 )
 
 __all__ = [
+    "email_log_subjects",
     "email_log_url",
     "EMAIL_LOG_SORT_KEYS",
     "EMAIL_STATUSES",

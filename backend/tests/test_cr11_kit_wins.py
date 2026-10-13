@@ -189,7 +189,6 @@ RECORD_PAGES = [
     "domains/cms/templates/admin_pagina.html",
     "domains/activities/templates/_insch_recordkop.html",
     "domains/forms/templates/_fb_recordkop.html",
-    "domains/workflow/templates/werkbank_taak.html",
     "ui/templates/admin_tenant.html",
     "domains/designstudio/templates/admin_ontwerp.html",
     "domains/reporting/templates/admin_rapport_paneel.html",

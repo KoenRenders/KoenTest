@@ -187,6 +187,22 @@ def install_wake_on_commit() -> None:
 install_wake_on_commit()
 
 
+def jobs_summary(db: Session, job_ids) -> dict[str, dict]:
+    """{job id: its name and attempts} for many jobs in one read (#1931): what a
+    list of tasks shows of a failed job. A job that is gone has no entry."""
+    ids = sorted({int(i) for i in job_ids if str(i).isdigit()})
+    if not ids:
+        return {}
+    return {
+        str(job.id): {
+            "name": job.name,
+            "attempts": job.attempts,
+            "max_attempts": job.max_attempts,
+        }
+        for job in db.query(KernelJob).filter(KernelJob.id.in_(ids)).all()
+    }
+
+
 def job_details(db: Session, job_id: str) -> Optional[dict]:
     """The data of one background job, for a screen that wants to show it (#822).
 
