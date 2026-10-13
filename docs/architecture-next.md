@@ -302,3 +302,111 @@ The pattern is the same every time: a failure that CI let through becomes a
 rule, the rule gets a gate on the day it is written, and the gate is proven red
 once with one deliberate violation before it is trusted (`AGENTS.md`, *Testen
 en test-evidence*). A gate that cannot go red is worse than none.
+
+# Part E — Evolutions
+
+This document describes what runs. Everything that is planned, in build or
+deliberately rejected stands here and nowhere else in the text (Koen, 13
+October 2026, Q&A of 11 October, question 4: "akkoord"): a sentence in parts
+A to D that mentions a future refers to a row of E2 with "→ En" and says
+nothing more. A row is closed at step 14 of the release that builds it; a
+rejected choice stays with its reason, so the next reader does not reopen it.
+
+## E1. The as-is line
+
+| | |
+|---|---|
+| Document version | 2.0, in restructuring |
+| Measured against | `master` @ cf80ccde, 13 October 2026 |
+| Last GitHub Release | v2.16.0 |
+| In build | v2.17 (webshop phase 1 and the kit roll-out) |
+
+The former status tags — [PROD], [HDEV], [PARTIAL], [ROADMAP] on every
+section — are gone. The text describes `master`; a part that is not on
+`master` is a row below. The tags had stopped being true: on 13 October 2026
+the head of the former document still said PROD ran v2.5.0 of 21 September.
+
+## E2. The evolutions
+
+One table. The *track* is the change request or the issue that carries the
+row; the *status* is one of planned · in build · built in vX.Y.Z · rejected ·
+open (named, no track yet). The first block re-measures the roadmap of the
+former chapter 9 (R0–R11) against `master`; the second lists the gaps the
+former §5.2 named; the third the open change requests; the fourth what was
+decided on 13 October 2026 for this document and the harness; the last the
+rejected choices.
+
+<!-- evolutions: the tracking issue per change request and the parked issues
+     of v2.19 and CR-11 are filled in from the count of the
+     design-documentation CLI (13 October 2026) -->
+
+**The former roadmap, re-measured**
+
+| Id | What | Why | Track | Status on 13 October 2026 |
+|---|---|---|---|---|
+| E1 | The v2.0.0 cutover: server-rendered UI, modular domains, multi-tenancy, gates | the React build of 13 July 2026 replaced | v2.0.0 | built in v2.0.0 (September 2026); the former R0 |
+| E2 | The contract step of the shared proxy and the removal of the deploy wrappers | closes the expand/contract cycle of the cutover | — | built: the wrappers are gone (`deploy.sh <env>` and `raakctl`), `deploy-caddy.sh` stays by design as the shared proxy's own script; the former R1 |
+| E3 | Security audit against the code that runs: CSP without `unsafe-inline` and `unsafe-eval`, append-only history by grant, shared rate-limit store | the CSP of `caddy/parts/snippets.caddy` still allows both for scripts and inline styles; the history tables (migrations 052, 090) are append-only by convention — no code updates them — not yet by a database grant; the API-key mechanism went with #1251 | #530 (open) | open; the former R2, one of its four points done |
+| E4 | Tenant-aware background jobs | `kernel_jobs` has no `tenant_id`: the hourly sweep and the orphan reconciler scan all tenants and file their tasks under the default tenant — correct for one paying tenant, wrong for two; #1792 is the first symptom (the mail retry job sends with the environment's settings, not the tenant's) | #1792 (open); the rest unplanned | open; the former R3, first half |
+| E5 | The OPERATOR cross-tenant view | the former §5.2 said the `include_all_tenants` escape hatch had no call site; on 13 October 2026 it has twenty-one outside the tests (organisations, tenants, the platform's own pages, reporting, cms, forms, the workbench), each with its reason on the line; what is missing is a designed cross-tenant screen, not the mechanism | — | open, re-stated; the former R3, second half |
+| E6 | Row-level security in PostgreSQL as the second line behind the ORM filter | raw SQL bypasses the ORM filter; no migration enables RLS on 13 October 2026 | — | planned, unassigned; the former R4 |
+| E7 | The remaining view-model conversions and the facade clean-up | `VIEWMODEL_ALLOWLIST` in `backend/tests/test_layer_gate.py` holds 14 entries on 13 October 2026, the same number the former R5 named; `LAYER_ALLOWLIST` is empty | the kit roll-out of CR-11 takes screens one by one | in build, by ratchet; the former R5 |
+| E8 | Consent register in MDM, then segments, then the AI-drafted newsletter with review in the workbench | consent first, by law and by design; no consent table exists on 13 October 2026 | CR-05 (newsletter), being shaped since 17 June 2026 | planned; the former R6 and the former §7.2 |
+| E9 | Transactional outbox for events; component extraction where a driver appears | today's events are synchronous and in-transaction by design (`backend/app/kernel/events.py` names the outbox as the next step) | — | planned, no driver yet; the former R7 |
+| E10 | Ports for synchronous commands between domains | `backend/app/kernel/ports.py` with nine ports in `kernel/contracts/` (forms 4, mdm 1 — `CreateHousehold` — , media 4) | #1251, CR-13 phase 4 | built in v2.16.0; the former R10 |
+| E11 | Object storage adapter for media | blobs live in Postgres (`media_assets.data`, `LargeBinary`); the seam behind which an adapter swaps is the media facade and the storage ports `StoreFile`, `RemoveFileOf` (CR-15) | CR-15 built the seam in v2.13.0; the adapter has no track | planned, seam built; the former R8 |
+| E12 | PWA manifest and service worker | designed in the frontend decision; nothing in the templates or static files on 13 October 2026 | — | planned, not started; the former R9 |
+| E13 | Modules per tenant: registry, guard, menus, the tenant kind and its editor | a tenant that is not an association on the same platform, as configuration | CR-19 (tenant kinds) | built in v2.13.0; the former R11 |
+
+**The gaps of the former §5.2 not covered above**
+
+| Id | What | Why | Track | Status |
+|---|---|---|---|---|
+| E14 | A shared store for the rate limiters | `backend/startup.sh` refuses more than one uvicorn worker because the limiter counts per process (#395); horizontal scaling needs a shared store | part of E3 | open |
+
+**The open change requests** — the status line of each document on 13 October
+2026; the tracking issues follow from the count.
+
+| Id | What | Why | Track | Status |
+|---|---|---|---|---|
+| E15 | The domain model as a party model | the organisation had to be reworked once for lack of a party (`AGENTS.md`, *Modelleer op standaarden*) | CR-04 (domain model), proposal, not scheduled | planned |
+| E16 | Raakje in the back office | — | CR-07, draft of 12 September 2026 | planned |
+| E17 | Visual direction | direction chosen 13 September 2026 | CR-08 | planned |
+| E18 | GUI redesign 2: the end state of every screen on the kit | one kit, one shell per side; the ratchets of C2 measure the distance | CR-11, phase 1 and the frame built in v2.11–v2.13, pilots A and B built, roll-out issues on v2.17 | in build |
+| E19 | Codes and enums | — | CR-12, development-ready, not assigned | planned; its gate (`test_codes_gate.py`) already holds the rule for new lists |
+| E20 | The OO foundation | — | CR-13, every phase built, the last three in v2.16.0 (#1251) | built in v2.16.0 |
+| E21 | The command port | re-measure before planning: CR-13 phase 4c built the mechanism | CR-16, on hold | planned |
+| E22 | Web content: the CMS carries a company tenant's whole public site | — | CR-17, decided 5 October 2026, built by an outside builder on its own branch, finished on v2.17 by a dev CLI | in build |
+| E23 | Code review by another AI tool | — | CR-18, on hold | planned |
+| E24 | The tenant apart from the organisation: `mdm.tenants`, `org_type` becomes a role | a tenant is a site, an organisation is a party; the list of organisations shows both today | CR-20, decided 4 October 2026, one release, not on a release | planned; goes first when the party model (E28) is planned |
+| E25 | The webshop | — | CR-21, phase 0 on v2.16 (#1738, #1748); phases 1–3 start once v2.16 runs on PROD (Q66) | in build |
+| E26 | Checkout in two steps | — | CR-31, shaped 9 October 2026, "Dit plannen we ooit" | planned |
+| E27 | A European forge | Europe first, for the repository and the CI | CR-30, shaped 8 October 2026 | planned |
+
+**Decided on 13 October 2026, for this document and the harness**
+
+| Id | What | Why | Track | Status |
+|---|---|---|---|---|
+| E28 | The party model: the vocabulary for a natural person, a household, an organisation (account, member organisation, company), the party reference, the buyer and the invoice address | Koen, 13 October 2026: the kind of an organisation, a household and a company need one name each before the next screen uses them; "first time right" | CR-26 (party model), to be written on the architecture branch; Q&A of 13 October nr. 03 open | planned |
+| E29 | The kind of an organisation on the list is its role: the label of `ACCOUNT` becomes "Account" | "Rechtspersoon" is a legal form, not a role, and does not fit a phone | #1932 (organisations list and record), v2.17 | in build |
+| E30 | Tasks in the workbench for the member administration: a new household and a changed member create a task to retype in the national programme; the task closes on the re-import of the member report | the end-to-end figure of the member process has no platform lane and three white boxes: nobody reminds the administration today | — | open; the first evolution the process figures made visible |
+| E31 | A one-sentence docstring on every gate file (refuses · hard or ratchet · since) and a gate that requires it | the table of C2 is generated from those sentences | — | planned, with the restructuring |
+| E32 | The PDF build reads part B from the fifteen `CONTRACT.md` files and the gates table from the docstrings | one place per fact: a module's section lives with its code | — | planned, with the restructuring |
+| E33 | The reference architecture (the former chapter 8, *from association to enterprise*, and the *Gespreksleidraad*) as a document of its own that quotes this one | this document is the as-is of the project | — | planned, with the restructuring |
+
+**Rejected, with the reason**
+
+| Id | What | Why rejected | Decided |
+|---|---|---|---|
+| E34 | A return to a JavaScript frontend | the decision record weighed React against server-rendered htmx along eleven dimensions and chose one language for one architect plus agents; the v2.0.0 validation confirmed that the feel of the interface is a matter of polish (navigation without reload, feedback on every action, server latency under 150 ms on every admin route), not of framework | the frontend decision, 2026; confirmed by the v2.0.0 validation |
+| E35 | A rule engine or a workflow engine for the workbench | task rules are queries in the owning domain, tested; BPMN is the vocabulary, not the motor | the intermediate architecture document §20.6; CR-13 |
+| E36 | A workaround in the kit to let the segment bar wrap, so that a wrong label could ship | the label was the real question; "first time right, geen uitzondering" | Koen, 13 October 2026, on #1932 |
+
+## E3. The change log of this document
+
+Filled at step 14 of every release from v2.17 on: the release, the change
+request, the sections touched.
+
+| Release | Change request | Sections touched |
+|---|---|---|
+| — | the restructuring (Koen's decisions of 11 and 13 October 2026) | parts C and E written against `master` @ cf80ccde; parts A, B and D follow |
