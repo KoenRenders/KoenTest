@@ -359,30 +359,10 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .form-flow>[data-form-message]:not(:has(*)){display:none}
 .record-summary-column{min-width:0;order:-1}
 @container (min-width:964px){.record-columns:has(>.record-summary-column){grid-template-columns:minmax(0,768px) 300px}.record-summary-column{order:0}}
-/* #1610 (Koen, 5 October 2026; end state §2.2): room for the groups. A record
-   that is being EDITED and holds a composite repeating group (components with
-   their products) takes the whole reading group — 1 092 px. The layout reads
-   that from what stands in it (`:has`), so a save or a cancel — the form back
-   in read mode — gives the 768 px column and the card at the right again
-   without anybody saying so. Only where the frame has the 1 092 px: with the
-   Assistent's panel open, or on a smaller window, nothing changes.
-
-   #1906 (Koen, 12 October 2026: "indien scherm breed genoeg --> rechts"): the
-   summary stands beside that wide form where the frame holds both — 1 092 +
-   24 + 300 = 1 416 px — and otherwise above it as the band (#1912, below).
-
-   #1635 (Koen, 5 October 2026; CR-11 Q74): every field of full width fills
-   the wider column, a text box included — the width of a field follows its
-   column. #1610 kept `textarea`, `url` and `email` at 768 px here, which left
-   Omschrijving and Interne nota with a gap of 290 px at their right. */
-@container record (min-width:1092px){
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]){grid-template-columns:minmax(0,1092px)}
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"])>.record-summary-column{order:-1}
-}
-@container record (min-width:1416px){
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]):has(>.record-summary-column){grid-template-columns:minmax(0,1092px) 300px}
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"])>.record-summary-column{order:0}
-}
+/* #1929 (Koen, 12 October 2026, to "Kies je c, één breedte van 768 px voor elk
+   record in beide modi?": "Ja"; CR-11 Q96): one width for every record, in read
+   and in edit mode. The 1 092 px editor of #1610 is gone; a full-width field
+   fills its column (#1635), and the column is 768 px. */
 .summary-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:12px;align-items:center}
 .summary-card [data-summary-state]{grid-column:1;grid-row:1}
 .summary-card [data-summary-action]{grid-column:2;grid-row:1}
@@ -396,8 +376,7 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    the figures as the same rows side by side, each as wide as its label and its
    value, 32 px between the pairs, the action at the right; what does not fit
    one line runs on to a second. Under 640 px of frame, the strip. The band
-   stands twice because it has two reasons: a frame under 964 px, and a wide
-   editor on a frame under 1 416 px. */
+   has one reason: a frame under 964 px (#1929). */
 .summary-card [data-summary-figures]{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
 .summary-card [data-summary-figure]{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 @container (min-width:964px){
@@ -411,11 +390,6 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
   .summary-card [data-summary-figures]{grid-column:2;grid-row:1;display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 32px}
   .summary-card [data-summary-action]{grid-column:3;grid-row:1;display:flex;align-items:center;gap:8px;max-width:360px;border-top:0;padding-top:0}
   .summary-card [data-summary-link]{display:block;flex:1}
-}
-@container record (min-width:1092px) and (max-width:1415.98px){
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card{grid-template-columns:auto minmax(0,1fr) auto;column-gap:24px;padding:12px 16px}
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-figures]{grid-column:2;grid-row:1;display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 32px}
-  .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]) .summary-card [data-summary-action]{grid-column:3;grid-row:1;display:flex;align-items:center;gap:8px;max-width:360px;border-top:0;padding-top:0}
 }
 .form-section{container-type:inline-size;min-width:0}
 .form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start}

@@ -33,8 +33,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.schermen import (  # noqa: E402
     BASE,
-    SUMMARY_SHAPE,
-    assert_summary_band,
     fill_person,
     login_als_admin,
     pagina_klaar,
@@ -441,11 +439,6 @@ def test_the_summary_is_rows_and_stays_while_editing(browser, household, width, 
                 )
                 assert figure["apart"] >= 12, "the value runs into its label"
             summary, form = state["summary"], state["form"]
-            if state is edit and width == 1440:
-                assert form["w"] == 1092 and (summary["x"], summary["w"]) == (form["x"], 1092)
-                assert summary["bottom"] + 24 == form["y"], "the band is not 24 px above the form"
-                assert_summary_band(page.evaluate(SUMMARY_SHAPE))
-                continue
             assert len({f["label"][0] for f in state["figures"]}) == 1, (
                 "the labels share no left edge"
             )
@@ -456,7 +449,8 @@ def test_the_summary_is_rows_and_stays_while_editing(browser, household, width, 
                 assert (summary["x"], summary["w"]) == (form["x"], 358)
                 assert summary["bottom"] <= form["y"], "the strip is not above the form"
             else:
-                assert form["w"] == (1092 if state is edit else 768) and summary["w"] == 300
+                # #1929: one width, in read and in edit mode
+                assert form["w"] == 768 and summary["w"] == 300
                 assert summary["x"] == form["right"] + 24 and summary["y"] == form["y"]
     finally:
         page.close()
