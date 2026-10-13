@@ -193,18 +193,23 @@ document), so that step 14 of the release becomes checkable:
     then one figure per part** (Koen, 13 October 2026, to the choice between
     Mermaid standing for long and lying for short, a BPMN tool outside Mermaid,
     and cutting: "a, met c zodra een staande figuur niet meer op één pagina
-    past"). **In an end-to-end figure the lane of the board or the treasurer
-    shows what goes through the workbench: a task the platform creates is a
-    hexagon with the label `Taak: …`, a manual step the person must remember
-    without the platform's help is a dashed box.** The difference is the point
-    of the figure (Koen, the same day: "ik wil echt duidelijk hebben wat via de
-    werkbank gaat, daar wachten immers manuele stappen. Op die manier kan je
-    zien dat er gaten in het proces zitten die door het platform worden
-    gecoached/opgevolgd/ondersteund"; "bij de ledenadministratie is er geen
-    ondersteuning, de mens moet het proces kennen, bij betalingen/vorderingen is
-    er al een eerste ondersteuning"). Part A draws every business process end
-    to end this way, as-is; a task that does not exist yet is a row in part E,
-    not a box; `flowchart TB` for a
+    past"). **An end-to-end figure draws the business process, not the
+    system** (Koen, 13 October 2026, the convention he knew from a company he
+    worked at, approved on three rendered examples: "ja"): the lanes are people
+    and roles only — the member, the member administration, the treasurer, an
+    outside party such as the national association; the colour of a step is the
+    tool it is done in: platform blue with the module in brackets ("Boekt de
+    betaling in (Betalingen)"), white for a step done by hand without any tool
+    ("Denkt eraan de wijzigingen op te halen"), orange for a step done in
+    another system (Mollie, the bank, the national programme); a task the
+    workbench hands the person is a green hexagon labelled `Taak: … (werkbank)`;
+    a lane *Platform, uit zichzelf* exists only for what the system does without
+    a person — checking a webhook, putting a task ready, a timer — and is left
+    out where there is none. So a figure shows where the platform guides the
+    process and where the person has to know it alone: the member
+    administration has no platform lane and white boxes, payments have a task.
+    Part A draws every business process end to end this way, as-is; a task that
+    does not exist yet is a row in part E, not a box; `flowchart TB` for a
     structure (layers, module map, tenant hierarchy, test layers);
     `sequenceDiagram` for a course in time between parties (request, webhook,
     event chain), numbered, with a note where an invariant sits; `erDiagram` for
