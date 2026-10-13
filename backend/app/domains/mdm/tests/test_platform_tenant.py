@@ -186,7 +186,7 @@ def test_the_platform_settings_page_offers_no_membership_fields(client, db_sessi
     _operator(client, db_session)
     platform_id = platform_tenant_id(db=db_session)
 
-    resp = client.get(f"/admin/tenants/{platform_id}", headers={"host": platform_host})
+    resp = client.get(f"/admin/tenants/{platform_id}?bewerken=1", headers={"host": platform_host})
 
     assert resp.status_code == 200, resp.text[:300]
     assert 'name="membership_price_full"' not in resp.text
@@ -203,7 +203,7 @@ def test_a_unit_keeps_all_its_fields(client, db_session, platform_host):
     _operator(client, db_session)
     unit = list_units(db_session)[0]
 
-    resp = client.get(f"/admin/tenants/{unit.id}", headers={"host": platform_host})
+    resp = client.get(f"/admin/tenants/{unit.id}?bewerken=1", headers={"host": platform_host})
 
     assert 'name="membership_price_full"' in resp.text
 

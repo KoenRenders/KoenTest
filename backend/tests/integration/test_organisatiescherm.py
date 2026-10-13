@@ -106,7 +106,7 @@ def test_the_tenant_screen_does_not_know_this_organisation(client, platform_work
     Zou `/admin/tenants/1` óók werken, dan was er geen gat en geen issue.
     """
     _operator(client, db_session)
-    assert client.get(f"/admin/tenants/{ACCOUNT_ID}").status_code == 404
+    assert client.get(f"/admin/tenants/{ACCOUNT_ID}?bewerken=1").status_code == 404
 
 
 # ── Het risico: de ledenschermen blijven werken ──────────────────────────────

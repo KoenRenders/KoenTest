@@ -133,7 +133,7 @@ def opgeslagen(client, platform_workspace, db_session):
         f"/admin/tenants/{TENANT}", data=_volledig_formulier(), headers={"X-CSRF-Token": csrf}
     )
     assert antwoord.status_code == 200, antwoord.text[:400]
-    return client.get(f"/admin/tenants/{TENANT}").text
+    return client.get(f"/admin/tenants/{TENANT}?bewerken=1").text
 
 
 @pytest.fixture

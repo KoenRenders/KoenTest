@@ -280,7 +280,7 @@ def test_the_editor_shows_three_colour_fields_of_one_kind(client, db_session):
     placeholder and as the sample of an empty field. Red against master
     `552bc506`: two colour fields (the header colour was a bare text input)."""
     csrf = _operator(client, db_session)
-    page = client.get("/admin/instellingen").text
+    page = client.get("/admin/instellingen?bewerken=1").text
     assert page.count('data-kind="color"') == 3, "the card Site has three colours"
     assert page.count("data-colour-sample") == 3 and page.count("data-colour-field") == 3
     for key in (SITE_HEADER_COLOR_KEY, SITE_BRAND_COLOR_KEY, SITE_ACCENT_COLOR_KEY):
@@ -299,7 +299,7 @@ def test_the_editor_shows_three_colour_fields_of_one_kind(client, db_session):
     )
 
     _save(client, csrf, **{SITE_BRAND_COLOR_KEY: "#0051a4"})
-    page = client.get("/admin/instellingen").text
+    page = client.get("/admin/instellingen?bewerken=1").text
     field = re.search(rf'<input [^>]*name="{SITE_BRAND_COLOR_KEY}"[^>]*>', page).group(0)
     assert 'value="#0051a4"' in field
 
@@ -330,7 +330,14 @@ def test_the_colour_field_is_the_kits_and_no_template_draws_its_own():
     )
     assert own == [], f"a colour sample drawn outside the kit: {own}"
     editor = (app / "ui" / "templates" / "admin_tenant.html").read_text()
-    assert editor.count('kind="color"') == 1 and "{% elif key in colour_defaults %}" in editor
+    # #1933: the record draws every setting through one `ui.field` call, its kind
+    # from the view — which gives the three colours the kit's colour field.
+    assert "kind=f.kind" in editor and "data-colour-sample" not in editor
+    from app.ui.tenants_ui import _setting_field
+
+    for key, default in SITE_COLOR_DEFAULTS.items():
+        shaped = _setting_field(key, "Kleur", "", "")
+        assert (shaped["kind"], shaped["placeholder"]) == ("color", default), key
     assert set(SITE_COLOR_DEFAULTS) == {
         SITE_HEADER_COLOR_KEY,
         SITE_BRAND_COLOR_KEY,

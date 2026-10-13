@@ -114,6 +114,6 @@ def test_a_new_tenant_is_never_a_platform(client, platform_workspace, db_session
 
 def test_the_tenant_editor_shows_the_platforms_kind(client, platform_workspace, db_session):
     _operator(client, db_session)
-    html = client.get(f"/admin/tenants/{_platform(db_session).id}").text
+    html = client.get(f"/admin/tenants/{_platform(db_session).id}?bewerken=1").text
 
     assert "Type: Platform" in re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", html))

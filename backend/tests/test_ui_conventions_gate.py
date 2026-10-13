@@ -468,12 +468,10 @@ LIJSTSCHERMEN = [
     "admin_paginas.html",
     "admin_media.html",
     "admin_gebruikers.html",
-    "admin_tenants.html",
 ]
 KAARTFRAGMENTEN = (
     "_fb_kaarten.html",
     "_cp_kaarten.html",
-    "_tn_kaarten.html",
     "_me_lijst.html",
     "_gu_lijst.html",
 )

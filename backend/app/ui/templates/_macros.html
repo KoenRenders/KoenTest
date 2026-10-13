@@ -788,7 +788,7 @@
      delete it — it marks it (a hidden field of this name becomes "1") and the
      form's save removes it; until then it can be taken back. #}
 {% set _field_full = ["url", "email", "textarea", "upload", "checkbox_group", "radio_group"] %}
-{% set _field_quarter_ok = ["number", "date", "time", "select", "switch", "text"] %}
+{% set _field_quarter_ok = ["number", "date", "time", "select", "switch", "text", "color"] %}
 {% set _field_control = "block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed" %}
 {% macro field(name, label, kind="text", value="", edit=True, span=None, long=False, required=False,
                help=None, error=None, placeholder="", unit=None, options=[], id=None, attrs="",
@@ -908,7 +908,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
            class="{{ _field_control }} {{ _line }} tabular-nums" {{ _common }}>
   </div>
   {% else %}
-  {%- set _types = {"email": "email", "phone": "tel", "number": "number", "date": "date", "time": "time", "url": "url"} -%}
+  {%- set _types = {"email": "email", "phone": "tel", "number": "number", "date": "date", "time": "time", "url": "url", "secret": "password"} -%}
   {% if unit %}<div class="relative"><span aria-hidden="true" class="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-soft">{{ unit }}</span>{% endif %}
   <input type="{{ _types.get(kind, 'text') }}"{% if value is not none and value != "" %} value="{{ value }}"{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if kind == "slug" %} autocapitalize="none" autocorrect="off" spellcheck="false"{% endif %}{% if kind == "number" %} inputmode="decimal"{% endif %}
          class="{{ _field_control }} {{ _line }}{% if unit %} pl-8{% endif %}{% if kind == 'number' %} tabular-nums{% endif %}" {{ _common }}>

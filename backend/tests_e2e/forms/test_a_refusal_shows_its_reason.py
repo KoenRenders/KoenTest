@@ -111,21 +111,27 @@ def test_the_tenant_editor_shows_why(page):
     # Activiteiten off since #1523.
     page.goto(PLATFORM + "/admin/tenants")
     pagina_klaar(page)
-    adres = PLATFORM + (
-        page.locator("a[href^='/admin/tenants/']:not([href$='/nieuw'])")
-        .filter(has_text="Raak Millegem")
-        .first.get_attribute("href")
+    adres = (
+        PLATFORM
+        + (
+            page.locator("a[href^='/admin/tenants/']:not([href$='/nieuw'])")
+            .filter(has_text="Raak Millegem")
+            .first.get_attribute("href")
+        ).split("?")[0]
     )
-    page.goto(adres)
+    # #1933: the record is read first; the switches stand in its edit state.
+    page.goto(adres + "?bewerken=1")
     pagina_klaar(page)
     activities = page.locator("#tn-form input[type=checkbox][value=activities]").first
     assert activities.is_checked(), "the seeded tenant has activities on, else this proves nothing"
 
-    activities.uncheck()
+    # The kit's switch: the checkbox itself is not on the screen, its label is.
+    page.locator("label[for=module-activities]").click()
+    assert not activities.is_checked()
     status, state = _submit(page, page.locator("button[type=submit][form=tn-form]").first, adres)
 
     _assert_shown(status, state, "Activiteiten")
-    page.goto(adres)
+    page.goto(adres + "?bewerken=1")
     pagina_klaar(page)
     assert page.locator("#tn-form input[type=checkbox][value=activities]").first.is_checked(), (
         "the refused module set was saved"
