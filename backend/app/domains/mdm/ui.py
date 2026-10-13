@@ -93,11 +93,11 @@ def _lijst_view(request: Request, db: Session, **extra) -> LedenView:
 
     The list's state — segment, search, year, sort, page, page size — lives in
     the URL (#671: from HX-Current-URL when htmx sends it, else the query)."""
-    from urllib.parse import urlencode
+    from urllib.parse import quote, urlencode
 
     from app.domains.mdm.api import household_address_line, membership_badge
     from app.domains.membership.api import family_label, list_families
-    from app.ui import PER_PAGE_OPTIONS, per_page_from
+    from app.ui import PER_PAGE_DEFAULT, PER_PAGE_OPTIONS, list_return, per_page_from
 
     stand = filterparams(request)
     q = (stand.get("q") or "").strip()
@@ -132,6 +132,18 @@ def _lijst_view(request: Request, db: Session, **extra) -> LedenView:
         page = last
         data = _found(page)
     state = {"status": status, "q": q, "jaar": jaar or "", "per_page": per_page}
+    # #1940: a row opens the record with the list as it stands — the one key
+    # `terug`, and in it only what differs from the list's own defaults. Nothing
+    # of the toolbar's other fields rides along.
+    way_back = list_return(
+        NAV,
+        status=status if status != STATUSES[0] else "",
+        q=q,
+        jaar=jaar or "",
+        sort=sort if sort != SORTS[0] else "",
+        page=page if page > 1 else "",
+        per_page=per_page if per_page != PER_PAGE_DEFAULT else "",
+    )
 
     def _query(**more) -> str:
         return urlencode({k: v for k, v in {**state, **more}.items() if v != ""})
@@ -147,6 +159,7 @@ def _lijst_view(request: Request, db: Session, **extra) -> LedenView:
         rows=[
             {
                 "id": f.id,
+                "href": f"{NAV}/gezin/{f.id}?terug={quote(way_back, safe='/')}",
                 "name": family_label(f),
                 "address": household_address_line(f),
                 "persons": len(f.members),
