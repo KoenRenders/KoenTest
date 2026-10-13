@@ -380,8 +380,6 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
    Assistent's panel open, or on a smaller window, nothing changes. The group
    widened with the form column (CR-17 slice 4, Koen 9 October 2026: the form
    grows to 1 056 px, the summary keeps 300, so the whole group is 1 380 px).
-   The wide variant of her (the page screen's) waits for a repeating group on
-   a wide page — none carries one today; the rule stands for when one does.
 
    #1906 (Koen, 12 October 2026: "indien scherm breed genoeg --> rechts"): the
    summary stands beside that wide form where the frame holds both — 1 092 +
@@ -399,10 +397,6 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 @container record (min-width:1416px){
   .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]):has(>.record-summary-column){grid-template-columns:minmax(0,1092px) 300px}
   .record-columns:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"])>.record-summary-column{order:0;width:auto}
-}
-@container record (min-width:1380px){
-  .record-columns[data-wide]:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"]){grid-template-columns:minmax(0,1380px)}
-  .record-columns[data-wide]:has([data-form-flow][data-mode="edit"] [data-repeating-group][data-variant="composite"])>.record-summary-column{order:-1}
 }
 .summary-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:12px;align-items:center}
 .summary-card [data-summary-state]{grid-column:1;grid-row:1}
@@ -811,6 +805,33 @@ body[data-shell="site"]>main{padding-bottom:24px}
   .prose-raak a.prose-button + a.prose-button{margin-left:.5rem}
 }
 .prose-callout{border:1px solid rgb(var(--c-line));border-radius:14px;background:var(--surface-2);padding:16px;margin:.5rem 0}
+/* CR-17 phase 2, the cards (C4.9, C4.13): a block of link cards, 16 px
+   between them. Two per row for one or two cards — so a lone card is as wide
+   as a card in a row of two — and three per row from the third card on; the
+   last row starts at the left and is never stretched (a grid, not a flex
+   row). One per row on a phone and inside a column. The count is read from
+   the block itself (`:has`), so the site and the editor cannot disagree.
+   A card: the public card's line and radius 14, 16 px inside; an icon in a
+   44 px tile on the soft brand tint (radius 6) or a picture of 16:9 from edge
+   to edge; the title 18 px, the line 16 px and the labels 12 px in the soft
+   ink. The whole card is the link: the title's link is stretched over it, so
+   there is one link, and its focus ring (3 px) stands around the card. No
+   hover reveal — a phone has no hover. */
+.prose-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:.5rem 0}
+.prose-cards:has(>:nth-child(3)){grid-template-columns:repeat(3,minmax(0,1fr))}
+.prose-column .prose-cards,.prose-column .prose-cards:has(>:nth-child(3)){grid-template-columns:minmax(0,1fr)}
+@media (max-width:639.98px){
+  .prose-cards,.prose-cards:has(>:nth-child(3)){grid-template-columns:minmax(0,1fr)}
+}
+.prose-card{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:4px;border:1px solid rgb(var(--c-line));border-radius:14px;background:#fff;padding:16px;overflow:hidden}
+.prose-card:has(a.prose-card-title:focus-visible){outline:3px solid rgb(var(--c-blue-600));outline-offset:2px}
+.prose-card-icon{display:grid;place-items:center;width:44px;height:44px;border-radius:6px;background:rgb(var(--c-blue-50));color:rgb(var(--c-brand));margin-bottom:8px}
+.prose-raak img.prose-card-picture{display:block;width:calc(100% + 32px);max-width:none;margin:-16px -16px 8px;aspect-ratio:16/9;object-fit:cover;border-radius:0;box-shadow:none}
+.prose-raak .prose-card-title{font-size:18px;line-height:1.35;font-weight:600;color:var(--ink);text-decoration:none}
+.prose-raak a.prose-card-title::after{content:"";position:absolute;inset:0}
+.prose-raak a.prose-card-title:focus-visible{outline:none}
+.prose-card-line{font-size:16px;line-height:1.5;color:rgb(var(--c-ink-soft))}
+.prose-card-labels{font-size:12px;line-height:1.5;color:rgb(var(--c-ink-soft))}
 @media (max-width:639.98px){
   .prose-raak a.prose-button{display:flex;width:100%;min-height:44px}
 }
@@ -818,15 +839,15 @@ body[data-shell="site"]>main{padding-bottom:24px}
    ONE container of 1 024 px, CENTRED (the master CLI's comment of
    11 October 2026 is the source until the paragraph stands on `master`),
    with one left line INSIDE her: the text blocks run to at most 768 px,
-   the blocks C4.13 names wide (the table, a figure on "volledig" —
-   columns and cards as their commits add them) fill the container. The
+   the blocks C4.13 names wide (the table, a figure on "volledig", the
+   columns and the cards) fill the container. The
    cap names no element types: every direct child is narrow unless the
    wide list says otherwise, so a new text block is narrow without anyone
    remembering her. On a phone the viewport minus her gutters (the shell's
    <main> gives them). */
 .doc-page{width:100%;max-width:1024px;margin-left:auto;margin-right:auto}
 .doc-page>:not(.prose-raak){max-width:768px}
-.doc-page .prose-raak>*:not(table):not(.prose-figure--full):not(.prose-columns){max-width:768px}
+.doc-page .prose-raak>*:not(table):not(.prose-figure--full):not(.prose-columns):not(.prose-cards){max-width:768px}
 /* ── The Assistent panel (CR-11 pilot A, K8 — #1562; end state §3.15) ──────────
    One component, `_raakje_panel.html`, in two modes.
 

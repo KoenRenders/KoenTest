@@ -53,12 +53,19 @@ FIGURE_PLACEMENTS: tuple[str, ...] = ("full", "left", "right", "small")
 #: convert losslessly and keeps its HTML (F11).
 HEADING_LEVELS: tuple[int, ...] = (1, 2, 3)
 
+#: Where a button and a card may lead: the four destinations, of which a
+#: node carries exactly one (`_one_destination`).
+_DESTINATION_ATTRS: dict[str, Any] = {
+    "page_id": "int?",
+    "href": "str?",
+    "form_slug": "str?",
+    "screen": ("lid-worden", None),
+}
+
 #: Every node a document may hold, with its attributes (F1). Marks on ``text``:
-#: bold, italic, strike, link. ``columns``, ``button``, ``callout``,
-#: ``link_card``, ``cards`` and ``form`` are part of the schema from phase 1 —
-#: the shape is fixed here — but no phase-1 set offers them in the toolbar
-#: (phase 2 fills them in); a document holding one validates, the editor cannot
-#: insert one yet.
+#: bold, italic, strike, link. Every node here is one the renderer walks
+#: (`test_every_node_of_the_schema_renders`): the schema holds what a stored
+#: document may hold today, not the shapes of a later phase.
 NODES: dict[str, dict[str, Any]] = {
     "doc": {
         # A page that shows nothing is an honest document — the migration's
@@ -125,20 +132,30 @@ NODES: dict[str, dict[str, Any]] = {
         "attrs": {
             "label": "str",
             "variant": ("primary", "secondary"),
-            "page_id": "int?",
-            "href": "str?",
-            "form_slug": "str?",
-            "screen": ("lid-worden", None),
+            **_DESTINATION_ATTRS,
         },
     },
     "callout": {"group": "block", "content": "inline*"},
-    "linkCard": {
-        "group": "block",
-        "attrs": {"title": "str", "line": "str?", "href": "str", "page_id": "int?"},
+    # C4.9: a block of link cards — layout, not data. A lone link card is a
+    # cards block with one card (Q20/Q23); there is no second node for it.
+    # No heading of its own (Koen, 13 October 2026: "b"): a title over the
+    # cards is the ordinary heading block above them.
+    "cards": {"group": "block", "content": "card+"},
+    # A card is a link: her title, one line, an icon of the kit OR a picture
+    # of the library (never both), labels as plain text, and exactly one of
+    # the button's four destinations — the same attributes, so the one
+    # resolver serves both. The icon's names are the kit's own
+    # (`app.ui.kit.icons`, read from the `icon` macro): no list is kept here.
+    "card": {
+        "attrs": {
+            "title": "str",
+            "line": "str?",
+            "icon": "str?",
+            "media_id": "int?",
+            "labels": "strs?",
+            **_DESTINATION_ATTRS,
+        }
     },
-    "cards": {"group": "block", "content": "card+", "attrs": {"heading": "str?"}},
-    "card": {"attrs": {"title": "str", "line": "str?", "href": "str", "page_id": "int?"}},
-    "form": {"group": "block", "attrs": {"form_id": "int"}},
     "value": {"group": "inline", "inline": True, "atom": True, "attrs": {"code": VALUE_CODES}},
     "hardBreak": {"group": "inline", "inline": True},
     "text": {"group": "inline", "text": True, "marks": ("bold", "italic", "strike", "link")},
@@ -155,38 +172,6 @@ MARK_ATTRS: dict[str, dict[str, Any]] = {
     "link": {"href": "str", "target": "str?", "rel": "str?", "class": "str?", "title": "str?"}
 }
 
-#: The nodes the renderer can render today (review A2, #1770). NODES holds
-#: the whole design from the start — the shapes of the later phases stand
-#: there — but a stored document may hold only what the renderer can turn
-#: into HTML, or a published page takes the site down with a ValueError. The
-#: renderer is the source: this is the set she walks, named here once so the
-#: validator and the renderer cannot drift apart. A later phase adds its
-#: nodes to the renderer first, then here.
-RENDERABLE: frozenset[str] = frozenset(
-    {
-        "doc",
-        "paragraph",
-        "heading",
-        "bulletList",
-        "orderedList",
-        "listItem",
-        "table",
-        "tableRow",
-        "tableHeader",
-        "tableCell",
-        "figure",
-        # Phase 2, slice 1's rest (#1679): the renderer learned them, so
-        # the border opens — a stored document with them renders now.
-        "columns",
-        "column",
-        "button",
-        "callout",
-        "text",
-        "hardBreak",
-        "value",
-    }
-)
-
 #: The sets (C4.5). The toolbar and the insert menu offer exactly these; the
 #: editor's configuration is generated from this, never hand-written in a
 #: template (gate 14).
@@ -199,9 +184,9 @@ BLOCK_SETS: dict[str, dict[str, Any]] = {
         "marks": ("bold", "italic", "strike", "link"),
         "headings": HEADING_LEVELS,
         "lists": ("bulletList", "orderedList"),
-        # C4.13's menu order: Tabel · Afbeelding · Kolommen · Knop · Kader
-        # (Linkkaart · Kaarten · Formulier join as their commits build them).
-        "insert": ("table", "figure", "columns", "button", "callout"),
+        # C4.13's menu order: Tabel · Afbeelding · Kolommen · Knop · Kader ·
+        # Kaarten.
+        "insert": ("table", "figure", "columns", "button", "callout", "cards"),
     },
     # Phase 7; the shape stands here so the one schema is the whole design.
     "letter": {
@@ -237,6 +222,17 @@ TABLE_MENU: tuple[tuple[str, str], ...] = (
     ("deleteColumn", _("Kolom verwijderen")),
     ("toggleHeaderRow", _("Koprij aan of uit")),
     ("deleteTable", _("Tabel verwijderen")),
+)
+
+
+#: The cards menu of the editor (CR-17, C4.9): what the author does to the
+#: card she stands on. The ids are the script's own commands.
+CARDS_MENU: tuple[tuple[str, str], ...] = (
+    ("edit", _("Kaart bewerken")),
+    ("add", _("Kaart toevoegen")),
+    ("forward", _("Naar voren")),
+    ("back", _("Naar achteren")),
+    ("remove", _("Kaart verwijderen")),
 )
 
 
@@ -298,7 +294,7 @@ def validate_document(document: Any, set_name: str = "page") -> dict:
         # The root is the document itself; a paragraph (or a text node) at
         # the top is a client's mistake, not a document (review A3, #1699).
         raise InvalidShape(f"Onjuiste wortel: {document.get('type')}")
-    _validate_node(document, "doc", renderable=True)
+    _validate_node(document, "doc")
     return document
 
 
@@ -341,16 +337,36 @@ def _content_rule(node_type: str) -> tuple[set[str], int, int | None] | None:
 MAX_DEPTH = 64
 
 
-def _validate_node(node: Any, path: str, renderable: bool = False) -> None:
+def _one_destination(node_type: str, word: str, attrs: dict) -> None:
+    """Koen's four destinations (11 October 2026) are a shape rule of the
+    button and of the card alike: exactly one of them is set — two is a
+    document the resolver cannot resolve, none a link that leads nowhere. An
+    outside address is http(s) only and one unbroken word — a space inside is
+    refused here and in the dialog, by the same rule (C4.11: nothing is
+    stripped at render; review of 12 October 2026: `https://a b` passed both
+    ends, which agreed on the start only). `word` is the block's name in the
+    refusal ("een knop", "een kaart")."""
+    targets = [k for k in _DESTINATION_ATTRS if attrs.get(k) is not None]
+    if len(targets) != 1:
+        raise InvalidShape(
+            f"Onjuiste vorm: {word} wijst naar precies één bestemming"
+            + (f" (nu {', '.join(targets)})" if len(targets) > 1 else "")
+        )
+    if "href" in targets:
+        href = attrs["href"]
+        if (
+            not isinstance(href, str)
+            or not href.startswith(("http://", "https://"))
+            or any(ch.isspace() for ch in href)
+        ):
+            raise UnknownAttribute(f"{node_type}.href={href!r}")
+
+
+def _validate_node(node: Any, path: str) -> None:
     if path.count("/") >= MAX_DEPTH:
         raise InvalidShape("Te diep genest: het document heeft te veel niveaus")
     node_type = node.get("type") if isinstance(node, dict) else None
     if node_type not in NODES:
-        raise UnknownBlock(f"Onbekend blok: {node_type}")
-    if renderable and node_type not in RENDERABLE:
-        # The schema knows the node (a later phase's shape) but the renderer
-        # does not walk it — a stored document with her would take the
-        # public page down the moment it renders (review A2, #1770).
         raise UnknownBlock(f"Onbekend blok: {node_type}")
     spec = NODES[node_type]
     # A malformed document is refused with a name, never a crash (review A2,
@@ -409,6 +425,14 @@ def _validate_node(node: Any, path: str, renderable: bool = False) -> None:
             if not isinstance(value, str):
                 if allowed == "str" or value is not None:
                     raise UnknownAttribute(f"{node_type}.{attr}={value!r}")
+        elif allowed == "strs?":
+            # A list of short texts (a card's labels): every one a text with
+            # words in it — an empty label renders a lone middle dot.
+            if value is not None and (
+                not isinstance(value, list)
+                or any(not isinstance(item, str) or not item.strip() for item in value)
+            ):
+                raise UnknownAttribute(f"{node_type}.{attr}={value!r}")
     # Required attributes (the shape half of B1): a figure without her
     # media id, a button without her label refused — not just names. A "?"
     # type or a None inside an enum tuple marks the attribute optional.
@@ -421,30 +445,22 @@ def _validate_node(node: Any, path: str, renderable: bool = False) -> None:
         if attr not in attrs or attrs[attr] is None:
             raise UnknownAttribute(f"{node_type}.{attr}")
     if node_type == "button":
-        # Koen's four destinations (11 October 2026) are the button's own
-        # shape rule: exactly one of them is set — two is a document the
-        # resolver cannot resolve, none a button that leads nowhere. An
-        # outside address is http(s) only and one unbroken word — a space
-        # inside is refused here and in the dialog, by the same rule
-        # (C4.11: nothing is stripped at render; review of 12 October
-        # 2026: `https://a b` passed both ends, which agreed on the start
-        # only).
-        targets = [
-            k for k in ("page_id", "href", "form_slug", "screen") if attrs.get(k) is not None
-        ]
-        if len(targets) != 1:
+        _one_destination("button", "een knop", attrs)
+    if node_type == "card":
+        _one_destination("card", "een kaart", attrs)
+        # A title is words, not an empty string: the whole card is the link
+        # and the title is what it is called.
+        if not attrs["title"].strip():
+            raise UnknownAttribute("card.title")
+        if attrs.get("icon") is not None and attrs.get("media_id") is not None:
             raise InvalidShape(
-                "Onjuiste vorm: een knop wijst naar precies één bestemming"
-                + (f" (nu {', '.join(targets)})" if len(targets) > 1 else "")
+                "Onjuiste vorm: een kaart heeft een icoon of een afbeelding, niet beide"
             )
-        if "href" in targets:
-            href = attrs["href"]
-            if (
-                not isinstance(href, str)
-                or not href.startswith(("http://", "https://"))
-                or any(ch.isspace() for ch in href)
-            ):
-                raise UnknownAttribute(f"button.href={href!r}")
+        if attrs.get("icon") is not None:
+            from app.ui.kit.icons import icon_names
+
+            if attrs["icon"] not in icon_names():
+                raise UnknownAttribute(f"card.icon={attrs['icon']!r}")
     if spec.get("text"):
         # A text node carries words: the key is there and the string is not
         # empty (review A3, #1699) — an empty text node renders nothing and
@@ -523,7 +539,7 @@ def _validate_node(node: Any, path: str, renderable: bool = False) -> None:
             # The design review's B5 (#1679): a column holds blocks, not a
             # second columns block that breaks out of her column.
             raise InvalidShape("Onjuiste plaats: kolommen in een kolom")
-        _validate_node(child, f"{path}/{node_type}", renderable=renderable)
+        _validate_node(child, f"{path}/{node_type}")
     if len(children) < minimum:
         raise InvalidShape(f"Leeg blok: {node_type}")
     if maximum is not None and len(children) > maximum:
@@ -547,6 +563,7 @@ def _toolbar_label(command_id: str) -> str:
         "columns": _("Kolommen"),
         "button": _("Knop"),
         "callout": _("Kader"),
+        "cards": _("Kaarten"),
     }.get(command_id, command_id)
 
 
@@ -608,6 +625,15 @@ def schema_for(set_name: str) -> dict[str, Any]:
                 if "table" in BLOCK_SETS[set_name]["insert"]
                 else None
             ),
+            # The cards menu, the same way: shown while a card is selected.
+            "cardsMenu": (
+                {
+                    "label": _("Kaarten"),
+                    "items": [{"id": cmd, "label": label} for cmd, label in CARDS_MENU],
+                }
+                if "cards" in BLOCK_SETS[set_name]["insert"]
+                else None
+            ),
         },
         "values": [
             {"code": code, "label": PLACEHOLDER_LABELS[code], "value": _value_of(code)}
@@ -642,8 +668,19 @@ def schema_for(set_name: str) -> dict[str, Any]:
             if "figure" in BLOCK_SETS[set_name]["insert"]
             else None
         ),
+        # The card dialog's choice of icons: the kit's own names, asked of
+        # the kit (`app.ui.kit.icons`) — the same list the validation asks.
+        "cards": (
+            {"icons": list(_icon_names())} if "cards" in BLOCK_SETS[set_name]["insert"] else None
+        ),
         "nodes": sorted(NODES),
     }
+
+
+def _icon_names() -> tuple[str, ...]:
+    from app.ui.kit.icons import icon_names
+
+    return icon_names()
 
 
 def _media_url_prefix() -> str:

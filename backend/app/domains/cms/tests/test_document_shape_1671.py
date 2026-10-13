@@ -298,10 +298,6 @@ def test_an_id_of_nothing_is_refused():
     for media_id in (0, -1):
         with pytest.raises(UnknownAttribute, match="figure.media_id"):
             validate_document(_doc({"type": "figure", "attrs": {"media_id": media_id}}))
-    # The form node is a later phase's: the border of A2 (#1770) refuses
-    # her before her shape is read.
-    with pytest.raises(UnknownBlock):
-        validate_document(_doc({"type": "form", "attrs": {"form_id": 0}}))
 
 
 def test_an_ordered_list_with_her_own_start_validates():
@@ -404,54 +400,204 @@ def test_the_lists_type_holds_no_value_but_the_editors_null():
         )
 
 
-class TestRenderableBorder:
-    """The schema holds the whole design — the renderer walks only part of
-    it today. A stored document with a node the renderer cannot walk would
-    publish fine and take the public page down at render (review A2,
-    #1770): the validator refuses what the renderer cannot render. The
-    button, the callout and the columns LEFT this border with phase 2's
-    first slice (#1679) — the renderer learned them; the card family and
-    the form wait for their commits. Every test here goes red on the
-    validator without her renderable border.
+class TestEveryNodeRenders:
+    """The schema holds what the renderer walks, and nothing else. Until the
+    cards were built the schema also held the shapes of later phases, and a
+    second list (`RENDERABLE`) kept a stored document from holding one
+    (review A2, #1770). The cards were the last such shape; the embedded form
+    and the separate link card are gone (Koen, 12 October 2026: "ja, schrap
+    de vierde commit"; Q23), so the second list went with them. What is left
+    to guard is the other direction: a node added to the schema without a
+    branch in the renderer takes the public page down at render.
     """
 
-    def test_a_cards_node_is_refused(self):
-        with pytest.raises(UnknownBlock):
-            validate_document(_doc({"type": "cards", "content": []}))
+    def test_the_embedded_form_and_the_link_card_are_no_blocks_any_more(self):
+        for node in (
+            {"type": "form", "attrs": {"form_id": 1}},
+            {"type": "linkCard", "attrs": {"title": "K", "href": "https://voorbeeld.test"}},
+        ):
+            with pytest.raises(UnknownBlock):
+                validate_document(_doc(node))
 
-    def test_a_form_node_is_refused(self):
-        with pytest.raises(UnknownBlock):
-            validate_document(_doc({"type": "form", "attrs": {"form_id": 1}}))
+    def test_every_node_of_the_schema_renders(self):
+        """One document that holds every node the schema names — the set is
+        read back from the document and compared with `NODES`, so a node
+        added to the schema makes this test red until the document, and with
+        it the renderer, knows it. Broken on purpose: a node `watermerk` added
+        to `NODES` → red on the comparison; the `cards` branch taken out of
+        the renderer → red with "unknown block node: cards"."""
+        from app.domains.cms.render import render_document
+        from app.domains.cms.schema import VALUE_CODES
 
-    def test_a_refused_node_nested_deeper_is_refused_too(self):
-        with pytest.raises(UnknownBlock):
-            validate_document(
-                _doc(
-                    _par("Voor:"),
+        document = _doc(
+            {
+                "type": "heading",
+                "attrs": {"level": 2},
+                "content": [{"type": "text", "text": "Kop"}],
+            },
+            {
+                "type": "paragraph",
+                "content": [
+                    {"type": "text", "text": "Alinea"},
+                    {"type": "hardBreak"},
+                    {"type": "value", "attrs": {"code": VALUE_CODES[0]}},
+                ],
+            },
+            {"type": "bulletList", "content": [{"type": "listItem", "content": [_par("Punt.")]}]},
+            {"type": "orderedList", "content": [{"type": "listItem", "content": [_par("Een.")]}]},
+            {
+                "type": "table",
+                "content": [
                     {
-                        "type": "cards",
-                        "content": [{"type": "card", "attrs": {"title": "K", "href": "/x"}}],
+                        "type": "tableRow",
+                        "attrs": {"section": "head"},
+                        "content": [{"type": "tableHeader", "content": [_par("Hoofd")]}],
                     },
-                )
+                    {
+                        "type": "tableRow",
+                        "attrs": {"section": "body"},
+                        "content": [{"type": "tableCell", "content": [_par("Cel")]}],
+                    },
+                ],
+            },
+            {"type": "figure", "attrs": {"media_id": 1, "alt": "Een foto"}},
+            {
+                "type": "columns",
+                "attrs": {"align": "top"},
+                "content": [
+                    {"type": "column", "content": [_par("Links.")]},
+                    {"type": "column", "content": [_par("Rechts.")]},
+                ],
+            },
+            {
+                "type": "button",
+                "attrs": {
+                    "label": "Lees meer",
+                    "variant": "primary",
+                    "href": "https://voorbeeld.test",
+                },
+            },
+            {"type": "callout", "content": [{"type": "text", "text": "Let op."}]},
+            {
+                "type": "cards",
+                "content": [
+                    {
+                        "type": "card",
+                        "attrs": {"title": "Een kaart", "href": "https://voorbeeld.test"},
+                    }
+                ],
+            },
+        )
+
+        held: set[str] = set()
+
+        def walk(node):
+            held.add(node["type"])
+            for child in node.get("content") or []:
+                walk(child)
+
+        walk(document)
+        assert held == set(schema.NODES), (
+            f"not in the document: {sorted(set(schema.NODES) - held)}; "
+            f"not in the schema: {sorted(held - set(schema.NODES))}"
+        )
+        html = render_document(validate_document(document))
+        for word in (
+            "Kop",
+            "Alinea",
+            "Punt.",
+            "Een.",
+            "Hoofd",
+            "Cel",
+            "Links.",
+            "Lees meer",
+            "Let op.",
+            "Een kaart",
+        ):
+            assert word in html, word
+
+
+class TestTheCard:
+    """C4.9: a card has a title, exactly one of the button's four
+    destinations, an icon of the kit OR a picture, and labels as plain text.
+    Broken on purpose: the card's `_one_destination` taken out of
+    `_validate_node` → the two destination tests red.
+    """
+
+    @staticmethod
+    def _cards(**attrs):
+        return _doc({"type": "cards", "content": [{"type": "card", "attrs": attrs}]})
+
+    def test_a_card_with_one_destination_validates(self):
+        for target in (
+            {"page_id": 3},
+            {"href": "https://voorbeeld.test/pad"},
+            {"form_slug": "contact"},
+            {"screen": "lid-worden"},
+        ):
+            validate_document(self._cards(title="Kaart", **target))
+
+    def test_a_card_without_a_destination_or_with_two_is_refused(self):
+        with pytest.raises(InvalidShape, match="een kaart wijst naar precies één bestemming"):
+            validate_document(self._cards(title="Kaart"))
+        with pytest.raises(InvalidShape, match=r"nu page_id, href"):
+            validate_document(self._cards(title="Kaart", page_id=3, href="https://voorbeeld.test"))
+
+    def test_an_outside_address_follows_the_button_s_rule(self):
+        for href in ("/intern", "javascript:alert(1)", "https://a b", "voorbeeld.test"):
+            with pytest.raises(UnknownAttribute, match="card.href"):
+                validate_document(self._cards(title="Kaart", href=href))
+
+    def test_a_card_without_a_title_is_refused(self):
+        for title in (None, "", "   "):
+            attrs = {"href": "https://voorbeeld.test"}
+            if title is not None:
+                attrs["title"] = title
+            with pytest.raises(UnknownAttribute, match="card.title"):
+                validate_document(self._cards(**attrs))
+
+    def test_the_icon_is_one_of_the_kit_s_names(self):
+        from app.ui.kit.icons import icon_names
+
+        validate_document(
+            self._cards(title="Kaart", href="https://voorbeeld.test", icon=icon_names()[0])
+        )
+        with pytest.raises(UnknownAttribute, match="card.icon='geen-icoon'"):
+            validate_document(
+                self._cards(title="Kaart", href="https://voorbeeld.test", icon="geen-icoon")
             )
 
-    def test_the_border_stays_red_able_for_a_node_yet_to_come(self):
-        """B2 of the plan review: after phase 2 no known node is left on
-        the refused side — the border needs a subject to stay a tested
-        rule. This adds a shape to NODES for the length of the test (an
-        ADDITIVE violation, gone afterwards) and proves the border refuses
-        her by name: a node the schema knows but the renderer does not
-        walk. Red on the validator without her border — measured while
-        building, by taking the border out and watching her walk through."""
-        schema.NODES["watermerk"] = {"group": "block", "content": "inline*"}
-        try:
-            with pytest.raises(UnknownBlock):
-                validate_document(
-                    _doc({"type": "watermerk", "content": [{"type": "text", "text": "x"}]})
-                )
-        finally:
-            del schema.NODES["watermerk"]
+    def test_an_icon_and_a_picture_together_are_refused(self):
+        with pytest.raises(InvalidShape, match="een icoon of een afbeelding"):
+            validate_document(
+                self._cards(title="Kaart", href="https://voorbeeld.test", icon="users", media_id=4)
+            )
+        validate_document(self._cards(title="Kaart", href="https://voorbeeld.test", media_id=4))
 
+    def test_labels_are_a_list_of_texts_with_words(self):
+        validate_document(
+            self._cards(
+                title="Kaart", href="https://voorbeeld.test", labels=["Gratis", "Elke week"]
+            )
+        )
+        for labels in ("Gratis", ["Gratis", ""], ["  "], [3], {"a": 1}):
+            with pytest.raises(UnknownAttribute, match="card.labels"):
+                validate_document(
+                    self._cards(title="Kaart", href="https://voorbeeld.test", labels=labels)
+                )
+
+    def test_a_cards_block_without_a_card_is_refused(self):
+        with pytest.raises(InvalidShape, match="Leeg blok: cards"):
+            validate_document(_doc({"type": "cards", "content": []}))
+
+    def test_a_card_stands_only_in_a_cards_block(self):
+        with pytest.raises(InvalidShape, match="Onjuiste plaats: card onder doc"):
+            validate_document(
+                _doc({"type": "card", "attrs": {"title": "K", "href": "https://voorbeeld.test"}})
+            )
+
+
+class TestOlderNodesStillRender:
     def test_every_renderable_node_really_renders(self):
         # The border's other side: every node of RENDERABLE that a document
         # can hold must render, not raise — a node in the set without a

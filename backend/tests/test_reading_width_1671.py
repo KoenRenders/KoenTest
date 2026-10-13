@@ -65,7 +65,7 @@ def test_the_kit_knows_the_container_the_text_line_and_the_holders_scroll():
     assert "margin-left:auto" in doc_page.group(0), "the container is not centred"
     build = BUILD.read_text()
     assert (
-        ".doc-page .prose-raak>*:not(table):not(.prose-figure--full):not(.prose-columns)"
+        ".doc-page .prose-raak>*:not(table):not(.prose-figure--full):not(.prose-columns):not(.prose-cards)"
         "{max-width:768px}" in build
     ), "the text line is gone or names element types"
     assert ".prose-raak{overflow-x:auto}" in build, "a table's holder cannot scroll"

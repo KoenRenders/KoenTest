@@ -331,12 +331,9 @@ class TestTheLiveGoingDoorsValidate:
         page = _page(db_session)
         translation = save_draft(db_session, page.id, _document("Goed."))
         # The migration's own way of writing: straight into the row.
-        # A node the schema knows but the renderer does not walk (`form`,
-        # a later phase's shape — not in RENDERABLE): the original pin
-        # (review S6 of 12 October 2026). The button, the callout and the
-        # columns RENDER since phase 2's first slice (#1679), so they no
-        # longer refuse; `form` keeps the door this test pins shut on a
-        # valid shape the public page cannot take down.
+        # A node the schema refuses: `form`, the embedded form block that
+        # was dropped (Koen, 12 October 2026) — exactly what a row written
+        # by an older build can hold.
         translation.draft_json = {
             "type": "doc",
             "content": [{"type": "form", "attrs": {"form_id": 1}}],
@@ -368,7 +365,7 @@ class TestTheLiveGoingDoorsValidate:
         publish(db_session, page.id, by="tester")
         db_session.commit()
         # A history row as an older build might have written her — the
-        # same later-phase shape (`form`, review S6 of 12 October 2026).
+        # dropped `form` node.
         row = db_session.query(CmsPageHistory).filter(CmsPageHistory.page_id == page.id).first()
         row.document = {
             "type": "doc",

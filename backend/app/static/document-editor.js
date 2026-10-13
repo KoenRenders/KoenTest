@@ -164,6 +164,121 @@
     });
   }
 
+  /* The cards of CR-17 (C4.9): a block that holds cards and nothing else,
+     and a card that is an atom — the author fills her in the dialog of the
+     macro, never by typing. What a card holds is her attributes: the title,
+     the line, an icon of the kit or a picture, the labels, and the ONE
+     destination (the button's four). The card draws herself the way the site
+     draws her, so the author sees the row she is making; her icon is taken
+     from the dialog's own choice of icons, the one place the page carries the
+     kit's drawings. */
+  var CARD_ATTRS = ["title", "line", "icon", "media_id", "labels", "page_id", "href", "form_slug", "screen"];
+
+  function cardView(node, mediaUrl, mountId) {
+    var a = node.attrs;
+    var dom = document.createElement("div");
+    dom.className = "prose-card";
+    dom.setAttribute("data-card", "");
+    if (a.media_id) {
+      var img = document.createElement("img");
+      img.className = "prose-card-picture";
+      img.src = mediaUrl + a.media_id;
+      img.alt = "";
+      dom.appendChild(img);
+    } else if (a.icon) {
+      var tile = document.createElement("span");
+      tile.className = "prose-card-icon";
+      var source = document.querySelector(
+        '[data-card-dialog="' + mountId + '"] [data-card-icon="' + a.icon + '"] svg'
+      );
+      if (source) {
+        var svg = source.cloneNode(true);
+        svg.setAttribute("width", "24");
+        svg.setAttribute("height", "24");
+        tile.appendChild(svg);
+      }
+      dom.appendChild(tile);
+    }
+    var title = document.createElement("span");
+    title.className = "prose-card-title";
+    title.textContent = a.title || "";
+    dom.appendChild(title);
+    if (a.line) {
+      var line = document.createElement("span");
+      line.className = "prose-card-line";
+      line.textContent = a.line;
+      dom.appendChild(line);
+    }
+    if (a.labels && a.labels.length) {
+      var labels = document.createElement("span");
+      labels.className = "prose-card-labels";
+      labels.textContent = a.labels.join(" · ");
+      dom.appendChild(labels);
+    }
+    return dom;
+  }
+
+  function cardsNodes(RaakTiptap, config, mountId) {
+    var mediaUrl = (config.figure && config.figure.mediaUrl) || "";
+    var cards = RaakTiptap.Node.create({
+      name: "cards",
+      group: "block",
+      content: "card+",
+      parseHTML: function () {
+        return [{ tag: "div[data-cards]" }];
+      },
+      renderHTML: function () {
+        return ["div", { "data-cards": "", class: "prose-cards" }, 0];
+      },
+    });
+    var card = RaakTiptap.Node.create({
+      name: "card",
+      atom: true,
+      addAttributes: function () {
+        var attrs = {};
+        CARD_ATTRS.forEach(function (name) {
+          attrs[name] = { default: name === "title" ? "" : null };
+        });
+        return attrs;
+      },
+      /* Copy and paste inside the editor: the attributes travel as one
+         JSON attribute and come back as they left. */
+      parseHTML: function () {
+        return [
+          {
+            tag: "div[data-card]",
+            getAttrs: function (el) {
+              try {
+                return JSON.parse(el.getAttribute("data-card") || "{}");
+              } catch (error) {
+                return false;
+              }
+            },
+          },
+        ];
+      },
+      renderHTML: function (props) {
+        return ["div", { "data-card": JSON.stringify(props.node.attrs), class: "prose-card" }, props.node.attrs.title || ""];
+      },
+      addNodeView: function () {
+        return function (props) {
+          return { dom: cardView(props.node, mediaUrl, mountId) };
+        };
+      },
+    });
+    return [cards, card];
+  }
+
+  /* The card the selection stands on, with her place — or null. A card is an
+     atom, so a click or the arrow keys select her as a node. */
+  function selectedCard(editor) {
+    var selection = editor.state.selection;
+    if (selection.node && selection.node.type.name === "card") {
+      return { node: selection.node, pos: selection.from };
+    }
+    return null;
+  }
+
   function figureNode(RaakTiptap, config, label) {
     var mediaUrl = (config.figure && config.figure.mediaUrl) || "";
     return RaakTiptap.Node.create({
@@ -314,7 +429,8 @@
         item.id === "figure" ||
         item.id === "columns" ||
         item.id === "button" ||
-        item.id === "callout"
+        item.id === "callout" ||
+        item.id === "cards"
       );
     });
     if (insertable.length) {
@@ -370,6 +486,10 @@
               attrs: attrs_here && attrs_here.label !== undefined ? attrs_here : null,
               pos: gekozen,
             });
+          } else if (item.id === "cards") {
+            /* A card never lands without her title and her destination:
+               the dialog first, the block with that one card after. */
+            announce("raak-card-choose", { editor: editorId, attrs: null, pos: null, mode: "new" });
           } else if (config.figure) {
             /* The figure never lands without her picture: the dialog of
                the macro opens the kit's picker, and the server's shape
@@ -455,6 +575,112 @@
       };
       editor.on("transaction", tableVisible);
       tableVisible();
+    }
+
+    /* The cards menu (CR-17, C4.9): what the author does to the card she
+       stands on — another card after her, one place forward or back, away.
+       Hidden until a card is selected, like the table menu outside a table.
+       The first card cannot go forward and the last not back; the item says
+       so by being off. */
+    var cardsMenu = config.toolbar.cardsMenu;
+    if (cardsMenu) {
+      var cmenu = document.createElement("details");
+      cmenu.className = "de-menu de-menu-cards";
+      cmenu.hidden = true;
+      var csummary = document.createElement("summary");
+      csummary.className = "de-btn de-menu-toggle";
+      csummary.textContent = cardsMenu.label + " ▾";
+      /* The card the menu was opened for. The press on the menu's own
+         summary moves the browser's selection, and the editor follows it off
+         the card (measured: 14 ms after the menu opened the card was no
+         longer selected and the menu hid itself under the pointer). So the
+         card is read at the press, before anything moves, and every item
+         works on that one. */
+      var held = null;
+      var heldCard = function () {
+        if (!held) return null;
+        var node = editor.state.doc.nodeAt(held.pos);
+        return node && node.type.name === "card" ? { node: node, pos: held.pos } : null;
+      };
+      csummary.addEventListener("mousedown", function (event) {
+        event.preventDefault();
+        if (!cmenu.open) held = selectedCard(editor);
+      });
+      csummary.addEventListener("keydown", function (event) {
+        if ((event.key === "Enter" || event.key === " ") && !cmenu.open) held = selectedCard(editor);
+      });
+      cmenu.appendChild(csummary);
+      var citems = document.createElement("div");
+      citems.className = "de-menu-items";
+      var cardButtons = {};
+      var moveCard = function (step) {
+        var here = heldCard();
+        if (!here) return;
+        var at = editor.state.doc.resolve(here.pos);
+        var index = at.index();
+        var block = at.parent;
+        if (index + step < 0 || index + step >= block.childCount) return;
+        var other = block.child(index + step);
+        var target = step < 0 ? here.pos - other.nodeSize : here.pos + other.nodeSize;
+        editor
+          .chain()
+          .focus()
+          .command(function (props) {
+            props.tr.delete(here.pos, here.pos + here.node.nodeSize).insert(target, here.node);
+            return true;
+          })
+          .setNodeSelection(target)
+          .run();
+      };
+      cardsMenu.items.forEach(function (item) {
+        var el = button(item.label, item.label);
+        el.className = "de-btn de-menu-item";
+        el.setAttribute("data-card-action", item.id);
+        cardButtons[item.id] = el;
+        el.addEventListener("click", function () {
+          cmenu.removeAttribute("open");
+          var here = heldCard();
+          if (!here) return;
+          if (item.id === "edit") {
+            announce("raak-card-choose", { editor: editorId, attrs: here.node.attrs, pos: here.pos, mode: "edit" });
+          } else if (item.id === "add") {
+            announce("raak-card-choose", { editor: editorId, attrs: null, pos: here.pos, mode: "after" });
+          } else if (item.id === "forward") {
+            moveCard(-1);
+          } else if (item.id === "back") {
+            moveCard(1);
+          } else if (item.id === "remove") {
+            var at = editor.state.doc.resolve(here.pos);
+            /* The last card takes her block along: a block without a card
+               is one the save refuses. */
+            var from = at.parent.childCount === 1 ? at.before() : here.pos;
+            var to = at.parent.childCount === 1 ? at.after() : here.pos + here.node.nodeSize;
+            editor.chain().focus().deleteRange({ from: from, to: to }).run();
+          }
+        });
+        citems.appendChild(el);
+      });
+      cmenu.appendChild(citems);
+      var cardsVisible = function () {
+        /* An open menu stays: it works on the card it holds. */
+        var here = cmenu.open ? heldCard() : selectedCard(editor);
+        cmenu.hidden = !here;
+        if (!here) {
+          cmenu.removeAttribute("open");
+          return;
+        }
+        var at = editor.state.doc.resolve(here.pos);
+        if (cardButtons.forward) cardButtons.forward.disabled = at.index() === 0;
+        if (cardButtons.back) cardButtons.back.disabled = at.index() === at.parent.childCount - 1;
+      };
+      cmenu.addEventListener("toggle", function () {
+        if (cmenu.open) openInRoom(cmenu, citems);
+        else held = null;
+        cardsVisible();
+      });
+      bar.appendChild(cmenu);
+      editor.on("transaction", cardsVisible);
+      cardsVisible();
     }
 
     editor.on("selectionUpdate", function () {
@@ -565,6 +791,69 @@
     }
   });
 
+  document.addEventListener("raak-card-chosen", function (event) {
+    var editor = editors[event.detail.editor];
+    if (!editor || editor.isDestroyed) return;
+    var choice = event.detail;
+    /* Every attribute travels, the chosen ones set and the others null —
+       the button's lesson (review A1 of 12 October 2026): an update that
+       carried only the new destination kept the old one on the node. */
+    var attrs = {
+      title: choice.title || "",
+      line: choice.line || null,
+      icon: choice.top === "icon" ? choice.icon || null : null,
+      media_id: choice.top === "picture" ? choice.media_id || null : null,
+      labels: choice.labels && choice.labels.length ? choice.labels : null,
+      page_id: null,
+      href: null,
+      form_slug: null,
+      screen: null,
+    };
+    if (choice.kind === "page") attrs.page_id = choice.page_id;
+    else if (choice.kind === "form") attrs.form_slug = choice.form_slug;
+    else if (choice.kind === "screen") attrs.screen = "lid-worden";
+    else attrs.href = choice.href || "";
+    var pos = choice.pos;
+    if (choice.mode === "new" || pos === null || pos === undefined) {
+      editor
+        .chain()
+        .focus()
+        .insertContent({ type: "cards", content: [{ type: "card", attrs: attrs }] })
+        .run();
+      return;
+    }
+    /* At the position the dialog opened for, not at the selection of the
+       moment — the dialog holds the focus in between. */
+    editor
+      .chain()
+      .focus()
+      .command(function (props) {
+        var node = props.state.doc.nodeAt(pos);
+        if (!node || node.type.name !== "card") return true;
+        if (choice.mode === "after") {
+          props.tr.insert(pos + node.nodeSize, node.type.create(attrs));
+        } else {
+          props.tr.setNodeMarkup(pos, null, attrs);
+        }
+        return true;
+      })
+      .setNodeSelection(choice.mode === "after" ? pos + 1 : pos)
+      .run();
+  });
+
+  /* An outside address as the button's and the card's dialog check it —
+     the server's own rule (http(s), no white space), asked before anything
+     travels to the editor. Returns "" when it is one, else which half it
+     broke: "start" or "space". One function, so the two dialogs and the
+     schema cannot each grow a rule of their own. */
+  window.raakOutsideAddress = function (address) {
+    var ok =
+      (address.indexOf("http://") === 0 && address.length > 7) ||
+      (address.indexOf("https://") === 0 && address.length > 8);
+    if (!ok) return "start";
+    return /\s/.test(address) ? "space" : "";
+  };
+
   document.addEventListener("raak-link-save", function (event) {
     var editor = editors[event.detail.editor];
     if (!editor || editor.isDestroyed) return;
@@ -637,6 +926,9 @@
     if ((config.insert || []).indexOf("callout") !== -1) {
       extensions.push(calloutNode(RaakTiptap));
     }
+    if ((config.insert || []).indexOf("cards") !== -1) {
+      extensions = extensions.concat(cardsNodes(RaakTiptap, config, mount.id));
+    }
 
     var editor = new RaakTiptap.Editor({
       element: surface,
@@ -673,6 +965,32 @@
         /* A click outside the text asks nothing. */
       }
     });
+    /* A click on a card selects her and opens her dialog with what she
+       holds; Enter on a selected card does the same for the keyboard. The
+       click's target must be the card herself, as for the button. */
+    var openCard = function (cardPos) {
+      var node = editor.state.doc.nodeAt(cardPos);
+      if (!node || node.type.name !== "card") return;
+      editor.chain().focus().setNodeSelection(cardPos).run();
+      announce("raak-card-choose", { editor: mount.id, attrs: node.attrs, pos: cardPos, mode: "edit" });
+    };
+    surface.addEventListener("click", function (event) {
+      var kaart = event.target.closest ? event.target.closest("[data-card]") : null;
+      if (!kaart) return;
+      try {
+        openCard(editor.view.posAtDOM(kaart, 0));
+      } catch (error) {
+        /* A click outside the text asks nothing. */
+      }
+    });
+    surface.addEventListener("keydown", function (event) {
+      if (event.key !== "Enter") return;
+      var here = selectedCard(editor);
+      if (!here) return;
+      event.preventDefault();
+      event.stopPropagation();
+      openCard(here.pos);
+    }, true);
     editors[mount.id] = editor;
     if (input) {
       /* Only a real edit writes: the editor's start is the server's own

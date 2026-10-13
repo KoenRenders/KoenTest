@@ -208,12 +208,9 @@ def refused_setup(setup):
         page_id=page.id,
         language="nl",
         title="Geweigerd",
-        # A node the schema knows but the renderer does not walk (`form`,
-        # a later phase's shape — not in RENDERABLE): the original pin
-        # (review S6 of 12 October 2026). The button RENDERED since phase
-        # 2's first slice (#1679), so she no longer refuses; `form` keeps
-        # the door this test pins shut on a valid shape the public page
-        # cannot take down.
+        # A node the schema refuses: `form`, the embedded form block that
+        # was dropped (Koen, 12 October 2026) — what a row written by an
+        # older build can hold.
         draft_json={
             "type": "doc",
             "content": [{"type": "form", "attrs": {"form_id": 1}}],

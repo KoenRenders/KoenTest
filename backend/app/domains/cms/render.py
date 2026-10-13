@@ -474,11 +474,15 @@ def _inline_html(nodes: "list[dict] | None") -> str:
 
 
 def _blocks_html(
-    blocks: "list[dict] | None", cell: bool = False, preview: bool = False, db=None
+    blocks: "list[dict] | None",
+    cell: bool = False,
+    preview: bool = False,
+    db=None,
+    late: "list[str] | None" = None,
 ) -> str:
     parts = []
     for node in blocks or []:
-        parts.append(_block_html(node, cell, preview, db))
+        parts.append(_block_html(node, cell, preview, db, late))
     # A cell or a list item holds bare paragraphs (no <p>); Enter in a cell
     # is the author's own line break — blocks joined with nothing ran her
     # lines together on the site (review B1, #1770). Outside a cell the
@@ -486,7 +490,13 @@ def _blocks_html(
     return "<br>".join(parts) if cell else "".join(parts)
 
 
-def _block_html(node: dict, cell: bool = False, preview: bool = False, db=None) -> str:
+def _block_html(
+    node: dict,
+    cell: bool = False,
+    preview: bool = False,
+    db=None,
+    late: "list[str] | None" = None,
+) -> str:
     kind = node["type"]
     content = node.get("content")
 
@@ -577,8 +587,10 @@ def _block_html(node: dict, cell: bool = False, preview: bool = False, db=None) 
             cls = "prose-columns"
             if align == "middle":
                 cls += " prose-columns--middle"
-            return f'<div class="{cls}">{_blocks_html(content, preview=preview, db=db)}</div>'
-        return f'<div class="prose-column">{_blocks_html(content, preview=preview, db=db)}</div>'
+            inner = _blocks_html(content, preview=preview, db=db, late=late)
+            return f'<div class="{cls}">{inner}</div>'
+        inner = _blocks_html(content, preview=preview, db=db, late=late)
+        return f'<div class="prose-column">{inner}</div>'
 
     if kind == "button":
         return _button_html(node, preview=preview, db=db)
@@ -593,6 +605,19 @@ def _block_html(node: dict, cell: bool = False, preview: bool = False, db=None) 
         if not words.strip():
             return ""
         return f'<div class="prose-callout">{words}</div>'
+
+    if kind == "cards":
+        # A card draws an icon — an <svg> the sanitiser would take out — so
+        # the block is built whole, every word of the author's escaped, and
+        # placed AFTER the sanitiser, as the sites cards and the form button
+        # are (#1543, #1567). Here stands only the place it goes to.
+        block = _cards_html(node, preview=preview, db=db)
+        if not block:
+            return ""
+        if late is None:
+            return block
+        late.append(block)
+        return f"<div>{_LATE}{len(late) - 1}{_LATE}</div>"
 
     raise ValueError(f"unknown block node: {kind}")
 
@@ -636,126 +661,171 @@ REFUSED_CLS = (
 )
 
 
-def _button_html(node: dict, preview: bool = False, db=None) -> str:
-    """The kit's button with the author's label and her ONE resolved
-    destination (#1679; Koen, 11 October 2026): a page of the site (a
-    reference that survives a slug change), a form of the tenant, the one
-    application screen of this CR — Lid worden — or an outside address
-    (http(s), already refused at the save). What cannot be reached renders
-    NOTHING on the site — never a button that leads nowhere (A4's one
-    rule, the form button's own, #1567).
+#: The mark of a block that is placed after the sanitiser. Private-use
+#: characters: nothing an author types and nothing the sanitiser changes.
+_LATE = "\ue000cards\ue001"
 
-    The addresses go through `path_for` (#1477/B7): a tenant reached by
-    her path prefix would be sent to the wrong door by a bare one. The
-    form asks forms' own door — `form_button_target` decides whether the
-    form exists and is open, the same door the `{{form:...}}` code uses.
+#: Why a destination cannot be reached, in the words the admin preview shows —
+#: one sentence per block and reason; on the site such a block shows nothing
+#: (A4's one rule).
+_UNREACHABLE = {
+    ("button", "site-block"): _("Deze knop wijst naar een siteblok dat op geen eigen adres staat."),
+    ("button", "page"): _("Deze knop wijst naar een pagina die niet (meer) bestaat."),
+    ("button", "form"): _("Deze knop wijst naar een formulier dat geen inzendingen meer aanneemt."),
+    # No "vereniging": the tenant that meets this sentence is by nature not
+    # always one (review of 12 October 2026).
+    ("button", "screen"): _("Deze knop wijst naar een scherm dat hier niet wordt aangeboden."),
+    ("card", "site-block"): _("Deze kaart wijst naar een siteblok dat op geen eigen adres staat."),
+    ("card", "page"): _("Deze kaart wijst naar een pagina die niet (meer) bestaat."),
+    ("card", "form"): _("Deze kaart wijst naar een formulier dat geen inzendingen meer aanneemt."),
+    ("card", "screen"): _("Deze kaart wijst naar een scherm dat hier niet wordt aangeboden."),
+}
+
+
+def _destination(attrs: dict, db) -> "tuple[str | None, str | None, bool]":
+    """Where a button or a card leads: `(address, None, outside)` — or
+    `(None, reason, False)` when the ONE destination it holds cannot be
+    reached (Koen, 11 October 2026: a page of the site, a reference that
+    survives a slug change; a form of the tenant; the one application screen
+    of this CR, Lid worden; or an outside address, http(s), already refused at
+    the save when it is anything else).
+
+    The addresses go through `path_for` (#1477/B7): a tenant reached by her
+    path prefix would be sent to the wrong door by a bare one. The form asks
+    forms' own door — `form_button_target` decides whether the form exists
+    and is open, the same door the `{{form:...}}` code uses.
     """
-    from app.database import SessionLocal
     from app.domains.forms.api import form_button_target
     from app.ui import path_for
 
+    if attrs.get("page_id") is not None:
+        from app.domains.cms.models import CmsPage
+        from app.domains.cms.service import serves_at_address
+
+        page = (
+            db.query(CmsPage)
+            # The tenant's own listener scopes her (the request sets the
+            # contextvar; a bare session sees every tenant — how the tests
+            # reach the seed).
+            .filter(CmsPage.id == attrs["page_id"], CmsPage.is_published.is_(True))
+            .first()
+        )
+        if page is None:
+            return None, "page", False
+        # The site's own blocks stand at no address of their own (review A2
+        # of 12 October 2026): the page list asks the same
+        # `serves_at_address`, so what the picker offers is exactly what the
+        # resolver resolves.
+        if not serves_at_address(page):
+            return None, "site-block", False
+        return path_for(f"/{page.slug}"), None, False
+    if attrs.get("form_slug"):
+        resolved = form_button_target(db, attrs["form_slug"])
+        if resolved is None:
+            return None, "form", False
+        return resolved[1], None, False
+    if attrs.get("screen"):
+        # The one application screen is mounted behind the membership module
+        # (main.py): for a tenant without her it is not offered in the dialog
+        # and an existing one is unreachable — the same one rule as every
+        # unreachable target (review A3 of 12 October 2026).
+        from app.domains.mdm.api import module_enabled
+        from app.kernel.modules import ModuleCode
+
+        if not module_enabled(ModuleCode.MEMBERSHIP):
+            return None, "screen", False
+        return path_for("/lid-worden"), None, False
+    return attrs.get("href") or "", None, True
+
+
+def _resolved(attrs: dict, db) -> "tuple[str | None, str | None, bool]":
+    """`_destination` with the caller's own session where she has one (the
+    request's, the test's): one link is one query, not a session of her own.
+    Without a caller she opens one, exactly as the form button does."""
+    from app.database import SessionLocal
+
+    if db is not None:
+        return _destination(attrs, db)
+    own_db = SessionLocal()
+    try:
+        return _destination(attrs, own_db)
+    finally:
+        own_db.close()
+
+
+def _unreachable_html(block: str, reason: str) -> str:
+    return f'<span class="{REFUSED_CLS}">{_UNREACHABLE[(block, reason)]}</span>'
+
+
+def _button_html(node: dict, preview: bool = False, db=None) -> str:
+    """The kit's button with the author's label and her ONE resolved
+    destination (#1679). What cannot be reached renders NOTHING on the site —
+    never a button that leads nowhere (A4's one rule, the form button's own,
+    #1567) — and the reason in the admin preview."""
     attrs = node.get("attrs") or {}
     label = escape(attrs.get("label") or "")
     variant = attrs.get("variant") or "secondary"
-    # The caller's own session where she has one (the request's, the test's):
-    # one button is one query, not a session of her own. Without a caller
-    # (the public render path's own conventions) she opens one, exactly as
-    # the form button does.
-    own_db = None
-    if db is None:
-        own_db = SessionLocal()
-        db = own_db
-    try:
-        if attrs.get("page_id") is not None:
-            from app.domains.cms.models import CmsPage
-            from app.domains.cms.service import serves_at_address
+    address, reason, outside = _resolved(attrs, db)
+    if address is None:
+        return _unreachable_html("button", reason or "page") if preview else ""
+    rel = ' rel="noopener noreferrer"' if outside else ""
+    return (
+        f'<a class="prose-button prose-button--{variant}" '
+        f'href="{escape(address, quote=True)}"{rel}>{label}</a>'
+    )
 
-            page = (
-                db.query(CmsPage)
-                # The tenant's own listener scopes her (the request sets
-                # the contextvar; a bare session sees every tenant — how
-                # the tests reach the seed).
-                .filter(
-                    CmsPage.id == attrs["page_id"],
-                    CmsPage.is_published.is_(True),
-                )
-                .first()
-            )
-            # The site's own blocks stand at no address of their own
-            # (review A2 of 12 October 2026): the page list asks the same
-            # `serves_at_address`, so what the picker offers is exactly
-            # what the resolver resolves.
-            if page is not None and not serves_at_address(page):
-                if preview:
-                    return (
-                        f'<span class="{REFUSED_CLS}">'
-                        + _("Deze knop wijst naar een siteblok dat op geen eigen adres staat.")
-                        + "</span>"
-                    )
-                return ""
-            if page is None:
-                # A4's one rule: nothing on the site, the words in the
-                # admin preview (the span carries the look's own class).
-                if preview:
-                    return (
-                        f'<span class="{REFUSED_CLS}">'
-                        + _("Deze knop wijst naar een pagina die niet (meer) bestaat.")
-                        + "</span>"
-                    )
-                return ""
-            return (
-                f'<a class="prose-button prose-button--{variant}" '
-                f'href="{escape(path_for(f"/{page.slug}"), quote=True)}">{label}</a>'
-            )
-        if attrs.get("form_slug"):
-            resolved = form_button_target(db, attrs["form_slug"])
-            if resolved is None:
-                if preview:
-                    return (
-                        f'<span class="{REFUSED_CLS}">'
-                        + _(
-                            "Deze knop wijst naar een formulier dat geen inzendingen meer aanneemt."
-                        )
-                        + "</span>"
-                    )
-                return ""
-            _title, form_path = resolved
-            return (
-                f'<a class="prose-button prose-button--{variant}" '
-                f'href="{escape(form_path, quote=True)}">{label}</a>'
-            )
-        if attrs.get("screen"):
-            # The one application screen is mounted behind the membership
-            # module (main.py): for a tenant without her the button is not
-            # offered in the dialog and an existing one is unreachable —
-            # the same one rule as every unreachable target (review A3 of
-            # 12 October 2026).
-            from app.domains.mdm.api import module_enabled
-            from app.kernel.modules import ModuleCode
 
-            if not module_enabled(ModuleCode.MEMBERSHIP):
-                if preview:
-                    return (
-                        f'<span class="{REFUSED_CLS}">'
-                        # No "vereniging": the tenant that meets this
-                        # sentence is by nature not always one (review of
-                        # 12 October 2026).
-                        + _("Deze knop wijst naar een scherm dat hier niet wordt aangeboden.")
-                        + "</span>"
-                    )
-                return ""
-            return (
-                f'<a class="prose-button prose-button--{variant}" '
-                f'href="{escape(path_for("/lid-worden"), quote=True)}">{label}</a>'
-            )
-        href = attrs.get("href") or ""
-        return (
-            f'<a class="prose-button prose-button--{variant}" '
-            f'href="{escape(href, quote=True)}" rel="noopener noreferrer">{label}</a>'
+def _cards_html(node: dict, preview: bool = False, db=None) -> str:
+    """A block of link cards (C4.9, C4.13): layout, not data. How many stand
+    in a row is the look's own rule, read from the block (`build-css.sh`). A
+    card whose destination cannot be reached is left out on the site and shows
+    its reason in the admin preview; a block with no card left renders
+    nothing."""
+    cards = [
+        html
+        for html in (_card_html(card, preview, db) for card in node.get("content") or [])
+        if html
+    ]
+    if not cards:
+        return ""
+    return f'<div class="prose-cards">{"".join(cards)}</div>'
+
+
+def _card_html(node: dict, preview: bool = False, db=None) -> str:
+    """One card: the whole card is the link (the title's link is stretched
+    over it by the look's rules), so there is one link and no nested one."""
+    from app.domains.media.api import media_url
+    from app.ui.kit.icons import icon_paths
+
+    attrs = node.get("attrs") or {}
+    address, reason, outside = _resolved(attrs, db)
+    if address is None:
+        return _unreachable_html("card", reason or "page") if preview else ""
+    top = ""
+    if attrs.get("media_id") is not None:
+        # Decorative: the title beside it is the link's name.
+        top = (
+            f'<img class="prose-card-picture" src="{media_url(attrs["media_id"])}" '
+            'alt="" loading="lazy">'
         )
-    finally:
-        if own_db is not None:
-            own_db.close()
+    elif attrs.get("icon") in icon_paths():
+        top = (
+            '<span class="prose-card-icon" aria-hidden="true">'
+            '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+            'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
+            f'stroke-linejoin="round">{icon_paths()[attrs["icon"]]}</svg></span>'
+        )
+    rel = ' rel="noopener noreferrer"' if outside else ""
+    title = (
+        f'<a class="prose-card-title" href="{escape(address, quote=True)}"{rel}>'
+        f"{escape(attrs.get('title') or '')}</a>"
+    )
+    line = (
+        f'<span class="prose-card-line">{escape(attrs["line"])}</span>' if attrs.get("line") else ""
+    )
+    labels = [escape(label) for label in attrs.get("labels") or [] if label.strip()]
+    marks = f'<span class="prose-card-labels">{" · ".join(labels)}</span>' if labels else ""
+    return f'<div class="prose-card">{top}{title}{line}{marks}</div>'
 
 
 def render_document(
@@ -780,8 +850,15 @@ def render_document(
         document = json.loads(document)
     if target == "text":
         return _document_text(document, db)
-    html = _blocks_html(document.get("content") or [], preview=preview, db=db) if document else ""
+    late: list[str] = []
+    html = (
+        _blocks_html(document.get("content") or [], preview=preview, db=db, late=late)
+        if document
+        else ""
+    )
     html = sanitize_cms_html(html) or ""
+    for index, block in enumerate(late):
+        html = html.replace(f"<div>{_LATE}{index}{_LATE}</div>", block)
     if on_page:
         html = headings_one_level_down(html)
     for code, value in _values().items():
@@ -853,13 +930,15 @@ def _document_text(document, db=None) -> str:
             words = _inline_text(content)
             if words:
                 lines.append(words)
-        elif kind in ("button", "linkCard", "card", "cards"):
+        elif kind in ("button", "card", "cards"):
             attrs = node.get("attrs") or {}
             words = " ".join(
-                str(attrs.get(k, "")) for k in ("heading", "label", "title", "line") if attrs.get(k)
+                str(attrs.get(k, "")) for k in ("label", "title", "line") if attrs.get(k)
             )
             if words:
                 lines.append(words)
+            for child in content:
+                walk(child)
 
     def _inline_text(nodes: list) -> str:
         words = []
