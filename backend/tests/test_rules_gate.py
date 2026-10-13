@@ -22,7 +22,7 @@ gates below them.
 | events, not calls | ratchet | a call into another domain's command (an export that writes) outside a `@subscribe` function |
 | no rule in a router | ratchet, **a reason per entry** | an `if` that refuses in a router or screen, the doorman's own refusals aside |
 | one entrance rule | (a) **hard**; (b), (c) ratchets | (a) aggregates mapped, with their own `check()`; (b) writes in a router, screen or handler; (c) writes past the ORM |
-| one owner per derived value | ratchet | a registered value's shape computed outside its owner (Python only) |
+| one owner per derived value | ratchet; two values may share a shape (#1970) | a registered value's shape computed outside its owner, or in an owner over another value's domain (Python only) |
 | promise kept | two ratchets (**not kept is empty**) | template `required`/`pattern`/`min` walked to a kept column; the unwalkable ones with the step where they stop |
 
 An *event handler* is a `@subscribe` function, wherever it stands (§B4.9): a
@@ -58,6 +58,7 @@ import functools
 import re
 import textwrap
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -2398,12 +2399,117 @@ def _owner_functions(value) -> set[tuple[Path, str]]:
     return {(p, fn.name) for p, _t, fn, _via in _reachable(path, tree, function) if p == path}
 
 
+def _loops_around(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> set[str]:
+    """What an expression reads, by the loops around it (#1970): the names of the
+    iterables of the comprehensions and `for` statements it stands in, and its own
+    names — `i.quantity * i.price for i in registration.items` reads `registration`
+    and `items` besides `i`, `quantity` and `price`."""
+    names = _names_in(node)
+    child, parent = node, parents.get(node)
+    while parent is not None and not isinstance(
+        parent, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+    ):
+        if isinstance(parent, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
+            for generator in parent.generators:
+                names |= _names_in(generator.iter)
+        elif isinstance(parent, (ast.For, ast.AsyncFor)) and child in parent.body:
+            names |= _names_in(parent.iter)
+        child, parent = parent, parents.get(parent)
+    return names
+
+
+def _reads_the_lines_of(names: set[str], value_name: str) -> bool:
+    """Does an expression read the lines of the domain a value belongs to: a name
+    that is the value's subject, its plural, or begins with it (`registration`,
+    `registrations`, `registration_items`) — the subject being what stands before
+    the dot of the value's name (`registration.total`). By name and not by type: the
+    limit is named in the docstring of `derived_value_elsewhere`."""
+    subject = re.escape(value_name.split(".")[0].lower())
+    return any(re.match(rf"{subject}(s|_|$)", name.lower()) for name in names)
+
+
+def derived_value_elsewhere(values, shapes, owners, trees, rel) -> dict[str, str]:
+    """A second computation of a registered derived value → key `file::function →
+    value`, message (§B9.3, *one owner per derived value*). The core of the rule,
+    on `trees` of its own, so that it can be proven on a small world (#1970).
+
+    **Values may share a shape** (quantity × price is a registration's total and, in
+    the shop, an order's): the gate tells them apart by WHERE the computation stands,
+    not by narrowing a shape. A computation of a shape is allowed in the owner function
+    (and what the owner calls in its own module: `owners`) of any value that has that
+    shape; anywhere else it is a second computation, and the message names every value
+    it could have been. Nothing is narrowed: with one value of a shape, the rule is what
+    it was.
+
+    **A domain does not compute another domain's value through the shared shape.** In
+    the owner of one value, a computation that READS the lines of another value's
+    domain — an iterable or an expression with a name that is that value's subject
+    (`registration.items`, `registrations`, `registration_lines`) — is a second
+    computation of THAT value, refused naming it. The gate cannot see through a rename
+    (`rows = reg.items` and then `for i in rows`), a context handed in under a neutral
+    name, or the lines of another domain fetched by a call in another module; those pass,
+    and the review of the pull request reads for them. Python only: a template that
+    computes is not walked — say so, do not assume it is clean.
+    """
+    by_shape: dict[Any, list[str]] = {}
+    for name, shape in shapes.items():
+        by_shape.setdefault(shape, []).append(name)
+    # A shape that does not even recognise its owner looks nowhere (#678).
+    for name, shape in shapes.items():
+        assert any(
+            shape(n)
+            for path, fn_name in owners[name]
+            for fn in [_module_functions(trees[path]).get(fn_name)]
+            if fn is not None
+            for n in _own_nodes(fn)
+        ), f"the shape of {name} does not match its own owner — the gate is blind to it"
+    found: dict[str, str] = {}
+    for path, tree in trees.items():
+        qualified = _enclosing(tree)
+        parents: dict[ast.AST, ast.AST] | None = None
+        for function in ast.walk(tree):
+            if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for shape, names in by_shape.items():
+                hit = next((n for n in _own_nodes(function) if shape(n)), None)
+                if hit is None:
+                    continue
+                fn = qualified.get(function, function.name)
+                mine = [n for n in names if (path, function.name) in owners[n]]
+                if not mine:
+                    could = sorted(names)
+                    owners_said = " and ".join(f"`{values[n].today}`" for n in could)
+                    label = " or ".join(f"`{n}`" for n in could)
+                    found.setdefault(
+                        f"{rel(path)}::{fn} → {', '.join(could)}",
+                        f"{rel(path)}:{hit.lineno} `{fn}` computes {label} a second time — "
+                        f"its owner is {owners_said}; ask it (CR-13 §B9.3)",
+                    )
+                    continue
+                others = [n for n in names if n not in mine]
+                if not others:
+                    continue
+                if parents is None:
+                    parents = {c: p for p in ast.walk(tree) for c in ast.iter_child_nodes(p)}
+                read = _loops_around(hit, parents)
+                for other in others:
+                    if _reads_the_lines_of(read, other):
+                        found.setdefault(
+                            f"{rel(path)}::{fn} → {other}",
+                            f"{rel(path)}:{hit.lineno} `{fn}` computes `{mine[0]}`'s shape over "
+                            f"the lines of `{other}`'s domain — a second computation of "
+                            f"`{other}`; its owner is `{values[other].today}`; ask it "
+                            "(CR-13 §B9.3)",
+                        )
+    return found
+
+
 # Once per process (CR-29 R7): a ratchet test and the meter both ask it.
 @functools.cache
 def collect_derived_value_elsewhere() -> dict[str, str]:
     """A second computation of a registered derived value outside its owner → key
-    `file::function → value` (§B9.3, *one owner per derived value*). Python only: a
-    template that computes is not walked — say so, do not assume it is clean."""
+    `file::function → value` (§B9.3, *one owner per derived value*); the rule itself
+    is `derived_value_elsewhere`, which may be proven on a world of its own."""
     from app.kernel import rules
 
     values = rules.derived_values()
@@ -2412,34 +2518,11 @@ def collect_derived_value_elsewhere() -> dict[str, str]:
         f"{sorted(set(values) ^ set(DERIVED_SHAPES))}"
     )
     owners = {name: _owner_functions(value) for name, value in values.items()}
-    # A shape that does not even recognise its owner looks nowhere (#678).
-    for name, shape in DERIVED_SHAPES.items():
-        assert any(
-            shape(n)
-            for path, fn_name in owners[name]
-            for fn in [_module_functions(_tree(path)).get(fn_name)]
-            if fn is not None
-            for n in _own_nodes(fn)
-        ), f"the shape of {name} does not match its own owner — the gate is blind to it"
-    found: dict[str, str] = {}
-    for path in _python_files():
-        tree = _tree(path)
-        qualified = _enclosing(tree)
-        for function in ast.walk(tree):
-            if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            for name, shape in DERIVED_SHAPES.items():
-                if (path, function.name) in owners[name]:
-                    continue
-                hit = next((n for n in _own_nodes(function) if shape(n)), None)
-                if hit is not None:
-                    fn = qualified.get(function, function.name)
-                    found.setdefault(
-                        f"{_rel(path)}::{fn} → {name}",
-                        f"{_rel(path)}:{hit.lineno} `{fn}` computes `{name}` a second time — "
-                        f"its owner is `{values[name].today}`; ask it (CR-13 §B9.3)",
-                    )
-    return found
+    trees = {path: _tree(path) for path in _python_files()}
+    for name in values:
+        for path, _fn in owners[name]:
+            trees.setdefault(path, _tree(path))
+    return derived_value_elsewhere(values, DERIVED_SHAPES, owners, trees, _rel)
 
 
 # ── 14. Promise kept (two ratchets: not kept, and not walkable with a reason) ─
@@ -3324,6 +3407,164 @@ def test_one_owner_per_derived_value():
     `sum(i.quantity * i.product.price for i in items)` → red, "computes
     `registration.total` a second time"."""
     _hard("DERIVED_ELSEWHERE")
+
+
+# #1970 — two values may share one shape; the gate tells them apart by where the
+# computation stands. Proven on a small world of its own (the shop's `order.total`
+# is not on master: `scratch.total` has its shape and its own owner module).
+
+_OWNER_OF_REGISTRATION = "registration_owner.py"
+_OWNER_OF_SCRATCH = "scratch_owner.py"
+_A_THIRD_PLACE = "elsewhere.py"
+_TOTAL_OF_LINES = "sum(l.quantity * l.price for l in {lines})"
+
+
+_ITS_OWN = {
+    "registration": _TOTAL_OF_LINES.format(lines="registration.items"),
+    "scratch": _TOTAL_OF_LINES.format(lines="scratch.lines"),
+}
+
+
+def _derived_world(registration=None, scratch=None, elsewhere="pass", *, both=True):
+    """A world of three files: the owner of `registration.total`, the owner of a scratch
+    value of the same shape (unless `both` is off) and a third place. Each owner computes
+    over its own lines unless a test says otherwise — a shape must recognise its owner."""
+    registration = registration or _ITS_OWN["registration"]
+    scratch = scratch or _ITS_OWN["scratch"]
+    from app.kernel import rules
+
+    registration_owner = textwrap.dedent(
+        f"""
+        def compute_registration_total(registration):
+            {registration}
+        """
+    )
+    scratch_owner = textwrap.dedent(
+        f"""
+        def compute_scratch_total(scratch, registration):
+            {scratch}
+        """
+    )
+    third = textwrap.dedent(
+        f"""
+        def report(registration):
+            {elsewhere}
+        """
+    )
+    values = {
+        "registration.total": rules.DerivedValue(
+            "registration.total",
+            "app.domains.activities.totals.compute_registration_total",
+            "x",
+            1,
+        )
+    }
+    shapes = {"registration.total": _is_total_shape}
+    owners = {"registration.total": {(_OWNER_OF_REGISTRATION, "compute_registration_total")}}
+    trees = {
+        _OWNER_OF_REGISTRATION: ast.parse(registration_owner),
+        _A_THIRD_PLACE: ast.parse(third),
+    }
+    if both:
+        values["scratch.total"] = rules.DerivedValue(
+            "scratch.total", "app.domains.scratch.totals.compute_scratch_total", "x", 1
+        )
+        shapes["scratch.total"] = _is_total_shape
+        owners["scratch.total"] = {(_OWNER_OF_SCRATCH, "compute_scratch_total")}
+        trees[_OWNER_OF_SCRATCH] = ast.parse(scratch_owner)
+    return derived_value_elsewhere(values, shapes, owners, trees, str)
+
+
+def test_each_owner_computes_its_own_value_in_its_own_domain():
+    """Both owners compute quantity × price, each over its own lines: green."""
+    owns = _derived_world(registration=_ITS_OWN["registration"], scratch=_ITS_OWN["scratch"])
+    assert owns == {}, owns
+
+
+def test_a_third_place_is_refused_and_the_message_names_both_values():
+    """Broken on purpose: the `not mine` branch made to answer only for the first
+    candidate → the key and the message name one value and this fails."""
+    found = _derived_world(elsewhere=_TOTAL_OF_LINES.format(lines="registration.items"))
+    assert list(found) == [f"{_A_THIRD_PLACE}::report → registration.total, scratch.total"], found
+    message = next(iter(found.values()))
+    assert "`registration.total` or `scratch.total`" in message
+    assert "app.domains.activities.totals.compute_registration_total" in message
+    assert "app.domains.scratch.totals.compute_scratch_total" in message
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "i.quantity * i.product.price",
+        "i.quantity * i.product.member_price",
+        "i.quantity * i.product.unit_price",
+    ],
+    ids=["price", "member price", "unit price"],
+)
+def test_registration_total_stays_guarded_in_every_form_when_a_second_value_shares_the_shape(
+    expression,
+):
+    """The forms the file's own proofs use, in a place that is not the owner: refused
+    with a second value registered, and refused with the registration's alone."""
+    for both in (True, False):
+        found = _derived_world(
+            elsewhere=f"return sum({expression} for i in registration.items)", both=both
+        )
+        assert len(found) == 1 and "registration.total" in next(iter(found)), (both, found)
+
+
+def test_with_one_value_of_a_shape_the_rule_and_its_message_are_what_they_were():
+    found = _derived_world(elsewhere=_TOTAL_OF_LINES.format(lines="registration.items"), both=False)
+    assert found == {
+        f"{_A_THIRD_PLACE}::report → registration.total": (
+            f"{_A_THIRD_PLACE}:3 `report` computes `registration.total` a second time — its owner "
+            "is `app.domains.activities.totals.compute_registration_total`; ask it (CR-13 §B9.3)"
+        )
+    }, found
+
+
+@pytest.mark.parametrize(
+    "lines",
+    ["registration.items", "registrations", "registration_lines", "self.registration.items"],
+)
+def test_a_domain_does_not_compute_another_domains_value_through_the_shared_shape(lines):
+    """The scratch owner computing quantity × price over a registration's lines is a
+    second computation of `registration.total`: refused, naming it."""
+    found = _derived_world(scratch=_TOTAL_OF_LINES.format(lines=lines))
+    assert list(found) == [f"{_OWNER_OF_SCRATCH}::compute_scratch_total → registration.total"]
+    assert "over the lines of `registration.total`'s domain" in next(iter(found.values()))
+
+
+def test_the_registration_owner_reading_another_domains_lines_is_refused_too():
+    found = _derived_world(registration=_TOTAL_OF_LINES.format(lines="scratch.lines"))
+    assert list(found) == [
+        f"{_OWNER_OF_REGISTRATION}::compute_registration_total → scratch.total"
+    ], found
+
+
+def test_a_name_that_only_contains_the_subject_is_not_the_subject():
+    """`sort_order`, `reorder_lines` and `registered` are not `registration`/`order`:
+    the subject must begin the name."""
+    assert not _reads_the_lines_of({"sort_order", "reorder_lines", "registered"}, "order.total")
+    assert not _reads_the_lines_of({"preregistration"}, "registration.total")
+    assert _reads_the_lines_of({"orders"}, "order.total")
+    assert _reads_the_lines_of({"order_lines"}, "order.total")
+
+
+def test_the_limit_the_gate_names_a_renamed_name_passes():
+    """Named in `derived_value_elsewhere`: the gate reads names, not types. The scratch
+    owner reading a registration's lines under another name is not seen. This test
+    holds the limit where it is, so that a change to it is a decision."""
+    renamed = (
+        "rows = registration.items\n            return sum(l.quantity * l.price for l in rows)"
+    )
+    assert _derived_world(scratch=renamed) == {}
+
+
+def test_a_shape_that_does_not_recognise_its_owner_is_blind_and_says_so():
+    """Broken on purpose, additively: an owner that computes nothing of the shape."""
+    with pytest.raises(AssertionError, match="the gate is blind to it"):
+        _derived_world(registration="return 1")
 
 
 @pytest.mark.parametrize(
