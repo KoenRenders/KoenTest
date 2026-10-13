@@ -1,4 +1,6 @@
-"""#1287 — one product row for registering, adding and editing; a counter everywhere.
+"""Refuses a second product row, a `type="number"` field or a line amount in the activity templates · hard · since #1287.
+
+#1287 — one product row for registering, adding and editing; a counter everywhere.
 
 There were two rows with their own markup, and they drifted: the edit screen had a
 line amount and a `type="number"` field (browser arrows, invisible on iOS), the

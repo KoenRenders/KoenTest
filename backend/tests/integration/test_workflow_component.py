@@ -182,12 +182,11 @@ def test_werkbank_deep_link_full_page(client, db_session):
     )
     task = db_session.query(WorkflowTask).order_by(WorkflowTask.id.desc()).first()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
-    # Zonder HX-Request → volledige pagina (deep-link).
+    # The task is a page of its own (deep link). Since #1931 it is the record
+    # layout and nothing loads it as a fragment any more.
     page = client.get(f"/admin/werkbank/taken/{task.id}")
     assert page.status_code == 200 and "<html" in page.text and "Werkbank" in page.text
-    # Met HX-Request → fragment.
-    frag = client.get(f"/admin/werkbank/taken/{task.id}", headers={"HX-Request": "true"})
-    assert "<html" not in frag.text
+    assert "data-record-head" in page.text
 
 
 def test_werkbank_gegroepeerde_filter(client, db_session):
@@ -310,15 +309,29 @@ def test_werkbank_pollend_fragment_bevat_de_filter_niet(client, db_session):
     assert 'type="search"' not in fragment
     pagina = client.get("/admin/werkbank").text
     assert 'type="search"' in pagina
-    # De polling stuurt zoek én filters mee, anders wist ze het filter alsnog.
-    # Op de namen toetsen en niet op de exacte string: sinds #674 hoort `status`
-    # er ook bij (Open/Afgehandeld/Alle), en die zou de polling anders elke 30 s
-    # terugzetten op Open.
-    import re
+    # The poll keeps the search and the filters: since #1931 the list's state
+    # lives in the address, and the poll reads it from there (`filterparams`) —
+    # asked here as htmx asks it, with the page's address in `HX-Current-URL`.
+    assert 'hx-get="/admin/werkbank/lijst"' in pagina and 'hx-trigger="every 30s"' in pagina
+    from app.domains.workflow.api import create_task
 
-    m = re.search(r'hx-include="([^"]+)"', pagina)
-    assert m, "de polling stuurt geen filterwaarden mee"
-    for naam in ("kind", "q", "status"):
-        assert f"[name='{naam}']" in m.group(1), (
-            f"de polling stuurt {naam} niet mee — dat filter wordt om de 30 s gewist"
+    for title, job in (("Blijft staan", "1"), ("Valt weg", "2")):
+        create_task(
+            db_session,
+            kind="kernel.job_gefaald",
+            title=title,
+            subject_type="kernel_job",
+            subject_id=job,
+            required_role="ADMIN",
         )
+    db_session.commit()
+    polled = client.get(
+        "/admin/werkbank/lijst",
+        headers={
+            "HX-Request": "true",
+            "HX-Current-URL": "http://testserver/admin/werkbank?q=Blijft",
+        },
+    ).text
+    assert "Blijft staan" in polled and "Valt weg" not in polled, (
+        "de polling wist de zoekopdracht — de lijst toont weer alles"
+    )

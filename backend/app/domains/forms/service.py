@@ -1651,6 +1651,27 @@ def submission_url(db, submission_id) -> str | None:
     return f"/admin/formulieren/{inzending.form_id}/inzendingen"
 
 
+def submission_subjects(db, submission_ids) -> dict[str, dict]:
+    """{submission id: what a workbench task about it shows} (#1931) — the
+    form's name and the submission's number — for many submissions in one read;
+    one that is not this tenant's or is gone has no entry. The answers
+    themselves are `submission_view`'s."""
+    from sqlalchemy.orm import selectinload
+
+    from app.domains.forms.models import FormSubmission
+
+    ids = sorted({int(i) for i in submission_ids if str(i).isdigit()})
+    if not ids:
+        return {}
+    return {
+        str(s.id): {"form": s.form.title if s.form is not None else "", "number": s.id}
+        for s in db.query(FormSubmission)
+        .options(selectinload(FormSubmission.form))
+        .filter(FormSubmission.id.in_(ids))
+        .all()
+    }
+
+
 # ── A form attached to an activity's component (CR-14 phase 2) ────────────────
 # `forms` learns nothing about activities: it answers whether a form CAN be asked
 # on a registration page, and stores the answers it is given. Which component asks

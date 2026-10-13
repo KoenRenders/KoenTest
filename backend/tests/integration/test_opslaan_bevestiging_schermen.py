@@ -195,6 +195,6 @@ def test_de_tenant_editor_openen_bevestigt_niets(client, db_session):
     hdr = _login(client)
     tenant = list_units(db_session, alleen_actief=False)[0]
 
-    resp = client.get(f"/admin/tenants/{tenant.id}", headers=hdr)
+    resp = client.get(f"/admin/tenants/{tenant.id}?bewerken=1", headers=hdr)
 
     assert OOB not in resp.text

@@ -1,4 +1,6 @@
-"""Gate: no conflict marker survives a merge into a template, script or style.
+"""Refuses a conflict marker left in a template, script or style after a merge · hard · since #1770.
+
+Gate: no conflict marker survives a merge into a template, script or style.
 
 The merge of `master` (CR-11's roll-out) into CR-17's branch left the line
 `>>>>>>> origin/master` in `app/ui/templates/design_system.html`, and the kit

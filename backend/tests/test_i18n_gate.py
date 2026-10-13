@@ -1,4 +1,6 @@
-"""Lint-gate taalbeleid (#407-T): nieuwe gebruikersteksten moeten door _().
+"""Refuses a user-facing `HTTPException` detail or mail subject written as a string literal outside `_()` · hard · since #407.
+
+Lint-gate taalbeleid (#407-T): nieuwe gebruikersteksten moeten door _().
 
 AST-check: elke HTTPException(..., detail=<string-literal>) en elk
 subject=<string-literal> in de mail-service moet een _()-aanroep zijn.

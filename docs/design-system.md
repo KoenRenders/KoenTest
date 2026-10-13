@@ -449,8 +449,9 @@ medium, above), control (40 px, 44 on a phone, radius 6), help (13 px) and
 error (under the control, in the danger tone, the border coloured) in one
 block; `required` marks the label with the red asterisk; **the kind decides
 the width** — `url`, `email`, `textarea` and rich text always full, `number`,
-`date`, `time`, a code, a short `select` and `switch` half or quarter, `text`
-half unless long; a template may widen a short field and never narrow a long
+`date`, `time`, a code, a short `select`, `switch` and a colour (`color`,
+since #1933) half or quarter, `text` half unless long; a `secret` (#1933) is
+a short field typed as a password, given no value by its screen; a template may widen a short field and never narrow a long
 one. A section is one card per meaningful section, never a nested card,
 16 px from its heading to the first field, 16 px between sections (32 px
 until #1899); fields
@@ -607,6 +608,24 @@ superseded on every screen that moves to the layout:
   shows the balance under the amount when it differs (`ui.amount(value,
   balance=…)`, #1582: "nog € 20,00", "terug € 5,00"; nothing extra when fully
   open or settled). The embedded payment tabs follow.
+- **A row's one action may be a link (#1931).** Where the next step of a row
+  is another screen — a workbench task that is handled on its subject's own
+  page — `ui.row_actions_cell` takes `{label, href}` and draws a link with the
+  button's look; a step that is done in place stays `{label, attrs}`. Koen, 12
+  October 2026: "ofwel behartig je het, omdat het een manuele stap is die je
+  puur in de werkbank moet afvinken. Maar als het effectief een vervolgstap
+  is, dan wil ik wel dat je … vanuit de lijst direct naartoe gaat."
+- **The Werkbank (#1931)** is a `list_page`: the figures Open · Vandaag ·
+  Ouder dan een week, the segments Open · Afgehandeld · Alle, Filters with the
+  kind and the role, and the kit's table — the task with what it is about
+  under it, its kind, when it was made, how long it stands open, its status,
+  its role, and **the kind's own next step** as the row's one action. The
+  list polls every 30 s; the toolbar stands outside the polled fragment and
+  the poll reads the list's state from the address. A task is a record:
+  Onderwerp as facts, Besluit as its edit state ("Afhandelen" opens the
+  decision, "Afgehandeld" is the one save); a task whose subject has a screen
+  of its own is a signpost — no decision, the primary goes there (#822). A
+  task is for one role, on the list, on the record and for handling it alike.
 - **Every column stands at its own width, packed left, and the last column
   takes the rest (#1927).** Koen, 12 October 2026, on a list at 1 920 px:
   "vooral alles naar links", and "Kunnen we die kolom status niet, als er nog

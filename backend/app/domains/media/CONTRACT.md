@@ -1,9 +1,15 @@
 # media — capaciteitscontract (fase 4c, #404)
 
+## Purpose and process
+
 **Doel.** Opslag en levering van media (sponsors, foto's, affiches,
 reglementen) + tekst-extractie voor de ai-context.
 
-## Facade (`api.py`)
+*Process.* None of its own: the pictures and documents of A2.2 (an activity's poster and photos), A2.4.2 (a letter's pictures), A2.4.3 (a page's pictures) and A2.4.5 (a poster's images and renders) are stored and served here. Aggregate: `MediaAsset`, with its tags and thumbs-up.
+
+## Publishes
+
+### Facade (`api.py`)
 
 - `MediaAsset` (model als type), `extract_document_text`,
   `update_media_extracted_text`, `EXTRACTABLE_KINDS`.
@@ -14,33 +20,7 @@ reglementen) + tekst-extractie voor de ai-context.
   `PICKABLE_KINDS`, `KIND_BRANCHES` — what is shown and what may be stored come
   from one condition.
 
-## Soorten (`kind`)
-
-`sponsor`, `activity_photo`, `activity_poster`, `component_info`,
-`newsletter_file`, en sinds #1005 voor CR-10: `design_image` (een beeld ín een
-affiche) en `design_render` (de gerenderde affiche). Wat er via het
-upload-eindpunt binnen mag, staat in `UPLOADABLE_KINDS`; `design_render` wordt
-door de Design Studio zelf gemaakt en daar expliciet geweigerd.
-
-**Elke geüploade afbeelding wordt heropend en opnieuw gecodeerd** — ook een
-`design_image`. Dat is geen verkleining maar een beveiliging: EXIF en
-kleurprofiel gaan eruit, het type komt uit de inhoud, en een bestand dat zich
-als afbeelding voordoet komt er niet doorheen. Sinds #1473 is er één doelmaat voor
-elke soort: 2 400 px aan de lange zijde (`MAX_FULL` in `images.py`), genoeg voor
-een A3-affiche.
-
-## Opslag-adapter
-
-Vandaag: `LargeBinary` in Postgres (`data`/`thumbnail`) — mee in de ene
-backup (§13.1). Een latere object-storage-adapter wisselt achter deze facade
-zonder consumers te raken.
-
-## Data
-
-Schema `media` (migratie 085): `media_assets`. Koppelingen naar activiteiten
-en ai-context zijn soft-refs (§8, gedropt in 081/084).
-
-## Ports this domain offers
+### Ports this domain offers
 
 A port is a synchronous command another domain may ask of media, with an answer
 (`kernel/ports.py`, `docs/architecture.md` §3.2.1 step 2). The contracts stand in
@@ -66,6 +46,8 @@ was read already, the job asks the chatbot (`chatbot.api.has_extracted_text`).
 Not a port: `activity_image_path`, the picture that stands for an activity in a
 letter. It is a read through `api.py` and writes nothing.
 
+*Counted in the code on 13 October 2026:* the facade exports 65 names (37 functions, 13 classes, 15 values); events it owns (`kernel/contracts/`): `DocumentTextExtracted`; ports it offers: `ReadTextAgain`, `RemoveAsset`, `RemoveFileOf`, `StoreFile`.
+
 ## Callers
 
 The JSON routes of this component that exist for a named caller (R14, CR-13 phase
@@ -78,3 +60,62 @@ The JSON routes of this component that exist for a named caller (R14, CR-13 phas
   attachments, the logo).
 - `GET /api/v1/media/{asset_id}/thumb` — the same, for the small rendering of an
   image or of the first page of a PDF.
+
+## Consumes
+
+*Counted in the code on 13 October 2026:* imports the facades of activities, auth, chatbot, cms, designstudio; subscribes to no event; calls no port.
+
+## Owns
+
+### Soorten (`kind`)
+
+`sponsor`, `activity_photo`, `activity_poster`, `component_info`,
+`newsletter_file`, en sinds #1005 voor CR-10: `design_image` (een beeld ín een
+affiche) en `design_render` (de gerenderde affiche). Wat er via het
+upload-eindpunt binnen mag, staat in `UPLOADABLE_KINDS`; `design_render` wordt
+door de Design Studio zelf gemaakt en daar expliciet geweigerd.
+
+**Elke geüploade afbeelding wordt heropend en opnieuw gecodeerd** — ook een
+`design_image`. Dat is geen verkleining maar een beveiliging: EXIF en
+kleurprofiel gaan eruit, het type komt uit de inhoud, en een bestand dat zich
+als afbeelding voordoet komt er niet doorheen. Sinds #1473 is er één doelmaat voor
+elke soort: 2 400 px aan de lange zijde (`MAX_FULL` in `images.py`), genoeg voor
+een A3-affiche.
+
+### Opslag-adapter
+
+Vandaag: `LargeBinary` in Postgres (`data`/`thumbnail`) — mee in de ene
+backup (§13.1). Een latere object-storage-adapter wisselt achter deze facade
+zonder consumers te raken.
+
+### Data
+
+Schema `media` (migratie 085): `media_assets`. Koppelingen naar activiteiten
+en ai-context zijn soft-refs (§8, gedropt in 081/084).
+
+*Counted in the code on 13 October 2026:* schema `media`, 6 tables (4 data, 2 code and label), 3 of them with `tenant_id`; status columns: none; jobs: none.
+
+## Screens
+
+`ui.py`: 3 routes — `/fotos`, `/fotos/{asset_id}` and an activity's photo page; `admin_ui.py`: 10 routes under `/admin/media`.
+
+## Deprecations
+
+None: no part of this contract is in its deprecation cycle.
+
+## Standards
+
+None: no row of part D of the architecture document names this module, and its `models.py` names no standard.
+
+## Rules and gates
+
+- **Rules whose home is this module** — No `@validates` and no `check()` in `models.py`; no `CheckConstraint` there. Its rules stand in its service. The limits of an upload are media's own (`MAX_UPLOAD_BYTES`, the content types per kind); a kind is a row of the code list, held by a foreign key.
+- **Gates in this module's own `tests/`** — none among its 10 test files. The gate about it stands in `backend/tests/`: `test_media_seam_gate.py`.
+
+## Evolutions
+
+Ids of part E of the architecture document, as it stood on 13 October 2026.
+
+- **E11** — an object storage adapter behind this facade and the storage ports: planned, the seam is built (CR-15, v2.13.0).
+- **E25** — the webshop (CR-21): two kinds for a product's pictures; in build, on v2.18.
+- **E34** — parked on v2.19: #1905 (the document door checks the content of an uploaded file).

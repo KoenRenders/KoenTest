@@ -1,36 +1,30 @@
 {% import "_macros.html" as ui %}
-{# Enkel de taken (#592): zoek en filter staan op de pagina, in de
-   kit-filterbalk. Dit fragment wordt elke 30 s gepolld — zou de filter
-   erin zitten, dan sprong je zoekveld om de 30 s leeg. #}
-{% if tasks %}
-<div class="space-y-3">
-  {# C1 (#597): de kaart klikt door naar de full-page taak-editor (werkbank_taak.html),
-     geen inline master-detail-uitklap meer. #}
-  {% for task in tasks %}
-  <a href="/admin/werkbank/taken/{{ task.id }}"
-     class="block bg-white rounded-2xl shadow-sm border border-gray-200 p-4 hover:border-blue-300 hover:shadow transition-colors">
-    <div class="flex items-center justify-between gap-4">
-      <div>
-        <span class="font-semibold">{{ task.title }}</span>
-        <span class="ml-2">{{ ui.badge(kind_labels[task.id], "blue") }}</span>
-        {% if is_done[task.id] %}{{ ui.badge(_("afgehandeld"), "green") }}{% endif %}
-        <span class="ml-2 text-sm text-gray-500">{{ task.created_at|short_datetime }}</span>
-        {# #674: het besluit stond bewaard maar was nergens te zien. Wie en wanneer
-           horen erbij — "afgehandeld" zonder naam is een halve verklaring. #}
-        {% if is_done[task.id] %}
-        <p class="text-sm text-gray-600 mt-1">
-          {% if task.decision %}{{ task.decision }}{% else %}<span class="text-gray-400">{{ _("Geen besluit genoteerd") }}</span>{% endif %}
-        </p>
-        <p class="text-xs text-gray-500 mt-0.5">
-          {{ _("Afgehandeld door") }} {{ task.done_by or "—" }}{% if task.done_at %} · {{ task.done_at|short_datetime }}{% endif %}
-        </p>
-        {% endif %}
-      </div>
-      <span class="{{ ui.btn_class('secondary', 'sm') }}">{{ _("Bekijken") if is_done[task.id] else _("Behartigen") }}</span>
-    </div>
-  </a>
-  {% endfor %}
-</div>
+{# The list of tasks (#1931): one row per task on the kit's table — the title as
+   the way in to the task's record with what it is about under it, the kind,
+   when it was made, how long it stands open, its status, the role it is for,
+   and the kind's own next step as the row's one button (Koen, 12 October 2026:
+   handle it here where that is all there is to do, go straight to the subject
+   where the work is there). This fragment is what the poll and the toolbar
+   swap; the count, the segments' counts and the sort travel out-of-band. #}
+{% if rows %}
+{% call ui.data_table(columns, hx_target="#werkbank-lijst", caption=_("Taken")) %}
+  <tbody>
+    {% for r in rows %}
+    <tr data-row data-task="{{ r.id }}" class="align-middle">
+      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">{{ ui.row_link(r.title, r.href, sub=r.subject or none, sub_mono=False) }}</td>
+      <td data-cell="context" class="border-b border-line px-3 py-2 text-ink-soft">{{ r.kind }}</td>
+      <td data-cell="moment" class="border-b border-line px-3 py-2 whitespace-nowrap text-ink-soft">{{ r.moment }}</td>
+      <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right tabular-nums whitespace-nowrap">{{ r.age }}</td>
+      <td data-cell="status" class="border-b border-line px-3 py-2">{{ ui.badge(r.state.label, r.state.tone) }}</td>
+      <td data-cell="extra" data-p="2" class="border-b border-line px-3 py-2 text-ink-soft">{{ r.role }}</td>
+      <td data-cell="actions" class="border-b border-line px-3 py-2">{{ ui.row_actions_cell(r.action, r.menu, label=r.title) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+{% endcall %}
+{{ ui.pager(page, per_page=per_page, total=total, hx_get=pager_url, hx_target="#werkbank-lijst", count=False, push=True) }}
 {% else %}
-{{ ui.empty_state(_("Geen afgehandelde taken.") if status == "done" else _("Geen open taken — alles is behartigd.")) }}
+{{ ui.empty_state(empty_reason) }}
 {% endif %}
+{# The poll and a row's "Afgehandeld" change the figures too. #}
+{% if oob %}{{ ui.toolbar_oob("werkbank-filter", segments=segments, page=page, per_page=per_page, total=total, sort=sort) }}<div id="list-figures" hx-swap-oob="innerHTML">{{ ui.figures(figures) }}</div>{% endif %}

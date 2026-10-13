@@ -8,6 +8,9 @@
 #
 # The tooling is installed once into .cache/ (git-ignored), never system-wide:
 #   - weasyprint + markdown in a venv — lays the document out on A4;
+#   - pytest in the same venv, only when the document has a `<!-- gates-table -->`
+#     line: the table is built from the gate list of the test suite, and that
+#     module imports pytest (#1953);
 #   - mermaid-cli via npm (Node >= 18) — renders ```mermaid fences to SVG.
 #
 # **Node is only needed when a diagram changed.** The SVGs are cached by content
@@ -34,6 +37,13 @@ if [ ! -d "$CACHE/venv" ]; then
   echo "==> venv met weasyprint + markdown in $CACHE"
   python3 -m venv "$CACHE/venv"
   "$CACHE/venv/bin/pip" install -q "weasyprint>=62" "markdown>=3.5"
+fi
+
+# The gates table reads the list of gates from the test suite itself.
+if grep -q '^<!--[[:space:]]*gates-table' "$DOC" \
+   && ! "$CACHE/venv/bin/python" -c 'import pytest' 2>/dev/null; then
+  echo "==> pytest in $CACHE (the gates table reads the test suite's own list)"
+  "$CACHE/venv/bin/pip" install -q "pytest>=8"
 fi
 
 # Only pay for Node when the document actually draws something.

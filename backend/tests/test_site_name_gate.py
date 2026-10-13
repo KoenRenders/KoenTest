@@ -1,4 +1,6 @@
-"""#1546 — the site names itself through one resolver, never by reading a name.
+"""Refuses a public template reading an organisation's `.name` where the site names itself · hard · since #1546.
+
+#1546 — the site names itself through one resolver, never by reading a name.
 
 `kernel.tenant_config.tenant_display_name` decides a site's name: its own "Naam
 van de site", else the name of the organisation behind it (#1550). The public

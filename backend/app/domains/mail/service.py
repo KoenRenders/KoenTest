@@ -10,7 +10,7 @@ from app.config import settings
 from app.domains.activities.api import compute_registration_total
 from app.domains.mail.models import MailStatus
 from app.i18n import _
-from app.kernel.codes import code_label
+from app.kernel.codes import code_label, code_of
 from app.kernel.phone import readable_phone
 from app.kernel.rules import own_transaction
 
@@ -87,6 +87,27 @@ def email_log_url(db, log_id) -> str | None:
     if log is None or not log.recipient:
         return None
     return f"/admin/e-maillog?recipient={quote(log.recipient)}"
+
+
+def email_log_subjects(db, log_ids) -> dict[str, dict]:
+    """{log id: what a workbench task about that mail shows} (#1931) — to whom
+    it went, its subject line, its status and the last error — for many log
+    lines in one read; one that is not this tenant's or is gone has no entry.
+    Plain values; the workbench words them."""
+    from app.domains.mail.models import EmailLog
+
+    ids = sorted({int(i) for i in log_ids if str(i).isdigit()})
+    if not ids:
+        return {}
+    return {
+        str(log.id): {
+            "recipient": log.recipient or "",
+            "subject": log.subject or "",
+            "status": code_of(log.status),
+            "error": (log.error_message or "")[:500],
+        }
+        for log in db.query(EmailLog).filter(EmailLog.id.in_(ids)).all()
+    }
 
 
 #: The job that sends one finished message (CR-13 phase 4). Its payload is the

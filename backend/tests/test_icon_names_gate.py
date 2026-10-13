@@ -1,4 +1,6 @@
-"""Gate: `app.ui.kit.icons` and the `icon` macro say the same (CR-17, C4.9).
+"""Refuses an icon name that `app.ui.kit.icons` and the `icon` macro do not both know · hard · since #1770.
+
+Gate: `app.ui.kit.icons` and the `icon` macro say the same (CR-17, C4.9).
 
 A card's icon is validated, drawn and offered from `icon_names()` and
 `icon_paths()`, which read the macro's own dict. Nothing here holds a list of

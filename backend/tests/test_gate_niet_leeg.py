@@ -1,4 +1,6 @@
-"""#678 — een gate mag niet groen staan omdat hij nergens kijkt.
+"""Refuses a file-scanning gate that goes green because it scanned nothing, or a gate that bypasses the helper · hard · since #678.
+
+#678 — een gate mag niet groen staan omdat hij nergens kijkt.
 
 Veertien bestandsscannende gate-functies melden wat ze fout vinden. Vinden ze
 niets, dan zijn ze groen — maar "niets gevonden" en "nergens gekeken" zien er
@@ -42,10 +44,51 @@ import pytest
 from tests._bestanden import bestanden
 
 TESTS = Path(__file__).resolve().parent
+BACKEND = TESTS.parent
+
+# ── The one list that means "every gate" (#1952) ─────────────────────────────
+#: A gate is a file of the test suite that holds a rule; the documentation build
+#: (part C2 of the architecture document) reads this list, and
+#: `test_gate_docstring_gate.py` requires the first sentence of each. The set is
+#: found by name — `test_*gate*.py` and `*ratchet*.py` under `tests/`, the same
+#: under `app/domains/*/tests/` — so a new gate joins it by being called one,
+#: and four files that hold a gate without the word in their name are named.
+#: `*gate*` also matches *aggregate*: those two are tests of the CR-13
+#: aggregates, not gates.
+NOT_GATES = frozenset({"test_registration_aggregate.py", "test_payment_record_aggregate.py"})
+NAMED_GATES = (
+    "tests/test_import_boundaries.py",
+    "tests/test_schema_boundaries.py",
+    "tests/test_docs_gating.py",
+    "tests/integration/test_query_budget.py",
+)
+
+
+def gate_paths() -> list[Path]:
+    """Every gate file, absolute and sorted; an empty or too small set is red."""
+    named = [BACKEND / name for name in NAMED_GATES]
+    gone = [name for name, path in zip(NAMED_GATES, named) if not path.exists()]
+    assert not gone, f"a named gate no longer exists: {gone}"
+    found = bestanden(
+        TESTS.glob("test_*gate*.py"),
+        TESTS.glob("*ratchet*.py"),
+        (BACKEND / "app" / "domains").glob("*/tests/*gate*.py"),
+        (BACKEND / "app" / "domains").glob("*/tests/*ratchet*.py"),
+        named,
+        wat="the gates of the test suite (#1952)",
+        minstens=50,
+        met_tests=True,
+    )
+    return [path for path in found if path.name not in NOT_GATES]
+
+
+#: The gates as paths under `backend/`, sorted: the one list for the documentation.
+GATE_BESTANDEN = [path.relative_to(BACKEND).as_posix() for path in gate_paths()]
 
 # De bestanden met bestandsscannende gates. Komt er een gate bij die zelf een glob
-# schrijft, dan faalt test_elke_gate_gebruikt_de_helper hieronder.
-GATE_BESTANDEN = [
+# schrijft, dan faalt test_elke_gate_gebruikt_de_helper hieronder. (Until #1952
+# this list was called GATE_BESTANDEN; that name now means every gate.)
+FILE_SCANNING_GATES = [
     "test_i18n_gate.py",
     "test_layer_gate.py",
     "test_payable_delete_gate.py",
@@ -101,7 +144,7 @@ def test_een_gevulde_verzameling_komt_gesorteerd_en_ontdubbeld_terug():
     assert veel == sorted(veel)
 
 
-@pytest.mark.parametrize("naam", GATE_BESTANDEN)
+@pytest.mark.parametrize("naam", FILE_SCANNING_GATES)
 def test_elke_gate_gebruikt_de_helper(naam):
     """Eén helper in plaats van veertien losse controles — anders KAN de volgende
     gate hem vergeten, en dat is precies de fout die dit issue wegneemt."""
@@ -111,7 +154,7 @@ def test_elke_gate_gebruikt_de_helper(naam):
     )
 
 
-@pytest.mark.parametrize("naam", GATE_BESTANDEN)
+@pytest.mark.parametrize("naam", FILE_SCANNING_GATES)
 def test_geen_gate_scant_nog_rechtstreeks(naam):
     """`rglob`/`glob` mag alleen nog als argument van de helper voorkomen.
 
@@ -142,3 +185,17 @@ def test_geen_gate_scant_nog_rechtstreeks(naam):
         f"{naam} scant rechtstreeks op regel {los} — die verzameling valt buiten "
         "de niet-leeg-controle (#678)"
     )
+
+
+def test_the_list_of_gates_is_whole():
+    """#1952: the one list that means "every gate" holds the 58 files of
+    13 October 2026 — the 53 found by name, the four named, and the gate that
+    checks their first sentence — and not the two `*aggregate*` tests."""
+    assert len(GATE_BESTANDEN) >= 58, f"the list holds only {len(GATE_BESTANDEN)} gates"
+    assert GATE_BESTANDEN == sorted(GATE_BESTANDEN)
+    for name in NAMED_GATES:
+        assert name in GATE_BESTANDEN, f"{name} is named but not in the list"
+    for gate in ("tests/test_gate_niet_leeg.py", "tests/test_gate_docstring_gate.py"):
+        assert gate in GATE_BESTANDEN, f"{gate} checks gates and is one itself"
+    assert not any(Path(name).name in NOT_GATES for name in GATE_BESTANDEN)
+    assert all((BACKEND / name).is_file() for name in GATE_BESTANDEN)

@@ -1,4 +1,6 @@
-"""The document-editor gates (CR-17 phase 1, #1671, slice 2; C6 tests 3 and 14).
+"""Refuses a second copy of the document editor outside its one macro, and a bundle that is not vendored and pinned · hard · since #1671.
+
+The document-editor gates (CR-17 phase 1, #1671, slice 2; C6 tests 3 and 14).
 
 Three rules, each with a reason, proven by violations made during the build
 (named in the docstrings; the proof was additive — a throwaway template

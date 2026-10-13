@@ -1,4 +1,6 @@
-"""CR-13 R15 and §B9.3 — every test file sits where its imports say it belongs.
+"""Refuses a test file outside the folder its imports say it belongs in · hard · since #1248.
+
+CR-13 R15 and §B9.3 — every test file sits where its imports say it belongs.
 
 The rule (R15, Koen, 27 September 2026):
 

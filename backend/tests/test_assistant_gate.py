@@ -1,4 +1,6 @@
-"""CR-11 pilot A, K8 (#1562): one trigger, one panel — what a template may not
+"""Refuses an AI button of its own, a link to the assistant page, or a second assistant panel outside the two shells · hard · since #1562.
+
+CR-11 pilot A, K8 (#1562): one trigger, one panel — what a template may not
 bring back (B7 tests 13 and 14).
 
 Block 10 (Koen, 4 October 2026; `docs/design-system-end-state.md` §3.15): the

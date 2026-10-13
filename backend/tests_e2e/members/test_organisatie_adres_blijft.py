@@ -60,14 +60,17 @@ def page(operator):
         browser.close()
 
 
+EDIT = f"/admin/organisaties/{ORGANISATION_ID}?bewerken=1"
+
+
 def test_the_address_is_still_there_after_a_reload(page):
-    page.goto(f"/admin/organisaties/{ORGANISATION_ID}")
+    page.goto(EDIT)
     pagina_klaar(page)
     straat = f"E2E-straat {secrets.token_hex(2)}"
-    page.fill("#street", straat)
-    page.fill("#house_number", "12")
-    postcode = page.locator("#postal_code option:not([value=''])").first.get_attribute("value")
-    page.select_option("#postal_code", postcode)
+    page.fill("#org-street", straat)
+    page.fill("#org-house_number", "12")
+    postcode = page.locator("#org-postal_code option:not([value=''])").first.get_attribute("value")
+    page.select_option("#org-postal_code", postcode)
 
     opslaan = page.get_by_role("button", name="Opslaan")
     box = opslaan.bounding_box()
@@ -83,21 +86,27 @@ def test_the_address_is_still_there_after_a_reload(page):
     ) as resp:
         opslaan.click()
     assert resp.value.status == 200
+    pagina_klaar(page)
 
+    # A good save answers the record in read mode, and the reload reads it again.
     page.reload()
     pagina_klaar(page)
-    expect(page.locator("#street")).to_have_value(straat)
-    expect(page.locator("#house_number")).to_have_value("12")
-    expect(page.locator("#postal_code")).to_have_value(postcode)
+    expect(page.locator("[data-address-line]")).to_contain_text(f"{straat} 12")
+    page.goto(EDIT)
+    pagina_klaar(page)
+    expect(page.locator("#org-street")).to_have_value(straat)
+    expect(page.locator("#org-house_number")).to_have_value("12")
+    expect(page.locator("#org-postal_code")).to_have_value(postcode)
 
     # Put it back: an empty street and number remove the address.
-    page.fill("#street", "")
-    page.fill("#house_number", "")
+    page.fill("#org-street", "")
+    page.fill("#org-house_number", "")
     with page.expect_response(lambda r: r.request.method == "POST"):
         page.get_by_role("button", name="Opslaan").click()
-    page.reload()
     pagina_klaar(page)
-    expect(page.locator("#street")).to_have_value("")
+    page.goto(EDIT)
+    pagina_klaar(page)
+    expect(page.locator("#org-street")).to_have_value("")
 
 
 def test_the_email_field_refuses_what_is_no_address_and_says_so_at_the_field(page):
@@ -107,7 +116,7 @@ def test_the_email_field_refuses_what_is_no_address_and_says_so_at_the_field(pag
 
     Set `E2E_PRINTS` to a folder to keep a print (outside the repository)."""
     typed = "secretariaat@zonderpunt"
-    page.goto(f"/admin/organisaties/{ORGANISATION_ID}")
+    page.goto(EDIT)
     pagina_klaar(page)
     page.locator('input[name="email"]').fill(typed)
 
@@ -122,8 +131,8 @@ def test_the_email_field_refuses_what_is_no_address_and_says_so_at_the_field(pag
     field = page.locator('input[name="email"]')
     expect(field).to_have_value(typed)
     expect(field).to_have_attribute("aria-invalid", "true")
-    described = field.get_attribute("aria-describedby")
-    reason = page.locator(f"#{described.split()[-1]}")
+    # The kit marks the field the banner names and puts the reason under it (#1932).
+    reason = page.locator('[data-field="email"] [data-refused-message]')
     expect(reason).to_contain_text("Vul een geldig e-mailadres in.")
     field.scroll_into_view_if_needed()
     below = reason.bounding_box()["y"] - (

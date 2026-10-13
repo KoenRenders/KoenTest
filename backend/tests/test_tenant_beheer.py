@@ -42,7 +42,7 @@ def test_lijst_en_editor_zijn_operator_only(client, platform_workspace, db_sessi
     _zonder_operator(db_session)
     _login(client, db_session, operator=False)
     assert client.get("/admin/tenants").status_code == 403
-    assert client.get(f"/admin/tenants/{TENANT_VOORBEELD_ID}").status_code == 403
+    assert client.get(f"/admin/tenants/{TENANT_VOORBEELD_ID}?bewerken=1").status_code == 403
 
 
 def test_opslaan_via_de_editor_is_ook_operator_only(client, platform_workspace, db_session):
@@ -63,7 +63,7 @@ def test_instellingen_is_the_workspaces_own_settings_again(client, db_session):
     platform administration now, and this address is the workspace's own settings:
     in Raak Millegem's workspace, Raak Millegem's editor, no longer a redirect."""
     _login(client, db_session, operator=True)
-    resp = client.get("/admin/instellingen", follow_redirects=False)
+    resp = client.get("/admin/instellingen?bewerken=1", follow_redirects=False)
     assert resp.status_code == 200
     assert 'hx-post="/admin/instellingen"' in resp.text
 
@@ -72,7 +72,8 @@ def test_lijst_toont_units_en_linkt_naar_de_editor(client, platform_workspace, d
     _login(client, db_session, operator=True)
     resp = client.get("/admin/tenants")
     assert resp.status_code == 200
-    assert f'href="/admin/tenants/{TENANT_VOORBEELD_ID}"' in resp.text
+    # #1933: a row of the kit's table, its link carrying the way back.
+    assert f'href="/admin/tenants/{TENANT_VOORBEELD_ID}?terug=' in resp.text
     # Geen tweede tenant-kiezer meer: de dropdown "Afdeling" is verdwenen.
     assert 'name="tenant"' not in resp.text
 
@@ -80,14 +81,14 @@ def test_lijst_toont_units_en_linkt_naar_de_editor(client, platform_workspace, d
 def test_zoeken_filtert_de_lijst(client, platform_workspace, db_session):
     _login(client, db_session, operator=True)
     alles = client.get("/admin/tenants").text
-    assert f'href="/admin/tenants/{TENANT_VOORBEELD_ID}"' in alles
+    assert f'data-tenant="{TENANT_VOORBEELD_ID}"' in alles
     geen = client.get("/admin/tenants?q=bestaatnietxyz").text
-    assert f'href="/admin/tenants/{TENANT_VOORBEELD_ID}"' not in geen
+    assert f'data-tenant="{TENANT_VOORBEELD_ID}"' not in geen
 
 
 def test_settings_persisteren_en_secret_blijft_geheim(client, platform_workspace, db_session):
     csrf = _login(client, db_session, operator=True)
-    resp = client.get(f"/admin/tenants/{TENANT_VOORBEELD_ID}")
+    resp = client.get(f"/admin/tenants/{TENANT_VOORBEELD_ID}?bewerken=1")
     # Op een invoerveld dat dit scherm draagt en niet op de kop: die zei tot #971
     # "Instellingen van deze afdeling" en zegt nu "van deze site" — het platform is
     # geen afdeling. Een test die op een zin uit de kop staat, valt om bij elke
@@ -132,7 +133,7 @@ def test_settings_persisteren_en_secret_blijft_geheim(client, platform_workspace
 
 def test_onbekende_tenant_geeft_404(client, platform_workspace, db_session):
     _login(client, db_session, operator=True)
-    assert client.get("/admin/tenants/999999").status_code == 404
+    assert client.get("/admin/tenants/999999?bewerken=1").status_code == 404
 
 
 def test_raakje_heeft_sprekknop(client, monkeypatch):

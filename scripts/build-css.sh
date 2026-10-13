@@ -344,7 +344,13 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .record-columns{display:grid;grid-template-columns:minmax(0,768px);gap:24px;align-items:start}
 /* CR-17 slice 4, scoped after the CI run of 9 October (#1770): the wide
    reading group is the PAGE screen's own (Koen's words were about her
-   form), carried by her own attribute — an existing record keeps her width. */
+   form), carried by her own attribute — an existing record keeps her width.
+
+   The ONE named exception to #1929's "one width of 768 px for every record"
+   (below). Koen, 13 October 2026, asked through the master CLI whether the
+   page screen keeps using the screen up to 1 056 px, as he said on 9 October
+   ("links houden, maar het scherm benutten"), with 768 px for the other
+   records (option a), or becomes 768 px without exception (option b): "4a". */
 .record-columns[data-wide]{grid-template-columns:minmax(0,1056px)}
 .record-form-column{min-width:0}
 .form-flow{display:grid;gap:16px;min-width:0}

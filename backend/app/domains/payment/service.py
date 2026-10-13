@@ -437,6 +437,46 @@ def open_refund_amount(db: Session, payable_type: PayableType | str, payable_id:
     return total
 
 
+def task_subjects(db: Session, record_ids) -> dict[str, dict]:
+    """{booking id: what a workbench task about it shows} (#1931), for many
+    bookings in one read; a booking that is not this tenant's or is gone has no
+    entry.
+
+    Plain values, no labels: the workbench words them in the tenant's language.
+    `gateway_status` is the provider's own word for the online payment behind
+    the booking, when there is one — a webhook mismatch is exactly the case
+    where it says more than our status does.
+    """
+    from app.domains.payment.describers import describe_many
+    from app.domains.payment.models import GatewayPayment
+
+    ids = sorted({str(i) for i in record_ids if i})
+    if not ids:
+        return {}
+    records = db.query(PaymentRecord).filter(PaymentRecord.id.in_(ids)).all()
+    described = describe_many(db, [(r.payable_type, r.payable_id) for r in records])
+    gateway_ids = [r.gateway_payment_id for r in records if r.gateway_payment_id]
+    gateways = (
+        {
+            g.id: g.status
+            for g in db.query(GatewayPayment).filter(GatewayPayment.id.in_(gateway_ids))
+        }
+        if gateway_ids
+        else {}
+    )
+    return {
+        str(r.id): {
+            "name": described[(PayableType(r.payable_type), r.payable_id)].contact_name or "",
+            "amount": abs(Decimal(str(r.amount))),
+            "refund": r.type is PaymentType.REFUND,
+            "status": code_of(r.status),
+            "method": code_of(r.method),
+            "gateway_status": gateways.get(r.gateway_payment_id),
+        }
+        for r in records
+    }
+
+
 def get_records_for(
     db: Session, payable_type: PayableType | str, payable_id: int
 ) -> list[PaymentRecord]:

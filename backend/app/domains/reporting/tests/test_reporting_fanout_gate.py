@@ -1,4 +1,6 @@
-"""Een dimensie met meerdere rijen mag geen som opblazen (#1114).
+"""Refuses a measure that double-counts because a dimension has several rows per join key · hard · since #1114.
+
+Een dimensie met meerdere rijen mag geen som opblazen (#1114).
 
 Een dimensie die méér dan één rij per koppelsleutel heeft, vermenigvuldigt de
 rijen van het feit waaraan ze hangt. Elke maat die niet op `DISTINCT` steunt telt

@@ -132,7 +132,11 @@ def test_betalingen_lijst_heeft_geen_statusstreep():
 
 def test_werkbank_lijst_klikt_door_naar_full_page():
     inhoud = (APP / "domains" / "workflow" / "templates" / "_werkbank_lijst.html").read_text()
-    assert 'href="/admin/werkbank/taken/' in inhoud  # doorklik-link
+    # The row is the way in to the task's own page (#1931: the kit's row link,
+    # its address from the view).
+    assert "ui.row_link(r.title, r.href" in inhoud
+    route = (APP / "domains" / "workflow" / "ui.py").read_text()
+    assert '"href": f"{NAV}/taken/{task.id}' in route
     assert 'hx-target="#taak-' not in inhoud  # geen inline uitklap meer
 
 

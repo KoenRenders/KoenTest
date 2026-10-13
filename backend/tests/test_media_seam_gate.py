@@ -1,4 +1,6 @@
-"""CR-15 C6 test 12 and §C7 — the storage seam, and no copies (#1473). Hard.
+"""Refuses a module outside `media` that writes a picture's address by hand or reads an asset's bytes directly · hard · since #1473.
+
+CR-15 C6 test 12 and §C7 — the storage seam, and no copies (#1473). Hard.
 
 1. No module outside `media` writes a picture's address (`/api/v1/media/…`) by
    hand; it asks `media.api.media_url`. One exception: the CMS scan for "where

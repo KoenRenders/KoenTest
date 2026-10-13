@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
@@ -39,7 +39,15 @@ from app.domains.mdm.api import (
 )
 from app.i18n import _
 from app.kernel.modules import ModuleCode
-from app.ui import PER_PAGE_OPTIONS, admin_nav, filterparams, per_page_from, templates
+from app.ui import (
+    PER_PAGE_DEFAULT,
+    PER_PAGE_OPTIONS,
+    admin_nav,
+    filterparams,
+    list_return,
+    per_page_from,
+    templates,
+)
 from app.ui.viewmodel import ViewModel
 
 router = APIRouter(include_in_schema=False)
@@ -82,13 +90,14 @@ def _confirmation(row) -> str:
     return _("%(name)s verwijderen?") % {"name": row.name}
 
 
-def _row(row, households: bool, double_email: bool) -> dict[str, Any]:
+def _row(row, households: bool, double_email: bool, way_back: str) -> dict[str, Any]:
     attrs = f'hx-post="{PAGE}/{row.id}/verwijderen" hx-target="#personen-lijst" hx-swap="innerHTML"'
     return {
         "person": row,
         # A person has no page of his own: the name leads to the household's
         # record where there is one, and is plain text otherwise.
-        "href": f"/admin/leden/gezin/{row.household_id}"
+        # #1940: with the list as it stands, in the one key `terug`.
+        "href": f"/admin/leden/gezin/{row.household_id}?terug={quote(way_back, safe='/')}"
         if row.household_id and households
         else None,
         "in_household": row.household_id is not None,
@@ -131,6 +140,13 @@ def _view(request: Request, db: Session, *, error: str | None = None, **extra) -
     without, within, everyone = PERSON_VIEWS
     labels = {without: _("Zonder gezin"), within: _("In een gezin"), everyone: _("Alle")}
     query = {VIEW_PARAM: view, "q": q, "per_page": per_page}
+    way_back = list_return(
+        PAGE,
+        **{VIEW_PARAM: view if view != PERSON_VIEWS[0] else ""},
+        q=q,
+        page=page if page > 1 else "",
+        per_page=per_page if per_page != PER_PAGE_DEFAULT else "",
+    )
     households = module_enabled(ModuleCode.MEMBERSHIP)
     return PersonsView(
         rows=[
@@ -139,6 +155,7 @@ def _view(request: Request, db: Session, *, error: str | None = None, **extra) -
                 households,
                 # A waiting address counts for nothing yet, so it cannot be double.
                 bool(r.email and not r.email_waiting and address_says_nobody(db, r.email)),
+                way_back,
             )
             for r in found.rows
         ],

@@ -1,4 +1,6 @@
-"""Every shipped report still runs, and still exports (#880).
+"""Refuses a shipped report that no longer runs or no longer exports after a model change · hard · since #880.
+
+Every shipped report still runs, and still exports (#880).
 
 Koen: *"Heb je ook tests voorzien op de rapporten die je meeleverde? Kwestie dat
 ze nog goed werken met de wijzigingen aan het model."* There were tests over

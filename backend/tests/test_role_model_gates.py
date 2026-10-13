@@ -1,4 +1,6 @@
-"""#530 rolmodel: FINANCE = enkel betalingen; algemene admin-schermen = ADMIN/OPERATOR.
+"""Refuses FINANCE reaching the general admin screens, ADMIN losing payments, or OPERATOR being denied anything · hard · since #530.
+
+#530 rolmodel: FINANCE = enkel betalingen; algemene admin-schermen = ADMIN/OPERATOR.
 
 - Een FINANCE-only account mag WEL de betalingen-schermen openen, maar krijgt 403 op
   de algemene admin-schermen (leden/CMS/dashboard/werkbank).

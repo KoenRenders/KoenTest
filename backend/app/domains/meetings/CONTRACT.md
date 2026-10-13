@@ -1,10 +1,16 @@
 # meetings — componentcontract (CR-09, #258)
 
+## Purpose and process
+
 **Doel.** De maandelijkse bestuursvergadering: agenda en verslag als één
 document in het portaal, de bestuursmail met PDF en bijlagen, en de bron
 waaruit de nieuwsbriefketen (CR-05) straks put.
 
-## Facade (`api.py`) — de enige toegangsdeur voor andere componenten
+*Process (A2.4.1 — a board meeting).* Aggregate: `Meeting` with its sections, items, attendances, files and extra recipients.
+
+## Publishes
+
+### Facade (`api.py`) — de enige toegangsdeur voor andere componenten
 
 - **Lezen**: `list_meetings`, `get_meeting`, `previous_meeting`, `sections_of`,
   `items_of`, `document_of` (de vergadering zoals ze op het scherm én in de PDF
@@ -17,7 +23,24 @@ waaruit de nieuwsbriefketen (CR-05) straks put.
 - **Modellen als type**: `Meeting`, `MeetingSection`, `MeetingItem`,
   `MeetingAttendance`, `MeetingFile`, `MeetingExtraRecipient`.
 
-## Wat dit component van anderen gebruikt (alleen via hun facade)
+### Events
+
+- Publishes `CircleStartChosen` (`app.kernel.contracts.meetings`, #1346) when the
+  circle screen stores a start date; `mdm`, which owns the relation, writes it.
+  `choose_circle_start` is the door and commits.
+
+### Wat andere componenten hier halen
+
+Vandaag: niets. De nieuwsbriefketen (CR-05) wordt de eerste afnemer en leest
+verslagen via `document_of`; wélke punten meegaan, kiest de nieuwsbriefmaker in
+het compose-scherm. Dat is meteen de privacypoort: ongekozen verslaginhoud
+bereikt nooit een LLM.
+
+*Counted in the code on 13 October 2026:* the facade exports 66 names (44 functions, 17 classes, 5 values); events it owns (`kernel/contracts/`): `CircleStartChosen`; ports it offers: none.
+
+## Consumes
+
+### Wat dit component van anderen gebruikt (alleen via hun facade)
 
 | Component | Waarvoor |
 |---|---|
@@ -26,20 +49,32 @@ waaruit de nieuwsbriefketen (CR-05) straks put.
 | `membership.api` | `members_with_membership_for_year`, `renewal_open`, `renewal_years` (de ledenkop), `new_members_between` (de sectie Leden: wie een eerste lidmaatschap begon, #1358) |
 | `mail.api` | `send_with_attachments` (één mail, iedereen in To) |
 
-## Events
+*Counted in the code on 13 October 2026:* imports the facades of activities, auth, cms, mail, mdm, media, membership; subscribes to no event; calls no port.
 
-- Publishes `CircleStartChosen` (`app.kernel.contracts.meetings`, #1346) when the
-  circle screen stores a start date; `mdm`, which owns the relation, writes it.
-  `choose_circle_start` is the door and commits.
+## Owns
 
-## Wat andere componenten hier halen
+### Migraties
 
-Vandaag: niets. De nieuwsbriefketen (CR-05) wordt de eerste afnemer en leest
-verslagen via `document_of`; wélke punten meegaan, kiest de nieuwsbriefmaker in
-het compose-scherm. Dat is meteen de privacypoort: ongekozen verslaginhoud
-bereikt nooit een LLM.
+- `122_meetings_module.py` — het schema `meetings` (zes tabellen) plus, in `mdm`,
+  de generieke persoon-organisatierelatie met `BOARD_MEETING` als eerste code.
 
-## Invarianten
+*Counted in the code on 13 October 2026:* schema `meetings`, 14 tables (6 data, 8 code and label), 6 of them with `tenant_id`; status columns: `meetings.status` (`meeting_status`: agenda, report, sent), `meeting_attendances.status` (`attendance`: present, excused); jobs: none.
+
+## Screens
+
+`admin_ui.py`: 30 routes under `/admin/vergaderingen`. No public screen (CR-09 §3.2).
+
+## Deprecations
+
+None: no part of this contract is in its deprecation cycle.
+
+## Standards
+
+None: no row of part D of the architecture document names this module, and its `models.py` names no standard.
+
+## Rules and gates
+
+### Invarianten
 
 - **Eén document, twee statussen.** `agenda` → `report` gebeurt impliciet
   (aanwezigheid aanvinken of een notitie typen ís notuleren); `sent` is het enige
@@ -69,7 +104,12 @@ bereikt nooit een LLM.
 - **Geen AI.** De agenda wordt deterministisch samengesteld. Drafting hoort bij
   CR-05.
 
-## Migraties
+- **Rules whose home is this module** — beside the invariants above: no `@validates` and no `check()` in `models.py`, and no `CheckConstraint` there.
+- **Gates in this module's own `tests/`** — none among its 3 test files.
 
-- `122_meetings_module.py` — het schema `meetings` (zes tabellen) plus, in `mdm`,
-  de generieke persoon-organisatierelatie met `BOARD_MEETING` als eerste code.
+## Evolutions
+
+Ids of part E of the architecture document, as it stood on 13 October 2026.
+
+- **E22** — web content (CR-17): the one rich-text editor, of which the meeting notes are one of three users; in build, on v2.17.
+- **E34** — parked on v2.19: #1860 (a refused meeting form keeps what was typed).
