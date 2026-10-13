@@ -306,16 +306,24 @@ def test_een_zelf_geschreven_datum_wordt_gemarkeerd_de_markering_komt_uit_de_dat
     activity data (CR-05 §3.16 layers 1 and 3).
 
     Broken on purpose: `deterministic_marks` without the number check → the
-    invented "12" is not marked.
+    invented day is not marked.
     """
     brood = _activity(db_session, "Brood & Spelen", days_ahead=30)
     letter = _letter(db_session, activity_ids=[brood.id])
+    # The invented day is chosen from what the sources hold, so it can never be
+    # the activity's day, month, year or id, whatever day the suite runs on
+    # (#1920: a typed-in "12" is the activity's day when today + 30 is the 12th).
+    sources = drafting.gather_sources(
+        db_session, letter, instruction="Schrijf de najaarsbrief.", names=set(), base_url=BASE
+    )
+    held = set(drafting._NUMBER.findall(sources.fact_text().lower()))
+    invented = next(str(n) for n in range(1, 32) if str(n) not in held)
     raakje(
         _draft(
             [
                 "# In de kijker",
                 f"[[activiteit:{brood.id}]]",
-                "Kom op de 12de naar Brood & Spelen, gezellig!",
+                f"Kom op de {invented}de naar Brood & Spelen, gezellig!",
             ]
         ),
         _verdict(),
@@ -324,7 +332,7 @@ def test_een_zelf_geschreven_datum_wordt_gemarkeerd_de_markering_komt_uit_de_dat
     turn = _ask(db_session, letter)
 
     marks = turn.proposal["marks"]
-    assert any(m["quote"] == "12" for m in marks)
+    assert any(m["quote"] == invented for m in marks)
     html = turn.proposal["operations"][0]["html"]
     # The marker becomes the same reference the button inserts; the date, the
     # place and the link come from the data when the letter is sent.

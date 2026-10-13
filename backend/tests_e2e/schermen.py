@@ -591,6 +591,48 @@ class Adminschil:
         self.page.wait_for_selector("#main h1", timeout=5000)
 
 
+SUMMARY_SHAPE = """() => { const b = e => e.getBoundingClientRect(), mid = x => Math.round(x.top + x.height / 2);
+  const card = document.querySelector('[data-summary-card]'); if (!card) return null;
+  const c = b(card), state = card.querySelector('[data-summary-state]'), action = card.querySelector('[data-summary-action]');
+  return {card: {x: Math.round(c.left), right: Math.round(c.right), w: Math.round(c.width), h: Math.round(c.height)},
+          state: state ? {x: Math.round(b(state).left), mid: mid(b(state))} : null,
+          action: action ? {right: Math.round(b(action).right), mid: mid(b(action)), line: getComputedStyle(action).borderTopWidth} : null,
+          figures: [...card.querySelectorAll('[data-summary-figure]')].map(f => { const o = b(f), l = b(f.querySelector('dt')), v = b(f.querySelector('dd'));
+            return {x: Math.round(o.left), right: Math.round(o.right), mid: mid(o), apart: Math.round(v.left - l.right)}; })}; }"""
+
+
+def assert_summary_band(shape: dict, *, lines: int = 1) -> None:
+    """The record's summary as the band (#1912; end state §3.10): the badge at the
+    left, the figures as rows side by side — each as wide as its label and its
+    value, 32 px between the pairs — and the action at the right, without the
+    line the card draws above it. `shape` is what `SUMMARY_SHAPE` measured.
+
+    The thing Koen judged is `apart`: in equal columns a label stood far from
+    its value ("onnatuurlijk ver uit elkaar")."""
+    figures = shape["figures"]
+    assert len(figures) >= 2, "a band of one figure proves nothing about the pairs"
+    for figure in figures:
+        assert 8 <= figure["apart"] <= 32, f"label and value are {figure['apart']} px apart"
+    rows = sorted({figure["mid"] for figure in figures})
+    assert len(rows) <= lines, f"the figures stand on {len(rows)} lines"
+    beside = [(a, b) for a, b in zip(figures, figures[1:]) if a["mid"] == b["mid"]]
+    assert beside, "no two figures stand side by side: these are the card's rows"
+    for a, b in beside:
+        assert b["x"] - a["right"] == 32, f"{b['x'] - a['right']} px between two pairs"
+    if shape["state"]:
+        assert shape["state"]["x"] < figures[0]["x"], "the badge is not at the left"
+    if shape["action"]:
+        assert shape["action"]["line"] == "0px", "the action keeps the card's line above it"
+        assert shape["action"]["right"] > figures[-1]["right"], "the action is not at the right"
+        assert shape["card"]["right"] - shape["action"]["right"] <= 20
+    if lines == 1:
+        centres = [f["mid"] for f in figures] + [
+            part["mid"] for part in (shape["state"], shape["action"]) if part
+        ]
+        assert max(centres) - min(centres) <= 3, f"not one line: {centres}"
+        assert shape["card"]["h"] <= 64, f"the band is {shape['card']['h']} px high"
+
+
 def controlhoogtes(page, container_selector: str) -> dict:
     """De GERENDERDE hoogte van elk formulierveld in een container (#677).
 

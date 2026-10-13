@@ -63,6 +63,7 @@ its own, with the violation listed here:
 | A hard gate looks somewhere | the template pattern's operators changed to `===`/`!==` | yes — the walk test and the shelf-life test lost the exemptions; the gate itself fired too, because the altered pattern caught Alpine's `!==` |
 | The enum gate looks somewhere | the walk counting only the marker classes | yes — only this test |
 | No vocabulary column without an FK (28 September, the last one) | `payment_kind = Column(String(20))` added to `Meeting` | yes — only this test |
+| The same, for a column declared with `EnumColumn` (#1923, 13 October 2026) | `proof_1923 = Column(EnumColumn(MailStatus, length=20))`, no key, added to `EmailLog` — a name the name test does not match | yes — only this test, with the intended message |
 
 **A twelfth came with phase 3**, after three enum members reached an HTML
 attribute and none of the eleven above could see it — a member that is
@@ -91,6 +92,7 @@ from app.database import Base
 from app.domains.registry import load_all_models
 from app.kernel import codes as kernel_codes
 from app.kernel.codes import (
+    EnumColumn,
     ExternalVocabulary,
     TechnicalEnum,
     registry,
@@ -337,7 +339,8 @@ def collect_loose_strings() -> dict[str, str]:
 
 
 def collect_missing_fks() -> dict[str, str]:
-    """Columns that look like they store a vocabulary but carry no FK."""
+    """Columns that store a vocabulary — a `String` named like one, or any
+    `EnumColumn` — but carry no FK."""
     load_all_models()
     registered = {column for lst in registry().values() for column in lst.fk_from}
     found: dict[str, str] = {}
@@ -346,9 +349,13 @@ def collect_missing_fks() -> dict[str, str]:
         if _is_exempt_table(table.name):
             continue
         for column in table.columns:
-            if not isinstance(column.type, String):
+            # `EnumColumn` is a `TypeDecorator` over `String`, so it is not a
+            # `String` itself (#1923). The type says it stores a code; the name
+            # test is for the plain `String` that does not say.
+            stores_code = isinstance(column.type, EnumColumn)
+            if not (stores_code or isinstance(column.type, String)):
                 continue
-            if not _is_vocabulary(column.name):
+            if not stores_code and not _is_vocabulary(column.name):
                 continue
             key = f"{schema}.{table.name}.{column.name}"
             if key in registered or column.foreign_keys:
@@ -453,7 +460,13 @@ def test_every_registered_column_carries_its_fk(db_session):
 
 
 def test_no_vocabulary_column_without_an_fk():
-    """The net: a `String` column storing a list without a code table."""
+    """The net: a column storing a list without a code table — a `String` named
+    like a vocabulary, or any `EnumColumn`, whatever its name (#1923).
+
+    Broken on purpose: an `EnumColumn` column without a key on `EmailLog` → the
+    gate names it. Before #1923 it stayed green: the collector only looked at
+    `String`, and `EnumColumn` is a `TypeDecorator`, not a `String`.
+    """
     _hard("FK_MISSING")
 
 
