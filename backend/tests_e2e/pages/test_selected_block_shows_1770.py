@@ -10,6 +10,12 @@ author could not see was selected.
 Read from the rendered page, at 390 and 1 440 px:
 
 * nothing carries the ring while nothing is selected;
+* a page that STARTS with such a block opens without a ring: the editor holds
+  that first block as its selection from the moment the page opens, before the
+  author has touched anything and without the focus — the ring is a focus
+  ring and shows only while the editor has the focus (the master CLI's
+  decision of 13 October 2026, told to Koen as built: his answer was about a
+  block the author selected);
 * a selected card, a selected button and a selected picture each carry it —
   3 px, solid, 3 px away, in the kit's `focus` token — and no other block
   does: exactly one ring on the page;
@@ -192,6 +198,71 @@ def test_a_selected_block_carries_the_ring_and_no_other_does(setup, width):
         assert seen["ringed"] == [] and seen["selected"] == [], (
             f"a ring is left behind: {seen['ringed']}"
         )
+        assert page.errors == [], f"the screen throws: {page.errors}"
+    finally:
+        page.close()
+
+
+@pytest.mark.parametrize("first", ["picture", "button Knop", "card K1"])
+def test_a_page_that_starts_with_a_block_opens_without_a_ring(setup, first):
+    """The editor's selection at opening is the page's first block when that
+    block is one it selects as a whole — marked as selected in the page, with
+    the focus elsewhere. No ring then. With the author in the editor and that
+    block selected, the ring is there.
+
+    Measured on the commit that first drew the ring (13 October 2026): such a
+    page opened with the ring around its first block, the focus not in the
+    editor — for a picture, a button and a cards block alike.
+
+    Broken on purpose, put back by the reverse edit: the rule without its
+    condition on the editor's focus → red at opening for all three ("opens
+    with a ring").
+    """
+    browser, session = setup
+    blocks = {
+        "picture": {"type": "figure", "attrs": {"media_id": _photo(), "alt": "Een probeerbeeld"}},
+        "button Knop": {
+            "type": "button",
+            "attrs": {"label": "Knop", "variant": "secondary", "href": "https://voorbeeld.test/k"},
+        },
+        "card K1": {
+            "type": "cards",
+            "content": [
+                {"type": "card", "attrs": {"title": t, "href": f"https://voorbeeld.test/{t}"}}
+                for t in ("K1", "K2")
+            ],
+        },
+    }
+    document = {"type": "doc", "content": [blocks[first], _paragraph("Onder het eerste blok.")]}
+    page_id, _slug = _new_page(f"Begint met {first}", document)
+    page = _open(browser, session, page_id, 1440)
+    try:
+        seen = page.evaluate(RINGS)
+        in_editor = (
+            "() => document.activeElement === document.querySelector('#cp-document .tiptap')"
+        )
+        # What this test stands on, checked before its answer: the editor does
+        # hold the first block at opening, and the focus is not in the editor.
+        assert seen["selected"] == [first], (
+            f"the editor does not hold the first block at opening: {seen['selected']}"
+        )
+        assert page.evaluate(in_editor) is False, "the editor has the focus at opening"
+        assert seen["ringed"] == [], (
+            f"a page that starts with a {first} opens with a ring: {seen['ringed']}"
+        )
+
+        # The author goes into the editor and selects that block: the ring.
+        page.locator(f"{EDITOR} .tiptap > p").first.click()
+        if first == "picture":
+            page.locator(f"{EDITOR} .tiptap figure").click()
+        else:
+            dialog = BUTTON_DIALOG if first == "button Knop" else DIALOG
+            page.locator(f"{EDITOR} .tiptap a[data-button], {CARD}").first.click()
+            expect(page.locator(dialog)).to_be_visible()
+            page.keyboard.press("Escape", delay=HELD)
+            expect(page.locator(dialog)).to_be_hidden()
+        assert page.evaluate(in_editor) is True
+        _the_one_ring(page.evaluate(RINGS), first, 1440)
         assert page.errors == [], f"the screen throws: {page.errors}"
     finally:
         page.close()
