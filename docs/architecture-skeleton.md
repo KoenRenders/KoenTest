@@ -245,7 +245,9 @@ document), so that step 14 of the release becomes checkable:
 
 ## Order of work and who measures
 
-C and E first (the most outdated, closest to Koen's second and third point),
+The document grows in `docs/architecture-next.md` on this branch and replaces
+`docs/architecture.md` when every part stands. C and E first (the most outdated,
+closest to Koen's second and third point),
 then A, B, D. Each part is moved **and** measured against `master` in the same
 commit: counts, file names, gates, with the sources in Appendix B.
 
