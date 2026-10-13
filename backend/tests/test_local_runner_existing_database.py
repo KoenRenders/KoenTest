@@ -406,7 +406,7 @@ def test_no_exec_names_another_user_than_root(tmp_path):
 
 @pytest.mark.parametrize("environment", [{}, {"HELPER_CONTAINER_USER": "root"}])
 def test_git_and_psql_are_installed_as_root_from_debians_own_archive(tmp_path, environment):
-    """One call, only when one of the two is missing, and no other source than
+    """One call, only when one of the three (git, psql, patch — #1971) is missing, and no other source than
     the archive the image already trusts."""
     done, calls = _run_local(tmp_path, "test-local.sh", **environment)
 
@@ -415,8 +415,11 @@ def test_git_and_psql_are_installed_as_root_from_debians_own_archive(tmp_path, e
     assert len(installs) == 1, f"expected one install call, found {len(installs)}"
     install = installs[0]
     assert install.startswith("exec -u root raaktest-checkout "), install
-    assert "command -v git >/dev/null && command -v psql >/dev/null || {" in install
-    assert install.rstrip().endswith("git postgresql-client >/dev/null; }"), install
+    assert (
+        "command -v git >/dev/null && command -v psql >/dev/null && command -v patch >/dev/null || {"
+        in install
+    )
+    assert install.rstrip().endswith("git postgresql-client patch >/dev/null; }"), install
     for other_source in ("sources.list", "apt-key", "curl", "wget", "http"):
         assert other_source not in install, install
 

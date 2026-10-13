@@ -174,7 +174,9 @@ docker exec "$NAAM" sh -c "[ \"\$(cat /tmp/requirements.som 2>/dev/null)\" = '$S
 # As root: installing needs it, and root is the one user that exists in an
 # ordinary Docker (where the container runs as `app`) and in a rootless one
 # (where it runs as root already, HELPER_CONTAINER_USER above).
-docker exec -u root "$NAAM" sh -c 'command -v git >/dev/null && command -v psql >/dev/null || { apt-get update -q >/dev/null && apt-get install -y -q --no-install-recommends git postgresql-client >/dev/null; }'
+# `patch` joined them with scripts/ruff-fix.sh (#1971), which applies ruff's diffs on the
+# host and whose own tests run it in this container.
+docker exec -u root "$NAAM" sh -c 'command -v git >/dev/null && command -v psql >/dev/null && command -v patch >/dev/null || { apt-get update -q >/dev/null && apt-get install -y -q --no-install-recommends git postgresql-client patch >/dev/null; }'
 
 # ── Databank aanmaken als ze nog niet bestaat ────────────────────────────────
 # Foutloos herhaalbaar: bestaat ze al, dan is er niets te doen.
