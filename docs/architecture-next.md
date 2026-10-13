@@ -383,8 +383,19 @@ is Jinja with htmx for interaction and Alpine for small client state, and
 asks for nothing the view-model does not promise. The kit gates of C2 hold
 that a list is the kit's table, a form has one save in the kit's action bar,
 a field is the kit's field; the ratchets measure how far the roll-out is.
-The measured inventory — every macro, every screen per layout — is folded in
-from the count of the design-documentation CLI when it stands (A6 count).
+The inventory of 13 October 2026 (the design-documentation CLI, against
+`master` @ cf80ccde): **123 kit macros** (114 in `_macros.html`, 9 in
+`_public_macros.html`), none unused; **214 templates**, of which **92 screens**
+(68 in the admin shell, 24 in the public shell); **321 routes**. Where the
+screens stand: 4 back-office lists on `list_page.html` with the kit's table,
+8 records on the record head, 13 forms on the public form page (5 of them in
+the back office), and **51 back-office screens and 16 public screens on no
+layout marker yet** — the distance the CR-11 roll-out measures with its
+ratchets (165 template rows in `ui_baseline.py`, 5 in `public_baseline.py`).
+Two gaps the count found: five public-kit macros have neither a demo on
+`/admin/design-system` nor a reasoned exemption (→ E43), and the
+`document_page` layout that the end state names (§2.3) does not exist in the
+code (→ E44).
 
 ## A7. The module map
 
@@ -466,10 +477,12 @@ flowchart TB
   class ACT,MEM,PAY,WB,MDM,FORM,CHAT,MEDIA,CMS,DS,NEWS domain
 ```
 
-The measured inventory per module — schema, tables, tenant-scoped tables,
-facade functions, events, ports, jobs, status columns — is folded in from the
-count of the design-documentation CLI when it stands (A7 count) and is the
-source of part B's contracts.
+The inventory of 13 October 2026, read from SQLAlchemy's metadata, not from
+text: **192 tables** — 186 in the domains (73 data tables, 113 code and label
+tables) and 6 in the kernel (jobs, operations, tenant settings) — of which
+**66 domain tables carry `tenant_id`**; **967 public names on the fifteen
+facades** (610 functions); **25 event contracts, 9 ports, 3 jobs**. The cards
+per module stand in part B.
 
 ## A8. A request, end to end
 
@@ -734,6 +747,125 @@ Mail is the one provider without that seam yet (→ E36). Claude Code, which
 builds the platform, is itself a deviation from Europe first; what a session
 may read from an environment is bounded for that reason (`AGENTS.md`, *Europe
 First*).
+
+# Part B — Per module
+
+Fifteen sections, one per package under `backend/app/domains/`. **A module's
+section is its `CONTRACT.md`** (Koen, 13 October 2026, Q&A of 11 October,
+question 1: "a"): the PDF build includes the contract at the module's heading
+(→ E32), so nothing about a module stands twice. Until the build does that,
+this part holds per module the card measured on 13 October 2026 against
+`master` @ cf80ccde by the design-documentation CLI — schema, tables, what it
+owns and offers, its status columns — and the contract file is the text.
+
+The order follows the processes of A2: the two foundation domains first, then
+the business domains, then the cross-cutting ones.
+
+**Two findings of the measurement, before the cards.** First, the contracts
+do not share one layout: only `forms` carries the five headings the skeleton
+assumed (Bezit, Publiceert, Consumeert, Schermen, Deprecaties); the other
+fourteen use older or English headings (Facade, Router, Data, Events, Jobs,
+Callers, Invariants, Screens, …). The contract template is revised in one go
+with the nine headings of the skeleton, and the module-shape gate requires
+them (→ E31's sibling, the third issue of the restructuring). Second, the
+contracts name what matters, not the surface: of 967 public names on the
+fifteen facades (610 functions), 635 appear in no contract. That is right as
+long as the rule holds that a facade promises its *invariants* in the
+contract and its *signatures* in the code; the contract is not an index.
+
+| Module | Schema | Tables (data + code) | With `tenant_id` | Facade functions | Events owned | Ports offered · called | Jobs | Status columns |
+|---|---|---|---|---|---|---|---|---|
+| `mdm` | `mdm` | 39 (16 + 23) | 13 | 99 | `BoardMemberReported`, `EmailAddressAdded`, `EntityMerged`, `HouseholdDeleted`, `MembershipReported`, `TenantCreated` | `CreateHousehold` · — | — | — |
+| `auth` | `auth` | 10 (4 + 6) | 1 | 28 | `AccountCodeEntered`, `AddressCodeEntered`, `CodeMailRequested` | — · — | — | — |
+| `membership` | `membership` | 2 (2 + 0) | 2 | 33 | `FamilyRegistered`, `MembershipDeleted`, `MembershipRenewalPlaced` | — · `CreateHousehold` | — | — |
+| `activities` | `activities` | 21 (13 + 8) | 13 | 71 | `ActivityCopied`, `AnswerLinkSent`, `OrderChanged`, `RegistrationConfirmed` | — · `CopyForm`, `SubmitAttached`, `UpdateAttached`, `StoreFile`, `RemoveFileOf` | — | `activities.status`: draft, published |
+| `payment` | `payment` | 11 (3 + 8) | 3 | 41 | `PaymentReceived`, `RefundDue` | — · — | — | `payment_records.status`: pending, paid, failed, cancelled; `gateway_payments.status`: the provider's word, no list (CR-12 §B4.10) |
+| `forms` | `form` | 10 (6 + 4) | 6 | 57 | `SubmissionCreated`, `SubmissionDeleted` | `CopyForm`, `SubmitAttached`, `SubmitMessage`, `UpdateAttached` · — | — | `forms.status`: draft, open, closed |
+| `cms` | `cms` | 1 (1 + 0) | 1 | 16 | — | — · — | — | — |
+| `meetings` | `meetings` | 14 (6 + 8) | 6 | 44 | `CircleStartChosen` | — · — | — | `meetings.status`: agenda, report, sent; `meeting_attendances.status`: present, excused |
+| `newsletter` | `newsletter` | 20 (4 + 16) | 4 | 61 | — | — · `StoreFile` | — | `newsletters.status`: draft, sending, sent; `deliveries.status`: queued, sent, failed, skipped; `subscribers.status`: pending, confirmed, unsubscribed |
+| `designstudio` | `designstudio` | 20 (6 + 14) | 6 | 31 | — | — · `StoreFile`, `RemoveAsset` | `designstudio.generate` | `designs.status`: draft, final; `image_generations.status`: requested, fetched, picked, discarded, refused, failed |
+| `workflow` | `workflow` | 13 (3 + 10) | 3 | 14 | — | — · — | `workflow.sweep` | `workflow_tasks.status`: open, done; `workflow_instances.status`: running, done, failed |
+| `reporting` | `reporting` (tables; the views are not in the metadata) | 4 (2 + 2) | 2 | 46 | — | — · — | — | — |
+| `mail` | `mail` | 5 (1 + 4) | 1 | 8 | `MailRequested` | — · — | `mail.retry` | `email_log.status`: sent, failed, skipped, logged |
+| `media` | `media` | 6 (4 + 2) | 3 | 37 | `DocumentTextExtracted` | `ReadTextAgain`, `RemoveAsset`, `RemoveFileOf`, `StoreFile` · — | — | — |
+| `chatbot` | `ai` | 10 (2 + 8) | 2 | 24 | — | — · `ReadTextAgain`, `SubmitMessage` | — | `ai_call_log.status`: ok, blocked, error, moderated |
+
+Totals: 192 tables (186 in the domains — 73 data, 113 code and label — and 6
+in the kernel: jobs, operations, tenant settings); 66 domain tables carry
+`tenant_id`; 25 event contracts, two of which (`SalesOrderPlaced`,
+`SalesOrderChanged`) belong to the webshop's `sales` domain that is not on
+`master` yet (CR-21 → E25); 9 ports; 3 jobs.
+
+**Lifecycles.** Sixteen status columns in nine modules: fourteen are a code
+list with a foreign key, two are plain (the provider's word on
+`gateway_payments`, the copy on `payment_record_history`). Each record status
+gets a `stateDiagram-v2` in its module's section, drawn from the transitions
+in the service, not from the text (Koen, 13 October 2026, Q&A nr. 02,
+question 4: "a") — the next step of this part, → E42.
+
+## B1. `mdm` — master data
+
+<!-- include: backend/app/domains/mdm/CONTRACT.md -->
+
+## B2. `auth` — identity, rights and the session
+
+<!-- include: backend/app/domains/auth/CONTRACT.md -->
+
+## B3. `membership` — households and the yearly membership
+
+<!-- include: backend/app/domains/membership/CONTRACT.md -->
+
+## B4. `activities` — activities, components, products, registrations
+
+<!-- include: backend/app/domains/activities/CONTRACT.md -->
+
+## B5. `payment` — the ledger and the gateway
+
+<!-- include: backend/app/domains/payment/CONTRACT.md -->
+
+## B6. `forms` — the form engine
+
+<!-- include: backend/app/domains/forms/CONTRACT.md -->
+
+## B7. `cms` — web content
+
+<!-- include: backend/app/domains/cms/CONTRACT.md -->
+
+## B8. `meetings` — board meetings
+
+<!-- include: backend/app/domains/meetings/CONTRACT.md -->
+
+## B9. `newsletter` — the newsletter and its co-writer
+
+<!-- include: backend/app/domains/newsletter/CONTRACT.md -->
+
+## B10. `designstudio` — posters and social images
+
+<!-- include: backend/app/domains/designstudio/CONTRACT.md -->
+
+## B11. `workflow` — the workbench
+
+<!-- include: backend/app/domains/workflow/CONTRACT.md -->
+
+## B12. `reporting` — the universe, the query panel, the change report
+
+<!-- include: backend/app/domains/reporting/CONTRACT.md -->
+
+## B13. `mail` — outgoing mail and its log
+
+<!-- include: backend/app/domains/mail/CONTRACT.md -->
+
+## B14. `media` — the media library, OCR and extraction
+
+<!-- include: backend/app/domains/media/CONTRACT.md -->
+
+## B15. `chatbot` — Raakje, the assistant and speech
+
+<!-- include: backend/app/domains/chatbot/CONTRACT.md -->
+
+Until the build honours the include line (→ E32), each heading above stands
+for the contract file it names; the file is the section.
 
 # Part C — The harness
 
@@ -1098,6 +1230,64 @@ rule, the rule gets a gate on the day it is written, and the gate is proven red
 once with one deliberate violation before it is trusted (`AGENTS.md`, *Testen
 en test-evidence*). A gate that cannot go red is worse than none.
 
+# Part D — Standards
+
+One table of what the platform follows and where it deliberately deviates
+(Koen, 13 October 2026, Q&A of 11 October, question 5: "a"); "checked, not
+applicable" stays in the change request that checked it. A new standard
+enters only through a change request: its B3a rows are summed here at the
+close-out (template, C10). The rule behind the table is *Modelleer op
+standaarden* in `AGENTS.md`: build only what is needed today, in the form a
+standard gives it, so that the extension is a row and not a rework.
+
+Measured on 13 October 2026 by the design-documentation CLI against `master`
+@ cf80ccde and the architecture branch: of 27 change requests, five carry a
+B3a section (CR-21, CR-22, CR-31 with tables; CR-29 and CR-30 with one
+sentence each) — the section exists in the template since CR-21 — and the
+model docstrings that name a standard are all in `mdm/models.py` (fourteen
+lines) plus one comment in `chatbot/models.py`. Everything older than CR-21
+stands here from the code, not from a change request.
+
+## D1. Followed, on `master`
+
+| Standard · element | Ours (table · column) | Module | Source |
+|---|---|---|---|
+| UBL 2.1 `cac:Party/cac:Person` (`cbc:FirstName`, `cbc:FamilyName`) | `mdm.persons` · `first_name`, `last_name` (the names stay: `AGENTS.md`, do not rename) | mdm | CR-22 B3a |
+| UBL `cac:BuyerCustomerParty/cac:Party` | `mdm.persons.id`, referenced by value from a registration or an order | mdm | CR-22 B3a |
+| UBL `cac:PartyLegalEntity` (`cbc:CompanyLegalForm`, `cbc:RegistrationName`) | `mdm.organizations` · `legal_form`, `name`; singular on the party | mdm | `mdm/models.py` docstrings |
+| UBL `cac:PartyIdentification`, `cac:PartyTaxScheme`, repeatable, with a scheme; ISO 6523 / ICD for the scheme; ISO 3166-1 alpha-2 for the country | `mdm.organization_identifications` · `scheme`, `value`, `country` | mdm | `mdm/models.py` docstrings |
+| UBL `cac:PayeeFinancialAccount`; ISO 20022 `IBAN`, `BICFI` | `mdm.bank_accounts` · `iban`, `bic`, `beneficiary` — one table, a party can have several | mdm | `mdm/models.py` docstrings (#945) |
+| UBL `cac:Contact` (`cbc:ElectronicMail`, `cbc:Telephone`, `cbc:WebsiteURI`); vCard `EMAIL`, `TEL` repeatable with `PREF` | `mdm.contact_details` · `contact_type_code`, `value`, `is_primary` — repeatable and typed where UBL keeps them singular; the primary maps to UBL's one element | mdm | CR-22 B3a, `mdm/models.py` |
+| UBL `cac:PostalAddress` with `cac:Country` | `mdm.addresses`, hung on the party, postal code from the lookup table | mdm | `AGENTS.md` (*Modelleer op standaarden*) |
+| OpenID Connect `email_verified` | `mdm.contact_details.confirmed_at` — a timestamp instead of a boolean, because *when* matters for an audit | mdm | CR-22 B3a |
+| NIST SP 800-63B §5.1.3, out-of-band authenticator | `auth.login_tokens` · `otp_code` (hash), `expires_at`, `attempts`, `used` | auth | CR-22 B3a |
+| ISO 8601 with offset | `DateTime(timezone=True)` on every timestamp | all | CR-22 B3a |
+| Belgian structured communication (OGM, mod 97); ISO 20022 `RmtInf/Strd` | `payment.payment_records.structured_communication`, from a Postgres sequence | payment | CR-21, CR-31 B3a; `kernel/structured_communication.py` |
+| UBL `cac:PaymentMeans`, `cbc:PaymentID`, `cbc:Note` | `payment.payment_records` · `structured_communication`, `description` | payment | CR-31 B3a |
+| ISO 4217 | `chatbot.ai_call_log` · `cost_currency`; `kernel/money.py` (`Money`: an amount in a currency) | chatbot, kernel | `chatbot/models.py` comment; CR-13 §B4.7 |
+| OpenDocument (ODS) for every export; cells typed, never CSV | `kernel/ods.py`; the exports of activities, payments, forms, reporting | kernel, several | #200; A10 (formula injection) |
+| One language code list behind every label table | `mdm.language_codes` (`nl`, `en`); the `language` column of every `_labels` table points at it, so a stray tag is refused | mdm, all | CR-12 §B2.4 |
+| BPMN level 1 (Silver's *Method and Style*) as the palette of every process figure | the figures of A2 and of every change request's A2/A3 | docs | `docs/change_request_template.md` |
+
+## D2. Deliberate deviations, with the reason
+
+| Standard · element | Ours | Why we deviate | Source |
+|---|---|---|---|
+| E.164 for telephone numbers | `mdm.contact_details` · MOBILE stored as typed, read as a person reads it (`kernel/phone.py`) | "not now": no sending party needs the international form yet; the column holds one value, so the normalisation is a later step, not a second column | CR-22 B3a |
+| ISO 20022 payment status (`ACSC`, `RJCT`, …) | `payment.gateway_payments.status` holds the provider's own word | an external party's vocabulary is not our list (CR-12 §B4.10): it is mapped in the adapter, never stored as ours | CR-31 B3a |
+| UBL `cbc:ID` for the IBAN and `cac:FinancialInstitutionBranch/cbc:ID` for the BIC | `mdm.bank_accounts` · `iban`, `bic` | the UBL names are unreadable on a screen and mean nothing to a treasurer; the mapping to UBL is one line in the docstring | `mdm/models.py` (#945) |
+| UBL `cac:BuyerCustomerParty` for a guest | a guest registration carries name, e-mail and mobile on the record, without a party | "not now", as registrations always did; the party model (→ E28) decides the buyer for a guest and for an organisation | CR-21 B3a |
+
+## D3. Decided in a change request, not yet on `master`
+
+The webshop (CR-21 → E25) decided fifteen rows for its `product`, `pricing`,
+`stock` and `sales` schemas: UBL `cac:Item`, `cac:AdditionalItemProperty`,
+`cac:SellersItemIdentification`, `cac:Price` with `cbc:PriceTypeCode` (UNCL
+5387), `cac:OrderLine/cac:LineItem` with the unit code and the price at sale
+(EN 16931 BT-146), `DespatchAdvice` per line, `InventoryReport` and GS1 EPCIS
+for stock movements, `cac:Location`; GTIN and GLN "not now", each as a later
+row. They move to D1 at the close-out of the release that builds them.
+
 # Part E — Evolutions
 
 This document describes what runs. Everything that is planned, in build or
@@ -1197,6 +1387,9 @@ rejected choices.
 | E36 | A mail provider seam like the mock pattern chat, OCR, STT and Mollie follow | the former §7.1 named it as the one provider without a seam | — | open |
 | E37 | A load test beyond an association's traffic | the former chapter 8: "the shape transfers, the volume does not yet" | the reference architecture (E33) | open |
 | E38 | The close-out of the change requests whose status line says less than GitHub: CR-05, CR-06, CR-07, CR-10, CR-12, CR-17, CR-18 | a status line that lags is the fault step 14 exists for | step 14 of the next release, by the design-documentation CLI (Koen, 13 October 2026, to the master CLI's question who folds the as-built notes in at a release: "dus design-documentation") | planned |
+| E42 | A lifecycle (`stateDiagram-v2`) per record status column, drawn from the transitions in the service: fourteen in nine modules (part B) | a lifecycle that comes from the text instead of the code is the kind of stale fact this document wants rid of | part B, with the include of the contracts (E32) | planned, next step of the restructuring |
+| E43 | The five public-kit macros without a demo or an exemption (`date_tile`, `year_heading`, `activity_facts`, `public_back_link`, `photo_card`) get a demo on `/admin/design-system` or a reasoned line in the exemption list; the completeness gate covers `_public_macros.html` | `docs/design-system.md` §11 promises that a new macro without a demo fails CI; the public kit is outside that promise today | — | open |
+| E44 | The `document_page` layout of the end state (§2.3) exists in no template | the end state names a layout the code does not have; either the roll-out builds it or the end state drops it | CR-11 | open |
 
 The *non-goals* of every change request — 141 items in 23 documents on 13
 October 2026 — stay in the document that decided them, one place per fact;
