@@ -2,9 +2,11 @@
 title: Architecture — the Raak platform
 ---
 
-**Version:** 2.0 — in restructuring (13 October 2026)
-**As-is:** `master` @ cf80ccde, 13 October 2026; the last GitHub Release is v2.16.0 (what PROD runs is measured at the close-out of the next release)
-**Scope:** every claim is traceable to code (Appendix B); planned work stands in part E
+| | |
+|---|---|
+| **Version** | 2.0 — in restructuring (13 October 2026) |
+| **As-is** | `master` @ cf80ccde, 13 October 2026; the last GitHub Release is v2.16.0 (what PROD runs is measured at the close-out of the next release) |
+| **Scope** | every claim is traceable to code (Appendix B); planned work stands in part E |
 
 > **While this document is being restructured** it grows part by part on the
 > architecture branch, each part measured against `master` in the commit that
@@ -1192,7 +1194,7 @@ rejected choices.
 | E35 | The nine hand-drawn tables outside the list gate, looked at one by one | the list gate's ceiling of 9 comes down with each | #1925 | planned |
 | E36 | A mail provider seam like the mock pattern chat, OCR, STT and Mollie follow | the former §7.1 named it as the one provider without a seam | — | open |
 | E37 | A load test beyond an association's traffic | the former chapter 8: "the shape transfers, the volume does not yet" | the reference architecture (E33) | open |
-| E38 | The close-out of the change requests whose status line says less than GitHub: CR-05, CR-06, CR-07, CR-10, CR-12, CR-17, CR-18 | a status line that lags is the fault step 14 exists for | step 14 of the next release, by the architecture CLI | planned |
+| E38 | The close-out of the change requests whose status line says less than GitHub: CR-05, CR-06, CR-07, CR-10, CR-12, CR-17, CR-18 | a status line that lags is the fault step 14 exists for | step 14 of the next release, by the design-documentation CLI (Koen, 13 October 2026, to the master CLI's question who folds the as-built notes in at a release: "dus design-documentation") | planned |
 
 The *non-goals* of every change request — 141 items in 23 documents on 13
 October 2026 — stay in the document that decided them, one place per fact;
