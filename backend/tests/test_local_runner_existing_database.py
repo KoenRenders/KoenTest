@@ -112,11 +112,16 @@ LOCAL_SCRIPTS = {
 }
 
 
-def _run(tmp_path, script, *arguments, helper="missing", **environment):
+def _run(tmp_path, script, *arguments, helper="missing", init="true", **environment):
     """Run a script in a checkout of its own, with a fake `docker` that records.
 
     `helper` is what `docker inspect` says of the helper container: "missing"
-    (the script then creates it, so its `docker run` shows) or "running".
+    (the script then creates it, so its `docker run` shows) or "running". `init` is
+    what `docker inspect` says of a container's init process (`true`, or `<nil>` for
+    one made before #1964).
+
+    What a pipe given to `--env-file` (`<(…)`) holds is recorded apart, as
+    `done.env_lines`: it is the one thing a command line must not hold (#1964).
     """
     root = tmp_path / "checkout"
     shutil.copytree(SCRIPTS, root / "scripts")
@@ -124,15 +129,22 @@ def _run(tmp_path, script, *arguments, helper="missing", **environment):
     for name in ("requirements.txt", "requirements-dev.txt"):
         (root / "backend" / name).write_text("")
     trace = tmp_path / "docker-calls.txt"
+    env_trace = tmp_path / "docker-env.txt"
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     inspect = "echo true" if helper == "running" else "exit 1"
     (fake_bin / "docker").write_text(
         "#!/bin/sh\n"
         f'echo "$@" >> "{trace}"\n'
+        'prev=""\n'
+        'for arg in "$@"; do\n'
+        f'  case "$prev:$arg" in --env-file:/dev/fd/*) cat "$arg" >> "{env_trace}" ;; esac\n'
+        '  prev="$arg"\n'
+        "done\n"
         'case "$*" in\n'
         '  *"printenv POSTGRES_USER"*) echo u ;;\n'
         '  *"printenv POSTGRES_PASSWORD"*) echo p ;;\n'
+        f'  *"HostConfig.Init"*) echo "{init}" ;;\n'
         f"  inspect*) {inspect} ;;\n"
         "esac\n"
         "exit 0\n"
@@ -154,6 +166,8 @@ def _run(tmp_path, script, *arguments, helper="missing", **environment):
     calls = trace.read_text().splitlines() if trace.exists() else []
     # The checkout's path and the checksum of the requirement files differ by place.
     calls = [re.sub(r"'[0-9a-f]{16}'", "'<sum>'", c.replace(str(root), "<root>")) for c in calls]
+    calls = [re.sub(r"/dev/fd/\d+", "<pipe>", c) for c in calls]
+    done.env_lines = env_trace.read_text().splitlines() if env_trace.exists() else []
     return done, calls
 
 
@@ -203,10 +217,14 @@ def test_the_run_gets_its_own_database_on_the_given_server(tmp_path, script):
     action = "create" if script == "test-local.sh" else "recreate"
     made = [call for call in calls if f"python -m tests._local_db {action} {derived}" in call]
     assert len(made) == 1, f"expected one call that makes {derived}, found {len(made)}"
-    assert f"-e ADMIN_DATABASE_URL={HOST_URL} " in made[0]
-    assert f"=postgresql+psycopg2://u:p@dbhost:5432/{derived} " in calls[-1], (
-        f"the run itself does not go to {derived} on the given server: {calls[-1]}"
-    )
+    # #1964: the URLs travel by environment file, never on the command line.
+    assert "--env-file <pipe>" in made[0] and HOST_URL not in made[0]
+    assert f"ADMIN_DATABASE_URL={HOST_URL}" in done.env_lines
+    assert any(
+        line.endswith(f"=postgresql+psycopg2://u:p@dbhost:5432/{derived}")
+        for line in done.env_lines
+    ), f"the run itself does not go to {derived} on the given server: {done.env_lines}"
+    assert "--env-file <pipe>" in calls[-1] and "u:p@" not in calls[-1]
 
 
 @pytest.mark.parametrize("script", LOCAL_SCRIPTS)
@@ -215,7 +233,12 @@ def test_a_socket_url_keeps_its_socket_directory(tmp_path, script):
     done, calls = _run_local(tmp_path, script, EXISTING_DB_URL=SOCKET_URL)
 
     assert done.returncode == 0, done.stderr
-    assert f"=postgresql+psycopg2://u:p@/{derived}?host=/sockets " in calls[-1], calls[-1]
+    # The URL with its socket directory travels in the environment file (#1964).
+    assert any(
+        line.endswith(f"=postgresql+psycopg2://u:p@/{derived}?host=/sockets")
+        for line in done.env_lines
+    ), done.env_lines
+    assert "?host=" not in calls[-1], calls[-1]
 
 
 @pytest.mark.parametrize("script", ["test-local.sh", "e2e-local.sh"])
@@ -279,7 +302,8 @@ def test_a_whole_url_is_read_by_its_database_name(tmp_path, url, refused):
         assert calls == [], "the script called docker before it refused"
     else:
         assert done.returncode == 0, done.stderr
-        assert f"TEST_DATABASE_URL={url} " in calls[-1]
+        assert f"TEST_DATABASE_URL={url}" in done.env_lines
+        assert url not in calls[-1], "the URL is on the command line"
 
 
 @pytest.mark.parametrize(
@@ -406,6 +430,75 @@ def test_the_browser_helper_container_keeps_its_own_user(tmp_path):
     created = [call for call in calls if call.startswith("run ")]
     assert len(created) == 1
     assert created[0].count(" -u ") == 1 and " -u root " in created[0], created[0]
+
+
+# ── #1964: an init process, and no URL on a command line ─────────────────────
+
+
+@pytest.mark.parametrize("script", ["test-local.sh", "e2e-local.sh"])
+def test_a_fresh_helper_container_starts_with_an_init_process(tmp_path, script):
+    """The first process of the helper container is tini and not `sleep infinity`,
+    which reaps nothing: every `docker exec` left defunct processes behind in it
+    (869 over five containers on 13 October 2026).
+
+    Broken on purpose: `--init` taken off the `docker run` line of one script → that
+    script's case fails. The recording of the calls (above) fails with it."""
+    done, calls = _run_local(tmp_path, script)
+
+    assert done.returncode == 0, done.stderr
+    created = [call for call in calls if call.startswith("run ")]
+    assert len(created) == 1, f"expected one docker run, found {len(created)}"
+    assert " --init " in created[0], created[0]
+    assert created[0].index(" --init ") < created[0].index(" raaktest-backend:"), created[0]
+    assert "no init process" not in done.stderr, "a fresh container is told it has no init"
+
+
+@pytest.mark.parametrize("script", list(LOCAL_SCRIPTS))
+@pytest.mark.parametrize("switch", [None, HOST_URL, SOCKET_URL], ids=["compose", "host", "socket"])
+def test_no_database_url_reaches_a_command_line(tmp_path, script, switch):
+    """A URL carries the password; as `-e NAME=value` it stands in the command line
+    of the docker client, readable by every user of the machine while the command
+    runs. It goes by `--env-file <(…)` — every path, with and without the switch.
+
+    Broken on purpose: `-e DATABASE_URL="$URL"` put back on the last call of
+    `e2e-local.sh` (and `-e TEST_DATABASE_URL=` on `test-local.sh`'s) → that
+    script's cases fail on the URL in the call."""
+    environment = {"EXISTING_DB_URL": switch} if switch else {}
+    done, calls = _run_local(tmp_path, script, **environment)
+
+    assert done.returncode == 0, done.stderr
+    everything = "\n".join(calls)
+    assert "postgresql+psycopg2" not in everything and "u:p@" not in everything, everything
+    assert any(line.split("=", 1)[0].endswith("DATABASE_URL") for line in done.env_lines), (
+        "the URL reached no environment file either"
+    )
+
+
+@pytest.mark.parametrize("script", ["test-local.sh", "e2e-local.sh", "measure-local.sh"])
+def test_an_old_helper_container_is_told_and_not_recreated(tmp_path, script):
+    """A container keeps what it was created with, so one made before #1964 has no
+    init process. The script says so in one line and goes on with the container it
+    has: it does not remove it or make another under a run.
+
+    Broken on purpose: the `warn_if_no_init` call taken out of a script → that
+    script's case fails: no line on stderr."""
+    _helper, short, _name_variable, _derived = LOCAL_SCRIPTS[script]
+    done, calls = _run(tmp_path, script, helper="running", init="<nil>", **short)
+
+    assert done.returncode == 0, done.stderr
+    said = [line for line in done.stderr.splitlines() if "no init process" in line]
+    assert len(said) == 1, done.stderr
+    assert "VERS=1 scripts/" in said[0]
+    assert not [c for c in calls if c.startswith(("run ", "rm "))], "the old container was replaced"
+
+
+@pytest.mark.parametrize("script", ["test-local.sh", "e2e-local.sh", "measure-local.sh"])
+def test_a_container_with_an_init_process_is_not_told_anything(tmp_path, script):
+    _helper, short, _name_variable, _derived = LOCAL_SCRIPTS[script]
+    done, _calls = _run(tmp_path, script, helper="running", init="true", **short)
+
+    assert done.returncode == 0, done.stderr
+    assert "no init process" not in done.stderr
 
 
 # ── tests._local_db: what makes the database when no container can be asked ──
