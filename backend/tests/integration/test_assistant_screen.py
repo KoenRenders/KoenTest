@@ -409,3 +409,47 @@ def test_an_empty_question_is_refused_in_the_services_words(client, db_session, 
     )
     assert resp.status_code == 200
     assert "Typ eerst een vraag." in resp.text
+
+
+def test_a_refused_report_result_shows_the_way_to_rapporten(client, db_session, aan, monkeypatch):
+    """#1969 (Koen, 13 October 2026: "2a"): the guard held back a report's
+    result. The screen shows the guard's sentence and, under it, the way to build
+    the report by hand — a link, not only words."""
+    from app.domains.chatbot.api import SeamBlocked
+
+    def refused(*args, **kwargs):
+        raise SeamBlocked(
+            "Dit is niet verstuurd: in het resultaat van het rapport staat een woord dat ook "
+            "een naam uit de ledenadministratie is.",
+            places=("het resultaat van het rapport",),
+            link=("/admin/rapporten", "Naar Rapporten"),
+        )
+
+    monkeypatch.setattr("app.domains.chatbot.api.run_chat", refused)
+    seed(db_session)
+    csrf = login(client, db_session)
+    resp = client.post(
+        PATH,
+        data={"vraag": "Hoeveel leden hebben we per straat?", "historie": "[]"},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert resp.status_code == 200
+    assert "in het resultaat van het rapport staat" in resp.text
+    link = resp.text.split("data-refusal-link", 1)[1].split("</p>", 1)[0]
+    assert 'href="/admin/rapporten"' in link and "Naar Rapporten" in link
+
+
+def test_a_refusal_without_a_way_on_shows_no_link(client, db_session, aan, monkeypatch):
+    from app.domains.chatbot.api import SeamBlocked
+
+    def refused(*args, **kwargs):
+        raise SeamBlocked("Dit is niet verstuurd: in je vraag staat een e-mailadres.")
+
+    monkeypatch.setattr("app.domains.chatbot.api.run_chat", refused)
+    seed(db_session)
+    csrf = login(client, db_session)
+    resp = client.post(
+        PATH, data={"vraag": "Mail a@example.org", "historie": "[]"}, headers={"X-CSRF-Token": csrf}
+    )
+    assert "in je vraag staat een e-mailadres" in resp.text
+    assert "data-refusal-link" not in resp.text

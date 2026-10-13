@@ -10,6 +10,7 @@
 {% endif %}
 {% if error %}
 {{ ui.error_banner(error) }}
+{% if error_link %}<p data-refusal-link class="mt-2 text-sm">{{ ui.reference(error_link[1], path_for(error_link[0])) }}</p>{% endif %}
 {% else %}
 {# `data-raakje-answer`: hieraan hangt tts.js zijn voorleesknopje, en hierop leest
    hij de tekst uit — hetzelfde haakje als bij de publieke Raakje (#917). #}
