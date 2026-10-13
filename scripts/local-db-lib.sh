@@ -90,3 +90,27 @@ existing_db() {
     RUN_ARGS=(-v "$EXISTING_DB_SOCKET_DIR:$socket")
   fi
 }
+
+
+# url_env NAME URL — one line of an environment file, NAME=URL (#1964). A database
+# URL carries the password, so it never goes to `docker run` or `docker exec` as
+# `-e NAME=value`: that puts it in the command line of the docker client, which
+# every user of the machine can read while the command runs. It goes through
+# `--env-file <(url_env NAME "$URL")`: the client reads the pipe, and no file is
+# left behind. An environment file of the caller's own (e2e.env) goes beside it.
+url_env() {
+  printf '%s=%s\n' "$1" "$2"
+}
+
+# warn_if_no_init CONTAINER SCRIPT — one line when a helper container that already
+# exists was made without the init process (#1964): its first process, `sleep
+# infinity`, reaps nothing, so every `docker exec` leaves defunct processes in it.
+# A container keeps what it was created with, so it is not recreated under a run;
+# the line says how, and that it is the caller's own container to recreate.
+warn_if_no_init() {
+  local init
+  init="$(docker inspect -f '{{.HostConfig.Init}}' "$1" 2>/dev/null || true)"
+  if [ "$init" != "true" ]; then
+    echo "$(basename "$0"): the helper container $1 has no init process, so defunct processes pile up in it — recreate your own once with: VERS=1 scripts/$2" >&2
+  fi
+}
