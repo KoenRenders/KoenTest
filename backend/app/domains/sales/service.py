@@ -195,6 +195,16 @@ def submit_order(
     from app.kernel.ports import call
     from app.kernel.tenant_config import tenant_base_url
 
+    if method not in (PaymentMethod.ONLINE, PaymentMethod.TRANSFER):
+        raise SalesError(_("Kies online betalen of overschrijving."))
+    if person_id is None:
+        if not contact_name.strip():
+            raise SalesError(_("Vul je naam in."))
+        if not contact_email.strip():
+            raise SalesError(_("Vul je e-mailadres in."))
+        if not phone.strip():
+            raise SalesError(_("Vul je mobiele nummer in."))
+
     try:
         order = place_order(
             db,
@@ -231,15 +241,18 @@ def submit_order(
             checkout_url = started.checkout_url
             if method == PaymentMethod.ONLINE and not checkout_url:
                 raise ValueError("geen checkout_url")
-        except Exception as exc:  # noqa: BLE001 - the provider refused or timed out
+        except ValueError as exc:
+            # The payment seam's own refusal (the provider refused, or an online
+            # payment without a checkout url). A programming fault raises on, and
+            # is a 500 — never "the payment could not start". Both branches end the
+            # same way: nothing placed, nothing published (K1).
             db.rollback()
-            if method == PaymentMethod.ONLINE:
-                raise HTTPException(
-                    status_code=502,
-                    detail=_(
-                        "De online betaling kon niet gestart worden. Je bestelling is niet bewaard — probeer het later opnieuw."
-                    ),
-                ) from exc
+            raise HTTPException(
+                status_code=502,
+                detail=_(
+                    "De online betaling kon niet gestart worden. Je bestelling is niet bewaard — probeer het later opnieuw."
+                ),
+            ) from exc
 
     publish(
         SalesOrderPlaced(order_id=order.id, payment_record_id=payment_record_id),

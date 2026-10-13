@@ -91,13 +91,21 @@ async def order_submit(request: Request, db: Session = Depends(get_db)) -> Respo
     from app.ui import refusal_response
 
     form = await request.form()
-    variant_ids = [int(str(v)) for v in form.getlist("variant_id")]
-    quantities = [int(str(q)) for q in form.getlist("quantity")]
+    try:
+        variant_ids = [int(str(v)) for v in form.getlist("variant_id")]
+        quantities = [int(str(q)) for q in form.getlist("quantity")]
+        method = PaymentMethod(str(form.get("payment_method") or "online"))
+    except ValueError:
+        return refusal_response(
+            request,
+            [FieldError("", _("Ongeldig aantal of betaalwijze."))],
+            "#bestel-melding",
+            send=True,
+        )
     items = list(zip(variant_ids, quantities))
     contact_name = str(form.get("contact_name") or "").strip()
     contact_email = str(form.get("contact_email") or "").strip()
     phone = str(form.get("phone") or "").strip()
-    method = PaymentMethod(str(form.get("payment_method") or "online"))
     person_id, member = _buyer(request, db)
 
     try:

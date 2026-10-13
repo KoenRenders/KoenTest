@@ -2332,23 +2332,12 @@ def _names_in(node: ast.AST) -> set[str]:
 
 
 def _is_total_shape(node: ast.AST) -> bool:
-    """`quantity * price` — a registration line's subtotal: the price is a local
-    name (`unit_price`) or a leaf attribute `price` (`i.product.price`). An order's
-    total multiplies the line's own `unit_price` attribute, a different derived
-    value with its own shape."""
+    """`quantity * price` in either order — a registration line's subtotal."""
     if not (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult)):
         return False
-    names: set[str] = set()
-    attrs: set[str] = set()
-    for operand in (node.left, node.right):
-        for n in ast.walk(operand):
-            if isinstance(n, ast.Name):
-                names.add(n.id)
-            elif isinstance(n, ast.Attribute):
-                attrs.add(n.attr)
-    quantity = any("quantity" in n for n in names | attrs)
-    price = any("price" in n for n in names) or ("price" in attrs)
-    return quantity and price
+    left, right = _names_in(node.left), _names_in(node.right)
+    both = left | right
+    return any("quantity" in n for n in both) and any("price" in n for n in both)
 
 
 def _is_paid_sum(node: ast.AST) -> bool:
