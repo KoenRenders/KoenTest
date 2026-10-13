@@ -614,7 +614,15 @@ superseded on every screen that moves to the layout:
   stoppen?". The table keeps the frame's full width, so the row lines run to
   its edge; the white space falls behind the last column, never between the
   first two. A width is the kit's by the column's part — a name 380 px (336 px
-  in a table of eight columns and more), context 24 % of the frame, status
+  in a table of eight columns and more), context 280 px (#1941 — a share of the
+  frame left white space behind it on a wide screen, and a column sized to its
+  content jumps between pages and filters, so it is a width like every other
+  part; where the frame is narrow the context keeps it and the name gives way.
+  The narrower set keeps its share of 20 % and is capped at 240 px: the
+  registrations of an activity have no room to give at a window of 1 100 px —
+  measured, with the name at 201 px instead of its 221 an ordinary name is
+  two lines, #1741 — so only the white space of a wide screen goes, 326 →
+  240 px at 1 920 px), status
   136 px, a number 104 px, a date 112 px, a moment 152 px, an `extra` that is
   no number 160 px, the actions 156 px — or the list's own, `width` in px on
   the column, where the default does not fit its content (Personen: Gezin
@@ -1122,12 +1130,14 @@ its occupancy and "t/m" in read mode; **a product's settlement is one
 segmented choice — Betalend · Gratis · Ter plaatse** (Koen, 5 October 2026:
 K5's two switches with a refusal when both were on go back to one control;
 a correction slice on K5), the price fields active only for Betalend;
-**room for the groups** (Koen, 5 October 2026, the second correction on K5):
-in edit mode a record with a composite group takes the whole reading group
-(1 092 px, every full-width field filling it, text areas included — the
-768 px cap on long text fields went on 5 October 2026) with the summary
-card at the form's right where the frame holds both (1 416 px) and otherwise
-above it as the band of the end state's §3.10 (Koen, 12 October 2026, #1912);
+**one width for every record** (#1929; Koen, 12 October 2026, to "Kies je c,
+één breedte van 768 px voor elk record in beide modi?": "Ja", CR-11 Q96): the
+form column is 768 px in read and in edit mode, with the summary card of
+300 px at its right from a frame of 964 px and above it as the band of the
+end state's §3.10 under that (#1912) — the editor of a record with a
+composite group no longer takes 1 092 px (#1610, 5 October 2026, withdrawn),
+on the activity and on the household alike; every full-width field fills its
+column, text areas included (#1635);
 a product row is one line naam · prijs · ledenprijs · maximum with
 the settlement choice and Publiek zichtbaar on the second; a component's
 head is naam · maximum · inschrijven tot on one line; the handle's gutter is

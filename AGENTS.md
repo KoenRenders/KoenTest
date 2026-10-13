@@ -1310,6 +1310,39 @@ nu komt het op de affiche, morgen op de website. Dat weet dat domein niet").
 The rule is about what a user reads on a screen. A code comment or a docstring
 may still say how another domain uses a field: that helps a developer.
 
+## First time right
+
+Asked for by Koen on 13 October 2026, as a principle beside *Keep it simple*
+and of the same weight: *"ik wil het first-time right doen, geen
+uitzondering"*. We build a thing once, in the form it is meant to keep — not a
+provisional form now and the right one later.
+
+- **An open question is answered before what depends on it is built.** When a
+  piece of work turns out to rest on a decision nobody has taken — what a thing
+  is called, which of two concepts it is, where a rule lives — the work stops
+  at that point and the question goes to Koen (through the master CLI). What
+  does not depend on the answer is built on; what does, waits.
+- **No workaround to get past an open question.** A device that only exists so
+  that the work can ship before the answer — a second word for one thing on one
+  screen, a kit change made to fit a label that may not stay, a case that
+  "holds for now" — is rework that has been scheduled without being planned.
+  It is proposed to Koen as what it is, with what it costs to undo, and it is
+  not built unless he says so.
+- **A proposal says when it is not the final form.** If an option put to Koen
+  will have to be redone once another decision is taken, the proposal says so
+  and names that decision. He chooses with the rework in view.
+- **This is not building ahead.** *Modelleer op standaarden* still holds: build
+  only what is needed today, in the form that grows. First time right is about
+  the form and the decision under what is built now, not about adding what
+  might be needed later.
+
+The example it was written for: the list of organisations showed the kind of an
+organisation with a word from the code list that did not match the word on the
+approved concept, and the longer word did not fit a phone. The proposal on the
+table was to leave the word and teach the kit's segment bar to wrap. Koen saw
+that the word was the real question — what an organisation, a household and a
+company are called in the party model — and had that answered first.
+
 ## Twee keer dezelfde reparatie? Dan is de duplicatie de bug
 
 Merk je dat je dezelfde wijziging op twee plaatsen aanbrengt, stop dan. **De fout is niet

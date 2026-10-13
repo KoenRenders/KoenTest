@@ -14,7 +14,15 @@ Betalingen — at 1 100, 1 440 and 1 920 px:
   back to the name;
 - **the white space falls behind the last column**: on Leden at 1 920 px the
   Personen head starts where the name ends, not at the frame's right;
-- **a column head never wraps**: one line, and its label inside its cell.
+- **a column head never wraps**: one line, and its label inside its cell;
+- **the context column has a width of its own** (#1941; Koen, 13 October 2026:
+  fixed at about 280 px): 280 px on Betalingen at every width, so on a wide
+  screen Status starts where Context ends, and on a narrow one the name gives
+  way, not the context. On the registrations of an activity — the narrower set
+  of eight columns — it keeps its 20 % of the frame and is capped at 240 px:
+  at a window of 1 100 px that table has no room to give (the name 221 px, an
+  ordinary name on one line — #1741), so only the white space of a wide
+  screen goes.
 
 Broken on purpose (13 October 2026), each put back and the css rebuilt:
 - the name's width rule out of `scripts/build-css.sh` → the name shares the
@@ -26,10 +34,15 @@ Broken on purpose (13 October 2026), each put back and the css rebuilt:
   1100 px: the name left the actions 260 px, not their 156";
 - Personen's Aangemaakt at 40 px → "head 'extra': its label ends at 926.625,
   the cell at 881.625".
+And for #1941 (13 October 2026): the context part back at a share of the frame
+(`'context': '24cqw'`, and `'20cqw'` in the narrower set) → the context test
+red ("/admin/betalingen at 1100 px: the context is 236.625 px, the kit gives it
+280").
 """
 
 import os
 import sys
+from urllib.parse import urljoin
 
 import pytest
 from playwright.sync_api import sync_playwright
@@ -43,6 +56,16 @@ WIDTHS = (1100, 1440, 1920)
 #: The kit's width of a name, and of the actions.
 NAME = 380
 ACTIONS = 156
+#: The registrations of the seeded activity: eight columns, the heaviest list.
+REGISTRATIONS = "the registrations of an activity"
+#: The kit's width of a context column, per list and window. The registrations
+#: are the narrower set: 20 % of the frame, capped at 240 px — 197 px in the
+#: 986 px a window of 1 100 px leaves, 233 px at 1 440 px, 240 px from a frame
+#: of 1 200 px.
+CONTEXT = {
+    "/admin/betalingen": {1100: 280, 1440: 280, 1920: 280},
+    REGISTRATIONS: {1100: 197, 1440: 233, 1920: 240},
+}
 
 #: Boxes are [left, right]; `label` is the box of the head's content.
 MEASURE = """() => {
@@ -75,13 +98,22 @@ def measured():
         browser = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
         page = browser.new_page(base_url=BASE, viewport={"width": 1440, "height": 900})
         login_als_admin(page, email, make_session_value(email))
-        for path in LISTS:
+        page.goto("/admin/activiteiten")
+        pagina_klaar(page)
+        activity = page.get_by_role("link", name="E2E-activiteit").first.get_attribute("href")
+        page.goto(urljoin(page.url, activity))
+        pagina_klaar(page)
+        tab = page.locator('[data-related-tabs] a:has-text("Inschrijvingen")').first
+        lists = {path: path for path in LISTS}
+        lists[REGISTRATIONS] = urljoin(page.url, tab.get_attribute("href"))
+        for name, path in lists.items():
             for width in WIDTHS:
                 page.set_viewport_size({"width": width, "height": 900})
                 page.goto(path)
                 pagina_klaar(page)
                 page.wait_for_selector("[data-table-frame] tr[data-row]")
-                found[path, width] = page.evaluate(MEASURE)
+                found[name, width] = page.evaluate(MEASURE)
+                print("MEASURE columns", name, width, found[name, width])
         browser.close()
     return found
 
@@ -152,3 +184,19 @@ def test_a_column_head_never_wraps(measured):
                 assert head["label"][1] <= head["box"][1] + 1, (
                     f"{where}: its label ends at {head['label'][1]}, the cell at {head['box'][1]}"
                 )
+
+
+def test_the_context_column_keeps_its_own_width(measured):
+    for name, by_width in CONTEXT.items():
+        for width, expected in by_width.items():
+            heads = measured[name, width]["heads"]
+            index = next(i for i, head in enumerate(heads) if head["cell"] == "context")
+            context, after = heads[index], heads[index + 1]
+            assert abs(_width(context["box"]) - expected) <= 1, (
+                f"{name} at {width} px: the context is {_width(context['box'])} px, "
+                f"the kit gives it {expected}"
+            )
+            assert abs(after["box"][0] - (context["box"][0] + expected)) <= 1, (
+                f"{name} at {width} px: the next column starts at {after['box'][0]}, "
+                f"the context at {context['box'][0]} — white space behind the context"
+            )

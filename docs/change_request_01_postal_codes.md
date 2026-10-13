@@ -9,7 +9,7 @@
 Replace the plain-text `postal_code` and `municipality` columns on the families/members table with a normalized `postal_codes` lookup table. Addresses are now linked by `postal_code_id` foreign key.
 
 **New table:** `postal_codes` (id, postal_code, municipality, created_at, updated_at)
-**Seed file:** `backend/seed_postal_codes.py` reads `docs/postal_codes_seed.csv` (589 Belgian postal codes).
+**Seed file:** `backend/seed_postal_codes.py` reads `backend/docs/postal_codes_seed.csv` (589 Belgian postal codes).
 
 ---
 
