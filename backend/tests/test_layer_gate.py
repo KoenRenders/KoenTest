@@ -25,7 +25,16 @@ De drie regels, elk met de reden:
 4. **De context komt uit een view-model** (#643-F). Een letterlijke dict als
    context van `TemplateResponse` is geen belofte: een verkeerde of vergeten
    sleutel merk je pas bij het renderen. `<Scherm>View(ViewModel).as_context()` is
-   dat wél, en de template-variabelen-gate kan er dan tegen toetsen.
+   dat wél, en de template-variabelen-gate kan er dan tegen toetsen. Sinds #1950
+   ziet de gate ook een context die via een NAAM binnenkomt: een variabele die
+   dezelfde functie een dict geeft (literal, `dict(...)`, comprehension), ook als er
+   later sleutels bijkomen (`context["x"] = …`, `.update(…)`) of ze verspreid wordt
+   (`{**context, …}`). Niet gevolgd, bewust: een context uit een helper (ook in
+   dezelfde module), een parameter, en `view.as_context()` waar de aanroeper nog
+   iets aan toevoegt. Bewezen met een additieve overtreding (een wegwerpfunctie
+   `context = {"a": 1}` in `app/ui/organisaties_ui.py` → de gate noemt
+   `app.ui.organisaties_ui`, daarna weggehaald) en met `_dict_contexts` op kleine
+   bronnen, die ook tellen wat ze doorlopen.
 
 Plus een scoperegel (#635-J5): alles in `app/ui/` dat een `APIRouter` bevat, moet
 op `_ui.py` eindigen. Anders ontsnapt een nieuw scherm aan de gate door zijn naam.
@@ -231,22 +240,96 @@ def test_een_scherm_ontsnapt_niet_aan_de_gate_via_zijn_naam():
     assert not fouten, "\n  ".join(["Hernoem het bestand of zet het bij de JSON-kant:"] + fouten)
 
 
-def _letterlijke_contexten(pad: Path) -> list[str]:
-    """TemplateResponse-aanroepen met een dict-literal als context."""
-    fouten = []
-    for node in ast.walk(ast.parse(pad.read_text(encoding="utf-8"))):
-        if not (
-            isinstance(node, ast.Call) and getattr(node.func, "attr", None) == "TemplateResponse"
-        ):
+def _dict_form(node: ast.AST) -> str | None:
+    """What kind of dict an expression is, or None when it is none of the three:
+    a literal (also with `**` spread), a comprehension, a call of `dict`."""
+    if isinstance(node, ast.Dict):
+        return "letterlijke dict"
+    if isinstance(node, ast.DictComp):
+        return "dict-comprehension"
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "dict":
+        return "dict(...)"
+    return None
+
+
+def _own_nodes(function: ast.AST) -> list[ast.AST]:
+    """The nodes of one function, without those of the functions inside it: a
+    name means one thing per function, and a nested one is its own pass."""
+    found: list[ast.AST] = []
+    todo = list(ast.iter_child_nodes(function))
+    while todo:
+        node = todo.pop()
+        found.append(node)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
             continue
-        context = (
-            node.args[2]
-            if len(node.args) >= 3
-            else next((k.value for k in node.keywords if k.arg == "context"), None)
-        )
-        if isinstance(context, ast.Dict):
-            fouten.append(f"regel {node.lineno}: letterlijke dict als context")
-    return fouten
+        todo.extend(ast.iter_child_nodes(node))
+    return found
+
+
+def _dict_contexts(source: str) -> tuple[int, list[str]]:
+    """(how many template responses were walked, the contexts that are a dict).
+
+    A dict is no promise (#643-F): a wrong or forgotten key shows only when the
+    template renders. Followed, per function (#1950):
+
+    - a context written as the argument — a literal (`{**context, "x": 1}`
+      included), `dict(...)` or a comprehension (the form of #643);
+    - a context passed as a NAME that the same function assigns one of those
+      forms — also when keys are added afterwards (`context["x"] = …`,
+      `context.update(…)`), because the dict is what it was assigned.
+
+    Knowingly NOT followed: a context returned by a helper (in this module or
+    another: `context = _build(request)`), a name that is a parameter or comes
+    from an attribute, and a name assigned `view.as_context()` and then added to
+    — that one holds what a view-model promised, and the keys added are the
+    caller's. The gate ends where the syntax tree does.
+    """
+    walked = 0
+    findings: list[str] = []
+    for function in ast.walk(ast.parse(source)):
+        if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        nodes = _own_nodes(function)
+        assigned: dict[str, tuple[int, str]] = {}
+        for node in nodes:
+            targets: list[ast.expr] = []
+            value: ast.AST | None = None
+            if isinstance(node, ast.Assign):
+                targets, value = node.targets, node.value
+            elif isinstance(node, ast.AnnAssign) and node.value is not None:
+                targets, value = [node.target], node.value
+            form = _dict_form(value) if value is not None else None
+            if form is None:
+                continue
+            for target in targets:
+                if isinstance(target, ast.Name):
+                    assigned.setdefault(target.id, (node.lineno, form))
+        for node in nodes:
+            if not (
+                isinstance(node, ast.Call)
+                and getattr(node.func, "attr", None) == "TemplateResponse"
+            ):
+                continue
+            walked += 1
+            context = (
+                node.args[2]
+                if len(node.args) >= 3
+                else next((k.value for k in node.keywords if k.arg == "context"), None)
+            )
+            form = _dict_form(context) if context is not None else None
+            if form is not None:
+                findings.append(f"regel {node.lineno}: {form} als context")
+            elif isinstance(context, ast.Name) and context.id in assigned:
+                line, form = assigned[context.id]
+                findings.append(
+                    f"regel {node.lineno}: context `{context.id}` is een {form} (regel {line})"
+                )
+    return walked, sorted(findings, key=lambda f: int(f.split()[1].rstrip(":")))
+
+
+def _letterlijke_contexten(pad: Path) -> list[str]:
+    """The contexts of this module that are a dict, in any form followed."""
+    return _dict_contexts(pad.read_text(encoding="utf-8"))[1]
 
 
 def test_de_template_context_komt_uit_een_view_model():
@@ -269,3 +352,118 @@ def test_de_template_context_komt_uit_een_view_model():
     assert not treffers, _melding(
         "Bouw een <Scherm>View(ViewModel) en geef .as_context() door (#643-F):", treffers
     )
+
+
+# ── The gate's own proof (#1950) ─────────────────────────────────────────────
+# A gate that walks nothing is green for ever (#678). These tests run the detector
+# on small sources: every form it follows must be seen, and what it knowingly does
+# not follow must stay quiet — and still be WALKED, so "no finding" means "looked".
+
+_RESPONSE = 'return templates.TemplateResponse(request, "page.html", {name})\n'
+
+FLAGGED = {
+    "a literal as the argument": "def f(request):\n    " + _RESPONSE.format(name='{"a": 1}'),
+    "a literal with a spread": (
+        "def f(request, context):\n    " + _RESPONSE.format(name='{**context, "b": 2}')
+    ),
+    "dict(...) as the argument": "def f(request):\n    " + _RESPONSE.format(name="dict(a=1)"),
+    "a comprehension as the argument": (
+        "def f(request):\n    " + _RESPONSE.format(name="{k: 1 for k in range(3)}")
+    ),
+    "a name assigned a literal": (
+        'def f(request):\n    context = {"a": 1}\n    ' + _RESPONSE.format(name="context")
+    ),
+    "a name assigned dict(...)": (
+        "def f(request):\n    context = dict(a=1)\n    " + _RESPONSE.format(name="context")
+    ),
+    "a name assigned a comprehension": (
+        "def f(request):\n    context = {k: 1 for k in range(3)}\n    "
+        + _RESPONSE.format(name="context")
+    ),
+    "a name with keys added by subscript": (
+        'def f(request):\n    context = {"a": 1}\n    context["b"] = 2\n    '
+        + _RESPONSE.format(name="context")
+    ),
+    "a name with keys added by update": (
+        'def f(request):\n    context = {"a": 1}\n    context.update(b=2)\n    '
+        + _RESPONSE.format(name="context")
+    ),
+    "an annotated name": (
+        'def f(request):\n    context: dict = {"a": 1}\n    ' + _RESPONSE.format(name="context")
+    ),
+    "the context as a keyword": (
+        'def f(request):\n    context = {"a": 1}\n    '
+        'return templates.TemplateResponse(request, "p.html", context=context)\n'
+    ),
+    "an async route": (
+        'async def f(request):\n    context = {"a": 1}\n    ' + _RESPONSE.format(name="context")
+    ),
+    "a name assigned in an if": (
+        'def f(request, x):\n    if x:\n        context = {"a": 1}\n    '
+        + _RESPONSE.format(name="context")
+    ),
+}
+
+QUIET = {
+    "a view-model": (
+        "def f(request):\n    view = PageView(a=1)\n    "
+        + _RESPONSE.format(name="view.as_context()")
+    ),
+    "a name assigned as_context()": (
+        "def f(request):\n    context = PageView(a=1).as_context()\n    "
+        + _RESPONSE.format(name="context")
+    ),
+    "as_context() with a key added (the caller's, not a dict assigned)": (
+        'def f(request):\n    context = PageView(a=1).as_context()\n    context["oob"] = True\n    '
+        + _RESPONSE.format(name="context")
+    ),
+    "a context handed in as a parameter": (
+        "def f(request, context):\n    " + _RESPONSE.format(name="context")
+    ),
+    "a context from a helper (not followed)": (
+        "def f(request):\n    context = _build(request)\n    " + _RESPONSE.format(name="context")
+    ),
+    "a dict of another function": (
+        'def g():\n    context = {"a": 1}\n    return context\n\n'
+        "def f(request, context):\n    " + _RESPONSE.format(name="context")
+    ),
+    "a dict assigned to another name": (
+        'def f(request):\n    other = {"a": 1}\n    view = PageView(a=other)\n    '
+        + _RESPONSE.format(name="view.as_context()")
+    ),
+}
+
+
+@pytest.mark.parametrize("source", list(FLAGGED.values()), ids=list(FLAGGED))
+def test_the_gate_follows_every_form_of_a_dict_context(source):
+    walked, findings = _dict_contexts(source)
+    assert walked == 1, "the detector did not walk the template response"
+    assert len(findings) == 1 and "dict" in findings[0], findings
+
+
+@pytest.mark.parametrize("source", list(QUIET.values()), ids=list(QUIET))
+def test_the_gate_stays_quiet_where_it_does_not_follow(source):
+    walked, findings = _dict_contexts(source)
+    assert walked == 1, "the detector did not walk the template response"
+    assert findings == [], findings
+
+
+def test_a_nested_function_is_its_own_scope():
+    """A name means one thing per function: the dict of the outer one is not the
+    context of the inner."""
+    source = (
+        'def outer(request):\n    context = {"a": 1}\n\n'
+        "    def inner(request, context):\n        "
+        + _RESPONSE.format(name="context")
+        + "    return inner\n"
+    )
+    walked, findings = _dict_contexts(source)
+    assert walked == 1 and findings == []
+
+
+def test_the_gate_walks_the_template_responses_of_the_screens():
+    """It counts what it walks (#678): 234 template responses on 12 October 2026.
+    The floor is a good deal under that and still far above what a broken
+    discovery of the modules would give."""
+    walked = sum(_dict_contexts(pad.read_text(encoding="utf-8"))[0] for pad in _ui_paden())
+    assert walked >= 150, f"the gate walks only {walked} template responses"
