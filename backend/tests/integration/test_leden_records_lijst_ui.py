@@ -212,7 +212,8 @@ def test_a_row_opens_the_households_record(client, db_session):
     member = _gezin_met_lidmaatschap(db_session, "Klikbaar", [date.today().year])
 
     lijst = client.get("/admin/leden").text
-    assert f'href="/admin/leden/gezin/{member.id}"' in lijst
+    # #1940: the row names the list as it stands in the one key `terug`.
+    assert f'href="/admin/leden/gezin/{member.id}?terug=/admin/leden"' in lijst
 
     record = client.get(f"/admin/leden/gezin/{member.id}")
     assert record.status_code == 200
@@ -367,7 +368,8 @@ def test_a_row_is_the_household_its_address_its_persons_and_its_badge(client, db
     assert row, "the household has no row"
     cells = re.findall(r'<td data-cell="([a-z]+)"', row.group(0))
     assert cells == ["name", "extra", "status"]
-    assert f'href="/admin/leden/gezin/{member.id}"' in row.group(0)
+    # The search is part of the list as it stands: it is in the way back (#1940).
+    assert f'href="/admin/leden/gezin/{member.id}?terug=/admin/leden%3Fq%3DRijtje"' in row.group(0)
     assert f"Lid in {dit_jaar}" in row.group(0)
     assert "hx-post" not in row.group(0) and "Verwijderen" not in html
     heads = re.findall(r"<th[^>]*>.*?</th>", html, re.S)

@@ -1,4 +1,6 @@
-"""The gate on the code pattern (CR-12 §B9.3) — eleven checks, each able to go red.
+"""Refuses a break of the code pattern: a vocabulary column without a foreign key, an enum without a code list, a code without labels in both languages, a loose string compared where a code exists, or a member rendered into a template · hard · since #1177.
+
+The gate on the code pattern (CR-12 §B9.3) — eleven checks, each able to go red.
 
 One shape for every fixed vocabulary: a code table, a label table per language,
 and a plain `Enum` where Python branches on the value. This gate is what holds

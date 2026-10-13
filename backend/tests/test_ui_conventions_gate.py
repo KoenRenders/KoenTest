@@ -1,4 +1,6 @@
-"""Lint-gate UI-conventies (#528 as D) — drift kan niet stilletjes terugkomen.
+"""Refuses UI drift: forbidden blues and raw hex outside tokens, browser dialogs, symbol-only buttons without `aria-label`, promised macros that do not exist, fixed waits, and more · hard · since #528.
+
+Lint-gate UI-conventies (#528 as D) — drift kan niet stilletjes terugkomen.
 
 De conformiteitsmatrix (docs/ui-conformiteit.md) legt vast hoe het hoort; deze
 test bewaakt dat het zo blijft. Model: test_import_boundaries / test_i18n_gate.

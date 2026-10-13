@@ -145,7 +145,8 @@ def organisatie_opgeslagen(client, platform_workspace, db_session):
         headers={"X-CSRF-Token": csrf},
     )
     assert antwoord.status_code == 200, antwoord.text[:400]
-    return client.get(f"/admin/organisaties/{TENANT}").text
+    # The record reads first (#1932): the fields stand in its edit mode.
+    return client.get(f"/admin/organisaties/{TENANT}?bewerken=1").text
 
 
 @pytest.mark.parametrize("key", list(ALLE_ORGANISATIEVELDEN))
@@ -213,7 +214,7 @@ def test_de_naam_staat_op_het_scherm(client, platform_workspace, db_session):
     de naam van de RECHTSPERSOON en niet een instelling van de site.
     """
     _operator(client, db_session)
-    html = client.get(f"/admin/organisaties/{TENANT}").text
+    html = client.get(f"/admin/organisaties/{TENANT}?bewerken=1").text
     assert 'name="name"' in html, (
         "de naam van de organisatie staat nergens. Sinds #945 is "
         "`organizations.name` de enige bron voor de paginatitel, de afzender en de "
@@ -256,7 +257,8 @@ def test_een_lege_naam_wordt_geweigerd_met_een_zichtbare_melding(
     )
 
     assert antwoord.status_code == 422
-    assert "Naam" in antwoord.text, "de melding noemt het veld niet bij zijn label"
+    # The banner links to the field it names (#1932): the kit marks it in the page.
+    assert 'data-error-for="name"' in antwoord.text, "de melding noemt het veld niet"
     assert "paginatitel" in antwoord.text, "de melding zegt niet waaróm een lege naam niet kan"
 
 
@@ -365,5 +367,8 @@ def test_een_emailadres_dat_geen_adres_is_wordt_op_zijn_veld_geweigerd(
 
     assert antwoord.status_code == 422
     assert "Vul een geldig e-mailadres in." in antwoord.text
-    assert 'value="secretariaat zonder adres"' in antwoord.text, "what was typed is gone"
+    # The answer is the banner alone, so the form keeps what was typed in the
+    # browser (`tests_e2e/forms/test_a_refused_number_shows_on_its_field.py`).
+    assert 'data-error-for="email"' in antwoord.text
+    assert "<form" not in antwoord.text, "the answer must not replace the form"
     assert stored() == before, "a refused form was written all the same"

@@ -1,32 +1,52 @@
-{% extends "admin_base.html" %}
+{% extends "list_page.html" %}
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Werkbank — Raak") }}{% endblock %}
-{% block content %}
-{{ ui.page_header(_("Werkbank"), _("Alle openstaande taken en excepties. Leeg = gezond systeem.")) }}
-{% if workbench_enabled is defined and not workbench_enabled %}
+{# The Werkbank (#1931, CR-11 roll-out; end state §2.1, §5.1) on the `list_page`
+   layout: the title with its three figures and no primary button — a task is
+   made by the system, not here — the toolbar (the status Open · Afgehandeld ·
+   Alle, the search, Filters with the kind and the role, the count with the page
+   size, and the sort) and the kit's table.
+
+   The list refreshes itself every 30 s (§20.5). The toolbar stands OUTSIDE the
+   polled fragment, so a refresh cannot wipe what is being typed; the state
+   lives in the address, and the poll reads it from there. #}
+{% block list_title %}{{ _("Werkbank") }}{% endblock %}
+{% block list_figures %}{{ ui.figures(figures) }}{% endblock %}
+{% block list_toolbar %}
+{% if not workbench_enabled %}
 <div class="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-800" role="alert">
   {{ _("De werkbank is uitgeschakeld (WORKBENCH_ENABLED=false). Bestaande taken blijven staan; er komen geen nieuwe sweep-taken bij.") }}
 </div>
 {% endif %}
-{# Records-lijst-variant (C1 §4, #592): een takenbord, dus geen "+ Nieuwe" en geen
-   record-editor — wél dezelfde zoek- en filterconventie, live via htmx. #}
-{% call ui.filter_bar("/admin/werkbank/lijst", "#werkbank-lijst") %}
-  <div>{{ ui.search(value=q, placeholder=_('Zoek op taak of onderwerp…'), standalone=False) }}</div>
-  <div class="flex flex-wrap items-center gap-3">
-    {% if filter_groups %}
-    {{ ui.grouped_filter("kind", filter_top, filter_groups, current=kind) }}
-    {% endif %}
-    {# #674: afgehandelde taken waren nergens terug te vinden terwijl het besluit,
-       wie en wanneer bewaard blijven. Een filter hier in plaats van een apart
-       scherm: de werkbank heeft de balk en de categorie-indeling al. #}
-    {{ ui.chips("status", status_opties, current=status) }}
+{% call ui.toolbar("/admin/werkbank", "#werkbank-lijst", "werkbank-filter",
+                   segments=segments, status_name="status", status_current=status, status_legend=_("Status"),
+                   q=q, search_placeholder=_("Zoek op taak of onderwerp…"),
+                   page=page, per_page=per_page, total=total, page_sizes=page_sizes,
+                   sort=sort, sort_options=sort_options) %}
+  <div class="flex flex-col gap-1">
+    {{ ui.label(_("Soort"), "werkbank-soort") }}
+    {% call ui.select_control("kind", cls="w-full", attrs='id="werkbank-soort"') %}
+      <option value="">{{ _("Alle soorten") }}</option>
+      {% for group, options in kind_groups %}
+      <optgroup label="{{ group }}">
+        {% for code, label in options %}<option value="{{ code }}"{% if kind == code %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </optgroup>
+      {% endfor %}
+    {% endcall %}
+  </div>
+  <div class="flex flex-col gap-1">
+    {{ ui.label(_("Rol"), "werkbank-rol") }}
+    {% call ui.select_control("rol", cls="w-full", attrs='id="werkbank-rol"') %}
+      <option value="">{{ _("Alle rollen") }}</option>
+      {% for code, label in roles %}<option value="{{ code }}"{% if role == code %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    {% endcall %}
   </div>
 {% endcall %}
-
-{# De lijst blijft zichzelf elke 30 s verversen (§20.5) en stuurt daarbij de
-   actieve zoek- en filterwaarden mee, zodat de polling het filter niet wist. #}
-<div id="werkbank-lijst" hx-get="/admin/werkbank/lijst" hx-trigger="every 30s" hx-swap="innerHTML"
-     hx-include="[name='kind'], [name='q'], [name='status']">
+{% endblock %}
+{% block list_body %}
+{# Why a task was not ticked off (it is no longer yours to handle) lands here. #}
+<div id="werkbank-melding" data-form-message></div>
+<div id="werkbank-lijst" hx-get="/admin/werkbank/lijst" hx-trigger="every 30s" hx-swap="innerHTML">
   {% include "_werkbank_lijst.html" %}
 </div>
 {% endblock %}

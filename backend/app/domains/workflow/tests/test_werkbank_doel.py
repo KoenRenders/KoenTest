@@ -44,29 +44,32 @@ def _taak(db):
 
 
 def _doelen(html: str) -> list[str]:
-    """De hx-target-waarden van de afhandelvormen op deze pagina."""
+    """The hx-target of everything on this page that posts a handling: the row's
+    button on the list, the form on the task's record."""
     return [
         m.group(1)
-        for m in re.finditer(r'<form[^>]*hx-post="[^"]*/afgehandeld"[^>]*hx-target="([^"]+)"', html)
+        for m in re.finditer(
+            r'<[a-z]+[^>]*hx-post="[^"]*/afgehandeld"[^>]*hx-target="([^"]+)"', html
+        )
     ]
 
 
-@pytest.mark.parametrize("context", ["fragment", "pagina"])
+@pytest.mark.parametrize("context", ["lijst", "taak"])
 def test_het_doel_is_oplosbaar_in_beide_schermen(client, db_session, context):
-    """De kern. Een id-doel moet in dát document bestaan; `this` altijd.
+    """De kern. Een id-doel moet in dát document bestaan; `body` en `this` altijd.
 
-    Het fragment wordt vanaf de lijst met htmx bijgeladen (`HX-Request`) en de
-    detailpagina neemt het met een include op. In dat tweede document bestond
-    `#werkbank-lijst` niet — precies de fout.
+    Since #1931 the list's row carries its own "Afgehandeld" and the task's
+    record its decision form (the edit state). Each names a target, and each
+    target must exist on the page that carries it — the fault of #666 was a
+    target that existed on the other screen only.
     """
     taak = _taak(db_session)
     _login(client)
-    url = f"/admin/werkbank/taken/{taak.id}"
-    kop = {"HX-Request": "true"} if context == "fragment" else {}
-    html = client.get(url, headers=kop).text
+    url = "/admin/werkbank" if context == "lijst" else f"/admin/werkbank/taken/{taak.id}?bewerken=1"
+    html = client.get(url).text
 
     doelen = _doelen(html)
-    assert doelen, f"geen afhandelvorm gevonden ({context})"
+    assert doelen, f"geen afhandeling gevonden ({context})"
     for doel in doelen:
         if doel.startswith("#"):
             assert f'id="{doel[1:]}"' in html, (
@@ -74,7 +77,7 @@ def test_het_doel_is_oplosbaar_in_beide_schermen(client, db_session, context):
                 "verstuurt dan niets (#666)"
             )
         else:
-            assert doel in ("this", "closest form"), f"onbekend doel {doel!r}"
+            assert doel in ("this", "closest form", "body"), f"onbekend doel {doel!r}"
 
 
 def test_afhandelen_vanaf_de_detailpagina_stuurt_terug(client, db_session):

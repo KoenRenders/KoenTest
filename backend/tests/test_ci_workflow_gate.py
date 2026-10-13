@@ -1,4 +1,6 @@
-"""The gate of CR-29 (a shorter CI, C7) — the workflow file keeps its promises.
+"""Refuses a CI workflow without job time limits, without parallel pytest, with two runs per commit, whose documents filter skips a file a test reads, or whose browser tests are not each in exactly one part · hard · since #1745.
+
+The gate of CR-29 (a shorter CI, C7) — the workflow file keeps its promises.
 
 The CI run is as long as its longest job, and four things keep it short without
 making it test less: every job has a time limit, pytest runs in several processes,

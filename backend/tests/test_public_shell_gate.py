@@ -1,4 +1,6 @@
-"""CR-11 pilot B, P1 (#1588): one public shell — what a public template may not
+"""Refuses a second header or footer in a public template, a font family named in a template, or the serif heading face · hard · since #1588.
+
+CR-11 pilot B, P1 (#1588): one public shell — what a public template may not
 bring back (B7 gate 1).
 
 Block 11 (Koen, 4 October 2026; `docs/design-system-end-state.md` §2.5): the

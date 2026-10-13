@@ -1,4 +1,6 @@
-"""Laag-gate (#635): een UI-route bouwt een view-model en kiest een template.
+"""Refuses a UI route that imports models or routers, touches the session, or passes its template context as a dict · hard · since #635.
+
+Laag-gate (#635): een UI-route bouwt een view-model en kiest een template.
 
 Sinds de React-exit (#405) zit de scheiding tussen scherm en business-logica niet
 meer in een netwerkgrens maar in discipline — en discipline die nergens wordt

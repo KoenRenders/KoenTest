@@ -1,4 +1,6 @@
-"""The payment-method choice stands once, in the kit (CR-21 phase 0, #1748).
+"""Refuses the Online/Overschrijving choice written anywhere but the kit's `ui.payment_choice` · hard · since #1748.
+
+The payment-method choice stands once, in the kit (CR-21 phase 0, #1748).
 
 Four screens asked "Online betalen" or "Overschrijving" with the same field call, the
 same two options and the same two sentences under them: the registration form, Lid

@@ -1,4 +1,6 @@
-"""CR-19 C6 test 10 — every module router guarded, every registry entry real
+"""Refuses a module router included without `require_module`, or a registry entry that is not real · hard · since #1475.
+
+CR-19 C6 test 10 — every module router guarded, every registry entry real
 (#1475, the gate of §C7).
 
 What it holds, against the running app rather than the source text:

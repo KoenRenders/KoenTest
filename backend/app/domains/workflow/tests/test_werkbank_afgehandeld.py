@@ -59,8 +59,12 @@ def test_een_afgehandelde_taak_is_terug_te_vinden(client, db_session):
 
     html = client.get("/admin/werkbank/lijst?status=done").text
     assert "Vraag over de barbecue" in html
-    assert "Telefonisch beantwoord" in html, "het besluit staat er niet bij"
-    assert "koen@example.com" in html, "wie het afhandelde staat er niet bij"
+    # #1931: the list names the task; its decision, by whom and when stand on
+    # the task's record, in the card Besluit.
+    record = client.get(f"/admin/werkbank/taken/{taak.id}").text
+    besluit = record[record.index('id="wb-besluit"') :]
+    assert "Telefonisch beantwoord" in besluit, "het besluit staat er niet bij"
+    assert "koen@example.com" in besluit, "wie het afhandelde staat er niet bij"
 
 
 def test_de_open_lijst_blijft_de_open_lijst(client, db_session):

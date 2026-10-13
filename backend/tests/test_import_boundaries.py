@@ -1,4 +1,6 @@
-"""Import-grens-test (#396) — de "import-linter" als pytest (architectuurdoc §8/§14-F).
+"""Refuses an import that crosses the layer model: the kernel importing a domain, or a domain reaching into another past its `api.py` · hard · since #396.
+
+Import-grens-test (#396) — de "import-linter" als pytest (architectuurdoc §8/§14-F).
 
 Regels (laagmodel §8):
 1. De kernel (app.kernel + app.database/app.config) importeert NOOIT uit

@@ -1,4 +1,6 @@
-"""The kit owns the repeating group (CR-11 block 7, #1559; B7 test 1 and its new rules).
+"""Refuses a screen that writes its own row structure (handle, row menu, up and down) instead of `ui.repeating_group` · hard · since #1559.
+
+The kit owns the repeating group (CR-11 block 7, #1559; B7 test 1 and its new rules).
 
 `design-system-end-state.md` §3.3. A screen that has rows — dates, components,
 products, organisers — renders them with `ui.repeating_group` and `ui.group_row`

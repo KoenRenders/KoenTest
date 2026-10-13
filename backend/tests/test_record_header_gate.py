@@ -1,4 +1,6 @@
-"""The record head is one macro, its actions data (CR-11 block 5, #1557).
+"""Refuses a control drawn beside `ui.record_header`, or a hand-written way back · hard · since #1557.
+
+The record head is one macro, its actions data (CR-11 block 5, #1557).
 
 `design-system-end-state.md` §3.9: a screen hands `ui.record_header` its actions
 as a list and the macro places them; a screen cannot draw a button of its own in

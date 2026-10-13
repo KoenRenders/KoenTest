@@ -1,4 +1,6 @@
-"""#1911: a list of records in the back office comes from the kit's table.
+"""Refuses a new back-office list of records drawn by hand instead of `ui.data_table` · ratchet · since #1911.
+
+#1911: a list of records in the back office comes from the kit's table.
 
 Koen, 12 October 2026, after two list screens of a builder turned out to be
 hand-written cards while the same builder's third used `ui.data_table`: "Hebben
@@ -71,14 +73,12 @@ HAND_DRAWN_LISTS: frozenset[str] = frozenset(
         "domains/meetings/templates/_vg_lijst.html",
         "domains/newsletter/templates/_nb_lijst.html",
         "domains/reporting/templates/_rp_kaarten.html",
-        "domains/workflow/templates/_werkbank_lijst.html",
-        "ui/templates/_org_kaarten.html",
         "ui/templates/_tn_kaarten.html",
     }
 )
 
 #: How many entries the baseline may hold. Goes down with it, never up.
-CEILING = 9
+CEILING = 7
 
 _TAG = re.compile(r"{%-?\s*(for|endfor|call|endcall)\b(.*?)-?%}", re.S)
 

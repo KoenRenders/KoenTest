@@ -1,4 +1,6 @@
-"""#1293 — no e-mail address in the tests outside the reserved example domains.
+"""Refuses an e-mail address in the tests outside the reserved example domains · hard · since #1293.
+
+#1293 — no e-mail address in the tests outside the reserved example domains.
 
 This repository is public. A test that needs a contact person is tempted to take
 one from the material at hand — a flyer, an export — and then a real person's

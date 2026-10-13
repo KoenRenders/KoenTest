@@ -3323,7 +3323,9 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    booking), a secondary button of 32 px — and `⋯` with the rest. The cell
    stays empty where the row has neither; `⋯` stands at the right edge, so the
    `⋯` of every row aligns.
-   `action`: {label, attrs, confirm?} or None. `items`: a list of
+   `action`: {label, attrs, confirm?} or — where the row's next step is another
+   screen (#1931: a task that is handled on its subject's own page) —
+   {label, href}, a link with the same look; or None. `items`: a list of
    {label, href?|attrs?, confirm?, kind?}; a `kind="delete"` item goes last,
    red, after a divider. #}
 {% macro row_actions_cell(action=None, items=[], label="") -%}
@@ -3337,7 +3339,9 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    screenshot of K2). #}
 <div data-above-row data-row-controls class="flex items-center justify-end gap-2"
      x-data="{ open: false }" :style="open ? 'z-index: 30' : ''" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
-  {% if action %}
+  {% if action and action.get("href") %}
+  <a data-row-action href="{{ action.href }}" class="{{ btn_class('secondary', 'sm') }} h-11 md:h-8 whitespace-nowrap hover:no-underline">{{ action.label }}</a>
+  {% elif action %}
   <button type="button" data-row-action class="{{ btn_class('secondary', 'sm') }} h-11 md:h-8 whitespace-nowrap" hx-disabled-elt="this" {{ action.attrs|safe }}{% if action.get("confirm") %} data-confirm="{{ action.confirm }}"{% endif %}>{{ action.label }}</button>
   {% endif %}
   {% if items %}
