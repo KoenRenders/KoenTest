@@ -464,7 +464,7 @@ def test_a_nested_function_is_its_own_scope():
 
 
 def test_the_gate_walks_the_template_responses_of_the_screens():
-    """It counts what it walks (#678): 234 template responses on 12 October 2026.
+    """It counts what it walks (#678): 234 template responses on 13 October 2026 (231 after #1931).
     The floor is a good deal under that and still far above what a broken
     discovery of the modules would give."""
     walked = sum(_dict_contexts(pad.read_text(encoding="utf-8"))[0] for pad in _ui_paden())
