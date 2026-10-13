@@ -188,35 +188,267 @@ flowchart TB
 
 ### A2.4 The other processes
 
-Six more processes run on the platform. Their figures are drawn in the same
-convention when their module's section (part B) is measured against the code;
-until then one paragraph each names the process and the lanes.
+The legend of A2 holds for every figure: lanes are people and roles, blue is the platform with the screen's menu name in brackets, white is by hand without any system, orange is another system, a green hexagon is a task on the workbench, and the lane *Platform, uit zichzelf* holds only what a job or an event handler does without a person. The six figures below were drawn by the design-documentation CLI on 13 October 2026 from the contracts and services on `master` @ fdf7b5b6 (docs commits past cf80ccde); the sources per step stand in its figure notes in Koen's project folder.
 
-- **Board meetings** (`meetings`, CR-09): the secretary creates a meeting, the
-  agenda is generated from live data (upcoming activities, the finances), the
-  minutes are typed per item, attachments are kept, and the report is mailed as
-  a PDF to the board. Lanes: secretary, board, platform (the agenda, the mail).
-- **The newsletter** (`newsletter`, CR-05 phase A): the author composes a
-  letter from activity blocks, with Raakje as co-writer whose every factual
-  claim is checked against the selected sources; a test send, then the send.
-  Lanes: author, member (receives), platform (the check, the send, the log).
-- **Web content and forms** (`cms`, `forms`, CR-17 in build → E22): the board
-  edits pages with text placeholders that resolve from tenant settings, builds
-  forms with branching, and reads the submissions; a visitor fills a form and
-  the message lands as a task in the workbench. Lanes: board, visitor,
-  platform (the task).
-- **Reporting and the change report** (`reporting`, CR-06, CR-07): a board
-  member asks a question in the query panel or to the admin assistant, the
-  universe answers it from views on the live database, and exports it as
-  OpenDocument; the change report lists every change to a logged object for
-  the member administration (A2.1). Lanes: board member, platform.
-- **The poster studio** (`designstudio`, CR-10): the organiser chooses a
-  preset for an activity, Raakje proposes the text, Inkscape renders the
-  poster and the social image. Lanes: organiser, platform (the render).
-- **The chatbot** (`chatbot`): a visitor asks Raakje about the site; the answer
-  comes from the published pages and three allow-listed tools; an idea
-  submitted through the bot goes through the site's own form port into the
-  workbench. Lanes: visitor, platform, board (the task).
+#### A2.4.1 A board meeting
+
+The secretary creates the meeting and the agenda is built from the activities
+and the finances; the agenda goes to the board with a PDF; attendance and
+minutes are typed in the same document; the report is mailed and the PDF
+archived; a sent report can be reopened. `meetings` registers no job and no
+handler, so there is no platform lane: everything happens in the secretary's
+own request.
+
+<!-- figure: name=proc-meeting caption=A_board_meeting_-_the_platform_carries_the_document,_the_secretary_remembers_to_start -->
+```mermaid
+flowchart TB
+  subgraph SE["Secretaris"]
+    direction TB
+    S0((" ")) --> A1["Denkt eraan de volgende vergadering aan te maken"] --> A2["Maakt de vergadering aan, de agenda wordt uit de activiteiten gebouwd (Vergaderingen)"] --> A3["Vult de agenda aan en voegt bijlagen toe (Vergaderingen)"] --> A4["Verstuurt de agenda met pdf (Agenda versturen)"]
+    A5["Vinkt de aanwezigen aan en typt de notulen (Vergaderingen)"] --> A6["Controleert de pdf en verstuurt het verslag (Verslag versturen)"] --> Q1{"Moet er iets rechtgezet worden?"}
+    Q1 -- ja --> A7["Heropent het verslag (Heropen verslag)"]
+    Q1 -- nee --> E1(("Verslag verstuurd, pdf bewaard"))
+  end
+  subgraph BE["Bestuur"]
+    direction TB
+    B1["Leest de agenda in de mail"] --> B2["Vergadert"]
+    B3["Leest het verslag en antwoordt aan iedereen"]
+  end
+  A4 -.-> B1
+  B2 --> A5
+  A7 --> A5
+  A6 -.-> B3
+  classDef platform fill:#e8f0ff,stroke:#0051a4,color:#14171c;
+  classDef manual fill:#ffffff,stroke:#52607a,color:#14171c;
+  classDef other fill:#fff7ed,stroke:#f16532,color:#14171c;
+  classDef task fill:#eef7ee,stroke:#005d29,stroke-width:2px,color:#14171c;
+  class A2,A3,A4,A5,A6,A7 platform
+  class A1,B1,B2,B3,Q1 manual
+```
+
+*What to see:* the platform carries the document (agenda from live data, attendance and notes in one place, the PDF with every mail) and the two mails; the humans only have to remember to start the meeting, to hold it, and to reply to all.
+
+#### A2.4.2 The newsletter
+
+The author composes a letter from the chosen sources — activities and the
+ticked points of sent meeting reports — with Raakje as co-writer; the writing,
+the deterministic checks and the verification pass run in the author's own
+request, so they are the author's steps, not the platform's. Only the sending
+is the platform's: a job sends in batches within the daily cap and logs every
+delivery. Two figures, because one did not fit a page.
+
+<!-- figure: name=proc-newsletter-write caption=Writing_the_newsletter_with_Raakje_-_every_fact_checked_against_the_chosen_sources -->
+```mermaid
+flowchart TB
+  subgraph AU["Auteur"]
+    direction TB
+    S0((" ")) --> A1["Maakt een nieuwe nieuwsbrief (Nieuwsbrief)"] --> A2["Kiest de bronnen, activiteiten en verslagpunten (Nieuwsbrief)"] --> A3["Vraagt Raakje om een voorstel (Nieuwsbrief)"] --> A4["Raakje schrijft en controleert elk feit tegen de bronnen (Nieuwsbrief)"] --> Q1{"Is het voorstel goed?"}
+    Q1 -- nee --> A3
+    Q1 -- ja --> A5["Past toe wat klopt en werkt de tekst bij (Toepassen)"] --> A6["Stuurt een testmail naar zichzelf (Testmail naar mezelf)"] --> E1(("Brief klaar om te versturen"))
+  end
+  classDef platform fill:#e8f0ff,stroke:#0051a4,color:#14171c;
+  classDef manual fill:#ffffff,stroke:#52607a,color:#14171c;
+  classDef other fill:#fff7ed,stroke:#f16532,color:#14171c;
+  classDef task fill:#eef7ee,stroke:#005d29,stroke-width:2px,color:#14171c;
+  class A1,A2,A3,A4,A5,A6 platform
+  class Q1 manual
+```
+
+*What to see:* Raakje writes and checks in the author's request; a sentence the sources do not support is marked and left out unless the author keeps it (`drafting.py`); nothing reaches the letter without *Toepassen*.
+
+
+<!-- figure: name=proc-newsletter-send caption=Sending_the_newsletter_-_the_job_sends_in_batches_and_logs_every_delivery -->
+```mermaid
+flowchart TB
+  subgraph AU["Auteur"]
+    direction TB
+    S0((" ")) --> A7["Kiest de doelgroep en verstuurt (Versturen)"]
+  end
+  subgraph PF["Platform, uit zichzelf"]
+    direction TB
+    P1["Verstuurt de brieven in batches binnen de daglimiet (job newsletter.send)"] --> P2["Noteert per ontvanger wat vertrok (verzendlog)"]
+  end
+  subgraph LI["Lid"]
+    direction TB
+    L1["Leest de nieuwsbrief"] --> E1(("Nieuwsbrief bij de leden"))
+  end
+  A7 --> P1
+  P2 -.-> L1
+  classDef platform fill:#e8f0ff,stroke:#0051a4,color:#14171c;
+  classDef manual fill:#ffffff,stroke:#52607a,color:#14171c;
+  classDef other fill:#fff7ed,stroke:#f16532,color:#14171c;
+  classDef task fill:#eef7ee,stroke:#005d29,stroke-width:2px,color:#14171c;
+  class A7,P1,P2 platform
+  class L1 manual
+```
+
+*What to see:* from *Versturen* on the platform carries everything: the recipient list is fixed, the job `newsletter.send` pauses on the daily cap and schedules itself again, and the delivery log says per member what left.
+
+#### A2.4.3 Web content and forms
+
+The board writes pages and sets them online (`is_published`; CR-17's
+draft-and-publish → E22 is not built yet), builds forms and shares the link;
+a visitor reads and submits; the platform mails a confirmation when the form
+asks for one and, for the contact form, puts a task on the workbench without
+anyone starting it.
+
+<!-- figure: name=proc-content caption=Web_content_and_forms_-_a_submission_becomes_a_mail_and,_for_the_contact_form,_a_task -->
+```mermaid
+flowchart TB
+  subgraph BE["Bestuur"]
+    direction TB
+    S0((" ")) --> A1["Schrijft een pagina en zet ze online (Pagina's)"]
+    A2["Bouwt een formulier en deelt de link (Formulieren)"]
+    T1{{"Taak: bericht van een bezoeker behartigen (werkbank)"}} --> A3["Opent het bericht en antwoordt per mail"] --> A4["Sluit de taak (Werkbank)"] --> E1(("Bericht afgehandeld"))
+    A5["Bekijkt of exporteert de inzendingen (Formulieren)"] --> E2(("Inzending bij het formulier"))
+  end
+  subgraph BZ["Bezoeker"]
+    direction TB
+    V1["Leest de pagina op de site"] --> V2["Vult een formulier in en verstuurt (Contacteer ons of een formulierpagina)"]
+    V3["Krijgt een bevestiging per mail"]
+  end
+  subgraph PF["Platform, uit zichzelf"]
+    direction TB
+    P1["Stuurt de bevestigingsmail als het formulier erom vraagt (mail)"]
+    Q1{"Is het het bericht-formulier?"}
+    Q1 -- ja --> P2["Zet de taak Bericht behartigen klaar (werkbank)"]
+  end
+  A1 -.-> V1
+  A2 -.-> V2
+  V2 --> P1
+  V2 --> Q1
+  P1 -.-> V3
+  P2 --> T1
+  Q1 -- nee --> A5
+  classDef platform fill:#e8f0ff,stroke:#0051a4,color:#14171c;
+  classDef manual fill:#ffffff,stroke:#52607a,color:#14171c;
+  classDef other fill:#fff7ed,stroke:#f16532,color:#14171c;
+  classDef task fill:#eef7ee,stroke:#005d29,stroke-width:2px,color:#14171c;
+  class A1,A2,A4,A5,P2 platform
+  class A3,V1,V3,Q1 manual
+  class V2,P1 platform
+  class T1 task
+```
+
+*What to see:* the platform turns a visitor's submission into a confirmation mail and, for the contact form, into a task without anyone starting it (`SubmissionCreated`, two handlers); the board only opens the task, answers by mail and closes it.
+
+#### A2.4.4 Reporting and the change report
+
+Two independent processes on one module, so the figure has two starts: a
+board member asks a question — to the assistant, with names masked on their
+way to the model, or by choosing objects and filters — reads the answer as a
+table, pivot or chart, saves and exports it; and the member administration
+fetches the change report for retyping in the national programme (A2.1). The
+universe answers inside the request and the history rows are written by each
+owner in the transaction of the change, so there is no platform lane.
+
+<!-- figure: name=proc-reporting caption=A_question_to_reporting,_and_the_change_report_-_two_processes,_no_platform_lane -->
+```mermaid
+flowchart TB
+  subgraph BL["Bestuurslid"]
+    direction TB
+    S0((" ")) --> A1["Heeft een vraag over de leden of de cijfers"] --> A2["Stelt de vraag aan de Assistent of kiest zelf objecten en filters (Rapporten)"] --> A3["Leest het antwoord als tabel, draaitabel of grafiek (Rapporten)"] --> Q1{"Is het antwoord goed?"}
+    Q1 -- nee --> A2
+    Q1 -- ja --> A4["Bewaart het rapport (Rapporten)"] --> A5["Exporteert het als .ods (Exporteren)"] --> E1(("Vraag beantwoord"))
+  end
+  subgraph LA["Ledenadministratie"]
+    direction TB
+    S1((" ")) --> G1["Denkt eraan de wijzigingen op te halen"] --> G2["Bekijkt de wijzigingen sinds de vorige keer (Wijzigingen)"] --> G3["Exporteert de ledenwijzigingen als .ods (Wijzigingen)"] --> G4["Typt over in het nationale programma"] --> E2(("Raak Nationaal bijgewerkt"))
+  end
+  classDef platform fill:#e8f0ff,stroke:#0051a4,color:#14171c;
+  classDef manual fill:#ffffff,stroke:#52607a,color:#14171c;
+  classDef other fill:#fff7ed,stroke:#f16532,color:#14171c;
+  classDef task fill:#eef7ee,stroke:#005d29,stroke-width:2px,color:#14171c;
+  class A2,A3,A4,A5,G2,G3 platform
+  class A1,G1,Q1 manual
+  class G4 other
+```
+
+*What to see:* the platform answers a question from the whole data set and hands the change report over as a file; the humans judge the answer, remember to fetch the changes (a white box), and retype them.
+
+#### A2.4.5 A poster from the Design Studio
+
+The organiser makes a design from the activity (its facts are read fresh at
+render time, never stored), chooses text, highlights and sponsors, takes a
+picture from the library or describes one and asks for four variants — the
+job `designstudio.generate` fetches them from the image provider and stores
+them through media's port — picks one, makes the version final (Inkscape
+renders every layout and refuses a text that does not fit), publishes the A3
+PDF as the activity's poster and downloads PDF or PNG. There is no text
+proposal by Raakje in the code on `master` (CR-10 still plans it); the only AI
+call is the translation of the picture description.
+
+<!-- figure: name=proc-poster caption=A_poster_-_the_picture_requests_run_in_the_background,_Inkscape_renders_inside_the_platform -->
+```mermaid
+flowchart TB
+  subgraph OR["Organisator"]
+    direction TB
+    S0((" ")) --> A1["Maakt een ontwerp vanuit de activiteit (Design Studio)"] --> A2["Kiest tekst, uitlichtingen en sponsors (Design Studio)"] --> Q1{"Beeld uit de bibliotheek of laten tekenen?"}
+    Q1 -- bibliotheek --> A3["Kiest een foto uit de bibliotheek (Design Studio)"]
+    Q1 -- tekenen --> A4["Beschrijft het beeld en vraagt vier varianten (Design Studio)"]
+    A5["Kiest een variant (Gebruiken)"]
+    A6["Maakt de versie definitief (Definitief maken)"] --> A7["Inkscape rendert elke lay-out en controleert de tekst (Design Studio)"] --> Q2{"Past alles?"}
+    Q2 -- nee --> A2
+    Q2 -- ja --> A8["Publiceert de A3-pdf als affiche van de activiteit (Publiceren als affiche)"] --> A9["Downloadt pdf of png en drukt af of plaatst op Instagram"] --> E1(("Affiche verspreid"))
+  end
+  subgraph PF["Platform, uit zichzelf"]
+    direction TB
+    P1["Beeldaanbieder (BFL) tekent vier varianten"] --> P2["Bewaart de varianten in de bibliotheek (job designstudio.generate)"]
+  end
+  A3 --> A6
+  A4 --> P1
+  P2 --> A5 --> A6
+  classDef platform fill:#e8f0ff,stroke:#0051a4,color:#14171c;
+  classDef manual fill:#ffffff,stroke:#52607a,color:#14171c;
+  classDef other fill:#fff7ed,stroke:#f16532,color:#14171c;
+  classDef task fill:#eef7ee,stroke:#005d29,stroke-width:2px,color:#14171c;
+  class A1,A2,A3,A4,A5,A6,A7,A8,P2 platform
+  class A9,Q1,Q2 manual
+  class P1 other
+```
+
+*What to see:* the platform reads the activity's facts fresh, keeps the picture requests going in the background (orange: the image provider) and refuses a version whose text does not fit; the organiser says what the picture shows, chooses, and puts the result in the world.
+
+#### A2.4.6 A question to Raakje on the site
+
+A visitor asks Raakje; the answer is built inside the visitor's request from
+the published pages and three read-only tools, through the seam guard and the
+log on every outgoing call. A visitor who is not helped leaves name, e-mail
+and message through Raakje: the forms port `SubmitMessage` stores it, and the
+event handlers put a task on the workbench and send the confirmation.
+
+<!-- figure: name=proc-chatbot caption=A_question_to_Raakje_-_answered_in_the_request,_a_left_message_becomes_a_task -->
+```mermaid
+flowchart TB
+  subgraph BZ["Bezoeker"]
+    direction TB
+    S0((" ")) --> V1["Stelt een vraag aan Raakje (Raakje op de site)"] --> V2["Leest het antwoord (Raakje op de site)"] --> Q1{"Is de vraag beantwoord?"}
+    Q1 -- ja --> E1(("Vraag beantwoord"))
+    Q1 -- nee --> V3["Geeft naam, e-mailadres en bericht door via Raakje (Raakje op de site)"]
+    V4["Krijgt de bevestiging per mail"]
+  end
+  subgraph PF["Platform, uit zichzelf"]
+    direction TB
+    P1["Zet de taak klaar en stuurt de bevestigingsmail (bericht gemeld)"]
+  end
+  subgraph BE["Bestuur"]
+    direction TB
+    T1{{"Taak: bericht van een bezoeker behartigen (werkbank)"}} --> B1["Opent de taak en leest het bericht (Werkbank)"] --> B2["Antwoordt de bezoeker per mail"] --> B3["Sluit de taak (Afgehandeld)"] --> E2(("Bericht afgehandeld"))
+  end
+  V3 --> P1
+  P1 -.-> V4
+  P1 --> T1
+  classDef platform fill:#e8f0ff,stroke:#0051a4,color:#14171c;
+  classDef manual fill:#ffffff,stroke:#52607a,color:#14171c;
+  classDef other fill:#fff7ed,stroke:#f16532,color:#14171c;
+  classDef task fill:#eef7ee,stroke:#005d29,stroke-width:2px,color:#14171c;
+  class V1,V2,V3,B1,B3 platform
+  class Q1,V4,B2 manual
+  class T1 task
+  class P1 platform
+```
+
+*What to see:* the platform answers inside the visitor's own request (context from the site's pages, read tools only, the seam guard and the log) and turns a left message into a mail and a task without anyone starting it; the board opens the task and replies.
 
 The webshop (CR-21 → E25) joins this list when it is built.
 
