@@ -993,13 +993,16 @@ owns and offers, its status columns — and the contract file is the text.
 The order follows the processes of A2: the two foundation domains first, then
 the business domains, then the cross-cutting ones.
 
-**Two findings of the measurement, before the cards.** First, the contracts
-do not share one layout: only `forms` carries the five headings the skeleton
-assumed (Bezit, Publiceert, Consumeert, Schermen, Deprecaties); the other
-fourteen use older or English headings (Facade, Router, Data, Events, Jobs,
-Callers, Invariants, Screens, …). The contract template is revised in one go
-with the nine headings of the skeleton, and the module-shape gate requires
-them (→ E31's sibling, the third issue of the restructuring). Second, the
+**Two findings of the measurement, before the cards.** First, on 13 October
+2026 the contracts did not share one layout: only `forms` carried the five
+headings the skeleton assumed, the other fourteen used older or English
+headings. The same day #1954 brought every contract to the nine English
+headings of `docs/CONTRACT-template.md` — *Purpose and process · Publishes ·
+Consumes · Owns · Screens · Deprecations · Standards · Rules and gates ·
+Evolutions* — with the old sections moved whole as third-level headings under
+the new ones, and the module-shape gate requires the nine (`master` @
+f82e5eeb). The *Evolutions* heading of a contract names the rows of part E by
+id. Second, the
 contracts name what matters, not the surface: of 967 public names on the
 fifteen facades (610 functions), 635 appear in no contract. That is right as
 long as the rule holds that a facade promises its *invariants* in the
@@ -1707,7 +1710,9 @@ the head of the former document still said PROD ran v2.5.0 of 21 September.
 
 One table. The *track* is the change request or the issue that carries the
 row; the *status* is one of planned · in build · built in vX.Y.Z · rejected ·
-open (named, no track yet). The first block re-measures the roadmap of the
+open (named, no track yet). **An id is permanent**: the contracts of part B
+name rows by id since #1954, so a row is closed or rejected in place and never
+renumbered, and a new row takes the next number. The first block re-measures the roadmap of the
 former chapter 9 (R0–R11) against `master`; the second lists the gaps the
 former §5.2 named; the third the open change requests; the fourth what was
 decided on 13 October 2026 for this document and the harness; the last the
