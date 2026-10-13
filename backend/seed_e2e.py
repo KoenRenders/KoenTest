@@ -257,10 +257,13 @@ def main() -> None:
         from app.kernel.modules import M as _M
         from app.kernel.tenancy import current_tenant_id
 
-        if "webshop" not in tenant_codes(db):
-            webshop = create_tenant(db, name="Webshop", code="webshop", kind=TenantKind.ASSOCIATION)
+        # The code is `winkel`, not `webshop`: a code that equals a public route's
+        # first path segment would be read as that tenant's path prefix in
+        # `resolve_request`, and `/webshop` would be stripped to `/`.
+        if "winkel" not in tenant_codes(db):
+            webshop = create_tenant(db, name="Webshop", code="winkel", kind=TenantKind.ASSOCIATION)
             set_modules(db, webshop.id, DEFAULTS["VERENIGING"] | {_M.SHOP})
-        webshop_id = tenant_codes(db)["webshop"]
+        webshop_id = tenant_codes(db)["winkel"]
 
         token = current_tenant_id.set(webshop_id)
         try:

@@ -702,6 +702,14 @@
    "platform": "everyone",
    "tenant": "everyone"
   },
+  "GET /webshop": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /webshop/{product_id}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
   "GET /{slug}": {
    "platform": "everyone",
    "tenant": "everyone"

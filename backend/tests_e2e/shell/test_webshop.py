@@ -2,7 +2,7 @@
 
 The shop is off by default for every kind of tenant, and a tenant's module set is
 cached in the server process, so the browser tests run on a seeded tenant of its
-own (`webshop` in `seed_e2e.py`), reached by hostname (`TENANT_HOSTNAMES` in
+own (`winkel` in `seed_e2e.py`), reached by hostname (`TENANT_HOSTNAMES` in
 `e2e.env` — back-office screens are not reached by a path prefix). The
 association's tenant stays untouched.
 
@@ -442,6 +442,24 @@ def _geen_zijwaartse_scroll(page) -> bool:
     return page.evaluate(
         "document.documentElement.scrollWidth <= document.documentElement.clientWidth"
     )
+
+
+def test_de_webshop_paginas_op_390_px(webshop_page):
+    """The public Webshop and the article page render at 390 px without a
+    sideways scroll (commit 5)."""
+    page = webshop_page
+    page.set_viewport_size({"width": 390, "height": 844})
+
+    page.goto("/webshop")
+    page.wait_for_selector("h1")
+    assert _geen_zijwaartse_scroll(page)
+
+    page.goto("/admin/producten")
+    link = page.locator('a[href^="/admin/producten/"]:not([href$="/nieuw"])').first
+    product_id = link.get_attribute("href").rstrip("/").split("/")[-1]
+    page.goto(f"/webshop/{product_id}")
+    page.wait_for_selector("h1")
+    assert _geen_zijwaartse_scroll(page)
 
 
 def test_productbeheer_en_prijsbeheer_zijn_tabellen(webshop_page):

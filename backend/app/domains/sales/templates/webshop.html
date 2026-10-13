@@ -1,0 +1,21 @@
+{% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Webshop") }} · {{ site_name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(_("Webshop")) %}{% endcall %}
+{% if products %}
+<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  {% for p in products %}
+  {% call ui.card(href=path_for('/webshop/' ~ p.id)) %}
+    <div class="p-5">
+      <h2 class="text-base font-semibold text-ink">{{ p.name }}</h2>
+      {% if p.sizes %}<p class="mt-1 text-sm text-ink-soft">{{ p.sizes|join(" · ") }}</p>{% endif %}
+      <p class="mt-2 font-semibold text-ink">€ {{ p.price|geld }}</p>
+    </div>
+  {% endcall %}
+  {% endfor %}
+</div>
+{% else %}
+{{ ui.empty_state(_("Nog geen artikelen in de webshop.")) }}
+{% endif %}
+{% endblock %}

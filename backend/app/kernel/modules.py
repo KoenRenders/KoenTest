@@ -152,13 +152,19 @@ MODULES: tuple[Module, ...] = (
         "Webshop",
         # The four back-office screens stand in their own menu group, "Webshop"
         # (Koen, 10 October 2026). Verkoop joins them in phase 2; the public
-        # `/webshop` and "Mijn aankopen" come with it.
+        # `/webshop` comes with it, and "Mijn aankopen" with its account menu.
         admin_items=(
             ("/admin/producten", "Productbeheer"),
             ("/admin/prijzen", "Prijsbeheer"),
             ("/admin/voorraad", "Voorraadbeheer"),
         ),
-        route_prefixes=("/admin/producten", "/admin/prijzen", "/admin/voorraad"),
+        public_items=(("/webshop", "Webshop"),),
+        route_prefixes=(
+            "/admin/producten",
+            "/admin/prijzen",
+            "/admin/voorraad",
+            "/webshop",
+        ),
         record_tables=("product.products",),
         # The shop pays its orders through payment, and its pictures come from
         # media (CR-21 Q59).
