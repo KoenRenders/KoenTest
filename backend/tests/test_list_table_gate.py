@@ -65,7 +65,6 @@ KIT = {"ui/templates/_macros.html", "ui/templates/design_system.html"}
 #: shrinks: a list that moves onto `ui.data_table` leaves, and nothing joins.
 HAND_DRAWN_LISTS: frozenset[str] = frozenset(
     {
-        "domains/activities/templates/_aa_kaarten.html",
         "domains/cms/templates/_cp_kaarten.html",
         "domains/designstudio/templates/_ds_lijst.html",
         "domains/forms/templates/_fb_kaarten.html",
@@ -79,7 +78,7 @@ HAND_DRAWN_LISTS: frozenset[str] = frozenset(
 )
 
 #: How many entries the baseline may hold. Goes down with it, never up.
-CEILING = 10
+CEILING = 9
 
 _TAG = re.compile(r"{%-?\s*(for|endfor|call|endcall)\b(.*?)-?%}", re.S)
 

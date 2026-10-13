@@ -550,6 +550,37 @@ def publication_of(db: Session, activity_ids: Iterable[int]) -> dict[int, Public
     }
 
 
+def scope_counts(db: Session) -> dict[str, int]:
+    """How many activities the scopes Komende and Archief of the board's list hold
+    (#1930): the numbers on their segments; Alles carries none. The board sees drafts, so
+    these count them; "ahead" and "passed" are the same comparisons
+    `activities_for` makes."""
+    from app.kernel.clock import belgian_today
+
+    today = belgian_today()
+
+    def with_a_date(condition: Any) -> int:
+        has = (
+            db.query(ActivityDate.id)
+            .filter(ActivityDate.activity_id == Activity.id, condition)
+            .correlate(Activity)
+            .exists()
+        )
+        return db.query(func.count(Activity.id)).filter(has).scalar() or 0
+
+    return {
+        "upcoming": with_a_date(date_upcoming(today)),
+        "archived": with_a_date(date_passed(today)),
+    }
+
+
+def date_years(db: Session) -> list[int]:
+    """The years that hold at least one activity date, newest first — the
+    choices of the list's Jaar filter (#1930)."""
+    rows = db.query(func.extract("year", ActivityDate.start_date)).distinct().all()
+    return sorted({int(row[0]) for row in rows}, reverse=True)
+
+
 def publication(db: Session, activity_id: int) -> Publication:
     """Status and audience of one activity, from the session's identity map (#1428).
 
