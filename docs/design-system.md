@@ -571,13 +571,32 @@ superseded on every screen that moves to the layout:
   shows the balance under the amount when it differs (`ui.amount(value,
   balance=…)`, #1582: "nog € 20,00", "terug € 5,00"; nothing extra when fully
   open or settled). The embedded payment tabs follow.
+- **Every column stands at its own width, packed left, and the last column
+  takes the rest (#1927).** Koen, 12 October 2026, on a list at 1 920 px:
+  "vooral alles naar links", and "Kunnen we die kolom status niet, als er nog
+  ruimte is, laten sizen over gans de breedte, zodat die lijntjes niet
+  stoppen?". The table keeps the frame's full width, so the row lines run to
+  its edge; the white space falls behind the last column, never between the
+  first two. A width is the kit's by the column's part — a name 380 px (336 px
+  in a table of eight columns and more), context 24 % of the frame, status
+  136 px, a number 104 px, a date 112 px, a moment 152 px, an `extra` that is
+  no number 160 px, the actions 156 px — or the list's own, `width` in px on
+  the column, where the default does not fit its content (Personen: Gezin
+  200, Aangemaakt 112). **The name gives way before anything overflows**: it
+  is its width or what the other columns leave of the frame, whichever is
+  less, and the last column never gets less than its part's width (measured
+  on Betalingen: the name 282 px at 1 440 px with Acties at 156, and 380 px at
+  1 920 px with the rest behind Acties). An optional column that left gives
+  its room back to the name. The last column carries no width. **A column
+  head never wraps.** A date with its time is the `moment` part: one line, one
+  size, never a date over a smaller time.
 - **A moment and a free sentence in the kit's table (#1915).** A list of
   events — when, what, how many, why — has two column parts of its own.
   `moment` is a date with its year and its time (`short_datetime`): 152 px,
   the widest moment plus the cell's padding, where a `date` column (112 px)
   left the minutes in the next column. `text` is a free sentence (a reason, a
-  note): it has no width, so it takes the rest on a desktop, and in a stacked
-  row it is the last line; an empty one leaves no line and no gap. A row
+  note): it has no width, so it shares the rest with the last column on a
+  desktop (or is it), and in a stacked row it is the last line; an empty one leaves no line and no gap. A row
   carries `more` or `text`, not both. Shown live on `/admin/design-system`,
   section 8f.
 
