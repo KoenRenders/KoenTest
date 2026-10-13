@@ -243,3 +243,39 @@ def test_read_and_edit_show_the_same_fields_in_the_same_order(client, db_session
     line = vorm[vorm.index("data-rare-line") :].split("</details>", 1)[0]
     assert 'name="poster_url"' in line and "1 ingevuld" in _words(line)
     assert vorm.index("data-rare-line") < vorm.index('id="aa-section-internal"')
+
+
+def test_read_mode_stands_on_the_edit_grid(client, db_session, activiteit):
+    """#1928 (Koen, 12 October 2026: "het bewerkscherm is leidend"): a fact
+    stands in a cell of the form grid, with the span of its field — half
+    beside half, a text full — and not in a column of the screen's own.
+
+    Broken on purpose (13 October 2026, put back): `data-form-grid` and the
+    grid class off the facts block, `flex flex-col gap-y-1` in their place →
+    "the facts are not a form grid"; `data-span` off the location's cell →
+    "a fact without a cell".
+    """
+    import re
+
+    activiteit.description = OMSCHRIJVING
+    activiteit.location = "Millegem"
+    activiteit.slug = "neteroute-2026"
+    db_session.commit()
+    _login(client)
+
+    lees = _leesdeel(_kaart(client, activiteit))
+    start = lees.index("data-activity-facts")
+    opening = lees[lees.rindex("<", 0, start) : lees.index(">", start) + 1]
+    assert "data-form-grid" in opening and "form-grid" in opening, (
+        f"the facts are not a form grid: {opening}"
+    )
+    assert "flex-col" not in opening
+    block = lees[lees.index(">", start) + 1 : lees.index("</section>", start)]
+    cells = re.findall(r"<p\b[^>]*>", block)
+    assert len(cells) >= 5, f"only {len(cells)} facts found — looked nowhere"
+    without = [cell for cell in cells if "data-span=" not in cell]
+    assert not without, f"a fact without a cell: {without}"
+    spans = re.findall(r'data-span="([a-z]+)"', "".join(cells))
+    # the page's address beside the location, the text and the poster full,
+    # audience beside "Enkel leden"
+    assert spans == ["half", "half", "full", "full", "half", "half"], spans

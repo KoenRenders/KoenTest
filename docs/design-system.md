@@ -471,6 +471,42 @@ Activiteit · Intern, a card per component under the heading row "Onderdelen"
 ratchet `RAW_FORM_ELEMENTS` (105 in 29 files on 5 October 2026) may only
 fall. The family below is what the screens not yet migrated use.
 
+**Read mode keeps the edit grid (#1928).** Koen, 12 October 2026, on the
+organisation record in both modes: "ik zou bij deze willen dat het
+bewerkscherm leidend is en dat de leesversie … hertekend wordt zodanig dat
+dezelfde volgorde in acht wordt genomen en de positionering links en rechts
+ook", and "gelieve de lijnafstand tussen de velden gelijk te zetten aan gezin
+en aan de personen daar … consistent over al de schermen heen". As built:
+
+- A record in read mode keeps the cards and the order of edit mode, and a fact
+  stands in a cell of the form grid with the span of its field — half beside
+  half (Doelpubliek · Enkel leden; Status · Betaald bedrag), a text or an
+  upload full. The fact itself is the kit's: `icon_fact` for a conventional
+  kind, `label_fact` otherwise.
+- **The kit sets the rows apart, not the screen**: the form grid of a flow in
+  read mode has a row gap of 4 px, the person card's, where edit mode has
+  12 px (`.form-flow[data-mode="read"] .form-grid`); the column gap stays
+  12 px. A record template stacks no facts with a distance of its own — no
+  `flex-col` with a `gap-y-*`, no `space-y-*`
+  (`tests/test_read_mode_grid_gate.py`). Under 532 px inside the card every
+  cell is a row of its own, as in edit mode.
+- **What reads as one fact for several fields**: an address (street number
+  bus, postal code municipality, behind the map pin, in a card of its own),
+  and on the activity the lines #1900 drew — a date row, a product, an
+  organiser — each a full-width line for the fields of one row. A field whose
+  value is the record's title has no fact of its own (the activity's name),
+  and a line that #1900 shows only when it is filled in stays so (the
+  friendly URL, the description).
+- A long fact does not fit a quarter cell (`icon_fact` cuts, a `label_fact`
+  breaks in two at 149 px): a component's Maximum, "Inschrijven t/m" and
+  "Ploegnaam vereist" read in half cells, in the editor's order.
+- **Contact details stand in one order and one shape** on every record that
+  has them — person, household, organisation: telephone and mobile side by
+  side on one row, under them the e-mail address at full width, then the
+  website and each social link at full width. The person card is the measure.
+  **The address is a card of its own**, after the record's first card, as the
+  household has it. A screen does not choose its own order.
+
 - **`ui.input_control` / `select_control` / `textarea_control`** is the one
   field family: you set label (`ui.label`), id and width yourself. Explicit
   ids, because a derived id duplicates in repeated cards; explicit width,
