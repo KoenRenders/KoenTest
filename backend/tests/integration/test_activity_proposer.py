@@ -51,7 +51,7 @@ class ScriptedProvider:
         self.answers = list(answers)
         self.asked: list[list[dict]] = []
 
-    def complete(self, messages, tools=None, tool_choice=None):
+    def complete(self, messages, tools=None, tool_choice=None, json_answer=False):
         self.asked.append([dict(m) for m in messages])
         answer = self.answers.pop(0) if self.answers else json.dumps({"unsupported": []})
         if isinstance(answer, Exception):
@@ -443,9 +443,21 @@ def test_a_failed_verification_says_the_proposal_was_not_checked(db_session, raa
 
 
 def test_an_answer_that_is_no_json_is_an_error_for_the_screen(db_session, raakje):
-    raakje("Dat weet ik niet.")
+    """#1968: asked once more first; the second answer that is no JSON is the
+    screen's sentence, and nothing is asked a third time."""
+    provider = raakje("Dat weet ik niet.", "Nog altijd niet.")
     with pytest.raises(proposer.ProposerError, match="geen bruikbaar voorstel"):
         _propose(db_session, _activity(db_session))
+    assert len(provider.asked) == 2 and provider.asked[0] == provider.asked[1]
+
+
+def test_an_answer_that_is_no_json_is_asked_once_more_and_then_used(db_session, raakje):
+    """#1968: the author sees no message when the second answer parses."""
+    provider = raakje("Hier is je voorstel!", _answer(description="Kom mee wandelen."))
+    proposal = _propose(db_session, _activity(db_session))
+    assert _by_name(proposal)["description"]["value"] == "Kom mee wandelen."
+    # The proposal twice, then its verification round.
+    assert len(provider.asked) == 3 and provider.asked[0] == provider.asked[1]
 
 
 # ── The request is a source for the description too (#1653) ─────────────────
@@ -784,7 +796,7 @@ def test_a_failed_answer_keeps_the_question(client, db_session, monkeypatch, raa
     _switch(db_session, monkeypatch, True)
     activity = _activity(db_session)
     db_session.commit()
-    raakje("Geen JSON.")
+    raakje("Geen JSON.", "Nog altijd geen JSON.")  # #1968: asked once more first
     answer = client.post(
         f"/admin/activiteiten/{activity.id}/raakje/voorstel",
         headers=headers,
@@ -828,9 +840,9 @@ def test_the_call_is_registered_under_a_capability_of_its_own(db_session, raakje
     seen = []
     real = chatbot.admin_rules
 
-    def rules(names, *, capability, scan_prompt_names=True):
+    def rules(names, *, capability, scan_prompt_names=True, **more):
         seen.append(capability)
-        return real(names, capability=capability, scan_prompt_names=scan_prompt_names)
+        return real(names, capability=capability, scan_prompt_names=scan_prompt_names, **more)
 
     monkeypatch.setattr("app.domains.chatbot.api.admin_rules", rules)
     raakje(_answer(name="Herfstwandeling"))

@@ -31,6 +31,12 @@ twee: dezelfde lus met een andere gereedschapskist.
   internals niet hoeft te kennen — en zodat wachter en logboek niet te omzeilen
   zijn door er een eigen lus naast te schrijven.
 
+- **An answer in a fixed shape** (#1968): `json_answer(provider, messages, first=None)`
+  and `UnusableAnswer`. Wherever Raakje must answer with a JSON object, the caller
+  goes through it: the call asks the provider for JSON, an answer that does not
+  parse is asked for once more, and the failure is logged without a word of the
+  answer (`answers.py`).
+
 **De publieke gereedschapskist wordt lazy geïmporteerd** (in `run_public_chat`).
 Op modulehoogte haalt ze `media.api` binnen, dat voor de poster-extractie
 `chatbot.api` importeert; sinds de facade de naad exporteert, loopt die kring
