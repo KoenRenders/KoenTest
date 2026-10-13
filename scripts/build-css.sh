@@ -468,6 +468,15 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .data-table[data-p1="hide"] [data-p="1"],.data-table[data-p2="hide"] [data-p="2"]{display:none}
 @container datatable (max-width:1099px){.data-table[data-p1="auto"] [data-p="1"]{display:none}}
 @container datatable (max-width:979px){.data-table[data-p2="auto"] [data-p="2"]{display:none}}
+/* #1927: the name stands at its own width, or at what the other columns leave
+   of the frame; an optional column that left gives its room back. The sums are
+   the macro's (`ui.data_table`). */
+.data-table{--dt-o1:var(--dt-p1,0px);--dt-o2:var(--dt-p2,0px)}
+.data-table[data-p1="hide"]{--dt-o1:0px}
+.data-table[data-p2="hide"]{--dt-o2:0px}
+@container datatable (max-width:1099px){.data-table[data-p1="auto"]{--dt-o1:0px}}
+@container datatable (max-width:979px){.data-table[data-p2="auto"]{--dt-o2:0px}}
+.data-table thead th[data-cell="name"]{width:min(var(--dt-name,100cqw),calc(100cqw - var(--dt-rest,0px) - var(--dt-o1) - var(--dt-o2)))}
 @container datatable (max-width:899px){
   .data-table,.data-table tbody{display:block}
   .data-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
