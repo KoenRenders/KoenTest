@@ -571,6 +571,15 @@ superseded on every screen that moves to the layout:
   shows the balance under the amount when it differs (`ui.amount(value,
   balance=…)`, #1582: "nog € 20,00", "terug € 5,00"; nothing extra when fully
   open or settled). The embedded payment tabs follow.
+- **A moment and a free sentence in the kit's table (#1915).** A list of
+  events — when, what, how many, why — has two column parts of its own.
+  `moment` is a date with its year and its time (`short_datetime`): 152 px,
+  the widest moment plus the cell's padding, where a `date` column (112 px)
+  left the minutes in the next column. `text` is a free sentence (a reason, a
+  note): it has no width, so it takes the rest on a desktop, and in a stacked
+  row it is the last line; an empty one leaves no line and no gap. A row
+  carries `more` or `text`, not both. Shown live on `/admin/design-system`,
+  section 8f.
 
 - **Default list = table** in a `card` with `overflow-x-auto`; cards only for
   hierarchical or visual content (§9). Row height ~50 px, subtle hover.
@@ -1063,7 +1072,7 @@ in edit mode a record with a composite group takes the whole reading group
 (1 092 px, every full-width field filling it, text areas included — the
 768 px cap on long text fields went on 5 October 2026) with the summary
 card at the form's right where the frame holds both (1 416 px) and otherwise
-above it as the card of 300 px, left-aligned (Koen, 12 October 2026, #1906);
+above it as the band of the end state's §3.10 (Koen, 12 October 2026, #1912);
 a product row is one line naam · prijs · ledenprijs · maximum with
 the settlement choice and Publiek zichtbaar on the second; a component's
 head is naam · maximum · inschrijven tot on one line; the handle's gutter is

@@ -4,7 +4,7 @@ What a server test cannot see:
 
 - **docked from 1 440 px**: 400 px at the right under the top bar, and the
   content MOVES ASIDE — 1 232 px remain at 1 920 and 768 px at 1 440, where the
-  record's summary becomes its strip; the top bar keeps its width; nothing
+  record's summary becomes the band; the top bar keeps its width; nothing
   overflows;
 - **a dialog below 1 440 px** (at most 560 × 720, the background blocked) and
   **a sheet on a phone** (560 px from y = 284, with a handle);
@@ -60,7 +60,14 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, htmx_stil, login_met_sessie, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    SUMMARY_SHAPE,
+    assert_summary_band,
+    htmx_stil,
+    login_met_sessie,
+    pagina_klaar,
+)
 
 _BOXES = """() => {
   const box = e => { if (!e || !e.checkVisibility()) return null; const r = e.getBoundingClientRect();
@@ -137,6 +144,7 @@ def test_docked_the_content_moves_aside_and_nothing_is_covered(browser, activity
         page = _admin(browser, (width, 1080))
         _open(page, activity)
         m = page.evaluate(_BOXES)
+        shape = page.evaluate(SUMMARY_SHAPE)
         page.close()
         panel = m["panel"]
         assert panel["w"] == 400 and panel["r"] == width and panel["b"] == m["height"], m
@@ -150,9 +158,11 @@ def test_docked_the_content_moves_aside_and_nothing_is_covered(browser, activity
             # The reading group fits: the summary stays beside the form.
             assert m["card"]["w"] == 300 and m["card"]["x"] >= m["form"]["r"], m
         else:
-            # 768 px remain: the summary is the strip above the form, which
-            # keeps its width.
+            # 768 px remain: the summary is the band above the form (#1912; a
+            # strip of rows until then), and the form keeps its width.
             assert m["card"]["w"] == 768 and m["card"]["b"] <= m["form"]["y"], m
+            print("MEASURE summary shape read, panel open 1440", shape)
+            assert_summary_band(shape, lines=2)
             assert m["form"]["w"] == 768, m
 
 

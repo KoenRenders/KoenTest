@@ -1375,7 +1375,11 @@ create button and "Instellingen" · the declared save model matches the
 macros used · the Raakje trigger by rule · one toolbar per rich text ·
 DOM-measurement baselines in JSON diffed — positions, sizes and counts per
 kit screen and width, no PNGs in the repository (Koen, 5 October 2026, CR-11
-Q60; the stability protocol of CR-11 B7 applies).
+Q60; the stability protocol of CR-11 B7 applies) · a list of records in the
+back office comes from `ui.data_table`: `test_list_table_gate.py` (#1911;
+Koen, 12 October 2026) refuses a screen on the list layout without the table
+and a loop of record links drawn by hand, outside a baseline of the ten
+templates that drew one that day, which only shrinks.
 
 **The eye** — the merge gate and the classification of Part 5, where a
 test can list candidates from word lists but a person decides: whether a
