@@ -170,3 +170,36 @@ def test_a_string_nested_too_deep_to_parse_is_read_as_plain_text():
     cleaned = scrub_names(text, NAMES, "[naam]")
     assert cleaned.endswith(" [naam] komt ook.")
     assert not _named([cleaned])
+
+
+#: Closed nesting at a depth the parser still takes and a walk does not.
+DEEP = 1_500
+TOO_DEEP_TO_WALK = [
+    "[" * DEEP + '"Peeters komt ook."' + "]" * DEEP,
+    '{"a": ' * DEEP + '"Peeters komt ook."' + "}" * DEEP,
+]
+
+
+@pytest.mark.parametrize("text", TOO_DEEP_TO_WALK, ids=["list", "object"])
+def test_a_string_that_parses_but_nests_too_deep_to_walk_is_plain_text(text):
+    """Between the depth a walk takes and the depth the parser gives up at, the
+    string is no tree either: the guard and the cleaning read it as plain text
+    and both answer.
+
+    Proven red by letting `_too_deep` answer False: the guard's reading and the
+    cleaning raise `RecursionError` for the list and for the object."""
+    for role in ("user", "tool"):
+        assert _named([text], role)
+    cleaned = scrub_names(text, NAMES, "[naam]")
+    assert "[naam] komt ook." in cleaned and "Peeters" not in cleaned
+    assert not _named([cleaned])
+
+
+def test_a_tree_of_an_ordinary_depth_is_still_read_as_a_tree():
+    """The ceiling refuses nothing a tool sends: twenty levels deep, a line's
+    first word is still read as the word it is (as plain text the escaped line
+    break would glue a letter to it).
+
+    Proven red by setting the ceiling to 5: the word is refused."""
+    text = json.dumps({"rows": [[[[[[[[[[[[[[[[[["Dag\nEven wachten"]]]]]]]]]]]]]]]]]]})
+    assert not _named([text], "tool")

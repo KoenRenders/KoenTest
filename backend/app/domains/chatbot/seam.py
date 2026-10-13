@@ -175,7 +175,8 @@ def _json_tree(text: str) -> Any:
     the text a person would read is in its values, not in its escapes.
 
     A JSON string is read by its pairs (`_Pairs`), so what is read is what
-    leaves. A string nested too deep to parse is no tree: it is read as the
+    leaves. A string nested too deep — for the parser, or deeper than
+    `_MAX_JSON_DEPTH` and so too deep to walk — is no tree: it is read as the
     plain text it is.
     """
     stripped = text.strip()
@@ -185,7 +186,28 @@ def _json_tree(text: str) -> Any:
         tree = json.loads(stripped, object_pairs_hook=_Pairs)
     except (ValueError, RecursionError):
         return None
-    return tree if isinstance(tree, list) else None
+    if not isinstance(tree, list) or _too_deep(tree):
+        return None
+    return tree
+
+
+#: How deep a JSON string may nest and still be read as a tree. A tool's result
+#: is a handful of levels deep; the walk over a tree recurses per level, so a
+#: fixed ceiling far under the interpreter's own keeps it from ever raising.
+_MAX_JSON_DEPTH = 100
+
+
+def _too_deep(tree: list[Any]) -> bool:
+    """Whether a parsed JSON tree nests deeper than `_MAX_JSON_DEPTH` — counted
+    with a list of its own, not by recursion."""
+    todo: list[tuple[list[Any], int]] = [(tree, 1)]
+    while todo:
+        node, depth = todo.pop()
+        if depth > _MAX_JSON_DEPTH:
+            return True
+        children = (value for _, value in node) if isinstance(node, _Pairs) else node
+        todo.extend((child, depth + 1) for child in children if isinstance(child, list))
+    return False
 
 
 def _scrub_tree(node: Any, names: set[str], placeholder: str) -> Any:
