@@ -13,7 +13,42 @@
 # app/static/vendor/tiptap-3.31.4.LICENSES (all 47 are MIT).
 #
 # sha256 of app/static/vendor/tiptap-3.31.4.min.js:
-60b08c1bfad4b5dc555fdf1270b35008f603611983d3ef19b2f295f523a08cc0  app/static/vendor/tiptap-3.31.4.min.js
+47bdb9961661d2ef89a67a90427a1f28669ff8c991b9de8769f9e684dedc3f2b  app/static/vendor/tiptap-3.31.4.min.js
+#
+# The rebuild of 13 October 2026 — five more names exported, nothing else.
+# Until that day the checksum began with 60b08c1bfad4b5dc and ended with
+# f523a08cc0 (the build of 7 October 2026) — not written here in full on
+# purpose: the gate asks whether the bundle's checksum stands in this file,
+# and the old one in full would let the old bundle pass. The bundle now also
+# exposes Extension, Plugin,
+# PluginKey, Decoration and DecorationSet: the document editor's own script
+# needs them for one rule of its own (a block selected as a whole keeps its
+# selection). They are classes of packages the bundle already held and used;
+# no package was added and no version changed.
+#
+# Decided by Koen on 13 October 2026, to the options "a. Ja, herbouwen op de
+# tweestapsmanier, stap 2 met het netwerk uit. Faalt stap 1, dan stopt het en
+# hoor ik het eerst." / "b. Neen, geen herbouw." / "c. Ja, maar eerst … de 47
+# pakketten ook op hun inhoud vastgepind …": "a nu, c met v2.19" (as the
+# master CLI recorded it). Done in those two steps, that day:
+#   1. The script, unchanged, built into a fresh directory with the network
+#      on. It printed "OK: the rebuild matches the pinned checksum
+#      (60b08c1b…)": the registry still gave, byte for byte, what the build of
+#      7 October was made from.
+#   2. From that same directory, with `--offline` (the containers without any
+#      network) and only the entry file's imports and export list changed: the
+#      package manager answered "up to date", the build was refused with the
+#      new checksum above, this line was set to it, and `--offline --update`
+#      wrote the bundle.
+# Checked between the two steps, in the build directory: the lock file the
+# package manager wrote is byte-identical after step 2 (71 entries, each with
+# an integrity hash; none added, removed or changed). The bundle grew by 82
+# bytes (441 283 to 441 365); its bytes differ in more places than the export
+# list, because the minifier names identifiers anew. The licences file is
+# unchanged.
+# Still open, by the same decision ("c met v2.19"): pinning the packages by
+# their content in this manifest, where today they are pinned by version and
+# by the checksum of the result.
 #
 # Build inputs, pinned:
 #   node image:  node@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 (v22.23.3, alpine)
