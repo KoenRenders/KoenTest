@@ -1,4 +1,6 @@
-"""#1315 — a migration's `revision` id is the one its file name carries.
+"""Refuses a migration whose `revision` id differs from the one its file name carries · hard · since #1315.
+
+#1315 — a migration's `revision` id is the one its file name carries.
 
 A migration came out of `alembic revision` as `168_…` because the head was 167.
 After a rebase onto a branch that added its own 168, the file name and

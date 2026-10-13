@@ -1,4 +1,6 @@
-"""Every copy action declares every column it copies or not (#1464).
+"""Refuses a `copy_*` function that does not declare every column it copies or leaves out · hard · since #1464.
+
+Every copy action declares every column it copies or not (#1464).
 
 Koen, 2 October 2026, after #1463: `copy_activity` listed its fields by hand,
 `target_audience` was added later and silently left out. *"Zodanig dat we dat

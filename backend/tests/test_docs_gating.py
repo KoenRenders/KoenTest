@@ -1,4 +1,6 @@
-"""De interactieve API-docs en het OpenAPI-schema horen in prod-achtige
+"""Refuses the interactive API docs and the OpenAPI schema being reachable on UAT and PROD · hard · since #269.
+
+De interactieve API-docs en het OpenAPI-schema horen in prod-achtige
 omgevingen verborgen te zijn (#269): geen datalek, maar wel een onnodige
 API-kaart voor aanvallers."""
 

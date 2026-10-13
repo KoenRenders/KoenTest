@@ -1,4 +1,6 @@
-"""Gate (CR-24 §B7, §C7; #1722): a gate names a right, never a role.
+"""Refuses a gate or a question named after a role instead of a right · hard · since #1722.
+
+Gate (CR-24 §B7, §C7; #1722): a gate names a right, never a role.
 
 A role is a bundle of rights and nothing more. Code that asks "is this an
 ADMIN?" decides what a role may do in a second place, beside the bundle — and

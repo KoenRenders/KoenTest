@@ -1,4 +1,6 @@
-"""#951: de poort op de migratieketen, en het bewijs dat ze rood kán worden.
+"""Refuses two migrations with the same id, two heads, or two heads with the same sequence number · hard · since #951.
+
+#951: de poort op de migratieketen, en het bewijs dat ze rood kán worden.
 
 De logica staat in `tests/_migratieketen.py`, want `conftest` roept haar aan vóór
 `alembic upgrade head`. Dat is geen implementatiedetail maar de kern van dit

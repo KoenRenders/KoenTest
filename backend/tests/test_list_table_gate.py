@@ -1,4 +1,6 @@
-"""#1911: a list of records in the back office comes from the kit's table.
+"""Refuses a new back-office list of records drawn by hand instead of `ui.data_table` · ratchet · since #1911.
+
+#1911: a list of records in the back office comes from the kit's table.
 
 Koen, 12 October 2026, after two list screens of a builder turned out to be
 hand-written cards while the same builder's third used `ui.data_table`: "Hebben

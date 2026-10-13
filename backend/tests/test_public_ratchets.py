@@ -1,4 +1,6 @@
-"""The gates of the public side that guard a count, as ratchets (#1591, CR-11
+"""Refuses more or fewer hand-written buttons, cards, organisation fields or activity parts than the baseline says, per public template · ratchet · since #1591.
+
+The gates of the public side that guard a count, as ratchets (#1591, CR-11
 pilot B, P4; B7 test 2 extended to the site shell; end state §2.5, §2.6).
 
 P1 gave the public site one shell (`test_public_shell_gate.py`: no second

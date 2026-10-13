@@ -1,4 +1,6 @@
-"""Gate: no AI call leaves without a row in the AI log (#978).
+"""Refuses an AI call that leaves without a row in `ai.ai_call_log` · hard · since #978.
+
+Gate: no AI call leaves without a row in the AI log (#978).
 
 A cost read from `ai.ai_call_log` is only as right as every path that writes
 into it. A new provider or a new surface must not fall silently outside the
