@@ -149,10 +149,14 @@ if ! docker inspect -f '{{.State.Running}}' "$NAAM" >/dev/null 2>&1; then
   if [ -n "${HELPER_CONTAINER_USER:-}" ]; then
     USER_ARGS=(-u "$HELPER_CONTAINER_USER")
   fi
-  docker run -d --name "$NAAM" "${RUN_ARGS[@]}" "${USER_ARGS[@]}" \
+  # --init (#1964): the first process is tini, not `sleep infinity`, which reaps nothing —
+  # every `docker exec` left defunct processes behind in the container.
+  docker run -d --init --name "$NAAM" "${RUN_ARGS[@]}" "${USER_ARGS[@]}" \
     -v "$ROOT:/app" -w /app/backend \
     -e APP_ENV=dev -e JOBS_ENABLED=false \
     "$IMAGE" sleep infinity >/dev/null
+else
+  warn_if_no_init "$NAAM" test-local.sh
 fi
 
 # The helper container lives long, so its packages must follow the requirement
@@ -176,7 +180,7 @@ docker exec -u root "$NAAM" sh -c 'command -v git >/dev/null && command -v psql 
 # Foutloos herhaalbaar: bestaat ze al, dan is er niets te doen.
 if [ -n "${EXISTING_DB_URL:-}" ]; then
   # No db container to ask: the helper container makes it, over the given URL.
-  docker exec -e ADMIN_DATABASE_URL="$EXISTING_DB_URL" "$NAAM" \
+  docker exec --env-file <(url_env ADMIN_DATABASE_URL "$EXISTING_DB_URL") "$NAAM" \
     python -m tests._local_db create "$DB_NAAM"
 else
   "${COMPOSE[@]}" exec -T db sh -c \
@@ -230,5 +234,5 @@ echo "→ pytest tegen ${DB_NAAM}"
 # cache_dir buiten /app: die map is een bind mount naar de werkmap en de container
 # draait als een andere gebruiker, dus pytest kreeg daar geen schrijfrechten (en het
 # hoort er ook niet thuis).
-exec docker exec -e TEST_DATABASE_URL="$URL" "$NAAM" \
+exec docker exec --env-file <(url_env TEST_DATABASE_URL "$URL") "$NAAM" \
   python -m pytest -o cache_dir=/tmp/pytest_cache "${WORKERS[@]}" "$@"
