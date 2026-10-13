@@ -4,6 +4,8 @@ How to stand up this stack from scratch. Day-to-day releases and deploys are
 covered in `CLAUDE.md` (*Releases and hotfixes*, *Deploying a release to UAT /
 PROD*); the local test run is `scripts/test-local.sh`, the same gate as CI
 (`.github/workflows/backend-tests.yml`).
+`scripts/ruff-fix.sh` formats and lint-fixes the working copy with the ruff of that script's helper
+container, applying ruff's diffs on the host (the container cannot write the working copy).
 
 This file deliberately contains **no host names, IP addresses, server paths or
 account details** — this repository is public. Everything host-specific lives in
