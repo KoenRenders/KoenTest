@@ -10,7 +10,7 @@
 
 The click geometry (20 px from a card's right edge opens the record) was
 measured in a browser for the handover; here the markup that produces it is
-pinned. Proven red: the old label put back in `_aa_kaarten.html`; the name link
+pinned. Proven red: the old label put back in `_fb_kaarten.html`; the name link
 put back in `_inschrijvingen_groepen.html`; the row handler removed.
 """
 
@@ -19,7 +19,6 @@ from pathlib import Path
 APP = Path(__file__).resolve().parents[1] / "app"
 
 CARD_LISTS = {
-    "domains/activities/templates/_aa_kaarten.html": "Bewerken",
     "domains/forms/templates/_fb_kaarten.html": "Bewerken",
     "ui/templates/_org_kaarten.html": "Bewerken",
     "ui/templates/_tn_kaarten.html": "Instellingen bewerken",

@@ -428,6 +428,10 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .form-grid--five{grid-template-columns:repeat(5,minmax(0,1fr))}
 /* Two grids under each other in one row (a product's two lines) keep the grid's own gap. */
 .form-grid+.form-grid{margin-top:12px}
+/* #1928 (Koen, 12 October 2026: "het bewerkscherm is leidend" and "gelieve de
+   lijnafstand tussen de velden gelijk te zetten aan gezin en aan de personen"):
+   read mode keeps the edit grid, with the person card's 4 px between its rows. */
+.form-flow[data-mode="read"] .form-grid{row-gap:4px}
 @container (max-width:531.98px){.form-grid>[data-span]{grid-column:1/-1}}
 /* ── CR-11 block 4 (#1556): the list's table ────────────────────────────────
    design-system-end-state §2.1 (the list, the row as the way in). What the
@@ -468,6 +472,15 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .data-table[data-p1="hide"] [data-p="1"],.data-table[data-p2="hide"] [data-p="2"]{display:none}
 @container datatable (max-width:1099px){.data-table[data-p1="auto"] [data-p="1"]{display:none}}
 @container datatable (max-width:979px){.data-table[data-p2="auto"] [data-p="2"]{display:none}}
+/* #1927: the name stands at its own width, or at what the other columns leave
+   of the frame; an optional column that left gives its room back. The sums are
+   the macro's (`ui.data_table`). */
+.data-table{--dt-o1:var(--dt-p1,0px);--dt-o2:var(--dt-p2,0px)}
+.data-table[data-p1="hide"]{--dt-o1:0px}
+.data-table[data-p2="hide"]{--dt-o2:0px}
+@container datatable (max-width:1099px){.data-table[data-p1="auto"]{--dt-o1:0px}}
+@container datatable (max-width:979px){.data-table[data-p2="auto"]{--dt-o2:0px}}
+.data-table thead th[data-cell="name"]{width:min(var(--dt-name,100cqw),calc(100cqw - var(--dt-rest,0px) - var(--dt-o1) - var(--dt-o2)))}
 @container datatable (max-width:899px){
   .data-table,.data-table tbody{display:block}
   .data-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}

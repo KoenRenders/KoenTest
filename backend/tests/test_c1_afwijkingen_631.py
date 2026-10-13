@@ -24,7 +24,7 @@ def test_de_kpi_rij_staat_na_de_titel(client, db_session):
     _login(client, db_session)
     html = client.get("/admin/activiteiten").text
 
-    assert html.index("<h1") < html.index("Open inschrijving"), (
+    assert html.index("<h1") < html.index("Open activiteiten"), (
         "de KPI-rij hoort ná de paginatitel te staan"
     )
 
@@ -77,21 +77,7 @@ def test_albumtitels_staan_in_ink(client, db_session):
     assert "font-semibold text-ink" in tpl
 
 
-def test_de_kpi_kaarten_zien_er_op_beide_schermen_hetzelfde_uit(client, db_session):
-    """#636: twee zusterschermen die hetzelfde soort informatie tonen hoorden er
-    hetzelfde uit te zien. Activiteiten had een getinte eerste kaart en zette het
-    cijfer boven het label; Leden stond sinds #611 al op de mock."""
-    seed_activity_with_product(db_session)
-    _login(client, db_session)
-
-    # #1899: Leden left the tile band for the figures of the list-page layout
-    # (`ui.figures`, held by `test_list_page_gate.py`); Activiteiten still has it.
-    for pad, label in (("/admin/activiteiten", "Open inschrijving"),):
-        html = client.get(pad).text
-        kaart = html[html.index(label) - 600 : html.index(label) + 200]
-        # Sinds #996 delen beide schermen de kengetallenBAND (witte kaart,
-        # kolommen op md+, compacte regels mobiel) — zelfde vorm als Betalingen.
-        assert "border-gray-200 bg-white" in kaart, f"{pad}: KPI-kaart is niet wit"
-        # Label bóven het cijfer: het label staat eerder in de HTML dan de waarde.
-        na_label = html[html.index(label) :]
-        assert "text-3xl" in na_label[:300], f"{pad}: het cijfer hoort ná het label"
+# `test_de_kpi_kaarten_zien_er_op_beide_schermen_hetzelfde_uit` (#636) went with
+# the last tile band: Leden left it for the figures of the list-page layout
+# (#1899) and Activiteiten followed (#1930). Both now draw their figures with
+# `ui.figures`, which `test_list_page_gate.py` holds.
