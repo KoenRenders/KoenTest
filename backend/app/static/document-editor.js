@@ -45,13 +45,62 @@
      editor they mean, so two editors never write into each other. */
   var editors = {};
 
+  /* The author's place when a dialog was opened, per editor: the document
+     as it stood and her selection in it. Every dialog of the editor is
+     opened through `announce`, so this is noted in one place; it is put
+     back in one place too, when the dialog closes without having changed
+     the document (the listener of `raak-editor-dialog-closed` below). */
+  var opened = {};
+
   function announce(name, detail) {
+    var editor = detail ? editors[detail.editor] : null;
+    if (editor && !editor.isDestroyed) {
+      opened[detail.editor] = { doc: editor.state.doc, place: editor.state.selection.getBookmark() };
+    }
     /* bubbles: the dialogs listen on the window (Alpine's `.window`), and a
        CustomEvent without bubbles never leaves the document she was
        dispatched on — measured on the kit page: the link dialog stayed
        closed until she bubbles. */
     document.dispatchEvent(new CustomEvent(name, { detail: detail, bubbles: true }));
   }
+
+  /* A dialog of the editor has closed (the shell `_editor_dialog` of the
+     macro tells it, for every dialog and every way of closing). The dialog
+     does not hand the focus back itself; the editor takes it here.
+     - A choice changed the document: it is no longer equal to the one the
+       dialog opened on. The answer to that choice has left the place at what
+       it made; the editor only takes the focus.
+     - The document is equal — no choice, or a choice that changed nothing (a
+       link saved with the address it had, a card applied as it was): the
+       editor takes the focus and the author's place is put back exactly —
+       the selected block, the selected words, or the caret. Equal, not the
+       same object: an unchanged choice makes a new document that is equal
+       to the old one.
+     Why the editor and not the dialog: handed back by the dialog's bare
+     `focus()` on the editor's element, the browser's selection stood at the
+     start of the page's first paragraph a few milliseconds later, and the
+     editor followed it there (measured, 13 October 2026; see the macro). No
+     script sets that selection, and what moves it is NOT identified — this
+     is not an explanation, it is the place put back by the one who knows it. */
+  document.addEventListener("raak-editor-dialog-closed", function (event) {
+    var id = event.detail ? event.detail.editor : null;
+    var editor = editors[id];
+    var was = opened[id];
+    delete opened[id];
+    if (!editor || editor.isDestroyed) return;
+    if (was && editor.state.doc.eq(was.doc)) {
+      /* Only when the place is not there already: setting a selection clears
+         the marks the author has just chosen for her next letters (a link
+         made on a bare caret), also when it sets the selection she has. */
+      var place = was.place.resolve(editor.state.doc);
+      if (!editor.state.selection.eq(place)) editor.view.dispatch(editor.state.tr.setSelection(place));
+    }
+    /* At once, through the view — not the focus command, which waits for the
+       next frame: the author's next key belongs to the editor (the kit's
+       dialog handed the focus back at once too). The view writes the
+       editor's selection into the page as it takes the focus. */
+    editor.view.focus();
+  });
 
   function button(label, aria) {
     var el = document.createElement("button");
@@ -227,8 +276,20 @@
       parseHTML: function () {
         return [{ tag: "div[data-cards]" }];
       },
+      /* The block's element is NOT editable in the editor's page. A card is
+         an atom, and the editor marks each atom's element non-editable; the
+         block then held nothing but non-editable elements inside an editable
+         one. A selected card that is neither the first nor the last has both
+         ends of the browser's selection between two such elements, and at
+         the author's next key — any key, Shift alone — the browser put its
+         selection at the start of the page's first paragraph and the editor
+         followed it (measured, 13 October 2026: inner cards 30 of 30, the
+         first and the last never). With the block itself non-editable the
+         browser leaves the selection where the editor put it. WHEN the
+         browser moves it is measured; WHY it does is not known. Nothing in
+         the block is typed in: the author fills a card in her dialog. */
       renderHTML: function () {
-        return ["div", { "data-cards": "", class: "prose-cards" }, 0];
+        return ["div", { "data-cards": "", class: "prose-cards", contenteditable: "false" }, 0];
       },
     });
     var card = RaakTiptap.Node.create({

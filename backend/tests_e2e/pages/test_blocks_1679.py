@@ -205,7 +205,9 @@ def test_the_three_blocks_through_the_screen(setup):
         # de node-selectie af: na het invoegen staat de selectie OP de
         # knop, en "Knop" in het menu wijzigt dan de geselecteerde (A1)
         # i.p.v. een nieuwe te zetten.
-        page.keyboard.press("ArrowRight")
+        # Held as a person holds a key (80 ms): pressed down and up at once,
+        # the key sometimes came before the editor was ready and did nothing.
+        page.keyboard.press("ArrowRight", delay=80)
         page.locator(f"{_MENU} summary").click()
         page.locator(f"{_MENU} button", has_text="Knop").click()
         page.wait_for_selector("div[x-show='button'][role='dialog']", state="visible")
@@ -249,7 +251,19 @@ def test_the_three_blocks_through_the_screen(setup):
         )
         page.locator("div[x-show='button'] button", has_text="Invoegen").last.click()
 
-        page.keyboard.press("ArrowRight")
+        # No ArrowRight here. The first button was made at the end of a
+        # column, where nothing follows it: the editor leaves THAT button
+        # selected, and the arrow above steps off it. This second one was made
+        # before a paragraph: the editor leaves a caret at the start of that
+        # paragraph, which is where the third button belongs. An ArrowRight
+        # stood here until 13 October 2026 on the belief that the button is
+        # selected after every insert; it moved the caret one letter into the
+        # paragraph, and the third button then cut the paragraph in two ("E" |
+        # button | "en pagina…") — whenever the key reached the editor, which
+        # it did in some runs and not in others (the look test below and the
+        # Kolommen test red in 2 of 3 folder runs, then in 3 of 3 once the
+        # editor took the focus at once). Measured calmly, the key held as a
+        # person holds it: the split every time.
         page.locator(f"{_MENU} summary").click()
         page.locator(f"{_MENU} button", has_text="Knop").click()
         page.wait_for_selector("div[x-show='button'][role='dialog']", state="visible")

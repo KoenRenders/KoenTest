@@ -48,6 +48,14 @@ CARDS_MENU = f"{EDITOR} details.de-menu-cards"
 DIALOG = "div[x-show='card'][role='dialog']"
 CARD = f"{EDITOR} .tiptap [data-card]"
 
+#: How long a key is held, in milliseconds: as a person holds one. A press
+#: without it is down and up at once, and then the keyup of the Escape that
+#: closes a dialog reaches the dialog before the focus is back in the editor —
+#: 569 of 600 such closings (13 October 2026). The 31 others, and every one of
+#: 200 closings with the key held, had the keyup in the editor; that is where
+#: an author's key always lands, and where the selected card was lost.
+HELD = 80
+
 
 def _paragraph(text: str) -> dict:
     return {"type": "paragraph", "content": [{"type": "text", "text": text}]}
@@ -377,10 +385,248 @@ def test_enter_on_a_selected_card_opens_its_dialog(setup):
         expect(page.locator(DIALOG)).to_be_hidden()
         expect(page.locator(f"{EDITOR} .tiptap")).to_be_focused()
         expect(page.locator(CARDS_MENU)).to_be_visible()
-        page.keyboard.press("Enter")
+        page.keyboard.press("Enter", delay=HELD)
         expect(page.locator(DIALOG)).to_be_visible()
         assert page.locator("#cp-document-card-title").input_value() == "Met toetsen"
         expect(page.locator(CARD)).to_have_count(1)
+        assert page.errors == [], f"the screen throws: {page.errors}"
+    finally:
+        page.close()
+
+
+_SETTLE = """() => {
+  if (window.__settle) return;
+  window.__changes = 0;
+  document.addEventListener('selectionchange', () => { window.__changes++; });
+  // Resolves once the browser's selection has not changed for eight frames in a row.
+  window.__settle = () => new Promise(resolve => {
+    let seen = window.__changes, calm = 0;
+    const frame = () => {
+      if (window.__changes === seen) calm++; else { calm = 0; seen = window.__changes; }
+      if (calm >= 8) resolve(true); else requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  });
+}"""
+
+_SELECTED = """() => {
+  const card = document.querySelector('#cp-document .tiptap [data-card].ProseMirror-selectednode');
+  return {card: card ? card.querySelector('.prose-card-title').textContent : null,
+          menu: !document.querySelector('#cp-document details.de-menu-cards').hidden};
+}"""
+
+
+def _close_without_a_choice(page, way: str) -> None:
+    if way == "Annuleren":
+        page.locator(f"{DIALOG} button", has_text="Annuleren").click()
+    elif way == "the close button":
+        page.locator(f"{DIALOG} button[aria-label]").first.click()
+    elif way == "a click outside":
+        # The dialog stands centred on a backdrop that fills the window; its
+        # corner is outside the dialog at every width.
+        page.mouse.click(5, 5)
+    else:
+        page.keyboard.press("Escape", delay=HELD)
+    expect(page.locator(DIALOG)).to_be_hidden()
+    # The loss this test is about comes a few milliseconds AFTER the dialog is
+    # gone: the focus returns to the editor first, the selection moves after.
+    # A look taken at once sees the card still selected, also where it is about
+    # to be lost. So the look waits until the selection has stopped changing —
+    # counted in the browser's own frames, not on a clock.
+    page.evaluate("() => window.__settle()")
+
+
+@pytest.mark.parametrize("width", [390, 1440])
+def test_a_card_stays_selected_when_its_dialog_closes_without_a_choice(setup, width):
+    """A click on a card selects it and opens its dialog; Annuleren, the close
+    button, a click outside the dialog and Escape close it and leave that card
+    selected, with the cards menu there for it — for EVERY card of the block,
+    not only the first and the last.
+
+    Found on 13 October 2026, on the pushed cards commit: in a block of three
+    or more cards, every card that is neither the first nor the last lost its
+    selection when its dialog closed without a choice (54 of 54 such rounds
+    over blocks of three, four and five cards; never the first or the last
+    card, never after Invoegen). The browser's selection jumped to the start of
+    the document some milliseconds after the focus returned to the editor, and
+    the editor followed it. What moves the browser's selection there is NOT
+    identified. The first version of this file never clicked an inner card and
+    then cancelled, which is how it passed.
+
+    A block of four: both inner cards and both outer ones, each closed in the
+    four ways the kit's dialog has. Then the selection is put to use — Enter opens the dialog of
+    the card that is selected, and a move from the menu moves that card — and
+    what the form holds for the document is the same before and after all the
+    closing, read from the form's own field.
+
+    A limit, said plainly: "stays selected" is the absence of a change, and no
+    finite look proves an absence. The look waits for eight frames without a
+    change of selection; a loss that came later than that would pass here.
+
+    Broken on purpose: see the commit that repairs it — on the commit before,
+    this test is red at both widths at the first inner card.
+    """
+    browser, session = setup
+    titles = ["K1", "K2", "K3", "K4"]
+    document = {
+        "type": "doc",
+        "content": [
+            _paragraph("Boven de kaarten."),
+            {
+                "type": "cards",
+                "content": [
+                    {"type": "card", "attrs": {"title": t, "href": f"https://voorbeeld.test/{t}"}}
+                    for t in titles
+                ],
+            },
+            _paragraph("Onder de kaarten."),
+        ],
+    }
+    page_id, _slug = _new_page(f"Kaart blijft gekozen {width}", document)
+    page = _open(browser, session, page_id, width)
+    try:
+        page.evaluate(_SETTLE)
+        held_before = page.locator("#cp-document-input").input_value()
+        lost = []
+        for index, title in enumerate(titles):
+            for way in ("Annuleren", "the close button", "a click outside", "Escape"):
+                page.locator(CARD).nth(index).click()
+                expect(page.locator(DIALOG)).to_be_visible()
+                assert page.locator("#cp-document-card-title").input_value() == title, (
+                    f"the dialog does not hold the card that was clicked ({title})"
+                )
+                _close_without_a_choice(page, way)
+                seen = page.evaluate(_SELECTED)
+                if seen != {"card": title, "menu": True}:
+                    lost.append(
+                        f"{title} closed with {way}: selected {seen['card']}, menu {seen['menu']}"
+                    )
+        assert not lost, f"at {width} px a card lost its selection or its menu: {lost}"
+
+        # Nothing was chosen, so nothing may have changed in what a save would send.
+        assert page.locator("#cp-document-input").input_value() == held_before, (
+            "closing the dialogs without a choice changed the document the form holds"
+        )
+
+        # The selection put to use, on an inner card: Enter opens ITS dialog…
+        page.locator(CARD).nth(2).click()
+        expect(page.locator(DIALOG)).to_be_visible()
+        _close_without_a_choice(page, "Escape")
+        page.keyboard.press("Enter", delay=HELD)
+        expect(page.locator(DIALOG)).to_be_visible()
+        assert page.locator("#cp-document-card-title").input_value() == "K3"
+        _close_without_a_choice(page, "Annuleren")
+        # …and a move from the menu moves that card.
+        _menu(page, "forward").click()
+        assert _titles(page) == ["K1", "K3", "K2", "K4"]
+        stored = _save(
+            page, page_id, lambda cards: [c["title"] for c in cards] == ["K1", "K3", "K2", "K4"]
+        )
+        assert [c["href"] for c in stored] == [
+            f"https://voorbeeld.test/{t}" for t in ("K1", "K3", "K2", "K4")
+        ]
+        assert page.errors == [], f"the screen throws: {page.errors}"
+    finally:
+        page.close()
+
+
+@pytest.mark.parametrize("way", ["Annuleren", "the close button", "a click outside", "Escape"])
+def test_the_key_after_a_closed_dialog_goes_to_the_card_not_to_the_text_above(setup, way):
+    """After the dialog of an inner card is closed without a choice, Delete
+    removes THAT card — and the paragraph above the cards keeps every letter.
+
+    Measured on the cards commit as first pushed (13 October 2026, one round
+    per key): the selection had left the card for the start of the paragraph
+    above, so Delete took that paragraph's first letter and left the card,
+    Enter opened no dialog and put an empty paragraph above it, and a letter
+    was typed into it — an edit of the page's text that the author did not
+    make on purpose. This holds the consequence itself, beside the walk above
+    that holds the selection.
+    """
+    browser, session = setup
+    above = "Boven de kaarten staat deze zin."
+    document = {
+        "type": "doc",
+        "content": [
+            _paragraph(above),
+            {
+                "type": "cards",
+                "content": [
+                    {"type": "card", "attrs": {"title": t, "href": f"https://voorbeeld.test/{t}"}}
+                    for t in ("K1", "K2", "K3", "K4")
+                ],
+            },
+            _paragraph("Onder de kaarten."),
+        ],
+    }
+    page_id, _slug = _new_page(f"Toets na sluiten {way[:6]}", document)
+    page = _open(browser, session, page_id, 1440)
+    try:
+        page.evaluate(_SETTLE)
+        page.locator(CARD).nth(1).click()
+        expect(page.locator(DIALOG)).to_be_visible()
+        _close_without_a_choice(page, way)
+        page.keyboard.press("Delete", delay=HELD)
+        expect(page.locator(CARD)).to_have_count(3)
+        assert _titles(page) == ["K1", "K3", "K4"], (
+            "Delete did not remove the card whose dialog was closed"
+        )
+        paragraphs = page.locator(f"{EDITOR} .tiptap > p").all_inner_texts()
+        assert paragraphs[0] == above, (
+            f"the key went into the text above the cards: {paragraphs[0]!r}"
+        )
+        stored = _save(
+            page, page_id, lambda cards: [c["title"] for c in cards] == ["K1", "K3", "K4"]
+        )
+        assert len(stored) == 3
+        assert page.errors == [], f"the screen throws: {page.errors}"
+    finally:
+        page.close()
+
+
+@pytest.mark.parametrize("index", [0, 1, 3])
+def test_a_card_applied_as_it_was_stays_selected(setup, index):
+    """A choice that changes nothing: the dialog of a card opened and applied
+    without a change. The document is equal to the one the dialog opened on,
+    so the place is put back as after Annuleren — and that is what an author
+    expects there: that card still selected, the cards menu there for it,
+    nothing different in what the form holds, and the next key for that card.
+    The first card, an inner one and the last."""
+    browser, session = setup
+    titles = ["K1", "K2", "K3", "K4"]
+    above = "Boven de kaarten staat deze zin."
+    document = {
+        "type": "doc",
+        "content": [
+            _paragraph(above),
+            {
+                "type": "cards",
+                "content": [
+                    {"type": "card", "attrs": {"title": t, "href": f"https://voorbeeld.test/{t}"}}
+                    for t in titles
+                ],
+            },
+            _paragraph("Onder de kaarten."),
+        ],
+    }
+    page_id, _slug = _new_page(f"Kaart ongewijzigd {index}", document)
+    page = _open(browser, session, page_id, 1440)
+    try:
+        page.evaluate(_SETTLE)
+        held = page.locator("#cp-document-input").input_value()
+        page.locator(CARD).nth(index).click()
+        expect(page.locator(DIALOG)).to_be_visible()
+        assert page.locator("#cp-document-card-title").input_value() == titles[index]
+        _apply(page)
+        page.evaluate("() => window.__settle()")
+        assert page.evaluate(_SELECTED) == {"card": titles[index], "menu": True}
+        assert page.locator("#cp-document-input").input_value() == held, (
+            "a card applied as it was changed the document the form holds"
+        )
+        page.keyboard.press("Delete", delay=HELD)
+        expect(page.locator(CARD)).to_have_count(3)
+        assert _titles(page) == [t for t in titles if t != titles[index]]
+        assert page.locator(f"{EDITOR} .tiptap > p").all_inner_texts()[0] == above
         assert page.errors == [], f"the screen throws: {page.errors}"
     finally:
         page.close()
@@ -485,7 +731,7 @@ def test_the_look_of_the_cards_on_the_public_page(setup, width):
         assert seen["window"][1] <= seen["window"][0], "the page scrolls sideways"
 
         # The focus ring stands around the card, 3 px.
-        page.keyboard.press("Tab")
+        page.keyboard.press("Tab", delay=HELD)
         page.locator(".prose-card a.prose-card-title").first.focus()
         ring = page.evaluate(
             "() => { const c = document.querySelector('.prose-card'); "

@@ -1233,15 +1233,21 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 
 {# Modal (design-system §2.5): Alpine stuurt een boolean in de parent-scope aan.
    Gebruik: <div x-data="{ open:false }"> … {% call ui.modal('open', 'Titel') %}…{% endcall %}. #}
-{% macro modal(state, title, max_w="max-w-lg") -%}
+{% macro modal(state, title, max_w="max-w-lg", restore_focus=True) -%}
 {# A6 (golf 4, #913): openen onthoudt wie de focus had en zet hem op de sluitknop
    (eerste focusbare element van het dialoogpatroon); sluiten geeft hem terug aan
    de trigger. Op $el bewaard, niet globaal: twee modals op één scherm mogen
    elkaars herkomst niet overschrijven. Bij paginalading (state al false) is
-   _vorige undefined en doet de effect-tak niets. #}
+   _vorige undefined en doet de effect-tak niets.
+
+   `restore_focus=False` (CR-17): the dialog takes the focus when it opens, as
+   always, and does NOT hand it back when it closes — for a caller that brings
+   the focus back itself. The one caller is `_editor_dialog`, the shell of the
+   document editor's dialogs (see there for why). The default is what this
+   macro has always done, and its markup is unchanged. #}
 <div x-show="{{ state }}" x-cloak role="dialog" aria-modal="true" class="fixed inset-0 z-50 flex items-center justify-center p-4"
      style="background:rgba(17,17,17,.5)" @keydown.escape.window="{{ state }} = false"
-     x-effect="{{ state }} ? ($el._vorige = document.activeElement, $nextTick(() => $el.querySelector('button[aria-label]')?.focus())) : ($el._vorige && $el._vorige.focus(), $el._vorige = null)">
+     x-effect="{{ state }} ? ($el._vorige = document.activeElement, $nextTick(() => $el.querySelector('button[aria-label]')?.focus())) : ({% if restore_focus %}$el._vorige && $el._vorige.focus(), {% endif %}$el._vorige = null)">
   <div class="bg-white rounded-2xl shadow-xl w-full {{ max_w }} max-h-[90vh] overflow-auto" @click.outside="{{ state }} = false">
     <div class="flex items-center justify-between border-b border-gray-200 px-5 py-3">
       <h3 class="text-lg font-semibold text-kop">{{ title }}</h3>
@@ -1549,6 +1555,37 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 </div>
 {%- endmacro %}
 
+{# The shell of every dialog the document editor opens (CR-17): the kit's
+   dialog, with two differences that are one rule — a dialog of the editor
+   leaves the author's place where it was.
+   - It does not hand the focus back itself (`restore_focus=False`).
+   - It tells the editor's script when it has closed (`raak-editor-dialog-closed`).
+   The script noted the author's place when it opened the dialog, and puts it
+   back through the editor's own focus command (`document-editor.js`).
+
+   Why (measured on 13 October 2026, before this shell existed): handed back
+   by the dialog's bare `focus()` on the editor's element, the browser's
+   selection stood at the very start of the page's first paragraph a few
+   milliseconds later and the editor followed it — a selected button, card or
+   run of words no longer selected, and the author's next key typed at the top
+   of the page. Every one of the four dialogs lost the place on at least one
+   way of closing. No script sets that selection; what moves it is not
+   identified, and this shell does not explain it.
+
+   A dialog added to the editor later is opened through this shell and
+   announced by the script like the others, and has the rule without knowing
+   of it. `state` is the Alpine name that opens it, in the scope around the
+   call; `editor_id` names the editor it belongs to. #}
+{% macro _editor_dialog(state, title, editor_id, max_w="max-w-lg") -%}
+{#- The dialog's content is taken before the kit's dialog is called: inside
+    that call block `caller` is the block's own, not this macro's (measured:
+    "No caller defined", and the page with the editor answered with an error). -#}
+{% set _content = caller() %}
+<div x-init="$watch('{{ state }}', open => { if (!open) $dispatch('raak-editor-dialog-closed', { editor: '{{ editor_id }}' }) })">
+{% call modal(state, title, max_w=max_w, restore_focus=False) %}{{ _content }}{% endcall %}
+</div>
+{%- endmacro %}
+
 {# Where a button or a card leads: the four destinations as a choice and the
    field that belongs to the chosen one. `p` is the dialog's own prefix for
    its state (`b` for the button, `c` for the card): `<p>Kind`, `<p>Page`,
@@ -1655,7 +1692,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
                                                               caption: caption, placement: placement,
                                                               width: chosen.width, height: chosen.height });
                             figure = false }">
-  {% call modal("figure", _("Afbeelding"), max_w="max-w-5xl") %}
+  {% call _editor_dialog("figure", _("Afbeelding"), editor_id, max_w="max-w-5xl") %}
   {# Invoegen gebeurt UIT DE BIBLIOTHEEK en niet door te slepen — de editor
      weigert bestanden met opzet, want dat zou een onbeperkt uploadpad naar
      een publieke pagina zijn (#1173). Wie een nieuwe afbeelding wil, laadt
@@ -1755,7 +1792,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
                                                                        pos: bPos });
                                      button = false;
                                    } }">
-  {% call modal("button", _("Knop"), max_w="max-w-lg") %}
+  {% call _editor_dialog("button", _("Knop"), editor_id, max_w="max-w-lg") %}
   {{ label(_("Tekst op de knop"), editor_id ~ "-btn-label") }}
   {{ input_control("", id=editor_id ~ "-btn-label", cls="w-full", attrs='x-model="bLabel"') }}
   <div class="mt-4">
@@ -1824,7 +1861,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
                                      pos: cPos, mode: cMode });
                                    card = false;
                                  } }">
-  {% call modal("card", _("Kaart"), max_w="max-w-2xl") %}
+  {% call _editor_dialog("card", _("Kaart"), editor_id, max_w="max-w-2xl") %}
   {{ label(_("Titel"), editor_id ~ "-card-title", required=True) }}
   {{ input_control("", id=editor_id ~ "-card-title", cls="w-full", attrs='x-model="cTitle"') }}
   <div class="mt-4">
@@ -1877,7 +1914,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 <div x-data="{ link: false, url: '' }"
      @raak-link-edit.window="if ($event.detail.editor === '{{ editor_id }}') { url = $event.detail.href || ''; link = true; $nextTick(() => $refs.linkInput.select()) }"
      @raak-link-apply.window="if (link) { $dispatch('raak-link-save', { editor: '{{ editor_id }}', url: url.trim() }); link = false }">
-  {% call modal("link", _("Link"), max_w="max-w-lg") %}
+  {% call _editor_dialog("link", _("Link"), editor_id, max_w="max-w-lg") %}
   {{ label(_("Webadres"), editor_id ~ "-link-url") }}
   {{ input_control("", id=editor_id ~ "-link-url", cls="w-full", attrs='x-model="url" x-ref="linkInput" placeholder="https://"') }}
   <p class="text-xs text-gray-500 mt-1">{{ _("Leeg laten en opslaan haalt de link weg.") }}</p>
