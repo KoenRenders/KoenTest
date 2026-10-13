@@ -1,4 +1,6 @@
-"""#1305 — every function in `app.domains.activities` is typed, and stays typed.
+"""Refuses an untyped function in `app.domains.activities`, or `disallow_untyped_defs` switched off for it · hard · since #1305.
+
+#1305 — every function in `app.domains.activities` is typed, and stays typed.
 
 `disallow_untyped_defs` is on for `app.domains.activities.*` in `pyproject.toml`:
 CR-13 phase 1 did the two modules where the Registration aggregate's rules live,

@@ -1,4 +1,6 @@
-"""The twelfth gate of CR-12: no enum member ever reaches a template's output.
+"""Refuses an enum member reaching a template's output · hard · since #1181.
+
+The twelfth gate of CR-12: no enum member ever reaches a template's output.
 
 **Why this gate exists, and it is not a hypothesis.** Three times in this
 change request a member ended up in an HTML attribute:

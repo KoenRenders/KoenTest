@@ -1,4 +1,6 @@
-"""Reporting is a terminus: nothing builds a process on top of it (CR-07 §6.6).
+"""Refuses a domain importing `reporting.api` or querying the `reporting` schema outside the allowed consumers · hard · since #917.
+
+Reporting is a terminus: nothing builds a process on top of it (CR-07 §6.6).
 
 The reporting views are read models — question-shaped, derived, and free to
 change with the universe. A business process that reads them couples itself to a

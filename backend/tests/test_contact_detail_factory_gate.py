@@ -1,4 +1,6 @@
-"""A contact detail is made in one place only (CR-22 §B7 and §C7, #1704).
+"""Refuses a `ContactDetail` constructed outside master data's `new_contact_detail` · hard · since #1704.
+
+A contact detail is made in one place only (CR-22 §B7 and §C7, #1704).
 
 **The rule.** An e-mail address of a person is written only through master
 data's `new_contact_detail`, which decides whether it counts and refuses it

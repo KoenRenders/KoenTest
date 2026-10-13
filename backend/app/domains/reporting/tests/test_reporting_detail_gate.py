@@ -1,4 +1,6 @@
-"""A detail may be shown, not grouped by — now a rule instead of a sentence (#852).
+"""Refuses a report that groups on a detail attribute, which would split the grain without adding a question · hard · since #852.
+
+A detail may be shown, not grouped by — now a rule instead of a sentence (#852).
 
 The universe has always said it: *"a detail is an attribute of a dimension you may
 show but not group by: it would split the grain without adding a question."*

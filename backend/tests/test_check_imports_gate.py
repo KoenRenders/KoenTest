@@ -1,4 +1,6 @@
-"""Guard on the import smoke test in `check_imports.py` (#583).
+"""Refuses an import smoke test whose module discovery finds nothing or too little, invents a module or carries an undocumented skip · hard · since #583.
+
+Guard on the import smoke test in `check_imports.py` (#583).
 
 `check_imports.py` derives its module list from the `app` package instead of a
 hand-written list, because that list rotted: in #581 it still named the removed

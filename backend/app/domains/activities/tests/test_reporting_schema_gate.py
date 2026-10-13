@@ -1,4 +1,6 @@
-"""Schema gate on the `reporting` views (#832 test 2, CR-06 §7.1).
+"""Refuses a `reporting` view without `tenant_id`, or without a comment saying what it excludes · hard · since #832.
+
+Schema gate on the `reporting` views (#832 test 2, CR-06 §7.1).
 
 Two invariants that must hold for **every** view in the schema, including the ones
 phases 3 to 5 add, which is why this reads `information_schema` instead of a list

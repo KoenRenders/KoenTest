@@ -1,4 +1,6 @@
-"""The public Raakje reaches no admin tool — not by spec, not by forged call (#1075).
+"""Refuses an admin tool reachable by the public Raakje, by spec or by forged call · hard · since #1075.
+
+The public Raakje reaches no admin tool — not by spec, not by forged call (#1075).
 
 Koen's rule, 20 September 2026: the public Raakje and the back-office one are the
 same product, and *the only difference is the security on the public one, which

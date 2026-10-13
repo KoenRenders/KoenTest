@@ -1,4 +1,6 @@
-"""CR-11 pilot A, K6 (#1560): what a record's tab may not do.
+"""Refuses a summary card on a list tab, or an inline disclosure in a kit table · hard · since #1560.
+
+CR-11 pilot A, K6 (#1560): what a record's tab may not do.
 
 Block 8 (Koen, 4 October 2026; `docs/design-system-end-state.md` §2.2, §3.10):
 

@@ -1,4 +1,6 @@
-"""The gate of CR-13 (`docs/change_request_13_oo_foundation.md`, §B9.3) — phases 0a and 0c.
+"""Refuses a break of the CR-13 rules: a session on an entity, a commit in an event handler, a JSON route without a caller, a new Dutch identifier, a foreign write, a rule in a router, and more · hard · since #755.
+
+The gate of CR-13 (`docs/change_request_13_oo_foundation.md`, §B9.3) — phases 0a and 0c.
 
 **A rule has one home, and every entrance passes through it.** This file holds
 the checks that make that a property of the code instead of a habit. Phase 0a

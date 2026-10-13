@@ -1,4 +1,6 @@
-"""The gates of CR-11 B7 that guard a count, as ratchets (#1563, pilot A, K9).
+"""Refuses more or fewer hand-written violations of the CR-11 B7 rules than the baseline says, per template · ratchet · since #1563.
+
+The gates of CR-11 B7 that guard a count, as ratchets (#1563, pilot A, K9).
 
 Every rule below counts something the end state refuses, per template, and
 compares it with `tests/ui_baseline.py`: one exact number per file.
