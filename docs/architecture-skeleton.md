@@ -26,7 +26,7 @@ Costs do not belong in the architecture document; the standards table does.
 | 3 | every gate file carries a one-sentence docstring (refuses · form · since), a gate requires it, the build reads the gates table from those sentences | "akkoord" |
 | 4 | one evolutions table (id · what · why · track · status), "→ En" references in the text, no other roadmap markings; closed at step 14 of every release; rejected choices stay with their reason | "akkoord" |
 | 5 | the standards table sums only what is followed and what deliberately deviates; "checked, not applicable" stays in the change request | "a" |
-| 6 | the diagram conventions: detailed in Q&A of 13 October 2026, nr. 02, with rendered examples; decided there | (open) |
+| 6 | the diagram conventions: six kinds with one purpose each, three colour classes from the brand tokens (in a change request the colour is the kind of change), `flowchart TB` also for the layer picture, a lifecycle per module with a status column drawn from the code in step 2, the fourteen existing figures converted at the move of their section in step 2 (Q&A of 13 October 2026, nr. 02, with rendered examples) | "a" to each of the five questions |
 | 7 | skeleton first, then part by part against the code, C and E first; the counting can go to the design-documentation CLI | "a, en weet dat er tegenwoordig een "design-documentation" CLI is die goedkoper tellingen etc doet" |
 
 **Status tags of the new document.** Two, not four: the text describes `master`
@@ -183,9 +183,32 @@ document), so that step 14 of the release becomes checkable:
 - **C10** gets the line: *which sections of the architecture document were
   updated — part B of the modules touched, part D for a new standard, part E (the
   row closed or added), the change log E3*.
-- **The diagram conventions** (Q&A of 13 October 2026, nr. 02, once decided):
-  the six kinds and their one purpose each, the figure line, the colour classes,
-  one screen high, no semicolon in a label.
+- **The diagram conventions** (Koen, 13 October 2026, Q&A nr. 02, "a" to each
+  of the five questions), for the template and for part A of the document:
+  - six kinds, one purpose each: `flowchart LR` for a process (lanes per actor,
+    the BPMN level-1 palette A2/A3 already prescribe); `flowchart TB` for a
+    structure (layers, module map, tenant hierarchy, test layers);
+    `sequenceDiagram` for a course in time between parties (request, webhook,
+    event chain), numbered, with a note where an invariant sits; `erDiagram` for
+    a data model, with key columns and cardinality, a reference across a schema
+    drawn as a line labelled "by value"; `stateDiagram-v2` for the lifecycle of a
+    record; `gitGraph` once, for the branch model;
+  - three colour classes from the brand tokens, named in the legend sentence:
+    kernel (fill `#e8f0ff`, stroke `#0051a4`), domain (white, stroke `#52607a`),
+    external (fill `#fff7ed`, stroke `#f16532`); in a change request the colour
+    is the kind of change — new (fill `#eef7ee`, stroke `#005d29`), changed
+    (orange), unchanged (fill `#eef3f9`, stroke `#d7e0ec`) — and an external
+    system is a double-bordered box;
+  - one figure line above every diagram (`<!-- figure: name=… caption=… -->`,
+    `wide=1` for a landscape page), at most one screen high (about fifteen
+    boxes, else a second figure), one sentence under each figure saying what to
+    see, no semicolon in a label;
+  - considered and not chosen, with the reason in the Q&A: `C4Context`,
+    `block-beta` (also for the layer picture: one kind for every structure),
+    `timeline`, `journey`, `gantt`, `classDiagram` (only CR-13's OO figure),
+    `zenuml` (a second notation for the same picture, ignores the theme),
+    `requirementDiagram` (repeats the requirement and rule tables of a change
+    request as boxes), and the charts.
 
 ## Tooling to extend — one issue each, after the skeleton is read
 
