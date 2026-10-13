@@ -798,10 +798,12 @@ October 2026 there are **53 gate files**: 48 in `backend/tests/` named
 domains they belong to (`activities`, `reporting`), where CR-13's placement
 rule put them. (A file glob on `*gate*` finds 55: `test_registration_aggregate.py`
 and `test_payment_record_aggregate.py` match on *aggregate* and are the B8
-tests of two aggregates, not gates.) Two more files hold a list that may only
-shrink without carrying the word: `test_import_boundaries.py`
-(`LEGACY_ALLOWLIST`) and `test_ruff_migrations.py`; the generated table of
-the future reads the meta-gate's list, not a glob, so that they count.
+tests of two aggregates, not gates.) Four more files are gates without carrying
+the word: `test_import_boundaries.py` (`LEGACY_ALLOWLIST`, may only shrink),
+`test_schema_boundaries.py`, `test_docs_gating.py` (no API docs in UAT and
+PROD) and `integration/test_query_budget.py` (a query budget per screen); the
+generated table of the future reads the meta-gate's list, not a glob, so that
+they count.
 
 ### The table
 
@@ -1184,7 +1186,7 @@ rejected choices.
 | E30 | Tasks in the workbench for the member administration: a new household and a changed member create a task to retype in the national programme; the task closes on the re-import of the member report | the end-to-end figure of the member process has no platform lane and three white boxes: nobody reminds the administration today | — | open; the first evolution the process figures made visible |
 | E31 | A one-sentence docstring on every gate file (refuses · hard or ratchet · since) and a gate that requires it | the table of C2 is generated from those sentences | — | planned, with the restructuring |
 | E32 | The PDF build reads part B from the fifteen `CONTRACT.md` files and the gates table from the docstrings | one place per fact: a module's section lives with its code | — | planned, with the restructuring |
-| E33 | The reference architecture (the former chapter 8, *from association to enterprise*, and the *Gespreksleidraad*) as a document of its own that quotes this one | this document is the as-is of the project | — | planned, with the restructuring |
+| E33 | The reference architecture (the former chapter 8, *from association to enterprise*, and the *Gespreksleidraad*) as a document of its own that quotes this one | this document is the as-is of the project | `docs/reference-architecture.md` | done, 13 October 2026, with the restructuring |
 
 **Parked small work** — kept as issues, not as rows of their own; the count of 13 October 2026.
 
@@ -1216,3 +1218,29 @@ request, the sections touched.
 | Release | Change request | Sections touched |
 |---|---|---|
 | — | the restructuring (Koen's decisions of 11 and 13 October 2026) | parts C and E written against `master` @ cf80ccde; parts A, B and D follow |
+
+# Appendix B — Evidence index
+
+Every claim in this document points at a file; this index groups them by
+topic. Every path was checked to exist on `master` @ cf80ccde on 13 October
+2026. The former Appendix A (the working document of July 2026 compared with
+the code) is gone: its job is done by the measurement of every part against
+the code, and what it found that was still open stands in part E.
+
+| Topic | Files |
+|---|---|
+| Working instructions and the release process | `AGENTS.md` (imported by `CLAUDE.md`), `docs/change_request_template.md`, `docs/review-protocol.md`, `docs/code-style.md` |
+| Kernel | `backend/app/kernel/{tenancy,tenant_config,events,ports,jobs,history,modules,rules,money,ordering,ods}.py`, `backend/app/kernel/contracts/` |
+| Gatekeepers | `backend/app/main.py`, `backend/app/limiter.py`, `backend/app/soft_delete.py`, `backend/app/domains/auth/{session,service,login,models}.py`, `caddy/parts/snippets.caddy` |
+| Ledger and Mollie | `backend/app/domains/payment/{service,gateway_service,gateway_router,structured_communication,exports,ui}.py`, `backend/app/domains/payment/providers/{base,mollie}.py` |
+| Master data and the household portal | `backend/app/domains/mdm/{models,service,tenant_service,import_service,history,organization_service}.py`, `backend/app/domains/membership/{ui,household_service}.py`, `backend/app/domains/reporting/changes.py` |
+| Form engine | `backend/app/domains/forms/{models,service,results,export,ui}.py`, `backend/app/static/form-json-formaat.md` |
+| Workflow | `backend/app/domains/workflow/{models,codes,handlers,api}.py` |
+| AI | `backend/app/domains/chatbot/{context,tools,service,render}.py`, `backend/app/domains/chatbot/providers/`, `backend/app/domains/chatbot/stt/`, `backend/app/domains/media/extraction.py` |
+| Gates | the 53 files of part C2 under `backend/tests/` and the domains' `tests/`; beside them `backend/tests/test_import_boundaries.py`, `backend/tests/test_schema_boundaries.py`, `backend/tests/test_docs_gating.py`, `backend/tests/integration/test_query_budget.py`, `backend/tests/test_ruff_migrations.py`; the baselines `backend/tests/{dutch_identifiers,ui,public,codes}_baseline.py` |
+| Browser flows, measurement and seed | `backend/tests_e2e/`, `backend/tests_e2e/measures.py`, `backend/seed_e2e.py`, `scripts/measure-run.sh` |
+| CI and deployment | `.github/workflows/backend-tests.yml`, `deploy.sh`, `deploy-caddy.sh`, `raakctl`, `backend/startup.sh`, `backend/Dockerfile`, `docker-compose.{dev,hdev,uat,prod,caddy}.yml` |
+| Agents | `.claude/agents/design-conformiteit-bewaker.md`, `.claude/agents/publieke-repo-bewaker.md` |
+| Design system and roles | `docs/design-system.md`, `docs/design-system-end-state.md`, `docs/rollen-en-rechten.md`, `backend/app/ui/templates/_macros.html`, `scripts/build-css.sh` |
+| The decision record on the frontend, and the working document of July 2026 | `docs/intermediate-architecture-upgrade-v1.md` (§21 the frontend decision; §20.6 BPMN as vocabulary, not motor) |
+| The reference architecture and the conversation guide | `docs/reference-architecture.md` |
