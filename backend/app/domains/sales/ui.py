@@ -23,12 +23,17 @@ router = APIRouter()
 
 
 def _member(request: Request, db: Session) -> bool:
-    """Is the signed-in person a member with a valid membership today? (F3, R11)."""
+    """Is the signed-in person a member with a valid membership today? (F3, R11).
+
+    The day is the Brussels day, the same one the offer reads (J1): on a process
+    whose clock is UTC the two days differ for an hour or two after midnight.
+    """
     from app.domains.membership.api import has_valid_membership
+    from app.kernel.clock import belgian_today
     from app.ui.account_ui import signed_in_person
 
     signed_in, person = signed_in_person(request, db)
-    return signed_in and has_valid_membership(person)
+    return signed_in and has_valid_membership(person, belgian_today())
 
 
 @router.get("/webshop", response_class=HTMLResponse)

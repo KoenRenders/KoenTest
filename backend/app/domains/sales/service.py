@@ -14,7 +14,14 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.domains.pricing.api import price_for
-from app.domains.product.api import Product, ProductStatus, list_products, size_of, variants_of
+from app.domains.product.api import (
+    Product,
+    ProductStatus,
+    get_product_in_tenant,
+    list_products,
+    size_of,
+    variants_of,
+)
 from app.kernel.clock import belgian_today
 
 
@@ -55,10 +62,10 @@ def article_offer(db: Session, product_id: int, *, member: bool = False) -> dict
     prices — or None when it is not offered: not in sale, no size with a price
     valid today, of another tenant, or deleted.
 
-    The product is read through a filtered query, not `db.get`: a visitor types
-    the id, and a primary-key load must not skip the tenant and soft-delete
-    filters (H4)."""
-    product = db.query(Product).filter(Product.id == product_id).one_or_none()
+    The product is read through the tenant-filtered read of `product`
+    (`get_product_in_tenant`), not a load by key: a visitor types the id, and a
+    primary-key load must not skip the tenant filter (H4, J4)."""
+    product = get_product_in_tenant(db, product_id)
     if product is None or product.status is not ProductStatus.ON_SALE:
         return None
     sizes = _offered_sizes(db, product, member=member)

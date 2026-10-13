@@ -29,6 +29,16 @@ def get_product(db: Session, product_id: int) -> Product | None:
     return db.get(Product, product_id)
 
 
+def get_product_in_tenant(db: Session, product_id: int) -> Product | None:
+    """The product by id, filtered to the active tenant.
+
+    `get_product` is a load by key, which does not carry the tenant filter: a
+    visitor who types an id would reach another tenant's article. This read is
+    for the public pages and any other caller that must not (the shop's article
+    page, J4)."""
+    return db.query(Product).filter(Product.id == product_id).one_or_none()
+
+
 def _checked_name(name: str) -> str:
     """The article's name, stripped, refused when empty or over the column's 255
     characters (S2). One place: `create_product` and `update_product`."""

@@ -465,6 +465,7 @@ def test_de_webshop_paginas_op_390_px(webshop_page):
     heading = page.locator("main h1")
     heading.wait_for(state="visible")
     assert "Webshop T-shirt" in heading.inner_text()
+    assert "· € 15,00" in page.locator("main").inner_text(), "de maat met zijn prijs ontbreekt"
     assert _geen_zijwaartse_scroll(page)
 
 
