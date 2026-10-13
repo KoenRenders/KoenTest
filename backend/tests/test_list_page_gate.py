@@ -98,14 +98,40 @@ def _without_comments(text: str) -> str:
     return re.sub(r"{#.*?#}", "", text, flags=re.S)
 
 
+_TOOLBAR_CALL = re.compile(r"{%-?\s*call\s+ui\.toolbar\(.*?%}", re.S)
+_CALL_TAG = re.compile(r"{%-?\s*(call\b|endcall\b).*?%}", re.S)
+
+
+def _toolbar_calls(text: str) -> list[tuple[int, int, int, int]]:
+    """Every `{% call ui.toolbar(...) %}` as (start, body start, body end, end).
+
+    The end is the `endcall` that matches the opening one: a Filters panel holds
+    `{% call ui.select_control(...) %}` blocks of its own (#1930 — two of them),
+    and cutting at the first `endcall` left the second select outside the call.
+    """
+    found = []
+    for opening in _TOOLBAR_CALL.finditer(text):
+        depth = 1
+        for tag in _CALL_TAG.finditer(text, opening.end()):
+            depth += 1 if tag.group(1).startswith("call") else -1
+            if depth == 0:
+                found.append((opening.start(), opening.end(), tag.start(), tag.end()))
+                break
+    return found
+
+
 def _outside_toolbar(text: str) -> str:
     """The template without the call bodies of `ui.toolbar` (the Filters panel)."""
-    return re.sub(r"{%-?\s*call\s+ui\.toolbar\(.*?{%-?\s*endcall\s*-?%}", "", text, flags=re.S)
+    out, at = [], 0
+    for start, _body_start, _body_end, end in _toolbar_calls(text):
+        out.append(text[at:start])
+        at = end
+    return "".join(out) + text[at:]
 
 
 def _toolbar_bodies(text: str) -> str:
     return "\n".join(
-        re.findall(r"{%-?\s*call\s+ui\.toolbar\(.*?%}(.*?){%-?\s*endcall\s*-?%}", text, flags=re.S)
+        text[body_start:body_end] for _s, body_start, body_end, _e in _toolbar_calls(text)
     )
 
 
@@ -198,6 +224,26 @@ def test_every_rule_refuses_its_violation(addition, rule):
     assert violations("_throwaway.html", CLEAN) == []
     found = violations("_throwaway.html", CLEAN + "\n" + addition)
     assert len(found) == 1 and rule in found[0], found
+
+
+def test_two_selects_in_the_filters_panel_are_allowed_and_a_third_outside_is_not():
+    """#1930: the panel holds two `select_control` calls, each with its own
+    `endcall`. Cutting the toolbar's call at the first `endcall` left the second
+    select outside it, and the gate refused a clean list.
+
+    Broken on purpose: `_toolbar_calls` cut at the first `endcall` again → the
+    first assertion fails on rule 2. The select added after the toolbar is the
+    additive violation: it still fails with the intended message.
+    """
+    two = (
+        '{% call ui.toolbar("/l", "#l", "t") %}'
+        '{% call ui.select_control("jaar") %}{% endcall %}'
+        '{% call ui.select_control("doelpubliek") %}{% endcall %}'
+        "{% endcall %}\n" + CLEAN.split("\n", 1)[1]
+    )
+    assert violations("_throwaway.html", two) == []
+    found = violations("_throwaway.html", two + '{% call ui.select_control("los") %}{% endcall %}')
+    assert len(found) == 1 and "rule 2" in found[0], found
 
 
 def test_a_checkbox_group_in_the_toolbar_is_refused():

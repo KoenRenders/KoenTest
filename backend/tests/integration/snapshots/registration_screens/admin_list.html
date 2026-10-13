@@ -79,42 +79,43 @@
 </div>
 <div id="inschrijvingen-lijst">
 <div class="data-table-frame mb-4 rounded-card border border-line bg-white" data-table-frame>
-<table class="data-table text-sm" data-p1="auto" data-p2="auto">
+<table class="data-table text-sm" data-p1="auto" data-p2="auto"
+ style="--dt-name:336px;--dt-rest:calc(min(240px, 20cqw) + 100px + 96px + 120px + 156px);--dt-p1:calc(12cqw);--dt-p2:calc(96px)">
 <caption class="sr-only">Inschrijvingen</caption>
 <thead>
 <tr>
-<th scope="col" data-cell="name"
- class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left ">
+<th scope="col" data-cell="name" data-column-head
+ class="h-9 whitespace-nowrap border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left">
 <a href="/admin/activiteiten/<ACTIVITY>/inschrijvingen?sort=naam" hx-get="/admin/activiteiten/<ACTIVITY>/inschrijvingen/lijst?sort=naam" hx-target="#inschrijvingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}' data-sort="naam"
  class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 ">Naam<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></a>
 </th>
-<th scope="col" data-cell="context"
- class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[20%]">
+<th scope="col" data-cell="context" data-column-head data-second-head
+ class="h-9 whitespace-nowrap border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left" style="width:min(240px, 20cqw)">
  Contact
  </th>
-<th scope="col" data-cell="date" aria-sort="ascending"
- class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[100px]">
+<th scope="col" data-cell="date" data-column-head aria-sort="ascending"
+ class="h-9 whitespace-nowrap border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left" style="width:100px">
 <a href="/admin/activiteiten/<ACTIVITY>/inschrijvingen?sort=-datum" hx-get="/admin/activiteiten/<ACTIVITY>/inschrijvingen/lijst?sort=-datum" hx-target="#inschrijvingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}' data-sort="datum"
  class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 font-semibold text-blue-700">Datum<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></a>
 </th>
-<th scope="col" data-cell="more" data-p="1"
- class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[12%]">
+<th scope="col" data-cell="more" data-column-head data-p="1"
+ class="h-9 whitespace-nowrap border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left" style="width:12cqw">
  Producten
  </th>
-<th scope="col" data-cell="amount"
- class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-right w-[96px]">
+<th scope="col" data-cell="amount" data-column-head
+ class="h-9 whitespace-nowrap border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-right" style="width:96px">
  Bedrag
  </th>
-<th scope="col" data-cell="extra" data-p="2"
- class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-right w-[96px]">
+<th scope="col" data-cell="extra" data-column-head data-p="2"
+ class="h-9 whitespace-nowrap border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-right" style="width:96px">
  Saldo
  </th>
-<th scope="col" data-cell="status"
- class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[120px]">
+<th scope="col" data-cell="status" data-column-head
+ class="h-9 whitespace-nowrap border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left" style="width:120px">
  Status
  </th>
-<th scope="col" data-cell="actions"
- class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[156px]">
+<th scope="col" data-cell="actions" data-column-head data-last-head
+ class="h-9 whitespace-nowrap border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left">
 <span class="sr-only">Acties</span>
 </th>
 </tr>

@@ -3583,24 +3583,39 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    The head is 36 px, `ink-soft` on `surface-2`. The call body holds the
    `<tbody>`s.
 
-   The widths are the kit's, by the column's part (the table's layout is fixed,
-   see the CSS): context 24 %, status 136 px — the longest badge a list
-   shows, "Terug te betalen" at 109 px (measured), plus the cell's 2 × 12 px
-   and 3 px to spare; at 132 px it was 1 px short and the badge broke in two
-   (#1647) — a number 104 px, the actions
-   156 px, a moment 152 px (the widest `short_datetime` — ten times one
-   digit, measured at 128 px — plus the cell's 2 × 12 px; a date's 112 px left
-   the minutes in the next column, #1915), and the name takes the rest — as does "text", which
-   has no width of its own: beside fixed columns only, it is the widest; beside
-   a name the two share the rest. A table of eight columns (the
-   registrations of a record, #1636: contact, date, products, two amounts)
-   takes the narrower set, or the name would be left with 13 px (measured at
-   1 440) — and its two optional columns leave by priority, or the name is
-   left with 47–76 px in a table of 900–1 100 px (#1741, measured: the
-   household's tab is 1 024 px wide at every desktop width). They stand HERE
-   as literal classes:
-   the CSS build reads templates, not Python, so a width class handed over by a
-   view is never generated (measured: seven columns of equal width). #}
+   **Every column stands at its own width, packed left, and the last column
+   takes the rest** (#1927; Koen, 12 October 2026, on a list at 1 920 px:
+   "vooral alles naar links"). The table keeps the frame's full width, so the
+   row lines run to its edge and the white space falls behind the last column,
+   never between the first two. A width comes from the column's `width` (px,
+   where the kit's default does not fit a list's content) or else from its
+   part:
+   - name 380 px — **or what the frame leaves**: where the other columns need
+     the room, the name gives way before anything overflows (Betalingen at
+     1 440 px: 284 px, as before). The CSS computes that from the sums this
+     macro writes on the table (`--dt-rest`, and `--dt-p1`/`--dt-p2` for the
+     optional columns, which give their room back when they leave);
+   - context 280 px (#1941; Koen, 13 October 2026, to "Contextkolom: vast op
+     ongeveer 280 px …?": "ja" — a share of the frame left white space behind
+     it on a wide screen, and sizing to content makes the columns jump between
+     pages and filters; in the narrower set it keeps its share of 20 %,
+     capped at 240 px: the registrations' name has no room to give at a window
+     of 1 100 px, #1741), status 136 px — the longest badge a list
+     shows, "Terug te betalen" at 109 px (measured), plus the cell's 2 × 12 px
+     and 3 px to spare; at 132 px it was 1 px short and the badge broke in two
+     (#1647) — a number 104 px, the actions 156 px, a date 112 px, an `extra`
+     that is no number 160 px, a moment 152 px (the widest `short_datetime` —
+     ten times one digit, measured at 128 px — plus the cell's 2 × 12 px; a
+     date's 112 px left the minutes in the next column, #1915);
+   - "text" has no width of its own: it shares the rest with the last column
+     (or is it).
+   The last column gets no width; its part's width counts as its floor in the
+   sum, so the name never pushes it under its content. A table of eight columns
+   (the registrations of a record, #1636: contact, date, products, two
+   amounts) takes the narrower set — and its two optional columns leave by
+   priority (#1741, measured: the household's tab is 1 024 px wide at every
+   desktop width). A column head never wraps (Koen: "de N van Inschrijvingen
+   op een tweede regel, dat kan niet de bedoeling zijn"). #}
 {% macro data_table(columns, modes={}, hx_target="", caption="", open_row="") -%}
 {# `open_row` is the row a visitor came BACK to (the way back from a record
    names it, `rij=` or `boeking=`): it is brought into view and its link gets
@@ -3610,13 +3625,24 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    is the way in to its record, on a main list and on a record's tab alike. #}
 <div class="data-table-frame mb-4 rounded-card border border-line bg-white" data-table-frame{% if open_row %} data-open-row="{{ open_row }}"
      x-data x-init="$nextTick(() => window.raakOpenRij && window.raakOpenRij($el))"{% endif %}>
-  <table class="data-table text-sm" data-p1="{{ modes.get(1, 'auto') }}" data-p2="{{ modes.get(2, 'auto') }}">
+  {#- The widths, as CSS lengths; `cqw` is a hundredth of the frame. -#}
+  {%- set _narrow = columns|length >= 8 -%}
+  {%- set _parts = {'name': '336px', 'context': 'min(240px, 20cqw)', 'status': '120px', 'actions': '156px', 'date': '100px', 'more': '12cqw', 'moment': '152px', 'extra': '144px'} if _narrow else {'name': '380px', 'context': '280px', 'status': '136px', 'actions': '156px', 'date': '112px', 'more': '26cqw', 'moment': '152px', 'extra': '160px'} -%}
+  {%- set _w = namespace(all=[], name='', rest=[], p1=[], p2=[]) -%}
+  {%- for c in columns -%}
+    {%- set _width = (c.width ~ 'px') if c.get('width') else (('96px' if _narrow else '104px') if c.get('num') else _parts.get(c.cell, '')) -%}
+    {%- set _ignore = _w.all.append(_width) -%}
+    {%- if c.cell == 'name' and not _w.name -%}{%- set _w.name = '100cqw' if loop.last else _width -%}
+    {%- elif _width -%}{%- set _ignore = (_w.p1 if c.get('priority') == 1 else (_w.p2 if c.get('priority') == 2 else _w.rest)).append(_width) -%}{%- endif -%}
+  {%- endfor %}
+  <table class="data-table text-sm" data-p1="{{ modes.get(1, 'auto') }}" data-p2="{{ modes.get(2, 'auto') }}"
+         style="--dt-name:{{ _w.name or '0px' }};--dt-rest:calc({{ _w.rest|join(' + ') or '0px' }});--dt-p1:calc({{ _w.p1|join(' + ') or '0px' }});--dt-p2:calc({{ _w.p2|join(' + ') or '0px' }})">
     {% if caption %}<caption class="sr-only">{{ caption }}</caption>{% endif %}
     <thead>
       <tr>
         {% for c in columns %}
-        <th scope="col" data-cell="{{ c.cell }}"{% if c.get('priority') %} data-p="{{ c.priority }}"{% endif %}{% if c.get('sorted') %} aria-sort="{{ 'ascending' if c.sorted == 'asc' else 'descending' }}"{% endif %}
-            class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card {{ 'text-right' if c.get('num') else 'text-left' }} {% if columns|length >= 8 %}{{ 'w-[96px]' if c.get('num') else {'context': 'w-[20%]', 'status': 'w-[120px]', 'actions': 'w-[156px]', 'date': 'w-[100px]', 'more': 'w-[12%]', 'moment': 'w-[152px]'}.get(c.cell, '') }}{% else %}{{ 'w-[104px]' if c.get('num') else {'context': 'w-[24%]', 'status': 'w-[136px]', 'actions': 'w-[156px]', 'date': 'w-[112px]', 'more': 'w-[26%]', 'moment': 'w-[152px]'}.get(c.cell, '') }}{% endif %}">
+        <th scope="col" data-cell="{{ c.cell }}" data-column-head{% if loop.index == 2 %} data-second-head{% endif %}{% if loop.last %} data-last-head{% endif %}{% if c.get('priority') %} data-p="{{ c.priority }}"{% endif %}{% if c.get('sorted') %} aria-sort="{{ 'ascending' if c.sorted == 'asc' else 'descending' }}"{% endif %}
+            class="h-9 whitespace-nowrap border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card {{ 'text-right' if c.get('num') else 'text-left' }}"{% if not loop.last and c.cell != 'name' and _w.all[loop.index0] %} style="width:{{ _w.all[loop.index0] }}"{% endif %}>
           {% if c.get("sort_url") %}
           <a href="{{ c.get('sort_page_url') or c.sort_url }}"{% if hx_target %} hx-get="{{ c.sort_url }}" hx-target="{{ hx_target }}" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}'{% endif %} data-sort="{{ c.key }}"
              class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 {{ 'justify-end' if c.get('num') else '' }} {{ 'font-semibold text-blue-700' if c.get('sorted') else '' }}">{{ c.label }}{{ icon("arrow-up" if c.get("sorted") == "asc" else ("arrow-down" if c.get("sorted") == "desc" else "arrow-up-down"), 14) }}</a>

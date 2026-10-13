@@ -244,7 +244,7 @@ def test_every_tile_strip_keeps_its_labels_on_one_line_through_the_shared_rule()
     one line — "…" and a `title` when too long — so every number sits right
     under its label at the same height. One rule (`.kpi-strip`) in the shared
     stylesheet; every strip carries the class, every label a `title`. Proven
-    red by dropping the class from `admin_activiteiten.html`, by deleting the
+    red by dropping the class from `_bt_boven.html`, by deleting the
     rule, and by dropping a label's `title`."""
     strip = "md:flex-row rounded-card border border-gray-200 bg-white shadow-sm divide-y md:divide-y-0 md:divide-x divide-gray-100"
     found = []
@@ -265,8 +265,9 @@ def test_every_tile_strip_keeps_its_labels_on_one_line_through_the_shared_rule()
                 assert labels, f"{path.relative_to(APP)}: the scan found no labels"
                 for label in labels:
                     assert "title=" in label, f"{path.relative_to(APP)}: a label without a title"
-    # Two since #1899: Leden's strip went with the list-page layout.
-    assert len(found) >= 2, f"the scan found only {found}"
+    # One since #1930: Leden's strip went with the list-page layout (#1899),
+    # Activiteiten's with its own.
+    assert len(found) >= 1, f"the scan found only {found}"
     css = (APP / "static" / "app.css").read_text()
     assert ".kpi-strip>*>:first-child{" in css
     rule = css[css.index(".kpi-strip>*>:first-child{") :]

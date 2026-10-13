@@ -2,7 +2,8 @@
 
 How to stand up this stack from scratch. Day-to-day releases and deploys are
 covered in `CLAUDE.md` (*Releases and hotfixes*, *Deploying a release to UAT /
-PROD*); build and validation in `BUILDING.md`.
+PROD*); the local test run is `scripts/test-local.sh`, the same gate as CI
+(`.github/workflows/backend-tests.yml`).
 
 This file deliberately contains **no host names, IP addresses, server paths or
 account details** — this repository is public. Everything host-specific lives in
@@ -28,7 +29,7 @@ for every domain. Its config is split per environment under `caddy/parts/`; see
 git clone https://github.com/KoenRenders/KoenTest.git
 cd KoenTest
 cp .env.dev.example .env.dev     # fill in the values
-./deploy-dev.sh
+docker compose -f docker-compose.dev.yml --env-file .env.dev up --build -d
 ```
 
 ## A fresh server

@@ -30,7 +30,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 # The id is a timestamp, not a sequence number (#951). `repr` with double
 # quotes (#781): the generated file must already be what `ruff format` writes.
 revision = "200_2026_10_06_195129"
-down_revision = "202_2026_10_09_191828"
+down_revision = "203_2026_10_13_093503"
 # On the CR-17 branch this migration stood on 197; master moved on (198,
 # 199, 200, 201, 202) meanwhile. The branch keeps its migration on ONE
 # linear chain: this revision is 200 and hangs under master's 202 (the

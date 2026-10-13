@@ -810,7 +810,7 @@ Levend register: "LT" = heroverwegen zodra de trigger opduikt.
 
 ## 19. Aanvullingen uit de codebase-analyse (juli 2026)
 
-De analyse (`codebase-analyse-erp-fundament.md`, vier deep-dives met
+De analyse (`docs/codebase-analyse-erp-fundament.md` in the git history, vier deep-dives met
 file:line-bewijs) **valideert dit plan**: de lazy-import-cykels bewijzen de
 payments-facade, de frontend-duplicatie bewijst de UI-kit (§11), de CI-gaten
 bewijzen §8/§10. Drie concrete aanvullingen + een vereenvoudigingsregister:

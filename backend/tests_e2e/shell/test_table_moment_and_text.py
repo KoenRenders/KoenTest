@@ -13,7 +13,9 @@ events with the columns Wanneer (`moment`), Status, Aantal and Opmerking
 - **Free text stands in the stacked row on a phone**, as its last line, and an
   empty one leaves nothing: no line and no gap.
 
-Broken on purpose (12 October 2026), each put back by the reverse edit:
+Broken on purpose (12 October 2026), each put back by the reverse edit — the
+widths were classes then (`w-[152px]`); since #1927 they are the macro's
+lengths (`'moment': '152px'`) and the last column takes the rest:
 - the moment's `w-[152px]` made the `date` part's `w-[112px]` → the first test
   red at both widths ("the moment 00-00-0000 00:00 ends … past its cell");
 - the moment's width taken out altogether → the column takes half of the rest

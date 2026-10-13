@@ -88,8 +88,8 @@ def test_the_head_sorts_with_links_and_marks_the_one_that_sorts():
 
 
 def test_a_moment_has_a_width_in_both_sets_and_free_text_has_none():
-    """#1915. Broken on purpose: `'moment': 'w-[152px]'` taken out of the set
-    for eight columns and more → red on the second table."""
+    """#1915. Broken on purpose: `'moment': '152px'` taken out of the set for
+    eight columns and more → red on the second table."""
     few = [
         {"key": "wanneer", "label": "Wanneer", "cell": "moment"},
         {"key": "opmerking", "label": "Opmerking", "cell": "text"},
@@ -99,8 +99,90 @@ def test_a_moment_has_a_width_in_both_sets_and_free_text_has_none():
         heads = _heads(_render(TABLE, columns=columns, modes={}))
         assert len(heads) == len(columns)
         moment, text = heads[0], heads[1]
-        assert 'data-cell="moment"' in moment and "w-[152px]" in moment
-        assert 'data-cell="text"' in text and "w-[" not in text
+        assert 'data-cell="moment"' in moment and 'style="width:152px"' in moment
+        assert 'data-cell="text"' in text and "width:" not in text
+
+
+def _width_of(head: str) -> str | None:
+    found = re.search(r'style="width:([^"]+)"', head)
+    return found.group(1) if found else None
+
+
+SEVEN = [
+    {"key": "naam", "label": "Naam", "cell": "name"},
+    {"key": "context", "label": "Context", "cell": "context"},
+    {"key": "wanneer", "label": "Wanneer", "cell": "moment"},
+    {"key": "datum", "label": "Datum", "cell": "date"},
+    {"key": "bedrag", "label": "Bedrag", "cell": "amount", "num": True},
+    {"key": "gezin", "label": "Gezin", "cell": "extra", "priority": 1},
+    {"key": "status", "label": "Status", "cell": "status"},
+]
+
+
+def test_every_column_has_a_width_but_the_last_and_the_name_gives_way():
+    """#1927: columns at their own width, packed left; the last takes the rest.
+
+    The name's width is the CSS's — its own, or what the others leave of the
+    frame — from the sums on the table; a column that can leave is summed apart,
+    so it gives its room back. Broken on purpose (13 October 2026, each put
+    back): `not loop.last and` out of the head's width → "the last column has a
+    width"; the `extra` part out of the full set → "Gezin has no width"; the
+    last column left out of the sum (`rest`) → the sum is red."""
+    html = _render(TABLE, columns=SEVEN, modes={})
+    heads = _heads(html)
+    assert len(heads) == 7
+    widths = [_width_of(h) for h in heads]
+    assert widths[-1] is None, f"the last column has a width: {widths[-1]}"
+    assert widths[0] is None, "the name's width is the CSS's, not an inline one"
+    for column, width in list(zip(SEVEN, widths))[1:-1]:
+        assert width, f"{column['label']} has no width"
+    assert widths[1:-1] == ["280px", "152px", "112px", "104px", "160px"]
+    table = re.search(r"<table[^>]*>", html).group(0)
+    assert "--dt-name:380px;" in table
+    # the last column's own width is its floor, so it stands in the sum
+    assert "--dt-rest:calc(280px + 152px + 112px + 104px + 136px);" in table
+    assert "--dt-p1:calc(160px);" in table and "--dt-p2:calc(0px)" in table
+
+
+def test_a_columns_own_width_wins_over_its_parts():
+    """#1927. Broken on purpose: the `c.width` branch out of the macro → 160px
+    where 200px was asked."""
+    columns = [dict(c) for c in SEVEN]
+    columns[5]["width"] = 200
+    columns[0]["width"] = 252
+    html = _render(TABLE, columns=columns, modes={})
+    assert _width_of(_heads(html)[5]) == "200px"
+    assert "--dt-name:252px;" in html and "--dt-p1:calc(200px);" in html
+
+
+def test_the_context_has_a_width_of_its_own_in_both_sets():
+    """#1941 (Koen, 13 October 2026: the context column fixed at about 280 px):
+    a width in px like every other part, not a share of the frame — 280 px, and
+    in the narrower set of eight columns and more its 20 % of the frame, capped
+    at 240 px (a fixed width leaves an ordinary name two lines in the
+    registrations list at a window of 1 100 px); a list's own width
+    wins. Broken on purpose (put back): `'context': '280px'` made `'24cqw'`
+    again → "the context is 24cqw"; the `c.width` branch out → 280px where
+    320px was asked."""
+    many = SEVEN + [{"key": "acties", "label": "Acties", "cell": "actions"}]
+    for columns, expected in ((SEVEN, "280px"), (many, "min(240px, 20cqw)")):
+        context = _heads(_render(TABLE, columns=columns, modes={}))[1]
+        assert 'data-cell="context"' in context
+        assert _width_of(context) == expected, f"the context is {_width_of(context)}"
+    own = [dict(c) for c in SEVEN]
+    own[1]["width"] = 320
+    assert _width_of(_heads(_render(TABLE, columns=own, modes={}))[1]) == "320px"
+
+
+def test_a_column_head_never_wraps():
+    """#1927 (Koen: "de N van Inschrijvingen op een tweede regel, dat kan niet
+    de bedoeling zijn"). Broken on purpose: `whitespace-nowrap` out of the
+    head's class → red on the first head."""
+    heads = _heads(_render(TABLE, columns=COLUMNS, modes={}))
+    assert len(heads) == 6
+    for head in heads:
+        opening = head[: head.index(">")]
+        assert "whitespace-nowrap" in opening, f"a head may wrap: {opening[:80]}"
 
 
 def test_a_descending_column_points_down():

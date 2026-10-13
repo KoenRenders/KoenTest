@@ -462,7 +462,6 @@ def test_bewerk_knoppen_tonen_beide_standen():
 
 # ── C1-lijstschermen: actie in de kop, kaarttitel in ink (#621) ──────────────
 LIJSTSCHERMEN = [
-    "admin_activiteiten.html",
     "admin_formulieren.html",
     "admin_paginas.html",
     "admin_media.html",
@@ -470,7 +469,6 @@ LIJSTSCHERMEN = [
     "admin_tenants.html",
 ]
 KAARTFRAGMENTEN = (
-    "_aa_kaarten.html",
     "_fb_kaarten.html",
     "_cp_kaarten.html",
     "_tn_kaarten.html",

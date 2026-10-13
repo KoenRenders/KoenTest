@@ -380,7 +380,7 @@ release afwerken*, *Testen en test-evidence* — and this table is only the
 | 11 | Same tag to PROD, after UAT is good | **confirmation required** | `raak deploy prod vX.Y.Z --confirm` |
 | 12 | Verify the backend logs per environment | CLI | `raak logs <env>`, or `raak diagnose <env>` + `raak fetch <env>` |
 | 13 | Close the tracker once the release runs on PROD | CLI | — |
-| 14 | **Close out every change request the release built**: its status line says "built in vX.Y.Z", every as-built deviation stands in its document (B10 and the text it contradicts), and its tracking issue is closed with a comment naming the release | CLI | the CR lives on the architecture branch: the architecture CLI edits it, the master CLI closes the issue |
+| 14 | **Close out every change request the release built**: its status line says "built in vX.Y.Z", every as-built deviation stands in its document (B10 and the text it contradicts), and its tracking issue is closed with a comment naming the release | CLI | the CR lives on the architecture branch: the design-documentation CLI edits it, the master CLI closes the issue |
 
 **Step 14 exists because CR-14 showed what happens without it** (retrospective, 2 October 2026): two days after v2.10.0 was on PROD its tracking issue still said "not assigned to a release", the document's status line still said v2.9.0, and two passages promised behaviour that the build had deliberately replaced. A change request that is not closed out keeps telling the next reader the design, not what runs.
 
@@ -390,9 +390,13 @@ change request's decisions log (B9, dated, marked "built as") by the master
 CLI at the merge, on the branch where the document lives — not as a message to
 the architecture CLI. Every cross-session message lands in Koen's terminal
 while he is working with that CLI, and a note that only needs recording is not
-worth that interruption. The architecture CLI reads the log at the close-out
-(step 14) and folds it into the text the deviation contradicts. Message the
-architecture CLI only for a question that needs its answer.
+worth that interruption. The design-documentation CLI reads the log at the
+close-out (step 14) and folds it into the text the deviation contradicts
+(Koen, 13 October 2026, to who folds the notes in at a release: "dus
+design-documentation"; until then it was the architecture CLI, which shapes
+new change requests and no longer closes built ones). The master CLI
+messages it when the release is tagged. Message the architecture CLI only
+for a question that needs its answer.
 
 **Step 3 sits where it sits for a reason, and it used to sit at 11.** Koen spotted
 that on 27 September 2026: *"Dan is het te laat."* The closing comment exists to tell
@@ -1309,6 +1313,39 @@ the organiser's tag "op de affiche: alleen de eerste drie" ("dat is het label,
 nu komt het op de affiche, morgen op de website. Dat weet dat domein niet").
 The rule is about what a user reads on a screen. A code comment or a docstring
 may still say how another domain uses a field: that helps a developer.
+
+## First time right
+
+Asked for by Koen on 13 October 2026, as a principle beside *Keep it simple*
+and of the same weight: *"ik wil het first-time right doen, geen
+uitzondering"*. We build a thing once, in the form it is meant to keep — not a
+provisional form now and the right one later.
+
+- **An open question is answered before what depends on it is built.** When a
+  piece of work turns out to rest on a decision nobody has taken — what a thing
+  is called, which of two concepts it is, where a rule lives — the work stops
+  at that point and the question goes to Koen (through the master CLI). What
+  does not depend on the answer is built on; what does, waits.
+- **No workaround to get past an open question.** A device that only exists so
+  that the work can ship before the answer — a second word for one thing on one
+  screen, a kit change made to fit a label that may not stay, a case that
+  "holds for now" — is rework that has been scheduled without being planned.
+  It is proposed to Koen as what it is, with what it costs to undo, and it is
+  not built unless he says so.
+- **A proposal says when it is not the final form.** If an option put to Koen
+  will have to be redone once another decision is taken, the proposal says so
+  and names that decision. He chooses with the rework in view.
+- **This is not building ahead.** *Modelleer op standaarden* still holds: build
+  only what is needed today, in the form that grows. First time right is about
+  the form and the decision under what is built now, not about adding what
+  might be needed later.
+
+The example it was written for: the list of organisations showed the kind of an
+organisation with a word from the code list that did not match the word on the
+approved concept, and the longer word did not fit a phone. The proposal on the
+table was to leave the word and teach the kit's segment bar to wrap. Koen saw
+that the word was the real question — what an organisation, a household and a
+company are called in the party model — and had that answered first.
 
 ## Twee keer dezelfde reparatie? Dan is de duplicatie de bug
 

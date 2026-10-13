@@ -84,8 +84,8 @@
 >
 > *The drawing is a Mermaid flowchart that follows BPMN Level 1 as Bruce*
 > *Silver's "Method and Style" defines it. The Level 1 palette, in Mermaid:*
-> *one `subgraph` per actor as its lane (member, organiser, treasurer, the*
-> *portal), in the same order in A2 and A3 so the difference is visible; a*
+> *one `subgraph` per actor as its lane (member, organiser, treasurer, an*
+> *outside party), in the same order in A2 and A3 so the difference is visible; a*
 > *rectangle per activity, labelled verb + noun ("Register", "Send link");*
 > *one start circle and one named end circle per outcome ("Registered",*
 > *"Refused"); a diamond for an exclusive gateway with its question inside*
@@ -94,6 +94,37 @@
 > *in its own drawing. No intermediate events, no timers, no data objects:*
 > *Level 1 stops there on purpose. Under every drawing, one line that says*
 > *what to see in it.*
+>
+> *The drawing shows the **business process from end to end**, not the*
+> *system's (Koen, 13 October 2026, in his chat with the architecture CLI,*
+> *as that CLI reported it: "Ik wil eigenlijk een end-to-end*
+> *businessproces, niet een systeemproces."; confirmed by him to the master*
+> *CLI the same day for this template: "dat laatste punt bevestig ik, ik*
+> *sprak het net met hem af"). The same convention as the*
+> *process figures of the architecture document, so a drawing of A3 can move*
+> *there unchanged:*
+>
+> - **The lanes are people and roles only** — a member, the member
+>   administration, the treasurer, an outside party. No lane for "the
+>   system", except one lane "Platform, uit zichzelf" for what the platform
+>   does without a person (checks a webhook, prepares a task, a watchdog);
+>   that lane is left out where the platform does nothing by itself.
+> - **The colour of a step is the tool it is done in:** platform blue (fill
+>   `#e8f0ff`, stroke `#0051a4`) with the module in brackets — "Boekt de
+>   betaling in (Betalingen)"; white (stroke `#52607a`) for a step done by
+>   hand without any system — "Denkt eraan de wijzigingen op te halen";
+>   orange (fill `#fff7ed`, stroke `#f16532`) for a step in another system
+>   (Mollie, the bank, a national programme).
+> - **A task the workbench hands to a person** is a green hexagon (fill
+>   `#eef7ee`, stroke `#005d29`, stroke-width 2px) labelled "Taak: …
+>   (werkbank)".
+> - **Lying or standing:** a short process (up to about eight steps and
+>   three lanes) lies (`flowchart LR`); a process from end to end stands
+>   (`flowchart TB`, the lanes as columns). When a standing drawing no
+>   longer fits one page it is cut: one overview with the hand-overs, then
+>   one drawing per part.
+> - No semicolon in a label; at most one screen high; one line above the
+>   drawing that names it, one legend sentence under it.
 
 ## A3. To-be process — how it should work afterwards
 
@@ -103,6 +134,9 @@
 > *Still no components: "the portal renders the poster", not "WeasyPrint*
 > *renders the poster". A step that disappears, moves lane or turns into a*
 > *choice is the change — name it under the drawing in one line each.*
+> *Drawn in the convention of A2, the change shows by itself: a white box*
+> *(by hand) that turns blue (in the platform) or becomes a green task is a*
+> *manual step this change request takes over.*
 >
 > *The words the user will read are decided here, not in Part C: the name*
 > *of a button, a page title, a tile label, a menu item — one short list,*

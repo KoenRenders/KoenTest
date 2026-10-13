@@ -799,9 +799,8 @@ The working document `docs/intermediate-architecture-upgrade-v1.md` (July 2026) 
 | Extracted document text reaches the chatbot only through tools, never the system prompt; a keyword list forces a tool call on the first round | `chatbot/context.py`, `chatbot/tools.py`, `chatbot/service.py` |
 | Refunds are pending obligations that pre-empt the hourly sweep; the sweep closes only the task kinds it created | `payment/service.py`, `workflow/handlers.py` |
 | Outside production the environment URL beats a tenant's stored base URL, so a restored production database cannot leak real redirects | `kernel/tenant_config.py` |
-| The hosting provider is named in the README and the specification; no hosts or addresses are | `README.md`, `docs/spec.md` |
 
-**Stale documents.** The README still describes a Next.js frontend, `docs/umami.md` still references a React component, and `docs/rollen-en-rechten.md` points at two files that no longer exist and overstates OPERATOR's cross-tenant reach. The instructions to *check parity against the tag, never a loose commit* were added after exactly that mistake.
+**Stale documents.** `docs/umami.md` still references a React component, and `docs/rollen-en-rechten.md` points at two files that no longer exist and overstates OPERATOR's cross-tenant reach. The instructions to *check parity against the tag, never a loose commit* were added after exactly that mistake.
 
 # Appendix B — Evidence index
 

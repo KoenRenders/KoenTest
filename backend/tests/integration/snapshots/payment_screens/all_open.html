@@ -106,41 +106,42 @@
  hx-include="#bt-filter" hx-swap="innerHTML"
  >
 <div class="data-table-frame mb-4 rounded-card border border-line bg-white" data-table-frame>
-<table class="data-table text-sm" data-p1="auto" data-p2="auto">
+<table class="data-table text-sm" data-p1="auto" data-p2="auto"
+ style="--dt-name:380px;--dt-rest:calc(136px + 104px + 104px + 156px);--dt-p1:calc(104px);--dt-p2:calc(280px)">
 <caption class="sr-only">Betalingen</caption>
 <thead>
 <tr>
-<th scope="col" data-cell="name"
- class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left ">
+<th scope="col" data-cell="name" data-column-head
+ class="h-9 whitespace-nowrap border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left">
 <a href="/admin/betalingen?zicht=openstaand&amp;sort=naam" hx-get="/admin/betalingen/lijst?zicht=openstaand&amp;sort=naam" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}' data-sort="naam"
  class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 ">Boeking<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></a>
 </th>
-<th scope="col" data-cell="context" data-p="2"
- class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[24%]">
+<th scope="col" data-cell="context" data-column-head data-second-head data-p="2"
+ class="h-9 whitespace-nowrap border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left" style="width:280px">
 <a href="/admin/betalingen?zicht=openstaand&amp;sort=context" hx-get="/admin/betalingen/lijst?zicht=openstaand&amp;sort=context" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}' data-sort="context"
  class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 ">Context<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></a>
 </th>
-<th scope="col" data-cell="status"
- class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[136px]">
+<th scope="col" data-cell="status" data-column-head
+ class="h-9 whitespace-nowrap border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left" style="width:136px">
 <a href="/admin/betalingen?zicht=openstaand&amp;sort=status" hx-get="/admin/betalingen/lijst?zicht=openstaand&amp;sort=status" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}' data-sort="status"
  class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 ">Status<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></a>
 </th>
-<th scope="col" data-cell="amount"
- class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-right w-[104px]">
+<th scope="col" data-cell="amount" data-column-head
+ class="h-9 whitespace-nowrap border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-right" style="width:104px">
 <a href="/admin/betalingen?zicht=openstaand&amp;sort=bedrag" hx-get="/admin/betalingen/lijst?zicht=openstaand&amp;sort=bedrag" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}' data-sort="bedrag"
  class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 justify-end ">Bedrag<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></a>
 </th>
-<th scope="col" data-cell="extra" data-p="1"
- class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-right w-[104px]">
+<th scope="col" data-cell="extra" data-column-head data-p="1"
+ class="h-9 whitespace-nowrap border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-right" style="width:104px">
  Ontvangen
  </th>
-<th scope="col" data-cell="extra"
- class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-right w-[104px]">
+<th scope="col" data-cell="extra" data-column-head
+ class="h-9 whitespace-nowrap border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-right" style="width:104px">
 <a href="/admin/betalingen?zicht=openstaand&amp;sort=saldo" hx-get="/admin/betalingen/lijst?zicht=openstaand&amp;sort=saldo" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter": "1"}' data-sort="saldo"
  class="flex h-[35px] items-center gap-1 whitespace-nowrap hover:text-blue-700 justify-end ">Saldo<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></a>
 </th>
-<th scope="col" data-cell="actions"
- class="h-9 border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left w-[156px]">
+<th scope="col" data-cell="actions" data-column-head data-last-head
+ class="h-9 whitespace-nowrap border-b border-line bg-surface-2 px-3 py-0 text-xs font-medium text-ink-soft first:rounded-tl-card last:rounded-tr-card text-left">
 <span class="sr-only">Acties</span>
 </th>
 </tr>
