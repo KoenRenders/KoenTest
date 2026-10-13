@@ -208,7 +208,7 @@ def _list_view(request: Request, db: Session, *, oob: bool = False) -> Organisat
                 else None,
                 # The code, not the member: `organization_options` hands over the
                 # column as it is, an enum member that equals no string.
-                "legal_form": legal_forms.get(code_of(o["legal_form"]), ""),
+                "legal_form": legal_forms.get(code_of(o["legal_form"]) or "", ""),
                 "inactive": not o["is_active"],
             }
         )
