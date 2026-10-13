@@ -944,3 +944,17 @@ def placeholders(db=None) -> list[dict]:
         {"code": f"{{{{{code}}}}}", "label": label, "preview": _preview(code)}
         for code, label in PLACEHOLDER_LABELS.items()
     ]
+
+
+def insertable_codes(codes: list[dict]) -> list[dict]:
+    """The codes the editor's insert menu offers, out of `placeholders()` — the
+    one list, so the menu and the Codes card cannot name different codes.
+
+    Every code but the form codes: the button block is the way to a form now;
+    a form code stays in the card and keeps working as typed text. A code with
+    a part of its own (`{{tenants:raak}}`) goes in with its example, for the
+    author to change. That is the master CLI's description of the step on the
+    pull request (12 October 2026); what Koen decided that day is that the
+    step joins CR-17 ("a, stap 1 erbij in CR-17 voor mistral").
+    """
+    return [code for code in codes if not code["code"].startswith("{{form:")]

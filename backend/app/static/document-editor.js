@@ -560,6 +560,21 @@
         });
         items.appendChild(el);
       });
+      /* The codes (CR-17): one item that opens the macro's list. The
+         screen decides whether there is one — the mount carries the item's
+         word when the caller passed codes — and the list itself stands in
+         the macro, from the caller's own list: none is written here. */
+      var codesMount = document.getElementById(editorId);
+      if (codesMount && codesMount.dataset.codesLabel) {
+        var codeItem = button(codesMount.dataset.codesLabel, codesMount.dataset.codesLabel);
+        codeItem.className = "de-btn de-menu-item";
+        codeItem.setAttribute("data-insert-code", "");
+        codeItem.addEventListener("click", function () {
+          menu.removeAttribute("open");
+          announce("raak-code-choose", { editor: editorId });
+        });
+        items.appendChild(codeItem);
+      }
       menu.appendChild(items);
       menu.addEventListener("toggle", function () {
         if (menu.open) {
@@ -914,6 +929,14 @@
     if (!ok) return "start";
     return /\s/.test(address) ? "space" : "";
   };
+
+  /* A code is text: it lands at the cursor as the characters an author
+     would type, and nothing in the document says it was chosen. */
+  document.addEventListener("raak-code-chosen", function (event) {
+    var editor = editors[event.detail.editor];
+    if (!editor || editor.isDestroyed || !event.detail.code) return;
+    editor.chain().focus().insertContent({ type: "text", text: event.detail.code }).run();
+  });
 
   document.addEventListener("raak-link-save", function (event) {
     var editor = editors[event.detail.editor];

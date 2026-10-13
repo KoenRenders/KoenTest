@@ -264,13 +264,13 @@ def test_the_document_editor_s_dialogs_and_only_they_bring_the_focus_back_themse
     turns the hand-back off and tells the editor's script of the closing, so
     that the editor puts the author's place back itself (CR-17: handed back
     by the dialog, the editor lost the selected block, the selected words or
-    the caret — in every one of its four dialogs).
+    the caret — in every one of the four dialogs it had then).
 
     Three things, read from the templates with their comments taken out:
     - the hand-back is turned off in ONE place, the shell;
     - inside the editor's macro no dialog is opened except through the shell —
       so a dialog added there later has the rule without knowing of it;
-    - the editor has its four dialogs, by name: the scan is checked to find
+    - the editor has its five dialogs, by name: the scan is checked to find
       them, and to find two ordinary dialogs elsewhere, before its answer is
       believed. A scan that found nothing would agree with anything.
 
@@ -317,7 +317,7 @@ def test_the_document_editor_s_dialogs_and_only_they_bring_the_focus_back_themse
     assert "design_system.html:demo" in plain and "_email_log_lijst.html:open" in plain, (
         f"the scan did not find the ordinary dialogs it is known to have: {sorted(plain)}"
     )
-    assert sorted(through_the_shell) == ["button", "card", "figure", "link"], (
+    assert sorted(through_the_shell) == ["button", "card", "codes", "figure", "link"], (
         f"the editor's dialogs through the shell: {sorted(through_the_shell)}"
     )
     # Its answer.

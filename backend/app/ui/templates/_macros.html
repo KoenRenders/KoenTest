@@ -1669,7 +1669,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    the caption and the placement; the editor hears the choice as
    `raak-figure-chosen`. The link dialog replaces the browser's `prompt`
    (B5, review of #1699): the UI norm has no browser dialogs. #}
-{% macro document_editor(name, blocks, value_json, id=None, cls="", button_pages=None, button_forms=None, button_lid_worden=True) -%}
+{% macro document_editor(name, blocks, value_json, id=None, cls="", button_pages=None, button_forms=None, button_lid_worden=True, codes=None) -%}
 {%- set editor_id = id or (name ~ "-editor") -%}
 <link rel="stylesheet" href="{{ statisch('vendor/tiptap-3.31.4.css') }}">
 <link rel="stylesheet" href="{{ statisch('prose-figures.css') }}">
@@ -1677,8 +1677,31 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 <script src="{{ statisch('document-editor.js') }}" defer></script>
 <input type="hidden" id="{{ editor_id }}-input" name="{{ name }}" value="{{ value_json }}">
 <div class="document-editor{% if cls %} {{ cls }}{% endif %}" id="{{ editor_id }}"
-     data-document-editor data-input="{{ editor_id }}-input"
+     data-document-editor data-input="{{ editor_id }}-input"{% if codes %} data-codes-label="{{ _('Code') }}"{% endif %}
      data-config='{{ blocks|tojson }}'></div>
+{% if codes %}
+{# The codes (CR-17; Koen, 12 October 2026): the insert menu's item "Code"
+   opens this list — the caller's own, `[{code, label}]`. A choice puts the
+   code at the cursor as plain text, exactly what an author types; the
+   renderer replaces it as it always did. No node, no chip: the value shown
+   in the editor is a later change request's. #}
+<div x-data="{ codes: false }"
+     @raak-code-choose.window="if ($event.detail.editor === '{{ editor_id }}') codes = true">
+  {% call _editor_dialog("codes", _("Code"), editor_id, max_w="max-w-lg") %}
+  <p class="text-sm text-gray-600 mb-3">{{ _("Kies een code. Ze komt als tekst in het document; op de pagina staat op die plaats de waarde.") }}</p>
+  <ul class="space-y-1" data-code-choices>
+    {% for c in codes %}
+    <li><button type="button" data-code="{{ c.code }}"
+                class="w-full min-h-11 rounded-lg border border-gray-300 bg-white px-3 py-2 text-left hover:bg-gray-50"
+                @click="$dispatch('raak-code-chosen', { editor: '{{ editor_id }}', code: $el.dataset.code }); codes = false">
+      <span class="block font-mono text-xs text-blue-700 [overflow-wrap:anywhere]">{{ c.code }}</span>
+      <span class="block text-sm text-ink-soft">{{ c.label }}</span></button></li>
+    {% endfor %}
+  </ul>
+  <div class="mt-4 flex justify-end">{{ btn_secondary(_("Annuleren"), attrs='@click="codes = false"') }}</div>
+  {% endcall %}
+</div>
+{% endif %}
 {% if blocks.figure %}
 <div x-data="{ figure: false, chosen: null, alt: '', caption: '', placement: 'full' }"
      @raak-figure-choose.window="if ($event.detail.editor === '{{ editor_id }}') { figure = true; chosen = null; alt = ''; caption = ''; placement = 'full' }"

@@ -28,6 +28,7 @@ from app.domains.cms.service import (  # noqa: F401
     get_page_by_id,
     get_published_page,
     get_translation,
+    insertable_codes,
     is_page,
     list_pages,
     placeholders,
@@ -59,6 +60,7 @@ __all__ = [
     "get_page_by_id",
     "get_published_page",
     "list_pages",
+    "insertable_codes",
     "placeholders",
     # CR-15 #1471: which pages show a picture.
     "references_to_media",

@@ -867,6 +867,43 @@ draws its own `<select>` of pictures. On a phone the tree folds above the grid.
 `clearable=True` adds a "Weghalen" link for a field that may hold no picture —
 the design editor's three slots use it, one slot per row on a phone (#1473).
 
+### 2.7b The document editor and the blocks of a page (CR-17)
+
+`ui.document_editor(name, blocks, value_json)` is the one editor of a page's
+content. A page is a document of blocks; the editor's toolbar, its insert menu
+and its dialogs are built from the schema's configuration
+(`cms.schema.schema_for`), never written in a screen. Shown live on
+`/admin/design-system`, section 6c.
+
+- **The insert menu** ("Blok invoegen"), in this order: Tabel · Afbeelding ·
+  Kolommen · Knop · Kader · Kaarten · Code. A block that needs something to
+  exist — a picture, a destination — opens its dialog first and lands only
+  when that is given.
+- **Where a button and a card may lead**: a page of the site, a form, "Word
+  lid", or an address outside the site (`http(s)`, no spaces) — exactly one.
+  The two dialogs share one choice (`_destination_choice`) and one check. A
+  destination that cannot be reached shows nothing on the site and a sentence
+  in the admin preview.
+- **Kaarten** is a block of link cards: a title, one line, an icon of the
+  kit **or** a picture **or** neither, labels as plain text with a middle
+  dot, and the destination. The whole card is the link. Two per row; three
+  from the third card on; one on a phone and inside a column; 16 px between
+  them; a lone card is as wide as a card in a row of two. The icon stands in
+  a tile of 44 px on the soft brand tint (radius 6), a picture runs 16:9 from
+  edge to edge; the title is 18 px, the line 16 px, the labels 12 px; the
+  focus ring of 3 px stands around the card. A title over the cards is the
+  heading block above them — the block has no heading of its own. While a
+  card is selected the toolbar shows the menu **Kaarten**: bewerken,
+  toevoegen, naar voren, naar achteren, verwijderen.
+- **The icons a card may carry are the kit's**: the names of the `icon`
+  macro, read from it by `app/ui/kit/icons.py`. No second list exists.
+- **Code** puts a value code at the cursor as plain text — what an author
+  types (`{{membership_price_full}}`). The list is the one the card "Codes"
+  beside the editor shows, without the form codes: a form is reached through
+  a button or a card.
+- **Width**: text blocks run to 768 px; a table, columns, cards and a figure
+  on "Vol" fill the page's container of 1 024 px.
+
 ### 2.8 Loading and empty
 
 "Laden…" via `ui.loading()` (fixed height, no layout jump). Three forms of

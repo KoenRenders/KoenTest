@@ -92,6 +92,7 @@ def _record_ctx(
         draft_differs,
         editable_document,
         get_translation,
+        insertable_codes,
         list_pages,
         placeholders,
         schema,
@@ -128,7 +129,10 @@ def _record_ctx(
         # The value codes the author can type in the document (#1615): the
         # legend in WORDS, one source with the public renderer's examples —
         # the record page's aside shows her.
-        "placeholders": placeholders(db),
+        "placeholders": (codes := placeholders(db)),
+        # The same list, without the form codes: what the editor's insert
+        # menu offers under "Code".
+        "insert_codes": insertable_codes(codes),
         "csrf_token": csrf_from_request(request),
         "error": error,
         "toast_opgeslagen": toast,

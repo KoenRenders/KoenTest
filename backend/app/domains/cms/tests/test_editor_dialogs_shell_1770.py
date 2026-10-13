@@ -33,7 +33,7 @@ def _editor() -> str:
     source = (
         '{% import "_macros.html" as ui %}'
         '{{ ui.document_editor("document", config, "{}", id="ed", button_pages=[(1, "Over ons")],'
-        ' button_forms=[("contact", "Contact")]) }}'
+        ' button_forms=[("contact", "Contact")], codes=[{"code": "VOORBEELD", "label": "Een voorbeeld"}]) }}'
     )
     return templates.env.from_string(source).render(config=schema.schema_for("page"))
 
@@ -41,7 +41,7 @@ def _editor() -> str:
 def test_each_dialog_of_the_editor_is_rendered_through_the_shell():
     html = _editor()
     dialogs = re.findall(r'<div x-show="([a-z]+)" x-cloak role="dialog"', html)
-    assert sorted(dialogs) == ["button", "card", "figure", "link"], dialogs
+    assert sorted(dialogs) == ["button", "card", "codes", "figure", "link"], dialogs
     for state in dialogs:
         # The shell: an element that watches this dialog's state and names this editor…
         watcher = (
@@ -66,11 +66,12 @@ def test_the_dialogs_keep_their_content():
         ("link", 'id="ed-link-url"'),
         ("button", 'id="ed-btn-label"'),
         ("card", 'id="ed-card-title"'),
+        ("codes", "data-code-choices"),
     ):
         start = html.index(f'<div x-show="{state}" x-cloak role="dialog"')
         following = [
             html.find(f'<div x-show="{other}" x-cloak role="dialog"', start + 1)
-            for other in ("figure", "link", "button", "card")
+            for other in ("figure", "link", "button", "card", "codes")
         ]
         end = min([p for p in following if p != -1] or [len(html)])
         assert mark in html[start:end], (

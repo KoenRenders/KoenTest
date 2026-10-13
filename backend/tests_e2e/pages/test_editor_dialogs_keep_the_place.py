@@ -1,7 +1,7 @@
 """E2E: a dialog of the document editor leaves the author's place where it was (CR-17).
 
-The document editor opens four dialogs — for a picture, a link, a button and a
-card. An author works at a place: a block that is selected, some words that
+The document editor opens five dialogs — for a picture, a link, a button, a
+card and a code. An author works at a place: a block that is selected, some words that
 are selected, or a caret between two letters. The rule this file holds:
 
 * closing a dialog WITHOUT a choice — Annuleren, the dialog's close button, a
@@ -9,7 +9,7 @@ are selected, or a caret between two letters. The rule this file holds:
 * closing it WITH a choice leaves what the choice made, at that place.
 
 Found on 13 October 2026, on the branch before this rule was built: every one
-of the four dialogs lost the place on at least one way of closing, and every
+of the four dialogs it had then lost the place on at least one way of closing, and every
 loss ended in the same spot — a caret at the very start of the page's first
 paragraph, so that the author's next key went into the text at the top.
 Measured there, on a quiet machine, kept of the rounds measured:
@@ -215,6 +215,7 @@ PLACES = {
     "a caret in text, the picture's dialog": _a_caret_in_text("Afbeelding", "figure"),
     "a caret in text, the button's dialog": _a_caret_in_text("Knop", "button"),
     "a caret in text, the card's dialog": _a_caret_in_text("Kaarten", "card"),
+    "a caret in text, the code's dialog": _a_caret_in_text("Code", "codes"),
 }
 
 

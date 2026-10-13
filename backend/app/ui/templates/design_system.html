@@ -294,7 +294,8 @@
   </p>
   {{ ui.document_editor("document", document_editor_config, document_editor_value, id="ds-document",
                         button_pages=[(1, "Over ons"), (2, "Contact")],
-                        button_forms=[("contact", "Contacteer ons")]) }}
+                        button_forms=[("contact", "Contacteer ons")],
+                        codes=[{"code": "{" ~ "{voorbeeld_prijs}" ~ "}", "label": _("Een voorbeeldcode")}]) }}
   <p class="text-xs text-gray-500 mt-3">
     <code>ui.document_editor(name, blocks, value_json)</code> — {{ _("de werkbalk bouwt de JavaScript uit de configuratie van de set.") }}
   </p>
