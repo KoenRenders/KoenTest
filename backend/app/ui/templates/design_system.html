@@ -931,6 +931,30 @@
   <p class="text-sm">{{ ui.reference(_("Gezin Voorbeeld"), "/admin/design-system") }}</p>
 {% endcall %}
 
+{# ── 13b′. A choice of one among tiles (#1967) ───────────────────────────────
+   The five states, in one form that sends to this page: the address shows what
+   a choice submits. #}
+{{ ui.section_header(_("13b′ · Keuze uit tegels"), cls="mt-10") }}
+<p class="text-sm text-gray-600 mb-3">
+  {{ _("Eén keuze uit tegels, bijvoorbeeld een maat: vier per rij op een telefoon, zes vanaf 768 px, altijd deze vorm — voor één optie en voor dertien. Een optie die niet te kiezen is blijft staan, doorstreept en met haar reden.") }}
+</p>
+{% set _kit_sizes = [("xs", "XS"), ("s", "S"), ("m", "M"), ("l", "L"), ("xl", "XL"), ("xxl", "XXL")] %}
+{% set _kit_shoes = [] %}{% for n in range(36, 49) %}{% set _ = _kit_shoes.append((n|string, n|string)) %}{% endfor %}
+<form id="kit-tiles" data-kit-tiles method="get" action="/admin/design-system">
+{% call ui.record_columns() %}
+  {% call ui.section(_("Maat")) %}
+    {{ ui.field("kit_tiles_none", _("Niets gekozen"), kind="tiles", options=_kit_sizes, required=True) }}
+    {{ ui.field("kit_tiles_chosen", _("Eén gekozen"), kind="tiles", value="m", options=_kit_sizes) }}
+    {{ ui.field("kit_tiles_sold", _("Eén uitverkocht"), kind="tiles", value="s", options=_kit_sizes, unavailable={"l": _("uitverkocht")}) }}
+    {{ ui.field("kit_tiles_single", _("Eén optie"), kind="tiles", options=[("one", _("Eén maat"))]) }}
+    {{ ui.field("kit_tiles_thirteen", _("Dertien opties"), kind="tiles", value="41", options=_kit_shoes, unavailable={"44": _("uitverkocht")},
+                help=_("Vier per rij op een telefoon, zes vanaf 768 px; de laatste rij sluit links aan.")) }}
+    {{ ui.field("kit_tiles_read", _("Gelezen"), kind="tiles", value="m", options=_kit_sizes, edit=False) }}
+    <div data-span="full">{{ ui.btn_secondary(_("Verstuur de keuzes (demo)"), type="submit") }}</div>
+  {% endcall %}
+{% endcall %}
+</form>
+
 {# ── 13c. The form: section, field, rare settings (CR-11 block 6, #1558) ──────
    Every kind of field, once to edit and once to read. The sections here stand in
    the page's own card-less flow, as on a record page. #}

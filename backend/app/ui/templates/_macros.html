@@ -754,6 +754,16 @@
    - `select`, `segmented`, `radio_group`, `checkbox_group`: `options` is
      [(value, label)] and `value` the chosen one (a list for a checkbox group);
      a radio option may carry a third item, its line of help.
+   - `tiles` (#1967): a choice of ONE among tiles — a size. `options` as above;
+     four tiles per row under 768 px and six from there, every tile as wide as
+     the others and 44 px high, the last row packed left; always this form,
+     for one option as for thirteen. `unavailable` is {value: reason} for the
+     options that are shown and cannot be chosen ("uitverkocht"): such a tile
+     is crossed out with its reason under it, its radio is disabled — no
+     click and no key chooses it, nothing of it is submitted, a screen reader
+     hears it as unavailable with the reason — and it is never the chosen one,
+     whatever `value` says. The chosen tile has a heavier line and a check
+     mark, not a colour alone. Nothing of a shop is in it: no price, no stock.
    - `number`: `unit` is drawn inside the control, at the left ("€").
    - `switch`: the kit's one switch, `ui.switch` (#1568) — the knob at the left,
      the label at its right, 8 px apart. It applies on Opslaan like any field.
@@ -795,7 +805,7 @@
    - `delete_name` (upload): "Verwijderen" beside what hangs there does not
      delete it — it marks it (a hidden field of this name becomes "1") and the
      form's save removes it; until then it can be taken back. #}
-{% set _field_full = ["url", "email", "textarea", "upload", "checkbox_group", "radio_group"] %}
+{% set _field_full = ["url", "email", "textarea", "upload", "checkbox_group", "radio_group", "tiles"] %}
 {% set _field_quarter_ok = ["number", "date", "time", "select", "switch", "text", "color"] %}
 {% set _field_control = "block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed" %}
 {% macro field(name, label, kind="text", value="", edit=True, span=None, long=False, required=False,
@@ -804,7 +814,7 @@
                current_label=None, delete_attrs="", delete_confirm=None, disabled=False,
                display=None, help_in_read=False, preview_url=None, delete_name=None,
                beside_field=False, help_lines=False, label_hidden=False,
-               fallback=None, fallback_note=None, beside_switch=False) -%}
+               fallback=None, fallback_note=None, beside_switch=False, unavailable={}) -%}
 {%- set _id = id or name -%}
 {%- if fallback and not placeholder -%}{%- set placeholder = fallback -%}{%- endif -%}
 {%- if kind == "email" and beside_switch -%}{%- set _span = "half" -%}
@@ -825,7 +835,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     {%- elif kind == "switch" %}{{ _("ja") if value else _("nee") }}
     {%- elif kind == "upload" %}{% if current_url %}<a href="{{ current_url }}" target="_blank" rel="noopener" class="text-blue-500 underline">{{ current_label or _("Huidige bijlage bekijken") }}</a>{% else %}—{% endif %}
     {%- elif kind == "checkbox_group" %}{% set _labels = [] %}{% for o in options if o[0] in (value or []) %}{% set _ = _labels.append(o[1]) %}{% endfor %}{{ _labels|join(", ") or "—" }}
-    {%- elif kind in ("select", "segmented", "radio_group") %}{{ (_chosen.get(value) if value else "") or "—" }}
+    {%- elif kind in ("select", "segmented", "radio_group", "tiles") %}{{ (_chosen.get(value) if value else "") or "—" }}
     {%- elif kind == "url" and value %}<a href="{{ value }}" target="_blank" rel="noopener" class="text-blue-500 underline">{{ value }}</a>
     {%- elif kind == "email" and value %}<a href="mailto:{{ value }}" class="text-blue-500 underline">{{ value }}</a>
     {#- #1675: read, a number is grouped; the input below keeps what is stored. #}
@@ -842,7 +852,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
       room. On a phone a switch is its own row of 44 px either way. -#}
   <div{% if beside_field %} class="md:pt-[25px] md:[&_label]:min-h-10"{% endif %}>{{ switch(name, label, checked=value, id=_id, help=help, form=form, disabled=disabled, attrs=attrs) }}</div>
   {% else %}
-  {% if kind in ("segmented", "radio_group", "checkbox_group") %}
+  {% if kind in ("segmented", "radio_group", "checkbox_group", "tiles") %}
   <p id="{{ _id }}-label" class="text-sm font-medium leading-[21px] text-ink mb-1">{{ label }}{% if required %} <span class="text-red-600">*</span>{% endif %}</p>
   {% elif not label_hidden %}
   <label for="{{ _id }}" class="block text-sm font-medium leading-[21px] text-ink mb-1">{{ label }}{% if required %} <span class="text-red-600">*</span>{% endif %}</label>
@@ -877,6 +887,27 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
       <input type="radio" name="{{ name }}" value="{{ o[0] }}"{% if form %} form="{{ form }}"{% endif %} class="mt-0.5 h-[18px] w-[18px] shrink-0"{% if o[0] == value %} checked{% endif %}>
       <span><span class="font-medium text-ink">{{ o[1] }}</span>{% if o|length > 2 and o[2] %}<span class="block text-[13px] text-ink-soft">{{ o[2] }}</span>{% endif %}</span>
     </label>
+    {% endfor %}
+  </div>
+  {% elif kind == "tiles" %}
+  {#- #1967: real radios, so the keyboard moves among the choosable tiles as in
+      any radio group and one value is submitted; a disabled radio is what the
+      browser itself skips, never submits and names as unavailable. -#}
+  <div role="radiogroup" aria-labelledby="{{ _id }}-label"{% if required %} aria-required="true"{% endif %}{% if error %} aria-invalid="true" aria-describedby="{{ _id }}-error"{% elif help %} aria-describedby="{{ _id }}-help"{% endif %} data-tiles class="grid grid-cols-4 md:grid-cols-6 gap-2">
+    {% for o in options %}
+    {%- set _why = unavailable.get(o[0]) -%}
+    {% if _why %}
+    <label data-tile data-unavailable class="relative flex min-w-0 min-h-11 flex-col items-center justify-center rounded-md border border-control-line bg-surface-2 px-1 text-center text-sm text-ink-soft cursor-not-allowed">
+      <input type="radio" name="{{ name }}" value="{{ o[0] }}"{% if form %} form="{{ form }}"{% endif %} class="sr-only" disabled aria-describedby="{{ _id }}-{{ loop.index }}-why">
+      <span class="max-w-full truncate leading-[18px] line-through">{{ o[1] }}</span>
+      <span id="{{ _id }}-{{ loop.index }}-why" data-tile-reason class="max-w-full truncate text-[11px] leading-[14px]">{{ _why }}</span>
+    </label>
+    {% else %}
+    <label data-tile class="relative flex min-w-0 min-h-11 items-center justify-center gap-1 rounded-md border border-control-line bg-surface px-1 text-center text-sm font-medium text-ink cursor-pointer hover:bg-surface-2 has-[:checked]:border-2 has-[:checked]:border-blue-700 has-[:checked]:bg-blue-50 has-[:checked]:font-semibold has-[:checked]:text-blue-700 has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-focus">
+      <input type="radio" name="{{ name }}" value="{{ o[0] }}"{% if form %} form="{{ form }}"{% endif %} class="peer sr-only"{% if required %} required{% endif %}{% if disabled %} disabled{% endif %}{% if o[0] == value %} checked{% endif %}>
+      <span data-tile-check aria-hidden="true" class="hidden shrink-0 peer-checked:inline-flex">{{ icon("check", 14) }}</span><span class="min-w-0 truncate">{{ o[1] }}</span>
+    </label>
+    {% endif %}
     {% endfor %}
   </div>
   {% elif kind == "checkbox_group" %}

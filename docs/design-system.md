@@ -459,6 +459,22 @@ share a row only when read together (street · number · bus; from · to). The
 **switch** (`ui.switch` of #1568, used by `field(kind=switch)`) has its knob
 at the left and the label at its right; in read mode a boolean is words
 ("Enkel leden: ja"), an empty field reads "—" in its place (reverses #1139).
+**A choice of one among tiles** (`field(kind="tiles")`, #1967; Koen on the
+concepts of CR-21, 9 October 2026: always tiles, a sold-out size not
+choosable) is the form of a choice a person makes by sight — a size: a grid of
+four tiles per row under 768 px and six from there, 8 px apart, every tile as
+wide as the others and 44 px high, the last row packed left, and always this
+form, for one option as for thirteen — no tipping point to a select. The
+tiles are real radios: one value is submitted, the arrow keys move among them.
+An option that cannot be chosen (`unavailable`: value → reason) stays where it
+stands, crossed out on the softer surface with its reason under it
+("uitverkocht"); its radio is disabled, so no click and no key chooses it,
+nothing of it is submitted and a screen reader hears "L uitverkocht,
+unavailable". The chosen tile has the heavier blue line and a check mark
+before its label, never a colour alone. The kit knows nothing of what is
+chosen: no price and no stock on a tile; the screen passes its options.
+`segmented` stays the choice among two or three words that fit one row, and
+`radio_group` the choice whose options need a line of explanation.
 The rare settings (`rare_settings`) are the closed last section, placed by
 the layout above the action bar — except where they belong to one object of
 the record: there they are a closed line in that object's card (`rare_line`,
