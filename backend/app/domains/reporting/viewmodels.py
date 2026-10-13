@@ -192,6 +192,9 @@ class AssistantTurnView(ViewModel):
     error: str
     payload: str
     history: str
+    # #1969: where the reader can go on by hand after a refusal, `(href, words)`
+    # — a report's result that was held back: Rapporten.
+    error_link: tuple[str, str] | None = None
     # #1562 (§3.15): what the last report of this turn shows beside the words
     # — a figure, or a small table with the address of the whole list
     # (`assistant_answer`). None when the turn ran no report.

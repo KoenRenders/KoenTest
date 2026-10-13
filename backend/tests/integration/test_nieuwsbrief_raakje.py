@@ -1081,3 +1081,82 @@ def test_het_paneel_toont_de_verslagen_als_regel_zonder_keuze(client, db_session
     assert 'id="nb-raakje"' not in html, "the column is gone: the conversation is in the panel"
     assert 'name="meeting_id"' not in html
     assert "1 verslag sinds de vorige nieuwsbrief gaat mee." in html
+
+
+# ── #1969: the guard and the cleaning read the same text ─────────────────────
+
+
+def test_een_eerdere_brief_met_een_gewoon_woord_vooraan_een_regel_houdt_niets_tegen(
+    db_session, raakje
+):
+    """What Koen met on production (13 October 2026): every question refused for
+    "a name", with a letter to the same audience sent earlier. Somebody is called
+    Neven; an earlier letter has a paragraph that starts with "Even". The example
+    goes along and the question goes out.
+
+    Broken on purpose: the guard's name check given the serialised payload again
+    → this call is refused (`SeamBlocked`), as it was.
+    """
+    db_session.add(Person(first_name="Lode", last_name="Neven"))
+    db_session.add(Person(first_name="Nels", last_name="Tom"))
+    old = nb.create_newsletter(db_session, created_by="s@example.org")
+    nb.update_draft(
+        db_session,
+        old,
+        subject="Vorig seizoen",
+        body_html=(
+            "<div>Beste leden,</div><div>Even voorstellen: ons nieuwe seizoen.</div>"
+            "<div>Els bakt wafels.</div><div>Om tien uur op het plein.</div>"
+        ),
+        audience=Audience.MEMBERS,
+    )
+    old.status = LetterStatus.SENT
+    db_session.commit()
+    letter = _letter(db_session)
+    provider = raakje(_draft(["Tot dan."]), _verdict())
+
+    turn = _ask(db_session, letter, instruction="nieuwsbrief?")
+
+    assert turn.proposal is not None
+    sent = provider.payloads()
+    assert "voorbeelden van eerdere brieven" in sent, "the example did not go along"
+    # The paragraphs are lines of the example: each starts a line in the payload.
+    assert "\\neven voorstellen" in sent and "\\nels bakt wafels" in sent
+
+
+def test_een_weigering_noemt_het_deel_van_de_bronnen_en_niet_de_vraag(db_session):
+    """The sections of the sources are the guard's places: one list
+    (`drafting._sections`) gives the message and the parts, so a hit in an example
+    of an earlier letter is said to stand there, with what the author can do."""
+    from app.domains.chatbot.seam import admin_rules, refusal
+
+    sources = drafting.Sources(
+        activity_ids=[7],
+        activity_texts={7: "Herfstwandeling op het Dorpsplein."},
+        past_ids=set(),
+        points=["[12/09 · Varia] de bus is geregeld"],
+        instruction="",
+        letter=["Beste leden,"],
+        upcoming="7: Herfstwandeling",
+        house_style="",
+        examples=["Beste,\nVermeulen bakte wafels."],
+    )
+    message = drafting._sources_message(sources)
+    parts = drafting._source_parts(sources)
+    assert all(part.text in message for part in parts), "a place that is not in the message"
+    assert [part.where for part in parts] == [
+        "de tekst van een gekozen activiteit",
+        "een vergaderverslag sinds de vorige brief",
+        "de lijst van komende activiteiten",
+        "de huisstijl van de nieuwsbrief",
+        "een voorbeeld van een eerdere brief",
+        "de brief zelf",
+    ]
+    rules = admin_rules(lambda: {"vermeulen"}, capability=drafting.CAPABILITY, parts=lambda: parts)
+    blocked = refusal(
+        [{"role": "user", "content": message}, {"role": "user", "content": "nieuwsbrief?"}], rules
+    )
+    assert blocked is not None
+    assert blocked.places == ("een voorbeeld van een eerdere brief",)
+    assert "Haal de doelgroep even weg" in str(blocked)
+    assert "je vraag" not in str(blocked) and "ermeulen" not in str(blocked)

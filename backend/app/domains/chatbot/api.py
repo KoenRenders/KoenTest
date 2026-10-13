@@ -56,6 +56,7 @@ from app.domains.chatbot.providers import get_provider  # noqa: F401
 from app.domains.chatbot.seam import (  # noqa: F401
     REDACTION_PLACEHOLDERS,
     GuardedProvider,
+    Part,
     SeamBlocked,
     admin_rules,
     public_rules,
@@ -98,6 +99,7 @@ __all__ = [
     "QuestionRefused",
     "asked",
     "GuardedProvider",
+    "Part",
     "SeamBlocked",
     "UnusableAnswer",
     "json_answer",
