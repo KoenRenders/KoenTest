@@ -107,7 +107,7 @@ Mirrors B7 and C7 of the change request template.
 | § | Heading | Comes from | To measure in step 2 |
 |---|---|---|---|
 | C1 | The rules and where each lives — `AGENTS.md` (the process), `docs/code-style.md` (the code), `docs/design-system.md` (the screens), `docs/change_request_template.md` (a change), `docs/review-protocol.md` (a review); one table: rule · home · gate that holds it | new | every rule named in A3 and in the gates has a home |
-| C2 | The gates — one table generated from the docstrings (decision 3): file · refuses · hard or ratchet · since; the two baselines that may only shrink (the Dutch identifiers #780, the hand-drawn lists #1911); the meta-gate that refuses an empty gate | §6.2, §2.7 | 54 files on 13 October 2026 (`test_*gate*.py`, `*ratchet*.py`); each gets its sentence; a gate on the sentence |
+| C2 | The gates — one table generated from the docstrings (decision 3): file · refuses · hard or ratchet · since; the two baselines that may only shrink (the Dutch identifiers #780, the hand-drawn lists #1911); the meta-gate that refuses an empty gate | §6.2, §2.7 | 53 files on 13 October 2026 (`test_*gate*.py`, `*ratchet*.py`; a glob finds 54 because `test_registration_aggregate.py` matches on *aggregate*); each gets its sentence; a gate on the sentence |
 | C3 | The CI — the jobs, what each blocks, what is reporting only (`pip-audit`), the measurement baseline, the e2e suite | §6.2 | `.github/workflows/` against the text |
 | C4 | The judgment layer — the merge gate on the rendered screen at 390 px, the two read-only agents, the build read of a change request, the review on request | §6.4; `AGENTS.md` | the agent files, the review protocol |
 | C5 | The process gates — issue first, the release steps 1–14, HDEV before the tag, the three confirmations, close-out of a change request at step 14 | §6.1 | the table in `AGENTS.md` |
@@ -254,7 +254,7 @@ Counting that the design-documentation CLI can do cheaper (Koen, 13 October
 as a list the architecture CLI folds into the text; the two sessions never
 write in the same working copy:
 
-- C2: the 54 gate files with, per file, what it refuses and whether it holds a baseline;
+- C2: the 53 gate files with, per file, what it refuses and whether it holds a baseline;
 - A7/B: tables per schema, tenant-scoped tables, facade functions per module;
 - A6: the macros of the kit and the screens on each layout;
 - D: the B3a rows of every change request, collected into one list;
