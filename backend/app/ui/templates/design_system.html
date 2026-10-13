@@ -991,6 +991,21 @@
 <p class="text-sm text-gray-600 mb-3">
   {{ _("Rijen van een record: eenvoudig (de labels één keer als kolomkop) of samengesteld (kopregel, velden, een kindgroep achter een lijn). Toevoegen, verplaatsen, dupliceren en weghalen gebeurt in de pagina; het ene Opslaan van het formulier schrijft de rijen. Een rij weghalen vraagt daarom geen bevestiging. Een samengestelde groep draagt haar toevoegknop onder het laatste item, waar het volgende komt; een eenvoudige groep en een kindgroep houden hem in de kop.") }}
 </p>
+{% call ui.card() %}
+  {# #1972: the add action of a repeating group beside what it must not be
+     taken for — a primary, a secondary, a badge and an input. #}
+  <div data-kit-add-action class="flex flex-wrap items-center gap-3 mb-3">
+    {{ ui.btn_primary(_("Opslaan"), type="button", size="sm") }}
+    {{ ui.btn_secondary(_("Annuleren"), type="button", size="sm") }}
+    {{ ui.group_add_button(_("Datum")) }}
+    {{ ui.badge(_("Betaald"), "green") }}
+    <div class="w-56">{{ ui.field("kit_add_naast", _("Naast een invoerveld"), placeholder=_("bv. Parochiezaal"), label_hidden=True) }}</div>
+  </div>
+  <p class="text-xs text-gray-500 mb-3">
+    <code>ui.group_add_button(_("Datum"))</code>
+    — {{ _("de toevoegknop van een herhalende groep: een lichte tint zonder rand, zodat ze naast velden niet als een veld leest; geen gevulde hoofdactie en geen badge (#1972)") }}
+  </p>
+{% endcall %}
 {% macro _kit_date(key, value, van, edit) %}
 {% call ui.group_row("kit_d_order", key, edit=edit, menu=["duplicate", "remove"], label=_("deze datum")) %}
   {% if edit %}
