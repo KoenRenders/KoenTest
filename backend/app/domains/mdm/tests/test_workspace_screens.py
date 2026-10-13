@@ -83,7 +83,9 @@ def test_an_admin_keeps_its_own_organisation(client, db_session):
     csrf = _login(client, db_session, "admin-b-1535@example.com", "ADMIN", TENANT_MILLEGEM_ID)
     page = client.get("/admin/organisatie")
     assert page.status_code == 200
-    assert 'hx-post="/admin/organisatie"' in page.text
+    # The record reads first; its editor posts to the workspace's own route (#1932).
+    assert 'hx-post="/admin/organisatie"' not in page.text
+    assert 'hx-post="/admin/organisatie"' in client.get("/admin/organisatie?bewerken=1").text
 
     saved = _post(client, csrf, "/admin/organisatie", {"name": "Raak Millegem 1535"})
     assert saved.status_code == 200, saved.text[-400:]

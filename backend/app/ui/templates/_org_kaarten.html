@@ -1,27 +1,26 @@
 {% import "_macros.html" as ui %}
-{# Alleen de kaarten: de filterbalk swapt dít fragment en niet de hele pagina,
-   anders wordt het zoekveld onder je vingers vervangen. #}
-{% if organisaties %}
-<div class="space-y-3">
-  {% for o in organisaties %}
-  <div class="relative bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
-    <a href="/admin/organisaties/{{ o.id }}" class="absolute inset-0 rounded-xl"
-       aria-label="{{ o.name }}"></a>
-    <div class="flex items-start justify-between gap-3">
-      <div>
-        <div class="font-semibold text-ink">{{ o.name }}</div>
-        <div class="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
-          {{ ui.badge(o.org_type|code_label("organization_type")|lower, o.org_type|tone("organization_type")) }}
-          <span class="font-mono text-xs">{{ o.code }}</span>
-          {% if o.legal_form %}<span>· {{ o.legal_form|lower|replace("_", " ") }}</span>{% endif %}
-          {% if not o.is_active %}{{ ui.badge(_("inactief"), "red") }}{% endif %}
-        </div>
-      </div>
-      <span class="shrink-0 text-sm text-ink-soft" aria-hidden="true">›</span>
-    </div>
-  </div>
-  {% endfor %}
-</div>
+{# The list of Organisaties (#1932): one row per organisation on the kit's table —
+   the name as the way in to the record with its code under it, the kind as a
+   badge, the account an afdeling hangs under as a jump link, the legal form, and
+   a Status cell that holds only Inactief: active is quiet. The toolbar swaps this
+   fragment; what changes with the list — the count, a segment's count, the
+   sort — travels out-of-band. #}
+{% if rows %}
+{% call ui.data_table(columns, hx_target="#org-lijst", caption=_("Organisaties")) %}
+  <tbody>
+    {% for r in rows %}
+    <tr data-row data-organisation="{{ r.id }}" class="align-middle">
+      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">{{ ui.row_link(r.name, r.href, sub=r.code) }}</td>
+      <td data-cell="context" class="border-b border-line px-3 py-2">{{ ui.badge(r.kind_label, r.kind_tone) }}</td>
+      <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2">{% if r.parent %}<span data-above-row>{{ ui.reference(r.parent.name, r.parent.href) }}</span>{% else %}<span class="text-ink-soft">—</span>{% endif %}</td>
+      <td data-cell="extra" data-p="2" class="border-b border-line px-3 py-2 text-ink-soft">{{ r.legal_form or "—" }}</td>
+      <td data-cell="status" class="border-b border-line px-3 py-2">{% if r.inactive %}{{ ui.badge(_("Inactief"), "red") }}{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+{% endcall %}
+{{ ui.pager(page, per_page=per_page, total=total, hx_get=pager_url, hx_target="#org-lijst", count=False, push=True) }}
 {% else %}
-{{ ui.empty_state(_("Geen organisaties gevonden.") if gefilterd else _("Nog geen organisaties.")) }}
+{{ ui.empty_state(empty_reason) }}
 {% endif %}
+{% if oob %}{{ ui.toolbar_oob("org-filter", segments=segments, page=page, per_page=per_page, total=total, sort=sort) }}{% endif %}

@@ -160,9 +160,12 @@ def test_onze_organisatie_shows_the_account_read_only(client, db_session):
 
     page = client.get(f"/{brand.code}/admin/organisatie").text
     assert "Deze site toont de gegevens van Account Acht." in page
-    assert "<fieldset" in page and "disabled" in page.split("<fieldset", 1)[1].split(">", 1)[0]
-    assert 'value="Achtstraat"' in page
-    assert ">Opslaan<" not in page.split('id="org-form"', 1)[1]
+    # Read only (#1932): the record reads, with no Bewerken and no editor — also
+    # when the editor is asked for in the address.
+    assert "Achtstraat" in page
+    assert 'id="org-form"' not in page and ">Bewerken<" not in page
+    asked = client.get(f"/{brand.code}/admin/organisatie?bewerken=1").text
+    assert 'id="org-form"' not in asked and ">Opslaan<" not in asked
 
     refused = client.post(
         f"/{brand.code}/admin/organisatie",

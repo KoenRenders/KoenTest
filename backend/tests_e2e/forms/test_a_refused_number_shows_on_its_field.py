@@ -13,7 +13,11 @@ workspace, and "Onze organisatie" in a tenant workspace. Each gets an
 enterprise number with a wrong check number and a Belgian VAT number with one;
 neither is stored.
 
-Red against master `c7785fe4`: there is no `#org-enterprise_number-fout`.
+Since #1932 the record is the kit's: the answer is the banner alone, and
+`record-form.js` marks the field it names — `aria-invalid` on the control and the
+reason as a line under it (`[data-field] [data-refused-message]`), the control
+in focus and in view. Red against master `c7785fe4`: there is no reason under
+the field.
 """
 
 import os
@@ -32,8 +36,8 @@ CASES = (
     ("vat_number", "BE 0123.456.789"),
 )
 
-_IN_VIEW = """id => {
-  const e = document.getElementById(id);
+_IN_VIEW = """selector => {
+  const e = document.querySelector(selector);
   if (!e || !e.checkVisibility()) return null;
   const r = e.getBoundingClientRect();
   return {top: r.top, bottom: r.bottom, height: innerHeight, text: e.innerText};
@@ -62,14 +66,15 @@ def _account_screen(page) -> str:
     page.goto(PLATFORM + "/admin/organisaties")
     pagina_klaar(page)
     href = page.locator("a[href^='/admin/organisaties/']:not([href$='/nieuw'])").first
-    return PLATFORM + href.get_attribute("href")
+    # The record reads first; its editor is asked for with `bewerken=1` (#1932).
+    return PLATFORM + href.get_attribute("href").split("?")[0] + "?bewerken=1"
 
 
 @pytest.mark.parametrize("screen", ["account", "own"])
 @pytest.mark.parametrize("field, text", CASES, ids=[c[0] for c in CASES])
 def test_the_reason_stands_on_the_field_in_view(browser_context, screen, field, text):
     page = browser_context
-    url = _account_screen(page) if screen == "account" else BASE + "/admin/organisatie"
+    url = _account_screen(page) if screen == "account" else BASE + "/admin/organisatie?bewerken=1"
     page.goto(url)
     pagina_klaar(page)
     control = page.locator(f"#org-{field}")
@@ -77,11 +82,11 @@ def test_the_reason_stands_on_the_field_in_view(browser_context, screen, field, 
 
     control.fill(text)
     with page.expect_response(lambda r: r.request.method == "POST") as answer:
-        page.locator("#org-form button[type=submit]").first.click()
+        page.get_by_role("button", name="Opslaan").click()
     pagina_klaar(page)
 
     assert answer.value.status == 422
-    error = page.evaluate(_IN_VIEW, f"org-{field}-fout")
+    error = page.evaluate(_IN_VIEW, f'[data-field="{field}"] [data-refused-message]')
     print("MEASURE", screen, field, error)
     assert error, "no reason below the field"
     # #1549 (Koen's text): one message for every structural refusal.
@@ -93,7 +98,7 @@ def test_the_reason_stands_on_the_field_in_view(browser_context, screen, field, 
         f"the reason is out of view: {error}"
     )
     assert page.locator(f"#org-{field}").input_value() == text, "what was typed is gone"
-    assert page.locator(f"#org-{field}").get_attribute("aria-describedby") == f"org-{field}-fout"
+    assert page.locator(f"#org-{field}").get_attribute("aria-invalid") == "true"
 
     page.goto(url)
     pagina_klaar(page)

@@ -1,120 +1,125 @@
 {% extends "admin_base.html" %}
 {% import "_macros.html" as ui %}
-{% block title %}{{ organisatie.name }} — {{ _("Raak beheer") }}{% endblock %}
-{#- One field of the groups below, with its refusal on it (#1545): the banner
-    above the form is out of view when you press Opslaan at its bottom. -#}
-{% macro veld(key, label, hulp) -%}
-<div>{{ ui.label(label, "org-" ~ key) }}
-  {{ ui.input_control(key, id="org-" ~ key, value=velden[key], cls="w-full",
-                      attrs=ui.field_error_attrs("org-" ~ key, veld_fouten.get(key))) }}
-  {{ ui.field_error("org-" ~ key, veld_fouten.get(key)) }}
-  <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p></div>
+{% block title %}{{ organization.name }} — {{ _("Raak beheer") }}{% endblock %}
+{#- The text of a link without its scheme, as it is read: "www.example.com". -#}
+{% macro bare(url) -%}{{ url|replace("https://", "")|replace("http://", "") }}{%- endmacro %}
+{#- A social link in read mode: the icon and the network's name as the link, or
+    the name with "—" when nothing is filled in (the icon alone would not say
+    which network is empty). -#}
+{% macro social(label, url) -%}
+{% if url %}{{ ui.icon_fact("link", label, href=url) }}{% else %}{{ ui.label_fact(label, "—") }}{% endif %}
 {%- endmacro %}
 {% block content %}
-{{ ui.back_link(_("Alle organisaties"), back_href) }}
-{% call ui.page_header(organisatie.name, organisatie.org_type|code_label("organization_type") ~ " · " ~ organisatie.code) %}
-  {% if heeft_site %}
-  {# De site van deze organisatie. Niet dezelfde velden: dáár staan mail, Umami,
-     taal en lidgeld — de instellingen van de site, niet wat de organisatie IS. #}
-  {{ ui.btn_secondary(_("Instellingen van de site"), href=site_href) }}
-  {% endif %}
-{% endcall %}
+{# The organisation's record (#1932, CR-11 roll-out; end state §2.2, §5.2) on the
+   record layout: the head with Bewerken and Acties, the summary card beside the
+   form column, and four cards on the edit grid — Organisatie, Adres, Rekening,
+   Nummers (#971: per table, because that is how the model is built).
 
-{{ ui.error_banner(error) }}
-{% if toast_opgeslagen %}{{ ui.toast(_("Opgeslagen.")) }}{% endif %}
+   READ first; `?bewerken=1` is the edit mode with ONE "Opslaan" in the action
+   bar, which writes everything in one transaction (`save_organization`).
+   Nothing on the page saves on its own. Read mode keeps the edit grid: every
+   fact stands in the cell of its field (#1928). `#org-record` is what a good
+   answer replaces. #}
+<div id="org-record">
+{{ ui.record_header(record_head.title, badges=record_head.badges, facts=record_head.facts,
+                    primary=record_head.primary, actions=record_head.actions, back=way_back,
+                    editing=edit) }}
 {# #1550: the site shows another organisation of its account; its data lives there. #}
 {% if read_only %}
-<p class="text-sm text-ink-soft mb-4" data-read-only>{{ _("Deze site toont de gegevens van %(naam)s. Je bewerkt ze bij die organisatie; hier staan ze alleen ter inzage.", naam=organisatie.name) }}</p>
+<p class="text-sm text-ink-soft mb-4" data-read-only>{{ _("Deze site toont de gegevens van %(naam)s. Je bewerkt ze bij die organisatie; hier staan ze alleen ter inzage.", naam=organization.name) }}</p>
 {% endif %}
+{% set _card %}{{ ui.summary_card(summary.state, summary.figures) }}{% endset %}
+{% call ui.record_columns(aside=_card|trim) %}
+<div data-form-flow data-mode="{{ 'edit' if edit else 'read' }}" class="form-flow">
+  <div id="org-melding" data-form-message></div>
+  {% if edit %}
+  {# #1535: the target literally per scope — the rules gate walks it to its route. #}
+  <form id="org-form" class="contents" data-record-form data-message="#org-melding" novalidate
+        {% if own %}hx-post="/admin/organisatie"{% else %}hx-post="/admin/organisaties/{{ organization_id }}"{% endif %}
+        hx-target="#org-record" hx-select="#org-record"
+        hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap">
+  {% endif %}
 
-{# Gegroepeerd per TABEL, en dat is geen opmaakkeuze (#971): tot nu toe stonden
-   rekeningnummer, btw-nummer en Facebook onder elkaar alsof ze hetzelfde soort ding
-   waren. Het zijn rijen in vier verschillende tabellen, en het scherm hoort te laten
-   zien hoe het model in elkaar zit. #}
-{# #1535: the target literally per scope — the rules gate walks it to its route. #}
-<form id="org-form" {% if own %}hx-post="/admin/organisatie"{% else %}hx-post="/admin/organisaties/{{ organization_id }}"{% endif %}
-      hx-target="body" hx-swap="innerHTML" class="space-y-6 max-w-2xl">
-<fieldset class="space-y-6 min-w-0"{% if read_only %} disabled{% endif %}>
+  {% call ui.section(_("Organisatie"), id="org-section-organisation") %}
+    {% if edit %}
+    {{ ui.field("name", _("Naam"), value=values.name, edit=True, required=True, id="org-name") }}
+    {# From `mdm.legal_form_codes` and not from a list here: that table carries the
+       labels, and a second list in a template is a second place for one fact. #}
+    {{ ui.field("legal_form", _("Rechtsvorm"), kind="select", value=values.legal_form, edit=True, id="org-legal_form",
+                options=[("", _("— Geen —"))] + legal_forms) }}
+    {# One group (#971): the social links are rows of the same table as the
+       e-mail address, with another type. #}
+    {{ ui.field("phone", _("Telefoon"), kind="phone", value=values.phone, edit=True, id="org-phone") }}
+    {{ ui.field("mobile", _("Mobiel"), kind="phone", value=values.mobile, edit=True, id="org-mobile") }}
+    {{ ui.field("email", _("E-mail"), kind="email", value=values.email, edit=True, id="org-email") }}
+    {{ ui.field("website", _("Website"), kind="url", value=values.website, edit=True, id="org-website") }}
+    {{ ui.field("facebook_url", _("Facebook"), kind="url", value=values.facebook_url, edit=True, id="org-facebook_url") }}
+    {{ ui.field("instagram_url", _("Instagram"), kind="url", value=values.instagram_url, edit=True, id="org-instagram_url") }}
+    {{ ui.field("tiktok_url", _("TikTok"), kind="url", value=values.tiktok_url, edit=True, id="org-tiktok_url") }}
+    {% else %}
+    <p data-span="half" class="min-w-0">{{ ui.label_fact(_("Naam"), values.name or "—") }}</p>
+    <p data-span="half" class="min-w-0">{{ ui.label_fact(_("Rechtsvorm"), legal_form_label or "—") }}</p>
+    <p data-span="half" class="min-w-0 text-sm leading-[21px] text-ink">{{ ui.icon_fact("phone", (values.phone|phone) if values.phone else "—") }}</p>
+    <p data-span="half" class="min-w-0 text-sm leading-[21px] text-ink">{{ ui.icon_fact("mobile", (values.mobile|phone) if values.mobile else "—") }}</p>
+    <p data-span="full" class="min-w-0 text-sm leading-[21px] text-ink">{{ ui.icon_fact("mail", values.email or "—", href=("mailto:" ~ values.email) if values.email else None) }}</p>
+    <p data-span="full" class="min-w-0 text-sm leading-[21px] text-ink">{{ ui.icon_fact("globe", bare(values.website) if values.website else "—", href=values.website or None) }}</p>
+    <p data-span="full" class="min-w-0 text-sm leading-[21px] text-ink">{{ social(_("Facebook"), values.facebook_url) }}</p>
+    <p data-span="full" class="min-w-0 text-sm leading-[21px] text-ink">{{ social(_("Instagram"), values.instagram_url) }}</p>
+    <p data-span="full" class="min-w-0 text-sm leading-[21px] text-ink">{{ social(_("TikTok"), values.tiktok_url) }}</p>
+    {% endif %}
+  {% endcall %}
 
-  <section>
-    {{ ui.section_header(_("Naam en rechtsvorm")) }}
-    <div class="space-y-3">
-      <div>{{ ui.label(_("Naam"), "org-name", required=True) }}
-        {{ ui.input_control("name", id="org-name", value=velden.name, required=True, cls="w-full") }}
-        <p class="text-xs text-ink-soft mt-1">{{ _("Staat in de paginatitel, de afzender van je mails en de footer.") }}</p></div>
-      <div>{{ ui.label(_("Rechtsvorm"), "org-legal-form") }}
-        {# Uit `mdm.legal_form_codes` en niet uit een lijst hier: die tabel draagt de
-           labels al, en een tweede opsomming in een sjabloon is een tweede plek voor
-           hetzelfde feit. Voeg er een rij aan toe en deze dropdown groeit mee. #}
-        {% call ui.select_control("legal_form", cls="w-full", attrs='id="org-legal-form"') %}
-          <option value="">{{ _("— Geen —") }}</option>
-          {% for code, label in rechtsvormen %}
-          <option value="{{ code }}" {% if velden.legal_form == code %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        {% endcall %}</div>
-    </div>
-  </section>
+  {# The address has the shape of the member screen (a fixed decision): street
+     half, house number and bus a quarter each, the postal code a select from the
+     postal code table over the full width. Read, it is one line behind its icon. #}
+  {% call ui.section(_("Adres"), id="org-section-address") %}
+    {% if edit %}
+    {{ ui.field("street", _("Straat"), value=address.street, edit=True, id="org-street") }}
+    {{ ui.field("house_number", _("Huisnummer"), value=address.house_number, edit=True, span="quarter", id="org-house_number") }}
+    {{ ui.field("bus_number", _("Bus"), value=address.bus_number, edit=True, span="quarter", id="org-bus_number") }}
+    {{ ui.field("postal_code", _("Postcode"), kind="select", value=address.postal_code, edit=True, span="full", id="org-postal_code",
+                options=postal_options, help=_("Straat en huisnummer leeg laten haalt het adres weg.")) }}
+    {% else %}
+    <p data-span="full" data-address-line class="text-sm leading-[21px] text-ink">{{ ui.icon_fact("map-pin", address_line or "—") }}</p>
+    {% endif %}
+  {% endcall %}
 
-  <section>
-    {{ ui.section_header(_("Adres")) }}
-    {# Exact de vorm van het hoofdlid — een vastgelegde UI-beslissing (CLAUDE.md):
-       vier kolommen, straat over twee, huisnummer en bus ernaast, postcode als
-       dropdown over de volle breedte. Overgenomen, niet opnieuw bedacht. #}
-    <div class="grid grid-cols-4 gap-3">
-      <div class="col-span-2">{{ ui.label(_("Straat"), "street") }}
-        {{ ui.input_control("street", id="street", value=adres.street, cls="w-full") }}</div>
-      <div>{{ ui.label(_("Huisnummer"), "house_number") }}
-        {{ ui.input_control("house_number", id="house_number", value=adres.house_number, cls="w-full") }}</div>
-      <div>{{ ui.label(_("Bus"), "bus_number") }}
-        {{ ui.input_control("bus_number", id="bus_number", value=adres.bus_number, cls="w-full") }}</div>
-      <div class="col-span-4">{{ ui.label(_("Postcode"), "postal_code") }}
-        {% call ui.select_control("postal_code", cls="w-full", attrs='id="postal_code"') %}
-          <option value="">{{ _("— Kies een postcode —") }}</option>
-          {% for pc in postal_codes %}
-          <option value="{{ pc.postal_code }}" {% if pc.postal_code == adres.postal_code %}selected{% endif %}>{{ pc.postal_code }} {{ pc.municipality }}</option>
-          {% endfor %}
-        {% endcall %}</div>
-    </div>
-    <p class="text-xs text-ink-soft mt-1">{{ _("Straat en huisnummer leeg laten haalt het adres weg.") }}</p>
-  </section>
+  {# Fixed fields and no list: "als er meerdere ingevoerd worden weet het systeem
+     toch niet wat ermee te doen" (Koen). A second account in the database is left
+     alone; the first one is edited. #}
+  {% call ui.section(_("Rekening"), id="org-section-account") %}
+    {% if edit %}
+    {{ ui.field("payment_iban", _("Rekeningnummer (IBAN)"), value=values.payment_iban, edit=True, id="org-payment_iban") }}
+    {{ ui.field("payment_bic", _("BIC"), value=values.payment_bic, edit=True, span="quarter", id="org-payment_bic") }}
+    {{ ui.field("payment_beneficiary", _("Begunstigde"), value=values.payment_beneficiary, edit=True, id="org-payment_beneficiary") }}
+    {% else %}
+    <p data-span="half" class="min-w-0">{{ ui.label_fact(_("Rekeningnummer (IBAN)"), values.payment_iban or "—") }}</p>
+    <p data-span="quarter" class="min-w-0">{{ ui.label_fact(_("BIC"), values.payment_bic or "—") }}</p>
+    <p data-span="half" class="min-w-0">{{ ui.label_fact(_("Begunstigde"), values.payment_beneficiary or "—") }}</p>
+    {% endif %}
+  {% endcall %}
 
-  <section>
-    {{ ui.section_header(_("Contactgegevens")) }}
-    {# Eén groep, inclusief de sociale links (#971). Het zijn allemaal rijen in
-       dezelfde tabel met een ander type; ze als aparte secties tonen zou een
-       onderscheid suggereren dat het model niet maakt. #}
-    <div class="space-y-3">
-      {% for key, label, hulp in contactgroep %}
-      {{ veld(key, label, hulp) }}
-      {% endfor %}
-    </div>
-  </section>
+  {% call ui.section(_("Nummers"), id="org-section-numbers") %}
+    {% if edit %}
+    {# #1545: an example whose check number holds (97 − 01234567 % 97 = 49). #}
+    {{ ui.field("enterprise_number", _("Ondernemingsnummer"), value=values.enterprise_number, edit=True, id="org-enterprise_number",
+                help=_("Bv. 0123.456.749.")) }}
+    {# #1545: a Belgian VAT number is checked; another country's is kept as typed. #}
+    {{ ui.field("vat_number", _("Btw-nummer"), value=values.vat_number, edit=True, id="org-vat_number",
+                help=_("Optioneel. Bv. BE 0123.456.749; een buitenlands nummer bewaren we zoals getypt.")) }}
+    {% else %}
+    <p data-span="half" class="min-w-0">{{ ui.label_fact(_("Ondernemingsnummer"), values.enterprise_number or "—") }}</p>
+    <p data-span="half" class="min-w-0">{{ ui.label_fact(_("Btw-nummer"), values.vat_number or "—") }}</p>
+    {% endif %}
+  {% endcall %}
 
-  <section>
-    {{ ui.section_header(_("Rekening")) }}
-    {# Vaste velden en geen lijst. Koen: "als er meerdere ingevoerd worden weet het
-       systeem toch niet wat ermee te doen." Staat er toch een tweede rekening in de
-       databank, dan bewerkt dit de eerste en blijft de tweede ongemoeid. #}
-    <div class="space-y-3">
-      {% for key, label, hulp in rekeninggroep %}
-      {{ veld(key, label, hulp) }}
-      {% endfor %}
-    </div>
-  </section>
-
-  <section>
-    {{ ui.section_header(_("Nummers")) }}
-    <div class="space-y-3">
-      {% for key, label, hulp in nummergroep %}
-      {{ veld(key, label, hulp) }}
-      {% endfor %}
-    </div>
-  </section>
-
-</fieldset>
-  {# Annuleren haalt het bewaarde scherm opnieuw op (#1089). Het formulier
-     vervangt bij opslaan de hele body, dus een gewone link naar dezelfde
-     pagina geeft precies wat een geslaagde opslag ook toont. #}
-  {% if not read_only %}{{ ui.action_bar(form="org-form", cancel_href=cancel_href) }}{% endif %}
-</form>
+  {% if edit %}
+  </form>
+  {{ ui.action_bar(record=True, form="org-form", cancel_href=cancel_href) }}
+  {% endif %}
+</div>
+{% endcall %}
+</div>
+{# The toast lands in the shell's host, outside what the answer replaces. #}
+{% if saved %}{{ ui.toast_oob() }}{% endif %}
 {% endblock %}
