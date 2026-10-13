@@ -287,7 +287,17 @@
          first and the last never). With the block itself non-editable the
          browser leaves the selection where the editor put it. WHEN the
          browser moves it is measured; WHY it does is not known. Nothing in
-         the block is typed in: the author fills a card in her dialog. */
+         the block is typed in: the author fills a card in her dialog.
+
+         Why this attribute stays beside `holdWholeBlock` below, which keeps
+         every other whole block selected by drawing an element after it:
+         inside this block that element would be a child of the block, and
+         the block's columns count its children — two cards and the element
+         read as three, and the two cards went from 384 to 251 px wide while
+         one was selected (measured, 13 October 2026). An element before the
+         block instead did not keep an inner card. So a CONTAINER of whole
+         blocks keeps their selection by being non-editable itself; a later
+         container like this one needs the same attribute. */
       renderHTML: function () {
         return ["div", { "data-cards": "", class: "prose-cards", contenteditable: "false" }, 0];
       },
@@ -328,6 +338,66 @@
       },
     });
     return [cards, card];
+  }
+
+  /* A block selected as a whole keeps its selection (CR-17).
+
+     Measured on 13 October 2026: a picture or a button selected as a whole
+     lost its selection at the author's next key — any key, Shift alone — when
+     the blocks on BOTH its sides were non-editable ones (a picture between
+     two buttons, the middle one of three pictures, a picture between a
+     button and a cards block: 3 of 3 each; kept where a paragraph or a
+     Kader stood on one side). Some milliseconds after the keydown the
+     browser's selection stood at the start of the page's first paragraph
+     and the editor followed it, so Delete took a letter at the top of the
+     page. No script moves that selection. WHEN the browser does is
+     measured; WHY is not known.
+
+     What keeps it, measured before this was written: one element of the
+     editor's own right after the selected block — non-editable and empty,
+     so it takes no room in the page — as the gap cursor draws one for its own
+     position. An editable element did not
+     help; an element before the block moved the block where the site's
+     rule "the first block of a column has no top margin" stopped applying.
+
+     One rule for every block the editor selects as a whole that stands in
+     the page or in a column — a block added later has it without knowing.
+     NOT for a block inside a container of such blocks: there the element
+     would be a child of the container, and the cards block counts its
+     children for its columns (two cards and the element read as three).
+     A container keeps its blocks' selection by being non-editable itself:
+     see the cards block. */
+  function holdWholeBlock(RaakTiptap) {
+    return RaakTiptap.Extension.create({
+      name: "holdWholeBlock",
+      addProseMirrorPlugins: function () {
+        return [
+          new RaakTiptap.Plugin({
+            key: new RaakTiptap.PluginKey("holdWholeBlock"),
+            props: {
+              decorations: function (state) {
+                var selection = state.selection;
+                if (!selection.node) return null;
+                /* Inside a container of whole blocks — a parent that
+                   cannot hold a paragraph, as the cards block — no
+                   element: asked of the schema, not of a list of names. */
+                var parent = selection.$from.parent;
+                if (!parent.type.contentMatch.matchType(state.schema.nodes.paragraph)) return null;
+                var hold = function () {
+                  var element = document.createElement("span");
+                  element.className = "de-hold";
+                  element.setAttribute("contenteditable", "false");
+                  return element;
+                };
+                return RaakTiptap.DecorationSet.create(state.doc, [
+                  RaakTiptap.Decoration.widget(selection.to, hold, { side: 1, key: "de-hold" }),
+                ]);
+              },
+            },
+          }),
+        ];
+      },
+    });
   }
 
   /* The card the selection stands on, with her place — or null. A card is an
@@ -973,6 +1043,7 @@
     mount.appendChild(surface);
 
     var extensions = [
+      holdWholeBlock(RaakTiptap),
       RaakTiptap.StarterKit.configure({
         heading: { levels: config.headings.map(function (h) { return h.level; }) },
         strike: (config.marks || []).indexOf("strike") !== -1,

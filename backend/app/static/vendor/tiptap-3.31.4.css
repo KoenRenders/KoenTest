@@ -148,6 +148,21 @@
   margin: 0.5rem 0;
 }
 
+/* The element the editor draws right after a block that is selected as a
+   whole (`holdWholeBlock` in document-editor.js, where the reason stands) is
+   an empty span: it takes no room in the page and needs no rule to stay out of
+   the way (a rule that took it out of the flow stood here and was taken out
+   again: every measurement was the same without it). But it stands between
+   the selected block and the block after it, and the site's rule "a button
+   right after a button gets 8 px before it, on a wide screen" then no longer
+   sees its neighbour — this rule gives that button its 8 px back (measured:
+   without it the buttons after a selected button moved 8 px to the left). */
+@media (min-width: 640px) {
+  .document-editor .tiptap a.prose-button + .de-hold + a.prose-button {
+    margin-left: 0.5rem;
+  }
+}
+
 /* A selected block shows that it is selected (Koen, 13 October 2026, to the
    question whether a selected block gets a visible edge — one rule for every
    block of the editor, with the blue focus ring the kit draws around an
