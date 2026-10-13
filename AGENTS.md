@@ -1063,6 +1063,12 @@ there is a CHECK on that column."* On 26 September 2026 #1173 walked into the sa
 constraint for the same column, after an issue that said no migration was needed;
 the same week, CR-12 phase 0 found the pattern again on a status column.
 
+That example is history since CR-12 phase 4: the kind of a media file is a code
+list with a foreign key now, the CHECK on `media_assets.kind` is gone, and a new
+kind is one row in the list and one member in the code (noted on 13 October
+2026, at Koen's word). Do not go looking for that constraint. The lesson stands
+for every column that is not a code list yet.
+
 So: grep the migrations for the constraint before you write the issue, not after
 the `CheckViolation`. Widening it is a migration, and it comes from
 `alembic revision` like any other.
