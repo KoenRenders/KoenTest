@@ -267,6 +267,7 @@ def main() -> None:
 
         token = current_tenant_id.set(webshop_id)
         try:
+            from app.domains.pricing.api import add_prices
             from app.domains.product.models import Product, ProductStatus, ProductVariant
             from app.domains.stock.api import receive
 
@@ -280,6 +281,16 @@ def main() -> None:
                 db.add(maat)
                 db.flush()
                 receive(db, maat.id, quantity=5)
+                # A price so the public `/webshop` lists the article: the browser
+                # test of the public pages needs a card to render (commit 5).
+                add_prices(
+                    db,
+                    product_id=artikel.id,
+                    variant_id=maat.id,
+                    valid_from=date(2026, 1, 1),
+                    amount=Decimal("15.00"),
+                    member_amount=Decimal("12.00"),
+                )
         finally:
             current_tenant_id.reset(token)
 

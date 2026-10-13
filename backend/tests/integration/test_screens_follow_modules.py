@@ -160,6 +160,16 @@ def test_the_photo_albums_need_activities_as_well_as_media(client, modules):
     assert "/fotos" in _sitemap(client)
 
 
+def test_the_webshop_pages_need_the_shop_module(client, modules):
+    """The public Webshop is Shop's route (`_module(M.SHOP)`): a tenant without
+    the shop finds no `/webshop` and no article page — 404, not an empty page."""
+    modules(COMPANY)
+    assert client.get("/webshop").status_code == 404
+    assert client.get("/webshop/1").status_code == 404
+    modules(EVERY)
+    assert client.get("/webshop").status_code == 200
+
+
 def test_the_dashboard_shows_only_the_tiles_of_modules_that_are_on(client, modules):
     modules(COMPANY)
     _admin(client)

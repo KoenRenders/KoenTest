@@ -446,19 +446,25 @@ def _geen_zijwaartse_scroll(page) -> bool:
 
 def test_de_webshop_paginas_op_390_px(webshop_page):
     """The public Webshop and the article page render at 390 px without a
-    sideways scroll (commit 5)."""
+    sideways scroll, and the article is really there — a card on the list, the
+    name on the page — so the measure is not a degenerate empty page (commit 5)."""
     page = webshop_page
     page.set_viewport_size({"width": 390, "height": 844})
 
     page.goto("/webshop")
-    page.wait_for_selector("h1")
+    heading = page.locator("main h1")
+    heading.wait_for(state="visible")
+    assert "Webshop" in heading.inner_text()
+    cards = page.locator('main a[href^="/webshop/"]')
+    assert cards.count() == 1, "het artikel hoort als één kaart op de lijst te staan"
+    assert "Webshop T-shirt" in cards.first.inner_text()
     assert _geen_zijwaartse_scroll(page)
 
-    page.goto("/admin/producten")
-    link = page.locator('a[href^="/admin/producten/"]:not([href$="/nieuw"])').first
-    product_id = link.get_attribute("href").rstrip("/").split("/")[-1]
+    product_id = cards.first.get_attribute("href").rstrip("/").split("/")[-1]
     page.goto(f"/webshop/{product_id}")
-    page.wait_for_selector("h1")
+    heading = page.locator("main h1")
+    heading.wait_for(state="visible")
+    assert "Webshop T-shirt" in heading.inner_text()
     assert _geen_zijwaartse_scroll(page)
 
 
