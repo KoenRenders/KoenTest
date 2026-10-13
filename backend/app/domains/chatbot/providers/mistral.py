@@ -41,12 +41,17 @@ class MistralProvider(LLMProvider):
         messages: list[dict[str, Any]],
         tools: Optional[list[dict[str, Any]]] = None,
         tool_choice: Optional[str] = None,
+        json_answer: bool = False,
     ) -> AssistantMessage:
         payload: dict[str, Any] = {
             "model": self._model,
             "messages": messages,
             "temperature": 0.2,  # feitelijk, weinig fantasie
         }
+        if json_answer:
+            # #1968: Mistral's JSON mode — the answer is one JSON object. The
+            # prompt still says so in words; the mode asks for a prompt that does.
+            payload["response_format"] = {"type": "json_object"}
         if tools:
             payload["tools"] = tools
             # 'any' = forceer een tool-aanroep (grounding, #anti-hallucinatie);

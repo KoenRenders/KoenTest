@@ -358,7 +358,7 @@ def test_the_proposer_fills_the_empty_fiche_from_the_request_alone(client, db_se
         def __init__(self, *answers):
             self.answers = list(answers)
 
-        def complete(self, messages, tools=None, tool_choice=None):
+        def complete(self, messages, tools=None, tool_choice=None, json_answer=False):
             return AssistantMessage(
                 content=self.answers.pop(0) if self.answers else json.dumps({"unsupported": []})
             )

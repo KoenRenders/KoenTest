@@ -459,6 +459,15 @@ share a row only when read together (street · number · bus; from · to). The
 **switch** (`ui.switch` of #1568, used by `field(kind=switch)`) has its knob
 at the left and the label at its right; in read mode a boolean is words
 ("Enkel leden: ja"), an empty field reads "—" in its place (reverses #1139).
+**The add action of a repeating group** ("+ E-mailadres", `ui.group_add_button`,
+#1972; Koen, 13 October 2026: it read as a text field) stays at the right of the
+group's head — below the rows of a composite group — and has a look no input
+has: the light tint `blue-50` (`blue-100` under the pointer), no line, the plus
+and the label in `blue-700`; the label measures 7.47 : 1 on the tint and 6.46 : 1
+on the hover in the palette of both shells (6.98 and 5.92 in the base palette;
+WCAG AA asks 4.5). It is told from the card by its tint and its plus, not by a
+line, from the primary action by not being filled, and from a badge by being a
+button's box. One macro; no screen styles it.
 **A choice of one among tiles** (`field(kind="tiles")`, #1967; Koen on the
 concepts of CR-21, 9 October 2026: always tiles, a sold-out size not
 choosable) is the form of a choice a person makes by sight — a size: a grid of

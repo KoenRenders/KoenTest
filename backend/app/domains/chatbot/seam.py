@@ -346,8 +346,15 @@ class GuardedProvider(LLMProvider):
         #: The payloads this provider sent, in order — what the "wat zag Mistral"
         #: fold-out shows for the answer being rendered.
         self.sent: list[str] = []
+        #: Surface and capability of this provider's calls, for a log line about
+        #: what came back (#1968).
+        self.log_name = "/".join(
+            str(getattr(part, "value", part) or "-") for part in (rules.surface, rules.capability)
+        )
 
-    def complete(self, messages, tools=None, tool_choice=None) -> AssistantMessage:
+    def complete(
+        self, messages, tools=None, tool_choice=None, json_answer: bool = False
+    ) -> AssistantMessage:
         text = payload_text(messages)
         reasons = findings(messages, self._rules)
         if reasons:
@@ -364,7 +371,10 @@ class GuardedProvider(LLMProvider):
         self.sent.append(text)
         begin = time.monotonic()
         try:
-            reply = self._inner.complete(messages, tools=tools, tool_choice=tool_choice)
+            # The JSON setting travels only when asked (#1968): a free-text
+            # chat's request is what it was.
+            asked = {"json_answer": True} if json_answer else {}
+            reply = self._inner.complete(messages, tools=tools, tool_choice=tool_choice, **asked)
         except Exception:
             # #978: the payload left, so the call counts — a failed call is
             # still a call the provider may bill.
