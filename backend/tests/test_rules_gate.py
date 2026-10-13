@@ -10,7 +10,7 @@ gates below them.
 | gate | kind | looks at |
 |---|---|---|
 | no session on an entity | ratchet | `models.py` naming `Session`, `db`, `.query(` or `app.database` |
-| module shape | ratchet; **hard for a new package** | `api.py`, `codes.py`, `CONTRACT.md`, `models.py`, `tests/` per domain |
+| module shape | ratchet; **hard for a new package** | `api.py`, `codes.py`, `CONTRACT.md`, `models.py`, `tests/` per domain; the contract's nine headings (#1954) |
 | no commit in an event handler | ratchet (one entry, phase 4); **hard for a new handler** | a `@subscribe` function, and what it calls up to three levels deep |
 | no network in an event handler | ratchet | the same, for `smtplib`/`httpx`/`requests`/`urllib.request`/`http.client` |
 | JSON route with a caller | ratchet; **hard for a new route** | every `/api/v1` route (method × path) named under `## Callers` in its domain's `CONTRACT.md` |
@@ -73,6 +73,19 @@ APP = BACKEND / "app"
 DOMAINS = APP / "domains"
 
 SHAPE = ("api.py", "codes.py", "CONTRACT.md", "models.py", "tests/")
+#: The headings of a module's contract, in the order of `docs/CONTRACT-template.md`
+#: (#1954): the architecture document reads a module's section from them.
+CONTRACT_HEADINGS = (
+    "Purpose and process",
+    "Publishes",
+    "Consumes",
+    "Owns",
+    "Screens",
+    "Deprecations",
+    "Standards",
+    "Rules and gates",
+    "Evolutions",
+)
 NETWORK_MODULES = {"smtplib", "httpx", "requests", "urllib.request", "http.client", "aiosmtplib"}
 
 
@@ -175,6 +188,43 @@ def collect_module_shape() -> dict[str, str]:
                     f"`app/domains/{package.name}/` has no `{piece}` — a domain package has "
                     f"{', '.join(SHAPE)} (CR-13 §B4.5)"
                 )
+        found.update(_contract_headings(package))
+    return found
+
+
+def _contract_headings(package: Path) -> dict[str, str]:
+    """A contract without one of the nine headings, with one that says nothing, or
+    with the nine out of order → key `package:CONTRACT.md:heading` (#1954)."""
+    contract = package / "CONTRACT.md"
+    if not contract.is_file():
+        return {}
+    where = f"`app/domains/{package.name}/CONTRACT.md`"
+    sections: dict[str, str] = {}
+    current = None
+    for line in contract.read_text(encoding="utf-8").splitlines():
+        if line.startswith("## "):
+            current = line[3:].strip()
+            sections[current] = ""
+        elif current is not None:
+            sections[current] += line.strip()
+    found: dict[str, str] = {}
+    for heading in CONTRACT_HEADINGS:
+        if heading not in sections:
+            found[f"{package.name}:CONTRACT.md:{heading}"] = (
+                f"{where} has no heading `## {heading}` — a contract has the nine headings "
+                "of `docs/CONTRACT-template.md` (#1954)"
+            )
+        elif not sections[heading]:
+            found[f"{package.name}:CONTRACT.md:{heading}"] = (
+                f"{where} says nothing under `## {heading}` — where there is nothing to "
+                'say: "none", with one reason (#1954)'
+            )
+    order = [h for h in sections if h in CONTRACT_HEADINGS]
+    if not found and order != list(CONTRACT_HEADINGS):
+        found[f"{package.name}:CONTRACT.md:order"] = (
+            f"{where} has the nine headings out of order: {', '.join(order)} — the order is "
+            "the template's (#1954)"
+        )
     return found
 
 
@@ -2737,7 +2787,15 @@ def test_no_session_on_an_entity():
 def test_module_shape():
     """Hard since phase 4d: every package has every piece. Proof (again when it
     went hard): an empty `app/domains/proefdomein/__init__.py`
-    added → red with five missing pieces."""
+    added → red with five missing pieces.
+
+    Since #1954 the contract has the nine headings of `docs/CONTRACT-template.md`,
+    in the template's order, none of them empty. Proofs (13 October 2026, each a
+    package `app/domains/proefdomein/` added with its five pieces, then removed):
+    its contract without `## Standards` → red, "`app/domains/proefdomein/CONTRACT.md`
+    has no heading `## Standards`"; with `## Evolutions` and nothing under it →
+    red, "says nothing under `## Evolutions`"; with Owns before Consumes → red,
+    "has the nine headings out of order"."""
     _hard("MODULE_SHAPE")
 
 
