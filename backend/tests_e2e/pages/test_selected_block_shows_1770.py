@@ -54,6 +54,7 @@ from tests_e2e.pages.test_cards_1770 import (  # noqa: E402
 from tests_e2e.pages.test_reading_width_1671 import _photo  # noqa: E402
 
 BUTTON_DIALOG = "div[x-show='button'][role='dialog']"
+FIGURE_DIALOG = "div[x-show='figure'][role='dialog']"
 
 #: Every block the editor can select as a whole, with what its outline is, and
 #: the editor's box. `ringed` are the blocks whose outline is drawn at all.
@@ -181,6 +182,9 @@ def test_a_selected_block_carries_the_ring_and_no_other_does(setup, width):
         # The picture, selected by a click — and still ringed after a key
         # that does nothing.
         page.locator(f"{EDITOR} .tiptap figure").click()
+        expect(page.locator(FIGURE_DIALOG)).to_be_visible()
+        page.keyboard.press("Escape", delay=HELD)
+        expect(page.locator(FIGURE_DIALOG)).to_be_hidden()
         _the_one_ring(page.evaluate(RINGS), "picture", width)
         page.keyboard.press("Shift", delay=HELD)
         _the_one_ring(page.evaluate(RINGS), "picture", width)
@@ -255,6 +259,9 @@ def test_a_page_that_starts_with_a_block_opens_without_a_ring(setup, first):
         page.locator(f"{EDITOR} .tiptap > p").first.click()
         if first == "picture":
             page.locator(f"{EDITOR} .tiptap figure").click()
+            expect(page.locator(FIGURE_DIALOG)).to_be_visible()
+            page.keyboard.press("Escape", delay=HELD)
+            expect(page.locator(FIGURE_DIALOG)).to_be_hidden()
         else:
             dialog = BUTTON_DIALOG if first == "button Knop" else DIALOG
             page.locator(f"{EDITOR} .tiptap a[data-button], {CARD}").first.click()

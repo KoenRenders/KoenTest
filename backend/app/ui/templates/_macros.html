@@ -1748,8 +1748,18 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 </div>
 {% endif %}
 {% if blocks.figure %}
+{# The dialog opens empty for a new picture, and filled with what a placed
+   picture holds when the choose event carries it (`attrs`, `url`): that
+   picture is the editor's selection, and Invoegen replaces it. #}
 <div x-data="{ figure: false, chosen: null, alt: '', caption: '', placement: 'full' }"
-     @raak-figure-choose.window="if ($event.detail.editor === '{{ editor_id }}') { figure = true; chosen = null; alt = ''; caption = ''; placement = 'full' }"
+     @raak-figure-choose.window="if ($event.detail.editor === '{{ editor_id }}') {
+                                   const held = $event.detail.attrs || null;
+                                   chosen = held ? { id: Number(held.media_id), url: $event.detail.url,
+                                                     width: held.width || null, height: held.height || null } : null;
+                                   alt = held ? (held.alt || '') : '';
+                                   caption = held ? (held.caption || '') : '';
+                                   placement = held ? (held.placement || 'full') : 'full';
+                                   figure = true }"
      @media-picked="chosen = { id: Number($event.detail.id), url: $event.detail.url,
                               width: Number($event.detail.width) || null,
                               height: Number($event.detail.height) || null };

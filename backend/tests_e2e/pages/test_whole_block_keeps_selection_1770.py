@@ -111,6 +111,18 @@ def setup():
         b.close()
 
 
+FIGURE_DIALOG = "div[x-show='figure'][role='dialog']"
+
+
+def _select_picture(page, index: int = 0) -> None:
+    """A click on a placed picture selects it and opens its dialog; closed with
+    Annuleren the picture stays the selection, the focus in the editor."""
+    page.locator(f"{EDITOR} .tiptap figure").nth(index).click()
+    expect(page.locator(FIGURE_DIALOG)).to_be_visible()
+    page.locator(f"{FIGURE_DIALOG} button", has_text="Annuleren").click()
+    expect(page.locator(FIGURE_DIALOG)).to_be_hidden()
+
+
 def _figure() -> dict:
     return {"type": "figure", "attrs": {"media_id": _photo(), "alt": "Een probeerbeeld"}}
 
@@ -185,7 +197,7 @@ def test_a_block_between_two_non_editable_blocks_keeps_its_selection(setup, wher
     page = _open(browser, session, page_id, width)
     try:
         pictures = page.locator(f"{EDITOR} .tiptap figure")
-        pictures.nth(which).click()
+        _select_picture(page, which)
         assert _look(page) == "whole block figure", (
             "the test did not select the picture it means to"
         )
@@ -343,11 +355,10 @@ def test_nothing_moves_when_a_block_is_selected(setup, where, width):
         assert len(before) > 3, "the look found no elements in the editor"
 
         page.locator(f"{EDITOR} .tiptap {selector}").nth(index).click()
-        dialog = (
-            BUTTON_DIALOG
-            if selector == "a[data-button]"
-            else (DIALOG if selector == "[data-card]" else None)
-        )
+        # A click on a button, a card or a picture opens that block's dialog.
+        dialog = {"a[data-button]": BUTTON_DIALOG, "[data-card]": DIALOG, "figure": FIGURE_DIALOG}[
+            selector
+        ]
         if dialog:
             expect(page.locator(dialog)).to_be_visible()
             page.locator(f"{dialog} button", has_text="Annuleren").click()
@@ -384,7 +395,7 @@ def test_a_block_that_ends_or_starts_the_page_keeps_its_selection(setup):
         (
             "a picture that ends the page",
             [_paragraph(TOP), _button("A"), _figure()],
-            lambda page: page.locator(f"{EDITOR} .tiptap figure").click(),
+            lambda page: _select_picture(page),
         ),
         (
             "a picture that starts the page",
@@ -431,7 +442,7 @@ def test_the_element_does_not_travel_with_what_is_copied(setup):
             """() => { window.__copied = null; document.addEventListener('copy', e => {
                  window.__copied = e.clipboardData ? e.clipboardData.getData('text/html') : 'no clipboard data'; }); }"""
         )
-        page.locator(f"{EDITOR} .tiptap figure").click()
+        _select_picture(page)
         assert _look(page) == "whole block figure"
         assert page.locator(f"{EDITOR} .tiptap .de-hold").count() == 1, "the element is not drawn"
         page.keyboard.press("Control+c", delay=HELD)

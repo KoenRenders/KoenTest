@@ -492,6 +492,21 @@
     });
   }
 
+  /* A placed picture's own dialog, with what the picture holds. The
+     picture is the selection — the click selected it, the menu's item saw
+     it selected — so Invoegen replaces THAT picture (see
+     `raak-figure-chosen`). Called for a click on
+     the picture and for the insert menu's item with a picture selected. */
+  function announceFigure(editor, editorId, config, pos) {
+    var node = editor.state.doc.nodeAt(pos);
+    if (!node || node.type.name !== "figure") return;
+    announce("raak-figure-choose", {
+      editor: editorId,
+      attrs: node.attrs,
+      url: ((config.figure && config.figure.mediaUrl) || "") + node.attrs.media_id,
+    });
+  }
+
   function markCommand(id) {
     if (id === "bold") return { command: "toggleBold", active: "bold" };
     if (id === "italic") return { command: "toggleItalic", active: "italic" };
@@ -643,8 +658,18 @@
           } else if (config.figure) {
             /* The figure never lands without her picture: the dialog of
                the macro opens the kit's picker, and the server's shape
-               gate refuses a document that saves such a figure anyway. */
-            announce("raak-figure-choose", { editor: editorId });
+               gate refuses a document that saves such a figure anyway.
+               With a picture selected the dialog opens with what that
+               picture holds and Invoegen changes it at its own place — as
+               for the button above; without, it opened empty and put a
+               second picture beside the first (the comparison with the
+               Trix editor, 14 October 2026). */
+            var chosenFigure = editor.state.selection.node;
+            if (chosenFigure && chosenFigure.type.name === "figure") {
+              announceFigure(editor, editorId, config, editor.state.selection.from);
+            } else {
+              announce("raak-figure-choose", { editor: editorId });
+            }
           }
         });
         items.appendChild(el);
@@ -896,6 +921,9 @@
     var editor = editors[event.detail.editor];
     if (!editor || editor.isDestroyed) return;
     var choice = event.detail;
+    /* Where the author was writing — or, when the dialog was opened on a
+       placed picture, over that picture: it is the selection, and an insert
+       over a selected block replaces it. */
     editor
       .chain()
       .focus()
@@ -1135,6 +1163,23 @@
             pos: knopPos,
           });
         }
+      } catch (error) {
+        /* A click outside the text asks nothing. */
+      }
+    });
+    /* A click on a placed picture opens its dialog with what it holds, as
+       a click on a button does: the Trix editor offered "Bewerken" on a
+       picture (#1224), and here a click offered nothing — to correct a
+       typing fault in the alternative text an author had to remove the
+       picture and place it again. The click's target must be the picture. */
+    surface.addEventListener("click", function (event) {
+      var figure = event.target.closest ? event.target.closest("figure[data-document-figure]") : null;
+      if (!figure || !surface.contains(figure)) return;
+      try {
+        var at = editor.view.posAtDOM(figure, 0);
+        var here = editor.state.doc.resolve(at);
+        var found = here.nodeAfter && here.nodeAfter.type.name === "figure" ? at : at - 1;
+        announceFigure(editor, mount.id, config, found);
       } catch (error) {
         /* A click outside the text asks nothing. */
       }
