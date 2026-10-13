@@ -117,13 +117,19 @@
     {% endcall %}
     {% else %}
     {# The name is the record's title and does not repeat here. #}
-    <div data-span="full" data-activity-facts class="flex flex-col gap-y-1 text-sm leading-[21px] text-ink">
-      <p class="flex flex-wrap gap-x-5 gap-y-1">{% if a.slug %}{{ ui.icon_fact("link", "/activiteiten/" ~ a.slug, href="/activiteiten/" ~ a.slug) }} {% endif %}<span data-activity-location class="contents">{{ ui.icon_fact("map-pin", a.location or "—") }}</span></p>
-      {% if a.description %}<p data-activity-description class="mt-1 whitespace-pre-line">{{ a.description }}</p>{% endif %}
-      <p class="mt-1">{{ ui.icon_fact("image", (a.poster_asset_title or _("Affiche")) if a.poster_asset_url else "—", href=a.poster_asset_url) }}</p>
-      {% if a.poster_url %}<p>{{ ui.icon_fact("link", _("Poster-URL: %(url)s", url=a.poster_url), href=a.poster_url) }}</p>{% endif %}
-      <p class="mt-1">{{ ui.label_fact(_("Doelpubliek"), _audience_label.value or "—") }}</p>
-      <p>{{ ui.label_fact(_("Enkel leden"), _yes_no[a.members_only|default(false, true)]) }}</p>
+    {# #1928: read mode keeps the edit grid — every fact in the cell of its
+       field, and the kit sets the rows 4 px apart. The name's cell has no
+       fact (the name is the record's title), so the address of the page
+       stands first; it and the description are there when they are filled
+       in (#1900). #}
+    <div data-span="full" data-activity-facts data-form-grid class="form-grid text-sm leading-[21px] text-ink">
+      {% if a.slug %}<p data-span="half" class="min-w-0">{{ ui.icon_fact("link", "/activiteiten/" ~ a.slug, href="/activiteiten/" ~ a.slug) }}</p>{% endif %}
+      <p data-span="half" data-activity-location class="min-w-0">{{ ui.icon_fact("map-pin", a.location or "—") }}</p>
+      {% if a.description %}<p data-span="full" data-activity-description class="whitespace-pre-line">{{ a.description }}</p>{% endif %}
+      <p data-span="full" class="min-w-0">{{ ui.icon_fact("image", (a.poster_asset_title or _("Affiche")) if a.poster_asset_url else "—", href=a.poster_asset_url) }}</p>
+      {% if a.poster_url %}<p data-span="full" class="min-w-0">{{ ui.icon_fact("link", _("Poster-URL: %(url)s", url=a.poster_url), href=a.poster_url) }}</p>{% endif %}
+      <p data-span="half">{{ ui.label_fact(_("Doelpubliek"), _audience_label.value or "—") }}</p>
+      <p data-span="half">{{ ui.label_fact(_("Enkel leden"), _yes_no[a.members_only|default(false, true)]) }}</p>
     </div>
     {% endif %}
   {% endcall %}
@@ -270,11 +276,14 @@
     {% set _form_id = component_form.get(c.id, "") %}
     {% set _form_name = namespace(value="") %}
     {% for fid, flabel in question_forms %}{% if fid|string == _form_id|string and _form_id != "" %}{% set _form_name.value = flabel %}{% endif %}{% endfor %}
-    <div data-component-facts class="flex flex-col gap-y-1 text-sm leading-[21px] text-ink">
-      <p class="flex flex-wrap gap-x-5 gap-y-1">{{ ui.label_fact(_("Maximum"), c.max_participants or "—") }} {{ ui.icon_fact("clock", _("Inschrijven t/m %(date)s", date=c.registration_closes_on|langedatum) if c.registration_closes_on else _("Inschrijven tot de activiteit")) }} {{ ui.label_fact(_("Ploegnaam vereist"), _yes_no[c.team_name_required|default(false, true)]) }}</p>
-      <p class="flex flex-wrap gap-x-5 gap-y-1">{% if _form_name.value %}<span class="inline-flex items-center gap-1.5">{{ ui.icon("clipboard-list", cls="shrink-0 text-ink-soft") }}{{ ui.reference(_form_name.value, "/admin/formulieren/" ~ _form_id) }}</span>{% else %}{{ ui.icon_fact("clipboard-list", "—") }}{% endif %} {{ ui.icon_fact("file-text", _("Info-bijlage") if c.info_asset_url else "—", href=c.info_asset_url) }}</p>
+    <div data-component-facts data-form-grid class="form-grid text-sm leading-[21px] text-ink">
+      <p data-span="half">{{ ui.label_fact(_("Maximum"), c.max_participants or "—") }}</p>
+      <p data-span="half" class="min-w-0">{{ ui.icon_fact("clock", _("Inschrijven t/m %(date)s", date=c.registration_closes_on|langedatum) if c.registration_closes_on else _("Inschrijven tot de activiteit")) }}</p>
+      <p data-span="half">{{ ui.label_fact(_("Ploegnaam vereist"), _yes_no[c.team_name_required|default(false, true)]) }}</p>
+      <p data-span="half" class="min-w-0">{% if _form_name.value %}<span class="inline-flex items-center gap-1.5">{{ ui.icon("clipboard-list", cls="shrink-0 text-ink-soft") }}{{ ui.reference(_form_name.value, "/admin/formulieren/" ~ _form_id) }}</span>{% else %}{{ ui.icon_fact("clipboard-list", "—") }}{% endif %}</p>
+      <p data-span="full" class="min-w-0">{{ ui.icon_fact("file-text", _("Info-bijlage") if c.info_asset_url else "—", href=c.info_asset_url) }}</p>
       {% for label, url in [(_("Externe inschrijf-URL"), c.external_register_url), (_("Externe inschrijvingen-URL"), c.external_registrations_url), (_("Externe info-URL"), c.info_url)] if url %}
-      <p data-external-link>{{ ui.icon_fact("link", label ~ ": " ~ url, href=url) }}</p>
+      <p data-span="full" data-external-link class="min-w-0">{{ ui.icon_fact("link", label ~ ": " ~ url, href=url) }}</p>
       {% endfor %}
     </div>
     {% endif %}

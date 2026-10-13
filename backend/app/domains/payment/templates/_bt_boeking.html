@@ -46,12 +46,13 @@
                 help=(_("Zet op 0 om te corrigeren — dan is de terugbetaling verwijderbaar.") if rec.is_refund else None)) }}
     {{ ui.field("note", _("Opmerking"), value=rec.note or "", id="bk-note", long=True) }}
     {% else %}
-    <div data-span="full" data-booking-facts class="flex flex-col gap-y-1 text-sm leading-[21px] text-ink">
-      <p>{{ ui.label_fact(_("Status"), summary.state.label) }}</p>
-      <p>{{ ui.label_fact(_("Terugbetaald bedrag") if rec.is_refund else _("Betaald bedrag"), ("€ " ~ ((rec.amount_paid|abs)|geld)) if rec.amount_paid is not none else "—") }}</p>
-      <p>{{ ui.label_fact(_("Opmerking"), rec.note or "—") }}</p>
+    {# #1928: every fact in the cell of its field; the kit sets the rows apart. #}
+    <div data-span="full" data-booking-facts data-form-grid class="form-grid text-sm leading-[21px] text-ink">
+      <p data-span="half">{{ ui.label_fact(_("Status"), summary.state.label) }}</p>
+      <p data-span="half">{{ ui.label_fact(_("Terugbetaald bedrag") if rec.is_refund else _("Betaald bedrag"), ("€ " ~ ((rec.amount_paid|abs)|geld)) if rec.amount_paid is not none else "—") }}</p>
+      <p data-span="full">{{ ui.label_fact(_("Opmerking"), rec.note or "—") }}</p>
       {% if parent %}
-      <p data-booking-parent><span class="text-ink-soft">{{ _("Terugbetaling van") }}:</span> {{ ui.reference(parent.label ~ " · € " ~ (parent.amount|geld), parent.href) }}</p>
+      <p data-span="full" data-booking-parent><span class="text-ink-soft">{{ _("Terugbetaling van") }}:</span> {{ ui.reference(parent.label ~ " · € " ~ (parent.amount|geld), parent.href) }}</p>
       {% endif %}
     </div>
     {% endif %}
