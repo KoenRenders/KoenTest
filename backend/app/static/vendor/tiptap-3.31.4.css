@@ -157,6 +157,17 @@
    right after a button gets 8 px before it, on a wide screen" then no longer
    sees its neighbour — this rule gives that button its 8 px back (measured:
    without it the buttons after a selected button moved 8 px to the left). */
+/* The same element inside a cards block — drawn there only for a card that
+   is alone in its block. A child of the block would be laid out as one of
+   its cards: on a phone (one column) it got a row of its own, the block grew
+   by 16 px, and the card was not kept. So it is taken out of the rows — and
+   it keeps a HEIGHT: out of the rows without one, the card lost its
+   selection at both widths; with one it is kept at both and nothing moves
+   (measured, 13 October 2026, each way in turn). */
+.document-editor .tiptap .prose-cards > .de-hold {
+  position: absolute;
+  height: 1em;
+}
 @media (min-width: 640px) {
   .document-editor .tiptap a.prose-button + .de-hold + a.prose-button {
     margin-left: 0.5rem;

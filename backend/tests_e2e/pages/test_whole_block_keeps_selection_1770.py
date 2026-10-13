@@ -15,7 +15,9 @@ of its own right after it — non-editable and empty, taking no room — as
 the gap cursor does for its own position. Measured before it was built: with
 such an element the selection is kept where nothing else kept it. A card is
 held by its block's own attribute instead (an element inside the cards block
-would count as a child of it and change its columns).
+would count as a child of it and change its columns) — except the card that
+is ALONE in its block, which the attribute does not keep: it gets the
+element, inside the block, where with one card it moves nothing.
 
 Three things are held here, every key held as a person holds one:
 
@@ -44,6 +46,16 @@ Broken on purpose (13 October 2026), each put back by the reverse edit:
   the two cards 384 → 251 px wide);
 * the element before the block instead of after it → "nothing moves" red at
   a picture that starts a column, both widths (everything below 8 px down).
+* the condition "inside a container only for an only child" turned into "never
+  inside a container" → the test of the card alone red in all its cells
+  ("lost its selection at Shift"; after a card was removed: "the card that
+  stays is not selected");
+* the stylesheet's rule that takes the element out of the cards block's rows
+  made to match nothing → at 390 px the block grows 16 px ("moves") and the
+  card alone is lost; the same rule without its height → the card alone
+  lost at both widths;
+* the element drawn inside a container whatever the number of children →
+  "nothing moves" red at the second card of two (384 → 251 px).
 A fifth, and what it taught: a rule that took the element out of the flow
 was made to match nothing → everything stayed green; that rule was not
 needed and is not in the stylesheet.
@@ -284,6 +296,12 @@ STILL = {
         0,
         "whole block figure",
     ),
+    "the only card of its block": (
+        lambda: [_cards("K1")],
+        "[data-card]",
+        0,
+        "whole block card K1",
+    ),
     "the second card of two": (
         lambda: [_cards("K1", "K2")],
         "[data-card]",
@@ -423,5 +441,73 @@ def test_the_element_does_not_travel_with_what_is_copied(setup):
         assert "de-hold" not in copied, "the editor's own element travels in the copied markup"
         assert "de-hold" not in page.locator("#cp-document-input").input_value()
         assert _look(page) == "whole block figure"
+    finally:
+        page.close()
+
+
+#: The ways an author gets a card that is alone in its block: (the cards the
+#: block starts with, how many times Delete is pressed on the selected first
+#: card, the card that is then alone).
+ALONE = {
+    "a block made with one card": (("K1",), 0, "K1"),
+    "a block of two, one removed": (("K1", "K2"), 1, "K2"),
+    "a block of three, two removed": (("K1", "K2", "K3"), 2, "K3"),
+}
+
+
+@pytest.mark.parametrize("width", [390, 1440])
+@pytest.mark.parametrize("how", list(ALONE))
+def test_a_card_alone_in_its_block_keeps_its_selection(setup, how, width):
+    """The one position the cards block's attribute does not cover, and where
+    it bit: the test that removes cards one by one lost the card that was
+    left, under load (18 of 40 at the removal that leaves one; 28 of 60
+    rounds of the whole test), and on a quiet machine the only card of a
+    block lost its selection at the next key, 5 of 5.
+
+    Here: the card that stays is selected, with the cards menu there; it is
+    still selected after keys that do nothing; and Delete removes it — the
+    block goes with its last card, the caret stands at the start of the
+    paragraph below, the menu is gone, and both paragraphs keep every
+    letter (before the repair that Delete took the first letter of the page).
+    """
+    browser, session = setup
+    titles, removals, stays = ALONE[how]
+    content = [_paragraph(TOP), _cards(*titles), _paragraph("Onder de kaarten.")]
+    page_id, _slug = _new_page(
+        f"Kaart alleen {len(titles)} {width}", {"type": "doc", "content": content}
+    )
+    page = _open(browser, session, page_id, width)
+    menu = page.locator(f"{EDITOR} details.de-menu-cards")
+    try:
+        page.locator(CARD).first.click()
+        expect(page.locator(DIALOG)).to_be_visible()
+        page.locator(f"{DIALOG} button", has_text="Annuleren").click()
+        expect(page.locator(DIALOG)).to_be_hidden()
+        for _ in range(removals):
+            page.keyboard.press("Delete", delay=HELD)
+            _settle(page)
+        expect(page.locator(CARD)).to_have_count(1)
+        assert _look(page) == f"whole block card {stays}", (
+            f"{how}: the card that stays is not selected"
+        )
+        expect(menu).to_be_visible()
+
+        for key in ("Shift", "Control", "Escape"):
+            page.keyboard.press(key, delay=HELD)
+            assert _look(page) == f"whole block card {stays}", (
+                f"{how}, at {width} px: the card alone lost its selection at {key}"
+            )
+        expect(menu).to_be_visible()
+
+        page.keyboard.press("Delete", delay=HELD)
+        expect(page.locator(CARD)).to_have_count(0)
+        expect(page.locator(f"{EDITOR} .tiptap [data-cards]")).to_have_count(0)
+        assert _look(page) == "caret or range in paragraph at 0"
+        expect(menu).to_be_hidden()
+        assert page.locator(f"{EDITOR} .tiptap > p").all_inner_texts() == [
+            TOP,
+            "Onder de kaarten.",
+        ], "removing the last card changed the text of the page"
+        assert page.errors == [], f"the screen throws: {page.errors}"
     finally:
         page.close()

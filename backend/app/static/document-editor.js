@@ -297,7 +297,9 @@
          one was selected (measured, 13 October 2026). An element before the
          block instead did not keep an inner card. So a CONTAINER of whole
          blocks keeps their selection by being non-editable itself; a later
-         container like this one needs the same attribute. */
+         container like this one needs the same attribute. The one case the
+         attribute does not cover is a card that is alone in the block:
+         `holdWholeBlock` draws its element there, and only there. */
       renderHTML: function () {
         return ["div", { "data-cards": "", class: "prose-cards", contenteditable: "false" }, 0];
       },
@@ -362,11 +364,26 @@
 
      One rule for every block the editor selects as a whole that stands in
      the page or in a column — a block added later has it without knowing.
-     NOT for a block inside a container of such blocks: there the element
-     would be a child of the container, and the cards block counts its
-     children for its columns (two cards and the element read as three).
-     A container keeps its blocks' selection by being non-editable itself:
-     see the cards block. */
+     Inside a CONTAINER of such blocks (the cards block), three things, in
+     this order, each measured on 13 October 2026:
+     1. A block with a sibling there is kept by the container's own
+        non-editable attribute (see the cards block): the first and the
+        second of two cards, the middle one of three — kept 3 of 3 each,
+        with no element.
+     2. A block that is ALONE in its container is not: the only card of a
+        block lost its selection at the next key, 5 of 5 — and under load
+        in the middle of the test that removes cards one by one, 18 of 40
+        times at the removal that leaves one. It gets the element, inside
+        the container, after itself: kept 3 of 3. An element after or
+        before the container did not keep it (lost 3 of 3 each).
+     3. With one child the element moves nothing (every element's box the
+        same before and while) — once the editor's stylesheet takes it out
+        of the block's rows and leaves it a height: as a row of its own, on
+        a phone, the block grew 16 px and the card was not kept; out of the
+        rows without a height it was not kept at either width. With more
+        than one child it would move things whatever its style: two cards
+        went from 384 to 251 px wide (the block's columns count its
+        children) — which is why it is not drawn there, and need not be. */
   function holdWholeBlock(RaakTiptap) {
     return RaakTiptap.Extension.create({
       name: "holdWholeBlock",
@@ -379,10 +396,12 @@
                 var selection = state.selection;
                 if (!selection.node) return null;
                 /* Inside a container of whole blocks — a parent that
-                   cannot hold a paragraph, as the cards block — no
-                   element: asked of the schema, not of a list of names. */
+                   cannot hold a paragraph, as the cards block — only for
+                   a block that is ALONE there. Asked of the document (the
+                   schema, the number of children), not of a list of names. */
                 var parent = selection.$from.parent;
-                if (!parent.type.contentMatch.matchType(state.schema.nodes.paragraph)) return null;
+                var container = !parent.type.contentMatch.matchType(state.schema.nodes.paragraph);
+                if (container && parent.childCount > 1) return null;
                 var hold = function () {
                   var element = document.createElement("span");
                   element.className = "de-hold";
