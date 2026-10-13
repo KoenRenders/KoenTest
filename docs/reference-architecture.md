@@ -5,7 +5,7 @@ title: Reference architecture — from association to enterprise
 | | |
 |---|---|
 | **Date** | 13 October 2026 |
-| **Quotes** | `docs/architecture-next.md` (the as-is of the platform), `master` @ cf80ccde |
+| **Quotes** | `docs/architecture.md` (the as-is of the platform), `master` @ cf80ccde |
 | **Purpose** | what the platform's building blocks become in enterprise use, and the conversation guide that goes with it; this document is the pitch, the architecture document is the measurement |
 
 This document was chapter 8 and the *Gespreksleidraad* of the architecture
