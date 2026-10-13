@@ -148,6 +148,20 @@
   margin: 0.5rem 0;
 }
 
+/* A selected block shows that it is selected (Koen, 13 October 2026, to the
+   question whether a selected block gets a visible edge — one rule for every
+   block of the editor, with the blue focus ring the kit draws around an
+   active field — or stays without a mark: "A ivm geselecteerd blok"). One
+   rule for every block the editor selects as a whole — a card, a button, a
+   picture — and the kit's own ring: its `focus` token, 3 px, 3 px away
+   (design-system.md, the colour table). No rule per kind of block. Without
+   it the arrows walked from card to card and Delete removed a card the
+   author could not see was selected. */
+.document-editor .tiptap .ProseMirror-selectednode {
+  outline: 3px solid rgb(var(--c-focus));
+  outline-offset: 3px;
+}
+
 /* A table in the editor: the author's EDITING GRID, a deliberate
    difference from the site (the review of #3110b37e, B1, said here where
    the choice lives): a full hairline grid and tighter cells (4/8 px) —
