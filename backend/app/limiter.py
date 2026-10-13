@@ -105,6 +105,9 @@ class DailyCharBudget:
 # maar moet een legitieme piek toelaten → matig.
 login_limiter = RateLimiter(max_calls=5, window_seconds=60)
 registration_limiter = RateLimiter(max_calls=10, window_seconds=60)
+# De webshop-bestelling (CR-21): dezelfde rem als een inschrijving — ze raakt
+# Mollie en schrijft een bestelling (Q63: "idem zoals bij inschrijven").
+order_limiter = RateLimiter(max_calls=10, window_seconds=60)
 # Publieke formulier-inzending/-wijziging: schrijft rijen + kan een bevestigingsmail
 # triggeren → rem tegen spam/DoS. Ruim genoeg voor een legitieme piek per IP (#371).
 form_submit_limiter = RateLimiter(max_calls=10, window_seconds=60)

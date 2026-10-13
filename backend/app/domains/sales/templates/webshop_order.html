@@ -1,0 +1,14 @@
+{% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Bestelling") }} {{ order_id }} · {{ site_name }}{% endblock %}
+{% block content %}
+{{ ui.back_link(_("Mijn aankopen"), path_for('/mijn/aankopen')) }}
+{% call ui.page_header(_("Bestelling") ~ " " ~ order_id) %}{% endcall %}
+{% call ui.card() %}
+  <div class="p-5">
+    {% for l in order.lines %}
+    <p class="text-sm text-ink">{{ l.variant_id }} × {{ l.quantity }} · € {{ l.unit_price|geld }}</p>
+    {% endfor %}
+  </div>
+{% endcall %}
+{% endblock %}

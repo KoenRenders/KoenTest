@@ -1,0 +1,9 @@
+{% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Bedankt") }} · {{ site_name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(_("Bedankt")) %}{% endcall %}
+{% call ui.card() %}
+  <p class="text-ink">{{ _("Je bestelling") }} {{ order_id }} {{ _("is genoteerd.") }}</p>
+{% endcall %}
+{% endblock %}

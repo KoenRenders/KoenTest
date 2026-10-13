@@ -1,0 +1,19 @@
+{% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Mijn aankopen") }} · {{ site_name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(_("Mijn aankopen")) %}{% endcall %}
+{% if orders %}
+<div class="space-y-4">
+  {% for o in orders %}
+  {% call ui.card(href=path_for('/mijn/aankopen/' ~ o.id)) %}
+    <div class="p-5">
+      <h2 class="text-base font-semibold text-ink">{{ _("Bestelling") }} {{ o.id }}</h2>
+    </div>
+  {% endcall %}
+  {% endfor %}
+</div>
+{% else %}
+{{ ui.empty_state(_("Je hebt nog geen aankopen.")) }}
+{% endif %}
+{% endblock %}

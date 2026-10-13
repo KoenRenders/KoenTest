@@ -658,6 +658,14 @@
    "platform": "everyone",
    "tenant": "everyone"
   },
+  "GET /mijn/aankopen": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /mijn/aankopen/{order_id}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
   "GET /mijn/e-mailadres/{contact_id}/bevestigen": {
    "platform": "everyone",
    "tenant": "everyone"
@@ -703,6 +711,10 @@
    "tenant": "everyone"
   },
   "GET /webshop": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /webshop/bedankt": {
    "platform": "everyone",
    "tenant": "everyone"
   },
@@ -1383,6 +1395,10 @@
    "tenant": "everyone"
   },
   "POST /raakje/vraag": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /webshop/bestellen": {
    "platform": "everyone",
    "tenant": "everyone"
   }

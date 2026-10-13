@@ -36,3 +36,47 @@ class WebshopProductView(ViewModel):
         context.pop("site", None)
         context.update(self.site)
         return context
+
+
+@dataclass(frozen=True, kw_only=True)
+class MyOrdersView(ViewModel):
+    """`mijn_aankopen.html` — the buyer's orders, newest first."""
+
+    orders: list[Any]
+    site: dict[str, Any] = field(default_factory=dict)
+
+    def as_context(self) -> dict[str, Any]:
+        context = super().as_context()
+        context.pop("site", None)
+        context.update(self.site)
+        return context
+
+
+@dataclass(frozen=True, kw_only=True)
+class WebshopOrderView(ViewModel):
+    """`webshop_order.html` — one order, in the site shell."""
+
+    order: Any
+    order_id: int
+    site: dict[str, Any] = field(default_factory=dict)
+
+    def as_context(self) -> dict[str, Any]:
+        context = super().as_context()
+        context.pop("site", None)
+        context.update(self.site)
+        return context
+
+
+@dataclass(frozen=True, kw_only=True)
+class BedanktView(ViewModel):
+    """`webshop_bedankt.html` — the thank-you page."""
+
+    order: Any
+    order_id: int
+    site: dict[str, Any] = field(default_factory=dict)
+
+    def as_context(self) -> dict[str, Any]:
+        context = super().as_context()
+        context.pop("site", None)
+        context.update(self.site)
+        return context

@@ -14,9 +14,25 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.domains.stock.models import ProductHasMovements
-from app.domains.stock.service import has_movements
+from app.domains.stock.service import has_movements, reserve
 from app.kernel.contracts.product import ProductDeleted, SizeDeleteRefused
+from app.kernel.contracts.stock import ReservationMade, ReserveStock
 from app.kernel.events import subscribe
+from app.kernel.ports import handles
+
+
+@handles(ReserveStock)
+def reserve_stock(port: ReserveStock, db: Session) -> ReservationMade:
+    """Reserve one order line (the port's handler, CR-21 Q64). The refusal —
+    `NotEnoughStock` — passes through untouched and rolls the caller's order back."""
+    reserve(
+        db,
+        port.order_line_id,
+        port.variant_id,
+        port.quantity,
+        allow_short=port.allow_short,
+    )
+    return ReservationMade(order_line_id=port.order_line_id)
 
 
 @subscribe(ProductDeleted)

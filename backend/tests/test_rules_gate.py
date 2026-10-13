@@ -2280,12 +2280,23 @@ def _names_in(node: ast.AST) -> set[str]:
 
 
 def _is_total_shape(node: ast.AST) -> bool:
-    """`quantity * price` in either order — a registration line's subtotal."""
+    """`quantity * price` — a registration line's subtotal: the price is a local
+    name (`unit_price`) or a leaf attribute `price` (`i.product.price`). An order's
+    total multiplies the line's own `unit_price` attribute, a different derived
+    value with its own shape."""
     if not (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult)):
         return False
-    left, right = _names_in(node.left), _names_in(node.right)
-    both = left | right
-    return any("quantity" in n for n in both) and any("price" in n for n in both)
+    names: set[str] = set()
+    attrs: set[str] = set()
+    for operand in (node.left, node.right):
+        for n in ast.walk(operand):
+            if isinstance(n, ast.Name):
+                names.add(n.id)
+            elif isinstance(n, ast.Attribute):
+                attrs.add(n.attr)
+    quantity = any("quantity" in n for n in names | attrs)
+    price = any("price" in n for n in names) or ("price" in attrs)
+    return quantity and price
 
 
 def _is_paid_sum(node: ast.AST) -> bool:
@@ -2326,11 +2337,31 @@ def _is_deadline_decision(node: ast.AST) -> bool:
     return today and deadline
 
 
+def _is_order_total_shape(node: ast.AST) -> bool:
+    """`sum(... line.unit_price * line.quantity ...)` — an order's total, the
+    multiplication on the line's ATTRIBUTES inside the sum. Distinct from the
+    registration's `quantity * price` of local names."""
+    if not (isinstance(node, ast.Call) and getattr(node.func, "id", "") == "sum"):
+        return False
+    for n in ast.walk(node):
+        if not (isinstance(n, ast.BinOp) and isinstance(n.op, ast.Mult)):
+            continue
+        attrs: set[str] = set()
+        for operand in (n.left, n.right):
+            for x in ast.walk(operand):
+                if isinstance(x, ast.Attribute):
+                    attrs.add(x.attr)
+        if any("quantity" in a for a in attrs) and any("price" in a for a in attrs):
+            return True
+    return False
+
+
 DERIVED_SHAPES = {
     "registration.total": _is_total_shape,
     "registration.balance": _is_paid_sum,
     "payment_record.state": _is_record_state_decision,
     "registration.state": _is_deadline_decision,
+    "order.total": _is_order_total_shape,
 }
 
 

@@ -13,7 +13,16 @@ from app.domains.sales.models import (  # noqa: F401
     ShopSettings,
 )
 from app.domains.sales.payables import order_describer  # noqa: F401
-from app.domains.sales.service import article_offer, offered_products  # noqa: F401
+from app.domains.sales.service import (  # noqa: F401
+    article_offer,
+    get_order,
+    offered_products,
+    orders_of_person,
+    owned_order,
+    place_order,
+    submit_order,
+    total_of,
+)
 
 __all__ = [
     "ProductHasOrderLines",
@@ -23,6 +32,12 @@ __all__ = [
     "ShopContact",
     "ShopSettings",
     "article_offer",
+    "get_order",
     "offered_products",
     "order_describer",
+    "orders_of_person",
+    "owned_order",
+    "place_order",
+    "submit_order",
+    "total_of",
 ]
