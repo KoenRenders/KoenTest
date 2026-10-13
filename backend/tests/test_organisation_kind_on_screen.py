@@ -162,7 +162,12 @@ def test_the_kind_account_is_called_account_where_it_is_stored_and_chosen(
 
     _login(client, db_session)
     html = client.get("/admin/organisaties").text
-    options = re.findall(r'<option value="(ACCOUNT|UNIT|PLATFORM)"[^>]*>([^<]+)<', html)
+    # The kinds are the toolbar's segments since #1932: a radio and its word.
+    options = re.findall(
+        r'<input type="radio" name="org_type" value="(ACCOUNT|UNIT|PLATFORM)"[^>]*>\s*'
+        r"<span[^>]*>([^<(]+?)\s*(?:<span|</span)",
+        html,
+    )
     assert dict(options) == {"ACCOUNT": "Account", "UNIT": "Afdeling", "PLATFORM": "Platform"}, (
         options
     )

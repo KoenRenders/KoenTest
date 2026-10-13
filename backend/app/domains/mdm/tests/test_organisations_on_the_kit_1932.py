@@ -85,7 +85,7 @@ def test_the_segments_filter_on_the_kind_and_carry_their_counts(
     html = client.get("/admin/organisaties").text
     labels = re.findall(r"data-status-filter.*?</fieldset>", html, flags=re.S)[0]
     counts = re.findall(r"([A-Za-zé ]+?)\s*<span[^>]*>\((\d+)\)</span>", labels)
-    assert [name.strip() for name, _n in counts][:2] == ["Alle", "Rechtspersoon"]
+    assert [name.strip() for name, _n in counts][:2] == ["Alle", "Account"]
     assert int(counts[0][1]) == sum(int(n) for _name, n in counts[1:]), "Alle is the sum"
 
     only_units = client.get("/admin/organisaties?org_type=UNIT").text
