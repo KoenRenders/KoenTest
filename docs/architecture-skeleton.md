@@ -186,7 +186,25 @@ document), so that step 14 of the release becomes checkable:
 - **The diagram conventions** (Koen, 13 October 2026, Q&A nr. 02, "a" to each
   of the five questions), for the template and for part A of the document:
   - six kinds, one purpose each: `flowchart LR` for a process (lanes per actor,
-    the BPMN level-1 palette A2/A3 already prescribe); `flowchart TB` for a
+    the BPMN level-1 palette A2/A3 already prescribe) — **a process of up to
+    about eight steps and three lanes lies (LR); an end-to-end process stands
+    (TB, the lanes as columns), and when a standing figure no longer fits one
+    page it is cut: one overview figure with the handovers between the parties,
+    then one figure per part** (Koen, 13 October 2026, to the choice between
+    Mermaid standing for long and lying for short, a BPMN tool outside Mermaid,
+    and cutting: "a, met c zodra een staande figuur niet meer op één pagina
+    past"). **In an end-to-end figure the lane of the board or the treasurer
+    shows what goes through the workbench: a task the platform creates is a
+    hexagon with the label `Taak: …`, a manual step the person must remember
+    without the platform's help is a dashed box.** The difference is the point
+    of the figure (Koen, the same day: "ik wil echt duidelijk hebben wat via de
+    werkbank gaat, daar wachten immers manuele stappen. Op die manier kan je
+    zien dat er gaten in het proces zitten die door het platform worden
+    gecoached/opgevolgd/ondersteund"; "bij de ledenadministratie is er geen
+    ondersteuning, de mens moet het proces kennen, bij betalingen/vorderingen is
+    er al een eerste ondersteuning"). Part A draws every business process end
+    to end this way, as-is; a task that does not exist yet is a row in part E,
+    not a box; `flowchart TB` for a
     structure (layers, module map, tenant hierarchy, test layers);
     `sequenceDiagram` for a course in time between parties (request, webhook,
     event chain), numbered, with a note where an invariant sits; `erDiagram` for
