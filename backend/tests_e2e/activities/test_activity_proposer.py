@@ -100,7 +100,7 @@ class _Scripted:
     def __init__(self, *answers):
         self.answers = list(answers)
 
-    def complete(self, messages, tools=None, tool_choice=None):
+    def complete(self, messages, tools=None, tool_choice=None, json_answer=False):
         from app.domains.chatbot.providers.base import AssistantMessage
 
         return AssistantMessage(

@@ -42,7 +42,7 @@ class ScriptedProvider:
         self.answers = list(answers)
         self.asked: list[list[dict]] = []
 
-    def complete(self, messages, tools=None, tool_choice=None):
+    def complete(self, messages, tools=None, tool_choice=None, json_answer=False):
         self.asked.append([dict(m) for m in messages])
         answer = self.answers.pop(0) if self.answers else json.dumps({"unsupported": []})
         if isinstance(answer, Exception):
@@ -294,6 +294,31 @@ def test_de_hele_brief_op_vraag_ook_als_er_al_tekst_staat(db_session, raakje):
     turn = _ask(db_session, letter, instruction="Herschrijf de hele nieuwsbrief.")
 
     assert turn.proposal["kind"] == "letter"
+
+
+def test_een_antwoord_dat_geen_json_is_wordt_een_keer_opnieuw_gevraagd(db_session, raakje):
+    """#1968: the proposal's answer came out of the tool loop as prose. It is
+    asked once more — one call on the conversation as it stands — and the author
+    gets the proposal, not a message."""
+    letter = _letter(db_session)
+    provider = raakje("Hier is je brief!", _draft(["# Najaar", "Tot dan."]), _verdict())
+
+    turn = _ask(db_session, letter, instruction="Schrijf een voorstel voor de hele brief.")
+
+    assert turn.proposal["kind"] == "letter"
+    # The loop's call, the retry, the verification round.
+    assert len(provider.asked) == 3
+    assert provider.asked[0][-1] == provider.asked[1][-1], "the retry asks the same request"
+
+
+def test_twee_antwoorden_zonder_json_geven_de_melding_en_geen_derde_vraag(db_session, raakje):
+    letter = _letter(db_session)
+    provider = raakje("Hier is je brief!", "Alsjeblieft: de brief.", _draft(["Te laat."]))
+
+    with pytest.raises(drafting.DraftingError, match="geen bruikbaar voorstel"):
+        _ask(db_session, letter, instruction="Schrijf een voorstel voor de hele brief.")
+
+    assert len(provider.asked) == 2, "one retry, not a loop"
 
 
 # ── 13–15, 17–18. What comes back ────────────────────────────────────────────

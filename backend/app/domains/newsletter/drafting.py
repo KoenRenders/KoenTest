@@ -35,7 +35,6 @@ one turns names into tokens *in order to* restore them.
 from __future__ import annotations
 
 import html as html_lib
-import json
 import logging
 import re
 import time
@@ -412,17 +411,18 @@ def _sources_message(src: Sources) -> str:
     return "\n\n".join(parts)
 
 
-def _parse_json(text: str) -> dict[str, Any]:
-    start, end = (text or "").find("{"), (text or "").rfind("}")
-    if start < 0 or end <= start:
-        raise DraftingError(_("Raakje gaf geen bruikbaar voorstel. Probeer het opnieuw."))
+def _json_answer(
+    provider: Any, messages: list[dict[str, Any]], first: str | None = None
+) -> dict[str, Any]:
+    """Raakje's answer as a JSON object, by the kernel's one rule (#1968): asked
+    for as JSON, retried once, logged without content. The second failure is
+    this screen's sentence."""
+    from app.domains.chatbot.api import UnusableAnswer, json_answer
+
     try:
-        data = json.loads(text[start : end + 1])
-    except json.JSONDecodeError as exc:
+        return json_answer(provider, messages, first=first)
+    except UnusableAnswer as exc:
         raise DraftingError(_("Raakje gaf geen bruikbaar voorstel. Probeer het opnieuw.")) from exc
-    if not isinstance(data, dict):
-        raise DraftingError(_("Raakje gaf geen bruikbaar voorstel. Probeer het opnieuw."))
-    return data
 
 
 # ── Rendering a proposal ─────────────────────────────────────────────────────
@@ -774,7 +774,9 @@ def ask(
         deadline=deadline,
     )
     sources.tool_results = collected
-    data = _parse_json(answer)
+    # The loop's final answer is the first attempt; the retry is one call without
+    # tools on the conversation as it stands (#1968).
+    data = _json_answer(provider, messages, first=answer)
 
     if mode == MODE_INSERT and data.get("paragraphs") and not str(data.get("text") or "").strip():
         # The author asked for the whole letter again: offer it as one, with the
@@ -893,8 +895,7 @@ def verify(
         },
     ]
     try:
-        reply = provider.complete(messages, tools=None)
-        data = _parse_json(reply.content or "")
+        data = _json_answer(provider, messages)
         found = data.get("unsupported") or []
     except Exception as exc:  # noqa: BLE001 — see the docstring
         from app.domains.chatbot.api import SeamBlocked

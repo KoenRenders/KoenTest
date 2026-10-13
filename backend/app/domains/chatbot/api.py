@@ -2,6 +2,7 @@
 
 # CR-12 phase 4: the four code lists of the AI call log, for every caller that
 # writes a row — the design studio, OCR, dictation and the capability packs.
+from app.domains.chatbot.answers import UnusableAnswer, json_answer  # noqa: F401
 from app.domains.chatbot.codes import (  # noqa: F401
     AI_CAPABILITY,
     AI_PROVIDER,
@@ -98,6 +99,8 @@ __all__ = [
     "asked",
     "GuardedProvider",
     "SeamBlocked",
+    "UnusableAnswer",
+    "json_answer",
     "admin_rules",
     "REDACTION_PLACEHOLDERS",
     "get_provider",
