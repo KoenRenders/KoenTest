@@ -5,14 +5,12 @@ white beside them cost a lot of room, the screen felt narrow, and a product no
 longer stood on one line. Three things, all geometry, so all measured from the
 rendered DOM:
 
-- **the wide column in edit mode**: a record with a composite group that is being
-  edited takes the reading group, 1 092 px; its summary stands beside it
-  where the frame holds both (1 416 px) and otherwise above it as the band
-  (#1912; #1906 had a card of 300 px there); reading, saving
-  and cancelling give 768 px and the card at the right again; a field of full width fills the column, a text box included (#1635:
-  #1610 kept long text at 768 px, with a gap at its right); with less than
-  1 092 px of frame (the Assistent's panel open) the form keeps 768 px and
-  the band stands above it;
+- **one width** (#1929; Koen, 12 October 2026, to "Kies je c, één breedte van
+  768 px voor elk record in beide modi?": "Ja"): the editor is the 768 px
+  column with the summary card of 300 px at its right, as read mode is — the
+  1 092 px editor of #1610 is gone; a field of full width fills the column, a
+  text box included (#1635); with less than 964 px of frame (the Assistent's
+  panel open) the summary is the band above the form (#1912);
 - **denser rows**: a product's name · price · member price · maximum on one
   line, the settlement and "Publiek zichtbaar" on the second;
 - **a narrower gutter**: 28 px for a composite item's handle, the child group
@@ -20,8 +18,13 @@ rendered DOM:
 
 The activity is made for this file and removed again.
 
-Broken on purpose (5 October 2026), each red for its own reason: the wide rule
-taken out of the stylesheet → 768 in edit mode; the long-text rule of #1610
+#1929, red first (13 October 2026): with the wide editor's rules out of the
+stylesheet and this file as it stood, four tests were red — "assert 768 ==
+1092" in the two width cases and in the save test, and "assert 662 > 900" on
+the product's row. The save test proved only the width that came back and is
+gone; the others measure 768 px now.
+
+Broken on purpose (5 October 2026), each red for its own reason: the long-text rule of #1610
 put back (#1635) → "Omschrijving is 768 px in a grid of 1 058"; the product's
 first grid back on four tracks → the
 maximum on a second line; the gutter back at 44 px; the child group's indent
@@ -37,7 +40,7 @@ import os
 import sys
 
 import pytest
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -107,43 +110,33 @@ def _page(setup, width: int, edit: bool = True):
 
 
 @pytest.mark.parametrize("width", [1440, 1920])
-def test_the_editor_takes_the_reading_group_and_the_summary_is_a_band_or_beside(setup, width):
-    """#1912: at 1 440 px the frame (1 168) has no room beside the form, so the
-    summary stands above it as the band, filling the form's column; at 1 920 px
-    (1 632) it is the card of 300 px at the form's right, their tops level."""
+def test_the_editor_keeps_the_record_width_and_the_summary_stands_beside_it(setup, width):
+    """#1929: one width for every record, in both modes. The editor is the
+    768 px column with the card of 300 px at its right, their tops level — at
+    1 440 px (a frame of 1 168) as at 1 920 px (1 632). Red before: 1 092 px,
+    and at 1 440 px the band above it."""
     page = _page(setup, width)
     try:
         m = page.evaluate(_M)
         shape = page.evaluate(SUMMARY_SHAPE)
         print("MEASURE room edit", width, m["column"], m["summary"], m["description"], m["body"])
         print("MEASURE summary shape edit", width, shape)
-        assert m["mode"] == "edit" and m["column"]["w"] == 1092
-        if width == 1440:
-            assert (m["summary"]["x"], m["summary"]["w"]) == (m["column"]["x"], 1092), (
-                "the band does not fill the form's column"
-            )
-            assert m["summary"]["bottom"] + 24 == m["column"]["y"], (
-                "the band is not 24 px above the form"
-            )
-            assert_summary_band(shape)
-        else:
-            assert m["summary"]["w"] == 300, f"the card is {m['summary']['w']} px wide"
-            assert m["summary"]["x"] == m["column"]["right"] + 24, (
-                "with room beside the form the card stands at its right"
-            )
-            assert m["summary"]["y"] == m["column"]["y"], "the card and the form start level"
-            assert len({f["mid"] for f in shape["figures"]}) == len(shape["figures"]), (
-                "beside the form every figure is a row of its own"
-            )
+        assert m["mode"] == "edit" and m["column"]["w"] == 768
+        assert m["summary"]["w"] == 300, f"the card is {m['summary']['w']} px wide"
+        assert m["summary"]["x"] == m["column"]["right"] + 24, "the card stands at the form's right"
+        assert m["summary"]["y"] == m["column"]["y"], "the card and the form start level"
+        assert len({f["mid"] for f in shape["figures"]}) == len(shape["figures"]), (
+            "beside the form every figure is a row of its own"
+        )
         # #1635: a field of full width fills the column, a text box included —
         # Omschrijving and Interne nota from the left edge of Naam to the right
-        # edge of Vriendelijke URL. Red on master: 768 px in a grid of 1 058.
+        # edge of Vriendelijke URL.
         print("MEASURE text boxes", width, m["description"], m["notes"], m["grid"], m["boxes"])
         for label, field, grid in (
             ("Omschrijving", m["description"], m["grid"]),
             ("Interne nota", m["notes"], m["notes_grid"]),
         ):
-            assert field["w"] == grid["w"] > 1000, (
+            assert field["w"] == grid["w"] > 700, (
                 f"{label} is {field['w']} px in a grid of {grid['w']}"
             )
         assert m["description"]["x"] == m["name_field"]["x"]
@@ -152,7 +145,7 @@ def test_the_editor_takes_the_reading_group_and_the_summary_is_a_band_or_beside(
             assert box["w"] == field["w"], (
                 f"the text box is {box['w']} px in a field of {field['w']}"
             )
-        assert m["name_field"]["w"] > 500
+        assert m["name_field"]["w"] > 350
         assert m["page"][0] == width
         assert page.errors == []
     finally:
@@ -171,34 +164,6 @@ def test_the_editor_takes_the_reading_group_and_the_summary_is_a_band_or_beside(
         assert r["summary"]["y"] == r["column"]["y"], "#1587: the two cards start level"
     finally:
         read.close()
-
-
-def test_saving_and_cancelling_give_the_reading_column_back(setup):
-    """The page is not loaded again: the form's answer replaces the form, and the
-    layout follows what stands in it."""
-    page = _page(setup, 1440)
-    try:
-        page.wait_for_function("window.raakRecordForm && window.raakRecordForm.ready()")
-        assert page.evaluate(_M)["column"]["w"] == 1092
-        page.locator("[data-form-save]").click()
-        expect(page.locator("[data-form-flow]")).to_have_attribute("data-mode", "read")
-        saved = page.evaluate(_M)
-        assert saved["column"]["w"] == 768
-        assert (
-            saved["summary"]["x"] == saved["column"]["right"] + 24 and saved["summary"]["w"] == 300
-        )
-        assert saved["summary"]["y"] == saved["column"]["y"]
-    finally:
-        page.close()
-
-    page = _page(setup, 1440)
-    try:
-        page.locator("[data-form-cancel]").click()
-        pagina_klaar(page)
-        expect(page.locator("[data-form-flow]")).to_have_attribute("data-mode", "read")
-        assert page.evaluate(_M)["column"]["w"] == 768
-    finally:
-        page.close()
 
 
 def _one_line(m: dict) -> None:
@@ -226,13 +191,12 @@ def test_a_product_stands_on_one_line_and_its_choice_on_the_second(setup):
             [m[k]["w"] for k in ("name", "price", "member", "max")],
         )
         _one_line(m)
-        assert m["body"]["w"] > 900
     finally:
         page.close()
 
 
 def test_with_the_assistents_panel_open_the_panel_wins_and_the_row_still_fits(setup):
-    """Less than 1 092 px of frame: the form is 768 px, the summary is the band
+    """Less than 964 px of frame: the form is 768 px, the summary is the band
     above it (#1912: a strip of rows until then), and the product's four fields
     are still one line (the row has 649 px)."""
     page = _page(setup, 1440)
