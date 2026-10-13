@@ -13,6 +13,726 @@ title: Architecture — the Raak platform
 > restructuring is complete, `docs/architecture.md` remains the document the
 > PDF build reads; this file replaces it when every part stands.
 
+# Part A — The solution
+
+What the platform is, which business processes it carries, on which principles
+it is built and how it runs. Mirrors A1–A3 and B1–B3 of the change request
+template. Everything here describes `master` @ cf80ccde (13 October 2026);
+what is planned stands in part E, referred to as "→ En".
+
+## A1. What it is and for whom
+
+A multi-tenant web platform for member organisations and small companies,
+server-rendered, one PostgreSQL database with one schema per domain, built and
+maintained by one architect directing AI coding agents inside a harness of
+gates (part C). It runs in production for one community association since
+June 2026 and carries the association's public site, its activity
+registrations with online and bank-transfer payment, family membership with
+renewal, a form engine, web content, board meetings, a newsletter with an AI
+co-writer, a poster studio, a chatbot, reporting and a workbench for the board.
+
+Three kinds of tenant exist since CR-19 (tenant kinds, v2.13.0): an
+*association* (every module on), a *company* (a site, forms and a workbench; no
+members, no registrations) and the *platform* itself (the operator's landing
+site). A tenant is today a row of `mdm.organizations` with `org_type = UNIT`
+under an `ACCOUNT` row, the customer that pays (→ E24 moves the tenant into a
+table of its own; → E28 names the parties). The first tenant is small on
+purpose; the structure underneath — master data with merge and survivorship, a
+payment ledger with a stated invariant, row-level tenancy from the kernel, a
+job queue, a workbench that turns every exception into a task — is that of
+business software, so that a second customer is configuration, not code.
+
+Who uses it: the *member* (a household's main member, partner or child) on the
+public site and in the household portal; the *board* in the back office — the
+member administration, the treasurer, the organiser of an activity, the
+secretary of a meeting, the newsletter's author — each with the rights of their
+role (`docs/rollen-en-rechten.md`, CR-24); the *operator* of the platform for
+tenants and their settings.
+
+## A2. The processes it automates
+
+One figure per business process, end to end, in the convention of 13 October
+2026: the lanes are people and roles, the colour of a step is the tool it is
+done in (platform blue with the module in brackets, white by hand, orange in
+another system), a task the workbench hands to a person is a green hexagon, and
+a lane *Platform, uit zichzelf* appears only where the platform does something
+without a person. So a figure shows where the platform guides the process and
+where the person has to know it alone.
+
+### A2.1 Membership: joining, changing, leaving
+
+A household joins on *Lid worden* and pays; a member changes their data or
+leaves in *Mijn gezin*. The national association keeps the member register of
+record and has no API: the member administration retypes every new household
+and every change in the national programme, and only a new household needs
+the member report back, for the national member number that the import in
+*Leden* links (`mdm/import_service.py`: the report is the source of truth for
+what it holds; `reporting/changes.py`: the change list for retyping).
+
+<!-- figure: name=proc-membership caption=Membership_end_to_end_-_no_platform_lane:_the_administration_remembers_the_three_white_steps_alone -->
+```mermaid
+flowchart TB
+  subgraph LID["Lid"]
+    direction TB
+    S0((" ")) --> A1["Wordt lid en betaalt (Lid worden)"]
+    A9["Vraagt een wijziging of uitschrijving (Mijn gezin)"]
+  end
+  subgraph LA["Ledenadministratie"]
+    direction TB
+    G1["Denkt eraan de wijzigingen op te halen"] --> G2["Exporteert de wijzigingen (Wijzigingen)"] --> G3["Typt over in het nationale programma"] --> Q1{"Nieuw lid?"}
+    Q1 -- nee --> E2(("Raak Nationaal bijgewerkt"))
+    G4["Denkt eraan het ledenrapport op te halen"] --> G5["Laadt het ledenrapport op (Leden)"] --> E1(("Lid in beide systemen, met nummer"))
+  end
+  subgraph RN["Raak Nationaal"]
+    direction TB
+    N1["Kent het lidnummer toe en maakt het ledenrapport"]
+  end
+  A1 --> G1
+  A9 --> G1
+  Q1 -- ja --> N1 --> G4
+  classDef platform fill:#e8f0ff,stroke:#0051a4,color:#14171c;
+  classDef manual fill:#ffffff,stroke:#52607a,color:#14171c;
+  classDef other fill:#fff7ed,stroke:#f16532,color:#14171c;
+  class A1,A9,G2,G5 platform
+  class G1,G4,Q1 manual
+  class G3,N1 other
+```
+
+*What to see:* no platform lane and three white boxes — nothing reminds the
+administration; the platform supports the two ends (the sign-up, the import)
+and not the middle. → E30 proposes the tasks that close that gap. Renewal runs
+yearly through `membership`: the household renews in the portal or the board
+renews it in the back office, and either way the household gets the order mail
+(A9).
+
+### A2.2 An activity: registering and paying
+
+The organiser publishes an activity with its components (what one registers
+for, with capacity and price) and products (order lines); a visitor or member
+registers on the public page or the board registers them in the back office
+(the same page in two shells, CR-14), chooses online or bank transfer, and the
+total is computed on the server. Online, the platform watches the outcome;
+by transfer, the treasurer does.
+
+<!-- figure: name=proc-payment caption=Paying_for_a_registration_-_online_the_platform_watches,_by_transfer_the_treasurer_does -->
+```mermaid
+flowchart TB
+  subgraph LID["Lid"]
+    direction TB
+    S0((" ")) --> A1["Schrijft in (Inschrijven)"] --> Q0{"Hoe betalen?"}
+    Q0 -- online --> A2["Betaalt bij Mollie"]
+    Q0 -- overschrijving --> A3["Schrijft over bij zijn bank"]
+  end
+  subgraph PF["Platform, uit zichzelf"]
+    direction TB
+    P1["Controleert de webhook bij Mollie"] --> Q1{"Klopt met de inschrijving?"}
+  end
+  subgraph PM["Penningmeester"]
+    direction TB
+    T1{{"Taak: webhook wijkt af (werkbank)"}} --> H1["Kijkt na en corrigeert (Betalingen)"]
+    H2["Volgt de rekeninguittreksels op"] --> H3["Boekt de betaling in (Betalingen)"]
+  end
+  A2 --> P1
+  A3 --> H2
+  Q1 -- ja --> E1(("Betaald"))
+  Q1 -- nee --> T1
+  H1 --> E1
+  H3 --> E1
+  classDef platform fill:#e8f0ff,stroke:#0051a4,color:#14171c;
+  classDef manual fill:#ffffff,stroke:#52607a,color:#14171c;
+  classDef other fill:#fff7ed,stroke:#f16532,color:#14171c;
+  classDef task fill:#eef7ee,stroke:#005d29,stroke-width:2px,color:#14171c;
+  class A1,Q0,P1,Q1,H1,H3 platform
+  class A2,A3 other
+  class H2 manual
+  class T1 task
+```
+
+*What to see:* the two ways differ in who watches. Online, the platform
+re-fetches the payment at Mollie and raises a task only when something is off
+(A9); by transfer, following up the bank statements is a white box — the
+treasurer's own discipline.
+
+### A2.3 A refund
+
+A member reduces an order after paying, or the treasurer decides a refund; the
+ledger records the obligation and the workbench hands the treasurer the task;
+the money goes back by bank transfer, by hand, and the treasurer confirms.
+
+<!-- figure: name=proc-refund caption=A_refund_-_the_platform_records_and_reminds,_the_treasurer_pays_by_hand -->
+```mermaid
+flowchart TB
+  subgraph LID["Lid"]
+    direction TB
+    S0((" ")) --> A1["Vermindert zijn bestelling na betaling (Inschrijven)"]
+  end
+  subgraph PM["Penningmeester"]
+    direction TB
+    H0["Maakt de terugbetaling aan (Betalingen)"]
+    T2{{"Taak: terugbetaling bevestigen (werkbank)"}} --> H1["Betaalt terug via de bank"] --> H2["Bevestigt de terugbetaling (Betalingen)"] --> E2(("Terugbetaald"))
+  end
+  subgraph PF["Platform, uit zichzelf"]
+    direction TB
+    P1["Zet de taak klaar (uursweep)"]
+  end
+  A1 --> H0 --> P1 --> T2
+  classDef platform fill:#e8f0ff,stroke:#0051a4,color:#14171c;
+  classDef other fill:#fff7ed,stroke:#f16532,color:#14171c;
+  classDef task fill:#eef7ee,stroke:#005d29,stroke-width:2px,color:#14171c;
+  class A1,H0,H2,P1 platform
+  class H1 other
+  class T2 task
+```
+
+### A2.4 The other processes
+
+Six more processes run on the platform. Their figures are drawn in the same
+convention when their module's section (part B) is measured against the code;
+until then one paragraph each names the process and the lanes.
+
+- **Board meetings** (`meetings`, CR-09): the secretary creates a meeting, the
+  agenda is generated from live data (upcoming activities, the finances), the
+  minutes are typed per item, attachments are kept, and the report is mailed as
+  a PDF to the board. Lanes: secretary, board, platform (the agenda, the mail).
+- **The newsletter** (`newsletter`, CR-05 phase A): the author composes a
+  letter from activity blocks, with Raakje as co-writer whose every factual
+  claim is checked against the selected sources; a test send, then the send.
+  Lanes: author, member (receives), platform (the check, the send, the log).
+- **Web content and forms** (`cms`, `forms`, CR-17 in build → E22): the board
+  edits pages with text placeholders that resolve from tenant settings, builds
+  forms with branching, and reads the submissions; a visitor fills a form and
+  the message lands as a task in the workbench. Lanes: board, visitor,
+  platform (the task).
+- **Reporting and the change report** (`reporting`, CR-06, CR-07): a board
+  member asks a question in the query panel or to the admin assistant, the
+  universe answers it from views on the live database, and exports it as
+  OpenDocument; the change report lists every change to a logged object for
+  the member administration (A2.1). Lanes: board member, platform.
+- **The poster studio** (`designstudio`, CR-10): the organiser chooses a
+  preset for an activity, Raakje proposes the text, Inkscape renders the
+  poster and the social image. Lanes: organiser, platform (the render).
+- **The chatbot** (`chatbot`): a visitor asks Raakje about the site; the answer
+  comes from the published pages and three allow-listed tools; an idea
+  submitted through the bot goes through the site's own form port into the
+  workbench. Lanes: visitor, platform, board (the task).
+
+The webshop (CR-21 → E25) joins this list when it is built.
+
+## A3. Principles
+
+Each principle names where it is enforced; a principle that is only written
+down is a wish. The first eight are leading principles of the way of working
+and carry Koen's words from `AGENTS.md`; the rest are principles of the
+structure and carry a gate.
+
+| # | Principle | In one sentence | Where it lives, and what holds it |
+|---|---|---|---|
+| P1 | Keep it simple | one rule for everyone beats a rule with exceptions; a decision that makes code superfluous removes that code in the same change | `AGENTS.md` (Koen, 8 October 2026: "Ik hou altijd van KIS"); the review (C4) |
+| P2 | First time right | an open question is answered before what depends on it is built; no workaround to get past one | `AGENTS.md` (Koen, 13 October 2026: "ik wil het first-time right doen, geen uitzondering"); the review |
+| P3 | One place per fact | a rule, a value, a figure lives once; the second place derives from the first or a gate fails on the difference | `AGENTS.md` (*Twee keer dezelfde reparatie*); `docs/code-style.md` (*A rule has one home*); `test_rules_gate.py` |
+| P4 | Model on standards | build only what is needed today, in the form a standard gives it (UBL 2.1 / EN 16931, ISO 20022, ISO 6523) so that the extension is a row, not a rework | `AGENTS.md` (*Modelleer op standaarden*, 15 September 2026); part D; the build read of a change request |
+| P5 | A test must be able to go red | a gate is proven red once with one deliberate violation; a gate that looked nowhere is green for nothing | `AGENTS.md` (*Testen en test-evidence*); `test_gate_niet_leeg.py` |
+| P6 | Europe first | an EU option is sought before any tool, service or model; a deviation is written down with its trade-off | `AGENTS.md` (*Europe First*); the proposal of every new dependency |
+| P7 | Mobile is the norm | most visits are on a phone; every screen is designed and judged at 390 px first | `docs/design-system.md`; the merge gate at 390 px (C4); the `measure` job (C3) |
+| P8 | Issue first, and one source of truth per release | every deployable change has an issue; the release tracker says what ships and how | `AGENTS.md` (*Development workflow*); the process gates (C5) |
+| P9 | Domain separation with facades | a domain is reached through `api.py` only; the kernel imports no domain; no foreign key crosses a schema except towards a code table of `mdm` or `auth` | `test_import_boundaries.py`, `test_schema_boundaries.py` |
+| P10 | A screen builds a view-model and chooses a template, nothing else | a UI module never touches the session; a template asks for nothing its view-model does not promise; `StrictUndefined` outside production | `test_layer_gate.py`, `test_template_variables_gate.py` |
+| P11 | ERP-ready data | master data is never hard-deleted; merges keep a survivorship chain; every entity has an append-only history table written in the same transaction; cross-domain references are values | `mdm/service.py` (`merge_persons`, `resolve`), `kernel/history.py`, `test_payable_delete_gate.py` |
+| P12 | A ledger, not a payment field | every charge and refund is a record with a polymorphic reference to what is paid; one function owns *sum of records equals amount due*; the webhook body is never trusted | `payment/service.py` (`reconcile_charges`), the webhook test that posts a forged body |
+| P13 | Multi-tenant by construction | `tenant_id` from a kernel mixin, resolved per request, applied as a global ORM filter no query can forget | `kernel/tenancy.py`; `test_reporting_schema_gate.py` for the views |
+| P14 | Gatekeepers in the request path | eighteen checks between a request and a row, most of them explicit route dependencies so each is testable alone; the financial gate is separate from the administrative one | A8; `test_role_model_gates.py`, `test_rights_gate.py` |
+| P15 | Security by design, refused at startup | a weak `SECRET_KEY`, `DEBUG` or SQL echo stop the application in UAT and production; no API docs there; logs carry an allow-list of fields | `config.py`; the tests on the 404 of `/docs` |
+| P16 | AI in both directions, inside a boundary | built with AI agents inside the gates; AI in the product behind an allow-listed tool list, every call logged, every feature dark-launched per environment | `test_public_tool_boundary_gate.py`, `test_ai_log_coverage_gate.py` |
+
+## A4. System context and deployment
+
+Every environment is a Docker Compose stack with an explicit project name
+(`docker-compose.dev.yml`, `.hdev.yml`, `.uat.yml`, `.prod.yml`, and
+`docker-compose.caddy.yml` for the shared proxy). Development and the
+integration environment HDEV carry their own reverse proxy; UAT and production
+publish no host ports and sit behind one shared Caddy container that
+terminates TLS for both, deployed with an expand/contract discipline because
+its configuration serves two releases at once (`AGENTS.md`, *Shared Caddy*).
+The backend serves HTML and JSON from one process; there is no frontend
+container since the React exit (v2.0.0).
+
+<!-- figure: name=deployment caption=Deployment_topology_-_the_shared_proxy_in_front_of_UAT_and_PROD,_HDEV_with_its_own -->
+```mermaid
+flowchart TB
+  subgraph NET["Internet"]
+    direction LR
+    U[["Visitors, members, board"]]
+    MO[["Mollie"]]
+  end
+  subgraph HOST["EU-hosted VPS, Docker Compose"]
+    direction TB
+    subgraph SHARED["project caddy, shared TLS proxy"]
+      C["Caddy, :80 :443, security headers, CSP, HSTS"]
+    end
+    subgraph PROD["project prod, tag-pinned"]
+      direction LR
+      PB["backend, FastAPI + uvicorn"] --- PD[("PostgreSQL 16")]
+      PU["umami"] --- PK["db-backup, nightly dump"]
+    end
+    subgraph UAT["project uat, tag-pinned"]
+      direction LR
+      UB["backend"] --- UD[("PostgreSQL 16")]
+    end
+    subgraph HDEV["project hdev, follows master"]
+      direction LR
+      HC["own Caddy, :8081"] --> HB["backend"] --- HD[("PostgreSQL 16")]
+    end
+  end
+  U --> C
+  C --> PB
+  C --> UB
+  MO -. "webhook, id only" .-> C
+  PB -. "re-fetch status and amount" .-> MO
+  classDef kernel fill:#e8f0ff,stroke:#0051a4,color:#14171c;
+  classDef domain fill:#ffffff,stroke:#52607a,color:#14171c;
+  classDef external fill:#fff7ed,stroke:#f16532,color:#14171c;
+  class C,PD,UD,HD kernel
+  class PB,UB,HB,HC,PU,PK domain
+  class U,MO external
+```
+
+*What to see:* only the shared proxy reaches UAT and PROD; HDEV is a stack of
+its own and never enters the shared proxy (Koen, 10 September 2026).
+
+What an operator looks for: images are pinned; the backend runs as a non-root
+user; the production compose fails fast on a missing secret (`${VAR:?…}`); one
+entry point, `raakctl` on the server and `raak` from a laptop, resolves an
+environment name to its checkout so nobody runs the UAT script against
+production; the deploy takes a pre-migration dump, checks out the tag
+detached, rebuilds, runs a read-only smoke test and checks the migration chain
+and a clean start (C5 for the order, `AGENTS.md` for the six verification
+lines).
+
+## A5. The way of working
+
+Written in full in `AGENTS.md`; this section is the map, not a copy.
+
+- **Two kinds of working copy.** The master worktree works on `master`:
+  releases, merges, deploys, issues, reviews routed, the conversation with
+  Koen; it writes no production code. A feature worktree works on a branch:
+  all code, tests, commits and pushes come from there, and a green pull request
+  is handed to the master CLI, which alone merges.
+- **Sessions and what each gets** (Koen, 12 October 2026): two dev CLIs for
+  large work and migrations, a third on a smaller model for small, bounded
+  work that tests and CI catch, a design-documentation CLI for screen design
+  and change request documents, an architecture CLI for structural design and
+  this document, and builders outside the Claude series on their own branch
+  with one pull request as their mailbox.
+- **A change is a change request first** when it carries a data model, a
+  domain boundary or a migration strategy: shaped on the architecture branch
+  from `docs/change_request_template.md`, read against the code by a dev CLI
+  before Koen assigns it, built per phase, closed out at step 14 of its
+  release with its as-built deviations in the document.
+- **The release**: the fourteen steps of C5, with HDEV before the tag and
+  three confirmations by Koen.
+
+<!-- figure: name=branches caption=The_branch_model_-_feature_branches_and_a_change_request_branch_into_master,_a_tag_per_release -->
+```mermaid
+%%{init: {'gitGraph': {'mainBranchName': 'master', 'showCommitLabel': true}}}%%
+gitGraph
+  commit id: "release" tag: "v2.16.0"
+  branch cr17/web-content
+  checkout master
+  branch feature/dev1-1927
+  commit id: "#1927"
+  checkout cr17/web-content
+  commit id: "slice 1"
+  checkout master
+  merge feature/dev1-1927 id: "PR #1935"
+  checkout cr17/web-content
+  merge master id: "master in"
+  commit id: "slice 2"
+  checkout master
+  branch hotfix/2.16.1
+  commit id: "fix"
+  checkout master
+  merge hotfix/2.16.1 tag: "v2.16.1"
+  merge cr17/web-content id: "after Koen's test"
+  commit id: "release " tag: "v2.17.0"
+```
+
+*What to see:* a feature branch lives for one issue and merges when green; a
+change request branch of an outside builder lives for the whole change request
+and merges once, after Koen's own test; a hotfix branches from the tag.
+
+## A6. The GUI layer
+
+Two shells and one kit. The public shell (`site_base.html`, with
+`app.ui.site_context`) carries every page a visitor or member sees, per tenant;
+the admin shell (`admin_base.html`, with `app.ui.admin_nav`) carries the back
+office, with the workbench as the one way in for every role. Both are drawn
+from one kit: the macros in `backend/app/ui/templates/_macros.html`, the
+tokens generated by `scripts/build-css.sh` (Tailwind standalone, no Node), and
+the layouts — the list layout (`list_page.html`: title row, toolbar, the
+kit's table), the record layout (the record head, cards, tabs, one action bar
+with one save), the public form page. `docs/design-system.md` is the norm
+since 9 September 2026, `docs/design-system-end-state.md` the target CR-11
+rolls out, and `/admin/design-system` renders every macro live from the real
+kit so the reference cannot drift.
+
+How a screen is built: a route in `ui.py` or `admin_ui.py` reads through its
+domain's facade, builds a typed view-model and chooses a template; the template
+is Jinja with htmx for interaction and Alpine for small client state, and
+asks for nothing the view-model does not promise. The kit gates of C2 hold
+that a list is the kit's table, a form has one save in the kit's action bar,
+a field is the kit's field; the ratchets measure how far the roll-out is.
+The measured inventory — every macro, every screen per layout — is folded in
+from the count of the design-documentation CLI when it stands (A6 count).
+
+## A7. The module map
+
+Fifteen packages under `backend/app/domains/` on 13 October 2026 — `activities`,
+`auth`, `chatbot`, `cms`, `designstudio`, `forms`, `mail`, `mdm`, `media`,
+`meetings`, `membership`, `newsletter`, `payment`, `reporting`, `workflow` —
+each with its models, service, screens and templates, one PostgreSQL schema
+each, and `api.py` as its only public door. (`audit` dissolved into its owners
+on 9 October 2026, CR-13 phase 4c; `stt` is a package under `chatbot`.)
+
+<!-- figure: name=components caption=Layered_package_structure_-_business_domains_on_the_foundation,_everything_on_the_kernel -->
+```mermaid
+flowchart TB
+  subgraph USERS[" "]
+    direction LR
+    PUB["Public site, per tenant"] ~~~ ADM["Back office"]
+  end
+  subgraph L2["Business domains, one schema each, behind api.py"]
+    direction LR
+    ACT["activities"] ~~~ MEM["membership"] ~~~ PAY["payment"] ~~~ FORM["forms"] ~~~ CMS["cms"]
+    WB["workflow"] ~~~ MEET["meetings"] ~~~ NEWS["newsletter"] ~~~ DS["designstudio"] ~~~ RPT["reporting"]
+  end
+  subgraph L1["Foundation and capabilities"]
+    direction LR
+    AUTH["auth"] ~~~ MDM["mdm"] ~~~ MAIL["mail"] ~~~ MEDIA["media"] ~~~ CHAT["chatbot, stt"]
+  end
+  K["kernel: tenancy, tenant_config, events, ports, jobs, history, modules, rules, money, ods"]
+  USERS --> L2
+  L2 -- "facades, events, ports" --> L1
+  L1 --> K
+  L2 --> K
+  classDef kernel fill:#e8f0ff,stroke:#0051a4,color:#14171c;
+  classDef domain fill:#ffffff,stroke:#52607a,color:#14171c;
+  class K kernel
+  class ACT,MEM,PAY,FORM,CMS,WB,MEET,NEWS,DS,RPT,AUTH,MDM,MAIL,MEDIA,CHAT,PUB,ADM domain
+```
+
+*What to see:* the foundation (identity, master data, mail) sits under the
+business domains because every one of them needs it; the kernel holds no
+business logic and imports no domain.
+
+**How domains talk** (decided with Koen on 30 September 2026; the mechanics are
+`kernel/events.py`, `kernel/ports.py`, `kernel/jobs.py` and the gates of
+CR-13). The choice is made by what the caller says:
+
+| The caller… | Uses | Receivers | Answer |
+|---|---|---|---|
+| reports a fact ("a payment was received") | an **event**: `publish` / `@subscribe`, contract in `kernel/contracts/` | zero or more | none |
+| needs something done *and* the result to go on ("store these answers and tell me their id") | a **port**: `call` / `@handles`, exactly one handler, contract in `kernel/contracts/` | one | yes |
+| only wants to know | a **read** through the other domain's `api.py` | — | yes |
+
+Nine ports exist (`kernel/contracts/`: four of `forms`, `CreateHousehold` of
+`mdm`, four of `media`). Events and ports both run synchronously in the
+caller's transaction today; the difference shows only when a component is
+extracted — an event then goes through an outbox (→ E9), a port cannot wait.
+Two shapes beside the three (CR-13 phase 4d): a *door* — a route or a screen
+module — may call one command of another domain and read freely; code reached
+only from a `@job` may call another domain's command and act on its outcome.
+What fits none stands declared with its reason in `test_rules_gate.py`
+(`DECLARED_COMMAND_CALLS`, five on 13 October 2026). Deliberately not built: a
+message broker, a workflow engine, event sourcing (→ E40).
+
+<!-- figure: name=interactions caption=Cross-domain_links_on_master_-_facade_calls,_events_and_ports -->
+```mermaid
+flowchart TB
+  ACT["activities"] -- "is member? (read)" --> MEM["membership"]
+  PAY["payment"] -- "PaymentReceived (event)" --> MEM
+  PAY -- "PaymentReceived, RefundDue (events, sweep sooner)" --> WB["workflow"]
+  MEM -- "CreateHousehold (port)" --> MDM["mdm"]
+  ACT -- "SubmitAttached, UpdateAttached (ports)" --> FORM["forms"]
+  FORM -- "SubmissionCreated (event)" --> WB
+  CHAT["chatbot"] -- "SubmitMessage (port)" --> FORM
+  CHAT -- "extracted text (read)" --> MEDIA["media"]
+  CMS["cms"] -- "published pages (read)" --> CHAT
+  DS["designstudio"] -- "StoreFile (port)" --> MEDIA
+  NEWS["newsletter"] -- "StoreFile (port)" --> MEDIA
+  ACT -- "StoreFile (port)" --> MEDIA
+  classDef domain fill:#ffffff,stroke:#52607a,color:#14171c;
+  class ACT,MEM,PAY,WB,MDM,FORM,CHAT,MEDIA,CMS,DS,NEWS domain
+```
+
+The measured inventory per module — schema, tables, tenant-scoped tables,
+facade functions, events, ports, jobs, status columns — is folded in from the
+count of the design-documentation CLI when it stands (A7 count) and is the
+source of part B's contracts.
+
+## A8. A request, end to end
+
+Eighteen distinct checks stand between a request and a database row. Most are
+not middleware but explicit dependencies on routes, which is what makes them
+testable one by one. Two decisions are worth knowing: rights are derived per
+request from the database, never baked into a token, so a revoked role takes
+effect on the next request; and the UI session is a stateless, HMAC-signed
+HttpOnly cookie from which the CSRF token is derived, so there is no session
+store to operate.
+
+<!-- figure: name=gatekeepers caption=Gatekeepers_in_request_order wide=1 -->
+```mermaid
+flowchart LR
+  subgraph EDGE["Edge, Caddy"]
+    direction TB
+    G1["1 TLS, HSTS, CSP, X-Frame-Options DENY"] ~~~ G2["2 the backend has no published port"]
+  end
+  subgraph MW["FastAPI middleware, outer to inner"]
+    direction TB
+    G3["3 global 500 handler, the body never leaks"] ~~~ G4["4 access log, PII-free, slow requests warn"] ~~~ G5["5-6 htmx headers, boosted swap, push-URL filter"] ~~~ G7["7 tenant and locale resolution to a contextvar"] ~~~ G8["8 CORS, localhost only outside uat and prod"]
+  end
+  subgraph ROUTE["Route dependencies"]
+    direction TB
+    G9["9 rate limiter per route"] ~~~ G10["10 authentication: the signed session"] ~~~ G11["11 authorisation: require_right(code), a role is a bundle of rights (CR-24)"] ~~~ G12["12 CSRF double-submit, HMAC over the session"] ~~~ G13["13 Pydantic validation, 422 logs field names, never values"] ~~~ G14["14 ownership: a member reaches only their own household"]
+  end
+  subgraph DATA["Session, database, response"]
+    direction TB
+    G15["15 global tenant filter on every SELECT"] ~~~ G16["16 global soft-delete filter"] ~~~ G17["17 PostgreSQL constraints: UNIQUE, CHECK, NOT NULL tenant_id"] ~~~ G18["18 Jinja autoescape and the nh3 sanitiser for CMS and LLM output"]
+  end
+  EDGE --> MW --> ROUTE --> DATA
+  classDef kernel fill:#e8f0ff,stroke:#0051a4,color:#14171c;
+  classDef external fill:#fff7ed,stroke:#f16532,color:#14171c;
+  class G1,G2 external
+  class G10,G11,G12,G14,G15 kernel
+```
+
+**Modules per tenant sit in step 11's place too**: `main.py` includes each
+module router with `require_module(code)`, which answers 404 for a tenant that
+has the module off, before any role guard runs (A10).
+
+<!-- figure: name=request-sequence caption=A_server-rendered_admin_action_with_htmx -->
+```mermaid
+sequenceDiagram
+  autonumber
+  participant B as Browser (htmx)
+  participant C as Caddy
+  participant M as Middleware
+  participant R as Route (admin_ui.py)
+  participant S as Service
+  participant D as PostgreSQL
+  B->>C: POST …/bevestigen, X-CSRF-Token, HX-Request
+  C->>M: forward on the internal network
+  M->>M: tenant to contextvar, locale, log timer
+  M->>R: dispatch
+  R->>R: rate limit, session to e-mail, require_right, require_csrf
+  R->>S: confirm_manual_payment(id, actor)
+  S->>S: the money invariant
+  S->>D: SELECT … FOR UPDATE, tenant and soft-delete filters applied
+  S->>D: INSERT history, UPDATE record, COMMIT
+  S-->>R: result
+  R->>R: build the view-model
+  R-->>B: HTML fragment, autoescaped, HX-Trigger toast
+  B->>B: swap the fragment
+```
+
+The public side follows the same shape without a session: registration, form
+submission and chatbot posts are rate-limited instead of CSRF-gated, and the
+total of a registration is always recomputed on the server before it is shown
+or stored.
+
+**Roles and where a person lands.** One sign-in flow serves everyone: an
+e-mail address receives a magic link and a six-digit code (hashed with a
+pepper, one live code per address, five attempts, fifteen minutes). Whether
+the address belongs to a back-office user or to a member is decided per
+request. Since CR-22 (sign-in, v2.15.0) *the door decides*: whoever signs in
+on the public site stays on the public site, whoever signs in to the back
+office lands on the workbench, for every role, with the menu showing what the
+rights open. Rights are the unit since CR-24 (back-office rights, v2.16.0):
+a role is a bundle of rights, a gate names a right and never a role
+(`test_rights_gate.py`), and the treasurer's separation — FINANCE mutates
+payments, ADMIN reads them — is the right `payment.manage` on every mutating payment route.
+The matrix is `docs/rollen-en-rechten.md`.
+
+**The workbench: management by exception.** Human work that the platform cannot
+finish is an exception or a decision, and it lands in one place. Six task
+kinds exist (`workflow/codes.py`): a message to handle, a refund to confirm, a
+payment whose gateway state disagrees with the ledger, an orphaned payment
+record, a mail that failed after its retries, a background job that failed for
+good. Tasks come from events or from the idempotent hourly sweep, which also
+closes a task whose cause disappeared, for the kinds it created itself; a
+task is filtered by the right it needs. The design goal is zero-touch: an
+empty workbench is a healthy system. The member administration has no task
+kinds yet (→ E30).
+
+## A9. Money
+
+Money lives in one ledger domain, `payment`: every charge and refund is a
+`PaymentRecord` that points at what it pays through a polymorphic reference
+(`payable_type`, `payable_id`) without a foreign key, so one ledger serves
+registrations and memberships and can serve an order (CR-21). The ledger's
+single invariant has one home, `reconcile_charges` in `payment/service.py`:
+*after reconciliation, the sum of all non-deleted records equals the amount
+due*. Paid amounts are the truth; unpaid records are re-derived; a shortfall
+becomes one transfer charge with a Belgian structured communication from a
+Postgres sequence with the mod-97 check; a surplus becomes one refund that is
+a pending obligation until the treasurer confirms it (A2.3).
+
+<!-- figure: name=payment-sequence caption=Online_payment_-_the_webhook_is_never_trusted,_the_status_is_re-fetched -->
+```mermaid
+sequenceDiagram
+  autonumber
+  participant V as Visitor
+  participant A as activities / payment
+  participant L as Ledger (payment_records)
+  participant MO as Mollie
+  participant W as Workbench
+  V->>A: register, method online
+  A->>A: total computed server-side, member price if the membership is valid
+  A->>L: charge record (pending) and gateway_payment
+  A->>MO: create payment (per-tenant API key)
+  MO-->>V: checkout (hard redirect)
+  MO->>A: webhook: id only, unsigned
+  A->>MO: GET /payments/{id}: status, amount, currency
+  alt amount and currency match
+    A->>L: SELECT … FOR UPDATE, mark paid once, history row, PaymentReceived
+  else mismatch
+    A->>L: gateway status needs_review, not paid
+    A->>W: task payment.webhook_mismatch
+  end
+  Note over A,L: the body of the webhook is never read for status or amount
+```
+
+**Never trust the webhook body** is written as a security invariant in
+`AGENTS.md` and held by a regression test that posts a forged
+`status=paid&amount=999` and asserts the record stays pending. **Every order
+confirms itself by mail, from whichever door it was placed** (Koen, 11 October
+2026): a membership, a registration or an order placed by the board mails the
+household the same mail the member would get.
+
+## A10. Tenancy and security
+
+**The tenant model.** A tenant is a row of `mdm.organizations` of type `UNIT`
+under an `ACCOUNT` (the customer); the operator role stands above the tree.
+Per request `kernel/tenancy.py` resolves the tenant — path prefix, then
+hostname, then the platform host (root is the landing page, else the tenant
+cookie), then the default — into a contextvar, from which a global ORM filter
+(`with_loader_criteria`, including relationship loads) scopes every SELECT.
+`TenantMixin` adds `tenant_id NOT NULL`, indexed, with a default from the
+context; 64 model classes carry it on 13 October 2026. Row-level security in
+PostgreSQL is prepared for and not enabled (→ E6).
+
+<!-- figure: name=tenancy caption=Tenant_hierarchy_and_per-request_resolution -->
+```mermaid
+flowchart TB
+  subgraph H["Organisation tree, mdm.organizations"]
+    direction TB
+    OP["OPERATOR, the platform"] --> A1["ACCOUNT: the customer"]
+    A1 --> U1["UNIT: the association's site, tenant 2"]
+    A1 --> U2["UNIT: the example division, tenant 3, demo seed"]
+    OP --> A2["ACCOUNT: the next customer, configuration not code"]
+  end
+  subgraph RES["Resolution per request, kernel/tenancy.py"]
+    direction TB
+    P["1 path prefix"] --> HN["2 hostname"] --> PH["3 platform host, root or cookie"] --> DF["4 default tenant"]
+  end
+  H --> RES --> CV["contextvar current_tenant_id"]
+  CV --> F["global ORM filter, tenant_id = current, including relationship loads"]
+  CV --> CFG["tenant_config: settings and two encrypted secrets, .env as fallback"]
+  classDef kernel fill:#e8f0ff,stroke:#0051a4,color:#14171c;
+  classDef domain fill:#ffffff,stroke:#52607a,color:#14171c;
+  classDef external fill:#fff7ed,stroke:#f16532,color:#14171c;
+  class CV,F,CFG,P,HN,PH,DF kernel
+  class A1,U1,U2,A2 domain
+  class OP external
+```
+
+**Configuration and secrets.** `kernel_tenant_settings` holds the known keys
+per tenant (display name, base URL, social links, language, membership prices
+and dates, payment IBAN, mail settings, analytics, limits) and two secrets —
+the Mollie API key and the mail app password — encrypted with Fernet under a
+key derived from `SECRET_KEY`; secrets are never rendered back. Infrastructure
+secrets stay in `.env`. Shared by design and without a tenant: back-office
+identity (`auth.users`, roles, login tokens), the organisation table itself,
+postal codes and code tables. A user is a platform account granted roles;
+which tenant they act in is decided by the request.
+
+**Modules per tenant** (CR-19, v2.13.0). What a module owns is code; which
+modules a tenant has on is data: `kernel/modules.py` holds the registry — menu
+items, route prefixes, dashboard tiles, home blocks, sitemap paths, newsletter
+audiences, reporting folders, dependencies — and `mdm.tenant_modules` each
+tenant's enabled set, held to the registry by a CHECK. An association has
+every module, a company `cms`, `media` and `forms`. A module that is off is
+refused with 404 before any role guard; the workbench is core, not a module
+(#1876). `test_module_gate.py` holds every include to a module or the shell.
+
+**Security controls**, each with its home:
+
+| Control | Where |
+|---|---|
+| Startup refuses weak configuration (`SECRET_KEY`, `DEBUG`, SQL echo) in UAT and PROD; no API docs there | `config.py`; tested |
+| Session and CSRF: HMAC-signed HttpOnly cookie, `secure` in UAT and PROD, 12 h; CSRF = HMAC over the session value, constant-time compare, four failure reasons logged, the token never | `auth/session.py` |
+| OTP: hashed with a pepper, one live code, five attempts, generic answers, no account enumeration | `auth/service.py` |
+| Financial separation: the right `payment.manage` on every mutating payment route, `payment.view` on the reads (`Right` in `auth/models.py`) | `payment/ui.py`; `test_role_model_gates.py` |
+| Webhook integrity: re-fetch, amount and currency check, `needs_review` on mismatch, row lock, idempotent | `payment/gateway_service.py` |
+| Ownership on the household portal: the portal reads the household of the signed-in person and nothing else (`household_view(db, person)`) | `membership/ui.py`, `membership/api.py` |
+| Output: Jinja `autoescape` guarded by a lint rule; nh3 allow-lists, stricter for LLM output than for CMS | `test_ui_conventions_gate.py`; `cms/render.py`, `chatbot/render.py` |
+| Logging: an allow-list of extra fields; no query strings, bodies or tokens | `app/logging_config.py` |
+| Secrets in the repository: none; `.env.*.example` only; the public-repository agent reads every diff | `AGENTS.md`, C4 |
+| Dependency audit: `pip-audit` on every push, reporting but never silent | the `audit` job, C3 |
+| Formula injection in exports: ODS cells typed as strings, never CSV | `kernel/ods.py` |
+
+Known and in the open, each a row of part E: the CSP still allows
+`unsafe-inline` and `unsafe-eval` for scripts and inline styles (→ E3); the
+history tables are append-only by convention, not by grant (→ E3); the
+background jobs run without a tenant (→ E4); the rate limiters count per
+process, so the backend runs one worker (→ E14).
+
+## A11. AI in the solution
+
+Four AI features run, every one behind a provider seam with a deterministic
+mock so CI runs without keys, every one dark-launched per environment, every
+call logged (`test_ai_log_coverage_gate.py`), and all of them on Mistral
+(EU): **Raakje, the chatbot** on the public site — context stuffing of the
+published pages, notes and counts into a system prompt with a hard limit, and
+a boundary that is the tool list: three allow-listed functions, no member
+data, no payments, no admin, held by `test_public_tool_boundary_gate.py`;
+**document extraction** — a poster or component document is read through its
+PDF text layer first and sent to OCR only when that yields too little, with an
+administrator's override; **speech-to-text** — a WebSocket proxy to Voxtral so
+the key never reaches the browser, with a handshake limit, a daily audio
+budget and a browser-native fallback; and **the co-writer and the admin
+assistant** — Raakje drafts the newsletter from the selected sources and every
+factual claim is checked against them, an unsupported sentence is marked and
+left out unless the author keeps it; in the back office the assistant inherits
+its screen's selection or record, resolved server-side and never trusted from
+a form.
+
+<!-- figure: name=ai caption=AI_features_and_their_boundaries_-_orange_is_the_provider,_mocked_in_CI -->
+```mermaid
+flowchart TB
+  CMS["published pages"] --> CTX
+  NOTES["admin notes and overrides"] --> CTX
+  DOCS["posters and documents"] --> OCR["OCR, mistral-ocr"] --> EXT["extracted text, PDF layer first, admin can override"] --> TOOLS
+  MIC["microphone"] --> STT["Voxtral realtime, WebSocket proxy, key stays server-side"] --> USER
+  subgraph RAAKJE["Raakje, the chatbot boundary"]
+    CTX["system prompt: persona, today, counts, pages, no names"] --> LLM["chat completion, mistral-small"]
+    LLM <--> TOOLS["3 allow-listed tools, no member data, no payments, no admin"]
+    LLM --> SAN["output: markdown to nh3, no img, no table"]
+  end
+  SAN --> USER["visitor, rate-limited"]
+  TOOLS -- "submit_idea: the forms port SubmitMessage" --> WB["workbench task"]
+  classDef kernel fill:#e8f0ff,stroke:#0051a4,color:#14171c;
+  classDef domain fill:#ffffff,stroke:#52607a,color:#14171c;
+  classDef external fill:#fff7ed,stroke:#f16532,color:#14171c;
+  class OCR,STT,LLM external
+  class CTX,TOOLS,SAN,EXT kernel
+  class CMS,NOTES,DOCS,MIC,USER,WB domain
+```
+
+Mail is the one provider without that seam yet (→ E36). Claude Code, which
+builds the platform, is itself a deviation from Europe first; what a session
+may read from an environment is bounded for that reason (`AGENTS.md`, *Europe
+First*).
+
 # Part C — The harness
 
 The rules and the gates that give predictable development without drift. This
@@ -468,7 +1188,7 @@ rejected choices.
 
 | Id | What | Why | Track | Status |
 |---|---|---|---|---|
-| E34 | Sixteen small issues parked on v2.19 (Koen, 9 October 2026: "parkeren op v2.19, niet wachten op CR11"): #1858, #1859, #1860, #1873, #1874, #1882, #1883, #1884, #1885, #1886, #1888, #1905, #1910, #1917, #1924, #1925 | each a finding of a validation or a review, too small for a change request | GitHub holds no v2.19 tracker, label or milestone yet: the list lives in a note of the master CLI — a tracker makes it visible (`AGENTS.md`: *always create a release tracking issue*) | planned |
+| E34 | Sixteen small issues parked on v2.19 (Koen, 9 October 2026: "parkeren op v2.19, niet wachten op CR11"): #1858, #1859, #1860, #1873, #1874, #1882, #1883, #1884, #1885, #1886, #1888, #1905, #1910, #1917, #1924, #1925 | each a finding of a validation or a review, too small for a change request | the tracker of v2.19, #1949 (Koen, 13 October 2026: "ja"), with the sixteen and #1951 since | planned |
 | E35 | The nine hand-drawn tables outside the list gate, looked at one by one | the list gate's ceiling of 9 comes down with each | #1925 | planned |
 | E36 | A mail provider seam like the mock pattern chat, OCR, STT and Mollie follow | the former §7.1 named it as the one provider without a seam | — | open |
 | E37 | A load test beyond an association's traffic | the former chapter 8: "the shape transfers, the volume does not yet" | the reference architecture (E33) | open |
