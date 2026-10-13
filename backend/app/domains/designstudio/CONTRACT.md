@@ -1,11 +1,17 @@
 # designstudio — component contract (CR-10, #1007)
 
+## Purpose and process
+
 **Purpose.** Posters and social images made from an activity, in the Raak house
 style, by the unit itself: one template "Affiche" in two layouts (print A3/A4,
 Instagram 4:5), photos or AI line drawings, an editable SVG to download and
 upload, and a numbered version that can be published as the activity's poster.
 
-## Facade (`api.py`) — the only door for other components
+*Process (A2.4.5 — a poster from the Design Studio).* Aggregate: `Design` with its versions, renditions, highlights and logos; `ImageGeneration` is a request to the image provider with its outcome.
+
+## Publishes
+
+### Facade (`api.py`) — the only door for other components
 
 - **Read**: `list_designs`, `designs_for_activity` (for the activity screen's jump link), `get_design`, `facts_for` (what the poster takes
   from the activity and the association, plain values), `fingerprint`,
@@ -27,7 +33,19 @@ upload, and a numbered version that can be published as the activity's poster.
 - **Models as type**: `Design`, `DesignVersion`, `DesignRendition`,
   `ImageGeneration`.
 
-## What this component uses from others (through their facades only)
+### What other components take from here
+
+The activity screen may read `designs_for_activity` for a jump link
+("Ontwerpen: n · naar de Design Studio", `/admin/ontwerpen?activity_id=…`,
+or `/admin/ontwerpen/nieuw?activity_id=…` when there is none). The activity
+keeps its poster through `media`, unchanged. A newsletter may later read a
+version's PNG through `rendition`.
+
+*Counted in the code on 13 October 2026:* the facade exports 65 names (31 functions, 15 classes, 19 values); events it owns (`kernel/contracts/`): none; ports it offers: none.
+
+## Consumes
+
+### What this component uses from others (through their facades only)
 
 | Component | For |
 |---|---|
@@ -38,15 +56,44 @@ upload, and a numbered version that can be published as the activity's poster.
 | `chatbot.api` | `sink_for` (the AI log, #978) and `cost_per_period` (the month's spend) |
 | `kernel` | `tenant_home_url` (the QR target, https), `current_tenant_id`, `jobs` (`designstudio.generate`) |
 
-## What other components take from here
+*Counted in the code on 13 October 2026:* imports the facades of activities, auth, chatbot, mdm, media; subscribes to `ActivityCopied`; calls `StoreFile`, `RemoveAsset` (media).
 
-The activity screen may read `designs_for_activity` for a jump link
-("Ontwerpen: n · naar de Design Studio", `/admin/ontwerpen?activity_id=…`,
-or `/admin/ontwerpen/nieuw?activity_id=…` when there is none). The activity
-keeps its poster through `media`, unchanged. A newsletter may later read a
-version's PNG through `rendition`.
+## Owns
 
-## Invariants
+### Rendering (B1.3)
+
+Inkscape 1.4 as a subprocess (apt package in the image; fonts Radio Canada
+Big and Caveat made visible to fontconfig), PDF with text kept and fonts
+embedded, PNG at a pixel width. Never `--export-text-to-path` (Inkscape reads
+`=false` as true). Effects are native SVG: pattern speckles (one tile per
+title), `textPath`, `feTurbulence` + `feDisplacementMap` on a mask for ragged
+photo edges, stroke with `paint-order` for bolder titles.
+
+*Counted in the code on 13 October 2026:* schema `designstudio`, 20 tables (6 data, 14 code and label), 6 of them with `tenant_id`; status columns: `designs.status` (`design_status`: draft, final), `image_generations.status` (`generation_status`: requested, fetched, picked, discarded, refused, failed); jobs: `designstudio.generate`.
+
+## Screens
+
+`/admin/ontwerpen` (list, new design per activity) and
+`/admin/ontwerpen/{id}` (the editor: form, preview per layout, violations,
+images, AI variants with a style and "wat wil je anders?" on a variant,
+versions, publish, SVG download/upload). Behind the rights
+`design.view` and `design.manage`. Presets: `eenvoudig` (one picture over the full width,
+a few facts), `beeld` (picture right, highlights left), `tekst` (highlights
+left, description right).
+
+`admin_ui.py`: 17 routes under `/admin/ontwerpen`.
+
+## Deprecations
+
+None: no part of this contract is in its deprecation cycle.
+
+## Standards
+
+None: no row of part D of the architecture document names this module, and its `models.py` names no standard.
+
+## Rules and gates
+
+### Invariants
 
 - **A design stores inputs, never facts and never renders.** Title, dates,
   place, deadline, members-only, description (#1016), organisers and the
@@ -83,21 +130,12 @@ version's PNG through `rendition`.
 - **No cross-schema foreign keys** (`test_schema_boundaries`): `activity_id`,
   `media_asset_id`, `ai_call_log_id` are soft references.
 
-## Rendering (B1.3)
+- **Rules whose home is this module** — beside the invariants above: no `@validates` and no `check()` in `models.py`; 4 `CheckConstraint`s there.
+- **Gates in this module's own `tests/`** — none among its 3 test files; `brand.check_template` is the module's own gate on a template, run by its tests.
 
-Inkscape 1.4 as a subprocess (apt package in the image; fonts Radio Canada
-Big and Caveat made visible to fontconfig), PDF with text kept and fonts
-embedded, PNG at a pixel width. Never `--export-text-to-path` (Inkscape reads
-`=false` as true). Effects are native SVG: pattern speckles (one tile per
-title), `textPath`, `feTurbulence` + `feDisplacementMap` on a mask for ragged
-photo edges, stroke with `paint-order` for bolder titles.
+## Evolutions
 
-## Screens
+Ids of part E of the architecture document, as it stood on 13 October 2026.
 
-`/admin/ontwerpen` (list, new design per activity) and
-`/admin/ontwerpen/{id}` (the editor: form, preview per layout, violations,
-images, AI variants with a style and "wat wil je anders?" on a variant,
-versions, publish, SVG download/upload). Behind the rights
-`design.view` and `design.manage`. Presets: `eenvoudig` (one picture over the full width,
-a few facts), `beeld` (picture right, highlights left), `tekst` (highlights
-left, description right).
+- **E38** — the close-out of CR-10's status line, which says less than what is built.
+- No other row of part E names this module.

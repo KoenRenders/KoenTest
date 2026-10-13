@@ -1,4 +1,6 @@
-"""The screens say "Mobiel" and "E-mail" (#1719) — one word per contact field,
+"""Refuses "gsm", "Mobiel nummer" or "E-mailadres" as a word a person reads · hard · since #1719.
+
+The screens say "Mobiel" and "E-mail" (#1719) — one word per contact field,
 on every screen, in every mail and in the changes list.
 
 Three rules over the application's templates and Python (tests left out,

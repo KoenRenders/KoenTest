@@ -1,4 +1,6 @@
-"""The admin frame keeps one navigation source (CR-11 block 1, #1482).
+"""Refuses a second navigation loop in the admin shell, a menu item without an icon, or a menu icon missing from the kit · hard · since #1482.
+
+The admin frame keeps one navigation source (CR-11 block 1, #1482).
 
 The sidebar is wide, a rail and, on a phone, a drawer — three appearances of
 one element. A second loop over the menu items (for the rail, for the drawer)

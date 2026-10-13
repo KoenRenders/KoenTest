@@ -1,4 +1,6 @@
-"""A record form has one save, in the kit's action bar (CR-11 block 9, #1561; B7 tests 4 and 10).
+"""Refuses a record form without exactly one `ui.action_bar(record=True)`, or with a second submit · hard · since #1561.
+
+A record form has one save, in the kit's action bar (CR-11 block 9, #1561; B7 tests 4 and 10).
 
 `design-system-end-state.md` §3.6, §3.18, §3.19. A screen that edits a record
 as a whole marks its form `data-record-form`, and then:

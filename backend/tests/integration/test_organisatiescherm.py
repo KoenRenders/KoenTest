@@ -106,7 +106,7 @@ def test_the_tenant_screen_does_not_know_this_organisation(client, platform_work
     Zou `/admin/tenants/1` óók werken, dan was er geen gat en geen issue.
     """
     _operator(client, db_session)
-    assert client.get(f"/admin/tenants/{ACCOUNT_ID}").status_code == 404
+    assert client.get(f"/admin/tenants/{ACCOUNT_ID}?bewerken=1").status_code == 404
 
 
 # ── Het risico: de ledenschermen blijven werken ──────────────────────────────
@@ -357,7 +357,7 @@ def test_the_legal_form_dropdown_grows_with_the_code_list(client, platform_works
     reset_label_cache()
 
     _operator(client, db_session)
-    html = client.get(f"/admin/organisaties/{ACCOUNT_ID}").text
+    html = client.get(f"/admin/organisaties/{ACCOUNT_ID}?bewerken=1").text
 
     assert 'value="STICHTING"' in html
     assert "Stichting" in html
@@ -415,10 +415,13 @@ def test_the_address_round_trips(client, platform_workspace, db_session):
     )
 
     _operator(client, db_session)
-    html = client.get(f"/admin/organisaties/{ACCOUNT_ID}").text
+    html = client.get(f"/admin/organisaties/{ACCOUNT_ID}?bewerken=1").text
     assert 'value="Kerkstraat"' in html
     assert 'value="7"' in html
     assert 'value="B"' in html
+    # Read, the same address is one line behind its icon.
+    read = client.get(f"/admin/organisaties/{ACCOUNT_ID}").text
+    assert "Kerkstraat 7 bus B" in read and "<input" not in read.split("data-form-flow", 1)[1]
 
 
 def test_clearing_street_and_number_removes_the_address(client, platform_workspace, db_session):
@@ -445,13 +448,21 @@ def test_clearing_street_and_number_removes_the_address(client, platform_workspa
 def test_the_address_form_has_the_shape_of_the_member_screen(
     client, platform_workspace, db_session
 ):
-    """Vier kolommen, straat over twee, postcode als dropdown over de volle breedte.
+    """Straat de helft, huisnummer en bus een kwart, postcode als dropdown over de
+    volle breedte, op het bewerkraster van de kit (#1932).
 
     Een vastgelegde UI-beslissing (CLAUDE.md), overgenomen en niet opnieuw bedacht.
     """
-    _operator(client, db_session)
-    html = client.get(f"/admin/organisaties/{ACCOUNT_ID}").text
+    import re
 
-    assert "grid-cols-4" in html
+    _operator(client, db_session)
+    html = client.get(f"/admin/organisaties/{ACCOUNT_ID}?bewerken=1").text
+
     assert 'name="postal_code"' in html and "<select" in html
-    assert 'name="street"' in html and "col-span-2" in html
+    spans = dict(re.findall(r'data-field="(\w+)" data-kind="\w+" data-span="(\w+)"', html))
+    assert (spans["street"], spans["house_number"], spans["bus_number"]) == (
+        "half",
+        "quarter",
+        "quarter",
+    )
+    assert spans["postal_code"] == "full"

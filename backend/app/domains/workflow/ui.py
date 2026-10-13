@@ -1,7 +1,16 @@
-"""Werkbank-embryo (#398, §20.5): open taken tonen, behartigen, sluiten door
-beslissing. Rol-gefilterd; verversen via htmx-polling (§20.5 — geen SSE)."""
+"""The Werkbank (#398, §20.5; on the kit since #1931): the list of tasks on the
+list layout, one task on the record layout, and handling a task.
+
+The list refreshes itself every 30 s (§20.5 — polling, no SSE). What a task is
+about, who may see and handle it and what its next step is, is the service's
+(`workflow.workbench`, behind `workflow.api`); this module reads the request,
+words what the service found and chooses a template.
+"""
 
 from __future__ import annotations
+
+from typing import Any
+from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, Response
@@ -9,261 +18,561 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (
+    ROLE,
     SESSION_COOKIE,
     Right,
     csrf_token_for,
+    get_user_roles,
     require_csrf,
     require_right,
 )
 from app.domains.workflow import api
-from app.domains.workflow.api import TASK_CATEGORY, TASK_KIND, TASK_STATUS, SubjectType, TaskStatus
+from app.domains.workflow.api import TASK_CATEGORY, TASK_KIND, TASK_STATUS, TaskStatus
+from app.domains.workflow.viewmodels import TaskView, WorkbenchView
+from app.i18n import _
 from app.kernel.codes import code_label, code_labels, code_of
-from app.ui import admin_nav, is_fragment_request, templates
+from app.ui import (
+    PER_PAGE_DEFAULT,
+    PER_PAGE_OPTIONS,
+    admin_nav,
+    filterparams,
+    is_fragment_request,
+    list_return,
+    per_page_from,
+    record_frame,
+    refusal_response,
+    templates,
+)
 
 router = APIRouter(include_in_schema=False)
 
+NAV = "/admin/werkbank"
+#: The line both screens show a refusal on.
+MESSAGE_LINE = "#werkbank-melding"
+STATUSES = (TaskStatus.OPEN.value, TaskStatus.DONE.value, "all")
+#: The list's orders: newest first unless asked otherwise.
+SORT_DEFAULT = "-aangemaakt"
+SORTS = (SORT_DEFAULT, "aangemaakt", "soort", "-soort")
 
-def _ctx(
-    request: Request, db: Session, email: str, kind: str = "", q: str = "", status: str = "open"
-) -> dict:
-    from app.domains.auth.api import get_user_roles
-    from app.i18n import _
 
-    roles = sorted(get_user_roles(db, email))
-    raw = request.cookies.get(SESSION_COOKIE) or ""
-    # #674: afgehandelde taken waren nergens terug te vinden, terwijl het besluit,
-    # wie en wanneer allemaal bewaard worden. `api.tasks` staat bewust naast
-    # `open_tasks`: die laatste voedt óók de idempotentie van de weesjob en de
-    # navigatieteller, en die mogen niet ineens de afgehandelde meetellen.
-    status = (
-        status
-        if status in (TaskStatus.OPEN.value, TaskStatus.DONE.value, "all")
-        else TaskStatus.OPEN.value
-    )
-    all_tasks = api.tasks(db, roles, status=status)
+def _roles(db: Session, email: str) -> list[str]:
+    return sorted(get_user_roles(db, email))
 
-    # Eén gegroepeerde filter (#549), data-gedreven uit de dotted `kind`
-    # (bv. "membership.reminder" → categorie "membership", subtype "reminder").
-    def _cat(k) -> str:
-        return (code_of(k) or "").split(".", 1)[0]
 
-    # §2.12: never show raw codes (#630). `kind` is an internal dotted field
-    # (payment.webhook_mismatch, …) that stood as a badge on every task. Since
-    # CR-12 phase 4 those words come from the label table of `task_kind`, and
-    # the category heading from the DERIVED list `task_category` — the
-    # category is the part before the dot and is stored nowhere (§B5.3 note 5).
-    def _kind_label(k) -> str:
-        return code_label(TASK_KIND.name, k, db=db) or _("Overige taak")
+def _csrf(request: Request) -> str:
+    return csrf_token_for(request.cookies.get(SESSION_COOKIE) or "")
 
-    def _cat_label(c: str) -> str:
-        return code_label(TASK_CATEGORY.name, c, db=db)
 
-    def _sub(k) -> str:
-        code = code_of(k) or ""
-        return code.split(".", 1)[1] if "." in code else ""
+def _geld(amount) -> str:
+    return "€ " + templates.env.filters["geld"](amount)
 
-    cats: dict[str, set] = {}
-    for t in all_tasks:
-        if t.kind:
-            cats.setdefault(_cat(t.kind), set())
-            if _sub(t.kind):
-                cats[_cat(t.kind)].add(_sub(t.kind))
-    # Macro-klaar (grouped_filter): top-optie "Alle taken" + per categorie een
-    # optgroup met "Alle <cat>" (prefix-match) + de exacte subtypes.
-    filter_top = [("", _("Alle taken"))]
-    filter_groups = {
-        _cat_label(cat): (
-            [(cat, f"{_('Alle')} {_cat_label(cat).lower()}")]
-            + [(f"{cat}.{s}", _kind_label(f"{cat}.{s}")) for s in sorted(subs)]
-        )
-        for cat, subs in sorted(cats.items())
+
+def _moment(value) -> str:
+    return templates.env.filters["short_datetime"](value) if value else ""
+
+
+def _kind_label(db: Session, kind) -> str:
+    # §2.12: never show a raw code (#630).
+    return code_label(TASK_KIND.name, kind) or _("Overige taak")
+
+
+def _category(kind) -> str:
+    """The part of a kind before its dot: the category, stored nowhere (§B5.3)."""
+    return (code_of(kind) or "").split(".", 1)[0]
+
+
+def _age(days: int | None) -> str:
+    if days is None:
+        return "—"
+    if days == 0:
+        return _("vandaag")
+    return _("1 dag") if days == 1 else _("%(n)d dagen") % {"n": days}
+
+
+def _subject_line(subject: dict[str, Any] | None) -> str:
+    """What a task is about, on one line under its title — what the card of
+    before never showed. Each subject's own domain supplied the values."""
+    if not subject:
+        return ""
+    kind = subject["type"]
+    if kind == "payment_record":
+        who = (
+            _("Terugbetaling aan %(name)s") if subject["refund"] else _("Betaling van %(name)s")
+        ) % {"name": subject["name"] or "—"}
+        return f"{who} · {_geld(subject['amount'])}"
+    if kind == "form_submission":
+        return _("Formulier %(form)s · inzending #%(number)s") % {
+            "form": subject["form"] or "—",
+            "number": subject["number"],
+        }
+    if kind == "email_log":
+        return subject["subject"] or subject["recipient"]
+    if kind == "kernel_job":
+        return _("%(name)s · %(attempts)s/%(max)s pogingen") % {
+            "name": subject["name"],
+            "attempts": subject["attempts"],
+            "max": subject["max_attempts"],
+        }
+    return ""
+
+
+def _status_badge(db: Session, task) -> dict[str, str]:
+    done = api.is_done(task)
+    return {
+        "label": code_label(TASK_STATUS.name, task.status),
+        "tone": "green" if done else "yellow",
     }
-    # Filter: kind met punt → exact; zonder punt → hele categorie (prefix); leeg → alles.
+
+
+def _handle_attrs(task_id: int) -> str:
+    """The row's own "Afgehandeld": a POST without a decision. The answer is the
+    list again, in the state the address bar carries."""
+    return (
+        f'hx-post="{NAV}/taken/{task_id}/afgehandeld" hx-target="#werkbank-lijst" '
+        'hx-swap="innerHTML" data-task-handle'
+    )
+
+
+def _row_steps(db: Session, task) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
+    """The row's button and its `⋯` items, from the kind's own next step. A step
+    to a subject that has no address (it is gone) is left out."""
+    steps = api.next_step(task)
+    url = api.subject_url(db, task)
+
+    def _shaped(step: dict[str, Any]) -> dict[str, Any] | None:
+        if step["do"] == "handle":
+            return {"label": step["label"], "attrs": _handle_attrs(task.id)}
+        return {"label": step["label"], "href": url} if url else None
+
+    button = _shaped(steps["button"]) if steps["button"] else None
+    menu = [item for item in (_shaped(step) for step in steps["menu"]) if item]
+    return button, menu
+
+
+def _workbench_view(request: Request, db: Session, email: str, *, oob: bool) -> WorkbenchView:
+    from app.config import settings
+
+    roles = _roles(db, email)
+    state = filterparams(request)
+    status = state.get("status") or STATUSES[0]
+    if status not in STATUSES:
+        status = STATUSES[0]
+    q = (state.get("q") or "").strip()
+    kind = (state.get("kind") or "").strip()
+    # The role filter offers the viewer's own roles: a task of another role is
+    # not on their list anyway.
+    role = (state.get("rol") or "").strip()
+    if role not in roles:
+        role = ""
+    sort = (state.get("sort") or "").strip()
+    if sort not in SORTS:
+        sort = SORT_DEFAULT
+    per_page = per_page_from(state.get("per_page"))
+    try:
+        page = max(1, int(state.get("page") or 1))
+    except ValueError:
+        page = 1
+
+    # #674: `api.tasks` beside `open_tasks` on purpose — the latter also feeds
+    # the sweep's idempotency and the menu's counter. The role filter of the
+    # viewer always holds, on handled tasks as on open ones.
+    mine = api.tasks(db, roles, status="all")
+    tasks = [t for t in mine if status == "all" or code_of(t.status) == status]
+    # One grouped filter (#549), data-driven from the dotted kind: with a dot
+    # it is one kind, without it a whole category, empty everything.
     if "." in kind:
-        tasks = [t for t in all_tasks if code_of(t.kind) == kind]
+        tasks = [t for t in tasks if code_of(t.kind) == kind]
     elif kind:
-        tasks = [t for t in all_tasks if _cat(t.kind) == kind]
-    else:
-        tasks = all_tasks
-    # Vrij zoeken (#592) op de titel en op het taaktype: een werkbank die volloopt
-    # wordt onbruikbaar als je enkel per categorie kunt filteren.
-    term = q.strip().lower()
+        tasks = [t for t in tasks if _category(t.kind) == kind]
+    if role:
+        tasks = [t for t in tasks if code_of(t.required_role) == role]
+    subjects = api.subjects(db, tasks)
+    lines = {t.id: _subject_line(subjects.get(t.id)) for t in tasks}
+    kinds = {t.id: _kind_label(db, t.kind) for t in tasks}
+    # Free search (#592) on the title, on the kind and — since #1931 — on what
+    # the task is about.
+    term = q.lower()
     if term:
         tasks = [
             t
             for t in tasks
             if term in (t.title or "").lower()
-            or term in (code_of(t.kind) or "").lower()
-            or term in _kind_label(t.kind).lower()
+            or term in kinds[t.id].lower()
+            or term in lines[t.id].lower()
         ]
-    return {
-        "csrf_token": csrf_token_for(raw),
-        "roles": roles,
-        "tasks": tasks,
+    if sort in ("soort", "-soort"):
+        tasks = sorted(tasks, key=lambda t: (kinds[t.id].lower(), t.id), reverse=sort == "-soort")
+    else:
+        tasks = sorted(tasks, key=lambda t: (t.created_at, t.id), reverse=sort == SORT_DEFAULT)
+
+    total = len(tasks)
+    page = min(page, max(1, -(-total // per_page)))
+    shown = tasks[(page - 1) * per_page : page * per_page]
+
+    link_state = {
+        "status": status if status != STATUSES[0] else "",
         "q": q,
-        "nav_items": admin_nav("/admin/werkbank", request),
-        "filter_top": filter_top,
-        "filter_groups": filter_groups,
         "kind": kind,
-        "status": status,
-        "status_opties": code_labels(TASK_STATUS.name, db=db) + [("all", _("Alle"))],
-        # Per task id, derived here: the screen compares no codes (§B4.7).
-        "kind_labels": {t.id: _kind_label(t.kind) for t in tasks},
-        "is_done": {t.id: t.status is TaskStatus.DONE for t in tasks},
+        "rol": role,
     }
 
+    def _query(**more: Any) -> str:
+        merged = {**link_state, "per_page": per_page, **more}
+        return urlencode({k: v for k, v in merged.items() if v != ""})
 
-@router.get("/admin/werkbank", response_class=HTMLResponse)
+    way_back = list_return(
+        NAV,
+        **link_state,
+        sort=sort if sort != SORT_DEFAULT else "",
+        page=page if page > 1 else "",
+        per_page=per_page if per_page != PER_PAGE_DEFAULT else "",
+    )
+    role_labels = dict(code_labels(ROLE.name))
+    rows = []
+    for task in shown:
+        button, menu = _row_steps(db, task)
+        rows.append(
+            {
+                "id": task.id,
+                "title": task.title,
+                "href": f"{NAV}/taken/{task.id}?terug={quote(way_back, safe='/')}",
+                "subject": lines[task.id],
+                "kind": kinds[task.id],
+                "moment": _moment(task.created_at),
+                "age": _age(api.age_days(task)),
+                "state": _status_badge(db, task),
+                "role": role_labels.get(code_of(task.required_role) or "", ""),
+                "action": button,
+                "menu": menu,
+            }
+        )
+
+    def _head(
+        key: str, label: str, cell: str, ascending: str, descending: str, **extra: Any
+    ) -> dict[str, Any]:
+        turned = descending if sort == ascending else ascending
+        head: dict[str, Any] = {
+            "key": key,
+            "label": label,
+            "cell": cell,
+            "sort_url": f"{NAV}?{_query(sort=turned)}",
+            "sort_page_url": f"{NAV}?{_query(sort=turned)}",
+            **extra,
+        }
+        if sort in (ascending, descending):
+            head["sorted"] = "asc" if sort == ascending else "desc"
+        return head
+
+    counts = api.figures(mine)
+    status_labels = dict(code_labels(TASK_STATUS.name))
+    # One grouped filter (#549), data-driven: the kinds of the viewer's own
+    # tasks, under their category, with the whole category first.
+    kind_names = dict(code_labels(TASK_KIND.name))
+    groups: dict[str, list[tuple[str, str]]] = {}
+    for code in sorted({code_of(t.kind) or "" for t in mine}):
+        if "." in code:
+            groups.setdefault(_category(code), []).append((code, kind_names.get(code, code)))
+    # The categories in the code list's order; one it does not know (a workflow
+    # definition is data and may bring a kind) follows, under its own code.
+    known = [category for category, _label in code_labels(TASK_CATEGORY.name)]
+    ordered = [c for c in known if c in groups] + sorted(c for c in groups if c not in known)
+    kind_groups = []
+    for category in ordered:
+        label = code_label(TASK_CATEGORY.name, category)
+        whole = (category, _("Alle %(category)s") % {"category": label.lower()})
+        kind_groups.append((label, [whole] + groups[category]))
+    if q:
+        empty_reason = _("Geen taken gevonden voor “%(q)s”.") % {"q": q}
+    elif kind or role:
+        empty_reason = _("Geen taken met deze filters.")
+    elif status == TaskStatus.DONE.value:
+        empty_reason = _("Geen afgehandelde taken.")
+    elif status == "all":
+        empty_reason = _("Nog geen taken.")
+    else:
+        empty_reason = _("Geen open taken — alles is behartigd.")
+    return WorkbenchView(
+        rows=rows,
+        columns=[
+            {"key": "taak", "label": _("Taak"), "cell": "name", "width": 252},
+            _head("soort", _("Soort"), "context", "soort", "-soort", width=176),
+            _head("aangemaakt", _("Aangemaakt"), "moment", "aangemaakt", "-aangemaakt"),
+            {
+                "key": "open_sinds",
+                "label": _("Open sinds"),
+                "cell": "extra",
+                "num": True,
+                "priority": 1,
+                "width": 100,
+            },
+            {"key": "status", "label": _("Status"), "cell": "status"},
+            {"key": "rol", "label": _("Rol"), "cell": "extra", "priority": 2, "width": 148},
+            # The widest step ("Open in de e-maillog") with its ⋯ needs 240 px.
+            {"key": "acties", "label": _("Acties"), "cell": "actions", "width": 240},
+        ],
+        segments=[
+            {"value": "open", "label": status_labels["open"], "count": counts["open"]},
+            {"value": "done", "label": status_labels["done"], "count": counts["done"]},
+            {"value": "all", "label": _("Alle")},
+        ],
+        figures=[
+            {
+                "value": str(counts["open"]),
+                "label": _("Open"),
+                "title": _("Open taken voor jouw rollen."),
+            },
+            {
+                "value": str(counts["today"]),
+                "label": _("Vandaag"),
+                "title": _("Taken die vandaag aangemaakt zijn."),
+            },
+            {
+                "value": str(counts["old"]),
+                "label": _("Ouder dan een week"),
+                "title": _("Open taken die langer dan zeven dagen open staan."),
+                "warning": counts["old"] > 0,
+            },
+        ],
+        status=status,
+        q=q,
+        kind=kind,
+        kind_groups=kind_groups,
+        role=role,
+        roles=[(code, role_labels.get(code, code)) for code in roles],
+        sort=sort,
+        sort_options=[
+            (SORT_DEFAULT, _("Nieuwste eerst")),
+            ("aangemaakt", _("Oudste eerst")),
+            ("soort", _("Soort")),
+        ],
+        page=page,
+        per_page=per_page,
+        total=total,
+        page_sizes=list(PER_PAGE_OPTIONS),
+        pager_url=f"{NAV}?{_query(sort=sort)}",
+        empty_reason=empty_reason,
+        workbench_enabled=settings.workbench_enabled,
+        csrf_token=_csrf(request),
+        nav_items=[] if oob else admin_nav(NAV, request),
+        oob=oob,
+    )
+
+
+@router.get(NAV, response_class=HTMLResponse)
 def werkbank(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.WORKBENCH_USE)),
-    kind: str = "",
-    q: str = "",
-    status: str = "open",
 ):
-    from app.config import settings
+    """The list of tasks (#1931). Its state — status, search, kind, role, sort,
+    page, page size — lives in the URL; the toolbar asks this same address for
+    the fragment."""
+    fragment = is_fragment_request(request)
+    view = _workbench_view(request, db, email, oob=fragment)
+    template = "_werkbank_lijst.html" if fragment else "werkbank.html"
+    return templates.TemplateResponse(request, template, view.as_context())
 
-    ctx = _ctx(request, db, email, kind, q, status)
-    ctx["workbench_enabled"] = settings.workbench_enabled
-    return templates.TemplateResponse(request, "werkbank.html", ctx)
 
-
-@router.get("/admin/werkbank/lijst", response_class=HTMLResponse)
+@router.get(f"{NAV}/lijst", response_class=HTMLResponse)
 def werkbank_lijst(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.WORKBENCH_USE)),
-    kind: str = "",
-    q: str = "",
-    status: str = "open",
 ):
-    """Polling-fragment: enkel de takenlijst (elke 30s ververst, §20.5).
-
-    Zoek en filter staan sinds #592 op de pagina zelf, in de kit-filterbalk; ze
-    overleven de polling doordat het pollende element ze meestuurt (hx-include).
-    """
-    return templates.TemplateResponse(
-        request, "_werkbank_lijst.html", _ctx(request, db, email, kind, q, status)
-    )
+    """The polling fragment: only the list, refreshed every 30 s (§20.5). The
+    toolbar stands outside it; the state comes from the address the page is on
+    (`filterparams`), so a refresh keeps the search, the filters and the page."""
+    view = _workbench_view(request, db, email, oob=True)
+    return templates.TemplateResponse(request, "_werkbank_lijst.html", view.as_context())
 
 
-# #822: where do you go to look at the subject, and is the workbench a SIGNPOST or
-# the WORKPLACE here? Both answers hang on the SUBJECT, not on the task kind.
-#
-# Koen's rule, 10 September 2026: if the entity has its own screen with its own
-# actions, the workbench is a signpost — *"marking a payment 'handled' from its
-# workbench record is pointless"*. If all you can do is judge and note it down, the
-# workbench IS the workplace: *"handling a message is a workflow action that does
-# belong in the workbench, same for those mails and the kernel job."*
-#
-# A webhook mismatch makes that sharpest: the fix is to re-fetch the status from
-# Mollie, and that button lives on the payment screen. Being able to tick
-# "Handled" here would hide that the money is still not booked.
-#
-# Keyed on the subject rather than the kind, so a future payment task gets the right
-# shape without anyone having to remember a second list.
-#
-# **A subject with NO screen belongs to neither.** `kernel_job` is not in this set and
-# gets no link either: there is no route to a kernel-job screen, so a link would be a
-# dead button rather than a signpost. What you need in order to judge it — name,
-# status, attempts, last error — sits in the detail rows themselves
-# (`_kernel_job_rows`), and that IS the way to the subject here. So do not add a link
-# "for consistency": the point is a way to the thing, not a link as a shape. If you
-# want a real screen for it, that is new scope.
-SUBJECTS_WITH_OWN_SCREEN = {SubjectType.PAYMENT_RECORD}
+def _subject_rows(db: Session, task, subject: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """The card Onderwerp: what the task is about, as facts. A conventional kind
+    carries its icon, anything else its label (end state §2.2)."""
+    from app.domains.workflow.api import SubjectType
 
-
-def _subject_url(db, task) -> str | None:
-    """The way to the thing itself. Every domain supplies its own URL.
-
-    Of the four subject types exactly one had a link before #822 (`payment_record`),
-    so for three of the five task kinds there was no way to the subject at all — you
-    read the title and went looking.
-
-    `kernel_job` deliberately gets no link: there is no screen for it. Instead of a
-    button pointing somewhere the job is not, the detail shows its data in place (see
-    `_kernel_job_rows`). A dead reference is worse than none — see #811, where six of
-    them broke at once.
-    """
-    if not task or not task.subject_id:
-        return None
-    if task.subject_type is SubjectType.PAYMENT_RECORD:
-        return f"/admin/betalingen?record={task.subject_id}"
-    if task.subject_type is SubjectType.EMAIL_LOG:
-        from app.domains.mail.api import email_log_url
-
-        return email_log_url(db, task.subject_id)
     if task.subject_type is SubjectType.FORM_SUBMISSION:
-        from app.domains.forms.api import submission_url
+        from app.domains.forms.api import submission_view
 
-        return submission_url(db, task.subject_id)
-    return None
+        # #704: `subject_id` is text since that change; `submission_view`
+        # expects a number.
+        answers = submission_view(db, int(task.subject_id))
+        if not answers:
+            return []
+        (_from, name), (_mail, address), (_received, received) = answers[:3]
+        rows: list[dict[str, Any]] = [
+            {"icon": "user", "value": name},
+            {
+                "icon": "mail",
+                "value": address,
+                "href": f"mailto:{address}" if "@" in address else None,
+            },
+            {"icon": "clock", "value": _("Ontvangen %(when)s") % {"when": received}},
+        ]
+        return rows + [{"label": label, "value": value or "—"} for label, value in answers[3:]]
+    if task.subject_type is SubjectType.KERNEL_JOB:
+        # There is no screen for kernel jobs, so this IS the way to the subject
+        # (#822): name, status, attempts and the last error.
+        from app.kernel.jobs import job_details
 
-
-def _kernel_job_rows(db, task) -> list[tuple[str, str]]:
-    """The data of a failed background job, shown in place.
-
-    There is no screen for kernel jobs, so this IS the "way to the subject" for this
-    type: name, status, attempts and the last error. Exactly what you need to judge
-    whether there is anything you can do about it.
-    """
-    # Imported lazily, as elsewhere in this domain: `_()` must follow the language of
-    # the active tenant, not the one in force at import time.
-    from app.i18n import _
-    from app.kernel.jobs import job_details
-
-    job = job_details(db, task.subject_id)
-    if job is None:
+        job = job_details(db, task.subject_id)
+        if job is None:
+            return []
+        return [
+            {"label": _("Job"), "value": job["name"]},
+            {"label": _("Status"), "value": job["status"]},
+            {"label": _("Pogingen"), "value": f"{job['attempts']}/{job['max_attempts']}"},
+            {"label": _("Laatste fout"), "value": (job["last_error"] or "—")[:500]},
+        ]
+    if not subject:
         return []
-    return [
-        (_("Job"), job["name"]),
-        (_("Status"), job["status"]),
-        (_("Pogingen"), f"{job['attempts']}/{job['max_attempts']}"),
-        (_("Laatste fout"), (job["last_error"] or "—")[:500]),
+    if task.subject_type is SubjectType.PAYMENT_RECORD:
+        rows = [
+            {"icon": "user", "value": subject["name"] or "—"},
+            {
+                "label": _("Terug te betalen") if subject["refund"] else _("Bedrag"),
+                "value": _geld(subject["amount"]),
+            },
+            {
+                "label": _("Status"),
+                "value": code_label("payment_status", subject["status"]),
+            },
+            {
+                "label": _("Wijze"),
+                "value": code_label("payment_method", subject["method"]),
+            },
+        ]
+        if subject["gateway_status"]:
+            # The provider's own word: on a mismatch it says more than ours.
+            rows.append({"label": _("Mollie meldt"), "value": subject["gateway_status"]})
+        return rows
+    if task.subject_type is SubjectType.EMAIL_LOG:
+        rows = [
+            {
+                "icon": "mail",
+                "value": subject["recipient"] or "—",
+                "href": f"mailto:{subject['recipient']}" if subject["recipient"] else None,
+            },
+            {"label": _("Onderwerp"), "value": subject["subject"] or "—"},
+        ]
+        if subject["error"]:
+            rows.append({"label": _("Laatste fout"), "value": subject["error"]})
+        return rows
+    return []
+
+
+def _task_view(request: Request, db: Session, email: str, task_id: int, **extra) -> TaskView:
+    roles = _roles(db, email)
+    frame = record_frame(request, db, NAV)
+    way_back = frame["way_back"]
+    task = api.task_for(db, task_id, roles)
+    nav = admin_nav(NAV, request)
+    if task is None:
+        return TaskView(
+            task_id=None,
+            record_head={"title": _("Taak niet gevonden")},
+            way_back=way_back,
+            head_editing=False,
+            summary={},
+            subject_rows=[],
+            subject_link=None,
+            signpost=False,
+            done=False,
+            decision="",
+            done_by="",
+            done_at="",
+            here=NAV,
+            error=None,
+            csrf_token=_csrf(request),
+            nav_items=nav,
+        )
+    done = api.is_done(task)
+    signpost = api.is_signpost(task)
+    subject = api.subjects(db, [task]).get(task.id)
+    url = api.subject_url(db, task)
+    keep = way_back["keep"]
+    here = f"{NAV}/taken/{task.id}" + (f"?{keep}" if keep else "")
+    badge = _status_badge(db, task)
+    kind = _kind_label(db, task.kind)
+    role_label = code_label(ROLE.name, task.required_role)
+    facts: list[dict[str, Any]] = [
+        {"text": kind},
+        {"text": _("Aangemaakt %(when)s") % {"when": _moment(task.created_at)}},
     ]
+    line = _subject_line(subject)
+    if url and line:
+        facts.append({"text": line, "href": url, "kind": "reference"})
+    # The primary: a signpost goes to its subject (#822); a task that is handled
+    # here opens its decision (the record's edit state); a done task has none.
+    primary = None
+    if not done:
+        if signpost:
+            primary = {"label": _("Ga naar het onderwerp"), "href": url} if url else None
+        else:
+            primary = {
+                "label": _("Afhandelen"),
+                "href": here + ("&" if keep else "?") + "bewerken=1",
+            }
+    category = code_label(TASK_CATEGORY.name, _category(task.kind)) or kind
+    values: dict[str, Any] = {
+        "task_id": task.id,
+        "record_head": {
+            "title": task.title,
+            "badges": [badge],
+            "facts": facts,
+            "primary": primary,
+        },
+        "way_back": way_back,
+        "head_editing": frame["head_editing"] and api.may_handle(task),
+        "summary": {
+            "state": badge,
+            "figures": [
+                {"label": _("Soort"), "value": category},
+                {"label": _("Rol"), "value": role_label},
+                {"label": _("Open sinds"), "value": _age(api.age_days(task))},
+            ],
+        },
+        "subject_rows": _subject_rows(db, task, subject),
+        # A signpost's way to its subject is the head's primary; anything else
+        # gets it as a quiet button under the facts.
+        "subject_link": url if url and not signpost else None,
+        "signpost": signpost,
+        "done": done,
+        "decision": task.decision or "",
+        "done_by": task.done_by or "",
+        "done_at": _moment(task.done_at),
+        "here": here,
+        "error": None,
+        "csrf_token": _csrf(request),
+        "nav_items": nav,
+    }
+    values.update(extra)
+    return TaskView(**values)
 
 
-@router.get("/admin/werkbank/taken/{task_id}", response_class=HTMLResponse)
+@router.get(NAV + "/taken/{task_id}", response_class=HTMLResponse)
 def taak_detail(
     task_id: int,
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.WORKBENCH_USE)),
 ):
-    """Fragment (htmx) én deep-link (volle pagina zonder HX-Request, §20.5)."""
-    task = api.get_task(db, task_id)
-    detail_rows: list[tuple[str, str]] = []
-    if task and task.subject_type is SubjectType.FORM_SUBMISSION:
-        from app.domains.forms.api import submission_view
+    """One task on the record layout (#1931). A task of another role, like one
+    that does not exist, is a page that says "Taak niet gevonden" and nothing of
+    the task — a 200, as it always was: a row that went stale is opened by a
+    boosted click, and htmx swaps no 404 in, so the visitor would see nothing."""
+    view = _task_view(request, db, email, task_id)
+    return templates.TemplateResponse(request, "werkbank_taak.html", view.as_context())
 
-        # #704: `subject_id` is sinds die wijziging tekst; `submission_view`
-        # verwacht een getal. Dit is de plek die anders stil zou breken.
-        detail_rows = submission_view(db, int(task.subject_id))
-    elif task and task.subject_type is SubjectType.KERNEL_JOB:
-        detail_rows = _kernel_job_rows(db, task)
-    raw = request.cookies.get(SESSION_COOKIE) or ""
-    template = "_werkbank_detail.html" if is_fragment_request(request) else "werkbank_taak.html"
-    ctx = {
-        "task": task,
-        "detail_rows": detail_rows,
-        "csrf_token": csrf_token_for(raw),
-        # Derived here, because the screen compares no codes (§B4.7).
-        "is_done": bool(task and task.status is TaskStatus.DONE),
-        # #822: signpost or workplace — see `SUBJECTS_WITH_OWN_SCREEN`.
-        "signpost": (task.subject_type in SUBJECTS_WITH_OWN_SCREEN if task else False),
-        "subject_url": _subject_url(db, task),
-        # #666: het fragment leeft in twee schermen en moet weten in welke.
-        # Zonder dat wees het naar een id dat maar in één van de twee bestaat.
-        "standalone": template == "werkbank_taak.html",
-    }
-    if template == "werkbank_taak.html":
-        ctx["nav_items"] = _ctx(request, db, email)["nav_items"]
-    return templates.TemplateResponse(request, template, ctx)
+
+def _refused(request: Request, message: str):
+    """Why a task was not ticked off, on the message line both screens carry —
+    an HTML 422, which the browser swaps in (#1515)."""
+    return refusal_response(request, [{"field": "", "message": message}], MESSAGE_LINE)
 
 
 @router.post(
-    "/admin/werkbank/taken/{task_id}/afgehandeld",
+    NAV + "/taken/{task_id}/afgehandeld",
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
@@ -275,22 +584,27 @@ def taak_afhandelen(
     besluit: str = Form(""),
     standalone: str = Form(""),
 ):
-    """Handelt een taak af; waar het antwoord landt hangt af van het scherm (#666).
+    """Tick a task off; where the answer lands depends on the screen (#666).
 
-    Het afhandelformulier zit in een fragment dat zowel op de werkbanklijst als op
-    de zelfstandige taakpagina staat. Het wees naar `#werkbank-lijst`, een id dat
-    alleen op de lijst bestaat — op de detailpagina gooide htmx een targetError en
-    vertrok het verzoek nooit.
-
-    Het fragment richt zich nu op zichzelf en de server stuurt bij:
-    vanaf de lijst een `HX-Retarget` zodat de ververste lijst op zijn plaats landt,
-    vanaf de detailpagina een `HX-Redirect` terug naar de werkbank — die pagina
-    toont een taak die er niet meer is, dus daar blijven heeft geen zin.
+    From the list the row's button posts without a decision and gets the list
+    back, in the state its address carries. From the record (`standalone`) the
+    form's save posts the decision and gets a redirect back to where the record
+    was opened from. A task that is not the viewer's is "not found"; a signpost
+    task is refused, on either screen: its subject's own screen closes it
+    (#822).
     """
-    api.complete_task(db, task_id, done_by=email, decision=besluit.strip() or None)
+    roles = _roles(db, email)
+    try:
+        task = api.handle(db, task_id, roles, done_by=email, decision=besluit.strip() or None)
+    except api.NotHandledHere:
+        return _refused(request, _("Deze taak handel je af op het scherm van het onderwerp."))
+    if task is None:
+        return _refused(request, _("Taak niet gevonden."))
     if standalone:
-        return Response(status_code=204, headers={"HX-Redirect": "/admin/werkbank"})
-    antwoord = templates.TemplateResponse(request, "_werkbank_lijst.html", _ctx(request, db, email))
-    antwoord.headers["HX-Retarget"] = "#werkbank-lijst"
-    antwoord.headers["HX-Reswap"] = "innerHTML"
-    return antwoord
+        back = record_frame(request, db, NAV)["way_back"]["href"]
+        return Response(status_code=204, headers={"HX-Redirect": back})
+    view = _workbench_view(request, db, email, oob=True)
+    answer = templates.TemplateResponse(request, "_werkbank_lijst.html", view.as_context())
+    answer.headers["HX-Retarget"] = "#werkbank-lijst"
+    answer.headers["HX-Reswap"] = "innerHTML"
+    return answer

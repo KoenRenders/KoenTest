@@ -67,8 +67,12 @@ def _task(db, kind: str, subject_type: str, subject_id: str):
     return task
 
 
-def _detail(client, task):
-    return client.get(f"/admin/werkbank/taken/{task.id}", headers={"HX-Request": "true"}).text
+def _detail(client, task, *, editing: bool = False):
+    """The task's record, without the shell around it: the shell's own script
+    names "Afgehandeld" in a comment. `editing` opens the decision (#1931)."""
+    html = client.get(f"/admin/werkbank/taken/{task.id}" + ("?bewerken=1" if editing else "")).text
+    start = html.index("data-record-head")
+    return html[start : html.index("</main>", start)]
 
 
 def _payment_record(db):
@@ -108,10 +112,12 @@ def test_a_judgement_task_remains_the_workplace(client, db_session):
     task = _task(db_session, "kernel.job_gefaald", "kernel_job", "1")
 
     html = _detail(client, task)
-
-    assert "Afgehandeld" in html and "Besluit" in html, (
+    assert "Afhandelen" in html and "Besluit" in html, (
         "a task you can only judge has lost its workplace"
     )
+    # #1931: Afhandelen opens the decision; its one save is "Afgehandeld".
+    editing = _detail(client, task, editing=True)
+    assert 'name="besluit"' in editing and "Afgehandeld" in editing
 
 
 def test_a_failed_job_shows_its_data_in_place(client, db_session):
@@ -156,7 +162,7 @@ def test_a_mail_task_points_at_the_e_mail_log(client, db_session):
     assert "/admin/e-maillog?recipient=someone%40example.com" in html, (
         "the mail task does not point at the log of that recipient"
     )
-    assert "Afgehandeld" in html, "a mail task remains a workplace"
+    assert "Afhandelen" in html, "a mail task remains a workplace"
 
 
 def test_a_message_task_points_at_the_submissions(client, db_session):
@@ -176,4 +182,4 @@ def test_a_message_task_points_at_the_submissions(client, db_session):
     assert f"/admin/formulieren/{form.id}/inzendingen" in html, (
         "the message task does not point at the submissions of its own form"
     )
-    assert "Afgehandeld" in html, "a message task remains a workplace"
+    assert "Afhandelen" in html, "a message task remains a workplace"

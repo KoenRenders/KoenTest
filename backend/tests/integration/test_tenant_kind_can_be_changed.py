@@ -119,9 +119,12 @@ def test_an_operator_makes_a_company_an_association(client, platform_workspace, 
     assert _sponsor_heading(before) == "Partners", "a company has partners"
     csrf = _login(client, db_session, "operator-1533@example.com", "OPERATOR")
 
-    editor = client.get(f"/admin/tenants/{org.id}").text
-    assert 'name="kind" value="VERENIGING"' in editor and 'name="kind" value="BEDRIJF"' in editor
-    assert 'name="kind" value="PLATFORM"' not in editor
+    editor = client.get(f"/admin/tenants/{org.id}?bewerken=1").text
+    # #1933: the type is a select (it was a row of chips).
+    choice = editor[editor.index('name="kind"') :]
+    choice = choice[: choice.index("</select>")]
+    assert 'value="VERENIGING"' in choice and 'value="BEDRIJF"' in choice
+    assert 'value="PLATFORM"' not in choice
     assert "De modules blijven zoals ze zijn" in editor
 
     with caplog.at_level(logging.INFO, logger="app.domains.mdm.tenant_service"):
@@ -170,7 +173,7 @@ def test_platform_is_never_chosen_and_the_platforms_kind_is_fixed(
         .execution_options(include_all_tenants=True)
         .one()
     )
-    assert 'name="kind"' not in client.get(f"/admin/tenants/{platform.id}").text
+    assert 'name="kind"' not in client.get(f"/admin/tenants/{platform.id}?bewerken=1").text
     refused = _save(client, csrf, platform.id, kind="VERENIGING")
     assert refused.status_code == 422
     assert "Het type van het platform ligt vast." in refused.text
@@ -224,7 +227,7 @@ def test_an_operator_moves_a_tenant_to_another_account(
     assert _landing_groups(client)["Account Een"] == ["Proefclub"]
     csrf = _login(client, db_session, "operator3-1533@example.com", "OPERATOR")
 
-    editor = client.get(f"/admin/tenants/{org.id}").text
+    editor = client.get(f"/admin/tenants/{org.id}?bewerken=1").text
     assert re.search(rf'<option value="{first.id}"\s+selected>Account Een</option>', editor)
     assert f'<option value="{second.id}">Account Twee</option>' in editor
 
@@ -268,7 +271,7 @@ def test_only_an_active_account_is_taken_for_a_tenant_and_for_the_platform(
         .one()
     )
     # #1542: the platform may hang under an account — an active one, as any tenant.
-    editor = client.get(f"/admin/tenants/{platform.id}").text
+    editor = client.get(f"/admin/tenants/{platform.id}?bewerken=1").text
     assert 'name="account_id"' in editor and 'name="kind"' not in editor, "account yes, kind no"
     refused = _save(client, csrf, platform.id, account_id=str(gone.id))
     assert refused.status_code == 422
@@ -355,9 +358,10 @@ def test_the_tenant_list_shows_each_sites_account(client, platform_workspace, db
     html = client.get("/admin/tenants").text
 
     def card(name: str) -> str:
-        start = html.index(f'text-ink">{name}</div>')  # the card, not the sidebar brand
-        return html[start : html.index("</a>", start)]
+        # #1933: the tenant's row of the kit's table, not the sidebar brand.
+        start = html.rindex("<tr", 0, html.index(f">{name}</a>"))
+        return html[start : html.index("</tr>", start)]
 
-    assert ">Account Zeven</span>" in card("Zevenclub")
-    assert ">Account Zeven</span>" in card(platform.name), "the platform's account too"
-    assert "Account" not in card("Losse Zeven"), "no account, no badge"
+    assert "Account Zeven" in card("Zevenclub")
+    assert "Account Zeven" in card(platform.name), "the platform's account too"
+    assert "Account" not in card("Losse Zeven"), "no account, no name in its cell"

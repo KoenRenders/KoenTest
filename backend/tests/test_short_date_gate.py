@@ -1,4 +1,6 @@
-"""The short date is written in one place (#1242).
+"""Refuses `strftime("%d-%m-%Y")` written by hand instead of the short-date filters · hard · since #1242.
+
+The short date is written in one place (#1242).
 
 `strftime("%d-%m-%Y")` stood 22 times by hand in templates and modules. Since
 #1242 every short date comes from `app.i18n.short_date` (the `kortedatum`

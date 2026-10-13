@@ -85,23 +85,25 @@ def _assert_shown(status, state, reason: str):
 
 
 def test_the_organisation_shows_why(page):
-    adres = PLATFORM + _first_link(page, PLATFORM + "/admin/organisaties")
-    page.goto(adres)
+    # The row link of the list carries its way back (`?terug=…`); the record
+    # reads first, so its editor is asked for with `bewerken=1` (#1932).
+    adres = PLATFORM + _first_link(page, PLATFORM + "/admin/organisaties").split("?")[0]
+    page.goto(adres + "?bewerken=1")
     pagina_klaar(page)
-    voor = page.locator("#street").input_value()
+    voor = page.locator("#org-street").input_value()
 
-    page.locator("#street").fill("Weigerstraat")
-    page.locator("#house_number").fill("")
+    page.locator("#org-street").fill("Weigerstraat")
+    page.locator("#org-house_number").fill("")
     watch_transitions(page)
-    status, state = _submit(page, page.locator("#org-form button[type=submit]").first, adres)
+    status, state = _submit(page, page.get_by_role("button", name="Opslaan"), adres)
 
-    _assert_shown(status, state, "Huisnummer")
+    _assert_shown(status, state, "huisnummer")
     # #1591: a refusal that draws the page again is no navigation either.
     assert transition_frames(page) == 0, "the page cross-fades when the refusal arrives"
-    assert page.locator("#street").input_value() == "Weigerstraat", "what was typed is gone"
-    page.goto(adres)
+    assert page.locator("#org-street").input_value() == "Weigerstraat", "what was typed is gone"
+    page.goto(adres + "?bewerken=1")
     pagina_klaar(page)
-    assert page.locator("#street").input_value() == voor, "the refused address was saved"
+    assert page.locator("#org-street").input_value() == voor, "the refused address was saved"
 
 
 def test_the_tenant_editor_shows_why(page):
@@ -109,21 +111,27 @@ def test_the_tenant_editor_shows_why(page):
     # Activiteiten off since #1523.
     page.goto(PLATFORM + "/admin/tenants")
     pagina_klaar(page)
-    adres = PLATFORM + (
-        page.locator("a[href^='/admin/tenants/']:not([href$='/nieuw'])")
-        .filter(has_text="Raak Millegem")
-        .first.get_attribute("href")
+    adres = (
+        PLATFORM
+        + (
+            page.locator("a[href^='/admin/tenants/']:not([href$='/nieuw'])")
+            .filter(has_text="Raak Millegem")
+            .first.get_attribute("href")
+        ).split("?")[0]
     )
-    page.goto(adres)
+    # #1933: the record is read first; the switches stand in its edit state.
+    page.goto(adres + "?bewerken=1")
     pagina_klaar(page)
     activities = page.locator("#tn-form input[type=checkbox][value=activities]").first
     assert activities.is_checked(), "the seeded tenant has activities on, else this proves nothing"
 
-    activities.uncheck()
+    # The kit's switch: the checkbox itself is not on the screen, its label is.
+    page.locator("label[for=module-activities]").click()
+    assert not activities.is_checked()
     status, state = _submit(page, page.locator("button[type=submit][form=tn-form]").first, adres)
 
     _assert_shown(status, state, "Activiteiten")
-    page.goto(adres)
+    page.goto(adres + "?bewerken=1")
     pagina_klaar(page)
     assert page.locator("#tn-form input[type=checkbox][value=activities]").first.is_checked(), (
         "the refused module set was saved"

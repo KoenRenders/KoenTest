@@ -1,27 +1,23 @@
-{% extends "admin_base.html" %}
+{% extends "list_page.html" %}
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Organisaties — Raak beheer") }}{% endblock %}
-{% block content %}
-{# List index (design system C1). "+ Nieuw account" creates an ACCOUNT, the
+{# Organisaties (#1932, CR-11 roll-out; end state §2.1, §5.1) on the `list_page`
+   layout: the title and the one primary button, the toolbar (the kinds as the
+   segments with their counts, the search on name and code, the sort and the
+   page size) and the kit's table. "+ Nieuw account" creates an ACCOUNT, the
    legal entity tenants hang under (CR-19, #1495) — OPERATOR only, like the
    whole screen. A unit still comes from "Nieuwe tenant"; no address book of
-   outside organisations (#971). #}
-{% call ui.page_header(_("Organisaties"), _("De rechtspersonen achter dit platform: hun naam, adres, contactgegevens, rekening en nummers."), list_page=True) %}
-    {{ ui.btn_primary(_("+ Nieuw account"), href="/admin/organisaties/nieuw") }}
-  {% endcall %}
-
-{% call ui.filter_bar("/admin/organisaties", "#org-lijst") %}
-  <div class="flex flex-wrap gap-3 items-center">
-    <div class="flex-1 min-w-[14rem]">{{ ui.search(value=q, placeholder=_('Zoek op naam of code…'), standalone=False) }}</div>
-    {% call ui.select_control("org_type", aria_label=_("Soort")) %}
-      <option value="">{{ _("Alle soorten") }}</option>
-      {% for code, label in soort_options %}
-      <option value="{{ code }}" {% if org_type == code %}selected{% endif %}>{{ label }}</option>
-      {% endfor %}
-    {% endcall %}
-  </div>
-{% endcall %}
-
+   outside organisations (#971). The toolbar stands outside the list fragment. #}
+{% block list_title %}{{ _("Organisaties") }}{% endblock %}
+{% block list_primary %}{{ ui.btn_primary(_("+ Nieuw account"), href="/admin/organisaties/nieuw") }}{% endblock %}
+{% block list_toolbar %}
+{{ ui.toolbar("/admin/organisaties", "#org-lijst", "org-filter",
+              segments=segments, status_name="org_type", status_current=kind, status_legend=_("Soort"),
+              q=q, search_placeholder=_("Zoek op naam of code…"),
+              page=page, per_page=per_page, total=total, page_sizes=page_sizes,
+              sort=sort, sort_options=sort_options) }}
+{% endblock %}
+{% block list_body %}
 <div id="org-lijst">
   {% include "_org_kaarten.html" %}
 </div>

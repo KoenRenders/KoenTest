@@ -1,4 +1,6 @@
-"""Template-variabelen-gate (#643 E): het `tsc --noEmit` van deze stack.
+"""Refuses a template asking for a variable its view-model does not promise · hard · since #643.
+
+Template-variabelen-gate (#643 E): het `tsc --noEmit` van deze stack.
 
 Jinja controleert niets vooraf. Een template die `totaal` leest terwijl de route
 `total` doorgeeft, faalt pas bij het renderen — en alleen als er een test langs dat

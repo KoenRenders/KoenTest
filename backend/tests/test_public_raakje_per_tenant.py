@@ -129,10 +129,17 @@ def _operator(client, db) -> str:
     return csrf_token_for(value)
 
 
+def _chatbot_card(html: str) -> str:
+    """The Assistent card of the record: other cards carry switches too (#1933)."""
+    card = html[html.index('data-card="chatbot"') :]
+    return card[: card.index("</section>")]
+
+
 def _switches(html: str) -> dict[str, bool]:
     """The switches on the screen: setting → ticked."""
     found = re.findall(r'<input type="checkbox" role="switch" name="(\w+)"([^>]*)>', html)
-    return {name: " checked" in rest for name, rest in found}
+    # #1933: the module's own switch stands in the card's head; it is no setting.
+    return {name: " checked" in rest for name, rest in found if name != "modules"}
 
 
 def test_the_assistent_card_holds_two_switches_that_save_independently(
@@ -142,9 +149,9 @@ def test_the_assistent_card_holds_two_switches_that_save_independently(
     editor = f"/admin/tenants/{TENANT_MILLEGEM_ID}"
     _set(db_session, admin_chat_enabled="")
 
-    html = client.get(editor).text
-    card = html[html.index('data-card="chatbot"') :]
-    card = card[: card.index("</section>")]
+    # #1933: the record is read first; the switches stand in its edit state.
+    html = client.get(editor + "?bewerken=1").text
+    card = _chatbot_card(html)
     assert _switches(card) == {"admin_chat_enabled": False, "public_chat_enabled": True}
     for label in ("Raakje in de backoffice", "Raakje op de publieke site"):
         assert label in card
@@ -173,7 +180,7 @@ def test_the_assistent_card_holds_two_switches_that_save_independently(
     db_session.expire_all()
     assert get_setting(db_session, "public_chat_enabled", tenant_id=TENANT_MILLEGEM_ID) == "0"
     assert get_setting(db_session, "admin_chat_enabled", tenant_id=TENANT_MILLEGEM_ID) == "1"
-    assert _switches(client.get(editor).text) == {
+    assert _switches(_chatbot_card(client.get(editor + "?bewerken=1").text)) == {
         "admin_chat_enabled": True,
         "public_chat_enabled": False,
     }
@@ -192,5 +199,8 @@ def test_the_assistent_card_holds_two_switches_that_save_independently(
 def test_the_tenants_own_settings_show_the_same_two_switches(client, db_session):
     """#1535: the tenant's own Instellingen is the same editor."""
     _operator(client, db_session)
-    html = client.get("/admin/instellingen").text
-    assert _switches(html) == {"admin_chat_enabled": False, "public_chat_enabled": True}
+    html = client.get("/admin/instellingen?bewerken=1").text
+    assert _switches(_chatbot_card(html)) == {
+        "admin_chat_enabled": False,
+        "public_chat_enabled": True,
+    }

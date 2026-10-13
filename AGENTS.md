@@ -380,7 +380,7 @@ release afwerken*, *Testen en test-evidence* — and this table is only the
 | 11 | Same tag to PROD, after UAT is good | **confirmation required** | `raak deploy prod vX.Y.Z --confirm` |
 | 12 | Verify the backend logs per environment | CLI | `raak logs <env>`, or `raak diagnose <env>` + `raak fetch <env>` |
 | 13 | Close the tracker once the release runs on PROD | CLI | — |
-| 14 | **Close out every change request the release built**: its status line says "built in vX.Y.Z", every as-built deviation stands in its document (B10 and the text it contradicts), and its tracking issue is closed with a comment naming the release | CLI | the CR lives on the architecture branch: the architecture CLI edits it, the master CLI closes the issue |
+| 14 | **Close out every change request the release built**: its status line says "built in vX.Y.Z", every as-built deviation stands in its document (B10 and the text it contradicts), and its tracking issue is closed with a comment naming the release | CLI | the CR lives on the architecture branch: the design-documentation CLI edits it, the master CLI closes the issue |
 
 **Step 14 exists because CR-14 showed what happens without it** (retrospective, 2 October 2026): two days after v2.10.0 was on PROD its tracking issue still said "not assigned to a release", the document's status line still said v2.9.0, and two passages promised behaviour that the build had deliberately replaced. A change request that is not closed out keeps telling the next reader the design, not what runs.
 
@@ -390,9 +390,13 @@ change request's decisions log (B9, dated, marked "built as") by the master
 CLI at the merge, on the branch where the document lives — not as a message to
 the architecture CLI. Every cross-session message lands in Koen's terminal
 while he is working with that CLI, and a note that only needs recording is not
-worth that interruption. The architecture CLI reads the log at the close-out
-(step 14) and folds it into the text the deviation contradicts. Message the
-architecture CLI only for a question that needs its answer.
+worth that interruption. The design-documentation CLI reads the log at the
+close-out (step 14) and folds it into the text the deviation contradicts
+(Koen, 13 October 2026, to who folds the notes in at a release: "dus
+design-documentation"; until then it was the architecture CLI, which shapes
+new change requests and no longer closes built ones). The master CLI
+messages it when the release is tagged. Message the architecture CLI only
+for a question that needs its answer.
 
 **Step 3 sits where it sits for a reason, and it used to sit at 11.** Koen spotted
 that on 27 September 2026: *"Dan is het te laat."* The closing comment exists to tell
@@ -1058,6 +1062,12 @@ issue expected no migration — `kind` is a string column. Measured while buildi
 there is a CHECK on that column."* On 26 September 2026 #1173 walked into the same
 constraint for the same column, after an issue that said no migration was needed;
 the same week, CR-12 phase 0 found the pattern again on a status column.
+
+That example is history since CR-12 phase 4: the kind of a media file is a code
+list with a foreign key now, the CHECK on `media_assets.kind` is gone, and a new
+kind is one row in the list and one member in the code (noted on 13 October
+2026, at Koen's word). Do not go looking for that constraint. The lesson stands
+for every column that is not a code list yet.
 
 So: grep the migrations for the constraint before you write the issue, not after
 the `CheckViolation`. Widening it is a migration, and it comes from

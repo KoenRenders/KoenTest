@@ -61,6 +61,8 @@ if ! docker inspect -f '{{.State.Running}}' "$NAAM" 2>/dev/null | grep -q true; 
   echo "measure-local.sh: the helper container $NAAM is not running — run scripts/e2e-local.sh once first (it builds it)." >&2
   exit 2
 fi
+# #1964: the container is e2e-local.sh's; one with no init process is told, not recreated.
+warn_if_no_init "$NAAM" e2e-local.sh
 if [ -z "${EXISTING_DB_URL:-}" ]; then
   "${COMPOSE[@]}" up -d --no-recreate db >/dev/null
   DB_USER="$("${COMPOSE[@]}" exec -T db printenv POSTGRES_USER)"
@@ -73,7 +75,7 @@ docker exec "$NAAM" sh -c 'command -v faketime >/dev/null || (apt-get update -q 
 
 if [ -n "${EXISTING_DB_URL:-}" ]; then
   # No db container to ask: the helper container drops and makes it, over the given URL.
-  docker exec -e ADMIN_DATABASE_URL="$EXISTING_DB_URL" "$NAAM" \
+  docker exec --env-file <(url_env ADMIN_DATABASE_URL "$EXISTING_DB_URL") "$NAAM" \
     python -m tests._local_db recreate "$DB_NAAM"
 else
   "${COMPOSE[@]}" exec -T db sh -c \
@@ -82,7 +84,7 @@ else
 fi
 
 status=0
-docker exec --env-file "$ENV_FILE" -e DATABASE_URL="$URL" "$NAAM" /app/scripts/measure-run.sh "$@" || status=$?
+docker exec --env-file "$ENV_FILE" --env-file <(url_env DATABASE_URL "$URL") "$NAAM" /app/scripts/measure-run.sh "$@" || status=$?
 if [ "${1:-}" = "--write" ]; then
   # The container writes as root; the baselines belong to whoever commits them.
   docker exec "$NAAM" chown -R "$(id -u):$(id -g)" /app/backend/tests_e2e/baselines

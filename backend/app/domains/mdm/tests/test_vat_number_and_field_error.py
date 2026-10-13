@@ -74,7 +74,7 @@ def test_a_bad_belgian_vat_number_is_refused_and_nothing_is_written(db_session, 
     "field, text",
     [("enterprise_number", "123"), ("vat_number", "BE 0123.456.789")],
 )
-def test_the_reason_stands_below_its_field(client, platform_workspace, db_session, field, text):
+def test_the_reason_names_its_field(client, platform_workspace, db_session, field, text):
     account = create_account(
         db_session, name="Bakkerij", code=f"bakkerij-veld-{field.replace('_', '-')}"
     )
@@ -93,12 +93,10 @@ def test_the_reason_stands_below_its_field(client, platform_workspace, db_sessio
 
     assert answer.status_code == 422
     html = answer.text
-    field_at = html.index(f'id="org-{field}"')
-    error_at = html.index(f'id="org-{field}-fout"')
-    assert field_at < error_at, "the reason stands below its field"
-    assert REFUSED[field] in html[error_at : html.index("</p>", error_at)]
-    tag = html[html.rindex("<input", 0, field_at) : html.index(">", field_at)]
-    assert 'aria-invalid="true"' in tag
-    assert f'aria-describedby="org-{field}-fout"' in tag
-    # Only the refused field carries an error.
-    assert html.count('-fout"') == 2  # the <p id> and the field's aria-describedby
+    # The answer is the kit's banner (#1932): the reason is a link to its field,
+    # which `record-form.js` marks in the page and `aria-describedby`-links.
+    link_at = html.index(f'data-error-for="{field}"')
+    assert REFUSED[field] in html[link_at : html.index("</a>", link_at)]
+    assert answer.headers["HX-Retarget"] == "#org-melding"
+    # Only the refused field is named.
+    assert html.count("data-error-for=") == 1

@@ -1,4 +1,6 @@
-"""Geen cross-schema FK's (#396/#397, §8-handhaving 2): een FK die twee schema's
+"""Refuses a foreign key that crosses two database schemas · hard · since #397.
+
+Geen cross-schema FK's (#396/#397, §8-handhaving 2): een FK die twee schema's
 koppelt zou onafhankelijk deployen breken én de merge-redirect onmogelijk maken.
 
 **One named exception since CR-12 (§B2.4):** a foreign key towards a code table

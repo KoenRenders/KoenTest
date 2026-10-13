@@ -230,9 +230,10 @@ def test_the_editor_hides_the_settings_of_modules_that_are_off_and_keeps_them(
     session = make_session_value(SEEDED_ADMIN_EMAIL)
     client.cookies.set(SESSION_COOKIE, session)
 
-    company_page = client.get(f"/admin/tenants/{company.id}").text
-    # #1498: a module that is off keeps its card; its settings are folded away
-    # in it (still on the form, so a save keeps them), not left out.
+    company_page = client.get(f"/admin/tenants/{company.id}?bewerken=1").text
+    # #1498: a module that is off keeps its card, and its settings stay on the
+    # form, so a save keeps them. #1933: the operator's editor shows them, on
+    # or off; they are no longer folded away.
     for card, key in (
         ("membership", "membership_price_full"),
         ("activities", "max_item_quantity"),
@@ -241,9 +242,9 @@ def test_the_editor_hides_the_settings_of_modules_that_are_off_and_keeps_them(
         ("chatbot", "admin_chat_enabled"),
     ):
         body = re.search(rf'data-card="{card}".*?</section>', company_page, re.S).group(0)
-        assert f'name="{key}"' in body and 'x-show="on" style="display: none"' in body, key
+        assert f'name="{key}"' in body, key
     assert 'name="tagline"' in company_page
-    association_page = client.get(f"/admin/tenants/{association.id}").text
+    association_page = client.get(f"/admin/tenants/{association.id}?bewerken=1").text
     assert 'name="membership_price_full"' in association_page
 
     saved = client.post(

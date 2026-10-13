@@ -1,10 +1,16 @@
 # newsletter — component contract (CR-05, #984)
 
+## Purpose and process
+
 **Purpose.** The newsletter to members and non-members: subscribers with a
 recorded consent, a letter written in the portal with Raakje drafting alongside,
 and a send of one mail per recipient in a queue under a daily cap.
 
-## Facade (`api.py`) — the only door for other components and for this component's screens
+*Process (A2.4.2 — the newsletter).* Aggregates: `Newsletter` with its deliveries and drafting messages, and `Subscriber`.
+
+## Publishes
+
+### Facade (`api.py`) — the only door for other components and for this component's screens
 
 - **Subscribers:** `subscribe_public`, `confirm`, `unsubscribe`, `resubscribe`,
   `add_by_admin`, `unsubscribe_by_admin`, `erase`, `list_subscribers`,
@@ -24,7 +30,16 @@ and a send of one mail per recipient in a queue under a daily cap.
 - **Models as types, for other domains' services only:** `Subscriber`,
   `Newsletter`, `Delivery`, `DraftingMessage`.
 
-## What this component uses from others (only through their facade)
+### What other components take from here
+
+Today: nothing. The registrant mail of CR-05 §3.14 will reuse the sending
+machinery when it is built.
+
+*Counted in the code on 13 October 2026:* the facade exports 88 names (61 functions, 15 classes, 12 values); events it owns (`kernel/contracts/`): none; ports it offers: none.
+
+## Consumes
+
+### What this component uses from others (only through their facade)
 
 | Component | For |
 |---|---|
@@ -37,12 +52,32 @@ and a send of one mail per recipient in a queue under a daily cap.
 | `mail.api` | `send_campaign_mail`, `send_newsletter_confirmation`, `SendingQuotaReached` |
 | `chatbot.api` | `GuardedProvider`, `admin_rules`, `sink_for`, `get_provider`, `run_chat`, `read_tool_specs`, `execute_read_tool`, `admin_chat_char_budget`, `SeamBlocked`, `ChatTimeout` |
 
-## What other components take from here
+*Counted in the code on 13 October 2026:* imports the facades of activities, auth, chatbot, cms, mail, mdm, media, meetings, membership; subscribes to no event; calls `StoreFile` (media).
 
-Today: nothing. The registrant mail of CR-05 §3.14 will reuse the sending
-machinery when it is built.
+## Owns
 
-## Invariants
+### Where to start reading
+
+`service.py` for the rules, `drafting.py` for Raakje, `handlers.py` for the job,
+`docs/change_request_05_newsletter.md` for the why.
+
+*Counted in the code on 13 October 2026:* schema `newsletter`, 20 tables (4 data, 16 code and label), 4 of them with `tenant_id`; status columns: `newsletters.status` (`letter_status`: draft, sending, sent), `deliveries.status` (`delivery_status`: queued, sent, failed, skipped), `subscribers.status` (`subscriber_status`: pending, confirmed, unsubscribed); jobs: none.
+
+## Screens
+
+`ui.py`: 7 routes under `/nieuwsbrief` (sign up, confirm, unsubscribe, subscribe again); `admin_ui.py`: 31 routes under `/admin/nieuwsbrieven`.
+
+## Deprecations
+
+None: no part of this contract is in its deprecation cycle.
+
+## Standards
+
+None: no row of part D of the architecture document names this module, and its `models.py` names no standard.
+
+## Rules and gates
+
+### Invariants
 
 - **Members are derived, never stored.** `subscribers` holds non-members only.
 - **No audience, no send** — in the screen, in the service and as a database
@@ -63,7 +98,13 @@ machinery when it is built.
   without "Toepassen", nothing outbound carries a known name or a recipient
   address, and a marked sentence is left out unless the author keeps it.
 
-## Where to start reading
+- **Rules whose home is this module** — beside the invariants above: no `@validates` and no `check()` in `models.py`, and no `CheckConstraint` there (the `CHECK` of "no audience, no send" is not declared in `models.py`).
+- **Gates in this module's own `tests/`** — none; it has 1 test file there.
 
-`service.py` for the rules, `drafting.py` for Raakje, `handlers.py` for the job,
-`docs/change_request_05_newsletter.md` for the why.
+## Evolutions
+
+Ids of part E of the architecture document, as it stood on 13 October 2026.
+
+- **E8** — consent first, then segments, then the AI-drafted newsletter with review in the workbench (CR-05 beyond phase A): planned.
+- **E22** — web content (CR-17): the one rich-text editor, of which the letter is one of three users; in build, on v2.17.
+- **E38** — the close-out of CR-05's status line.

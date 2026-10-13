@@ -240,7 +240,8 @@ def test_the_colour_field_shows_what_is_typed_and_the_standard_when_empty():
             for width in (1440, 390):
                 page = browser.new_page(viewport={"width": width, "height": 900})
                 login_met_sessie(page, make_session_value(SEEDED_ADMIN_EMAIL), BASE)
-                page.goto(BASE + "/admin/instellingen")
+                # #1933: the record is read first; the fields stand in its edit state.
+                page.goto(BASE + "/admin/instellingen?bewerken=1")
                 pagina_klaar(page)
                 fields = page.evaluate(read)
                 print("MEASURE colour fields", width, fields)

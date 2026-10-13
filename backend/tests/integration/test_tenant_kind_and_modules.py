@@ -54,7 +54,8 @@ def _ticked(html: str) -> set[str]:
     """The module checkboxes that are ticked, read from the rendered form."""
     import re
 
-    tags = re.findall(r'<input type="checkbox" name="modules"[^>]*>', html)
+    # #1933: the module's switch in its card's head (it was a checkbox).
+    tags = re.findall(r'<input type="checkbox" role="switch" name="modules"[^>]*>', html)
     assert len(tags) == len(ModuleCode), f"{len(tags)} module checkboxes"
     return {re.search(r'value="(\w+)"', t).group(1) for t in tags if "checked" in t}
 
@@ -162,13 +163,12 @@ def test_the_editor_shows_the_kind_and_the_modules_and_refuses_a_missing_depende
     csrf = _operator(client, db_session)
     org = create_tenant(db_session, name="Editorproef", code="ed-1478", kind=TenantKind.COMPANY)
 
-    page = client.get(f"/admin/tenants/{org.id}").text
+    page = client.get(f"/admin/tenants/{org.id}?bewerken=1").text
     # #1533: the kind is a choice now, BEDRIJF ticked.
-    assert re.search(r'name="kind" value="BEDRIJF"[^>]*checked', page)
+    assert re.search(r'<option value="BEDRIJF" selected', page)
     assert _ticked(page) == COMPANY
-    # #1498: the count stands in each module's card header.
-    assert re.search(r'data-card="cms".*?2 gegevens', page, re.S), "the two seeded site blocks"
-    assert re.search(r'data-card="activities".*?0 gegevens', page, re.S)
+    # #1933 (Koen, 13 October 2026): no count of records in a module's head.
+    assert "gegevens" not in re.search(r'data-card="cms".*?</section>', page, re.S).group(0)
 
     # #1498: one Opslaan for modules and settings; the refusal on the card concerned.
     refused = client.post(

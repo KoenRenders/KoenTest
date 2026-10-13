@@ -1,6 +1,11 @@
 # CONTRACT — forms
 
-## Publiceert
+## Purpose and process
+
+*Purpose.* The form engine: a form with sections, questions and options that the board builds, the submissions it receives, and the answers another domain's record carries (a registration's questions). *Process (A2.4.3 — web content and forms; the questions of a registration in A2.2).* Aggregates: `Form` (with its sections, fields and options) and `FormSubmission` (with its answers).
+
+## Publishes
+
 - **Facade** (`api.py`):
   - `get_form_by_slug(db, slug) -> Form | None` — publiek raadpleegbaar formulier.
   - `submission_count(db, form_id) -> int`.
@@ -18,7 +23,7 @@
 - **Constant**: `CONTACT_FORM_SLUG` — the slug of the seeded contact form, written
   once in `service.py` (#1377).
 
-## Ports this domain offers
+### Ports this domain offers
 
 A port is a synchronous command another domain may ask of forms, with an answer
 (`kernel/ports.py`, `docs/architecture.md` §3.2.1 step 2). The contracts stand in
@@ -35,19 +40,54 @@ never commits — the caller's transaction commits.
 The two service functions behind them are not in the facade any more: another
 domain asks through the ports.
 
-## Consumeert
+*Counted in the code on 13 October 2026:* the facade exports 74 names (58 functions, 9 classes, 7 values); events it owns (`kernel/contracts/`): `SubmissionCreated`, `SubmissionDeleted`; ports it offers: `CopyForm`, `SubmitAttached`, `SubmitMessage`, `UpdateAttached`.
+
+## Consumes
+
 - Facades: geen.
 
-## Bezit
+*Counted in the code on 13 October 2026:* imports the facades of auth, workflow; subscribes to `TenantCreated`; calls no port.
+
+Where the Dutch line above says no facade is consumed, the code imports two.
+
+## Owns
+
 - **Schema**: `form` (forms, form_sections, form_fields, form_field_options,
   form_submissions, form_submission_answers) — geen cross-schema FK's.
 - **Jobs**: geen (nog).
 
-## Deprecaties
-| Sinds | Wat | Vervangen door | Verwijderen bij |
-|---|---|---|---|
+*Counted in the code on 13 October 2026:* schema `form`, 10 tables (6 data, 4 code and label), 6 of them with `tenant_id`; status columns: `forms.status` (code list `form_status`: draft, open, closed); jobs: none.
 
-## Schermen
+## Screens
+
 - `/berichten` (publiek, htmx — ui.py): het geseede Contacteer-ons-formulier (#398).
 - Nog React (`/admin/formulieren`, publieke render `/f/<slug>`); klappen om met
   de form-builder-herbouw (#405) resp. blok P-fundament.
+
+`ui.py`: 7 routes under `/berichten`, `/f/{slug}` and `/formulier/{share_token}`; `admin_ui.py`: 25 routes under `/admin/formulieren`. Where the Dutch text above says "Nog React", the code has moved on: both are server-rendered since the React exit (#405).
+
+## Deprecations
+
+| Sinds | Wat | Vervangen door | Verwijderen bij |
+|---|---|---|---|
+
+None: no part of this contract is in its deprecation cycle.
+
+## Standards
+
+| Standard | Element | Our name | Follows / deviates, with the reason |
+|---|---|---|---|
+| OpenDocument | Spreadsheet (ODS), cells typed | the export of a form's submissions (`export_submissions_ods`) | follows (#200) |
+
+## Rules and gates
+
+- **Rules whose home is this module** — No `@validates` and no `check()` in `models.py`; no `CheckConstraint` there. Its rules stand in its service. A refusal names its question (`VeldFout`, with `veld_id`).
+- **Gates in this module's own `tests/`** — none among its 21 test files.
+
+## Evolutions
+
+Ids of part E of the architecture document, as it stood on 13 October 2026.
+
+- **E21** — the command port (CR-16): the ports forms offers to activities; on hold, re-measured before planning.
+- **E22** — web content (CR-17): a form placed on a page; in build, on v2.17.
+- **E34** — parked on v2.19: #1858 (two delete buttons say why they refuse), #1859 (the form builder refuses in one way).
