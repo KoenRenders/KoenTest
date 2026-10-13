@@ -136,11 +136,11 @@ def test_every_column_has_a_width_but_the_last_and_the_name_gives_way():
     assert widths[0] is None, "the name's width is the CSS's, not an inline one"
     for column, width in list(zip(SEVEN, widths))[1:-1]:
         assert width, f"{column['label']} has no width"
-    assert widths[1:-1] == ["24cqw", "152px", "112px", "104px", "160px"]
+    assert widths[1:-1] == ["280px", "152px", "112px", "104px", "160px"]
     table = re.search(r"<table[^>]*>", html).group(0)
     assert "--dt-name:380px;" in table
     # the last column's own width is its floor, so it stands in the sum
-    assert "--dt-rest:calc(24cqw + 152px + 112px + 104px + 136px);" in table
+    assert "--dt-rest:calc(280px + 152px + 112px + 104px + 136px);" in table
     assert "--dt-p1:calc(160px);" in table and "--dt-p2:calc(0px)" in table
 
 
@@ -153,6 +153,25 @@ def test_a_columns_own_width_wins_over_its_parts():
     html = _render(TABLE, columns=columns, modes={})
     assert _width_of(_heads(html)[5]) == "200px"
     assert "--dt-name:252px;" in html and "--dt-p1:calc(200px);" in html
+
+
+def test_the_context_has_a_width_of_its_own_in_both_sets():
+    """#1941 (Koen, 13 October 2026: the context column fixed at about 280 px):
+    a width in px like every other part, not a share of the frame — 280 px, and
+    in the narrower set of eight columns and more its 20 % of the frame, capped
+    at 240 px (a fixed width leaves an ordinary name two lines in the
+    registrations list at a window of 1 100 px); a list's own width
+    wins. Broken on purpose (put back): `'context': '280px'` made `'24cqw'`
+    again → "the context is 24cqw"; the `c.width` branch out → 280px where
+    320px was asked."""
+    many = SEVEN + [{"key": "acties", "label": "Acties", "cell": "actions"}]
+    for columns, expected in ((SEVEN, "280px"), (many, "min(240px, 20cqw)")):
+        context = _heads(_render(TABLE, columns=columns, modes={}))[1]
+        assert 'data-cell="context"' in context
+        assert _width_of(context) == expected, f"the context is {_width_of(context)}"
+    own = [dict(c) for c in SEVEN]
+    own[1]["width"] = 320
+    assert _width_of(_heads(_render(TABLE, columns=own, modes={}))[1]) == "320px"
 
 
 def test_a_column_head_never_wraps():

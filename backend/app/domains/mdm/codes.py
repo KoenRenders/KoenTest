@@ -226,7 +226,9 @@ TENANT_KIND = CodeList(
 )
 
 ORGANIZATION_TYPE_CODES = (
-    CodeSeed(code="ACCOUNT", nl="Rechtspersoon", en="Legal entity", sort_order=10),
+    # #1945: the kind is a role in the platform, so its word is the role's —
+    # "Account", as "Afdeling" and "Platform". "Rechtspersoon" is a legal nature.
+    CodeSeed(code="ACCOUNT", nl="Account", en="Account", sort_order=10),
     CodeSeed(code="UNIT", nl="Afdeling", en="Unit", sort_order=20),
     CodeSeed(code="PLATFORM", nl="Platform", en="Platform", sort_order=30),
 )
