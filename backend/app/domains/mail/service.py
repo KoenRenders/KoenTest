@@ -1,4 +1,5 @@
 import logging
+import re
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -16,11 +17,53 @@ from app.kernel.rules import own_transaction
 logger = logging.getLogger(__name__)
 
 
-def _env_prefix() -> str:
+def _env_label() -> str:
+    """The label of a test environment ("HDEV"), or "" on production. The one
+    source of both the subject's prefix and the line in the body (#1926): they
+    cannot differ."""
     env = (settings.app_env or "").lower()
-    if env in ("dev", "hdev", "uat"):
-        return f"[{env.upper()}] "
-    return ""
+    return env.upper() if env in ("dev", "hdev", "uat") else ""
+
+
+def _env_prefix() -> str:
+    label = _env_label()
+    return f"[{label}] " if label else ""
+
+
+def _env_line() -> str:
+    """The sentence that opens a mail from a test environment, or "" on production
+    (#1926): a mail program that shows the subject differently must not hide where
+    the mail comes from."""
+    label = _env_label()
+    return _("Dit bericht komt van de testomgeving %(label)s.") % {"label": label} if label else ""
+
+
+_BODY_TAG = re.compile(r"<body\b[^>]*>", re.IGNORECASE)
+
+
+def with_env_line_html(body_html: str) -> str:
+    """The HTML part with the environment's line above everything else — right
+    after the opening `<body>` when the part is a whole document, else in front.
+    On production the part is returned as it is, byte for byte. The line is set
+    outside the mail's own design, with a style of its own (#1926)."""
+    line = _env_line()
+    if not line:
+        return body_html
+    banner = (
+        '<p style="margin:0 0 16px;padding:8px 12px;background:#fff3cd;color:#664d03;'
+        f'font:14px/1.4 Arial,sans-serif;text-align:center">{escape(line)}</p>'
+    )
+    opening = _BODY_TAG.search(body_html)
+    if opening is None:
+        return banner + body_html
+    return body_html[: opening.end()] + banner + body_html[opening.end() :]
+
+
+def with_env_line_text(body_text: str) -> str:
+    """The plain-text part with the environment's line as its first line; as it
+    is on production (#1926)."""
+    line = _env_line()
+    return f"{line}\n\n{body_text}" if line else body_text
 
 
 def email_log_url(db, log_id) -> str | None:
@@ -241,7 +284,7 @@ def _send(
     msg["To"] = to_email
     if cc:
         msg["Cc"] = cc
-    msg.attach(MIMEText(body_html, "html"))
+    msg.attach(MIMEText(with_env_line_html(body_html), "html"))
 
     recipients = [to_email] + ([cc] if cc else [])
     try:
@@ -392,8 +435,8 @@ def send_campaign_mail(
     # The text part goes FIRST: in `multipart/alternative` the LAST part is the
     # preferred one, and that must stay the HTML.
     if body_text:
-        msg.attach(MIMEText(body_text, "plain"))
-    msg.attach(MIMEText(body_html, "html"))
+        msg.attach(MIMEText(with_env_line_text(body_text), "plain"))
+    msg.attach(MIMEText(with_env_line_html(body_html), "html"))
 
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
@@ -1020,7 +1063,7 @@ def send_with_attachments(
     if reply_to:
         msg["Reply-To"] = reply_to
     body = MIMEMultipart("alternative")
-    body.attach(MIMEText(body_html, "html"))
+    body.attach(MIMEText(with_env_line_html(body_html), "html"))
     msg.attach(body)
 
     for filename, content_type, data in attachments or []:
