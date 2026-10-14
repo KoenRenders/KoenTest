@@ -1,0 +1,25 @@
+# The secret scan of every pull request and every push to master (#1996):
+# gitleaks' own rules, and this allow-list of values that are made up on
+# purpose. Every entry says why it may stand. A list that grows is the smell
+# AGENTS.md warns about — a value that is not made up is removed from the
+# history and rotated, never listed here.
+#
+# Run over the whole history once, 14 October 2026 (3 259 commits as gitleaks
+# counts them): seven findings, all of rule `generic-api-key`, all covered by
+# the two entries below; with them, none.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Values made up on purpose for the tests and CI"
+regexTarget = "secret"
+regexes = [
+  # The SECRET_KEY of CI and of the local test scripts: made up, and it says
+  # so in its own words ("…-long-enough-for-hs256", "…-lang-genoeg-voor-hs256").
+  '''-(long-enough-for|lang-genoeg-voor)-hs256$''',
+  # The Fernet specification's published test vector key: the mail tests
+  # decrypt the specification's own token with it, to prove a stored key
+  # still reads after a library upgrade.
+  '''^cw_0x689RpI-jtRR7oE8h_eQsKImvJapLeSbXpwF4e4=$''',
+]
