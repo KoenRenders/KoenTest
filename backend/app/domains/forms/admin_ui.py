@@ -254,6 +254,7 @@ def formulier_builder(
 
 
 @router.post("/admin/formulieren/{form_id}/verwijderen", dependencies=[Depends(require_csrf)])
+@says_why_in("#fb-formulier-melding")
 def formulier_verwijderen(
     form_id: int,
     request: Request,
@@ -506,6 +507,7 @@ def veld_toevoegen(
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
+@says_why_in("#fb-veld-{field_id}-melding")
 def veld_bewerken(
     form_id: int,
     field_id: int,
@@ -530,35 +532,29 @@ def veld_bewerken(
     from app.domains.forms.api import update_field
 
     form = _form_or_404(db, form_id)
-    try:
-        _bewerk(
-            update_field,
-            db,
-            form,
-            field_id,
-            label=label,
-            field_type=field_type,
-            help_text=help_text,
-            section_id=section_id,
-            required=required,
-            min_length=min_length,
-            max_length=max_length,
-            min_value=min_value,
-            max_value=max_value,
-            rating_max=rating_max,
-            rating_low_label=rating_low_label,
-            rating_high_label=rating_high_label,
-        )
-    except HTTPException as exc:
-        if exc.status_code != 422:
-            raise
-        # #1136: a refused edit — a move that would break a jump, above all — has
-        # to SAY what stands in the way, and a 422 only ever reached the screen as
-        # the generic "er ging iets mis" toast (measured at 390 px). So the builder
-        # comes back with the message in its error banner, like the JSON import.
-        # `update_field` checks everything before it changes the row, so there is
-        # nothing half-applied to show.
-        return _builder_response(request, db, form, error=exc.detail)
+    # #1859: a refused edit — a move that would break a jump (#1136), an empty
+    # label — answers in this question's own message line, like the other doors
+    # of the builder (`says_why_in`), and the form keeps what was typed.
+    # `update_field` checks everything before it changes the row, so there is
+    # nothing half-applied to show.
+    _bewerk(
+        update_field,
+        db,
+        form,
+        field_id,
+        label=label,
+        field_type=field_type,
+        help_text=help_text,
+        section_id=section_id,
+        required=required,
+        min_length=min_length,
+        max_length=max_length,
+        min_value=min_value,
+        max_value=max_value,
+        rating_max=rating_max,
+        rating_low_label=rating_low_label,
+        rating_high_label=rating_high_label,
+    )
     return _builder_response(request, db, form)
 
 
@@ -844,6 +840,7 @@ def inzendingen_tab(
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
+@says_why_in("#fb-inzending-{submission_id}-melding")
 def inzending_verwijderen(
     form_id: int,
     submission_id: int,

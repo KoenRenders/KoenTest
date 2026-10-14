@@ -27,6 +27,9 @@
       hx-post="/admin/formulieren/{{ form.id }}{% if f %}/velden/{{ f.id }}{% else %}/velden{% endif %}"
       hx-target="#fb-detail" hx-swap="innerHTML" style="display: none">
   {% if not f %}<input type="hidden" name="section_id" value="{{ sid or '' }}">{% endif %}
+  {# #1859: a changed question that is refused says why here, under the card's
+     head where its buttons stand, and the form keeps what was typed. #}
+  {% if f %}{{ ui.form_message("fb-veld-" ~ f.id ~ "-melding", "sm:col-span-4 empty:hidden") }}{% endif %}
   {# #700: het vraagtype. Uitgeschakeld zodra er inzendingen zijn — tonen mét de
      reden, niet verbergen (§2.12): een keuze die er niet staat, laat je zoeken. #}
   <div>{{ ui.label(_("Type"), "ft-" ~ _id) }}
@@ -75,8 +78,7 @@
   {% endif %}
   {# Golf 6, kop-herziening: bij een bestaand veld staat het cluster in de
      kaartkop; alleen de toevoegvariant houdt zijn knoppen in de vorm. #}
-  {# #1831: the new question's message line, by its buttons. A CHANGED question
-     that is refused redraws the builder with its banner (#1136). #}
+  {# #1831: the new question's message line, by its buttons. #}
   {% if not f %}<div class="sm:col-span-4">{{ ui.form_message("fb-veld-nieuw-" ~ (sid or "") ~ "-melding", "mb-2 empty:mb-0") }}
     {{ ui.action_bar(cancel_attrs='@click="' ~ tonen ~ ' = false"') }}</div>{% endif %}
 </form>
@@ -251,7 +253,7 @@
            schermen verderop in dit bestand al op de veldkaart staat — een
            handgemaakte knop ernaast is precies hoe die twee uit elkaar lopen. #}
         {{ ui.edit_toggle("open", size="sm") }}
-        <div x-show="open" x-cloak>{{ ui.action_bar(form="fb-inst", cancel_attrs='@click="open = false"',
+        <div x-show="open" x-cloak>{{ ui.form_message("fb-formulier-melding", "mb-2 empty:mb-0") }}{{ ui.action_bar(form="fb-inst", cancel_attrs='@click="open = false"',
              delete_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/verwijderen" ' ~ confirm_attrs(_("Formulier"), form.title)) }}</div>
       </div>
     </div>
