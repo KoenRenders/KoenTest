@@ -1259,9 +1259,9 @@ Eight jobs, each with a thirty-minute limit:
 | `css` | rebuilds `backend/app/static/app.css` from the templates with the pinned Tailwind CLI and fails on a diff (#652): a template change whose CSS was not rebuilt is red | yes |
 | `boot` | runs the real `startup.sh` — migrations, every seed, uvicorn — against an empty PostgreSQL 16 and probes the health route (#450); the import check runs the same way as the Docker build | yes |
 
-The last green run on `master` before this part was written: run 38381461117
-on 92791f8b (13 October 2026) — `pytest` 6 291 passed, 1 skipped; e2e 305 and
-86 passed; `pip-audit` *No known vulnerabilities found*. Every closed issue
+The last green run on `master` when this was measured: run 38517522227 on
+38a4a5a4 (14 October 2026) — `pytest` 6 712 passed, 1 skipped; the two e2e
+parts 913 passed together; `pip-audit` *No known vulnerabilities found*. Every closed issue
 carries the run id, the test count and the audit outcome as evidence
 (`AGENTS.md`, *Testen en test-evidence*), and the release tracker carries them
 once more at step 4 of the release.
