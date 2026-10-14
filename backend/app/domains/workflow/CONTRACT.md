@@ -1,4 +1,6 @@
-# workflow — componentcontract (fase 4b, #403)
+# workflow — the workbench
+
+*First written for fase 4b, #403.*
 
 ## Purpose and process
 
@@ -44,6 +46,24 @@ Zero-touch is het ontwerpdoel: een lege werkbank = gezond systeem.
 *Counted in the code on 13 October 2026:* imports the facades of auth, forms, mail, payment; subscribes to `PaymentReceived`, `RefundDue`, `SubmissionCreated`, `SubmissionDeleted`, `TenantCreated`; calls no port.
 
 ## Owns
+
+<!-- figure: name=lc-task caption=A_workbench_task_and_a_workflow_instance -->
+```mermaid
+stateDiagram-v2
+  state task {
+    [*] --> open : raised by an event or the hourly sweep
+    open --> done : a person closes it, or the sweep closes it on state (api.close_task, close_subject_tasks)
+    done --> [*]
+  }
+  state instance {
+    [*] --> running : a definition started (api.start)
+    running --> done : the last step advanced, or its subject's tasks closed (advance, close_subject_tasks)
+    done --> [*]
+  }
+```
+
+*What to see:* a task has two states and one way out; `failed` exists in the
+code list of the instance and is set nowhere on `master` (13 October 2026).
 
 ### Kill-switch
 

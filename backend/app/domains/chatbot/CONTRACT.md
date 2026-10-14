@@ -1,4 +1,6 @@
-# chatbot — componentcontract (fase 4c, #404; uitgebreid met CR-07, #917)
+# chatbot — Raakje, the assistant and speech
+
+*First written for fase 4c, #404; uitgebreid met CR-07, #917.*
 
 ## Purpose and process
 
@@ -58,6 +60,10 @@ sowieso niet mogen hebben.
 *Counted in the code on 13 October 2026:* imports the facades of activities, auth, cms, mdm, media, membership, payment; subscribes to `DocumentTextExtracted`; calls `ReadTextAgain` (media), `SubmitMessage` (forms).
 
 ## Owns
+
+The status of `ai_call_log` (`ok`, `blocked`, `error`, `moderated`) is the
+outcome of one call, written once by the seam (`chatbot/seam.py`); it has no
+lifecycle.
 
 ### Data
 

@@ -4,8 +4,8 @@ title: Architecture — the Raak platform
 
 | | |
 |---|---|
-| **Version** | 2.0 — restructured on 13 October 2026 (Koen's decisions of 11 and 13 October 2026) |
-| **As-is** | `master` @ cf80ccde, 13 October 2026; the last GitHub Release is v2.16.0 (what PROD runs is measured at the close-out of the next release) |
+| **Version** | 2.0 — restructured on 13 October 2026 (Koen's decisions of 11 and 13 October 2026); E45 applied 14 October 2026 |
+| **As-is** | `master` @ 537f5feb, 14 October 2026; the last GitHub Release is v2.16.0 (what PROD runs is measured at the close-out of the next release) |
 | **Scope** | every claim is traceable to code (Appendix B); planned work stands in part E |
 
 # Part A — The solution
@@ -978,14 +978,15 @@ First*).
 Fifteen sections, one per package under `backend/app/domains/`. **A module's
 section is its `CONTRACT.md`** (Koen, 13 October 2026, Q&A of 11 October,
 question 1: "a"): the PDF build includes the contract at the module's heading
-(→ E32), so nothing about a module stands twice. The build honours that line since #1953 (`master` @ 3ae15a8e). Before the
-contracts, one table holds per module the card measured on 13 October 2026
-against `master` @ cf80ccde by the design-documentation CLI — schema, tables,
-what it owns and offers, its status columns — and each module's section
-opens with its lifecycles, then its contract.
+(→ E32), so nothing about a module stands twice. The build honours that line since #1953 (`master` @ 3ae15a8e), and since 14
+October 2026 (E45) the contract's own title line is the module heading and its
+lifecycle stands under *Owns*: nothing about a module stands in this file.
+Before the contracts, one table holds per module the card measured on 13
+October 2026 against `master` @ cf80ccde by the design-documentation CLI —
+schema, tables, what it owns and offers, its status columns.
 
 The order follows the processes of A2: the two foundation domains first, then
-the business domains, then the cross-cutting ones.
+the business domains, then the cross-cutting ones — `mdm`, `auth`, `membership`, `activities`, `payment`, `forms`, `cms`, `meetings`, `newsletter`, `designstudio`, `workflow`, `reporting`, `mail`, `media`, `chatbot`.
 
 **Two findings of the measurement, before the cards.** First, on 13 October
 2026 the contracts did not share one layout: only `forms` carried the five
@@ -1029,227 +1030,39 @@ in the kernel: jobs, operations, tenant settings); 66 domain tables carry
 **Lifecycles.** Sixteen status columns in nine modules: fourteen are a code
 list with a foreign key, two are plain (the provider's word on
 `gateway_payments`, the copy on `payment_record_history`). Each record status
-has its `stateDiagram-v2` in its module's section below, drawn from the
-transitions in the service, not from the text (Koen, 13 October 2026, Q&A
+has its `stateDiagram-v2` in its module's contract under *Owns*, drawn from
+the transitions in the service, not from the text (Koen, 13 October 2026, Q&A
 nr. 02, question 4: "a"); three columns are outcomes written once, not
 lifecycles (`ai_call_log`, `meeting_attendances`, the history copy), and say
 so in their section.
 
-## B1. `mdm` — master data
-
 <!-- include: backend/app/domains/mdm/CONTRACT.md -->
-
-## B2. `auth` — identity, rights and the session
 
 <!-- include: backend/app/domains/auth/CONTRACT.md -->
 
-## B3. `membership` — households and the yearly membership
-
 <!-- include: backend/app/domains/membership/CONTRACT.md -->
-
-## B4. `activities` — activities, components, products, registrations
-
-<!-- figure: name=lc-activity caption=An_activity:_draft_or_published,_set_by_the_organiser -->
-```mermaid
-stateDiagram-v2
-  [*] --> draft : created (fiche.create_fiche)
-  draft --> published : the organiser publishes (service, the publish toggle)
-  published --> draft : the organiser withdraws it
-  published --> [*]
-```
-
-*What to see:* two states and no refused transition; what *published* means is a
-guard elsewhere — only a published activity is bookable
-(`service.check_publicly_bookable`). A copy starts as draft (`copy_activity`).
 
 <!-- include: backend/app/domains/activities/CONTRACT.md -->
 
-## B5. `payment` — the ledger and the gateway
-
-<!-- figure: name=lc-payment-record caption=A_payment_record:_the_ledger's_status,_set_by_the_gateway,_the_treasurer_or_the_invariant -->
-```mermaid
-stateDiagram-v2
-  [*] --> pending : charge created
-  pending --> paid : paid by the provider, or confirmed by the treasurer (mark_paid checks the amount)
-  pending --> pending : a partial amount booked
-  pending --> failed : expired or failed at the provider
-  pending --> cancelled : cancelled at the provider or by the treasurer (refused when paid)
-  paid --> [*]
-  failed --> [*]
-  cancelled --> [*]
-```
-
-*What to see:* `paid` is reached by two doors, the webhook and the treasurer,
-and both go through `mark_paid`, which checks the amount; a paid record is
-never cancelled (`cancel` refuses it). A refund is a record of its own that
-starts `pending` and becomes `paid` when the treasurer confirms
-(`create_refund`). The gateway's own status on `gateway_payments` is the
-provider's word mapped in the adapter (D2), with `needs_review` set by
-`refresh_payment_status` on a mismatch.
-
 <!-- include: backend/app/domains/payment/CONTRACT.md -->
-
-## B6. `forms` — the form engine
-
-<!-- figure: name=lc-form caption=A_form:_draft,_open_or_closed,_set_by_the_board_in_its_settings -->
-```mermaid
-stateDiagram-v2
-  [*] --> draft : created (service.create_form)
-  draft --> open : the board opens it (the form's settings)
-  open --> closed : the board closes it
-  closed --> open : the board reopens it
-  open --> draft : the board takes it back to draft
-  closed --> [*]
-```
-
-*What to see:* no transition is refused; the status is a setting. What it
-guards is elsewhere: a submission is accepted only when the form is `open`
-(`submit_form`, `update_submission`), and a draft form is not listed.
 
 <!-- include: backend/app/domains/forms/CONTRACT.md -->
 
-## B7. `cms` — web content
-
 <!-- include: backend/app/domains/cms/CONTRACT.md -->
-
-## B8. `meetings` — board meetings
-
-<!-- figure: name=lc-meeting caption=A_meeting:_agenda,_report,_sent -->
-```mermaid
-stateDiagram-v2
-  [*] --> agenda : created (service.create_meeting)
-  agenda --> report : the first minutes are typed (service._touch)
-  report --> sent : the report is mailed to the board (send_meeting_mail)
-  sent --> report : the secretary reopens it (reopen, refused unless sent)
-  sent --> [*]
-```
-
-*What to see:* the step from agenda to report is not a button but the first
-edit of the minutes. Attendance (`present`, `excused`) is a value per person,
-toggled, not a lifecycle.
 
 <!-- include: backend/app/domains/meetings/CONTRACT.md -->
 
-## B9. `newsletter` — the newsletter and its co-writer
-
-<!-- figure: name=lc-newsletter caption=A_newsletter_and_its_deliveries -->
-```mermaid
-stateDiagram-v2
-  state letter {
-    [*] --> draft
-    draft --> sending : the author starts the send (service.start_sending)
-    sending --> sent : the last batch is done (send_batch)
-    sent --> sending : failed deliveries are resent (resend_failed)
-  }
-  state delivery {
-    [*] --> queued : one per confirmed subscriber (start_sending)
-    queued --> sent_d : mailed (send_batch)
-    queued --> failed : the mail failed
-    queued --> skipped : the subscriber is no longer confirmed
-    failed --> queued : resent (resend_failed)
-  }
-```
-
-*What to see:* a letter is `sending` while any delivery is `queued`; the
-batch job moves deliveries, and the letter follows the last one. (`sent_d` is
-the delivery's `sent`: Mermaid needs distinct state ids.)
-
-<!-- figure: name=lc-subscriber caption=A_subscriber:_pending,_confirmed,_unsubscribed -->
-```mermaid
-stateDiagram-v2
-  [*] --> pending : signs up on the site (service.subscribe_public)
-  [*] --> confirmed : added or imported by the board (add_by_admin, run_import)
-  pending --> confirmed : confirms the mail (confirm)
-  confirmed --> unsubscribed : unsubscribes, or the board does (unsubscribe, unsubscribe_by_admin)
-  unsubscribed --> confirmed : subscribes again (resubscribe, add_by_admin)
-  unsubscribed --> pending : signs up on the site again (subscribe_public)
-```
-
-*What to see:* a public sign-up always passes `pending`; the board's door
-skips it. Only a `confirmed` subscriber gets a delivery.
-
 <!-- include: backend/app/domains/newsletter/CONTRACT.md -->
-
-## B10. `designstudio` — posters and social images
-
-<!-- figure: name=lc-design caption=A_design_and_the_image_generations_it_asks_for -->
-```mermaid
-stateDiagram-v2
-  state design {
-    [*] --> draft
-    draft --> final : a version is made (service.make_version)
-    final --> draft : saved, an SVG uploaded or an image added (save_design, upload_edited_svg, add_design_image, pick_generation)
-  }
-  state generation {
-    [*] --> requested : images asked (request_images)
-    requested --> fetched : the provider answered (handlers.generate_image, the job designstudio.generate)
-    requested --> refused : the provider refused the prompt
-    requested --> failed : the call failed
-    fetched --> picked : the organiser picks it (pick_generation)
-    fetched --> discarded : a sibling was picked
-  }
-```
-
-*What to see:* `final` is not an end: every edit makes the design a draft
-again, and the next version is the next `final`. A generation is a request
-with four outcomes, moved by the job and by one choice of the organiser.
 
 <!-- include: backend/app/domains/designstudio/CONTRACT.md -->
 
-## B11. `workflow` — the workbench
-
-<!-- figure: name=lc-task caption=A_workbench_task_and_a_workflow_instance -->
-```mermaid
-stateDiagram-v2
-  state task {
-    [*] --> open : raised by an event or the hourly sweep
-    open --> done : a person closes it, or the sweep closes it on state (api.close_task, close_subject_tasks)
-    done --> [*]
-  }
-  state instance {
-    [*] --> running : a definition started (api.start)
-    running --> done : the last step advanced, or its subject's tasks closed (advance, close_subject_tasks)
-    done --> [*]
-  }
-```
-
-*What to see:* a task has two states and one way out; `failed` exists in the
-code list of the instance and is set nowhere on `master` (13 October 2026).
-
 <!-- include: backend/app/domains/workflow/CONTRACT.md -->
-
-## B12. `reporting` — the universe, the query panel, the change report
 
 <!-- include: backend/app/domains/reporting/CONTRACT.md -->
 
-## B13. `mail` — outgoing mail and its log
-
-<!-- figure: name=lc-mail caption=A_mail_in_the_log:_four_outcomes,_one_retry -->
-```mermaid
-stateDiagram-v2
-  [*] --> sent : delivered (service, the SMTP call)
-  [*] --> failed : the SMTP call raised
-  [*] --> skipped : no mail credentials set for this environment
-  [*] --> logged : the demo tenant only logs, never sends
-  failed --> sent : the retry job delivered it (handlers.retry_mail, mail.retry)
-  failed --> failed : the retries ran out, a workbench task is raised (workflow.sweep)
-  sent --> [*]
-```
-
-*What to see:* the only transition is the retry; every other status is the
-outcome of the first attempt.
-
 <!-- include: backend/app/domains/mail/CONTRACT.md -->
 
-## B14. `media` — the media library, OCR and extraction
-
 <!-- include: backend/app/domains/media/CONTRACT.md -->
-
-## B15. `chatbot` — Raakje, the assistant and speech
-
-The status of `ai_call_log` (`ok`, `blocked`, `error`, `moderated`) is the
-outcome of one call, written once by the seam (`chatbot/seam.py`); it has no
-lifecycle.
 
 <!-- include: backend/app/domains/chatbot/CONTRACT.md -->
 
@@ -1720,10 +1533,10 @@ rejected choices.
 | E36 | A mail provider seam like the mock pattern chat, OCR, STT and Mollie follow | the former §7.1 named it as the one provider without a seam | — | open |
 | E37 | A load test beyond an association's traffic | the former chapter 8: "the shape transfers, the volume does not yet" | the reference architecture (E33) | open |
 | E38 | The close-out of the change requests whose status line says less than GitHub: CR-05, CR-06, CR-07, CR-10, CR-12, CR-17, CR-18 | a status line that lags is the fault step 14 exists for | step 14 of the next release, by the design-documentation CLI (Koen, 13 October 2026, to the master CLI's question who folds the as-built notes in at a release: "dus design-documentation") | planned |
-| E42 | A lifecycle (`stateDiagram-v2`) per record status column, drawn from the transitions in the service (part B) | a lifecycle that comes from the text instead of the code is the kind of stale fact this document wants rid of | part B | done, 13 October 2026: eleven lifecycles in eight modules; they move into the contracts with E32 |
+| E42 | A lifecycle (`stateDiagram-v2`) per record status column, drawn from the transitions in the service (part B) | a lifecycle that comes from the text instead of the code is the kind of stale fact this document wants rid of | part B | done, 13 October 2026; in the contracts under *Owns* since 14 October 2026 (E45) |
 | E43 | The five public-kit macros without a demo or an exemption (`date_tile`, `year_heading`, `activity_facts`, `public_back_link`, `photo_card`) get a demo on `/admin/design-system` or a reasoned line in the exemption list; the completeness gate covers `_public_macros.html` | `docs/design-system.md` §11 promises that a new macro without a demo fails CI; the public kit is outside that promise today | — | open |
 | E44 | The `document_page` layout of the end state (§2.3) exists in no template | the end state names a layout the code does not have; either the roll-out builds it or the end state drops it | CR-11 | open |
-| E45 | One heading per module in part B: the included contract's own title line ("mdm — componentcontract (fase 2, #400)") doubles the module heading in the table of contents | the include lowers the contract's `#` to `##`, the level of the module heading; the title lines name a phase and an issue of 2026 and are in two languages | the contracts' title lines, at the close-out of v2.17 by the design-documentation CLI (Koen, 13 October 2026, to the choice between the title lines and an option in the build: "1 a"); the form: the title line becomes the module heading, `# <module> — <what it is>`, this document drops its own module headings, and the lifecycles move into each contract under *Owns* | decided, planned |
+| E45 | One heading per module in part B: the included contract's own title line ("mdm — componentcontract (fase 2, #400)") doubles the module heading in the table of contents | the include lowers the contract's `#` to `##`, the level of the module heading; the title lines name a phase and an issue of 2026 and are in two languages | the contracts' title lines, at the close-out of v2.17 by the design-documentation CLI (Koen, 13 October 2026, to the choice between the title lines and an option in the build: "1 a"); the form: the title line becomes the module heading, `# <module> — <what it is>`, this document drops its own module headings, and the lifecycles move into each contract under *Owns* | done, 14 October 2026 (Koen: finish it before his meeting), by the architecture CLI |
 
 The *non-goals* of every change request — 141 items in 23 documents on 13
 October 2026 — stay in the document that decided them, one place per fact;
@@ -1744,7 +1557,8 @@ request, the sections touched.
 
 | Release | Change request | Sections touched |
 |---|---|---|
-| — (13 October 2026) | the restructuring (Koen's decisions of 11 and 13 October 2026; #1952, #1953, #1954) | the whole document: five parts and Appendix B, measured against `master` @ cf80ccde and the docs commits of the same day; chapter 8 and the Gespreksleidraad to `docs/reference-architecture.md`; the PDF committed with it |
+| — (14 October 2026) | E45: the contracts' title lines are the module headings, the lifecycles under *Owns* | part B, the fifteen contracts |
+| — (13 October 2026) | the restructuring (Koen's decisions of 11 and 13 October 2026; #1952, #1953, #1954) | the whole document: five parts and Appendix B, measured against `master` @ cf80ccde and the docs commits of the same day; chapter 8 and the Gespreksleidraad to `docs/reference-architecture.md`; the PDF built, not committed |
 
 # Appendix B — Evidence index
 

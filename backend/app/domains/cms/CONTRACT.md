@@ -1,4 +1,6 @@
-# cms — componentcontract (CR-17 fase 1, #1671)
+# cms — web content
+
+*First written for CR-17 fase 1, #1671.*
 
 ## Purpose and process
 

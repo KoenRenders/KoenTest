@@ -1,4 +1,6 @@
-# activities — componentcontract (fase 4a, #402)
+# activities — activities, components, products, registrations
+
+*First written for fase 4a, #402.*
 
 ## Purpose and process
 
@@ -51,6 +53,19 @@ Registratie-betalingen lopen via het payment-component
 *Counted in the code on 13 October 2026:* imports the facades of auth, chatbot, designstudio, forms, mdm, media, membership, payment; subscribes to no event; calls `CopyForm`, `SubmitAttached`, `UpdateAttached` (forms), `StoreFile`, `RemoveFileOf` (media).
 
 ## Owns
+
+<!-- figure: name=lc-activity caption=An_activity:_draft_or_published,_set_by_the_organiser -->
+```mermaid
+stateDiagram-v2
+  [*] --> draft : created (fiche.create_fiche)
+  draft --> published : the organiser publishes (service, the publish toggle)
+  published --> draft : the organiser withdraws it
+  published --> [*]
+```
+
+*What to see:* two states and no refused transition; what *published* means is a
+guard elsewhere — only a published activity is bookable
+(`service.check_publicly_bookable`). A copy starts as draft (`copy_activity`).
 
 ### Data
 
