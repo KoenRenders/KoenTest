@@ -250,3 +250,72 @@ def test_on_a_phone_nothing_scrolls_sideways_and_the_button_is_a_target(world):
         _print(page, "werkbank-taak-390.png")
     finally:
         page.close()
+
+
+#: #1990: Koen's longest title on HDEV, the title #1991 gives it, and two more.
+LONG_TITLES = (
+    "Refund a6574dd9-4c82-4b62-9ef2-fc75386676bf bevestigen (membership #77)",
+    "Terugbetaling lidgeld #77 bevestigen",
+    "Betaling van inschrijving #12 nakijken",
+    "Overschrijving zonder mededeling toewijzen aan een gezin",
+)
+#: The kit's width of the Werkbank's actions column (the widest step), and of a name.
+ACTIONS = 240
+NAME = 380
+COLUMNS = """() => {
+  const frame = document.querySelector('[data-table-frame]');
+  const heads = [...frame.querySelectorAll('thead th')].filter(th => th.checkVisibility());
+  const box = el => el.getBoundingClientRect();
+  return {
+    frame_right: box(frame).right,
+    name: box(heads[0]).width,
+    actions: box(heads[heads.length - 1]).width,
+    actions_right: box(heads[heads.length - 1]).right,
+    lines: [...frame.querySelectorAll('tbody [data-row-link]')].map(a =>
+      [a.textContent.trim(), Math.round(box(a).height / parseFloat(getComputedStyle(a).lineHeight))]),
+    sideways: document.documentElement.scrollWidth > window.innerWidth,
+  };
+}"""
+
+
+def test_the_title_takes_the_room_the_table_has_to_spare(world):
+    """#1990: the title column takes what the table has to spare, so on a wide
+    screen a title reads on one or two lines; the actions keep their width at
+    the right edge; nothing scrolls sideways at 1 024, 1 440 or 1 920 px.
+
+    Broken on purpose (14 October 2026, put back): the Werkbank's title column
+    back at `"width": 252` → at 1 920 px the actions column is 666 px wide."""
+    db = _db()
+    try:
+        ids = [_make(db, f"1990 {title}") for title in LONG_TITLES]
+        db.commit()
+    finally:
+        db.close()
+    try:
+        for width in (1024, 1440, 1920):
+            page = _page(world, "admin", width)
+            page.goto(f"{LIST}?q={MARK} 1990")
+            pagina_klaar(page)
+            m = page.evaluate(COLUMNS)
+            assert len(m["lines"]) == len(LONG_TITLES), m["lines"]
+            assert not m["sideways"], f"{width} px scrolls sideways"
+            assert abs(m["actions"] - ACTIONS) <= 1, f"{width} px: actions {m['actions']}"
+            assert abs(m["actions_right"] - m["frame_right"]) <= 2, f"{width} px: {m}"
+            if width == 1920:
+                assert m["name"] >= NAME, f"1 920 px: the title column is {m['name']} px"
+                assert all(n <= 2 for _t, n in m["lines"]), m["lines"]
+            print("MEASURE 1990", width, round(m["name"]), m["lines"])
+            if width >= 1440:
+                _print(page, f"werkbank-1990-{width}.png")
+            page.close()
+    finally:
+        db = _db()
+        try:
+            from app.domains.workflow.models import WorkflowTask
+
+            db.query(WorkflowTask).filter(WorkflowTask.id.in_(ids)).delete(
+                synchronize_session=False
+            )
+            db.commit()
+        finally:
+            db.close()
