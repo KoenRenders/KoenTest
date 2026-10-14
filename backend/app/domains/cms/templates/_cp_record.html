@@ -77,17 +77,14 @@
 {% call ui.record_columns(aside=samenvatting, wide=True) %}
 <form id="cp-form" class="space-y-4" hx-post="/admin/paginas/{{ p.id }}" hx-target="#main" hx-swap="innerHTML">
   {% call ui.section(_("Gegevens")) %}
-  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-    <div>{{ ui.label(_("Titel"), "cp-title", required=True) }}
-      {{ ui.input_control("title", id="cp-title", value=p.title, required=True, cls="w-full") }}</div>
-    <div>{{ ui.label(_("Webadres"), "cp-slug", required=True) }}
-      {{ ui.input_control("slug", id="cp-slug", value=p.slug, required=True, cls="w-full", attrs='pattern="[a-z0-9-]+"') }}</div>
-  </div>
-  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
-    {{ ui.switch("show_in_nav", _("In het menu"), checked=p.show_in_nav) }}
-    {{ ui.switch("show_in_footer", _("Toon in de voettekst"), checked=p.show_in_footer) }}
-    {{ ui.switch("is_home", _("Startpagina"), checked=p.is_home) }}
-  </div>
+  {# The kit's own fields, straight into the section's form grid (#1983): a
+     hand-made grid in here is ONE cell of that grid, and two fields then
+     share one field column. #}
+  {{ ui.field("title", _("Titel"), id="cp-title", value=p.title, required=True) }}
+  {{ ui.field("slug", _("Webadres"), id="cp-slug", value=p.slug, required=True, attrs='pattern="[a-z0-9-]+"') }}
+  {{ ui.field("show_in_nav", _("In het menu"), kind="switch", value=p.show_in_nav) }}
+  {{ ui.field("show_in_footer", _("Toon in de voettekst"), kind="switch", value=p.show_in_footer) }}
+  {{ ui.field("is_home", _("Startpagina"), kind="switch", value=p.is_home) }}
   {% endcall %}
   {% call ui.section(_("Inhoud")) %}
   {# The document is the author's page (snede 3): TipTap through the macro,
