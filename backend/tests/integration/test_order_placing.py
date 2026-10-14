@@ -376,6 +376,20 @@ def test_an_empty_basket_shows_the_empty_state(client, db_session, every_module_
     assert "Je mandje is leeg" in response.text
 
 
+def test_the_thank_you_page_answers_its_own_path(client, db_session, every_module_on):
+    """P1's companion: `/webshop/bedankt` must win over `/webshop/{product_id}` —
+    the parameter route registered after it used to swallow "bedankt" as a product
+    id and answer a 422 int-parsing error instead of the thank-you page."""
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    placed = _post(client, m.id)
+    redirect = placed.headers["HX-Redirect"]
+    assert "/webshop/bedankt?order=" in redirect
+
+    page = client.get(redirect)
+    assert page.status_code == 200
+    assert "Bedankt" in page.text
+
+
 def test_a_quantity_below_one_is_refused_on_the_basket_page(client, db_session, every_module_on):
     """N6: the basket page refuses a quantity below 1, as placing does — in the
     service, so neither door is the only place the rule holds."""

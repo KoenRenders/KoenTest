@@ -82,6 +82,19 @@ def webshop(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request, "webshop.html", vm.as_context())
 
 
+@router.get("/webshop/bedankt", response_class=HTMLResponse)
+def bedankt(request: Request, order: int, db: Session = Depends(get_db)):
+    """The shop's thank-you page (Q60, Q78): after an online payment the provider
+    returns here and the page reads the ledger; after a transfer the placing
+    redirects here. Registered before `/webshop/{product_id}` so the fixed path
+    wins over the parameter."""
+    found = get_order(db, order)
+    if found is None:
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
+    vm = BedanktView(order=found, order_id=found.id, site=site_context(db, request))
+    return templates.TemplateResponse(request, "webshop_bedankt.html", vm.as_context())
+
+
 @router.get("/webshop/{product_id}", response_class=HTMLResponse)
 def webshop_product(request: Request, product_id: int, db: Session = Depends(get_db)):
     member = _member(request, db)
@@ -196,18 +209,6 @@ async def order_submit(request: Request, db: Session = Depends(get_db)) -> Respo
     else:
         response.headers["HX-Redirect"] = f"/webshop/bedankt?order={order_id}"
     return response
-
-
-@router.get("/webshop/bedankt", response_class=HTMLResponse)
-def bedankt(request: Request, order: int, db: Session = Depends(get_db)):
-    """The shop's thank-you page (Q60, Q78): after an online payment the provider
-    returns here and the page reads the ledger; after a transfer the placing
-    redirects here."""
-    found = get_order(db, order)
-    if found is None:
-        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
-    vm = BedanktView(order=found, order_id=found.id, site=site_context(db, request))
-    return templates.TemplateResponse(request, "webshop_bedankt.html", vm.as_context())
 
 
 @router.get("/mijn/aankopen", response_class=HTMLResponse)

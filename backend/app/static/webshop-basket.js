@@ -41,11 +41,14 @@
     if (!root) return;
     var chosen = root.querySelector('input[name="variant_id"]:checked');
     var message = root.querySelector("[data-tiles-message]");
+    var tiles = root.querySelector("[data-tiles]");
     if (!chosen) {
       if (message) message.hidden = false;
+      if (tiles) tiles.setAttribute("aria-describedby", "variant_id-message");
       return;
     }
     if (message) message.hidden = true;
+    if (tiles) tiles.removeAttribute("aria-describedby");
     var quantity = parseInt((root.querySelector('input[name="quantity"]') || {}).value, 10);
     if (!quantity || quantity < 1) quantity = 1;
     var basket = get();
@@ -54,39 +57,50 @@
     refresh();
   });
 
-  /* The "Mandje" link is a form: fill it from localStorage before it posts. */
-  document.addEventListener("submit", function (event) {
-    var form = event.target.closest("form[data-basket-form]");
-    if (!form) return;
-    Array.prototype.forEach.call(form.querySelectorAll("[data-basket-row]"), function (row) {
-      row.parentNode.removeChild(row);
-    });
-    var basket = get();
-    Object.keys(basket).forEach(function (variantId) {
-      var quantity = parseInt(basket[variantId], 10);
-      if (!quantity || quantity < 1) return;
-      var variant = document.createElement("input");
-      variant.type = "hidden";
-      variant.name = "variant_id";
-      variant.value = variantId;
-      variant.setAttribute("data-basket-row", "");
-      form.appendChild(variant);
-      var amount = document.createElement("input");
-      amount.type = "hidden";
-      amount.name = "quantity";
-      amount.value = String(quantity);
-      amount.setAttribute("data-basket-row", "");
-      form.appendChild(amount);
-    });
-  });
+  /* The "Mandje" link is a form. The shell has `hx-boost`, so htmx has its own
+     submit listener on the form (the target phase) and reads the fields there.
+     This listener runs in the capture phase — before the form's own listeners —
+     so the hidden lines are in the form when htmx reads it (P1). */
+  document.addEventListener(
+    "submit",
+    function (event) {
+      var form = event.target.closest("form[data-basket-form]");
+      if (!form) return;
+      Array.prototype.forEach.call(form.querySelectorAll("[data-basket-row]"), function (row) {
+        row.parentNode.removeChild(row);
+      });
+      var basket = get();
+      Object.keys(basket).forEach(function (variantId) {
+        var quantity = parseInt(basket[variantId], 10);
+        if (!quantity || quantity < 1) return;
+        var variant = document.createElement("input");
+        variant.type = "hidden";
+        variant.name = "variant_id";
+        variant.value = variantId;
+        variant.setAttribute("data-basket-row", "");
+        form.appendChild(variant);
+        var amount = document.createElement("input");
+        amount.type = "hidden";
+        amount.name = "quantity";
+        amount.value = String(quantity);
+        amount.setAttribute("data-basket-row", "");
+        form.appendChild(amount);
+      });
+    },
+    true
+  );
 
   /* The order placed: `#bestel-form`'s good answer (200) empties the basket before
      the browser follows the HX-Redirect, so a buyer who leaves Mollie with the back
-     button does not find the same order still in his basket. */
+     button does not find the same order still in his basket. The form has an
+     `hx-target`, so the `htmx:afterRequest` event fires on the target — the form is
+     `event.detail.requestConfig.elt`, and success is the status, not `successful`. */
   document.addEventListener("htmx:afterRequest", function (event) {
-    var elt = event.detail.elt;
+    var config = event.detail.requestConfig;
+    var elt = config && config.elt;
     if (!elt || !elt.matches || !elt.matches("#bestel-form")) return;
-    if (event.detail.successful) {
+    var xhr = event.detail.xhr;
+    if (xhr && xhr.status >= 200 && xhr.status < 400) {
       set({});
       refresh();
     }

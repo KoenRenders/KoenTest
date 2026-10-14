@@ -470,6 +470,43 @@ def test_de_webshop_paginas_op_390_px(webshop_page):
     assert _geen_zijwaartse_scroll(page)
 
 
+def test_het_mandje_wandelt_van_artikel_tot_bedankt(browser):
+    """P1: the browser is the only layer that walks the basket. At 390 px: a size,
+    "In mandje", "Mandje" — the line with the server's price on the basket page;
+    then "Bestellen" by transfer lands on the thank-you page and the basket is
+    empty after it."""
+    page = browser.new_page(base_url=WEBSHOP_HOST)
+    page.set_viewport_size({"width": 390, "height": 844})
+    try:
+        page.goto("/webshop")
+        card = page.locator('main a[href^="/webshop/"]').first
+        product_id = card.get_attribute("href").rstrip("/").split("/")[-1]
+        page.goto(f"/webshop/{product_id}")
+
+        page.locator("main [data-tile]").first.click()
+        page.locator("[data-add-to-basket]").click()
+        assert page.locator("[data-basket-count]").first.inner_text() == "1"
+
+        with htmx_afgerond(page):
+            page.locator("form[data-basket-form] button[type=submit]").click()
+        page.wait_for_url("**/webshop/mandje")
+        main = page.locator("main")
+        assert "Webshop T-shirt" in main.inner_text()
+        assert "15,00" in main.inner_text()
+
+        page.locator('input[name="contact_name"]').fill("An")
+        page.locator('input[name="contact_email"]').fill("an@example.com")
+        page.locator('input[name="phone"]').fill("0470000000")
+        page.locator('input[name="payment_method"][value="transfer"]').check()
+        with htmx_afgerond(page):
+            page.get_by_role("button", name="Bestellen en betalen").click()
+        page.wait_for_url("**/webshop/bedankt?**")
+        assert "Bedankt" in page.locator("main").inner_text()
+        assert page.evaluate("localStorage.getItem('raak_basket')") in ("{}", None)
+    finally:
+        page.close()
+
+
 def test_productbeheer_en_prijsbeheer_zijn_tabellen(webshop_page):
     """The two list screens are the kit's table: one `table`, a row is the way in,
     no sideways scroll (Koen's sixth point)."""
