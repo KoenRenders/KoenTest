@@ -1388,9 +1388,11 @@ identity goes, the measurement stays) and the rule that a Claude session takes
 no personal data from an environment into its chat at all. What it cannot do:
 a leak that reaches GitHub is public from that second — editing removes
 nothing, a credential is rotated — so the agent is the last reader before the
-push, not a net after it. **No mechanical line stands in front of it today**:
-CI runs no secret scan, and GitHub's own secret scanning and push protection,
-free on a public repository, were switched off on 14 October 2026 (→ E48).
+push, not a net after it. Two mechanical lines stand with it: GitHub's own
+secret scanning with push protection, on since 14 October 2026 (it refuses a
+push that carries a known credential pattern; the first scan found no alert),
+and a blocking secret scan in CI, coming with #1996 on v2.18 (→ E48). Neither
+reads a name or an address: personal data stays the agent's.
 
 **The build read of a change request**:
 every change request, small or large, is laid against `master` by a dev CLI
@@ -1669,7 +1671,7 @@ rejected choices.
 | E45 | One heading per module in part B: the included contract's own title line ("mdm — componentcontract (fase 2, #400)") doubles the module heading in the table of contents | the include lowers the contract's `#` to `##`, the level of the module heading; the title lines name a phase and an issue of 2026 and are in two languages | the contracts' title lines, at the close-out of v2.17 by the design-documentation CLI (Koen, 13 October 2026, to the choice between the title lines and an option in the build: "1 a"); the form: the title line becomes the module heading, `# <module> — <what it is>`, this document drops its own module headings, and the lifecycles move into each contract under *Owns* | done, 14 October 2026 (Koen: finish it before his meeting), by the architecture CLI |
 | E46 | A coverage floor per module, with the money code at 100 %: `payment`, `kernel/money.py`, `kernel/structured_communication.py` | the suite's floor is 85 % over the whole of `app`; a global floor says nothing about one module, and the ledger is where a gap costs money; measured on 14 October 2026 the money code stands at 97 %, about 40 lines short (C3) | — | open (Koen's question of 14 October 2026: "Hoe bepalen we dat Money bvb. 100% test covered is?") |
 | E47 | The coverage report stored per CI run (`coverage.xml` as an artifact of the `pytest` job) and read by the documentation build into C3, like the gates table | the tables of C3 are copied from a log by hand today and age with every release | #1995, v2.19 (Koen, 14 October 2026: "2xja op v2.19") | planned |
-| E48 | A mechanical line in front of the public-repository agent: GitHub's secret scanning with push protection switched on (free on a public repository, a setting, no code), and a secret scan in CI as a blocking job | on 14 October 2026 both GitHub settings were off and CI scans nothing: the agent is the only wall, and it runs only when a session calls it (C4); every leak found so far was a paste into an issue or a commit that a scan would have stopped at the push | — | open (found while answering Koen's question on 14 October 2026) |
+| E48 | A mechanical line beside the public-repository agent: GitHub's secret scanning with push protection, and a secret scan in CI as a blocking job | found on 14 October 2026 while answering Koen's question: both GitHub settings were off and CI scanned nothing, so the agent was the only wall, and it runs only when a session calls it (C4) | GitHub's scanning and push protection on since 14 October 2026; the CI scan is #1996 on v2.18 (Koen, 14 October 2026, to "Mag ik secret scanning en push protection aanzetten op de repo?" and the CI scan: "ja op 1, ja op 2 en in v2.18") | half built, half planned |
 
 The *non-goals* of every change request — 141 items in 23 documents on 13
 October 2026 — stay in the document that decided them, one place per fact;
