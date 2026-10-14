@@ -1524,6 +1524,28 @@ model docstrings that name a standard are all in `mdm/models.py` (fourteen
 lines) plus one comment in `chatbot/models.py`. Everything older than CR-21
 stands here from the code, not from a change request.
 
+## D0. The standards, one sentence each
+
+| Standard | What it is | What we take from it |
+|---|---|---|
+| UBL 2.1 | the Universal Business Language, an OASIS XML vocabulary for business documents (orders, invoices, despatch advices) with one shared model of a party, an address, an item and a payment | the *shape* of a party, its identifications, bank accounts, contacts and addresses, and of an order line and a payment means — what is repeatable and what is singular |
+| EN 16931 | the European norm for the semantic content of an electronic invoice; PEPPOL BIS Billing 3.0 is its profile, mandatory for B2B invoicing in Belgium | the fields an invoice line and a payment reference must carry, so that invoicing later is a mapping, not a rework |
+| ISO 20022 | the international standard for financial messages between banks and their customers, with `IBAN` and `BICFI` as the names of an account and a bank | the names and the shape of a bank account, and the remittance information behind a structured payment reference |
+| Belgian structured communication (OGM) | the twelve-digit payment reference of Belgian bank transfers, with a two-digit check (modulo 97) at the end | the reference every transfer charge carries, so a payment can be matched to its record |
+| ISO 4217 | the three-letter currency codes (`EUR`, `USD`) | the currency of an amount, next to the amount, never implied |
+| ISO 8601 with offset | the date and time notation `2026-10-14T09:30:00+02:00`: year first, the time zone offset at the end | every timestamp is stored with its offset, so a moment is the same in every time zone and after a clock change |
+| ISO 3166-1 alpha-2 | the two-letter country codes (`BE`, `NL`) | the country of an identification and of an address |
+| ISO 6523 / ICD | the registry of identification schemes for organisations (the International Code Designator), such as the Belgian enterprise number or a VAT number, each scheme with a code | the *scheme* column of an organisation's identification, so a number says which register it comes from |
+| vCard | the contact-card format of address books (RFC 6350), with repeatable, typed e-mail addresses and telephone numbers and a preferred one | the shape of a person's contact details: typed rows with one primary, where UBL keeps them singular |
+| E.164 | the international telephone number format (`+32 …`, at most fifteen digits) | not followed yet: a mobile number is stored as typed (D2) |
+| OpenID Connect `email_verified` | the identity layer on OAuth 2.0 whose user profile carries whether an e-mail address was verified | the meaning of a confirmed e-mail address; we store *when* instead of yes/no |
+| NIST SP 800-63B | the United States guideline for digital authentication, with the rules for one-time codes sent out of band (lifetime, attempts, hashing) | the sign-in code: hashed, one live code, five attempts, fifteen minutes |
+| OpenDocument (ODS) | the ISO 26300 open file format of spreadsheets, documents and presentations, the native format of LibreOffice | every export is a spreadsheet in this format, with typed cells, never CSV |
+| BPMN level 1 | the Business Process Model and Notation, restricted to the palette of Bruce Silver's *Method and Style* level 1: lanes, activities, gateways, start and end events, message flows | the drawing standard of every process figure in this document and in a change request |
+| UNCL 5387 | the UN/CEFACT code list of price types (list price, member price, …) | the type of a price in the webshop (D3) |
+| GS1 GTIN, GLN, EPCIS | the GS1 identifiers of a trade item and a location, and the event standard for what happened to goods | the shape of a stock movement and the later item and location identifiers of the webshop (D3) |
+| schema.org | the vocabulary search engines read for structured data on web pages (`Product`, `ProductGroup`) | the names of a product and its variants on the public side (D3) |
+
 ## D1. Followed, on `master`
 
 | Standard · element | Ours (table · column) | Module | Source |
@@ -1672,6 +1694,8 @@ rejected choices.
 | E46 | A coverage floor per module, with the money code at 100 %: `payment`, `kernel/money.py`, `kernel/structured_communication.py` | the suite's floor is 85 % over the whole of `app`; a global floor says nothing about one module, and the ledger is where a gap costs money; measured on 14 October 2026 the money code stands at 97 %, about 40 lines short (C3) | — | open (Koen's question of 14 October 2026: "Hoe bepalen we dat Money bvb. 100% test covered is?") |
 | E47 | The coverage report stored per CI run (`coverage.xml` as an artifact of the `pytest` job) and read by the documentation build into C3, like the gates table | the tables of C3 are copied from a log by hand today and age with every release | #1995, v2.19 (Koen, 14 October 2026: "2xja op v2.19") | planned |
 | E48 | A mechanical line beside the public-repository agent: GitHub's secret scanning with push protection, and a secret scan in CI as a blocking job | found on 14 October 2026 while answering Koen's question: both GitHub settings were off and CI scanned nothing, so the agent was the only wall, and it runs only when a session calls it (C4) | GitHub's scanning and push protection on since 14 October 2026; the CI scan is #1996 on v2.18 (Koen, 14 October 2026, to "Mag ik secret scanning en push protection aanzetten op de repo?" and the CI scan: "ja op 1, ja op 2 en in v2.18") | half built, half planned |
+| E49 | BPMN 2.0 as the *execution* model of the workbench and of the end-to-end processes, not only their drawing standard: a process definition is a BPMN document that an engine runs, and the figure of A2 is that definition | today a `WorkflowDefinition` is a flat JSON list of steps (kind, title, role), one definition exists (*Bericht behartigen*), and the end-to-end processes live in code and in people's heads; with BPMN as the definition, the drawing and the running process are one fact, editable in a modeller | to examine, then a change request (Koen, 14 October 2026: "Kan je ook de standaard zoals BPMN voor procesflows/taken/... gebruiken? Ik bedoel echt voor de executie, flow van de werkbank en e2e processen in het systeem.") | open |
+| E50 | DMN as the target for decisions: a decision table (who gets which task, which price applies, when a refund is due) as data an engine evaluates, instead of a query in code | not used today; every such rule is a function in the owning domain (CR-13, *a rule has one home*); DMN would make the table that home for rules of this kind, readable by the board | to examine with E49 (Koen, 14 October 2026: "en DMN voor decisions als target, momenteel nog niet gebruikt, te bekijken of we introduceren") | open |
 
 The *non-goals* of every change request — 141 items in 23 documents on 13
 October 2026 — stay in the document that decided them, one place per fact;
@@ -1682,7 +1706,7 @@ this table holds only what is rejected for the platform as a whole.
 | Id | What | Why rejected | Decided |
 |---|---|---|---|
 | E39 | A return to a JavaScript frontend | the decision record weighed React against server-rendered htmx along eleven dimensions and chose one language for one architect plus agents; the v2.0.0 validation confirmed that the feel of the interface is a matter of polish (navigation without reload, feedback on every action, server latency under 150 ms on every admin route), not of framework | the frontend decision, 2026; confirmed by the v2.0.0 validation |
-| E40 | A rule engine or a workflow engine for the workbench | task rules are queries in the owning domain, tested; BPMN is the vocabulary, not the motor | the intermediate architecture document §20.6; CR-13 |
+| E40 | A rule engine or a workflow engine for the workbench | task rules are queries in the owning domain, tested; BPMN is the vocabulary, not the motor | the intermediate architecture document §20.6; CR-13 — **re-opened for examination on 14 October 2026** (→ E49, E50): the rejection of July holds until that examination says otherwise |
 | E41 | A workaround in the kit to let the segment bar wrap, so that a wrong label could ship | the label was the real question; "first time right, geen uitzondering" | Koen, 13 October 2026, on #1932 |
 
 ## E3. The change log of this document
@@ -1692,6 +1716,8 @@ request, the sections touched.
 
 | Release | Change request | Sections touched |
 |---|---|---|
+| — (14 October 2026) | E49 and E50: BPMN as execution model and DMN for decisions, to examine; E40 re-opened | E |
+| — (14 October 2026) | D0: every standard of part D in one sentence, on Koen's question | D |
 | — (14 October 2026) | The public-repository agent in C4: its norm, what it cannot do, and that no mechanical scan stands in front of it; E48 | C4, E |
 | — (14 October 2026) | Coverage per module as a column of the module table in part B | B |
 | — (14 October 2026) | The browser flows in C3: the golden flows of the public side and the back office, the suites per area, the measurement baseline | C3 |
