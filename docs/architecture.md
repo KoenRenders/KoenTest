@@ -1032,23 +1032,29 @@ fifteen facades (610 functions), 635 appear in no contract. That is right as
 long as the rule holds that a facade promises its *invariants* in the
 contract and its *signatures* in the code; the contract is not an index.
 
-| Module | Schema | Tables (data + code) | With `tenant_id` | Facade functions | Events owned | Ports offered · called | Jobs | Status columns |
-|---|---|---|---|---|---|---|---|---|
-| `mdm` | `mdm` | 39 (16 + 23) | 13 | 99 | `BoardMemberReported`, `EmailAddressAdded`, `EntityMerged`, `HouseholdDeleted`, `MembershipReported`, `TenantCreated` | `CreateHousehold` · — | — | — |
-| `auth` | `auth` | 10 (4 + 6) | 1 | 28 | `AccountCodeEntered`, `AddressCodeEntered`, `CodeMailRequested` | — · — | — | — |
-| `membership` | `membership` | 2 (2 + 0) | 2 | 33 | `FamilyRegistered`, `MembershipDeleted`, `MembershipRenewalPlaced` | — · `CreateHousehold` | — | — |
-| `activities` | `activities` | 21 (13 + 8) | 13 | 71 | `ActivityCopied`, `AnswerLinkSent`, `OrderChanged`, `RegistrationConfirmed` | — · `CopyForm`, `SubmitAttached`, `UpdateAttached`, `StoreFile`, `RemoveFileOf` | — | `activities.status`: draft, published |
-| `payment` | `payment` | 11 (3 + 8) | 3 | 41 | `PaymentReceived`, `RefundDue` | — · — | — | `payment_records.status`: pending, paid, failed, cancelled; `gateway_payments.status`: the provider's word, no list (CR-12 §B4.10) |
-| `forms` | `form` | 10 (6 + 4) | 6 | 57 | `SubmissionCreated`, `SubmissionDeleted` | `CopyForm`, `SubmitAttached`, `SubmitMessage`, `UpdateAttached` · — | — | `forms.status`: draft, open, closed |
-| `cms` | `cms` | 1 (1 + 0) | 1 | 16 | — | — · — | — | — |
-| `meetings` | `meetings` | 14 (6 + 8) | 6 | 44 | `CircleStartChosen` | — · — | — | `meetings.status`: agenda, report, sent; `meeting_attendances.status`: present, excused |
-| `newsletter` | `newsletter` | 20 (4 + 16) | 4 | 61 | — | — · `StoreFile` | — | `newsletters.status`: draft, sending, sent; `deliveries.status`: queued, sent, failed, skipped; `subscribers.status`: pending, confirmed, unsubscribed |
-| `designstudio` | `designstudio` | 20 (6 + 14) | 6 | 31 | — | — · `StoreFile`, `RemoveAsset` | `designstudio.generate` | `designs.status`: draft, final; `image_generations.status`: requested, fetched, picked, discarded, refused, failed |
-| `workflow` | `workflow` | 13 (3 + 10) | 3 | 14 | — | — · — | `workflow.sweep` | `workflow_tasks.status`: open, done; `workflow_instances.status`: running, done, failed |
-| `reporting` | `reporting` (tables; the views are not in the metadata) | 4 (2 + 2) | 2 | 46 | — | — · — | — | — |
-| `mail` | `mail` | 5 (1 + 4) | 1 | 8 | `MailRequested` | — · — | `mail.retry` | `email_log.status`: sent, failed, skipped, logged |
-| `media` | `media` | 6 (4 + 2) | 3 | 37 | `DocumentTextExtracted` | `ReadTextAgain`, `RemoveAsset`, `RemoveFileOf`, `StoreFile` · — | — | — |
-| `chatbot` | `ai` | 10 (2 + 8) | 2 | 24 | — | — · `ReadTextAgain`, `SubmitMessage` | — | `ai_call_log.status`: ok, blocked, error, moderated |
+| Module | Schema | Tables (data + code) | With `tenant_id` | Facade functions | Events owned | Ports offered · called | Jobs | Status columns | Covered (14 Oct 2026) |
+|---|---|---|---|---|---|---|---|---|---|
+| `mdm` | `mdm` | 39 (16 + 23) | 13 | 99 | `BoardMemberReported`, `EmailAddressAdded`, `EntityMerged`, `HouseholdDeleted`, `MembershipReported`, `TenantCreated` | `CreateHousehold` · — | — | — | 92 % |
+| `auth` | `auth` | 10 (4 + 6) | 1 | 28 | `AccountCodeEntered`, `AddressCodeEntered`, `CodeMailRequested` | — · — | — | — | 97 % |
+| `membership` | `membership` | 2 (2 + 0) | 2 | 33 | `FamilyRegistered`, `MembershipDeleted`, `MembershipRenewalPlaced` | — · `CreateHousehold` | — | — | 96 % |
+| `activities` | `activities` | 21 (13 + 8) | 13 | 71 | `ActivityCopied`, `AnswerLinkSent`, `OrderChanged`, `RegistrationConfirmed` | — · `CopyForm`, `SubmitAttached`, `UpdateAttached`, `StoreFile`, `RemoveFileOf` | — | `activities.status`: draft, published | 96 % |
+| `payment` | `payment` | 11 (3 + 8) | 3 | 41 | `PaymentReceived`, `RefundDue` | — · — | — | `payment_records.status`: pending, paid, failed, cancelled; `gateway_payments.status`: the provider's word, no list (CR-12 §B4.10) | 97 % |
+| `forms` | `form` | 10 (6 + 4) | 6 | 57 | `SubmissionCreated`, `SubmissionDeleted` | `CopyForm`, `SubmitAttached`, `SubmitMessage`, `UpdateAttached` · — | — | `forms.status`: draft, open, closed | 94 % |
+| `cms` | `cms` | 1 (1 + 0) | 1 | 16 | — | — · — | — | — | 94 % |
+| `meetings` | `meetings` | 14 (6 + 8) | 6 | 44 | `CircleStartChosen` | — · — | — | `meetings.status`: agenda, report, sent; `meeting_attendances.status`: present, excused | 93 % |
+| `newsletter` | `newsletter` | 20 (4 + 16) | 4 | 61 | — | — · `StoreFile` | — | `newsletters.status`: draft, sending, sent; `deliveries.status`: queued, sent, failed, skipped; `subscribers.status`: pending, confirmed, unsubscribed | 94 % |
+| `designstudio` | `designstudio` | 20 (6 + 14) | 6 | 31 | — | — · `StoreFile`, `RemoveAsset` | `designstudio.generate` | `designs.status`: draft, final; `image_generations.status`: requested, fetched, picked, discarded, refused, failed | 90 % |
+| `workflow` | `workflow` | 13 (3 + 10) | 3 | 14 | — | — · — | `workflow.sweep` | `workflow_tasks.status`: open, done; `workflow_instances.status`: running, done, failed | 97 % |
+| `reporting` | `reporting` (tables; the views are not in the metadata) | 4 (2 + 2) | 2 | 46 | — | — · — | — | — | 95 % |
+| `mail` | `mail` | 5 (1 + 4) | 1 | 8 | `MailRequested` | — · — | `mail.retry` | `email_log.status`: sent, failed, skipped, logged | 90 % |
+| `media` | `media` | 6 (4 + 2) | 3 | 37 | `DocumentTextExtracted` | `ReadTextAgain`, `RemoveAsset`, `RemoveFileOf`, `StoreFile` · — | — | — | 97 % |
+| `chatbot` | `ai` | 10 (2 + 8) | 2 | 24 | — | — · `ReadTextAgain`, `SubmitMessage` | — | `ai_call_log.status`: ok, blocked, error, moderated | 93 % |
+
+The last column is the statement coverage of the module's code on the last
+green run of `master` (C3, *Coverage, measured*): with its gates (*Rules and
+gates* in the contract) and its browser flows (C3, *The browser flows*) it is
+the test picture per module, re-measured at the close-out of every release
+until the build reads it (→ E47).
 
 Totals: 192 tables (186 in the domains — 73 data, 113 code and label — and 6
 in the kernel: jobs, operations, tenant settings); 66 domain tables carry
@@ -1671,6 +1677,7 @@ request, the sections touched.
 
 | Release | Change request | Sections touched |
 |---|---|---|
+| — (14 October 2026) | Coverage per module as a column of the module table in part B | B |
 | — (14 October 2026) | The browser flows in C3: the golden flows of the public side and the back office, the suites per area, the measurement baseline | C3 |
 | — (14 October 2026) | Coverage per module, per layer and of the money code in C3, from run 38517522227; E47 | C3, E |
 | — (14 October 2026) | Koen's reading notes before his meeting: P7, the outside services in A4, the Mollie adapter in A9, the parties of the request figure in A8, built evolutions leave a contract, ruff, drift and ratchet explained, E46; the decision citations taken out of parts A–D (they stay in E) | A3, A4, A8, A9, B, C, E |
