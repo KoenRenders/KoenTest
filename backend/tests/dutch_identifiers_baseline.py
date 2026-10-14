@@ -70,8 +70,6 @@ DUTCH_IDENTIFIERS: frozenset[str] = frozenset(
         "domains/auth/admin_ui.py::gebruiker_nieuw",
         "domains/auth/admin_ui.py::gebruiker_verwijderen",
         "domains/auth/users.py::_actieve_werkruimte",
-        "domains/chatbot/seam.py::_alleen_waarden",
-        "domains/chatbot/seam.py::_naamscan_tekst",
         "domains/chatbot/ui.py::ai_context_lijst",
         "domains/chatbot/ui.py::notitie_toevoegen",
         "domains/chatbot/ui.py::raakje_vraag",

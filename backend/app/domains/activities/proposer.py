@@ -703,11 +703,12 @@ def _verify(
     return found
 
 
-def _provider(db: Session, actor: str) -> Any:
+def _provider(db: Session, actor: str, record: str = "") -> Any:
     from app.config import settings
     from app.domains.chatbot.api import (
         AiCapability,
         GuardedProvider,
+        Part,
         admin_rules,
         get_provider,
         sink_for,
@@ -723,6 +724,19 @@ def _provider(db: Session, actor: str) -> Any:
             lambda: person_name_parts(db),
             capability=AiCapability.ACTIVITY_DRAFTING,
             scan_prompt_names=SCAN_PROMPT_NAMES,
+            # #1969: a refusal says whether the hit stands in the fiche or in
+            # the question; what is not the fiche is placed by its role.
+            parts=lambda: (
+                [
+                    Part(
+                        where="de fiche van de activiteit",
+                        text=record,
+                        advice="Haal dat gegeven even uit de fiche.",
+                    )
+                ]
+                if record
+                else []
+            ),
         ),
         sink_for(actor),
     )
@@ -756,7 +770,7 @@ def propose(
     activity = standing or standing_of(stored)
     record = scrub(record_text(activity), names)
     sources = f"FICHE\n{record}\n\nVRAAG\n{asked}"
-    provider = _provider(db, actor)
+    provider = _provider(db, actor, record)
     data = _json_answer(
         provider,
         [
