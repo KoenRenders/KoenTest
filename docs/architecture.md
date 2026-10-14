@@ -1259,12 +1259,37 @@ Eight jobs, each with a thirty-minute limit:
 | `css` | rebuilds `backend/app/static/app.css` from the templates with the pinned Tailwind CLI and fails on a diff (#652): a template change whose CSS was not rebuilt is red | yes |
 | `boot` | runs the real `startup.sh` — migrations, every seed, uvicorn — against an empty PostgreSQL 16 and probes the health route (#450); the import check runs the same way as the Docker build | yes |
 
-The last green run on `master` before this part was written: run 38381461117
-on 92791f8b (13 October 2026) — `pytest` 6 291 passed, 1 skipped; e2e 305 and
-86 passed; `pip-audit` *No known vulnerabilities found*. Every closed issue
+The last green run on `master` when this was measured: run 38517522227 on
+38a4a5a4 (14 October 2026) — `pytest` 6 712 passed, 1 skipped; the two e2e
+parts 913 passed together; `pip-audit` *No known vulnerabilities found*. Every closed issue
 carries the run id, the test count and the audit outcome as evidence
 (`AGENTS.md`, *Testen en test-evidence*), and the release tracker carries them
 once more at step 4 of the release.
+
+### The browser flows
+
+The `pytest` job proves what the code promises; the browser flows prove what
+a person sees. Only a real browser shows that a button *does* something: in
+the v2.0.0 validation the server and the markup looked right and three buttons
+were dead (#613, #622). The suite in `backend/tests_e2e/` runs
+playwright-python against a really started backend with a migrated database
+and seeded data, outside the ordinary `pytest` run; CI starts uvicorn and runs
+it in two parts. A flow **fails rather than skips** when the seed data it needs
+is missing, so an empty environment cannot turn it green.
+
+On 14 October 2026 the suite holds **572 test functions** (913 passed on the
+last green run on `master`, parametrised cases counted differently):
+
+| Suite | Tests | What it walks |
+|---|---|---|
+| `test_golden_flows.py` — the **golden flows** of the public side (#405, the React exit) | 9 | a household registers and pays by transfer; a registration is blocked without a valid postal code; an activity registration with a team name; one with products and online payment; the form wizard's navigation; the public core is reachable; and the three *doors* of CR-22: from an activity to *Mijn inschrijvingen* through the account, a guest registers and it is nobody's history, a member signs in from the page that asked |
+| `test_beheer_flows.py` — the golden flows of the **back office** (#622, layer 3) | 7 | confirm a payment; change an order line and the amounts follow; cancel a membership and a refund appears; navigating does not rebuild the shell; a running action is visible; the export stays a download; editing replaces the date line |
+| `activities/`, `forms/`, `shell/`, `pages/`, `members/`, `meetings/`, `assistant/`, `media/`, `reports/` — one folder per area, grown with the change requests | 99 · 98 · 91 · 84 · 76 · 34 · 31 · 23 · 6 | the screens of each area as a person uses them: the kit's lists and records, the public shell and forms, the household portal, the meeting document, the assistant, the media library, the reports |
+| `test_measure_baselines.py`, `test_measure_compare.py` — the **measurement baseline** (#1605) | 14 | positions and sizes read from the rendered DOM at 390 px and the screen's wider widths, compared with the committed baseline (`baselines/`), run by the `measure` job |
+
+`screenshots.py` renders the screens the master CLI looks at before a merge
+(C4); `seed_e2e.py` and `measure_seed.py` are the made-up data every flow
+starts from.
 
 ### Coverage, measured
 
@@ -1646,6 +1671,7 @@ request, the sections touched.
 
 | Release | Change request | Sections touched |
 |---|---|---|
+| — (14 October 2026) | The browser flows in C3: the golden flows of the public side and the back office, the suites per area, the measurement baseline | C3 |
 | — (14 October 2026) | Coverage per module, per layer and of the money code in C3, from run 38517522227; E47 | C3, E |
 | — (14 October 2026) | Koen's reading notes before his meeting: P7, the outside services in A4, the Mollie adapter in A9, the parties of the request figure in A8, built evolutions leave a contract, ruff, drift and ratchet explained, E46; the decision citations taken out of parts A–D (they stay in E) | A3, A4, A8, A9, B, C, E |
 | — (14 October 2026) | E45: the contracts' title lines are the module headings, the lifecycles under *Owns* | part B, the fifteen contracts |
