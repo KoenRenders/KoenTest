@@ -366,14 +366,15 @@ def attachments_of(db: Session, product_id: int) -> list[ProductAttachment]:
 
 
 def attachment_cards(db: Session, product_id: int) -> list[dict]:
-    """What the record shows: each attachment with `is_photo` and its media id, so
-    the screen tells a picture from a document without comparing a code."""
+    """What the record shows: each attachment with `is_photo`, its media id and the
+    asset's alt text, so the screen tells a picture from a document without
+    comparing a code, and a picture carries its alt from the asset (CR-21, R1)."""
     from app.domains.media.api import MediaAsset, MediaKind, media_url
 
     attachments = attachments_of(db, product_id)
     ids = [attachment.media_asset_id for attachment in attachments]
-    kinds = (
-        {asset.id: asset.kind for asset in db.query(MediaAsset).filter(MediaAsset.id.in_(ids))}
+    assets = (
+        {asset.id: asset for asset in db.query(MediaAsset).filter(MediaAsset.id.in_(ids))}
         if ids
         else {}
     )
@@ -383,7 +384,12 @@ def attachment_cards(db: Session, product_id: int) -> list[dict]:
             "media_asset_id": attachment.media_asset_id,
             "url": media_url(attachment.media_asset_id),
             "title": attachment.title,
-            "is_photo": kinds.get(attachment.media_asset_id) == MediaKind.PRODUCT_PHOTO,
+            "alt": (assets[attachment.media_asset_id].title or "")
+            if attachment.media_asset_id in assets
+            else "",
+            "is_photo": assets[attachment.media_asset_id].kind == MediaKind.PRODUCT_PHOTO
+            if attachment.media_asset_id in assets
+            else False,
         }
         for attachment in attachments
     ]

@@ -24,13 +24,16 @@ class WebshopView(ViewModel):
 
 @dataclass(frozen=True, kw_only=True)
 class WebshopProductView(ViewModel):
-    """`webshop_product.html` — one article on offer, with its sizes and prices."""
+    """`webshop_product.html` — one article on offer, with its sizes, prices,
+    pictures and documents (R1, R3)."""
 
     name: str
     description: str
     price: Any
     from_price: bool
     sizes: list[dict[str, Any]]
+    photos: list[dict[str, Any]] = field(default_factory=list)
+    documents: list[dict[str, Any]] = field(default_factory=list)
     site: dict[str, Any] = field(default_factory=dict)
 
     def as_context(self) -> dict[str, Any]:

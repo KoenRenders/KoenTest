@@ -53,30 +53,61 @@ def _offered_sizes(db: Session, product: Product, *, member: bool) -> list[dict[
     return sizes
 
 
+def article_media(
+    db: Session, product_id: int
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """The article's pictures and documents for the public pages (R1, R3): each
+    picture carries its full URL, its thumbnail and its alt from the asset; each
+    document carries its URL and title. Pictures first, in the article's order."""
+    from app.domains.media.api import media_url
+    from app.domains.product.api import attachment_cards
+    from app.i18n import _
+
+    photos: list[dict[str, Any]] = []
+    documents: list[dict[str, Any]] = []
+    for card in attachment_cards(db, product_id):
+        if card["is_photo"]:
+            photos.append(
+                {
+                    "url": card["url"],
+                    "thumb": media_url(card["media_asset_id"], thumb=True),
+                    "alt": card["alt"],
+                }
+            )
+        else:
+            documents.append(
+                {"url": card["url"], "title": card["title"] or card["alt"] or _("Document")}
+            )
+    return photos, documents
+
+
 def offered_products(db: Session, *, member: bool = False) -> list[dict[str, Any]]:
     """The articles the shop offers today (F16, R40): in sale, with at least one
-    size whose price is valid today. Each carries its offered sizes and the lowest
-    of their prices."""
+    size whose price is valid today. Each carries its offered sizes, the lowest of
+    their prices and the first picture's thumbnail (R1)."""
     offered: list[dict[str, Any]] = []
     for product in list_products(db, active_only=True):
         sizes = _offered_sizes(db, product, member=member)
         if not sizes:
             continue
+        photos, _documents = article_media(db, product.id)
         offered.append(
             {
                 "id": product.id,
                 "name": product.name,
                 "sizes": [size["name"] for size in sizes],
                 "price": min(size["price"] for size in sizes),
+                "thumb": photos[0]["thumb"] if photos else None,
             }
         )
     return offered
 
 
 def article_offer(db: Session, product_id: int, *, member: bool = False) -> dict[str, Any] | None:
-    """One article's offer today — its name, description and the sizes with their
-    prices — or None when it is not offered: not in sale, no size with a price
-    valid today, of another tenant, or deleted.
+    """One article's offer today — its name, description, the sizes with their
+    prices, and its pictures and documents (R1, R3) — or None when it is not
+    offered: not in sale, no size with a price valid today, of another tenant, or
+    deleted.
 
     The product is read through the tenant-filtered read of `product`
     (`get_product_in_tenant`), not a load by key: a visitor types the id, and a
@@ -87,7 +118,14 @@ def article_offer(db: Session, product_id: int, *, member: bool = False) -> dict
     sizes = _offered_sizes(db, product, member=member)
     if not sizes:
         return None
-    return {"name": product.name, "description": product.description or "", "sizes": sizes}
+    photos, documents = article_media(db, product_id)
+    return {
+        "name": product.name,
+        "description": product.description or "",
+        "sizes": sizes,
+        "photos": photos,
+        "documents": documents,
+    }
 
 
 def place_order(

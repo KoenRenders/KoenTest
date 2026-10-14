@@ -5,7 +5,22 @@
 {{ ui.back_link(_("Webshop"), path_for('/webshop')) }}
 {% call ui.page_header(name, subtitle=description) %}{% endcall %}
 {% call ui.flow_card() %}
-<div data-shop-buy class="grid gap-4">
+<div class="grid gap-4">
+  {% if photos %}
+  <div data-product-photos class="grid gap-3 sm:grid-cols-2">
+    {% for p in photos %}
+    <img src="{{ p.url }}" alt="{{ p.alt }}" class="w-full rounded-lg border border-line object-cover">
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if documents %}
+  <div data-product-documents class="flex flex-col gap-1">
+    {% for d in documents %}
+    <a href="{{ d.url }}" target="_blank" rel="noopener" class="text-blue-500 underline">{{ d.title }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <div data-shop-buy class="grid gap-4">
   <p class="text-lg font-semibold text-ink">{% if from_price %}{{ _("vanaf") }} {% endif %}€ {{ price|geld }}</p>
   {% set size_options = [] %}{% set unavailable = {} %}
   {% for s in sizes %}{% set __ = size_options.append([s.id, s.name]) %}{% if not s.available %}{% set __ = unavailable.update({s.id: _("uitverkocht")}) %}{% endif %}{% endfor %}
@@ -20,6 +35,7 @@
     {{ ui.btn_secondary(_("Mandje"), type="submit", lead_icon="shopping-cart") }}
     <span data-basket-count class="ml-2 rounded-full bg-blue-700 text-white text-xs font-semibold px-2 py-0.5 align-middle">0</span>
   </form>
+  </div>
 </div>
 {% endcall %}
 {% endblock %}

@@ -111,6 +111,8 @@ def webshop_product(request: Request, product_id: int, db: Session = Depends(get
         price=min(prices),
         from_price=len(set(prices)) > 1,
         sizes=offer["sizes"],
+        photos=offer["photos"],
+        documents=offer["documents"],
         site=site_context(db, request),
     )
     return templates.TemplateResponse(request, "webshop_product.html", vm.as_context())

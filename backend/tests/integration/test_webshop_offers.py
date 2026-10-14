@@ -209,6 +209,42 @@ def test_no_vanaf_when_the_sizes_cost_the_same(client, db_session, every_module_
     assert "15,00" in page.text
 
 
+def test_the_article_page_shows_its_pictures_and_documents(client, db_session, every_module_on):
+    """R1/R3: the article page shows its pictures (with the asset's alt) and its
+    documents as links that open; the list shows the first picture's thumbnail."""
+    from app.domains.media.api import MediaAsset, MediaKind
+    from app.domains.product.api import ProductAttachment
+
+    product = _on_sale_with_price(db_session, "T-shirt Raak", amount="15.00")
+
+    photo = MediaAsset(
+        kind=MediaKind.PRODUCT_PHOTO, title="Een foto", data=b"x", content_type="image/png"
+    )
+    db_session.add(photo)
+    db_session.flush()
+    db_session.add(ProductAttachment(product_id=product.id, media_asset_id=photo.id))
+    document = MediaAsset(
+        kind=MediaKind.PRODUCT_DOCUMENT,
+        title="Maattabel",
+        data=b"%PDF-1.4",
+        content_type="application/pdf",
+    )
+    db_session.add(document)
+    db_session.flush()
+    db_session.add(ProductAttachment(product_id=product.id, media_asset_id=document.id))
+    db_session.commit()
+
+    page = client.get(f"/webshop/{product.id}")
+    assert page.status_code == 200
+    assert f"/api/v1/media/{photo.id}" in page.text
+    assert 'alt="Een foto"' in page.text
+    assert f'href="/api/v1/media/{document.id}"' in page.text
+    assert "Maattabel" in page.text
+
+    listing = client.get("/webshop")
+    assert f"/api/v1/media/{photo.id}/thumb" in listing.text
+
+
 def test_the_page_of_another_tenants_article_is_not_found(client, db_session, every_module_on):
     """A visitor types the id: an article of another tenant is not this tenant's
     offer, so its page is a 404."""

@@ -636,6 +636,62 @@ def test_een_weg_artikel_blijft_gemarkeerd_staan(webshop_page):
         _status_zetten("ON_SALE")
 
 
+def test_een_foto_en_een_document_staan_op_de_artikelpagina(webshop_page):
+    """R1/R3, in the browser: a picture shows and a document opens on the public
+    article page, and the list shows the first picture's thumbnail."""
+    from io import BytesIO
+
+    from PIL import Image
+
+    page = webshop_page
+    page.set_viewport_size({"width": 390, "height": 844})
+    record = _open_artikel_in_bewerkmodus(page)
+    product_id = record.rstrip("/").split("/")[-1]
+
+    buf = BytesIO()
+    Image.new("RGB", (40, 30), (10, 90, 200)).save(buf, format="PNG")
+    page.locator('form[hx-post$="/fotos"] input[type="file"]').set_input_files(
+        {"name": "foto.png", "mimeType": "image/png", "buffer": buf.getvalue()}
+    )
+    with htmx_afgerond(page):
+        page.locator('button[form="foto-form"]').click()
+    page.locator('form[hx-post$="/documenten"] input[type="file"]').set_input_files(
+        {
+            "name": "maattabel.pdf",
+            "mimeType": "application/pdf",
+            "buffer": b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n",
+        }
+    )
+    with htmx_afgerond(page):
+        page.locator('button[form="document-form"]').click()
+
+    try:
+        page.goto(f"/webshop/{product_id}")
+        picture = page.locator('img[src^="/api/v1/media/"]:not([src$="/thumb"])')
+        assert picture.count() == 1
+        assert picture.first.evaluate("el => el.naturalWidth") > 0, "the picture did not load"
+        document = page.locator('a[href^="/api/v1/media/"]').first
+        href = document.get_attribute("href")
+        assert (
+            page.request.get(
+                f"http://127.0.0.1:8000{href}", headers={"Host": "webshop.localhost"}
+            ).status
+            == 200
+        )
+
+        page.goto("/webshop")
+        assert page.locator('img[src^="/api/v1/media/"][src$="/thumb"]').count() == 1
+    finally:
+        page.goto(record + "?bewerken=1")
+        for _ in range(2):
+            page.wait_for_selector('button[hx-post*="/bijlage/"]')
+            page.locator('button[hx-post*="/bijlage/"]').first.click()
+            ok = page.locator("[data-dialog] [data-dialog-ok]")
+            ok.wait_for(state="visible")
+            with htmx_afgerond(page):
+                ok.click()
+
+
 def test_productbeheer_en_prijsbeheer_zijn_tabellen(webshop_page):
     """The two list screens are the kit's table: one `table`, a row is the way in,
     no sideways scroll (Koen's sixth point)."""
