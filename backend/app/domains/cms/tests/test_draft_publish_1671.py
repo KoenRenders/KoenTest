@@ -226,22 +226,22 @@ def test_restore_refuses_an_offline_row(db_session):
 
 def test_a_page_without_a_published_document_keeps_serving_her_html(db_session):
     """F11's honest fallback, slice 3's shape. A page whose content never
-    converts (a quote) is created with a draft of her words and NO
+    converts (a code block; a quotation until #1985) is created with a draft of her words and NO
     published document — the site keeps rendering her stored HTML. A
     content update changes nothing about her documents (A1, #1734): the
     fallback follows `content` while no document is published, and the
     editor's draft stays what it was."""
-    page = _page(db_session, is_published=True, content="<blockquote>Een citaat.</blockquote>")
+    page = _page(db_session, is_published=True, content="<pre>Een citaat.</pre>")
     translation = get_translation(db_session, page)
     assert translation.draft_json is not None, "creation lost her words"
-    assert translation.published_json is None, "a quote page does not convert"
+    assert translation.published_json is None, "a code block page does not convert"
     assert "Een citaat." in published_html(db_session, page), "she lost her HTML"
 
     draft_before = json.dumps(translation.draft_json)
     update_page(
         db_session,
         page.id,
-        CmsPageUpdate(content="<blockquote>Een tweede citaat.</blockquote>"),
+        CmsPageUpdate(content="<pre>Een tweede citaat.</pre>"),
     )
     db_session.expire_all()
     translation = get_translation(db_session, page)
