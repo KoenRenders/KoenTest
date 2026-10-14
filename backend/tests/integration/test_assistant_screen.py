@@ -453,3 +453,43 @@ def test_a_refusal_without_a_way_on_shows_no_link(client, db_session, aan, monke
     )
     assert "in je vraag staat een e-mailadres" in resp.text
     assert "data-refusal-link" not in resp.text
+
+
+def _one_report_round(monkeypatch):
+    """#1986: `run_chat` replaced by one round of `run_report` whose column title
+    holds a name part, sent through the guarded provider the caller built."""
+    import json
+
+    monkeypatch.setattr("app.domains.reporting.assistant.scan_names", lambda db: {"herkomst"})
+    result = {
+        "columns": [{"key": "registrant_source", "name": "Herkomst inschrijver"}],
+        "rows": [],
+        "totals": {},
+        "row_count": 0,
+    }
+
+    def one_round(db, messages, provider, **kwargs):
+        tool = {"role": "tool", "tool_call_id": "1", "name": "run_report"}
+        provider.complete([*messages, {**tool, "content": json.dumps(result)}], tools=None)
+        return "Klaar."
+
+    monkeypatch.setattr("app.domains.chatbot.api.run_chat", one_round)
+
+
+def test_the_screen_reads_its_own_tools_labels_as_labels(client, db_session, aan, monkeypatch):
+    """#1986: the label fields are read as labels only for the tools a caller
+    declares; this screen declares its own two. A column title holding a name
+    part goes out, and the answer comes back.
+
+    Proven red by passing no label tools from the screen: the call is refused."""
+    _one_report_round(monkeypatch)
+    seed(db_session)
+    csrf = login(client, db_session)
+    resp = client.post(
+        PATH,
+        data={"vraag": "Hoeveel inschrijvingen?", "historie": "[]"},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert resp.status_code == 200
+    assert "Dit is niet verstuurd" not in resp.text
+    assert "Klaar." in resp.text
