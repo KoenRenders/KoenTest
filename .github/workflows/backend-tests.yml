@@ -81,13 +81,14 @@ jobs:
           echo "$GITLEAKS_SHA256  $RUNNER_TEMP/$tarball" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP" gitleaks
       # A pull request: its own commits (base..head). A push to master: the
-      # pushed range. A finding names the commit, the file and the line; the
-      # value is redacted in the log.
+      # pushed range. `--verbose` prints each finding — commit, file, line,
+      # rule, and the commit's author as git already shows it — with the value
+      # redacted; without it gitleaks only counts them.
       - name: Scan the commits of this change
         env:
           RANGE: ${{ github.event_name == 'pull_request' && format('{0}..{1}', github.event.pull_request.base.sha, github.event.pull_request.head.sha) || format('{0}..{1}', github.event.before, github.sha) }}
         run: |
-          "$RUNNER_TEMP/gitleaks" git --config .github/gitleaks.toml --redact --no-banner \
+          "$RUNNER_TEMP/gitleaks" git --config .github/gitleaks.toml --redact --verbose --no-banner \
             --log-opts="$RANGE" .
 
   pytest:
