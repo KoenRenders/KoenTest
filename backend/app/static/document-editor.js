@@ -588,6 +588,23 @@
       bar.appendChild(el);
     });
 
+    /* A block the toolbar turns on and off, as a list (#1985): the
+       quotation. Its word is the configuration's, like every word here. */
+    (config.toolbar.blocks || []).forEach(function (block) {
+      if (block.id !== "blockquote") return;
+      var el = button(block.label);
+      el.addEventListener("click", function () {
+        editor.chain().focus().toggleBlockquote().run();
+      });
+      press.push({
+        el: el,
+        isOn: function () {
+          return editor.isActive("blockquote");
+        },
+      });
+      bar.appendChild(el);
+    });
+
     var insertable = (config.toolbar.insert || []).filter(function (item) {
       return (
         item.id === "table" ||
@@ -1097,12 +1114,14 @@
         link: (config.marks || []).indexOf("link") !== -1,
         bulletList: (config.lists || []).indexOf("bulletList") !== -1,
         orderedList: (config.lists || []).indexOf("orderedList") !== -1,
+        /* The quotation is on where the set offers it (#1985): the kit's
+           own block, with her "> " at the start of a paragraph and a pasted
+           <blockquote> kept as one. */
+        blockquote: (config.blocks || []).indexOf("blockquote") !== -1,
         /* Off, so the editor cannot write what the server refuses (review
-           B1, #1699): the page set has no quote, code, code block, rule or
-           underline — a typed or pasted one would become a document the
-           schema refuses with "Onbekend blok". They come back when a set
-           offers them. */
-        blockquote: false,
+           B1, #1699): no set has code, a code block, a rule or underline — a
+           typed or pasted one would become a document the schema refuses
+           with "Onbekend blok". They come back when a set offers them. */
         code: false,
         codeBlock: false,
         horizontalRule: false,

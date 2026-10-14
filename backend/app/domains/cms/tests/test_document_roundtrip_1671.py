@@ -98,9 +98,10 @@ def test_the_table_survives_an_edit():
 
 
 def test_a_page_that_does_not_convert_keeps_her_html():
-    """A quote is not in the schema (C4.2): the page does not convert
-    losslessly — strict yields None, and the site keeps serving her HTML."""
-    assert parse_html("<blockquote>Een citaat van iemand.</blockquote>", on_page=True) is None
+    """A code block is not in the schema: the page does not convert
+    losslessly — strict yields None, and the site keeps serving her HTML.
+    (This was the quotation until #1985 gave the document one.)"""
+    assert parse_html("<pre>Een citaat van iemand.</pre>", on_page=True) is None
 
 
 def test_the_gentle_draft_keeps_the_words_in_both_orders():
@@ -108,8 +109,8 @@ def test_the_gentle_draft_keeps_the_words_in_both_orders():
     paragraph (the old test) and after it (the case the review found lost,
     A2 #1673)."""
     for content in (
-        "<blockquote>Een citaat van iemand.</blockquote><p>En een alinea.</p>",
-        "<p>En een alinea.</p><blockquote>Een citaat van iemand.</blockquote>",
+        "<pre>Een citaat van iemand.</pre><p>En een alinea.</p>",
+        "<p>En een alinea.</p><pre>Een citaat van iemand.</pre>",
     ):
         document = parse_html(content, on_page=True, lenient=True)
         assert document is not None

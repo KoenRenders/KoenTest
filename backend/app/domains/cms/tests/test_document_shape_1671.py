@@ -478,6 +478,7 @@ class TestEveryNodeRenders:
                 },
             },
             {"type": "callout", "content": [{"type": "text", "text": "Let op."}]},
+            {"type": "blockquote", "content": [_par("Een citaat.")]},
             {
                 "type": "cards",
                 "content": [
