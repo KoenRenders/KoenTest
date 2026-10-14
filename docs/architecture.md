@@ -1524,6 +1524,28 @@ model docstrings that name a standard are all in `mdm/models.py` (fourteen
 lines) plus one comment in `chatbot/models.py`. Everything older than CR-21
 stands here from the code, not from a change request.
 
+## D0. The standards, one sentence each
+
+| Standard | What it is | What we take from it |
+|---|---|---|
+| UBL 2.1 | the Universal Business Language, an OASIS XML vocabulary for business documents (orders, invoices, despatch advices) with one shared model of a party, an address, an item and a payment | the *shape* of a party, its identifications, bank accounts, contacts and addresses, and of an order line and a payment means — what is repeatable and what is singular |
+| EN 16931 | the European norm for the semantic content of an electronic invoice; PEPPOL BIS Billing 3.0 is its profile, mandatory for B2B invoicing in Belgium | the fields an invoice line and a payment reference must carry, so that invoicing later is a mapping, not a rework |
+| ISO 20022 | the international standard for financial messages between banks and their customers, with `IBAN` and `BICFI` as the names of an account and a bank | the names and the shape of a bank account, and the remittance information behind a structured payment reference |
+| Belgian structured communication (OGM) | the twelve-digit payment reference of Belgian bank transfers, with a two-digit check (modulo 97) at the end | the reference every transfer charge carries, so a payment can be matched to its record |
+| ISO 4217 | the three-letter currency codes (`EUR`, `USD`) | the currency of an amount, next to the amount, never implied |
+| ISO 8601 with offset | the date and time notation `2026-10-14T09:30:00+02:00`: year first, the time zone offset at the end | every timestamp is stored with its offset, so a moment is the same in every time zone and after a clock change |
+| ISO 3166-1 alpha-2 | the two-letter country codes (`BE`, `NL`) | the country of an identification and of an address |
+| ISO 6523 / ICD | the registry of identification schemes for organisations (the International Code Designator), such as the Belgian enterprise number or a VAT number, each scheme with a code | the *scheme* column of an organisation's identification, so a number says which register it comes from |
+| vCard | the contact-card format of address books (RFC 6350), with repeatable, typed e-mail addresses and telephone numbers and a preferred one | the shape of a person's contact details: typed rows with one primary, where UBL keeps them singular |
+| E.164 | the international telephone number format (`+32 …`, at most fifteen digits) | not followed yet: a mobile number is stored as typed (D2) |
+| OpenID Connect `email_verified` | the identity layer on OAuth 2.0 whose user profile carries whether an e-mail address was verified | the meaning of a confirmed e-mail address; we store *when* instead of yes/no |
+| NIST SP 800-63B | the United States guideline for digital authentication, with the rules for one-time codes sent out of band (lifetime, attempts, hashing) | the sign-in code: hashed, one live code, five attempts, fifteen minutes |
+| OpenDocument (ODS) | the ISO 26300 open file format of spreadsheets, documents and presentations, the native format of LibreOffice | every export is a spreadsheet in this format, with typed cells, never CSV |
+| BPMN level 1 | the Business Process Model and Notation, restricted to the palette of Bruce Silver's *Method and Style* level 1: lanes, activities, gateways, start and end events, message flows | the drawing standard of every process figure in this document and in a change request |
+| UNCL 5387 | the UN/CEFACT code list of price types (list price, member price, …) | the type of a price in the webshop (D3) |
+| GS1 GTIN, GLN, EPCIS | the GS1 identifiers of a trade item and a location, and the event standard for what happened to goods | the shape of a stock movement and the later item and location identifiers of the webshop (D3) |
+| schema.org | the vocabulary search engines read for structured data on web pages (`Product`, `ProductGroup`) | the names of a product and its variants on the public side (D3) |
+
 ## D1. Followed, on `master`
 
 | Standard · element | Ours (table · column) | Module | Source |
@@ -1692,6 +1714,7 @@ request, the sections touched.
 
 | Release | Change request | Sections touched |
 |---|---|---|
+| — (14 October 2026) | D0: every standard of part D in one sentence, on Koen's question | D |
 | — (14 October 2026) | The public-repository agent in C4: its norm, what it cannot do, and that no mechanical scan stands in front of it; E48 | C4, E |
 | — (14 October 2026) | Coverage per module as a column of the module table in part B | B |
 | — (14 October 2026) | The browser flows in C3: the golden flows of the public side and the back office, the suites per area, the measurement baseline | C3 |
