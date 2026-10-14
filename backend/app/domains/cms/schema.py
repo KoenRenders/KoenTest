@@ -89,6 +89,10 @@ NODES: dict[str, dict[str, Any]] = {
         "attrs": {"start": "int?", "type": "null?"},
     },
     "listItem": {"content": "block+"},
+    # A quotation (#1985; the Trix editor had one): blocks, as a list item
+    # and a column hold them — the editor's own quotation holds `block+` and
+    # the server accepts what the editor writes.
+    "blockquote": {"group": "block", "content": "block+"},
     "table": {"group": "block", "content": "tableRow+"},
     "tableRow": {
         "content": "(tableHeader | tableCell)+",
@@ -184,6 +188,8 @@ BLOCK_SETS: dict[str, dict[str, Any]] = {
         "marks": ("bold", "italic", "strike", "link"),
         "headings": HEADING_LEVELS,
         "lists": ("bulletList", "orderedList"),
+        # A block the toolbar turns on and off, as a list (#1985).
+        "blocks": ("blockquote",),
         # C4.13's menu order: Tabel · Afbeelding · Kolommen · Knop · Kader ·
         # Kaarten.
         "insert": ("table", "figure", "columns", "button", "callout", "cards"),
@@ -193,6 +199,7 @@ BLOCK_SETS: dict[str, dict[str, Any]] = {
         "marks": ("bold", "italic", "link"),
         "headings": (),
         "lists": ("bulletList", "orderedList"),
+        "blocks": (),
         # Phase 7's activity, calendar and closing nodes do not exist yet; a set
         # may not offer what the schema refuses (review B3, #1673) - they join
         # when phase 7 adds their shapes.
@@ -202,6 +209,7 @@ BLOCK_SETS: dict[str, dict[str, Any]] = {
         "marks": ("bold", "italic", "strike"),
         "headings": HEADING_LEVELS,
         "lists": ("bulletList", "orderedList"),
+        "blocks": (),
         "insert": ("table",),
     },
 }
@@ -558,6 +566,7 @@ def _toolbar_label(command_id: str) -> str:
         "link": _("Link"),
         "bulletList": _("Lijst"),
         "orderedList": _("Genummerde lijst"),
+        "blockquote": _("Citaat"),
         "table": _("Tabel"),
         "figure": _("Afbeelding"),
         "columns": _("Kolommen"),
@@ -594,6 +603,7 @@ def schema_for(set_name: str) -> dict[str, Any]:
             )
         ],
         "lists": list(BLOCK_SETS[set_name]["lists"]),
+        "blocks": list(BLOCK_SETS[set_name]["blocks"]),
         "insert": list(BLOCK_SETS[set_name]["insert"]),
         # The toolbar, as the browser builds her from this configuration
         # (slice 2): the words are UI copy behind `_()` and live HERE, not
@@ -606,6 +616,10 @@ def schema_for(set_name: str) -> dict[str, Any]:
             "lists": [
                 {"id": name, "label": _toolbar_label(name)}
                 for name in BLOCK_SETS[set_name]["lists"]
+            ],
+            "blocks": [
+                {"id": name, "label": _toolbar_label(name)}
+                for name in BLOCK_SETS[set_name]["blocks"]
             ],
             "insertMenu": _("Blok invoegen"),
             "insert": [

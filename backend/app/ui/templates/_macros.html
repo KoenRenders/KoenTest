@@ -3709,7 +3709,11 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
      the room, the name gives way before anything overflows (Betalingen at
      1 440 px: 284 px, as before). The CSS computes that from the sums this
      macro writes on the table (`--dt-rest`, and `--dt-p1`/`--dt-p2` for the
-     optional columns, which give their room back when they leave);
+     optional columns, which give their room back when they leave). A name
+     column declared `"width": "rest"` takes what the frame leaves at every
+     width, as a name that is the last column does: the last column then keeps
+     its own width and the white space goes to the name (#1990, the Werkbank,
+     whose titles are long and whose button stays at the right);
    - context 280 px (#1941; Koen, 13 October 2026, to "Contextkolom: vast op
      ongeveer 280 px …?": "ja" — a share of the frame left white space behind
      it on a wide screen, and sizing to content makes the columns jump between
@@ -3745,9 +3749,10 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   {%- set _parts = {'name': '336px', 'context': 'min(240px, 20cqw)', 'status': '120px', 'actions': '156px', 'date': '100px', 'more': '12cqw', 'moment': '152px', 'extra': '144px'} if _narrow else {'name': '380px', 'context': '280px', 'status': '136px', 'actions': '156px', 'date': '112px', 'more': '26cqw', 'moment': '152px', 'extra': '160px'} -%}
   {%- set _w = namespace(all=[], name='', rest=[], p1=[], p2=[]) -%}
   {%- for c in columns -%}
-    {%- set _width = (c.width ~ 'px') if c.get('width') else (('96px' if _narrow else '104px') if c.get('num') else _parts.get(c.cell, '')) -%}
+    {%- set _takes_rest = c.cell == 'name' and c.get('width') == 'rest' -%}
+    {%- set _width = '' if _takes_rest else ((c.width ~ 'px') if c.get('width') else (('96px' if _narrow else '104px') if c.get('num') else _parts.get(c.cell, ''))) -%}
     {%- set _ignore = _w.all.append(_width) -%}
-    {%- if c.cell == 'name' and not _w.name -%}{%- set _w.name = '100cqw' if loop.last else _width -%}
+    {%- if c.cell == 'name' and not _w.name -%}{%- set _w.name = '100cqw' if (loop.last or _takes_rest) else _width -%}
     {%- elif _width -%}{%- set _ignore = (_w.p1 if c.get('priority') == 1 else (_w.p2 if c.get('priority') == 2 else _w.rest)).append(_width) -%}{%- endif -%}
   {%- endfor %}
   <table class="data-table text-sm" data-p1="{{ modes.get(1, 'auto') }}" data-p2="{{ modes.get(2, 'auto') }}"

@@ -7,9 +7,10 @@ quotation and the code block had become ONE paragraph, their words glued
 ("Een citaat.code in een blok"), and the list inside a list was flat — three
 items in a row.
 
-The document has no quotation and no code block, so the draft cannot keep
-them as such; it keeps each as a paragraph of its own. A list inside a list
-it can keep: a list item holds blocks.
+The document has no code block, so the draft keeps one as a paragraph of
+its own; since #1985 it has a quotation block, and the draft keeps a
+quotation as one. A list inside a list it can keep: a list item holds
+blocks.
 
 The HTML below is what Trix writes for these blocks — a paragraph as a
 `<div>`, a quotation as `<blockquote>`, a code block as `<pre>`, a nested
@@ -59,9 +60,9 @@ def test_a_block_the_document_cannot_carry_is_a_paragraph_of_its_own():
     blocks = draft["content"]
     assert [block["type"] for block in blocks] == [
         "paragraph",
+        "blockquote",
         "paragraph",
-        "paragraph",
-        "paragraph",
+        "blockquote",
         "bulletList",
     ], [(block["type"], _words(block)) for block in blocks]
     assert [_words(block) for block in blocks[:4]] == [

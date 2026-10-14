@@ -5,7 +5,7 @@
 - ``workflow.sweep``: vult de werkbank vanuit de overige bronnen — pending
   refunds (consolidatie van de bestaande wachtrij), definitief gefaalde mails,
   webhook-mismatches en definitief gefaalde jobs. Idempotent per onderwerp
-  (titel = sleutel); zero-touch als ontwerpdoel — een lege werkbank is gezond.
+  (soort en onderwerp = sleutel, sinds #1994; de titel is enkel tekst); zero-touch als ontwerpdoel — een lege werkbank is gezond.
   Kill-switch: settings.workbench_enabled.
 """
 
@@ -45,7 +45,7 @@ def advance_sweep_on_money(event: PaymentReceived | RefundDue, db: Session) -> N
     Until CR-13 phase 2 `payment` called `vervroeg_sweep` itself, after "bevestig
     betaald" and after creating a refund. Now it says what happened, and this does
     what those two calls did — advance the sweep, never make or close a task: the
-    task's title is its idempotency key, and the sweep decides (#705). Every way
+    sweep decides which tasks exist, by their kind and subject (#705, #1994). Every way
     money comes in publishes `PaymentReceived`, a provider's webhook included.
     """
     api.vervroeg_sweep(db)
@@ -84,13 +84,17 @@ def close_task_of_deleted_submission(event: SubmissionDeleted, db: Session) -> N
 
 def _sweep_sources(db: Session) -> list[dict]:
     """De taak-kandidaten van de 4 sweep-bronnen (behartigen is event-gedreven)."""
-    from app.domains.mail.api import EmailLog, MailStatus
+    from app.domains.mail.api import EMAIL_TYPE, EmailLog, MailStatus
     from app.domains.payment.api import (
+        PAYABLE_TYPE,
+        PAYMENT_PROVIDER,
+        PAYMENT_STATUS,
         GatewayPayment,
         PaymentRecord,
         PaymentStatus,
         PaymentType,
     )
+    from app.kernel.codes import code_label
     from app.kernel.jobs import JobStatus, KernelJob
 
     kandidaten: list[dict] = []
@@ -103,10 +107,14 @@ def _sweep_sources(db: Session) -> list[dict]:
         )
         .all()
     ):
+        # #1991: the payment in words — the payable's label from payment's own
+        # code list ("Lidmaatschap" → "lidmaatschap"), with its number. The
+        # record's id says nothing to the treasurer; it stays the subject.
+        wat = code_label(PAYABLE_TYPE.name, r.payable_type)
         kandidaten.append(
             dict(
                 kind=PAYMENT_CONFIRM_REFUND,
-                title=f"Refund {r.id} bevestigen ({r.payable_type.value} #{r.payable_id})",
+                title=f"Terugbetaling {wat[:1].lower()}{wat[1:]} #{r.payable_id} bevestigen",
                 # #704: het record-id, niet het payable — `subject_type` zegt
                 # "payment_record" en de waarde hoort dat te zijn.
                 subject_type="payment_record",
@@ -126,10 +134,14 @@ def _sweep_sources(db: Session) -> list[dict]:
         log = db.get(EmailLog, log_id)
         if log is None or log.status is MailStatus.SENT:
             continue
+        # #1994: what kind of mail, from mail's own code list. The address
+        # is not in the title: the task's record shows it (with a link to
+        # write), the list's second line shows the mail's subject, and a
+        # title travels into logs and lists that need no address.
         kandidaten.append(
             dict(
                 kind=MAIL_PERMANENTLY_FAILED,
-                title=f"E-mail #{log.id} aan {log.recipient} definitief gefaald",
+                title=f"E-mail ({code_label(EMAIL_TYPE.name, log.email_type)}) niet afgeleverd",
                 subject_type="email_log",
                 subject_id=str(log.id),
                 role="ADMIN",
@@ -152,9 +164,11 @@ def _sweep_sources(db: Session) -> list[dict]:
         kandidaten.append(
             dict(
                 kind=PAYMENT_WEBHOOK_MISMATCH,
+                # #1994: who says paid, and what our ledger says — both from
+                # payment's code lists; the ids stay on the record.
                 title=(
-                    f"Webhook-mismatch: gateway {gp.id[:8]}… is paid, "
-                    f"record {record.id[:8]}… is {record.status.value}"
+                    f"Betaald volgens {code_label(PAYMENT_PROVIDER.name, gp.provider)}, "
+                    f"hier {code_label(PAYMENT_STATUS.name, record.status).lower()}: nakijken"
                 ),
                 subject_type="payment_record",
                 subject_id=str(record.id),
@@ -171,7 +185,11 @@ def _sweep_sources(db: Session) -> list[dict]:
         kandidaten.append(
             dict(
                 kind=KERNEL_JOB_FAILED,
-                title=f"Job {j.name} (#{j.id}) definitief gefaald: {(j.last_error or '')[:120]}",
+                # #1994: a job has no Dutch word of its own (its name is a
+                # code), so the title says what happened; the list's second
+                # line names the job and its attempts, and the error text
+                # stays on the job.
+                title="Achtergrondtaak definitief mislukt",
                 subject_type="kernel_job",
                 subject_id=str(j.id),
                 role="ADMIN",
@@ -198,6 +216,11 @@ SWEEP_SOORTEN = frozenset(
 )
 
 
+def _task_key(kind, subject_type, subject_id) -> tuple[str, str, str]:
+    """A sweep task's key: its kind and its subject (#1994), as text."""
+    return (str(kind), str(getattr(subject_type, "value", subject_type)), str(subject_id))
+
+
 @job("workflow.sweep")
 def sweep(db: Session, payload: dict) -> None:
     # Lazy, zoals elders in dit domein: _() moet de taal van de actieve tenant
@@ -206,12 +229,34 @@ def sweep(db: Session, payload: dict) -> None:
 
     if settings.workbench_enabled:
         open_taken = api.open_tasks(db, ["ADMIN", "FINANCE"])
-        bestaande = {t.title for t in open_taken}
         kandidaten = _sweep_sources(db)
-        for kandidaat in kandidaten:
-            if kandidaat["title"] in bestaande:
+        # The key of a task is its kind and its subject (#1994), not its
+        # title: a title in words need not be unique — two pending refunds on
+        # one payable read alike — and a title may change. Until #1994 the
+        # title was the key, and the second of two such refunds got no task.
+        current = {_task_key(k["kind"], k["subject_type"], k["subject_id"]): k for k in kandidaten}
+        # #1991: an open task whose cause is still there, under a title that
+        # was built otherwise when it was made, gets the title its cause has
+        # now — the same task, its history kept.
+        hertiteld = False
+        bestaande = set()
+        for taak in open_taken:
+            key = _task_key(taak.kind, taak.subject_type, taak.subject_id)
+            bestaande.add(key)
+            kandidaat = current.get(key)
+            if taak.kind in SWEEP_SOORTEN and kandidaat and taak.title != kandidaat["title"]:
+                logger.warning("werkbank-sweep: nieuwe titel — %s #%s", taak.kind, taak.id)
+                taak.title = kandidaat["title"]
+                hertiteld = True
+        if hertiteld:
+            db.flush()
+        for key, kandidaat in current.items():
+            if key in bestaande:
                 continue
-            logger.warning("werkbank-sweep: nieuwe taak — %s", kandidaat["title"])
+            # Kind and subject only in the log: a title is for the screen.
+            logger.warning(
+                "werkbank-sweep: nieuwe taak — %s %s", kandidaat["kind"], kandidaat["subject_id"]
+            )
             api.create_task(
                 db,
                 kind=kandidaat["kind"],
@@ -226,15 +271,15 @@ def sweep(db: Session, payload: dict) -> None:
         # weg. Tot nu sloot geen enkele taak zichzelf: `close_task` werd alleen
         # vanuit de werkbank aangeroepen, dus zulke taken bleven eeuwig staan.
         #
-        # Dezelfde titels als sleutel, dus geen nieuw mechanisme — het is de
-        # spiegel van de idempotentiecheck hierboven. En `done_by="systeem"` met een
-        # reden in `decision`, want anders toont het archief uit #674 taken die door
-        # niemand afgehandeld lijken.
-        geldig = {k["title"] for k in kandidaten}
+        # Dezelfde sleutel (soort en onderwerp, #1994), dus geen nieuw mechanisme —
+        # het is de spiegel van de idempotentiecheck hierboven. En `done_by="systeem"`
+        # met een reden in `decision`, want anders toont het archief uit #674 taken
+        # die door niemand afgehandeld lijken.
         gesloten = False
         for taak in open_taken:
-            if taak.kind in SWEEP_SOORTEN and taak.title not in geldig:
-                logger.warning("werkbank-sweep: aanleiding weg — %s", taak.title)
+            key = _task_key(taak.kind, taak.subject_type, taak.subject_id)
+            if taak.kind in SWEEP_SOORTEN and key not in current:
+                logger.warning("werkbank-sweep: aanleiding weg — %s #%s", taak.kind, taak.id)
                 api.close_task(
                     db,
                     taak.id,

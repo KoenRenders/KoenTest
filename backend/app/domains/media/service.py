@@ -422,14 +422,26 @@ _EXT_BY_TYPE = {
 }
 
 
+#: The marker every PDF carries in its header (ISO 32000-1 §7.5.2), which a
+#: reader accepts anywhere in the first 1 024 bytes.
+_PDF_MARKER = b"%PDF"
+_PDF_HEADER_WINDOW = 1024
+
+
 def _process_document(raw: bytes, content_type: str, *, kind: MediaKind | str = "") -> dict:
     """Verwerk een poster/reglement-upload: PDF wordt ongewijzigd bewaard (geen
-    thumbnail), een afbeelding gaat door de gewone verkleining + thumbnail."""
+    thumbnail), een afbeelding gaat door de gewone verkleining + thumbnail.
+
+    The content is checked (#1905): a PDF must carry the PDF marker in its
+    header; an image is decoded by Pillow. Every door that stores a document
+    passes here, so a document kind added later is checked the same way."""
     if content_type == "application/pdf":
         if not raw:
             raise ImageError("Leeg bestand")
         if len(raw) > MAX_UPLOAD_BYTES:
             raise ImageError("Bestand te groot")
+        if _PDF_MARKER not in raw[:_PDF_HEADER_WINDOW]:
+            raise ImageError("Geen geldige PDF")
         # #1019: de eerste bladzijde als afbeelding, zodat een scherm of een mail
         # die geen PDF toont er tóch een beeld van heeft. Lukt het niet, dan blijft
         # het document gewoon een document — geen mislukte upload.

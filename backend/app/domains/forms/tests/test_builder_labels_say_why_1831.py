@@ -5,14 +5,10 @@ refusal of its service was answered as a bare JSON 422 — the sentence inside
 it, the page showing the kit's general message. And an EMPTY label did not even
 get that far: the routes required the field.
 
-Three doors answer the kit's refusal into the message line of THEIR form — a new
-question, a new option, a changed option — read here as the screen gets it
-(`tests/_refusal.py`), with the line it is sent to found once in the builder
-the board is looking at, and nothing written.
-
-The fourth, a CHANGED question, already said why in its own way (#1136): the
-builder again with the reason in its banner. That stays; only an empty label
-did not reach it.
+Four doors answer the kit's refusal into the message line of THEIR form — a
+new question, a new option, a changed option, and since #1859 a changed question
+too — read here as the screen gets it (`tests/_refusal.py`), with the line it is
+sent to found once in the builder the board is looking at, and nothing written.
 
 A changed option without a label was no refusal in the service at all: it kept
 its old label without a word and wrote the rest. It is refused now, by the same
@@ -29,7 +25,7 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.forms.models import FormField, FormFieldOption, FormSection
 from tests import forms_door
-from tests._refusal import heading, message_line, page_banner, said
+from tests._refusal import heading, message_line, said
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 QUESTION_RULE = "Elk veld heeft een vraag/label nodig."
@@ -169,20 +165,21 @@ def test_an_option_that_loses_its_label_says_why_in_its_row(client, db_session, 
 
 
 @EMPTY
-def test_a_question_that_loses_its_label_says_why_in_the_builders_banner(
+def test_a_question_that_loses_its_label_says_why_in_its_own_form(
     client, db_session, builder, label
 ):
-    """This door's own way, since #1136: the builder again, the reason in its banner."""
+    """#1859: in the question's own message line, like the three doors above —
+    the banner of #1136 is undone for this door."""
     before = _stored(db_session, builder)
+    field = builder["field_id"]
 
     answer = client.post(
-        f"{builder['base']}/velden/{builder['field_id']}",
+        f"{builder['base']}/velden/{field}",
         data=_given(label, field_type="radio", help_text="Kies er één."),
         headers=builder["headers"],
     )
 
-    assert answer.status_code == 200
-    assert page_banner(answer) == QUESTION_RULE
+    _refused_in(client, builder["base"], answer, QUESTION_RULE, f"#fb-veld-{field}-melding")
     assert _stored(db_session, builder) == before, "the rest of the refused change was written"
 
 

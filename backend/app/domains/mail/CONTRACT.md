@@ -1,4 +1,6 @@
-# mail — componentcontract (fase 1a, #399)
+# mail — outgoing mail and its log
+
+*First written for fase 1a, #399.*
 
 ## Purpose and process
 
@@ -41,6 +43,21 @@ Where the Dutch text above names `send_registration_confirmation` and `send_acti
 *Counted in the code on 13 October 2026:* imports the facades of activities, auth, forms, membership, payment; subscribes to `AnswerLinkSent`, `CodeMailRequested`, `FamilyRegistered`, `MailRequested`, `MembershipRenewalPlaced`, `RegistrationConfirmed`, `SubmissionCreated`; calls no port.
 
 ## Owns
+
+<!-- figure: name=lc-mail caption=A_mail_in_the_log:_four_outcomes,_one_retry -->
+```mermaid
+stateDiagram-v2
+  [*] --> sent : delivered (service, the SMTP call)
+  [*] --> failed : the SMTP call raised
+  [*] --> skipped : no mail credentials set for this environment
+  [*] --> logged : the demo tenant only logs, never sends
+  failed --> sent : the retry job delivered it (handlers.retry_mail, mail.retry)
+  failed --> failed : the retries ran out, a workbench task is raised (workflow.sweep)
+  sent --> [*]
+```
+
+*What to see:* the only transition is the retry; every other status is the
+outcome of the first attempt.
 
 ### Jobs (kernel, §5.8)
 

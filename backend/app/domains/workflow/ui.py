@@ -294,7 +294,9 @@ def _workbench_view(request: Request, db: Session, email: str, *, oob: bool) -> 
     return WorkbenchView(
         rows=rows,
         columns=[
-            {"key": "taak", "label": _("Taak"), "cell": "name", "width": 252},
+            # #1990: a title takes the room the table has to spare, so it reads
+            # on one or two lines on a wide screen; the button stays at the right.
+            {"key": "taak", "label": _("Taak"), "cell": "name", "width": "rest"},
             _head("soort", _("Soort"), "context", "soort", "-soort", width=176),
             _head("aangemaakt", _("Aangemaakt"), "moment", "aangemaakt", "-aangemaakt"),
             {

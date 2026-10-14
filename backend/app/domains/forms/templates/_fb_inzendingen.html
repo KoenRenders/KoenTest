@@ -8,6 +8,7 @@
         <span class="text-gray-500 font-normal">{{ r.submission.submitter_email or "" }} · {{ r.submission.submitted_at|short_datetime }}</span></span>
       {{ ui.btn_danger(_("Verwijderen"), size="md", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/inzendingen/' ~ r.submission.id ~ '/verwijderen" hx-target="#fb-inzendingen" hx-swap="innerHTML"', confirm=_("Inzending definitief verwijderen?")) }}
     </div>
+    {{ ui.form_message("fb-inzending-" ~ r.submission.id ~ "-melding", "mt-2 empty:mt-0") }}
     <dl class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
       {% for label, waarde in r.answers %}
       <div><dt class="text-xs text-gray-500">{{ label }}</dt><dd>{{ waarde }}</dd></div>

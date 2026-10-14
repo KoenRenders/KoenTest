@@ -20,13 +20,15 @@ whose paragraphs are Trix ``<div>``s, or whose picture carries a Trix-era
 size, does not convert — she keeps her HTML (the visitor sees exactly today's
 page, R17), her words stand in the draft for the editor, and the author
 places the picture anew. That is most pages, not a few: of seventeen pieces
-of Trix' own output five convert — the three headings and the two plain
+of Trix' own output five converted — the three headings and the two plain
 lists; everything with a paragraph in it keeps her HTML (measured on the
-comparison with the Trix editor, 14 October 2026). The migration's log line
-names them.
+comparison with the Trix editor, 14 October 2026). With the quotation block
+(#1985) a quotation converts too; the count on twenty pieces typed in Trix
+stands in that issue's test. The migration's log line names the pages that
+keep their HTML.
 
 The draft of such a page keeps her blocks apart (the same comparison): a
-block the document cannot carry — a quotation, a code block — becomes a
+block the document cannot carry — a code block — becomes a
 paragraph of its own, never glued to its neighbour's words; and a list
 inside a list stays nested, because a list item holds blocks.
 
@@ -181,9 +183,11 @@ class _Builder:
         self.table_rows: Optional[list[dict[str, Any]]] = None
         self.table_section: Optional[str] = None
         self.table_cell_blocks: Optional[list[dict[str, Any]]] = None
-        # The open lists, the innermost last: each its tag and its items.
-        # A list inside an item nests (the schema's list item holds blocks).
-        self.lists: list[tuple[str, list[dict[str, Any]]]] = []
+        # The open containers, the innermost last: a list with its items, or
+        # a quotation with its blocks. They nest as the page wrote them — a
+        # list inside an item, a list inside a quotation, a quotation inside
+        # an item (the schema's list item and quotation hold blocks).
+        self.open: list[tuple[str, list[dict[str, Any]]]] = []
 
     def refuse(self, tag: str) -> None:
         """Strict: this page does not convert losslessly. Lenient: the tag is
@@ -207,8 +211,10 @@ class _Builder:
     def _current_blocks(self) -> list[dict[str, Any]]:
         if self.table_cell_blocks is not None:
             return self.table_cell_blocks
-        if self.lists:
-            items = self.lists[-1][1]
+        if self.open:
+            tag, items = self.open[-1]
+            if tag == "blockquote":
+                return items
             if not items:
                 # A block straight inside the list, before any item: it gets
                 # an item of its own rather than leaving the list.
@@ -243,28 +249,31 @@ class _Builder:
             # so a div page does not convert byte-equal and keeps her HTML —
             # her words stand in the draft (no legacy flags, Koen 6 okt).
             self._open_paragraph()
-        elif tag in ("blockquote", "pre"):
-            # The document has no quotation and no code block. Strict: the
-            # page does not convert. Lenient: its words are loose words, and
-            # the loose words before it are closed off as a paragraph here —
-            # as every block does at its start — so two such blocks in a row
-            # are two paragraphs; they were one, their words glued (the
+        elif tag == "pre":
+            # The document has no code block. Strict: the page does not
+            # convert. Lenient: its words are loose words, and the loose words
+            # before it are closed off as a paragraph here — as every block
+            # does at its start — so a quotation and a code block in a row are
+            # two blocks; they were one paragraph, their words glued (the
             # comparison with the Trix editor).
             self.refuse(tag)
             self.flush_inline()
-        elif tag in ("ul", "ol"):
+        elif tag in ("ul", "ol", "blockquote"):
             self.flush_inline()
-            # Inside an item the list nests; the item's own words are closed,
-            # so what follows the inner list is a paragraph of its own.
+            # Inside an item a list nests; the item's own words are closed,
+            # so what follows the inner list is a paragraph of its own. A
+            # quotation (#1985) holds blocks: Trix writes her words straight
+            # in her (`<blockquote>Een citaat.</blockquote>`), so they are
+            # loose words here, closed off as her paragraph where she ends.
             self.inline = []
             self.in_text_block = False
-            self.lists.append((tag, []))
+            self.open.append((tag, []))
         elif tag == "li":
-            if not self.lists:
+            if not self.open or self.open[-1][0] == "blockquote":
                 self.refuse(tag)
                 return
             paragraph: dict[str, Any] = {"type": "paragraph", "content": []}
-            self.lists[-1][1].append({"type": "listItem", "content": [paragraph]})
+            self.open[-1][1].append({"type": "listItem", "content": [paragraph]})
             self.inline = paragraph["content"]
             self.in_text_block = True
         elif tag == "table":
@@ -342,14 +351,14 @@ class _Builder:
             self.flush_inline()
             self.inline = []
             self.in_text_block = False
-        elif tag in ("ul", "ol"):
+        elif tag in ("ul", "ol", "blockquote"):
             self.flush_inline()
-            if self.lists:
+            if self.open:
                 # Free the target FIRST: `_current_blocks()` still points at
-                # this list while it is open — appending the finished list to
-                # itself loses it (measured: a list came out empty).
-                opened, items = self.lists.pop()
-                kind = "bulletList" if opened == "ul" else "orderedList"
+                # this container while it is open — appending the finished one
+                # to itself loses it (measured: a list came out empty).
+                opened, items = self.open.pop()
+                kind = {"ul": "bulletList", "ol": "orderedList"}.get(opened, "blockquote")
                 if items:
                     self._current_blocks().append({"type": kind, "content": items})
         elif tag in ("figure", "figcaption", "caption"):

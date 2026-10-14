@@ -1,4 +1,6 @@
-# payment — componentcontract (fase 3, #401)
+# payment — the ledger and the gateway
+
+*First written for fase 3, #401.*
 
 ## Purpose and process
 
@@ -60,6 +62,27 @@ The JSON routes of this component that exist for a named caller (R14, CR-13 phas
 *Counted in the code on 13 October 2026:* imports the facades of activities, auth, mdm, membership; subscribes to `MembershipDeleted`, `OrderChanged`; calls no port.
 
 ## Owns
+
+<!-- figure: name=lc-payment-record caption=A_payment_record:_the_ledger's_status,_set_by_the_gateway,_the_treasurer_or_the_invariant -->
+```mermaid
+stateDiagram-v2
+  [*] --> pending : charge created
+  pending --> paid : paid by the provider, or confirmed by the treasurer (mark_paid checks the amount)
+  pending --> pending : a partial amount booked
+  pending --> failed : expired or failed at the provider
+  pending --> cancelled : cancelled at the provider or by the treasurer (refused when paid)
+  paid --> [*]
+  failed --> [*]
+  cancelled --> [*]
+```
+
+*What to see:* `paid` is reached by two doors, the webhook and the treasurer,
+and both go through `mark_paid`, which checks the amount; a paid record is
+never cancelled (`cancel` refuses it). A refund is a record of its own that
+starts `pending` and becomes `paid` when the treasurer confirms
+(`create_refund`). The gateway's own status on `gateway_payments` is the
+provider's word mapped in the adapter (D2), with `needs_review` set by
+`refresh_payment_status` on a mismatch.
 
 ### Jobs (kernel, §5.8)
 

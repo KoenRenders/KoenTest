@@ -1,4 +1,6 @@
-# media — capaciteitscontract (fase 4c, #404)
+# media — the media library, OCR and extraction
+
+*First written for fase 4c, #404.*
 
 ## Purpose and process
 

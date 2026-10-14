@@ -1,4 +1,6 @@
-# designstudio — component contract (CR-10, #1007)
+# designstudio — posters and social images
+
+*First written for CR-10, #1007.*
 
 ## Purpose and process
 
@@ -59,6 +61,28 @@ version's PNG through `rendition`.
 *Counted in the code on 13 October 2026:* imports the facades of activities, auth, chatbot, mdm, media; subscribes to `ActivityCopied`; calls `StoreFile`, `RemoveAsset` (media).
 
 ## Owns
+
+<!-- figure: name=lc-design caption=A_design_and_the_image_generations_it_asks_for -->
+```mermaid
+stateDiagram-v2
+  state design {
+    [*] --> draft
+    draft --> final : a version is made (service.make_version)
+    final --> draft : saved, an SVG uploaded or an image added (save_design, upload_edited_svg, add_design_image, pick_generation)
+  }
+  state generation {
+    [*] --> requested : images asked (request_images)
+    requested --> fetched : the provider answered (handlers.generate_image, the job designstudio.generate)
+    requested --> refused : the provider refused the prompt
+    requested --> failed : the call failed
+    fetched --> picked : the organiser picks it (pick_generation)
+    fetched --> discarded : a sibling was picked
+  }
+```
+
+*What to see:* `final` is not an end: every edit makes the design a draft
+again, and the next version is the next `final`. A generation is a request
+with four outcomes, moved by the job and by one choice of the organiser.
 
 ### Rendering (B1.3)
 

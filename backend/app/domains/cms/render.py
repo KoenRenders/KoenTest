@@ -595,6 +595,15 @@ def _block_html(
     if kind == "button":
         return _button_html(node, preview=preview, db=db)
 
+    if kind == "blockquote":
+        # A quotation (#1985) holds blocks; her paragraphs render bare and a
+        # line break joins them, as the Trix editor wrote her
+        # (`<blockquote>Regel een<br>Regel twee</blockquote>`) — so a Trix
+        # page whose quotation is her only difference converts, and the site's
+        # prose rule for `blockquote` styles her. An empty one renders nothing.
+        inner = _blocks_html(content, cell=True, preview=preview, db=db, late=late)
+        return f"<blockquote>{inner}</blockquote>" if inner.strip() else ""
+
     if kind == "callout":
         # C4.13: text only, on a neutral surface with the line and radius
         # 14, 16 px inside — no title, icon or colour stripe. Her words are
@@ -921,7 +930,7 @@ def _document_text(document, db=None) -> str:
             alt = (node.get("attrs") or {}).get("alt") or ""
             if alt:
                 lines.append(alt)
-        elif kind in ("columns", "column"):
+        elif kind in ("columns", "column", "blockquote"):
             for child in content:
                 walk(child)
         elif kind == "callout":

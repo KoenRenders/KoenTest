@@ -93,6 +93,8 @@ def test_the_editor_opens_with_the_page_sets_toolbar(setup, width):
             {"text": "Link", "aria": None},
             {"text": "•", "aria": "Lijst"},
             {"text": "1.", "aria": "Genummerde lijst"},
+            # The quotation (#1985): a word, like the headings.
+            {"text": "Citaat", "aria": None},
         ], m["labels"]
         assert m["menu"] == "Blok invoegen ▾"
         assert m["items"] == 7, (

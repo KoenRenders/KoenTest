@@ -16,12 +16,11 @@ is een slapende vertakking die weer opleeft zodra iemand het type terugzet — h
 onzichtbare soort schade, net als bij #692.
 """
 
-import re
-
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from tests import forms_door
+from tests._refusal import message_line, said
 from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -102,12 +101,13 @@ def test_een_ongeldig_type_wordt_geweigerd(client):
     form = _formulier(client)
     csrf = _login(client)
 
-    resp = _bewerk(client, csrf, form, form["fields"][0]["id"], field_type="bestaat-niet")
-    # Since #1136 a refused edit comes back as the builder with the reason in its
-    # error banner; a 422 only ever reached the screen as the generic toast.
-    banner = re.search(r'role="alert"[^>]*>(.*?)</div>', resp.text, re.S)
-    assert resp.status_code == 200 and banner, resp.text[:200]
-    assert "Ongeldig veldtype" in banner.group(1), banner.group(1)
+    field_id = form["fields"][0]["id"]
+    resp = _bewerk(client, csrf, form, field_id, field_type="bestaat-niet")
+    # #1859: a refused edit answers in the question's own message line (the
+    # builder's banner of #1136 before); a bare 422 only ever reached the screen
+    # as the generic toast.
+    assert resp.status_code == 422 and message_line(resp) == f"#fb-veld-{field_id}-melding"
+    assert "Ongeldig veldtype" in " ".join(said(resp)), said(resp)
 
 
 # ── 2. Opties bewaren, sprongregels wissen ─────────────────────────────────
@@ -208,13 +208,12 @@ def test_met_inzendingen_kan_het_type_niet_meer(client):
     _dien_in(client, form)
     csrf = _login(client)
 
-    resp = _bewerk(client, csrf, form, form["fields"][0]["id"], field_type="radio")
-    # Refused, and saying why on the screen (#1136: the builder's error banner).
-    # In the banner itself: the builder also says "al inzendingen" under a locked
-    # type list, so a search of the whole page would find that hint instead.
-    banner = re.search(r'role="alert"[^>]*>(.*?)</div>', resp.text, re.S)
-    assert resp.status_code == 200 and banner, resp.text[:200]
-    assert "vraagtype wijzigen" in banner.group(1), banner.group(1)
+    field_id = form["fields"][0]["id"]
+    resp = _bewerk(client, csrf, form, field_id, field_type="radio")
+    # Refused, and saying why on the screen, in the question's own message line
+    # (#1859; the builder's banner of #1136 before).
+    assert resp.status_code == 422 and message_line(resp) == f"#fb-veld-{field_id}-melding"
+    assert "vraagtype wijzigen" in " ".join(said(resp)), said(resp)
 
     na = _lees(client, form["id"])
     assert na["fields"][0]["field_type"] == "text", "het type is tóch gewijzigd"

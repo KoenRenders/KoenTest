@@ -94,7 +94,9 @@ def test_een_taak_met_aanleiding_blijft_open(db_session):
         )
         .all()
     )
-    assert any(str(refund.id) in t.title for t in taken), (
+    # The record's id is the task's subject; since #1991 the title names the
+    # payment in words.
+    assert any(t.subject_id == str(refund.id) for t in taken), (
         "de sweep sloot een taak waarvan de aanleiding er nog is"
     )
 
