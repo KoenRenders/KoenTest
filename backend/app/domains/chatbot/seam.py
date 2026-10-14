@@ -79,6 +79,7 @@ import json
 import logging
 import re
 import time
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterator, Optional, Sequence
 
@@ -108,7 +109,10 @@ class SeamBlocked(RuntimeError):
 # it — with one exception per §5.8, the e-mail address a visitor types into the
 # public contact path. Each is deliberately loose: a false block costs a rephrase,
 # a miss costs a leak.
-_EMAIL = re.compile(r"[^\s@<>()\[\]]+@[^\s@<>()\[\]]+\.[a-zA-Z]{2,}")
+# The part before the `@` is bounded at 64 characters, the most an address's
+# local part may hold (RFC 5321 §4.5.3.1.1): so the pattern's running time grows
+# linearly with the text (#1986).
+_EMAIL = re.compile(r"[^\s@<>()\[\]]{1,64}@[^\s@<>()\[\]]+\.[a-zA-Z]{2,}")
 # Belgian shapes with and without the country code, spaces/dots/dashes allowed:
 # 0473 12 34 56, +32 473 123 456, 016/12.34.56.
 _PHONE = re.compile(r"(?:\+32|0032|\b0)[\s./-]?\d(?:[\s./-]?\d){7,9}\b")
@@ -144,6 +148,28 @@ def redact(text: str) -> str:
 
 _NAME_WORD = re.compile(r"[^\W\d_]+", re.UNICODE)
 
+#: Characters without width that can stand inside a word and would split it for
+#: the word rule (#1986): zero-width space, non-joiner and joiner, word joiner,
+#: soft hyphen, and the zero-width no-break space.
+_NO_WIDTH = dict.fromkeys(map(ord, "​‌‍⁠­﻿"))
+
+
+def normal_text(text: str) -> str:
+    """A text in the one form the word rule reads (#1986): Unicode NFC — a
+    letter with its accent is one character, however it was typed — and without
+    the characters that have no width."""
+    return unicodedata.normalize("NFC", text).translate(_NO_WIDTH)
+
+
+def _name_key(word: str) -> str:
+    return unicodedata.normalize("NFC", normal_text(word).lower())
+
+
+def normal_names(names: set[str]) -> set[str]:
+    """Name parts in the form `name_words` compares them in — taken once per
+    payload, not once per text."""
+    return {_name_key(name) for name in names}
+
 
 def name_words(text: str, names: set[str]) -> list[re.Match[str]]:
     """The words of a text that are name parts — THE word rule, and its one copy.
@@ -154,13 +180,17 @@ def name_words(text: str, names: set[str]) -> list[re.Match[str]]:
     refuses on exactly these (#1969): the two cannot disagree on a word, because
     neither has a rule of its own. It reads TEXT — what a person would read —
     never a serialisation of it.
+
+    The text is read in one Unicode form (`normal_text`, #1986), so the matches
+    are of `normal_text(text)`; `names` are compared in that form too
+    (`normal_names` — the callers in this module pass them so).
     """
     if not text or not names:
         return []
     return [
         match
-        for match in _NAME_WORD.finditer(text)
-        if len(match.group(0)) >= 3 and match.group(0).lower() in names
+        for match in _NAME_WORD.finditer(normal_text(text))
+        if len(match.group(0)) >= 3 and _name_key(match.group(0)) in names
     ]
 
 
@@ -212,7 +242,7 @@ def _too_deep(tree: list[Any]) -> bool:
 
 def _scrub_tree(node: Any, names: set[str], placeholder: str) -> Any:
     if isinstance(node, str):
-        return scrub_names(node, names, placeholder)
+        return _scrub(node, names, placeholder)
     if isinstance(node, _Pairs):
         return {key: _scrub_tree(value, names, placeholder) for key, value in node}
     if isinstance(node, dict):
@@ -230,13 +260,17 @@ def scrub_names(text: str, names: set[str], placeholder: str) -> str:
     The words are `name_words`', the guard's own (#1667, #1969): whatever the
     guard would refuse, this removes first. A text that is itself JSON (a tool's
     result) is cleaned value by value and written out again, because that is how
-    the guard reads it: both look at the text inside, never at its escapes.
+    the guard reads it: both look at the text inside, never at its escapes. The
+    text that comes back is in the word rule's form (`normal_text`, #1986).
     """
-    text = text or ""
+    return _scrub(text or "", normal_names(names), placeholder)
+
+
+def _scrub(text: str, names: set[str], placeholder: str) -> str:
     tree = _json_tree(text)
     if tree is not None:
         return json.dumps(_scrub_tree(tree, names, placeholder), ensure_ascii=False)
-    text = redact(text)
+    text = normal_text(redact(text))
     hits = name_words(text, names)
     if not hits:
         return text
@@ -341,6 +375,10 @@ class GuardRules:
     parts: Callable[[], Sequence[Part]] = field(default=lambda: ())
     question: Part = QUESTION
     tool: Part = TOOL_RESULT
+    #: #1986 — the tools whose result is declared with labels (#1154): only in
+    #: their result are the keys and the label fields read as labels. Every other
+    #: tool's result is read in full.
+    label_tools: frozenset[str] = frozenset()
 
 
 def public_rules() -> GuardRules:
@@ -361,11 +399,14 @@ def admin_rules(
     scan_prompt_names: bool = True,
     parts: Callable[[], Sequence[Part]] | None = None,
     tool: Part | None = None,
+    label_tools: frozenset[str] = frozenset(),
 ) -> GuardRules:
     """The back office: everything on. Nothing here is anybody's own name to give.
 
     ``parts`` and ``tool`` (#1969) name the places of this pack's payload for a
     refusal: the texts it sends along, and what its tools bring back.
+    ``label_tools`` (#1986) names the pack's tools whose result is declared with
+    labels; see `GuardRules.label_tools`.
 
     ``scan_prompt_names=False`` is for a pack whose system prompt is rendered from
     a declaration rather than from stored content — see the module docstring, and
@@ -380,6 +421,7 @@ def admin_rules(
         names=names,
         parts=parts or (lambda: ()),
         tool=tool or TOOL_RESULT,
+        label_tools=label_tools,
     )
 
 
@@ -399,6 +441,7 @@ def payload_text(messages: Sequence[dict[str, Any]], *, include_system: bool = T
 #: `name` van een tool-bericht is de naam van de tool. Ze staan hier bij naam en
 #: niet als "alles behalve de waardevelden": een tool-antwoord dat later een veld
 #: bijkrijgt, hoort gescand te worden en niet stil overgeslagen.
+#: Since #1986 this holds only in the result of a tool in `GuardRules.label_tools`.
 _ETIKETVELDEN = frozenset({"key", "name"})
 
 
@@ -438,13 +481,17 @@ def _texts(node: Any, *, machine: bool) -> Iterator[str]:
         yield str(node)
 
 
-def _message_texts(message: dict[str, Any], *, labels: bool) -> Iterator[str]:
-    """The texts of one message. `labels=False` leaves a tool result's keys and
-    label fields out (the name check, #1154); `labels=True` reads them too (the
-    pattern checks: an e-mail address in a column title is a fault to see)."""
-    machine = message.get("role") == "tool" and not labels
+def _message_texts(
+    message: dict[str, Any], *, labels: bool, label_tools: frozenset[str] = frozenset()
+) -> Iterator[str]:
+    """The texts of one message. `labels=False` leaves the keys and label fields
+    out of the result of a tool in `label_tools` (the name check, #1154, #1986);
+    `labels=True` reads them too (the pattern checks: an e-mail address in a
+    column title is a fault to see)."""
+    tool = message.get("role") == "tool" and not labels
+    machine = tool and message.get("name") in label_tools
     for key, value in message.items():
-        if machine and key in _ETIKETVELDEN:
+        if tool and key in _ETIKETVELDEN:
             continue  # the `name` of a tool message is the tool's own name
         yield from _texts(value, machine=machine)
 
@@ -467,7 +514,7 @@ def _hits(messages: Sequence[dict[str, Any]], rules: GuardRules) -> list[_Hit]:
     rule (#1969).
     """
     hits: list[_Hit] = []
-    known = rules.names() if rules.match_names else set()
+    known = normal_names(rules.names()) if rules.match_names else set()
     for index, message in enumerate(messages):
         system = message.get("role") == "system"
         # Patterns: everything except the system prompt — see the module docstring.
@@ -485,7 +532,7 @@ def _hits(messages: Sequence[dict[str, Any]], rules: GuardRules) -> list[_Hit]:
         # patroon-controles hierboven lezen ze nog wel — een e-mailadres in een
         # kolomtitel is geen vals alarm maar een fout die je wil zien.
         if known and (rules.scan_prompt_names or not system):
-            for text in _message_texts(message, labels=False):
+            for text in _message_texts(message, labels=False, label_tools=rules.label_tools):
                 hits += [_Hit(_NAME, index, m.group(0).lower()) for m in name_words(text, known)]
     return hits
 
@@ -533,7 +580,7 @@ def _places(
     part holds is placed by the role of its message — so a payload whose parts
     nobody declared still says "your question" or "what Raakje looked up".
     """
-    known = rules.names() if rules.match_names else set()
+    known = normal_names(rules.names()) if rules.match_names else set()
 
     def found_in(text: str) -> set[tuple[str, str]]:
         found = {(_NAME, m.group(0).lower()) for m in name_words(text, known)}

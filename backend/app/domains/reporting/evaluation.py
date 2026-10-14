@@ -160,6 +160,7 @@ def ask(db, question: Question, *, tenant_id: int, actor: str = "evaluatie") -> 
     )
     from app.domains.reporting.assistant import (
         CAPABILITY,
+        LABEL_TOOLS,
         SCAN_PROMPT_NAMES,
         build_system_prompt,
         detokenise,
@@ -176,7 +177,10 @@ def ask(db, question: Question, *, tenant_id: int, actor: str = "evaluatie") -> 
     provider = GuardedProvider(
         get_provider(settings.admin_chat_model),
         admin_rules(
-            lambda: scan_names(db), capability=CAPABILITY, scan_prompt_names=SCAN_PROMPT_NAMES
+            lambda: scan_names(db),
+            capability=CAPABILITY,
+            scan_prompt_names=SCAN_PROMPT_NAMES,
+            label_tools=LABEL_TOOLS,
         ),
         sink_for(actor),
     )

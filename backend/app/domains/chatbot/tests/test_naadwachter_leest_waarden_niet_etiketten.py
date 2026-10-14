@@ -32,7 +32,14 @@ pytestmark = pytest.mark.ui_agnostisch
 #: het in de namenlijst belandt én in een kolomtitel voorkomt.
 NAAM = "inschrijver"
 
-REGELS = admin_rules(lambda: {NAAM}, capability="rapportage", scan_prompt_names=False)
+#: Since #1986 the labels are read as labels only for a tool that declares them,
+#: as the reporting assistant does for its own two tools.
+REGELS = admin_rules(
+    lambda: {NAAM},
+    capability="rapportage",
+    scan_prompt_names=False,
+    label_tools=frozenset({"run_report"}),
+)
 
 
 def _payload(*, kolomtitel: str, waarde: str) -> list[dict]:

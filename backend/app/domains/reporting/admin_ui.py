@@ -1115,6 +1115,7 @@ async def _ask(request: Request, db: Session, email: str, *, scope: Optional[Sco
     )
     from app.domains.reporting.assistant import (
         CAPABILITY,
+        LABEL_TOOLS,
         SCAN_PROMPT_NAMES,
         build_system_prompt,
         detokenise,
@@ -1167,6 +1168,7 @@ async def _ask(request: Request, db: Session, email: str, *, scope: Optional[Sco
             lambda: scan_names(db),
             capability=CAPABILITY,
             scan_prompt_names=SCAN_PROMPT_NAMES,
+            label_tools=LABEL_TOOLS,
             # #1969 (Koen, 13 October 2026: "2a"): the guard stays strict on a
             # report's values; the refusal says that the result was held back,
             # that the question was fine, and where the report is built by hand.

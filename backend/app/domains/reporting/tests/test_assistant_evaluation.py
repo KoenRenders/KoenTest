@@ -26,6 +26,7 @@ from app.domains.reporting.evaluation import (
     AGGREGATE_QUESTIONS,
     CATEGORY_COHORT,
     QUESTIONS,
+    ask,
 )
 from tests._assistant_seed import EXPECTED, TENANT, seed
 
@@ -199,3 +200,34 @@ def test_a_listing_answers_which_instead_of_how_many(db_session, situatie):
     assert "error" not in out, out.get("error")
     assert len(out["rows"]) == EXPECTED["households"]
     assert all(str(r["member"]).startswith("gezin-") for r in out["rows"])
+
+
+def _one_report_round(monkeypatch):
+    """#1986: `run_chat` replaced by one round of `run_report` whose column title
+    holds a name part, sent through the guarded provider the caller built."""
+    import json
+
+    monkeypatch.setattr("app.domains.reporting.assistant.scan_names", lambda db: {"herkomst"})
+    result = {
+        "columns": [{"key": "registrant_source", "name": "Herkomst inschrijver"}],
+        "rows": [],
+        "totals": {},
+        "row_count": 0,
+    }
+
+    def one_round(db, messages, provider, **kwargs):
+        tool = {"role": "tool", "tool_call_id": "1", "name": "run_report"}
+        provider.complete([*messages, {**tool, "content": json.dumps(result)}], tools=None)
+        return "Klaar."
+
+    monkeypatch.setattr("app.domains.chatbot.api.run_chat", one_round)
+
+
+def test_the_evaluation_reads_its_own_tools_labels_as_labels(db_session, situatie, monkeypatch):
+    """#1986: the evaluation puts a question as the screen does, with the same
+    label tools. Proven red by passing none: the call is refused."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "chat_llm_provider", "mock")
+    _one_report_round(monkeypatch)
+    assert ask(db_session, QUESTIONS[0], tenant_id=TENANT) == "Klaar."
