@@ -19,14 +19,23 @@
   <div id="bestel-melding" data-form-message></div>
   {% call ui.section(_("Je mandje")) %}
     {% for l in lines %}
-    <input type="hidden" name="variant_id" value="{{ l.variant_id }}">
-    <input type="hidden" name="quantity" value="{{ l.quantity }}">
-    <div class="flex items-center justify-between gap-x-3">
+    <div data-basket-line data-span="full" class="flex items-center justify-between gap-x-3{% if not l.available %} opacity-60{% endif %}">
       <div class="text-sm min-w-0">
+        {% if l.available %}
         <span class="font-medium">{{ l.name }} · {{ _("maat") }} {{ l.size }}</span>
         <span class="block text-gray-500">€ {{ l.price|geld }}</span>
+        {% else %}
+        {% if l.name %}<span class="font-medium">{{ l.name }}{% if l.size %} · {{ _("maat") }} {{ l.size }}{% endif %}</span>{% endif %}
+        <span class="block text-red-700">{{ l.note }}</span>
+        {% endif %}
       </div>
-      <span class="text-sm font-medium text-ink">{{ l.quantity }} ×</span>
+      <div class="flex items-center gap-2 shrink-0">
+        {% if l.available %}
+        <input type="hidden" name="variant_id" value="{{ l.variant_id }}">
+        {{ ui.quantity("quantity", "quantity-" ~ l.variant_id, l.quantity, product_name=l.name, min=1, max=99, attrs='data-line-quantity data-variant-id="' ~ l.variant_id ~ '"') }}
+        {% endif %}
+        {{ ui.btn_secondary("", size="sm", lead_icon="x", aria_label=_("Verwijderen"), attrs='data-line-remove data-variant-id="' ~ l.variant_id ~ '"') }}
+      </div>
     </div>
     {% endfor %}
     <p data-span="full" class="text-[13px] text-ink-soft">{{ _("De artikelen worden voor je gereserveerd zodra je bestelt.") }}</p>
@@ -43,6 +52,7 @@
   {{ ui.action_bar(save_label=_("Bestellen en betalen"), busy_label=_("Bestellen…"), form="bestel-form", cancel_href="/webshop", send=True) }}
 </div>
 </form>
+<form data-basket-form method="post" action="/webshop/mandje" hidden></form>
 {% endif %}
 {% endcall %}
 {% endblock %}

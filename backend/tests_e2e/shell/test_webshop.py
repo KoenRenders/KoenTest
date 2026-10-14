@@ -507,6 +507,106 @@ def test_het_mandje_wandelt_van_artikel_tot_bedankt(browser):
         page.close()
 
 
+def _voeg_de_maat_toe_aan_het_mandje(page) -> str:
+    """Add the seeded size to the basket and return the product id."""
+    page.goto("/webshop")
+    card = page.locator('main a[href^="/webshop/"]').first
+    product_id = card.get_attribute("href").rstrip("/").split("/")[-1]
+    page.goto(f"/webshop/{product_id}")
+    page.locator("main [data-tile]").first.click()
+    page.locator("[data-add-to-basket]").click()
+    return product_id
+
+
+def test_geen_maat_toont_de_melding_en_de_teller_blijft_nul(browser):
+    """N2, in the browser: without a size "In mandje" shows "Kies een maat." and
+    the count stays 0."""
+    page = browser.new_page(base_url=WEBSHOP_HOST)
+    page.set_viewport_size({"width": 390, "height": 844})
+    try:
+        page.goto("/webshop")
+        page.goto(page.locator('main a[href^="/webshop/"]').first.get_attribute("href"))
+        page.locator("[data-add-to-basket]").click()
+        expect(page.locator("[data-tiles-message]")).to_be_visible()
+        assert page.locator("[data-basket-count]").first.inner_text() == "0"
+    finally:
+        page.close()
+
+
+def test_een_aantal_wordt_gewijzigd_en_het_totaal_volgt(browser):
+    """Koen's "ja op beide", in the browser: changing a line's quantity re-renders
+    the page and the server's total follows."""
+    page = browser.new_page(base_url=WEBSHOP_HOST)
+    page.set_viewport_size({"width": 390, "height": 844})
+    try:
+        _voeg_de_maat_toe_aan_het_mandje(page)
+        with htmx_afgerond(page):
+            page.locator("form[data-basket-form] button[type=submit]").click()
+        page.wait_for_url("**/webshop/mandje")
+        assert "15,00" in page.locator("main").inner_text()
+
+        with htmx_afgerond(page):
+            page.get_by_role("button", name="Eén meer").click()
+        page.wait_for_url("**/webshop/mandje")
+        assert "30,00" in page.locator("main").inner_text()
+    finally:
+        page.close()
+
+
+def test_een_regel_wordt_verwijderd(browser):
+    """Koen's "ja op beide", in the browser: removing a line empties the basket."""
+    page = browser.new_page(base_url=WEBSHOP_HOST)
+    page.set_viewport_size({"width": 390, "height": 844})
+    try:
+        _voeg_de_maat_toe_aan_het_mandje(page)
+        with htmx_afgerond(page):
+            page.locator("form[data-basket-form] button[type=submit]").click()
+        page.wait_for_url("**/webshop/mandje")
+        assert "Webshop T-shirt" in page.locator("main").inner_text()
+
+        with htmx_afgerond(page):
+            page.locator("[data-line-remove]").click()
+        page.wait_for_url("**/webshop/mandje")
+        assert "Je mandje is leeg" in page.locator("main").inner_text()
+    finally:
+        page.close()
+
+
+def test_een_weg_artikel_blijft_gemarkeerd_staan(webshop_page):
+    """Koen's "ja op beide", in the browser: an article that goes away while it is
+    in the basket stays on its own line, marked, and the rest stays orderable."""
+    page = webshop_page
+    page.set_viewport_size({"width": 390, "height": 844})
+    product_id = _voeg_de_maat_toe_aan_het_mandje(page)
+
+    def _status_zetten(status: str) -> None:
+        page.goto(f"/admin/producten/{product_id}")
+        page.locator("[data-actions-trigger]").click()
+        item = page.locator('[data-actions-menu] [role=menuitem][hx-post$="/status"]').first
+        item.wait_for(state="visible")
+        heeft_confirm = item.get_attribute("data-confirm") is not None
+        if heeft_confirm:
+            item.click()
+            ok = page.locator("[data-dialog] [data-dialog-ok]")
+            ok.wait_for(state="visible")
+            with htmx_afgerond(page):
+                ok.click()
+        else:
+            with htmx_afgerond(page):
+                item.click()
+        page.wait_for_url(f"**/admin/producten/{product_id}")
+
+    _status_zetten("DISCONTINUED")
+    try:
+        page.goto("/webshop")
+        with htmx_afgerond(page):
+            page.locator("form[data-basket-form] button[type=submit]").click()
+        page.wait_for_url("**/webshop/mandje")
+        assert "wordt niet meer aangeboden" in page.locator("main").inner_text()
+    finally:
+        _status_zetten("ON_SALE")
+
+
 def test_productbeheer_en_prijsbeheer_zijn_tabellen(webshop_page):
     """The two list screens are the kit's table: one `table`, a row is the way in,
     no sideways scroll (Koen's sixth point)."""

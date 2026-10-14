@@ -114,5 +114,38 @@
     window.location.href = "/webshop";
   });
 
+  /* The basket page's hidden form posts the basket back to the server, so the
+     page re-renders with the server's prices and total after a change. */
+  function repostBasket() {
+    var form = document.querySelector("form[data-basket-form][action$='/webshop/mandje']");
+    if (form) form.requestSubmit();
+  }
+
+  /* Remove a line: drop it from the basket and re-render. */
+  document.addEventListener("click", function (event) {
+    var button = event.target.closest("[data-line-remove]");
+    if (!button) return;
+    var basket = get();
+    delete basket[button.getAttribute("data-variant-id")];
+    set(basket);
+    refresh();
+    repostBasket();
+  });
+
+  /* Change a line's quantity (the stepper, or typing): keep the basket in step and
+     re-render. A quantity below 1 clamps to 1; the server's sentence stands on the
+     line for a quantity above stock or the tenant's maximum. */
+  document.addEventListener("change", function (event) {
+    var input = event.target.closest("[data-line-quantity]");
+    if (!input) return;
+    var quantity = parseInt(input.value, 10);
+    if (!quantity || quantity < 1) quantity = 1;
+    var basket = get();
+    basket[input.getAttribute("data-variant-id")] = quantity;
+    set(basket);
+    refresh();
+    repostBasket();
+  });
+
   refresh();
 })();

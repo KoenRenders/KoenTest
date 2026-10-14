@@ -10,7 +10,7 @@ basket and the order all ask the same rule. `/webshop/bestellen` places the orde
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -83,11 +83,14 @@ def webshop(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/webshop/bedankt", response_class=HTMLResponse)
-def bedankt(request: Request, order: int, db: Session = Depends(get_db)):
+def bedankt(request: Request, order: int | None = None, db: Session = Depends(get_db)):
     """The shop's thank-you page (Q60, Q78): after an online payment the provider
     returns here and the page reads the ledger; after a transfer the placing
     redirects here. Registered before `/webshop/{product_id}` so the fixed path
-    wins over the parameter."""
+    wins over the parameter; without an `order` it sends the visitor to the shop
+    instead of FastAPI's raw JSON 422."""
+    if order is None:
+        return RedirectResponse("/webshop", status_code=303)
     found = get_order(db, order)
     if found is None:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
@@ -150,7 +153,10 @@ async def mandje(request: Request, db: Session = Depends(get_db)) -> Response:
             _vm(lines=[], total=Decimal("0"), error=str(exc)).as_context(),
         )
 
-    total = sum((line["price"] * line["quantity"] for line in lines), Decimal("0"))
+    total = sum(
+        (line["price"] * line["quantity"] for line in lines if line["available"]),
+        Decimal("0"),
+    )
     return templates.TemplateResponse(
         request, "webshop_mandje.html", _vm(lines=lines, total=total).as_context()
     )

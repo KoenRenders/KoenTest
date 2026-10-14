@@ -180,27 +180,90 @@ def basket_lines(
     db: Session, *, member: bool, items: list[tuple[int, int]]
 ) -> list[dict[str, Any]]:
     """The basket's lines as the checkout shows them — article, size, the price
-    recomputed here (never from the browser, C5) and the quantity. A variant not
-    offered raises `SalesError`, as placing does."""
+    recomputed here (never from the browser, C5), the quantity, and whether the
+    line can still be ordered (Koen's "ja op beide"): a line that is no longer
+    offered or not (enough) in stock stays on its own line with its sentence,
+    while the rest of the basket stays orderable. Only a quantity below 1 is a
+    refusal; `available=False` is a marking, not an error."""
+    from app.domains.stock.api import available
     from app.i18n import _
+    from app.kernel.tenant_config import tenant_max_item_quantity
 
     today = belgian_today()
+    max_quantity = tenant_max_item_quantity(db)
     lines: list[dict[str, Any]] = []
     for variant_id, quantity in sorted(items, key=lambda item: item[0]):
         if quantity < 1:
             raise SalesError(_("Ongeldig aantal."))
         variant = get_variant(db, variant_id)
         if variant is None:
-            raise SalesError(_("Dit artikel wordt niet meer aangeboden."))
+            lines.append(
+                {
+                    "variant_id": variant_id,
+                    "name": None,
+                    "size": "",
+                    "price": None,
+                    "quantity": quantity,
+                    "available": False,
+                    "note": _("Dit artikel wordt niet meer aangeboden."),
+                }
+            )
+            continue
         product = get_product_in_tenant(db, variant.product_id)
         if product is None or product.status is not ProductStatus.ON_SALE:
-            raise SalesError(
-                _("%(name)s wordt niet meer aangeboden.")
-                % {"name": product.name if product else "Het artikel"}
+            lines.append(
+                {
+                    "variant_id": variant_id,
+                    "name": product.name if product else "Het artikel",
+                    "size": size_of(variant),
+                    "price": None,
+                    "quantity": quantity,
+                    "available": False,
+                    "note": _("Dit artikel wordt niet meer aangeboden."),
+                }
             )
+            continue
         price = price_for(db, variant_id, today, member)
         if price is None:
-            raise SalesError(_("%(name)s wordt niet meer aangeboden.") % {"name": product.name})
+            lines.append(
+                {
+                    "variant_id": variant_id,
+                    "name": product.name,
+                    "size": size_of(variant),
+                    "price": None,
+                    "quantity": quantity,
+                    "available": False,
+                    "note": _("Dit artikel wordt niet meer aangeboden."),
+                }
+            )
+            continue
+        in_stock = available(db, variant_id)
+        if quantity > max_quantity:
+            lines.append(
+                {
+                    "variant_id": variant_id,
+                    "name": product.name,
+                    "size": size_of(variant),
+                    "price": price,
+                    "quantity": quantity,
+                    "available": False,
+                    "note": _("Maximaal %(max)s per artikel.") % {"max": max_quantity},
+                }
+            )
+            continue
+        if in_stock < quantity:
+            lines.append(
+                {
+                    "variant_id": variant_id,
+                    "name": product.name,
+                    "size": size_of(variant),
+                    "price": price,
+                    "quantity": quantity,
+                    "available": False,
+                    "note": _("Nog %(aantal)s op voorraad.") % {"aantal": in_stock},
+                }
+            )
+            continue
         lines.append(
             {
                 "variant_id": variant_id,
@@ -208,6 +271,8 @@ def basket_lines(
                 "size": size_of(variant),
                 "price": price,
                 "quantity": quantity,
+                "available": True,
+                "note": "",
             }
         )
     return lines

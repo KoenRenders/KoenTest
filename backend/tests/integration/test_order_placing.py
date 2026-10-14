@@ -390,6 +390,14 @@ def test_the_thank_you_page_answers_its_own_path(client, db_session, every_modul
     assert "Bedankt" in page.text
 
 
+def test_the_thank_you_page_without_an_order_goes_to_the_shop(client, every_module_on):
+    """A bare `/webshop/bedankt` (no order) sends the visitor to the shop, not
+    FastAPI's raw JSON 422."""
+    response = client.get("/webshop/bedankt", follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/webshop"
+
+
 def test_a_quantity_below_one_is_refused_on_the_basket_page(client, db_session, every_module_on):
     """N6: the basket page refuses a quantity below 1, as placing does — in the
     service, so neither door is the only place the rule holds."""
@@ -401,6 +409,61 @@ def test_a_quantity_below_one_is_refused_on_the_basket_page(client, db_session, 
     )
     assert response.status_code == 200
     assert "Ongeldig aantal" in response.text
+
+
+def test_a_gone_line_stays_in_the_basket_marked(client, db_session, every_module_on):
+    """Koen's "ja op beide": an article no longer offered stays on its own line
+    with its sentence — the basket is not refused, the line is marked."""
+    from app.domains.product.api import ProductStatus, set_status
+
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    set_status(db_session, m.product_id, ProductStatus.DISCONTINUED)
+    db_session.commit()
+
+    response = client.post(
+        "/webshop/mandje",
+        data={"variant_id": str(m.id), "quantity": "1"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 200
+    assert "wordt niet meer aangeboden" in response.text
+    assert "Je mandje is leeg" not in response.text
+
+
+def test_a_sold_out_line_stays_in_the_basket_marked(client, db_session, every_module_on):
+    """Koen's "ja op beide": a size without enough stock stays on its own line
+    with its sentence ("Nog … op voorraad"), not a refusal of the whole basket."""
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=1)
+    response = client.post(
+        "/webshop/mandje",
+        data={"variant_id": str(m.id), "quantity": "2"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 200
+    assert "Nog 1 op voorraad" in response.text
+
+
+def test_the_total_counts_only_the_orderable_lines(client, db_session, every_module_on):
+    """A basket with a gone line and an orderable line totals only the orderable
+    one, and both lines stand on the page."""
+    from app.domains.product.api import ProductStatus, set_status
+
+    gone = _variant_with_price_and_stock(db_session, name="Weg", size="M", amount="10.00", stock=5)
+    ok = _variant_with_price_and_stock(db_session, name="Blijft", size="L", amount="15.00", stock=5)
+    set_status(db_session, gone.product_id, ProductStatus.DISCONTINUED)
+    db_session.commit()
+
+    response = client.post(
+        "/webshop/mandje",
+        content=f"variant_id={gone.id}&variant_id={ok.id}&quantity=1&quantity=1",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 200
+    assert "wordt niet meer aangeboden" in response.text
+    assert "Blijft" in response.text
+    assert "15,00" in response.text
+    assert "25,00" not in response.text
 
 
 @pytest.mark.xdist_group("sales_order_placing")
