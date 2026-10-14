@@ -69,6 +69,7 @@
   {# K8 (#1562): the Raakje panel's component, before Alpine reads the page —
      only where the bell stands (the same decision as `chat_zichtbaar` below). #}
   {% if chat_enabled and not is_screenshot() %}<script src="{{ statisch('raakje-panel.js') }}" defer></script>{% endif %}
+  {% if shop_enabled %}<script src="{{ statisch('webshop-basket.js') }}" defer></script>{% endif %}
   <script src="{{ statisch('vendor/alpine.min.js') }}" defer></script>
   {# The record form of the kit (#1561), public since #1589 (§2.6): the states of
      a form with one action bar — refused, busy, failed, leaving. One listener

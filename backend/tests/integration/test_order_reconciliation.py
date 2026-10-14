@@ -23,7 +23,12 @@ pytestmark = pytest.mark.ui_agnostisch
 
 
 def _order_with_line(db, *, quantity=2, price="18.00", person_id=None):
-    order = SalesOrder(person_id=person_id)
+    order = SalesOrder(
+        person_id=person_id,
+        guest_name=None if person_id is not None else "An Janssens",
+        guest_email=None if person_id is not None else "an@example.com",
+        guest_mobile=None if person_id is not None else "0470000000",
+    )
     db.add(order)
     db.flush()
     line = SalesOrderLine(

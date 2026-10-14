@@ -28,6 +28,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 from app.domains.mdm.api import PaymentMethod
 from app.kernel.codes import EnumColumn
+from app.kernel.rules import aggregate
 from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
 
@@ -50,6 +51,7 @@ class ProductHasOrderLines(SalesError):
     """
 
 
+@aggregate
 class SalesOrder(TenantMixin, SoftDeleteMixin, Base):
     """One webshop order (D6). Soft-deleted as a registration (Q61): a cancelled
     order leaves the lists and keeps its rows.
@@ -83,6 +85,22 @@ class SalesOrder(TenantMixin, SoftDeleteMixin, Base):
         cascade="all, delete-orphan",
         order_by="SalesOrderLine.id",
     )
+
+    def check(self) -> None:
+        """A guest's order needs the buyer's name, e-mail and mobile (A7's privacy
+        row, K6): the order hangs on the person of the typed address, so without a
+        person those three carry the address. Judged on the outcome, on the
+        aggregate, whatever path created the order."""
+        if self.person_id is not None:
+            return
+        from app.i18n import _
+
+        if not (self.guest_name or "").strip():
+            raise SalesError(_("Vul je naam in."))
+        if not (self.guest_email or "").strip():
+            raise SalesError(_("Vul je e-mailadres in."))
+        if not (self.guest_mobile or "").strip():
+            raise SalesError(_("Vul je mobiele nummer in."))
 
 
 class SalesOrderLine(TenantMixin, SoftDeleteMixin, Base):

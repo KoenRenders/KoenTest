@@ -1,0 +1,40 @@
+{% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Je mandje") }} · {{ site_name }}{% endblock %}
+{% block content %}
+{% call ui.public_form_page(_("Je mandje"), back_href="/webshop", back_label=_("Verder winkelen")) %}
+{% if not lines %}
+{% call ui.flow_card() %}{{ ui.empty_state(_("Je mandje is leeg."), _("Naar de webshop"), "/webshop") }}{% endcall %}
+{% else %}
+<form id="bestel-form" hx-post="/webshop/bestellen" hx-target="#bestel-melding" hx-swap="innerHTML">
+<div data-form-flow class="form-flow">
+  <div id="bestel-melding" data-form-message></div>
+  {% call ui.section(_("Je mandje")) %}
+    {% for l in lines %}
+    <input type="hidden" name="variant_id" value="{{ l.variant_id }}">
+    <input type="hidden" name="quantity" value="{{ l.quantity }}">
+    <div class="flex items-center justify-between gap-x-3">
+      <div class="text-sm min-w-0">
+        <span class="font-medium">{{ l.name }} · {{ _("maat") }} {{ l.size }}</span>
+        <span class="block text-gray-500">€ {{ l.price|geld }}</span>
+      </div>
+      <span class="text-sm font-medium text-ink">{{ l.quantity }} ×</span>
+    </div>
+    {% endfor %}
+    <p data-span="full" class="text-[13px] text-ink-soft">{{ _("De artikelen worden voor je gereserveerd zodra je bestelt.") }}</p>
+  {% endcall %}
+  {% call ui.section(_("Contact")) %}
+    {{ ui.field("contact_name", _("Naam"), required=True) }}
+    {{ ui.field("contact_email", _("E-mail"), kind="email", required=True) }}
+    {{ ui.field("phone", _("Mobiel"), kind="phone", required=True) }}
+  {% endcall %}
+  {% call ui.section(_("Betalen")) %}
+    {{ ui.payment_choice("online") }}
+  {% endcall %}
+  {{ ui.total_line(total, note=_("(ledenprijs)") if member_applied else "") }}
+  {{ ui.action_bar(save_label=_("Bestellen en betalen"), busy_label=_("Bestellen…"), form="bestel-form", cancel_href="/webshop", send=True) }}
+</div>
+</form>
+{% endif %}
+{% endcall %}
+{% endblock %}

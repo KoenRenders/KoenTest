@@ -3,6 +3,9 @@
 {% block title %}{{ _("Webshop") }} · {{ site_name }}{% endblock %}
 {% block content %}
 {% call ui.page_header(_("Webshop")) %}{% endcall %}
+<form data-basket-form method="post" action="/webshop/mandje" class="mb-4 text-right">
+  {{ ui.btn_secondary(_("Mandje"), type="submit", lead_icon="shopping-cart") }}
+</form>
 {% if products %}
 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
   {% for p in products %}

@@ -31,14 +31,24 @@ from app.kernel.clock import belgian_today
 
 
 def _offered_sizes(db: Session, product: Product, *, member: bool) -> list[dict[str, Any]]:
-    """The sizes of `product` that carry a price valid today, each with its name
-    and the price the viewer pays (F16: "a valid price today")."""
+    """The sizes of `product` that carry a price valid today, each with its id,
+    name, the price the viewer pays (F16) and whether it is in stock (R13: a size
+    that is not available is sold out)."""
+    from app.domains.stock.api import available
+
     today = belgian_today()
     sizes: list[dict[str, Any]] = []
     for variant in variants_of(db, product.id):
         price = price_for(db, variant.id, today, member)
         if price is not None:
-            sizes.append({"name": size_of(variant), "price": price})
+            sizes.append(
+                {
+                    "id": variant.id,
+                    "name": size_of(variant),
+                    "price": price,
+                    "available": available(db, variant.id) > 0,
+                }
+            )
     return sizes
 
 
@@ -166,6 +176,38 @@ def total_of(order) -> Decimal:
     return sum((line.unit_price * line.quantity for line in order.lines), Decimal("0"))
 
 
+def basket_lines(
+    db: Session, *, member: bool, items: list[tuple[int, int]]
+) -> list[dict[str, Any]]:
+    """The basket's lines as the checkout shows them — article, size, the price
+    recomputed here (never from the browser, C5) and the quantity. A variant not
+    offered raises `SalesError`, as placing does."""
+    from app.i18n import _
+
+    today = belgian_today()
+    lines: list[dict[str, Any]] = []
+    for variant_id, quantity in sorted(items, key=lambda item: item[0]):
+        variant = get_variant(db, variant_id)
+        if variant is None:
+            raise SalesError(_("Dit artikel wordt niet meer aangeboden."))
+        product = get_product_in_tenant(db, variant.product_id)
+        if product is None or product.status is not ProductStatus.ON_SALE:
+            raise SalesError(_("Dit artikel wordt niet meer aangeboden."))
+        price = price_for(db, variant_id, today, member)
+        if price is None:
+            raise SalesError(_("Dit artikel wordt niet meer aangeboden."))
+        lines.append(
+            {
+                "variant_id": variant_id,
+                "name": product.name,
+                "size": size_of(variant),
+                "price": price,
+                "quantity": quantity,
+            }
+        )
+    return lines
+
+
 def submit_order(
     db: Session,
     *,
@@ -198,13 +240,6 @@ def submit_order(
 
     if method not in (PaymentMethod.ONLINE, PaymentMethod.TRANSFER):
         raise SalesError(_("Kies online betalen of overschrijving."))
-    if person_id is None:
-        if not contact_name.strip():
-            raise SalesError(_("Vul je naam in."))
-        if not contact_email.strip():
-            raise SalesError(_("Vul je e-mailadres in."))
-        if not phone.strip():
-            raise SalesError(_("Vul je mobiele nummer in."))
 
     try:
         order = place_order(

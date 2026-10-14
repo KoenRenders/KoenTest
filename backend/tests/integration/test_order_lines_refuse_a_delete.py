@@ -44,7 +44,9 @@ def _product_with_variants(db, *sizes):
 
 
 def _order_line_for(db, variant_id):
-    order = SalesOrder()
+    order = SalesOrder(
+        guest_name="An Janssens", guest_email="an@example.com", guest_mobile="0470000000"
+    )
     db.add(order)
     db.flush()
     line = SalesOrderLine(

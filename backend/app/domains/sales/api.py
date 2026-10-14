@@ -15,6 +15,7 @@ from app.domains.sales.models import (  # noqa: F401
 from app.domains.sales.payables import order_describer  # noqa: F401
 from app.domains.sales.service import (  # noqa: F401
     article_offer,
+    basket_lines,
     get_order,
     offered_products,
     orders_of_person,
@@ -32,6 +33,7 @@ __all__ = [
     "ShopContact",
     "ShopSettings",
     "article_offer",
+    "basket_lines",
     "get_order",
     "offered_products",
     "order_describer",

@@ -121,14 +121,15 @@ def test_an_article_whose_price_starts_tomorrow_is_not_offered(client, db_sessio
 
 
 def test_the_article_page_shows_the_size_and_its_price(client, db_session, every_module_on):
-    """The page of an article that is on offer is a 200 with its size and price,
-    as one element (J2)."""
+    """The page of an article that is on offer is a 200 with its size as a tile
+    and its price (the kit's tiles, #1967)."""
     product = _on_sale_with_price(db_session, "T-shirt Raak", amount="15.00")
 
     page = client.get(f"/webshop/{product.id}")
     assert page.status_code == 200
     assert "T-shirt Raak" in page.text
-    assert "M · € 15,00" in page.text
+    assert "M" in page.text
+    assert "15,00" in page.text
 
 
 def test_a_visitor_pays_the_regular_price_and_a_member_the_member_price(

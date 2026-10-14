@@ -17,7 +17,12 @@ pytestmark = pytest.mark.ui_agnostisch
 
 
 def _order(db, *, person_id=None, guest_name=None):
-    order = SalesOrder(person_id=person_id, guest_name=guest_name)
+    order = SalesOrder(
+        person_id=person_id,
+        guest_name=guest_name if guest_name else (None if person_id else "An Janssens"),
+        guest_email=None if person_id else "an@example.com",
+        guest_mobile=None if person_id else "0470000000",
+    )
     db.add(order)
     db.flush()
     db.add(SalesOrderLine(order_id=order.id, variant_id=1, quantity=1, unit_price=Decimal("15.00")))

@@ -28,7 +28,25 @@ class WebshopProductView(ViewModel):
 
     name: str
     description: str
+    price: Any
     sizes: list[dict[str, Any]]
+    site: dict[str, Any] = field(default_factory=dict)
+
+    def as_context(self) -> dict[str, Any]:
+        context = super().as_context()
+        context.pop("site", None)
+        context.update(self.site)
+        return context
+
+
+@dataclass(frozen=True, kw_only=True)
+class BasketView(ViewModel):
+    """`webshop_mandje.html` — the basket, which IS the order page (as a
+    registration is one page)."""
+
+    lines: list[dict[str, Any]]
+    total: Any
+    member_applied: bool
     site: dict[str, Any] = field(default_factory=dict)
 
     def as_context(self) -> dict[str, Any]:

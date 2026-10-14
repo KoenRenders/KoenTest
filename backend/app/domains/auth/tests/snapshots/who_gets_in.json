@@ -1413,6 +1413,10 @@
   "POST /webshop/bestellen": {
    "platform": "everyone",
    "tenant": "everyone"
+  },
+  "POST /webshop/mandje": {
+   "platform": "everyone",
+   "tenant": "everyone"
   }
  }
 }

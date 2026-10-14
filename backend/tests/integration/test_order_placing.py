@@ -256,25 +256,28 @@ def test_a_cash_order_is_refused(client, db_session, every_module_on):
 
 def test_a_guest_order_needs_name_email_and_mobile(client, db_session, every_module_on):
     """K6: a guest's order needs the buyer's name, e-mail and mobile, each
-    refused in words."""
-    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
-    for missing, sentence in (
-        ("contact_name", "naam"),
-        ("contact_email", "e-mailadres"),
-        ("phone", "mobiele"),
-    ):
-        data = {
-            "variant_id": str(m.id),
-            "quantity": "1",
-            "contact_name": "An",
-            "contact_email": "an@example.com",
-            "phone": "0470000000",
-            "payment_method": "transfer",
-        }
-        data[missing] = ""
-        response = client.post("/webshop/bestellen", data=data, follow_redirects=False)
-        assert response.status_code == 422, missing
-        assert sentence in response.text, missing
+    refused in words, on the order's own `check()`."""
+    variant_id = _committed_variant(stock=5)
+    try:
+        for missing, sentence in (
+            ("contact_name", "naam"),
+            ("contact_email", "e-mailadres"),
+            ("phone", "mobiele"),
+        ):
+            data = {
+                "variant_id": str(variant_id),
+                "quantity": "1",
+                "contact_name": "An",
+                "contact_email": "an@example.com",
+                "phone": "0470000000",
+                "payment_method": "transfer",
+            }
+            data[missing] = ""
+            response = client.post("/webshop/bestellen", data=data, follow_redirects=False)
+            assert response.status_code == 422, missing
+            assert sentence in response.text, missing
+    finally:
+        _cleanup_variant(variant_id)
 
 
 @pytest.mark.parametrize("quantity", ["0", "-1", "abc"])
