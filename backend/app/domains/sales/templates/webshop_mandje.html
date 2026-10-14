@@ -21,19 +21,13 @@
     {% for l in lines %}
     <div data-basket-line data-span="full" class="flex items-center justify-between gap-x-3{% if not l.available %} opacity-60{% endif %}">
       <div class="text-sm min-w-0">
-        {% if l.available %}
-        <span class="font-medium">{{ l.name }} · {{ _("maat") }} {{ l.size }}</span>
-        <span class="block text-gray-500">€ {{ l.price|geld }}</span>
-        {% else %}
         {% if l.name %}<span class="font-medium">{{ l.name }}{% if l.size %} · {{ _("maat") }} {{ l.size }}{% endif %}</span>{% endif %}
-        <span class="block text-red-700">{{ l.note }}</span>
-        {% endif %}
+        {% if l.price is not none %}<span class="block text-gray-500">€ {{ l.price|geld }}</span>{% endif %}
+        {% if l.note %}<span class="block text-red-700">{{ l.note }}</span>{% endif %}
       </div>
       <div class="flex items-center gap-2 shrink-0">
-        {% if l.available %}
-        <input type="hidden" name="variant_id" value="{{ l.variant_id }}">
-        {{ ui.quantity("quantity", "quantity-" ~ l.variant_id, l.quantity, product_name=l.name, min=1, max=99, attrs='data-line-quantity data-variant-id="' ~ l.variant_id ~ '"') }}
-        {% endif %}
+        {% if l.available %}<input type="hidden" name="variant_id" value="{{ l.variant_id }}">{% endif %}
+        {% if l.editable %}{{ ui.quantity("quantity", "quantity-" ~ l.variant_id, l.quantity, product_name=l.name or "", min=1, max=l.max, attrs='data-line-quantity data-variant-id="' ~ l.variant_id ~ '"') }}{% endif %}
         {{ ui.btn_secondary("", size="sm", lead_icon="x", aria_label=_("Verwijderen"), attrs='data-line-remove data-variant-id="' ~ l.variant_id ~ '"') }}
       </div>
     </div>

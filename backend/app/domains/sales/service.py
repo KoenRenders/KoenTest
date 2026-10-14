@@ -10,6 +10,7 @@ them, so the list, the article page and the order all ask the same rule.
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
@@ -147,6 +148,9 @@ def place_order(
         price = price_for(db, variant_id, today, member)
         if price is None:
             raise SalesError(_("Dit artikel wordt niet meer aangeboden."))
+        refusal = _stock_refusal(db, product, variant_id, quantity, today)
+        if refusal is not None:
+            raise SalesError(refusal)
         open_window, _until = pre_order_window(product, today)
         line = SalesOrderLine(
             order_id=order.id,
@@ -176,16 +180,152 @@ def total_of(order) -> Decimal:
     return sum((line.unit_price * line.quantity for line in order.lines), Decimal("0"))
 
 
+def _stock_refusal(
+    db: Session, product: Product, variant_id: int, quantity: int, today: date
+) -> str | None:
+    """None when a line of `quantity` can be reserved — enough stock, or the
+    article's pre-order window is open (R39, `allow_short`) — else the sentence
+    naming the shortfall. The one rule the basket and the order share (Q1): a line
+    the basket marks must be a line the order refuses, and the reverse."""
+    from app.domains.stock.api import available
+    from app.i18n import _
+
+    open_window, _until = pre_order_window(product, today)
+    if open_window:
+        return None
+    in_stock = available(db, variant_id)
+    if in_stock < quantity:
+        return _("Nog %(aantal)s op voorraad.") % {"aantal": in_stock}
+    return None
+
+
+def _orderable_max(
+    db: Session, product: Product, variant_id: int, today: date, max_quantity: int
+) -> int:
+    """The most of a variant that can be ordered today: the tenant's maximum for a
+    pre-order article (R39), else the stock capped at that maximum — the stepper's
+    bound (Q2)."""
+    from app.domains.stock.api import available
+
+    open_window, _until = pre_order_window(product, today)
+    if open_window:
+        return max_quantity
+    return min(available(db, variant_id), max_quantity)
+
+
+def _basket_line(
+    db: Session,
+    *,
+    variant_id: int,
+    quantity: int,
+    member: bool,
+    today: date,
+    max_quantity: int,
+) -> dict[str, Any]:
+    """One basket line in the one shape every caller reads: name, size, price,
+    quantity, whether it is orderable (`available`), whether it keeps a stepper
+    (`editable` — an orderable line, or one that is only too many), the stepper's
+    `max`, and the sentence when it is not orderable. Built once, not per case."""
+    from app.i18n import _
+
+    def _make(
+        *,
+        available: bool,
+        editable: bool,
+        name: str | None,
+        size: str,
+        price,
+        note: str,
+        stepper_max: int,
+    ) -> dict[str, Any]:
+        return {
+            "variant_id": variant_id,
+            "name": name,
+            "size": size,
+            "price": price,
+            "quantity": quantity,
+            "available": available,
+            "editable": editable,
+            "note": note,
+            "max": stepper_max,
+        }
+
+    variant = get_variant(db, variant_id)
+    if variant is None:
+        return _make(
+            available=False,
+            editable=False,
+            name=None,
+            size="",
+            price=None,
+            note=_("Dit artikel wordt niet meer aangeboden."),
+            stepper_max=max_quantity,
+        )
+    product = get_product_in_tenant(db, variant.product_id)
+    name = product.name if product else _("Het artikel")
+    size = size_of(variant)
+    if product is None or product.status is not ProductStatus.ON_SALE:
+        return _make(
+            available=False,
+            editable=False,
+            name=name,
+            size=size,
+            price=None,
+            note=_("Dit artikel wordt niet meer aangeboden."),
+            stepper_max=max_quantity,
+        )
+    price = price_for(db, variant_id, today, member)
+    if price is None:
+        return _make(
+            available=False,
+            editable=False,
+            name=name,
+            size=size,
+            price=None,
+            note=_("Dit artikel wordt niet meer aangeboden."),
+            stepper_max=max_quantity,
+        )
+    if quantity > max_quantity:
+        return _make(
+            available=False,
+            editable=True,
+            name=name,
+            size=size,
+            price=price,
+            note=_("Maximaal %(max)s per artikel.") % {"max": max_quantity},
+            stepper_max=max_quantity,
+        )
+    refusal = _stock_refusal(db, product, variant_id, quantity, today)
+    if refusal is not None:
+        return _make(
+            available=False,
+            editable=True,
+            name=name,
+            size=size,
+            price=price,
+            note=refusal,
+            stepper_max=_orderable_max(db, product, variant_id, today, max_quantity),
+        )
+    return _make(
+        available=True,
+        editable=True,
+        name=name,
+        size=size,
+        price=price,
+        note="",
+        stepper_max=_orderable_max(db, product, variant_id, today, max_quantity),
+    )
+
+
 def basket_lines(
     db: Session, *, member: bool, items: list[tuple[int, int]]
 ) -> list[dict[str, Any]]:
     """The basket's lines as the checkout shows them — article, size, the price
     recomputed here (never from the browser, C5), the quantity, and whether the
-    line can still be ordered (Koen's "ja op beide"): a line that is no longer
-    offered or not (enough) in stock stays on its own line with its sentence,
-    while the rest of the basket stays orderable. Only a quantity below 1 is a
-    refusal; `available=False` is a marking, not an error."""
-    from app.domains.stock.api import available
+    line can still be ordered (Koen's "ja op beide"): a line no longer offered
+    keeps only "Verwijderen"; a line that is only too many keeps its stepper,
+    bounded by what can be ordered; the rest of the basket stays orderable. Only a
+    quantity below 1 is a refusal."""
     from app.i18n import _
     from app.kernel.tenant_config import tenant_max_item_quantity
 
@@ -195,85 +335,15 @@ def basket_lines(
     for variant_id, quantity in sorted(items, key=lambda item: item[0]):
         if quantity < 1:
             raise SalesError(_("Ongeldig aantal."))
-        variant = get_variant(db, variant_id)
-        if variant is None:
-            lines.append(
-                {
-                    "variant_id": variant_id,
-                    "name": None,
-                    "size": "",
-                    "price": None,
-                    "quantity": quantity,
-                    "available": False,
-                    "note": _("Dit artikel wordt niet meer aangeboden."),
-                }
-            )
-            continue
-        product = get_product_in_tenant(db, variant.product_id)
-        if product is None or product.status is not ProductStatus.ON_SALE:
-            lines.append(
-                {
-                    "variant_id": variant_id,
-                    "name": product.name if product else "Het artikel",
-                    "size": size_of(variant),
-                    "price": None,
-                    "quantity": quantity,
-                    "available": False,
-                    "note": _("Dit artikel wordt niet meer aangeboden."),
-                }
-            )
-            continue
-        price = price_for(db, variant_id, today, member)
-        if price is None:
-            lines.append(
-                {
-                    "variant_id": variant_id,
-                    "name": product.name,
-                    "size": size_of(variant),
-                    "price": None,
-                    "quantity": quantity,
-                    "available": False,
-                    "note": _("Dit artikel wordt niet meer aangeboden."),
-                }
-            )
-            continue
-        in_stock = available(db, variant_id)
-        if quantity > max_quantity:
-            lines.append(
-                {
-                    "variant_id": variant_id,
-                    "name": product.name,
-                    "size": size_of(variant),
-                    "price": price,
-                    "quantity": quantity,
-                    "available": False,
-                    "note": _("Maximaal %(max)s per artikel.") % {"max": max_quantity},
-                }
-            )
-            continue
-        if in_stock < quantity:
-            lines.append(
-                {
-                    "variant_id": variant_id,
-                    "name": product.name,
-                    "size": size_of(variant),
-                    "price": price,
-                    "quantity": quantity,
-                    "available": False,
-                    "note": _("Nog %(aantal)s op voorraad.") % {"aantal": in_stock},
-                }
-            )
-            continue
         lines.append(
-            {
-                "variant_id": variant_id,
-                "name": product.name,
-                "size": size_of(variant),
-                "price": price,
-                "quantity": quantity,
-                "available": True,
-                "note": "",
-            }
+            _basket_line(
+                db,
+                variant_id=variant_id,
+                quantity=quantity,
+                member=member,
+                today=today,
+                max_quantity=max_quantity,
+            )
         )
     return lines
 

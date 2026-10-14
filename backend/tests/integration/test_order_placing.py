@@ -466,6 +466,79 @@ def test_the_total_counts_only_the_orderable_lines(client, db_session, every_mod
     assert "25,00" not in response.text
 
 
+def test_a_pre_order_article_without_stock_stays_orderable(client, db_session, every_module_on):
+    """Q1: an article "Op bestelling" (window open, no end, stock 0) is orderable
+    on the basket page and placed — the basket and the order ask the same rule, so
+    the basket cannot mark a line the order would accept."""
+    from app.domains.product.api import add_variant, create_product, set_status
+
+    product = create_product(db_session, "T-shirt")
+    set_status(db_session, product.id, ProductStatus.ON_SALE)
+    product.pre_order = True
+    variant = add_variant(db_session, product.id, "M")
+    add_prices(
+        db_session,
+        product_id=product.id,
+        variant_id=variant.id,
+        valid_from=date(2026, 1, 1),
+        amount=Decimal("15.00"),
+        member_amount=None,
+    )
+    db_session.commit()
+
+    basket = client.post(
+        "/webshop/mandje",
+        data={"variant_id": str(variant.id), "quantity": "2"},
+        follow_redirects=False,
+    )
+    assert basket.status_code == 200
+    assert "Nog 0 op voorraad" not in basket.text
+
+    placed = _post(client, variant.id, quantity="2")
+    assert placed.status_code == 200
+    assert "HX-Redirect" in placed.headers
+
+
+def test_a_short_line_keeps_its_stepper_and_a_gone_line_does_not(
+    client, db_session, every_module_on
+):
+    """Q2: a line that is only too many (over stock) keeps its stepper, bounded by
+    what can be ordered; a line no longer offered keeps only "Verwijderen"."""
+    from app.domains.product.api import ProductStatus, set_status
+
+    short = _variant_with_price_and_stock(
+        db_session, name="Krap", size="M", amount="15.00", stock=1
+    )
+    gone = _variant_with_price_and_stock(db_session, name="Weg", size="L", amount="10.00", stock=5)
+    set_status(db_session, gone.product_id, ProductStatus.DISCONTINUED)
+    db_session.commit()
+
+    response = client.post(
+        "/webshop/mandje",
+        content=f"variant_id={short.id}&variant_id={gone.id}&quantity=2&quantity=1",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 200
+    # the short line keeps its stepper (bounded to the stock), the gone one does not
+    assert f'data-line-quantity data-variant-id="{short.id}"' in response.text
+    assert f'data-line-quantity data-variant-id="{gone.id}"' not in response.text
+
+
+def test_bestellen_refuses_a_gone_line_posted_anyway(client, db_session, every_module_on):
+    """The server is the guard: a gone line posted straight to `/webshop/bestellen`
+    is refused — the browser is not the only thing that keeps it out."""
+    from app.domains.product.api import ProductStatus, set_status
+
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    set_status(db_session, m.product_id, ProductStatus.DISCONTINUED)
+    db_session.commit()
+
+    response = _post(client, m.id)
+    assert response.status_code == 422
+    assert "wordt niet meer aangeboden" in response.text
+
+
 @pytest.mark.xdist_group("sales_order_placing")
 def test_the_last_piece_goes_to_one_buyer_only(every_module_on):
     """K2.4: two orders for the last unit on two committed connections — one is

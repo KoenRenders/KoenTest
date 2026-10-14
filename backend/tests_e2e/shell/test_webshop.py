@@ -572,6 +572,32 @@ def test_een_regel_wordt_verwijderd(browser):
         page.close()
 
 
+def test_een_te_veel_kan_naar_het_beschikbare_worden_verlaagd(webshop_page):
+    """Q2, in the browser: a line that is only too many keeps its stepper, bounded
+    by what is in stock; lowering it makes it orderable again."""
+    page = webshop_page
+    page.set_viewport_size({"width": 390, "height": 844})
+
+    page.goto("/webshop")
+    page.goto(page.locator('main a[href^="/webshop/"]').first.get_attribute("href"))
+    page.locator("main [data-tile]").first.click()
+    page.locator('input[name="quantity"]').fill("99")
+    page.locator("[data-add-to-basket]").click()
+
+    with htmx_afgerond(page):
+        page.locator("form[data-basket-form] button[type=submit]").click()
+    page.wait_for_url("**/webshop/mandje")
+    # marked: not in the order, but the stepper stays (Q2)
+    assert page.locator('input[type="hidden"][name="variant_id"]').count() == 0
+    assert page.locator("[data-line-quantity]").count() == 1
+
+    page.locator("[data-line-quantity]").fill("1")
+    with htmx_afgerond(page):
+        page.locator("[data-line-quantity]").blur()
+    page.wait_for_url("**/webshop/mandje")
+    assert page.locator('input[type="hidden"][name="variant_id"]').count() == 1
+
+
 def test_een_weg_artikel_blijft_gemarkeerd_staan(webshop_page):
     """Koen's "ja op beide", in the browser: an article that goes away while it is
     in the basket stays on its own line, marked, and the rest stays orderable."""
@@ -580,9 +606,12 @@ def test_een_weg_artikel_blijft_gemarkeerd_staan(webshop_page):
     product_id = _voeg_de_maat_toe_aan_het_mandje(page)
 
     def _status_zetten(status: str) -> None:
+        label = "Afvoeren" if status == "DISCONTINUED" else "In verkoop zetten"
         page.goto(f"/admin/producten/{product_id}")
         page.locator("[data-actions-trigger]").click()
-        item = page.locator('[data-actions-menu] [role=menuitem][hx-post$="/status"]').first
+        item = page.locator(
+            '[data-actions-menu] [role=menuitem][hx-post$="/status"]', has_text=label
+        ).first
         item.wait_for(state="visible")
         heeft_confirm = item.get_attribute("data-confirm") is not None
         if heeft_confirm:
