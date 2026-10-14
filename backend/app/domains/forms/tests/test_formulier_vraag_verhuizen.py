@@ -21,8 +21,6 @@ position) → test 2 falls over on the tie; the move check placed after
 the refused edit had already put on the row.
 """
 
-import re
-
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
@@ -34,6 +32,7 @@ from app.domains.forms.models import (
     FormSubmission,
     FormSubmissionAnswer,
 )
+from tests._refusal import message_line, said
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -137,11 +136,13 @@ def test_a_move_that_breaks_a_jump_is_refused_by_name(client, db_session, form):
 
     resp = _move(client, csrf, f, fields["keuze"], sections[2], label="Nieuw label")
 
-    # The message is on the screen, in the builder's error banner — not only in
-    # a response body the generic error toast never shows (measured at 390 px).
-    banner = re.search(r'role="alert"[^>]*>(.*?)</div>', resp.text, re.S)
-    assert resp.status_code == 200 and banner, resp.text[:2000]
-    assert all(w in banner.group(1) for w in ("Naar twee", "Tweede", "Derde")), banner.group(1)
+    # The message is on the screen, in this question's own message line (#1859;
+    # the builder's banner of #1136 before) — not only in a response body the
+    # generic error toast never shows (measured at 390 px).
+    assert resp.status_code == 422, resp.text[:2000]
+    assert message_line(resp) == f"#fb-veld-{fields['keuze'].id}-melding"
+    sentence = " ".join(said(resp))
+    assert all(w in sentence for w in ("Naar twee", "Tweede", "Derde")), sentence
     # Nothing of the refused edit is applied — not the move, and not the label
     # that came along in the same save, which the screen would otherwise show.
     assert "Nieuw label" not in resp.text
