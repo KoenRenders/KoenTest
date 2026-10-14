@@ -714,6 +714,8 @@ def edit_payment_record(
     - ``status == "paid"`` loopt via :func:`confirm_manual_payment` (incl.
       lidmaatschap-activatie en de #517 refund-bewuste invariant); een leeg bedrag
       boekt dan de volledige (terug)betaling.
+    - an amount that reaches the full amount on an open record settles it the same
+      way, through :func:`confirm_manual_payment` (#1884: fully received is settled).
     - een andere status schrijft status/bedrag/opmerking direct weg met snapshot.
     """
     record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
@@ -727,6 +729,19 @@ def edit_payment_record(
         if not (lo <= amount_paid <= hi):
             raise ValueError(f"Betaald bedrag ({amount_paid}) moet tussen {lo} en {hi} liggen.")
     if status is not None and _as_status(status) is PaymentStatus.PAID:
+        return confirm_manual_payment(db, record_id, note, actor=actor, amount_paid=amount_paid)
+    # Fully received is settled (#1884). An open record whose received amount
+    # reaches the full amount — the form posts its status unchanged, "pending" —
+    # takes the same path as confirming it: `mark_paid` decides by the amounts,
+    # the history row says so, the event is published and a membership becomes
+    # active. 47 of 47 read "Deels betaald" until then, and nothing that belongs
+    # to "paid" happened. A smaller amount stays below: "partial", no event.
+    if (
+        amount_paid is not None
+        and record.status is PaymentStatus.PENDING
+        and (status is None or _as_status(status) is PaymentStatus.PENDING)
+        and record.covers(amount_paid)
+    ):
         return confirm_manual_payment(db, record_id, note, actor=actor, amount_paid=amount_paid)
     if status is not None:
         record.status = _as_status(status)
@@ -1509,9 +1524,10 @@ def bevestig_betaling(
     That is what `PaymentSettled` could not do: only the Mollie path published it,
     so a listener missed exactly the manual confirmation. `PaymentSettled` is gone.
 
-    **Vervroegen, niet zelf de taak sluiten.** Zelfde reden als #705: de titel is de
-    idempotentiesleutel, en een tweede plek die daar iets mee doet is hoe dubbele of te
-    vroeg gesloten taken ontstaan. De sweep beslist; dit zegt alleen "kijk nu".
+    **Vervroegen, niet zelf de taak sluiten.** Zelfde reden als #705: de sweep kent een
+    taak aan haar soort en onderwerp (#1994), en een tweede plek die taken sluit is hoe
+    dubbele of te vroeg gesloten taken ontstaan. De sweep beslist; dit zegt alleen
+    "kijk nu".
     """
     _bestaand_record(db, record_id)
     try:
