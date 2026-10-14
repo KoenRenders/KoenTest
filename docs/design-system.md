@@ -675,7 +675,11 @@ superseded on every screen that moves to the layout:
   less, and the last column never gets less than its part's width (measured
   on Betalingen: the name 282 px at 1 440 px with Acties at 156, and 380 px at
   1 920 px with the rest behind Acties). An optional column that left gives
-  its room back to the name. The last column carries no width. **A column
+  its room back to the name. A list whose names are long gives its name
+  `"width": "rest"`: the name then takes what the frame leaves at every width,
+  and the white space goes to it instead of behind the last column (#1990, the
+  Werkbank: at 1 920 px the name 678 px, Acties at its 240). The last column
+  carries no width. **A column
   head never wraps.** A date with its time is the `moment` part: one line, one
   size, never a date over a smaller time.
 - **A moment and a free sentence in the kit's table (#1915).** A list of

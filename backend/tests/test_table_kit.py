@@ -155,6 +155,22 @@ def test_a_columns_own_width_wins_over_its_parts():
     assert "--dt-name:252px;" in html and "--dt-p1:calc(200px);" in html
 
 
+def test_a_name_that_takes_the_rest_has_the_whole_frame_as_its_width():
+    """#1990: a name declared `"width": "rest"` takes what the frame leaves at
+    every width — the macro writes the whole frame (`100cqw`) as its width, the
+    CSS takes the less of that and what the others leave, and the others' sum
+    is what it was. Broken on purpose (14 October 2026, put back): the name's
+    branch without `_takes_rest` → `--dt-name:0px`."""
+    columns = [dict(c) for c in SEVEN]
+    columns[0]["width"] = "rest"
+    html = _render(TABLE, columns=columns, modes={})
+    table = re.search(r"<table[^>]*>", html).group(0)
+    assert "--dt-name:100cqw;" in table, table
+    assert "rest" not in table.replace("--dt-rest", ""), table
+    assert "--dt-rest:calc(280px + 152px + 112px + 104px + 136px);" in table
+    assert _width_of(_heads(html)[0]) is None
+
+
 def test_the_context_has_a_width_of_its_own_in_both_sets():
     """#1941 (Koen, 13 October 2026: the context column fixed at about 280 px):
     a width in px like every other part, not a share of the frame — 280 px, and
