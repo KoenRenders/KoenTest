@@ -1266,6 +1266,60 @@ carries the run id, the test count and the audit outcome as evidence
 (`AGENTS.md`, *Testen en test-evidence*), and the release tracker carries them
 once more at step 4 of the release.
 
+### Coverage, measured
+
+The suite's floor is one number, 85 % over the whole of `app`
+(`--cov-fail-under=85`); CI prints the report per file in the log of the
+`pytest` job and stores it nowhere. The tables below are that report of the
+last green run on `master` before this was written — run 38517522227 on
+38a4a5a4, 14 October 2026, **95 % over 31 696 statements** — summed per module
+and per layer (statements and missed statements, as `coverage` counts them:
+lines, not branches). They are re-measured at the close-out of every release
+until the build reads them itself (→ E47).
+
+| Module | Statements | Missed | Covered |
+|---|---|---|---|
+| `auth` | 953 | 25 | 97 % |
+| `workflow` | 720 | 19 | 97 % |
+| `payment` | 1 632 | 44 | 97 % |
+| `media` | 1 359 | 41 | 97 % |
+| kernel | 1 711 | 52 | 97 % |
+| `app` itself (config, main, logging, the module registry) | 673 | 22 | 97 % |
+| `membership` | 1 267 | 45 | 96 % |
+| `activities` | 3 975 | 142 | 96 % |
+| `app/ui` (the shells, the kit, the platform screens) | 1 324 | 50 | 96 % |
+| `reporting` | 2 624 | 128 | 95 % |
+| `cms` | 1 452 | 83 | 94 % |
+| `forms` | 1 851 | 107 | 94 % |
+| `newsletter` | 2 308 | 142 | 94 % |
+| `chatbot` | 1 623 | 111 | 93 % |
+| `meetings` | 1 276 | 94 | 93 % |
+| `mdm` | 3 923 | 298 | 92 % |
+| `mail` | 671 | 65 | 90 % |
+| `designstudio` | 2 311 | 236 | 90 % |
+
+| Layer (by file name) | Statements | Missed | Covered |
+|---|---|---|---|
+| models, history, codes | 2 941 | 15 | 99 % |
+| kernel | 1 410 | 43 | 97 % |
+| facades (`api.py`) | 439 | 17 | 96 % |
+| screens (`ui.py`, `admin_ui.py`, view-models) | 6 582 | 314 | 95 % |
+| the `app/ui` package | 493 | 31 | 94 % |
+| routers (the webhook, the media bytes, the stub) | 495 | 35 | 93 % |
+| services, handlers, rules | 11 263 | 829 | 93 % |
+| adapters (providers, seams, speech) | 810 | 108 | 87 % |
+| other files (exports, imports, rendering, helpers) | 7 220 | 312 | 96 % |
+
+*What to see:* the data layer is nearly complete and the adapters are the
+least covered, which is where the mocks stand in for the outside world; the
+services are the largest layer and carry half of what is missed. **The money
+code** (`payment` and `kernel/money.py`, `kernel/structured_communication.py`)
+stands at 97 %: fourteen of its twenty-two files are at 100 %, the ledger
+`service.py` at 97 % (18 lines), the Mollie adapter at 88 % (6 lines), the
+stub router of development at 79 % (8 lines). A floor of 100 % for the money
+code (→ E46) is therefore about 40 lines, and the question which of them a
+test cannot reach on purpose.
+
 Three things the CI deliberately does **not** do. It does not deploy: HDEV is
 deployed by the master CLI from `master` HEAD, UAT and PROD from a tag, by
 hand and with a confirmation (C5). It does not tag: a release tag is created
@@ -1570,7 +1624,8 @@ rejected choices.
 | E43 | The five public-kit macros without a demo or an exemption (`date_tile`, `year_heading`, `activity_facts`, `public_back_link`, `photo_card`) get a demo on `/admin/design-system` or a reasoned line in the exemption list; the completeness gate covers `_public_macros.html` | `docs/design-system.md` §11 promises that a new macro without a demo fails CI; the public kit is outside that promise today | — | open |
 | E44 | The `document_page` layout of the end state (§2.3) exists in no template | the end state names a layout the code does not have; either the roll-out builds it or the end state drops it | CR-11 | open |
 | E45 | One heading per module in part B: the included contract's own title line ("mdm — componentcontract (fase 2, #400)") doubles the module heading in the table of contents | the include lowers the contract's `#` to `##`, the level of the module heading; the title lines name a phase and an issue of 2026 and are in two languages | the contracts' title lines, at the close-out of v2.17 by the design-documentation CLI (Koen, 13 October 2026, to the choice between the title lines and an option in the build: "1 a"); the form: the title line becomes the module heading, `# <module> — <what it is>`, this document drops its own module headings, and the lifecycles move into each contract under *Owns* | done, 14 October 2026 (Koen: finish it before his meeting), by the architecture CLI |
-| E46 | A coverage floor per module, with the money code at 100 %: `payment`, `kernel/money.py`, `kernel/structured_communication.py` | the suite's floor is 85 % over the whole of `app` (`--cov-fail-under=85` in the `pytest` job); a global floor says nothing about one module, and the ledger is where a gap costs money | — | open (Koen's question of 14 October 2026: "Hoe bepalen we dat Money bvb. 100% test covered is?") |
+| E46 | A coverage floor per module, with the money code at 100 %: `payment`, `kernel/money.py`, `kernel/structured_communication.py` | the suite's floor is 85 % over the whole of `app`; a global floor says nothing about one module, and the ledger is where a gap costs money; measured on 14 October 2026 the money code stands at 97 %, about 40 lines short (C3) | — | open (Koen's question of 14 October 2026: "Hoe bepalen we dat Money bvb. 100% test covered is?") |
+| E47 | The coverage report stored per CI run (`coverage.xml` as an artifact of the `pytest` job) and read by the documentation build into C3, like the gates table | the tables of C3 are copied from a log by hand today and age with every release | — | open |
 
 The *non-goals* of every change request — 141 items in 23 documents on 13
 October 2026 — stay in the document that decided them, one place per fact;
@@ -1591,6 +1646,7 @@ request, the sections touched.
 
 | Release | Change request | Sections touched |
 |---|---|---|
+| — (14 October 2026) | Coverage per module, per layer and of the money code in C3, from run 38517522227; E47 | C3, E |
 | — (14 October 2026) | Koen's reading notes before his meeting: P7, the outside services in A4, the Mollie adapter in A9, the parties of the request figure in A8, built evolutions leave a contract, ruff, drift and ratchet explained, E46; the decision citations taken out of parts A–D (they stay in E) | A3, A4, A8, A9, B, C, E |
 | — (14 October 2026) | E45: the contracts' title lines are the module headings, the lifecycles under *Owns* | part B, the fifteen contracts |
 | — (13 October 2026) | the restructuring (Koen's decisions of 11 and 13 October 2026; #1952, #1953, #1954) | the whole document: five parts and Appendix B, measured against `master` @ cf80ccde and the docs commits of the same day; chapter 8 and the Gespreksleidraad to `docs/reference-architecture.md`; the PDF built, not committed |
