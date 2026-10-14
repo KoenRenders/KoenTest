@@ -311,7 +311,13 @@ def test_a_sold_out_size_is_refused_in_words(client, db_session, every_module_on
 @pytest.mark.xdist_group("sales_order_placing")
 def test_the_last_piece_goes_to_one_buyer_only(every_module_on):
     """K2.4: two orders for the last unit on two committed connections — one is
-    placed, one is refused, nothing half-reserved."""
+    placed, one is refused, nothing half-reserved.
+
+    The second buyer calls `place_order` only after the first signalled, and is
+    "refused" only on `SalesError` — never by a rollback of its own, so without
+    the lock both place and the test is red. Proven red once: taken `_acquire_lock`
+    out of `stock.service.reserve`, both threads commit and `outcomes` becomes
+    {"first": "placed", "second": "placed"}, so the outcome assertion fails."""
     import threading
     import time
     from concurrent.futures import ThreadPoolExecutor
@@ -344,17 +350,17 @@ def test_the_last_piece_goes_to_one_buyer_only(every_module_on):
         nonlocal order_id
         db = SessionLocal()
         try:
-            order = place_order(
-                db,
-                person_id=None,
-                guest_name=name,
-                guest_email=f"{name}@example.com",
-                guest_mobile="0470000000",
-                method=PaymentMethod.TRANSFER,
-                items=_items(),
-                member=False,
-            )
             if leads:
+                order = place_order(
+                    db,
+                    person_id=None,
+                    guest_name=name,
+                    guest_email=f"{name}@example.com",
+                    guest_mobile="0470000000",
+                    method=PaymentMethod.TRANSFER,
+                    items=_items(),
+                    member=False,
+                )
                 order_id = order.id
                 ready.set()
                 time.sleep(0.6)
@@ -362,11 +368,23 @@ def test_the_last_piece_goes_to_one_buyer_only(every_module_on):
                 outcomes[name] = "placed"
             else:
                 assert ready.wait(timeout=10)
-                db.rollback()
-                outcomes[name] = "refused"
-        except SalesError:
-            db.rollback()
-            outcomes[name] = "refused"
+                try:
+                    order = place_order(
+                        db,
+                        person_id=None,
+                        guest_name=name,
+                        guest_email=f"{name}@example.com",
+                        guest_mobile="0470000000",
+                        method=PaymentMethod.TRANSFER,
+                        items=_items(),
+                        member=False,
+                    )
+                except SalesError:
+                    db.rollback()
+                    outcomes[name] = "refused"
+                    return
+                db.commit()
+                outcomes[name] = "placed"
         finally:
             db.close()
 
