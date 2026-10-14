@@ -33,21 +33,27 @@ from app.kernel.clock import belgian_today
 
 def _offered_sizes(db: Session, product: Product, *, member: bool) -> list[dict[str, Any]]:
     """The sizes of `product` that carry a price valid today, each with its id,
-    name, the price the viewer pays (F16) and whether it is in stock (R13: a size
-    that is not available is sold out)."""
+    name, the price the viewer pays (F16) and whether it can be chosen. A size is
+    orderable when there is stock, or when the article's pre-order window is open
+    (`_stock_refusal` for a quantity of 1 — the one rule, R1); a size in pre-order
+    with no stock carries `pre_order`, which the tile reads to say "op bestelling"
+    instead of "uitverkocht"."""
     from app.domains.stock.api import available
 
     today = belgian_today()
+    open_window, _until = pre_order_window(product, today)
     sizes: list[dict[str, Any]] = []
     for variant in variants_of(db, product.id):
         price = price_for(db, variant.id, today, member)
         if price is not None:
+            in_stock = available(db, variant.id)
             sizes.append(
                 {
                     "id": variant.id,
                     "name": size_of(variant),
                     "price": price,
-                    "available": available(db, variant.id) > 0,
+                    "available": _stock_refusal(db, product, variant.id, 1, today) is None,
+                    "pre_order": open_window and in_stock == 0,
                 }
             )
     return sizes

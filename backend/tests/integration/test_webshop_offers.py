@@ -245,6 +245,32 @@ def test_the_article_page_shows_its_pictures_and_documents(client, db_session, e
     assert f"/api/v1/media/{photo.id}/thumb" in listing.text
 
 
+def test_a_pre_order_size_without_stock_says_op_bestelling(client, db_session, every_module_on):
+    """R1: a size of an "Op bestelling" article with no stock is orderable and its
+    tile says "op bestelling", not "uitverkocht" — the tile asks the shared stock
+    rule, so it fails if the tile says "uitverkocht" or nothing."""
+    from app.domains.product.api import add_variant, create_product, set_status
+
+    product = create_product(db_session, "T-shirt")
+    set_status(db_session, product.id, ProductStatus.ON_SALE)
+    product.pre_order = True
+    variant = add_variant(db_session, product.id, "M")
+    add_prices(
+        db_session,
+        product_id=product.id,
+        variant_id=variant.id,
+        valid_from=date(2026, 1, 1),
+        amount=Decimal("15.00"),
+        member_amount=None,
+    )
+    db_session.commit()
+
+    page = client.get(f"/webshop/{product.id}")
+    assert page.status_code == 200
+    assert "op bestelling" in page.text
+    assert "uitverkocht" not in page.text
+
+
 def test_the_page_of_another_tenants_article_is_not_found(client, db_session, every_module_on):
     """A visitor types the id: an article of another tenant is not this tenant's
     offer, so its page is a 404."""

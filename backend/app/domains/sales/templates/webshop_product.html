@@ -23,7 +23,7 @@
   <div data-shop-buy class="grid gap-4">
   <p class="text-lg font-semibold text-ink">{% if from_price %}{{ _("vanaf") }} {% endif %}€ {{ price|geld }}</p>
   {% set size_options = [] %}{% set unavailable = {} %}
-  {% for s in sizes %}{% set __ = size_options.append([s.id, s.name]) %}{% if not s.available %}{% set __ = unavailable.update({s.id: _("uitverkocht")}) %}{% endif %}{% endfor %}
+  {% for s in sizes %}{% if s.pre_order %}{% set __ = size_options.append([s.id, s.name, _("op bestelling")]) %}{% else %}{% set __ = size_options.append([s.id, s.name]) %}{% endif %}{% if not s.available %}{% set __ = unavailable.update({s.id: _("uitverkocht")}) %}{% endif %}{% endfor %}
   {{ ui.field("variant_id", _("Maat"), kind="tiles", options=size_options, unavailable=unavailable, required=True) }}
   <p id="variant_id-message" data-tiles-message hidden class="text-sm text-red-700" role="alert">{{ _("Kies een maat.") }}</p>
   <div class="flex items-center justify-between gap-3">

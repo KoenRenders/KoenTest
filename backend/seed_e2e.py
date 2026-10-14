@@ -291,6 +291,27 @@ def main() -> None:
                     amount=Decimal("15.00"),
                     member_amount=Decimal("12.00"),
                 )
+            # A second article, so the browser walk of a basket can mark one as
+            # gone while the other still orders (the "weg artikel" walk). Named to
+            # sort after "Webshop T-shirt", so the one-article tests keep it first.
+            if db.query(Product).filter(Product.name == "Webshop Zak").first() is None:
+                pet = Product(name="Webshop Zak", status=ProductStatus.ON_SALE)
+                db.add(pet)
+                db.flush()
+                pet_maat = ProductVariant(
+                    product_id=pet.id, properties=[{"name": "Maat", "value": "M"}]
+                )
+                db.add(pet_maat)
+                db.flush()
+                receive(db, pet_maat.id, quantity=5)
+                add_prices(
+                    db,
+                    product_id=pet.id,
+                    variant_id=pet_maat.id,
+                    valid_from=date(2026, 1, 1),
+                    amount=Decimal("8.00"),
+                    member_amount=None,
+                )
         finally:
             current_tenant_id.reset(token)
 

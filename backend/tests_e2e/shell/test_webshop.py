@@ -456,11 +456,12 @@ def test_de_webshop_paginas_op_390_px(webshop_page):
     heading.wait_for(state="visible")
     assert "Webshop" in heading.inner_text()
     cards = page.locator('main a[href^="/webshop/"]')
-    assert cards.count() == 1, "het artikel hoort als één kaart op de lijst te staan"
-    assert "Webshop T-shirt" in cards.first.inner_text()
+    assert cards.count() == 2, "de twee artikelen horen als kaarten op de lijst te staan"
+    shirt = cards.filter(has_text="Webshop T-shirt")
+    assert shirt.count() == 1
     assert _geen_zijwaartse_scroll(page)
 
-    product_id = cards.first.get_attribute("href").rstrip("/").split("/")[-1]
+    product_id = shirt.first.get_attribute("href").rstrip("/").split("/")[-1]
     page.goto(f"/webshop/{product_id}")
     heading = page.locator("main h1")
     heading.wait_for(state="visible")
@@ -479,7 +480,7 @@ def test_het_mandje_wandelt_van_artikel_tot_bedankt(browser):
     page.set_viewport_size({"width": 390, "height": 844})
     try:
         page.goto("/webshop")
-        card = page.locator('main a[href^="/webshop/"]').first
+        card = page.locator('main a[href^="/webshop/"]').filter(has_text="Webshop T-shirt").first
         product_id = card.get_attribute("href").rstrip("/").split("/")[-1]
         page.goto(f"/webshop/{product_id}")
 
@@ -508,9 +509,9 @@ def test_het_mandje_wandelt_van_artikel_tot_bedankt(browser):
 
 
 def _voeg_de_maat_toe_aan_het_mandje(page) -> str:
-    """Add the seeded size to the basket and return the product id."""
+    """Add the seeded shirt's size to the basket and return the product id."""
     page.goto("/webshop")
-    card = page.locator('main a[href^="/webshop/"]').first
+    card = page.locator('main a[href^="/webshop/"]').filter(has_text="Webshop T-shirt").first
     product_id = card.get_attribute("href").rstrip("/").split("/")[-1]
     page.goto(f"/webshop/{product_id}")
     page.locator("main [data-tile]").first.click()
@@ -600,14 +601,24 @@ def test_een_te_veel_kan_naar_het_beschikbare_worden_verlaagd(webshop_page):
 
 def test_een_weg_artikel_blijft_gemarkeerd_staan(webshop_page):
     """Koen's "ja op beide", in the browser: an article that goes away while it is
-    in the basket stays on its own line, marked, and the rest stays orderable."""
+    in the basket stays on its own line, marked, while the other still orders."""
     page = webshop_page
     page.set_viewport_size({"width": 390, "height": 844})
-    product_id = _voeg_de_maat_toe_aan_het_mandje(page)
+
+    page.goto("/webshop")
+    cards = page.locator('main a[href^="/webshop/"]')
+    shirt = cards.filter(has_text="Webshop T-shirt").first
+    pet = cards.filter(has_text="Webshop Zak").first
+    shirt_id = shirt.get_attribute("href").rstrip("/").split("/")[-1]
+    hrefs = [shirt.get_attribute("href"), pet.get_attribute("href")]
+    for href in hrefs:
+        page.goto(href)
+        page.locator("main [data-tile]").first.click()
+        page.locator("[data-add-to-basket]").click()
 
     def _status_zetten(status: str) -> None:
         label = "Afvoeren" if status == "DISCONTINUED" else "In verkoop zetten"
-        page.goto(f"/admin/producten/{product_id}")
+        page.goto(f"/admin/producten/{shirt_id}")
         page.locator("[data-actions-trigger]").click()
         item = page.locator(
             '[data-actions-menu] [role=menuitem][hx-post$="/status"]', has_text=label
@@ -623,7 +634,7 @@ def test_een_weg_artikel_blijft_gemarkeerd_staan(webshop_page):
         else:
             with htmx_afgerond(page):
                 item.click()
-        page.wait_for_url(f"**/admin/producten/{product_id}")
+        page.wait_for_url(f"**/admin/producten/{shirt_id}")
 
     _status_zetten("DISCONTINUED")
     try:
@@ -631,7 +642,11 @@ def test_een_weg_artikel_blijft_gemarkeerd_staan(webshop_page):
         with htmx_afgerond(page):
             page.locator("form[data-basket-form] button[type=submit]").click()
         page.wait_for_url("**/webshop/mandje")
+        # the gone article is marked, the other keeps its stepper and stays in the order
         assert "wordt niet meer aangeboden" in page.locator("main").inner_text()
+        assert "Webshop Zak" in page.locator("main").inner_text()
+        assert page.locator("[data-line-quantity]").count() == 1
+        assert page.locator('input[type="hidden"][name="variant_id"]').count() == 1
     finally:
         _status_zetten("ON_SALE")
 
@@ -681,6 +696,10 @@ def test_een_foto_en_een_document_staan_op_de_artikelpagina(webshop_page):
 
         page.goto("/webshop")
         assert page.locator('img[src^="/api/v1/media/"][src$="/thumb"]').count() == 1
+
+        page.set_viewport_size({"width": 1440, "height": 844})
+        page.goto(f"/webshop/{product_id}")
+        assert _geen_zijwaartse_scroll(page), "de foto's maken de pagina op 1 440 px te breed"
     finally:
         page.goto(record + "?bewerken=1")
         for _ in range(2):
@@ -690,6 +709,63 @@ def test_een_foto_en_een_document_staan_op_de_artikelpagina(webshop_page):
             ok.wait_for(state="visible")
             with htmx_afgerond(page):
                 ok.click()
+
+
+def test_een_op_bestelling_maat_zonder_voorraad_toont_op_bestelling(webshop_page):
+    """R1, in the browser: a size of an "Op bestelling" article with no stock shows
+    "op bestelling" once on its tile, not "uitverkocht"."""
+    page = webshop_page
+    page.set_viewport_size({"width": 390, "height": 844})
+
+    # The second article has no order against it, so its stock can go to zero.
+    page.goto("/admin/producten")
+    page.locator(
+        'a[href^="/admin/producten/"]:not([href$="/nieuw"])', has_text="Webshop Zak"
+    ).first.click()
+    page.wait_for_selector("[data-record-head]")
+    record = page.url.split("?")[0]
+    product_id = record.rstrip("/").split("/")[-1]
+    page.goto(record + "?bewerken=1")
+    page.wait_for_selector("[data-group-add]")
+
+    page.locator('label[for="pre_order"]').click()
+    page.locator("[data-form-save]").click()
+    page.wait_for_url("**" + record)
+
+    page.goto("/admin/voorraad")
+    in_stock = int(
+        page.locator("tbody tr", has_text="Webshop Zak")
+        .first.locator("td[data-cell=amount]")
+        .nth(0)
+        .inner_text()
+        .strip()
+    )
+    page.goto("/admin/voorraad/correctie")
+    variant_id = page.locator(
+        "select[name=variant_id] option", has_text="Webshop Zak"
+    ).first.get_attribute("value")
+    page.locator("select[name=variant_id]").select_option(value=variant_id)
+    page.locator("label", has_text="Eraf").click()
+    page.locator("input[name=quantity]").fill(str(in_stock))
+    page.locator("input[name=note]").fill("proef")
+    with htmx_afgerond(page):
+        page.get_by_role("button", name="Correctie opslaan").click()
+
+    try:
+        page.goto(f"/webshop/{product_id}")
+        tile = page.locator("main [data-tile]").filter(has_text="op bestelling")
+        assert tile.count() == 1, "de maattegel hoort één keer 'op bestelling' te tonen"
+        assert "uitverkocht" not in page.locator("main").inner_text()
+    finally:
+        page.goto("/admin/voorraad/ontvangst")
+        page.locator("select[name=variant_id]").select_option(value=variant_id)
+        page.locator("input[name=quantity]").fill(str(in_stock))
+        with htmx_afgerond(page):
+            page.get_by_role("button", name="Ontvangst boeken").click()
+        page.goto(record + "?bewerken=1")
+        page.locator('label[for="pre_order"]').click()
+        page.locator("[data-form-save]").click()
+        page.wait_for_url("**" + record)
 
 
 def test_productbeheer_en_prijsbeheer_zijn_tabellen(webshop_page):
