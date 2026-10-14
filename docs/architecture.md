@@ -4,7 +4,7 @@ title: Architecture — the Raak platform
 
 | | |
 |---|---|
-| **Version** | 2.0 — restructured on 13 October 2026 (Koen's decisions of 11 and 13 October 2026); E45 applied 14 October 2026 |
+| **Version** | 2.0 — restructured on 13 October 2026 (Koen's decisions of 11 and 13 October 2026); E45 and Koen's reading notes of 14 October 2026 |
 | **As-is** | `master` @ 537f5feb, 14 October 2026; the last GitHub Release is v2.16.0 (what PROD runs is measured at the close-out of the next release) |
 | **Scope** | every claim is traceable to code (Appendix B); planned work stands in part E |
 
@@ -342,11 +342,11 @@ flowchart TB
     direction TB
     S0((" ")) --> A1["Heeft een vraag over de leden of de cijfers"] --> A2["Stelt de vraag aan de Assistent of kiest zelf objecten en filters (Rapporten)"] --> A3["Leest het antwoord als tabel, draaitabel of grafiek (Rapporten)"] --> Q1{"Is het antwoord goed?"}
     Q1 -- nee --> A2
-    Q1 -- ja --> A4["Bewaart het rapport (Rapporten)"] --> A5["Exporteert het als .ods (Exporteren)"] --> E1(("Vraag beantwoord"))
+    Q1 -- ja --> A4["Bewaart het rapport (Rapporten)"] --> A5["Exporteert het als.ods (Exporteren)"] --> E1(("Vraag beantwoord"))
   end
   subgraph LA["Ledenadministratie"]
     direction TB
-    S1((" ")) --> G1["Denkt eraan de wijzigingen op te halen"] --> G2["Bekijkt de wijzigingen sinds de vorige keer (Wijzigingen)"] --> G3["Exporteert de ledenwijzigingen als .ods (Wijzigingen)"] --> G4["Typt over in het nationale programma"] --> E2(("Raak Nationaal bijgewerkt"))
+    S1((" ")) --> G1["Denkt eraan de wijzigingen op te halen"] --> G2["Bekijkt de wijzigingen sinds de vorige keer (Wijzigingen)"] --> G3["Exporteert de ledenwijzigingen als.ods (Wijzigingen)"] --> G4["Typt over in het nationale programma"] --> E2(("Raak Nationaal bijgewerkt"))
   end
   classDef platform fill:#e8f0ff,stroke:#0051a4,color:#14171c;
   classDef manual fill:#ffffff,stroke:#52607a,color:#14171c;
@@ -454,13 +454,13 @@ structure and carry a gate.
 
 | # | Principle | In one sentence | Where it lives, and what holds it |
 |---|---|---|---|
-| P1 | Keep it simple | one rule for everyone beats a rule with exceptions; a decision that makes code superfluous removes that code in the same change | `AGENTS.md` (Koen, 8 October 2026: "Ik hou altijd van KIS"); the review (C4) |
-| P2 | First time right | an open question is answered before what depends on it is built; no workaround to get past one | `AGENTS.md` (Koen, 13 October 2026: "ik wil het first-time right doen, geen uitzondering"); the review |
+| P1 | Keep it simple | one rule for everyone beats a rule with exceptions; a decision that makes code superfluous removes that code in the same change | `AGENTS.md`; the review (C4) |
+| P2 | First time right | an open question is answered before what depends on it is built; no workaround to get past one | `AGENTS.md`; the review |
 | P3 | One place per fact | a rule, a value, a figure lives once; the second place derives from the first or a gate fails on the difference | `AGENTS.md` (*Twee keer dezelfde reparatie*); `docs/code-style.md` (*A rule has one home*); `test_rules_gate.py` |
 | P4 | Model on standards | build only what is needed today, in the form a standard gives it (UBL 2.1 / EN 16931, ISO 20022, ISO 6523) so that the extension is a row, not a rework | `AGENTS.md` (*Modelleer op standaarden*, 15 September 2026); part D; the build read of a change request |
 | P5 | A test must be able to go red | a gate is proven red once with one deliberate violation; a gate that looked nowhere is green for nothing | `AGENTS.md` (*Testen en test-evidence*); `test_gate_niet_leeg.py` |
 | P6 | Europe first | an EU option is sought before any tool, service or model; a deviation is written down with its trade-off | `AGENTS.md` (*Europe First*); the proposal of every new dependency |
-| P7 | Mobile is the norm | most visits are on a phone; every screen is designed and judged at 390 px first | `docs/design-system.md`; the merge gate at 390 px (C4); the `measure` job (C3) |
+| P7 | Mobile is the norm on the public side, desktop in the back office | about four in five visits to the public site are on a phone, so every public screen is designed and judged at 390 px first; in the back office it is the other way round (about four in five on a desktop), so a back-office screen is designed for the desktop and must still work at 390 px | `docs/design-system.md`; the merge gate at 390 px (C4); the `measure` job (C3) |
 | P8 | Issue first, and one source of truth per release | every deployable change has an issue; the release tracker says what ships and how | `AGENTS.md` (*Development workflow*); the process gates (C5) |
 | P9 | Domain separation with facades | a domain is reached through `api.py` only; the kernel imports no domain; no foreign key crosses a schema except towards a code table of `mdm` or `auth` | `test_import_boundaries.py`, `test_schema_boundaries.py` |
 | P10 | A screen builds a view-model and chooses a template, nothing else | a UI module never touches the session; a template asks for nothing its view-model does not promise; `StrictUndefined` outside production | `test_layer_gate.py`, `test_template_variables_gate.py` |
@@ -489,7 +489,10 @@ flowchart TB
   subgraph NET["Internet"]
     direction LR
     U[["Visitors, members, board"]]
-    MO[["Mollie"]]
+    MO[["Mollie, payments"]]
+    AI[["Mistral, language, OCR, speech"]]
+    IMG[["The image provider, BFL"]]
+    GM[["Gmail, outgoing mail"]]
   end
   subgraph HOST["EU-hosted VPS, Docker Compose"]
     direction TB
@@ -513,18 +516,26 @@ flowchart TB
   U --> C
   C --> PB
   C --> UB
-  MO -. "webhook, id only" .-> C
-  PB -. "re-fetch status and amount" .-> MO
+  MO -. "webhook, id only".-> C
+  PB -. "re-fetch status and amount".-> MO
+  PB -. "chat, OCR, speech".-> AI
+  PB -. "four picture variants".-> IMG
+  PB -. "SMTP".-> GM
   classDef kernel fill:#e8f0ff,stroke:#0051a4,color:#14171c;
   classDef domain fill:#ffffff,stroke:#52607a,color:#14171c;
   classDef external fill:#fff7ed,stroke:#f16532,color:#14171c;
   class C,PD,UD,HD kernel
   class PB,UB,HB,HC,PU,PK domain
-  class U,MO external
+  class U,MO,AI,IMG,GM external
 ```
 
 *What to see:* only the shared proxy reaches UAT and PROD; HDEV is a stack of
-its own and never enters the shared proxy (Koen, 10 September 2026).
+its own and never enters the shared proxy. Four outside services, all called
+from the backend and never from the browser: Mollie for payments (the one
+that calls back, with a webhook that is never trusted, A9), Mistral for
+language, OCR and speech, the image provider for the poster studio, and Gmail
+for outgoing mail — each behind an adapter with a mock, so CI runs without
+keys (A11); the keys are per tenant or in `.env`, never in the repository.
 
 What an operator looks for: images are pinned; the backend runs as a non-root
 user; the production compose fails fast on a missing secret (`${VAR:?…}`); one
@@ -544,7 +555,7 @@ Written in full in `AGENTS.md`; this section is the map, not a copy.
   Koen; it writes no production code. A feature worktree works on a branch:
   all code, tests, commits and pushes come from there, and a green pull request
   is handed to the master CLI, which alone merges.
-- **Sessions and what each gets** (Koen, 12 October 2026): two dev CLIs for
+- **Sessions and what each gets**: two dev CLIs for
   large work and migrations, a third on a smaller model for small, bounded
   work that tests and CI catch, a design-documentation CLI for screen design
   and change request documents, an architecture CLI for structural design and
@@ -749,6 +760,20 @@ flowchart LR
 module router with `require_module(code)`, which answers 404 for a tenant that
 has the module off, before any role guard runs (A10).
 
+**The parties in the next figure.** The *browser* runs the page the server
+rendered; htmx, a small library in it, sends a button's action as an HTTP
+request and swaps the HTML fragment that comes back into the page, so no
+page reloads and no JavaScript application exists. *Caddy* is the reverse
+proxy of A4: it terminates TLS and forwards on the internal network. The
+backend is one Python process on *FastAPI*, a web framework that maps a URL
+and a method to a Python function (a *route*), runs that function's declared
+*dependencies* first — the rate limit, the session, the right, the CSRF token
+of step 9 to 12 — and turns its return value into the response; the
+*middleware* is the ring of code FastAPI runs around every request (steps 3
+to 8). The *route* in `admin_ui.py` builds a view-model and chooses a
+template; the *service* is the domain's rule book; *PostgreSQL* is the one
+database, one schema per domain.
+
 <!-- figure: name=request-sequence caption=A_server-rendered_admin_action_with_htmx -->
 ```mermaid
 sequenceDiagram
@@ -805,7 +830,11 @@ kinds yet (→ E30).
 
 ## A9. Money
 
-Money lives in one ledger domain, `payment`: every charge and refund is a
+Money lives in one ledger domain, `payment`, which also holds the Mollie
+integration: the adapter `payment/providers/mollie.py` behind the provider
+seam `providers/base.py`, with `stub.py` as the stand-in of development and
+the browser tests, `gateway_service.py` for the checkout and the webhook, and
+the ledger in `service.py`. Every charge and refund is a
 `PaymentRecord` that points at what it pays through a polymorphic reference
 (`payable_type`, `payable_id`) without a foreign key, so one ledger serves
 registrations and memberships and can serve an order (CR-21). The ledger's
@@ -844,8 +873,7 @@ sequenceDiagram
 **Never trust the webhook body** is written as a security invariant in
 `AGENTS.md` and held by a regression test that posts a forged
 `status=paid&amount=999` and asserts the record stays pending. **Every order
-confirms itself by mail, from whichever door it was placed** (Koen, 11 October
-2026): a membership, a registration or an order placed by the board mails the
+confirms itself by mail, from whichever door it was placed**: a membership, a registration or an order placed by the board mails the
 household the same mail the member would get.
 
 ## A10. Tenancy and security
@@ -876,7 +904,7 @@ flowchart TB
   end
   H --> RES --> CV["contextvar current_tenant_id"]
   CV --> F["global ORM filter, tenant_id = current, including relationship loads"]
-  CV --> CFG["tenant_config: settings and two encrypted secrets, .env as fallback"]
+  CV --> CFG["tenant_config: settings and two encrypted secrets,.env as fallback"]
   classDef kernel fill:#e8f0ff,stroke:#0051a4,color:#14171c;
   classDef domain fill:#ffffff,stroke:#52607a,color:#14171c;
   classDef external fill:#fff7ed,stroke:#f16532,color:#14171c;
@@ -976,8 +1004,7 @@ First*).
 # Part B — Per module
 
 Fifteen sections, one per package under `backend/app/domains/`. **A module's
-section is its `CONTRACT.md`** (Koen, 13 October 2026, Q&A of 11 October,
-question 1: "a"): the PDF build includes the contract at the module's heading
+section is its `CONTRACT.md`**: the PDF build includes the contract at the module's heading
 (→ E32), so nothing about a module stands twice. The build honours that line since #1953 (`master` @ 3ae15a8e), and since 14
 October 2026 (E45) the contract's own title line is the module heading and its
 lifecycle stands under *Owns*: nothing about a module stands in this file.
@@ -997,7 +1024,9 @@ Consumes · Owns · Screens · Deprecations · Standards · Rules and gates ·
 Evolutions* — with the old sections moved whole as third-level headings under
 the new ones, and the module-shape gate requires the nine (`master` @
 f82e5eeb). The *Evolutions* heading of a contract names the rows of part E by
-id. Second, the
+id: the planned ones that touch the module. A row that is built leaves the
+contract's list at the close-out of its release (the contract describes the
+as-is) and keeps its id and its history in E2. Second, the
 contracts name what matters, not the surface: of 967 public names on the
 fifteen facades (610 functions), 635 appear in no contract. That is right as
 long as the rule holds that a facade promises its *invariants* in the
@@ -1031,8 +1060,7 @@ in the kernel: jobs, operations, tenant settings); 66 domain tables carry
 list with a foreign key, two are plain (the provider's word on
 `gateway_payments`, the copy on `payment_record_history`). Each record status
 has its `stateDiagram-v2` in its module's contract under *Owns*, drawn from
-the transitions in the service, not from the text (Koen, 13 October 2026, Q&A
-nr. 02, question 4: "a"); three columns are outcomes written once, not
+the transitions in the service, not from the text; three columns are outcomes written once, not
 lifecycles (`ai_call_log`, `meeting_attendances`, the history copy), and say
 so in their section.
 
@@ -1069,8 +1097,14 @@ so in their section.
 
 # Part C — The harness
 
-The rules and the gates that give predictable development without drift. This
-part is the counterpart of B7 (rules of the solution) and C7 (gates) of the
+The rules and the gates that give predictable development without drift.
+*Drift* is the slow, unnoticed divergence between what the document says, what
+the rules say and what the code does: a second place for a fact, a convention
+followed in nine screens and forgotten in the tenth, a comment that stayed
+true for a month. With AI agents writing most of the code, drift is the main
+risk, because an agent copies what it sees and sees only part of the code; a
+rule it cannot read in a failing test does not exist for it. So every rule here
+is held by something that fails. This part is the counterpart of B7 (rules of the solution) and C7 (gates) of the
 change request template: what a change request writes per change, this part
 holds for the whole platform.
 
@@ -1141,8 +1175,7 @@ they count.
 
 The table of gates — file · what it refuses · hard or ratchet · since · what it
 caught — is **generated by the PDF build from the first sentence of every gate
-file's docstring** (Koen, 13 October 2026, Q&A of 11 October, question 3:
-"akkoord"), so it cannot go stale: a gate that is added appears, a gate whose
+file's docstring**, so it cannot go stale: a gate that is added appears, a gate whose
 sentence changes changes here. The build reads the same files the meta-gate
 lists in its `GATE_BESTANDEN`. The one-sentence docstring on every gate file in the form *refuses · hard or
 ratchet · since #issue*, and the gate that requires it, are #1952 (→ E31).
@@ -1162,7 +1195,9 @@ harness.
 A **hard gate** has no exceptions: the rule holds for every file it reads, and
 a new violation is red the moment it is pushed. Most of the 53 are hard.
 
-A **ratchet** holds a rule that was introduced while the code still broke it.
+A **ratchet** (Dutch *ratel* or *palrad*: a toothed wheel with a pawl, so it
+turns one way only) holds a rule that was introduced while the code still broke
+it.
 It freezes the violations that stood on the day the rule came (a *baseline*)
 and allows the number only to fall: an entry that leaves the code must leave
 the baseline, nothing may join it, and the gate is as red on room left
@@ -1216,7 +1251,7 @@ Eight jobs, each with a thirty-minute limit:
 
 | Job | What it does | Blocks the merge |
 |---|---|---|
-| `lint` | `ruff format --check` and `ruff check` on the whole tree (#781); a job of its own so a style finding is red within seconds | yes |
+| `lint` | `ruff format --check` and `ruff check` on the whole tree (#781) — ruff is one tool that is both the formatter (quotes, line length, import order, decided once for everyone) and the linter (unused imports, undefined names, a hundred small mistakes), fast enough to run on every push; a job of its own so a style finding is red within seconds | yes |
 | `pytest` | `mypy`, then the suite with `pytest -n 4` against a PostgreSQL 16 service container, coverage of `app` at least 85 %; Inkscape is installed for the poster tests | yes |
 | `audit` | `pip-audit` on the backend requirements, **reporting only** (#574): the findings go to the run's summary and to the release tracker, and Koen decides what blocks a release, not the scanner | no — but never silent |
 | `e2e (part 1)`, `e2e (part 2)` | the Playwright suite in `backend/tests_e2e/` against a really started backend with seeded data, split in two parts by folder so the two run side by side | yes |
@@ -1247,8 +1282,7 @@ read-only agent. Four moments:
 touches a screen, the master CLI looks at the rendered screen at 390 px — the
 screens the pull request touches, rendered against a seeded local backend
 (`backend/tests_e2e/screenshots.py`) — and a handover of a UI change without a
-measurement taken from the rendered DOM goes back (Koen, 27 September 2026,
-after six of twenty-four issues of v2.6.0 reached him broken with CI green).
+measurement taken from the rendered DOM goes back.
 The `measure` job of C3 holds the pilot screens mechanically; the eye holds
 the rest.
 
@@ -1261,7 +1295,7 @@ title; `publieke-repo-bewaker` screens a diff and, on request, the issues and
 their comments for secrets, real hosts, credentials and personal data, because
 the repository and its tracker are public.
 
-**The build read of a change request** (Koen, 7 October 2026, after CR-22):
+**The build read of a change request**:
 every change request, small or large, is laid against `master` by a dev CLI
 before Koen assigns it, through the review door below. CR-22 was assigned
 first, and the two dev CLIs then found twelve points where the document and
@@ -1290,7 +1324,7 @@ master CLI, which is the only session that merges, tags and deploys.
 - **The release assignment is the merge approval, and only the master CLI
   merges.** A feature CLI readies a green pull request and hands it over; work
   not on a release never reaches that handover, not with green CI, not with an
-  approved deliverable (Koen, 6 and 14 September 2026).
+  approved deliverable.
 - **The fourteen steps of a release**, in `AGENTS.md` (*Running a release from
   the CLI — the order*): tracker (1), merge gate (2), the closing comment per
   issue at its merge with how to test it on HDEV (3), CI evidence (4), env vars
@@ -1314,7 +1348,7 @@ master CLI, which is the only session that merges, tags and deploys.
   process documents are changed by Koen or the master CLI at his explicit
   word; every other session proposes. A decision of Koen is written only with
   his own words, the date and the question they answered.
-- **First time right** (Koen, 13 October 2026): an open question is answered
+- **First time right**: an open question is answered
   before what depends on it is built; no workaround to get past one; a
   proposal says when it is not the final form.
 
@@ -1376,8 +1410,7 @@ en test-evidence*). A gate that cannot go red is worse than none.
 
 # Part D — Standards
 
-One table of what the platform follows and where it deliberately deviates
-(Koen, 13 October 2026, Q&A of 11 October, question 5: "a"); "checked, not
+One table of what the platform follows and where it deliberately deviates; "checked, not
 applicable" stays in the change request that checked it. A new standard
 enters only through a change request: its B3a rows are summed here at the
 close-out (template, C10). The rule behind the table is *Modelleer op
@@ -1537,6 +1570,7 @@ rejected choices.
 | E43 | The five public-kit macros without a demo or an exemption (`date_tile`, `year_heading`, `activity_facts`, `public_back_link`, `photo_card`) get a demo on `/admin/design-system` or a reasoned line in the exemption list; the completeness gate covers `_public_macros.html` | `docs/design-system.md` §11 promises that a new macro without a demo fails CI; the public kit is outside that promise today | — | open |
 | E44 | The `document_page` layout of the end state (§2.3) exists in no template | the end state names a layout the code does not have; either the roll-out builds it or the end state drops it | CR-11 | open |
 | E45 | One heading per module in part B: the included contract's own title line ("mdm — componentcontract (fase 2, #400)") doubles the module heading in the table of contents | the include lowers the contract's `#` to `##`, the level of the module heading; the title lines name a phase and an issue of 2026 and are in two languages | the contracts' title lines, at the close-out of v2.17 by the design-documentation CLI (Koen, 13 October 2026, to the choice between the title lines and an option in the build: "1 a"); the form: the title line becomes the module heading, `# <module> — <what it is>`, this document drops its own module headings, and the lifecycles move into each contract under *Owns* | done, 14 October 2026 (Koen: finish it before his meeting), by the architecture CLI |
+| E46 | A coverage floor per module, with the money code at 100 %: `payment`, `kernel/money.py`, `kernel/structured_communication.py` | the suite's floor is 85 % over the whole of `app` (`--cov-fail-under=85` in the `pytest` job); a global floor says nothing about one module, and the ledger is where a gap costs money | — | open (Koen's question of 14 October 2026: "Hoe bepalen we dat Money bvb. 100% test covered is?") |
 
 The *non-goals* of every change request — 141 items in 23 documents on 13
 October 2026 — stay in the document that decided them, one place per fact;
@@ -1557,6 +1591,7 @@ request, the sections touched.
 
 | Release | Change request | Sections touched |
 |---|---|---|
+| — (14 October 2026) | Koen's reading notes before his meeting: P7, the outside services in A4, the Mollie adapter in A9, the parties of the request figure in A8, built evolutions leave a contract, ruff, drift and ratchet explained, E46; the decision citations taken out of parts A–D (they stay in E) | A3, A4, A8, A9, B, C, E |
 | — (14 October 2026) | E45: the contracts' title lines are the module headings, the lifecycles under *Owns* | part B, the fifteen contracts |
 | — (13 October 2026) | the restructuring (Koen's decisions of 11 and 13 October 2026; #1952, #1953, #1954) | the whole document: five parts and Appendix B, measured against `master` @ cf80ccde and the docs commits of the same day; chapter 8 and the Gespreksleidraad to `docs/reference-architecture.md`; the PDF built, not committed |
 
