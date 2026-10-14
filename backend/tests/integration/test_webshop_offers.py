@@ -168,6 +168,47 @@ def test_a_member_whose_membership_lapsed_pays_the_regular_price(
     assert "12,00" not in page.text
 
 
+def test_vanaf_precedes_the_lowest_price_when_sizes_differ_in_price(
+    client, db_session, every_module_on
+):
+    """N5: with sizes at two prices the page says "vanaf" before the lowest price."""
+    product = _on_sale_with_price(db_session, "T-shirt Raak", amount="15.00")
+    variant_l = add_variant(db_session, product.id, "L")
+    add_prices(
+        db_session,
+        product_id=product.id,
+        variant_id=variant_l.id,
+        valid_from=date(2026, 1, 1),
+        amount=Decimal("17.50"),
+        member_amount=None,
+    )
+    db_session.commit()
+
+    page = client.get(f"/webshop/{product.id}")
+    assert page.status_code == 200
+    assert "vanaf € 15,00" in page.text
+
+
+def test_no_vanaf_when_the_sizes_cost_the_same(client, db_session, every_module_on):
+    """N5: two sizes at one price show the price alone, no "vanaf"."""
+    product = _on_sale_with_price(db_session, "T-shirt Raak", amount="15.00")
+    variant_l = add_variant(db_session, product.id, "L")
+    add_prices(
+        db_session,
+        product_id=product.id,
+        variant_id=variant_l.id,
+        valid_from=date(2026, 1, 1),
+        amount=Decimal("15.00"),
+        member_amount=None,
+    )
+    db_session.commit()
+
+    page = client.get(f"/webshop/{product.id}")
+    assert page.status_code == 200
+    assert "vanaf €" not in page.text
+    assert "15,00" in page.text
+
+
 def test_the_page_of_another_tenants_article_is_not_found(client, db_session, every_module_on):
     """A visitor types the id: an article of another tenant is not this tenant's
     offer, so its page is a 404."""

@@ -10,6 +10,7 @@
   {% set size_options = [] %}{% set unavailable = {} %}
   {% for s in sizes %}{% set __ = size_options.append([s.id, s.name]) %}{% if not s.available %}{% set __ = unavailable.update({s.id: _("uitverkocht")}) %}{% endif %}{% endfor %}
   {{ ui.field("variant_id", _("Maat"), kind="tiles", options=size_options, unavailable=unavailable, required=True) }}
+  <p data-tiles-message hidden class="text-sm text-red-700">{{ _("Kies een maat.") }}</p>
   <div class="flex items-center justify-between gap-3">
     <span class="text-sm font-medium text-gray-700">{{ _("Aantal") }}</span>
     {{ ui.quantity("quantity", "quantity", 1, product_name=name, min=1, max=99, touch=True) }}

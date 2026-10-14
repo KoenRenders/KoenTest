@@ -40,7 +40,12 @@
     var root = button.closest("[data-shop-buy]");
     if (!root) return;
     var chosen = root.querySelector('input[name="variant_id"]:checked');
-    if (!chosen) return;
+    var message = root.querySelector("[data-tiles-message]");
+    if (!chosen) {
+      if (message) message.hidden = false;
+      return;
+    }
+    if (message) message.hidden = true;
     var quantity = parseInt((root.querySelector('input[name="quantity"]') || {}).value, 10);
     if (!quantity || quantity < 1) quantity = 1;
     var basket = get();
@@ -75,10 +80,17 @@
     });
   });
 
-  /* The thank-you page carries a marker: the order is placed, the basket is done. */
-  if (document.querySelector("[data-clear-basket]")) {
-    set({});
-  }
+  /* The order placed: `#bestel-form`'s good answer (200) empties the basket before
+     the browser follows the HX-Redirect, so a buyer who leaves Mollie with the back
+     button does not find the same order still in his basket. */
+  document.addEventListener("htmx:afterRequest", function (event) {
+    var elt = event.detail.elt;
+    if (!elt || !elt.matches || !elt.matches("#bestel-form")) return;
+    if (event.detail.successful) {
+      set({});
+      refresh();
+    }
+  });
 
   /* "Leeg mandje" on a refused basket: empty it and go back to the shop. */
   document.addEventListener("click", function (event) {

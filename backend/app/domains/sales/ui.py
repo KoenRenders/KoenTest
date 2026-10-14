@@ -10,7 +10,7 @@ basket and the order all ask the same rule. `/webshop/bestellen` places the orde
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -190,11 +190,12 @@ async def order_submit(request: Request, db: Session = Depends(get_db)) -> Respo
     except SalesError as exc:
         return refusal_response(request, [FieldError("", str(exc))], "#bestel-melding", send=True)
 
+    response = HTMLResponse("")
     if method == PaymentMethod.ONLINE:
-        response = HTMLResponse("")
         response.headers["HX-Redirect"] = checkout_url or ""
-        return response
-    return RedirectResponse(f"/webshop/bedankt?order={order_id}", status_code=303)
+    else:
+        response.headers["HX-Redirect"] = f"/webshop/bedankt?order={order_id}"
+    return response
 
 
 @router.get("/webshop/bedankt", response_class=HTMLResponse)

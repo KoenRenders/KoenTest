@@ -105,8 +105,8 @@ def test_posting_places_one_order_and_starts_a_transfer(client, db_session, ever
         follow_redirects=False,
     )
 
-    assert response.status_code == 303
-    assert "/webshop/bedankt?order=" in response.headers["location"]
+    assert response.status_code == 200
+    assert "/webshop/bedankt?order=" in response.headers["HX-Redirect"]
     order = db_session.query(SalesOrder).first()
     assert order is not None
     assert len(order.lines) == 1
@@ -182,7 +182,7 @@ def test_a_forged_price_total_or_discount_changes_nothing(client, db_session, ev
 
     m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
     response = _post(client, m.id, price="0.01", total="0.01", discount="14.99")
-    assert response.status_code == 303
+    assert response.status_code == 200
     line = db_session.query(SalesOrderLine).one()
     assert line.unit_price == Decimal("15.00")
     record = db_session.query(PaymentRecord).one()
@@ -311,31 +311,43 @@ def test_a_sold_out_size_is_refused_in_words(client, db_session, every_module_on
     assert "voorraad" in response.text
 
 
-def test_a_variant_posted_twice_is_one_line():
-    """N3: the same variant posted twice is summed to one line, so two posts that
-    together pass the tenant's maximum are refused as one line over it."""
-    from starlette.datastructures import FormData
+def test_a_variant_posted_twice_is_one_line(client, db_session, every_module_on):
+    """N3: the same variant posted twice is summed to one line — read through the
+    door, so a door that stopped calling `_parse_items` turns this red."""
+    from app.domains.sales.models import SalesOrderLine
 
-    from app.domains.sales.ui import _parse_items
-
-    form = FormData(
-        [("variant_id", "7"), ("variant_id", "7"), ("quantity", "1"), ("quantity", "2")]
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    body = (
+        f"variant_id={m.id}&variant_id={m.id}&quantity=1&quantity=2"
+        "&contact_name=An&contact_email=an@example.com&phone=0470000000&payment_method=transfer"
     )
-    items, error = _parse_items(form)
-    assert error is None
-    assert items == [(7, 3)]
+    response = client.post(
+        "/webshop/bestellen",
+        content=body,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 200
+    line = db_session.query(SalesOrderLine).one()
+    assert line.quantity == 3
 
 
-def test_lists_that_do_not_line_up_are_refused():
-    """N3: two posted lists of different length are refused, not silently zipped."""
-    from starlette.datastructures import FormData
-
-    from app.domains.sales.ui import _parse_items
-
-    form = FormData([("variant_id", "7"), ("quantity", "1"), ("quantity", "2")])
-    items, error = _parse_items(form)
-    assert items == []
-    assert error == "Ongeldig aantal."
+def test_lists_that_do_not_line_up_are_refused(client, db_session, every_module_on):
+    """N3: two posted lists of different length are refused through the door, not
+    silently zipped."""
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    body = (
+        f"variant_id={m.id}&quantity=1&quantity=2"
+        "&contact_name=An&contact_email=an@example.com&phone=0470000000&payment_method=transfer"
+    )
+    response = client.post(
+        "/webshop/bestellen",
+        content=body,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 422
+    assert "Ongeldig aantal" in response.text
 
 
 def test_a_non_numeric_variant_id_is_refused(client, db_session, every_module_on):
@@ -362,6 +374,19 @@ def test_an_empty_basket_shows_the_empty_state(client, db_session, every_module_
     response = client.post("/webshop/mandje", data={}, follow_redirects=False)
     assert response.status_code == 200
     assert "Je mandje is leeg" in response.text
+
+
+def test_a_quantity_below_one_is_refused_on_the_basket_page(client, db_session, every_module_on):
+    """N6: the basket page refuses a quantity below 1, as placing does — in the
+    service, so neither door is the only place the rule holds."""
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    response = client.post(
+        "/webshop/mandje",
+        data={"variant_id": str(m.id), "quantity": "0"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 200
+    assert "Ongeldig aantal" in response.text
 
 
 @pytest.mark.xdist_group("sales_order_placing")
