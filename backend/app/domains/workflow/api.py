@@ -56,8 +56,9 @@ def vervroeg_sweep(db: Session) -> None:
     uitgerekend het soort taak dat over geld gaat werd het traagst zichtbaar.
 
     **Vervroegen, niet zelf de taak aanmaken.** Een tweede plek die taken maakt krijgt
-    een eigen titelopbouw, en de titel ís de idempotentiesleutel — twee plekken die
-    die sleutel bouwen, betekent dezelfde refund twee keer.
+    een eigen titelopbouw en een eigen kijk op wat "dezelfde taak" is (sinds #1994
+    soort en onderwerp) — twee plekken die taken maken, betekent dezelfde refund
+    twee keer.
 
     `once=True` is wat dit veilig maakt: zo'n sweep plant géén opvolger. Er staat
     altijd al een sweep te wachten en elke sweep plant er een na zich, dus een tweede
