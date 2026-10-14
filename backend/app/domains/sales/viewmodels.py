@@ -29,6 +29,7 @@ class WebshopProductView(ViewModel):
     name: str
     description: str
     price: Any
+    from_price: bool
     sizes: list[dict[str, Any]]
     site: dict[str, Any] = field(default_factory=dict)
 
@@ -47,6 +48,7 @@ class BasketView(ViewModel):
     lines: list[dict[str, Any]]
     total: Any
     member_applied: bool
+    error: str = ""
     site: dict[str, Any] = field(default_factory=dict)
 
     def as_context(self) -> dict[str, Any]:

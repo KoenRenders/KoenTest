@@ -3,7 +3,15 @@
 {% block title %}{{ _("Je mandje") }} · {{ site_name }}{% endblock %}
 {% block content %}
 {% call ui.public_form_page(_("Je mandje"), back_href="/webshop", back_label=_("Verder winkelen")) %}
-{% if not lines %}
+{% if error %}
+{% call ui.flow_card() %}
+  {{ ui.error_banner(error) }}
+  <div class="mt-4 flex gap-2">
+    {{ ui.btn_secondary(_("Leeg mandje"), type="button", attrs='data-empty-basket') }}
+    {{ ui.btn_primary(_("Naar de webshop"), href="/webshop") }}
+  </div>
+{% endcall %}
+{% elif not lines %}
 {% call ui.flow_card() %}{{ ui.empty_state(_("Je mandje is leeg."), _("Naar de webshop"), "/webshop") }}{% endcall %}
 {% else %}
 <form id="bestel-form" hx-post="/webshop/bestellen" hx-target="#bestel-melding" hx-swap="innerHTML">

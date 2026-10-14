@@ -88,10 +88,12 @@ def webshop_product(request: Request, product_id: int, db: Session = Depends(get
     offer = article_offer(db, product_id, member=member)
     if offer is None:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
+    prices = [size["price"] for size in offer["sizes"]]
     vm = WebshopProductView(
         name=offer["name"],
         description=offer["description"],
-        price=min(size["price"] for size in offer["sizes"]),
+        price=min(prices),
+        from_price=len(set(prices)) > 1,
         sizes=offer["sizes"],
         site=site_context(db, request),
     )
@@ -101,34 +103,44 @@ def webshop_product(request: Request, product_id: int, db: Session = Depends(get
 @router.post("/webshop/mandje", response_class=HTMLResponse)
 async def mandje(request: Request, db: Session = Depends(get_db)) -> Response:
     """The basket, which IS the order page (CR-14 B4.1): the browser posts its
-    basket (variant ids and quantities), the server recomputes every price (C5)."""
+    basket (variant ids and quantities), the server recomputes every price (C5).
+    A refusal is a whole page in the shell, never an htmx fragment."""
     from decimal import Decimal
 
     from app.domains.sales.api import SalesError
-    from app.kernel.refusals import FieldError
-    from app.ui import refusal_response
+
+    def _vm(*, lines, total, error="") -> BasketView:
+        return BasketView(
+            lines=lines,
+            total=total,
+            member_applied=member,
+            error=error,
+            site=site_context(db, request),
+        )
 
     form = await request.form()
     items, parse_error = _parse_items(form)
-    if parse_error is not None:
-        return refusal_response(
-            request, [FieldError("", parse_error)], "#bestel-melding", send=True
-        )
     person_id, member = _buyer(request, db)
+    if parse_error is not None:
+        return templates.TemplateResponse(
+            request,
+            "webshop_mandje.html",
+            _vm(lines=[], total=Decimal("0"), error=parse_error).as_context(),
+        )
 
     try:
         lines = basket_lines(db, member=member, items=items)
     except SalesError as exc:
-        return refusal_response(request, [FieldError("", str(exc))], "#bestel-melding", send=True)
+        return templates.TemplateResponse(
+            request,
+            "webshop_mandje.html",
+            _vm(lines=[], total=Decimal("0"), error=str(exc)).as_context(),
+        )
 
     total = sum((line["price"] * line["quantity"] for line in lines), Decimal("0"))
-    vm = BasketView(
-        lines=lines,
-        total=total,
-        member_applied=member,
-        site=site_context(db, request),
+    return templates.TemplateResponse(
+        request, "webshop_mandje.html", _vm(lines=lines, total=total).as_context()
     )
-    return templates.TemplateResponse(request, "webshop_mandje.html", vm.as_context())
 
 
 @router.post(

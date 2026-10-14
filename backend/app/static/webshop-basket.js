@@ -75,5 +75,18 @@
     });
   });
 
+  /* The thank-you page carries a marker: the order is placed, the basket is done. */
+  if (document.querySelector("[data-clear-basket]")) {
+    set({});
+  }
+
+  /* "Leeg mandje" on a refused basket: empty it and go back to the shop. */
+  document.addEventListener("click", function (event) {
+    var button = event.target.closest("[data-empty-basket]");
+    if (!button) return;
+    set({});
+    window.location.href = "/webshop";
+  });
+
   refresh();
 })();

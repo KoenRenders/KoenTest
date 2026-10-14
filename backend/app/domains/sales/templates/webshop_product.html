@@ -6,7 +6,7 @@
 {% call ui.page_header(name, subtitle=description) %}{% endcall %}
 {% call ui.flow_card() %}
 <div data-shop-buy class="grid gap-4">
-  <p class="text-lg font-semibold text-ink">€ {{ price|geld }}</p>
+  <p class="text-lg font-semibold text-ink">{% if from_price %}{{ _("vanaf") }} {% endif %}€ {{ price|geld }}</p>
   {% set size_options = [] %}{% set unavailable = {} %}
   {% for s in sizes %}{% set __ = size_options.append([s.id, s.name]) %}{% if not s.available %}{% set __ = unavailable.update({s.id: _("uitverkocht")}) %}{% endif %}{% endfor %}
   {{ ui.field("variant_id", _("Maat"), kind="tiles", options=size_options, unavailable=unavailable, required=True) }}
@@ -17,6 +17,7 @@
   {{ ui.btn_primary(_("In mandje"), type="button", attrs='data-add-to-basket') }}
   <form data-basket-form method="post" action="/webshop/mandje" class="text-center">
     {{ ui.btn_secondary(_("Mandje"), type="submit", lead_icon="shopping-cart") }}
+    <span data-basket-count class="ml-2 rounded-full bg-blue-700 text-white text-xs font-semibold px-2 py-0.5 align-middle">0</span>
   </form>
 </div>
 {% endcall %}

@@ -187,15 +187,20 @@ def basket_lines(
     today = belgian_today()
     lines: list[dict[str, Any]] = []
     for variant_id, quantity in sorted(items, key=lambda item: item[0]):
+        if quantity < 1:
+            raise SalesError(_("Ongeldig aantal."))
         variant = get_variant(db, variant_id)
         if variant is None:
             raise SalesError(_("Dit artikel wordt niet meer aangeboden."))
         product = get_product_in_tenant(db, variant.product_id)
         if product is None or product.status is not ProductStatus.ON_SALE:
-            raise SalesError(_("Dit artikel wordt niet meer aangeboden."))
+            raise SalesError(
+                _("%(name)s wordt niet meer aangeboden.")
+                % {"name": product.name if product else "Het artikel"}
+            )
         price = price_for(db, variant_id, today, member)
         if price is None:
-            raise SalesError(_("Dit artikel wordt niet meer aangeboden."))
+            raise SalesError(_("%(name)s wordt niet meer aangeboden.") % {"name": product.name})
         lines.append(
             {
                 "variant_id": variant_id,

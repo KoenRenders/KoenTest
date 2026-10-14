@@ -311,6 +311,59 @@ def test_a_sold_out_size_is_refused_in_words(client, db_session, every_module_on
     assert "voorraad" in response.text
 
 
+def test_a_variant_posted_twice_is_one_line():
+    """N3: the same variant posted twice is summed to one line, so two posts that
+    together pass the tenant's maximum are refused as one line over it."""
+    from starlette.datastructures import FormData
+
+    from app.domains.sales.ui import _parse_items
+
+    form = FormData(
+        [("variant_id", "7"), ("variant_id", "7"), ("quantity", "1"), ("quantity", "2")]
+    )
+    items, error = _parse_items(form)
+    assert error is None
+    assert items == [(7, 3)]
+
+
+def test_lists_that_do_not_line_up_are_refused():
+    """N3: two posted lists of different length are refused, not silently zipped."""
+    from starlette.datastructures import FormData
+
+    from app.domains.sales.ui import _parse_items
+
+    form = FormData([("variant_id", "7"), ("quantity", "1"), ("quantity", "2")])
+    items, error = _parse_items(form)
+    assert items == []
+    assert error == "Ongeldig aantal."
+
+
+def test_a_non_numeric_variant_id_is_refused(client, db_session, every_module_on):
+    """N3: a variant id that is not a number is a refusal, not a 500."""
+    response = _post(client, "abc")
+    assert response.status_code == 422
+
+
+def test_the_basket_page_shows_the_servers_price(client, db_session, every_module_on):
+    """N3: the basket page carries the server's price — the post holds no amount."""
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    response = client.post(
+        "/webshop/mandje",
+        data={"variant_id": str(m.id), "quantity": "2"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 200
+    assert "T-shirt" in response.text
+    assert "15,00" in response.text
+
+
+def test_an_empty_basket_shows_the_empty_state(client, db_session, every_module_on):
+    """N3: an empty post shows the empty state, in the shell."""
+    response = client.post("/webshop/mandje", data={}, follow_redirects=False)
+    assert response.status_code == 200
+    assert "Je mandje is leeg" in response.text
+
+
 @pytest.mark.xdist_group("sales_order_placing")
 def test_the_last_piece_goes_to_one_buyer_only(every_module_on):
     """K2.4: two orders for the last unit on two committed connections — one is
