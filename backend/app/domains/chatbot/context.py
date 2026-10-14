@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.domains.chatbot.models import ChatbotInfo
-from app.domains.cms.api import CmsPage, _format_md, _format_price, render_cms_content
+from app.domains.cms.api import CmsPage, _format_md, _format_price, published_text
 from app.domains.membership.api import current_membership_counts
 from app.domains.payment.api import (
     membership_price_for_date,
@@ -165,7 +165,7 @@ def _published_pages_block(db: Session) -> str:
         if ci is not None and ci.text_override:
             base = ci.text_override.strip()
         else:
-            base = (render_cms_content(page.content) or "").strip()
+            base = (published_text(db, page) or "").strip()
         if ci is not None and ci.text_addition:
             base = (base + "\n\n" + ci.text_addition.strip()).strip()
         if not base:

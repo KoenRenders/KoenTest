@@ -10,8 +10,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.cms.api import get_published_page, published_page, published_slugs
-from app.domains.cms.render import render_cms_content
+from app.domains.cms.api import get_published_page, published_html, published_page, published_slugs
 from app.i18n import _
 from app.ui import site_context, templates
 
@@ -54,7 +53,7 @@ def homepage(request: Request, db: Session = Depends(get_db)):
         "home.html",
         {
             **site_context(db, request),
-            "intro_html": render_cms_content(intro.content or "", db) if intro else None,
+            "intro_html": published_html(db, intro) if intro else None,
             "toon_lidgeld": toon_lidgeld,
             # #1509: and only when the contact form can take a message — a
             # tenant without it had a button that led nowhere.
@@ -202,7 +201,7 @@ def _render_page(request: Request, db: Session, page):
         {
             **site_context(db, request),
             "page": page,
-            "content_html": render_cms_content(page.content or "", db, on_page=True),
+            "content_html": published_html(db, page),
             # #924: één vaste slug krijgt het contactblok uit de organisatie, zoals de
             # footer er een krijgt. Geen shortcode en geen nieuwe pagina: er ís geen
             # contactpagina, en een blok dat van een paginanaam afhangt werkt niet voor

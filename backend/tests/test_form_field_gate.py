@@ -22,7 +22,7 @@ from pathlib import Path
 
 APP = Path(__file__).resolve().parents[1] / "app"
 
-FULL_KINDS = {"url", "email", "textarea", "upload", "checkbox_group", "radio_group"}
+FULL_KINDS = {"url", "email", "textarea", "upload", "checkbox_group", "radio_group", "tiles"}
 
 _RAW = re.compile(r"<(label|select|textarea)\b|<input\b(?![^>]*type=\"hidden\")")
 

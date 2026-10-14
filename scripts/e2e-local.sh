@@ -89,21 +89,25 @@ fi
 if ! docker inspect -f '{{.State.Running}}' "$NAAM" >/dev/null 2>&1; then
   docker rm -f "$NAAM" >/dev/null 2>&1 || true
   echo "→ hulpcontainer $NAAM opbouwen (eenmalig; playwright + chromium, ~115 MB)…"
-  docker run -d --name "$NAAM" "${RUN_ARGS[@]}" \
+  # --init (#1964): see test-local.sh. The URL goes by an environment file and not
+  # `-e`, so it stays out of the command line (local-db-lib.sh, url_env).
+  docker run -d --init --name "$NAAM" "${RUN_ARGS[@]}" \
     -v "$ROOT:/app" -w /app/backend \
     --env-file "$ENV_FILE" -e JOBS_ENABLED=false \
-    -e DATABASE_URL="$URL" \
+    --env-file <(url_env DATABASE_URL "$URL") \
     -e SECRET_KEY="e2e-lokaal-secret-lang-genoeg-voor-hs256" \
     -u root "$IMAGE" sleep infinity >/dev/null
   docker exec "$NAAM" pip install -q -r requirements-e2e.txt
   docker exec "$NAAM" playwright install --with-deps chromium >/dev/null
+else
+  warn_if_no_init "$NAAM" e2e-local.sh
 fi
 
 # ── Verse databank ───────────────────────────────────────────────────────────
 echo "→ ${DB_NAAM} opnieuw opbouwen"
 if [ -n "${EXISTING_DB_URL:-}" ]; then
   # No db container to ask: the helper container drops and makes it, over the given URL.
-  docker exec -e ADMIN_DATABASE_URL="$EXISTING_DB_URL" "$NAAM" \
+  docker exec --env-file <(url_env ADMIN_DATABASE_URL "$EXISTING_DB_URL") "$NAAM" \
     python -m tests._local_db recreate "$DB_NAAM"
 else
   "${COMPOSE[@]}" exec -T db sh -c \
@@ -116,13 +120,13 @@ fi
 # otherwise only reach it after VERS=1.
 # And the migration's output only when it fails: a silent `>/dev/null 2>&1` made a
 # refused connection end the script with exit 1 and nothing on the screen.
-if ! MIGRATIE="$(docker exec --env-file "$ENV_FILE" -e DATABASE_URL="$URL" "$NAAM" alembic upgrade head 2>&1)"; then
+if ! MIGRATIE="$(docker exec --env-file "$ENV_FILE" --env-file <(url_env DATABASE_URL "$URL") "$NAAM" alembic upgrade head 2>&1)"; then
   echo "e2e-local.sh: alembic upgrade head failed on ${DB_NAAM}:" >&2
   printf '%s\n' "$MIGRATIE" | tail -20 >&2
   exit 1
 fi
-docker exec --env-file "$ENV_FILE" -e DATABASE_URL="$URL" "$NAAM" python seed_postal_codes.py >/dev/null
-docker exec --env-file "$ENV_FILE" -e DATABASE_URL="$URL" -e E2E_SEED=1 "$NAAM" python seed_e2e.py | tail -1
+docker exec --env-file "$ENV_FILE" --env-file <(url_env DATABASE_URL "$URL") "$NAAM" python seed_postal_codes.py >/dev/null
+docker exec --env-file "$ENV_FILE" --env-file <(url_env DATABASE_URL "$URL") -e E2E_SEED=1 "$NAAM" python seed_e2e.py | tail -1
 
 # ── Server ───────────────────────────────────────────────────────────────────
 # Een herstart is de eenvoudigste manier om een draaiende uvicorn te stoppen: het
@@ -133,7 +137,7 @@ docker restart "$NAAM" >/dev/null
 # that already exists keeps the environment it was created with, so a variable
 # added to the file would otherwise only reach it after VERS=1 (#570 once lost
 # CHAT_ENABLED that way). Why each variable is there is written in the file.
-docker exec -d --env-file "$ENV_FILE" -e DATABASE_URL="$URL" \
+docker exec -d --env-file "$ENV_FILE" --env-file <(url_env DATABASE_URL "$URL") \
   "$NAAM" sh -c "uvicorn app.main:app --host 0.0.0.0 --port ${POORT} > /tmp/uvicorn.log 2>&1"
 for _ in $(seq 1 30); do
   if docker exec "$NAAM" python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:${POORT}/')" 2>/dev/null; then
@@ -153,6 +157,6 @@ case "${1:-}" in
   tests_e2e*) DOEL=("$@") ;;
   *)          DOEL=(tests_e2e/ "$@") ;;
 esac
-exec docker exec --env-file "$ENV_FILE" -e DATABASE_URL="$URL" \
+exec docker exec --env-file "$ENV_FILE" --env-file <(url_env DATABASE_URL "$URL") \
   -e E2E_BASE_URL="http://127.0.0.1:${POORT}" \
   "$NAAM" python -m pytest -o cache_dir=/tmp/pytest_cache "${DOEL[@]}"

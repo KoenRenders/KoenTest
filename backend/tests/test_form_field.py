@@ -30,7 +30,7 @@ def _span(html: str) -> str:
 
 
 @pytest.mark.parametrize(
-    "kind", ["url", "email", "textarea", "upload", "checkbox_group", "radio_group"]
+    "kind", ["url", "email", "textarea", "upload", "checkbox_group", "radio_group", "tiles"]
 )
 def test_a_long_kind_is_full_whatever_the_template_asks(kind):
     """A template may not narrow a long field: the macro renders it full, and
@@ -65,6 +65,77 @@ def test_a_secret_is_typed_hidden_and_reads_as_any_short_field():
     assert " value=" not in html
     assert _span(html) == "half"
     assert 'type="text"' in _field(kind="text")
+
+
+# ── A choice of one among tiles (#1967) ──────────────────────────────────────
+
+SIZES = [("s", "S"), ("m", "M"), ("l", "L")]
+
+
+def _tiles(**kwargs) -> str:
+    return _field(kind="tiles", name="maat", label="Maat", options=SIZES, **kwargs)
+
+
+def _tile_inputs(html: str) -> list[str]:
+    return re.findall(r"<input[^>]*>", html)
+
+
+def test_tiles_are_one_radio_per_option_under_the_fields_name():
+    """Broken on purpose (13 October 2026, each put back): the tiles' radios given
+    another name → "one value under the field's name"; `checked` written for the
+    unavailable option too → "an unavailable option is never the chosen one";
+    `disabled` taken off the unavailable radio → "the browser would let it be
+    chosen and would submit it"."""
+    html = _tiles(value="m")
+    inputs = _tile_inputs(html)
+    assert len(inputs) == 3 and all('type="radio"' in i and 'name="maat"' in i for i in inputs), (
+        "one value under the field's name"
+    )
+    assert [re.search(r'value="(\w+)"', i).group(1) for i in inputs] == ["s", "m", "l"]
+    assert [" checked" in i for i in inputs] == [False, True, False]
+    assert not any(" disabled" in i for i in inputs)
+    assert 'role="radiogroup"' in html and 'aria-labelledby="maat-label"' in html
+    assert "grid-cols-4" in html and "md:grid-cols-6" in html
+    assert html.count("data-tile ") == 3 and "data-unavailable" not in html
+
+
+def test_an_unavailable_tile_is_shown_with_its_reason_and_cannot_be_chosen():
+    html = _tiles(value="l", unavailable={"l": "uitverkocht"})
+    inputs = _tile_inputs(html)
+    assert len(inputs) == 3
+    sold = next(i for i in inputs if 'value="l"' in i)
+    assert " disabled" in sold, "the browser would let it be chosen and would submit it"
+    assert " checked" not in sold, "an unavailable option is never the chosen one"
+    assert not any(" checked" in i for i in inputs)
+    assert [" disabled" in i for i in inputs] == [False, False, True]
+    # The reason is on the tile and is what a screen reader hears with the option.
+    why = re.search(r'aria-describedby="([\w-]+)"', sold).group(1)
+    assert re.search(rf'<span id="{why}"[^>]*>uitverkocht</span>', html)
+    tile = html[html.index("data-unavailable") :]
+    assert "line-through" in tile[: tile.index("</label>")]
+    assert html.count("data-unavailable") == 1
+
+
+def test_one_option_is_one_tile_and_a_required_choice_says_so():
+    html = _field(
+        kind="tiles", name="maat", label="Maat", options=[("one", "Eén maat")], required=True
+    )
+    inputs = _tile_inputs(html)
+    assert len(inputs) == 1 and " required" in inputs[0]
+    assert 'aria-required="true"' in html and 'class="text-red-600">*' in html
+
+
+def test_tiles_show_the_kits_field_error_and_read_as_the_chosen_label():
+    refused = _tiles(error="Kies een maat.")
+    assert "data-field-error" in refused and "Kies een maat." in refused
+    assert 'aria-invalid="true"' in refused and 'aria-describedby="maat-error"' in refused
+    read = _tiles(value="m", edit=False)
+    assert "<input" not in read and _value_of(read).strip() == "M"
+    assert _value_of(_tiles(edit=False)).strip().endswith("—")
+
+
+def _value_of(html: str) -> str:
+    return re.search(r"<p data-value[^>]*>(.*?)</p>", html, re.S).group(1)
 
 
 def test_a_long_text_field_is_full():

@@ -161,12 +161,15 @@ def test_een_gewone_opslag_laat_de_volgorde_met_rust(client, db_session):
         data={
             "title": "Nieuwe titel",
             "slug": "blijft",
-            "content": "<p>x</p>",
-            "is_published": "1",
         },
     )
 
-    assert resp.status_code == 200, resp.text
+    # Snede 3 (#1671): a save that succeeds is a 204 with the way back —
+    # htmx follows the header; the old 200-with-fragment is gone. The old
+    # content/is_published keys ride along no more: the document is the
+    # editor's and publishing is her own action.
+    assert resp.status_code == 204, resp.text
+    assert resp.headers.get("HX-Redirect") == f"/admin/paginas/{pagina.id}?opgeslagen=1"
     db_session.expire_all()
     bewaard = db_session.get(CmsPage, pagina.id)
     assert bewaard.title == "Nieuwe titel", "de opslag zelf werkte niet"

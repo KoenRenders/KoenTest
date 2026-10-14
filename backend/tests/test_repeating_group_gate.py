@@ -221,6 +221,40 @@ GROUP_CALL = (
 )
 
 
+def _add_buttons(html: str) -> list[str]:
+    return re.findall(r"<button[^>]*data-group-add[^>]*>", html)
+
+
+def test_the_add_action_has_a_look_no_input_has():
+    """#1972: "+ E-mailadres" was a white box with a grey line at an input's
+    height, and read as a field (Koen, 13 October 2026). The add action of every
+    group — in its head and below a composite group — is the kit's quiet tint
+    without a visible line, from one macro.
+
+    Broken on purpose (13 October 2026, each put back): the group's head given
+    `btn_class('secondary', 'sm')` again → "the add action looks like a field";
+    the `quiet` variant given `border-gray-300` → "a visible line"."""
+    head = _add_buttons(_render(GROUP_CALL, edit=True, count=0))
+    below = _add_buttons(
+        _render(
+            "{% call ui.repeating_group('Onderdelen', 'c_order', add_label='Onderdeel', edit=True,"
+            " variant='composite') %}{% endcall %}"
+        )
+    )
+    alone = _add_buttons(_render("{{ ui.group_add_button('Datum') }}"))
+    assert len(head) == len(below) == len(alone) == 1
+    for button in (*head, *below, *alone):
+        classes = re.search(r'class="([^"]*)"', button).group(1).split()
+        assert "bg-blue-50" in classes and "text-blue-700" in classes, "the add action has no tint"
+        assert "bg-white" not in classes, "the add action looks like a field"
+        assert "border-transparent" in classes, "a visible line"
+        assert not any(
+            c.startswith("border-gray") or c == "border-control-line" for c in classes
+        ), "a visible line"
+        assert 'type="button"' in button and "min-h-11" in classes, "the touch height is gone"
+    assert head[0] == alone[0], "the group and the kit page do not share one button"
+
+
 def test_the_group_adds_only_in_edit_mode_and_says_when_it_is_empty():
     edit = _render(GROUP_CALL, edit=True, count=0)
     assert "data-group-add" in edit and "<template data-group-template>" in edit

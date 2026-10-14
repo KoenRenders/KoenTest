@@ -35,7 +35,6 @@ one turns names into tokens *in order to* restore them.
 from __future__ import annotations
 
 import html as html_lib
-import json
 import logging
 import re
 import time
@@ -378,51 +377,112 @@ Een lege lijst betekent: alles is gestaafd.
 """
 
 
-def _sources_message(src: Sources) -> str:
-    parts = ["BRONNEN"]
+# #1969: where a part of the sources stands, in the author's words, and what the
+# author can do about it — for the guard's refusal. A part without advice is one
+# the author cannot change from this screen.
+_ACTIVITY = (
+    "de tekst van een gekozen activiteit",
+    "Haal die activiteit even uit de brief of pas haar tekst aan.",
+)
+_REPORT = ("een vergaderverslag sinds de vorige brief", "")
+_UPCOMING = ("de lijst van komende activiteiten", "")
+_HOUSE_STYLE = (
+    "de huisstijl van de nieuwsbrief",
+    "Pas de huisstijl aan in de instellingen van de nieuwsbrieven.",
+)
+_EXAMPLE = (
+    "een voorbeeld van een eerdere brief",
+    "Haal de doelgroep even weg: dan gaan er geen voorbeelden van eerdere brieven mee.",
+)
+_LETTER = ("de brief zelf", "Haal dat gegeven even uit de brief.")
+_OWN_WORDS = ("wat je wil vertellen", "Herformuleer het zonder dat gegeven.")
+
+
+def _sections(src: Sources) -> list[tuple[str, tuple[str, str] | None]]:
+    """The sources as the model gets them, section by section, each with the
+    place it is for the reader (None: a heading of ours, no stored text). ONE
+    list: the message is its texts joined, the guard's places are its places."""
+    sections: list[tuple[str, tuple[str, str] | None]] = [("BRONNEN", None)]
     for activity_id in src.activity_ids:
         when = "voorbij" if activity_id in src.past_ids else "komt nog"
-        parts.append(
-            f"## Activiteit {activity_id} ({when})\n{src.activity_texts.get(activity_id, '')}"
+        sections.append(
+            (
+                f"## Activiteit {activity_id} ({when})\n{src.activity_texts.get(activity_id, '')}",
+                _ACTIVITY,
+            )
         )
     if src.points:
-        parts.append(
-            "## Uit de aangevinkte vergaderverslagen (INTERN — neem alleen over wat "
-            "lezers aanbelangt)\n" + "\n".join(f"- {p}" for p in src.points)
+        sections.append(
+            (
+                "## Uit de aangevinkte vergaderverslagen (INTERN — neem alleen over wat "
+                "lezers aanbelangt)\n" + "\n".join(f"- {p}" for p in src.points),
+                _REPORT,
+            )
         )
     if src.instruction:
-        parts.append(f"## Wat de auteur wil vertellen\n{src.instruction}")
+        sections.append((f"## Wat de auteur wil vertellen\n{src.instruction}", _OWN_WORDS))
     if src.upcoming:
-        parts.append(
-            "## Komende activiteiten (id: naam) — details via de leestools\n" + src.upcoming
+        sections.append(
+            (
+                "## Komende activiteiten (id: naam) — details via de leestools\n" + src.upcoming,
+                _UPCOMING,
+            )
         )
-    parts.append("HUISSTIJL\n" + (src.house_style or "Warm, enthousiast, jij-vorm, korte zinnen."))
+    sections.append(
+        (
+            "HUISSTIJL\n" + (src.house_style or "Warm, enthousiast, jij-vorm, korte zinnen."),
+            _HOUSE_STYLE,
+        )
+    )
     if src.examples:
-        parts.append(
-            "VOORBEELDEN VAN EERDERE BRIEVEN (alleen voor de toon — geen bron voor feiten)\n"
-            + "\n---\n".join(src.examples)
+        sections.append(
+            (
+                "VOORBEELDEN VAN EERDERE BRIEVEN (alleen voor de toon — geen bron voor feiten)\n"
+                + "\n---\n".join(src.examples),
+                _EXAMPLE,
+            )
         )
     if src.letter:
-        parts.append(
-            "DE BRIEF ZOALS HIJ NU IS\n"
-            + "\n".join(f"{i}. {p}" for i, p in enumerate(src.letter, 1))
+        sections.append(
+            (
+                "DE BRIEF ZOALS HIJ NU IS\n"
+                + "\n".join(f"{i}. {p}" for i, p in enumerate(src.letter, 1)),
+                _LETTER,
+            )
         )
     else:
-        parts.append("DE BRIEF IS NOG LEEG")
-    return "\n\n".join(parts)
+        sections.append(("DE BRIEF IS NOG LEEG", None))
+    return sections
 
 
-def _parse_json(text: str) -> dict[str, Any]:
-    start, end = (text or "").find("{"), (text or "").rfind("}")
-    if start < 0 or end <= start:
-        raise DraftingError(_("Raakje gaf geen bruikbaar voorstel. Probeer het opnieuw."))
+def _sources_message(src: Sources) -> str:
+    return "\n\n".join(text for text, _place in _sections(src))
+
+
+def _source_parts(src: Sources) -> list[Any]:
+    """The same sections as the guard's places (#1969): a refusal says "in een
+    voorbeeld van een eerdere brief", not "in je vraag"."""
+    from app.domains.chatbot.api import Part
+
+    return [
+        Part(where=place[0], text=text, advice=place[1])
+        for text, place in _sections(src)
+        if place is not None
+    ]
+
+
+def _json_answer(
+    provider: Any, messages: list[dict[str, Any]], first: str | None = None
+) -> dict[str, Any]:
+    """Raakje's answer as a JSON object, by the kernel's one rule (#1968): asked
+    for as JSON, retried once, logged without content. The second failure is
+    this screen's sentence."""
+    from app.domains.chatbot.api import UnusableAnswer, json_answer
+
     try:
-        data = json.loads(text[start : end + 1])
-    except json.JSONDecodeError as exc:
+        return json_answer(provider, messages, first=first)
+    except UnusableAnswer as exc:
         raise DraftingError(_("Raakje gaf geen bruikbaar voorstel. Probeer het opnieuw.")) from exc
-    if not isinstance(data, dict):
-        raise DraftingError(_("Raakje gaf geen bruikbaar voorstel. Probeer het opnieuw."))
-    return data
 
 
 # ── Rendering a proposal ─────────────────────────────────────────────────────
@@ -646,7 +706,7 @@ class Turn:
     proposal: dict[str, Any]
 
 
-def _provider(db: Session, actor: str):
+def _provider(db: Session, actor: str, sources: Optional[Sources] = None):
     from app.config import settings
     from app.domains.chatbot.api import GuardedProvider, admin_rules, get_provider, sink_for
     from app.domains.mdm.api import person_name_parts
@@ -657,6 +717,9 @@ def _provider(db: Session, actor: str):
             lambda: person_name_parts(db),
             capability=CAPABILITY,
             scan_prompt_names=SCAN_PROMPT_NAMES,
+            # Read when a call is refused, so the tool results gathered by then
+            # are not needed: they are placed by their message's role.
+            parts=(lambda: _source_parts(sources)) if sources is not None else None,
         ),
         sink_for(actor),
     )
@@ -761,7 +824,7 @@ def ask(
         *_history(letter, names),
         {"role": "user", "content": scrub(request, names)},
     ]
-    provider = _provider(db, actor)
+    provider = _provider(db, actor, sources)
     collected: list[str] = []
     deadline = time.monotonic() + settings.admin_chat_timeout_seconds
     answer = run_chat(
@@ -774,7 +837,9 @@ def ask(
         deadline=deadline,
     )
     sources.tool_results = collected
-    data = _parse_json(answer)
+    # The loop's final answer is the first attempt; the retry is one call without
+    # tools on the conversation as it stands (#1968).
+    data = _json_answer(provider, messages, first=answer)
 
     if mode == MODE_INSERT and data.get("paragraphs") and not str(data.get("text") or "").strip():
         # The author asked for the whole letter again: offer it as one, with the
@@ -893,8 +958,7 @@ def verify(
         },
     ]
     try:
-        reply = provider.complete(messages, tools=None)
-        data = _parse_json(reply.content or "")
+        data = _json_answer(provider, messages)
         found = data.get("unsupported") or []
     except Exception as exc:  # noqa: BLE001 — see the docstring
         from app.domains.chatbot.api import SeamBlocked
