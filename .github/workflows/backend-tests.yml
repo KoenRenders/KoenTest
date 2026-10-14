@@ -51,6 +51,46 @@ jobs:
       - name: ruff check
         run: ruff check .
 
+  # Secret scan, BLOCKING (#1996). GitHub's push protection knows the token
+  # formats of known providers; a credential of another shape — a password in
+  # a connection string, a key of our own — passes it. This job scans every
+  # commit of the change, not only the tip: a secret added and removed again in
+  # one branch is still in its history, and editing removes nothing.
+  # The tool (Europe First): gitleaks, open source (MIT), one binary that runs
+  # inside the job and sends nothing anywhere. No EU-made scanner of that kind
+  # is known to us; GitGuardian (France) is a service that receives the
+  # content, which is what this rules out. Version pinned, the release's
+  # checksum verified. Its allow-list, with a reason per entry:
+  # .github/gitleaks.toml.
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks (pinned, checksum verified)
+        env:
+          GITLEAKS_VERSION: "8.30.1"
+          # From the release's own gitleaks_8.30.1_checksums.txt.
+          GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+        run: |
+          tarball="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL -o "$RUNNER_TEMP/$tarball" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$tarball"
+          echo "$GITLEAKS_SHA256  $RUNNER_TEMP/$tarball" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP" gitleaks
+      # A pull request: its own commits (base..head). A push to master: the
+      # pushed range. `--verbose` prints each finding — commit, file, line,
+      # rule, and the commit's author as git already shows it — with the value
+      # redacted; without it gitleaks only counts them.
+      - name: Scan the commits of this change
+        env:
+          RANGE: ${{ github.event_name == 'pull_request' && format('{0}..{1}', github.event.pull_request.base.sha, github.event.pull_request.head.sha) || format('{0}..{1}', github.event.before, github.sha) }}
+        run: |
+          "$RUNNER_TEMP/gitleaks" git --config .github/gitleaks.toml --redact --verbose --no-banner \
+            --log-opts="$RANGE" .
+
   pytest:
     runs-on: ubuntu-latest
     timeout-minutes: 30
