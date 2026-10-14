@@ -21,7 +21,7 @@ def _schuine_lege_toestand(html: str) -> bool:
     """Staat er een schuine lege-toestandregel op de pagina?
 
     Niet simpelweg `"italic" not in html`: de publieke schil draagt in haar
-    inline-CSS `.cms-content em,.cms-content i{font-style:italic}` — dat is
+    app.css `.prose-raak em,.prose-raak i{font-style:italic}` — dat is
     gewone cursieve tekst in CMS-inhoud, geen lege toestand. We kijken dus naar
     de combinatie op één regel, net als de lint-gate.
     """

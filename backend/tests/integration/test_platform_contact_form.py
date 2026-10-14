@@ -141,12 +141,24 @@ def _button(html: str) -> list[tuple[str, str]]:
 
 
 def _home_with(db, platform, content: str):
-    """The platform's own home page (#1543), with this content."""
+    """The platform's own home page (#1543), with this content.
+
+    CR-17 (#1671): the site shows the page's PUBLISHED DOCUMENT, not her
+    stored HTML — so the test writes her the way an author does, through the
+    app's own doors: the migration's parse into a document (a placeholder
+    code stays TEXT), Opslaan and Publiceren. Writing `page.content` would
+    test nothing: the reader no longer looks at her.
+    """
+    from app.domains.cms.api import publish, save_document
+    from app.domains.cms.parse import parse_html
+
     page = (
         _all(db, CmsPage).filter(CmsPage.tenant_id == platform.id, CmsPage.is_home.is_(True)).one()
     )
-    page.content = content
-    db.commit()
+    document = parse_html(content, on_page=True)
+    assert document is not None, f"the test's content does not convert: {content!r}"
+    save_document(db, page.id, document)
+    publish(db, page.id)
     return page
 
 
@@ -229,20 +241,49 @@ def test_a_form_that_cannot_take_a_submission_renders_nothing(
 def test_a_label_with_markup_is_escaped(client, platform_workspace, db_session):
     platform = _bare_platform(db_session)
     seed_contact_forms(db_session)
-    # As the editor stores what an author types, and as raw markup in the source.
-    _home_with(
-        db_session,
-        platform,
-        "<p>{{form:berichten|&lt;script&gt;alert(1)&lt;/script&gt; &amp; meer}}</p>"
-        "<p>{{form:berichten|<b>vet</b>}}</p>",
+    # As the editor stores what an author types: through the document editor
+    # the tags are LITERAL TEXT in the code (the toolbar makes marks, it
+    # cannot type a tag), so the code stays one text node and the renderer
+    # hands the builder the label as typed. What she renders is escaped.
+    from app.domains.cms.api import publish, save_document
+
+    home = (
+        _all(db_session, CmsPage)
+        .filter(CmsPage.tenant_id == platform.id, CmsPage.is_home.is_(True))
+        .one()
     )
+    document = {
+        "type": "doc",
+        "content": [
+            {
+                "type": "paragraph",
+                "content": [
+                    {"type": "text", "text": "{{form:berichten|<b>vet</b>}}"},
+                ],
+            },
+            {
+                "type": "paragraph",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "{{form:berichten|<script>alert(1)</script> & meer}}",
+                    },
+                ],
+            },
+        ],
+    }
+    save_document(db_session, home.id, document)
+    publish(db_session, home.id)
 
-    home = client.get("/").text
+    home_html = client.get("/").text
 
-    labels = [label for _href, label in _button(home)]
-    assert labels == ["&lt;script&gt;alert(1)&lt;/script&gt; &amp; meer", "&lt;b&gt;vet&lt;/b&gt;"]
-    main = home[home.index("cms-content") :]
-    assert "<script>alert(1)" not in main and "<b>vet</b>" not in main
+    labels = [label for _href, label in _button(home_html)]
+    assert labels == [
+        "&lt;b&gt;vet&lt;/b&gt;",
+        "&lt;script&gt;alert(1)&lt;/script&gt; &amp; meer",
+    ], f"the labels lost their escaping: {labels}"
+    main = home_html[home_html.index("prose-raak") :]
+    assert "<b>vet</b>" not in main and "<script>alert(1)" not in main
 
 
 def test_the_editor_lists_the_code_with_its_two_forms():

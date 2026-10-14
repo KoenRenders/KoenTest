@@ -174,8 +174,13 @@ def test_link_tint_token_en_cms_link():
     assert "--c-link:35 103 189" in build  # de ene bron (= #2367bd)
     assert "--link:rgb(var(--c-link))" in build  # leesbare alias
     assert "link: 'rgb(var(--c-link) / <alpha-value>)'" in build  # Tailwind text-link-utility
+    # CR-17 slice 4: the prose rules moved from the shells into app.css
+    # under the ONE class `.prose-raak` - the shells carry nothing
+    # hand-written of them any more.
     site = (APP / "ui" / "templates" / "site_base.html").read_text()
-    assert ".cms-content a{color:var(--link)" in site and "underline" in site
+    assert ".cms-content" not in site, "the shell still carries prose rules"
+    css = (APP / "static" / "app.css").read_text()
+    assert ".prose-raak a{color:var(--link)" in css and "underline" in css
 
 
 def test_create_schermen_gebruiken_opslaan():
@@ -219,3 +224,105 @@ def test_modal_draagt_dialoogsemantiek_en_focusherstel():
     assert 'role="dialog"' in html and 'aria-modal="true"' in html
     assert "x-effect=" in html
     assert "_vorige" in html and ".focus()" in html
+
+
+#: What the modal does with the focus when it closes: the hand-back to whoever
+#: had it, and the variant without it.
+_HANDS_BACK = ": ($el._vorige && $el._vorige.focus(), $el._vorige = null)"
+_KEEPS_IT = ": ($el._vorige = null)"
+
+
+def test_the_modal_hands_the_focus_back_unless_the_caller_takes_that_over():
+    """CR-17: `restore_focus` — the default is what the modal has always done,
+    in the same words; with False the dialog still takes the focus when it
+    opens and no longer hands it back when it closes.
+
+    Broken on purpose (13 October 2026), each put back by the reverse edit:
+    the condition in the macro turned round (`if not restore_focus`) → red on
+    the default's hand-back; and see the browser test of the kit page's demo
+    dialog, which goes red with it."""
+    default = _render('{% call ui.modal("open", "Proef") %}inhoud{% endcall %}')
+    assert _HANDS_BACK in default, "the default no longer hands the focus back"
+    explicit = _render(
+        '{% call ui.modal("open", "Proef", restore_focus=True) %}inhoud{% endcall %}'
+    )
+    assert explicit == default
+
+    without = _render(
+        '{% call ui.modal("open", "Proef", restore_focus=False) %}inhoud{% endcall %}'
+    )
+    assert _KEEPS_IT in without and "_vorige.focus()" not in without
+    # Opening is the same: the dialog takes the focus, on its close button.
+    takes = "$el.querySelector('button[aria-label]')?.focus()"
+    assert takes in default and takes in without
+    assert without.replace(_KEEPS_IT, _HANDS_BACK) == default, "more than the hand-back differs"
+
+
+def test_the_document_editor_s_dialogs_and_only_they_bring_the_focus_back_themselves():
+    """Every dialog hands the focus back the kit's way, except the dialogs of
+    the document editor: those go through one shell, `_editor_dialog`, which
+    turns the hand-back off and tells the editor's script of the closing, so
+    that the editor puts the author's place back itself (CR-17: handed back
+    by the dialog, the editor lost the selected block, the selected words or
+    the caret — in every one of the four dialogs it had then).
+
+    Three things, read from the templates with their comments taken out:
+    - the hand-back is turned off in ONE place, the shell;
+    - inside the editor's macro no dialog is opened except through the shell —
+      so a dialog added there later has the rule without knowing of it;
+    - the editor has its five dialogs, by name: the scan is checked to find
+      them, and to find two ordinary dialogs elsewhere, before its answer is
+      believed. A scan that found nothing would agree with anything.
+
+    Broken on purpose (13 October 2026), each put back by the reverse edit:
+    the link's dialog opened with the kit's `modal` directly again → red ("the
+    editor's dialogs through the shell: ['button', 'card', 'figure']");
+    `restore_focus=False` given to the kit page's demo dialog → red ("who
+    turns the hand-back off": the demo beside the shell); the same taken off
+    the shell → red (the same message, with nobody in the list)."""
+    import re
+
+    app = Path(__file__).resolve().parents[1] / "app"
+    call = r"\{%-?\s*call\s+(?:ui\.)?(modal|_editor_dialog)\(\s*([\"']?[a-z_]+[\"']?)([^%]*)%\}"
+    plain: dict[str, bool] = {}
+    for path in sorted(app.rglob("*.html")):
+        source = re.sub(r"\{#.*?#\}", "", path.read_text(encoding="utf-8"), flags=re.S)
+        for macro, state, rest in re.findall(call, source):
+            if macro == "modal":
+                plain[f"{path.name}:{state.strip(chr(34) + chr(39))}"] = "restore_focus" in rest
+
+    kit = re.sub(
+        r"\{#.*?#\}",
+        "",
+        (app / "ui/templates/_macros.html").read_text(encoding="utf-8"),
+        flags=re.S,
+    )
+
+    def body(name: str) -> str:
+        found = re.search(r"\{%-?\s*macro\s+" + name + r"\(.*?\{%-?\s*endmacro", kit, re.S)
+        assert found, f"the macro {name} was not found in the kit"
+        return found.group(0)
+
+    editor, shell = body("document_editor"), body("_editor_dialog")
+    through_the_shell = [
+        state.strip("\"'")
+        for macro, state, _ in re.findall(call, editor)
+        if macro == "_editor_dialog"
+    ]
+    direct = [
+        state.strip("\"'") for macro, state, _ in re.findall(call, editor) if macro == "modal"
+    ]
+
+    # The scan itself, before its answer.
+    assert "design_system.html:demo" in plain and "_email_log_lijst.html:open" in plain, (
+        f"the scan did not find the ordinary dialogs it is known to have: {sorted(plain)}"
+    )
+    assert sorted(through_the_shell) == ["button", "card", "codes", "figure", "link"], (
+        f"the editor's dialogs through the shell: {sorted(through_the_shell)}"
+    )
+    # Its answer.
+    assert direct == [], f"a dialog of the editor not opened through the shell: {', '.join(direct)}"
+    assert {name for name, off in plain.items() if off} == {"_macros.html:state"}, (
+        f"who turns the hand-back off: {sorted(n for n, off in plain.items() if off)}"
+    )
+    assert "restore_focus=False" in shell and "raak-editor-dialog-closed" in shell

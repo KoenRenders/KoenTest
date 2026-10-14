@@ -42,23 +42,27 @@ def test_paginas_crud(client, db_session):
     assert resp.headers["HX-Redirect"] == f"/admin/paginas/{page.id}"
 
     detail = client.get(f"/admin/paginas/{page.id}")
-    assert detail.status_code == 200 and "Beschikbare placeholders" in detail.text
+    assert detail.status_code == 200 and "data-placeholders" in detail.text
+    assert "data-document-editor" in detail.text, "the record page carries the editor"
 
+    # Snede 3 (#1671): Opslaan schrijft het CONCEPT (het document van de
+    # editor), publiceren is de Publiceren-knop — een nieuwe pagina staat
+    # dus nog niet op de site.
     resp = client.post(
         f"/admin/paginas/{page.id}",
         data={
             "title": "Over ons",
             "slug": "over-ons",
-            "content": "Welkom bij Raak!",
-            "is_published": "1",
+            "document": '{"type": "doc", "content": []}',
             "sort_order": "5",
         },
-        headers={"X-CSRF-Token": csrf},
+        headers={"X-CSRF-Token": csrf, "HX-Request": "true"},
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 204
+    assert resp.headers["HX-Redirect"] == f"/admin/paginas/{page.id}?opgeslagen=1"
     db_session.expire_all()
-    assert page.content == "Welkom bij Raak!"
-    assert page.is_published is True and page.show_in_nav is False
+    assert page.is_published is False, "a saved draft does not publish herself"
+    assert page.show_in_nav is False
     assert page.sort_order == 5
 
     resp = client.post(f"/admin/paginas/{page.id}/verwijderen", headers={"X-CSRF-Token": csrf})

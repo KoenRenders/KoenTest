@@ -242,7 +242,7 @@
 {# A site as a card that is a link as a whole (#1566): the name in semibold, the
    address under it, small and grey, and it may break. The card of the former
    platform landing; `{{tenants}}` renders its sites with it. The `!` utilities
-   win from `.cms-content a`, which would colour and underline the whole card. #}
+   win from `.prose-raak a`, which would colour and underline the whole card. #}
 {% macro site_card(name, url) -%}
 <a href="{{ url }}" data-site-card class="block bg-white border border-gray-200 rounded-2xl p-5 !no-underline hover:shadow-md transition-shadow"><span class="block font-semibold !text-ink">{{ name }}</span><span class="block text-sm text-gray-500 mt-1 break-all">{{ url }}</span></a>
 {%- endmacro %}
@@ -475,7 +475,7 @@
 {#- #1561: a command that is refused says why, before any click: no dialog first. -#}
 {% if a.get("disabled") %}<div role="menuitem" aria-disabled="true" data-menu-refused class="px-3 py-2 text-sm text-ink-soft">
   <span class="block font-medium">{{ a.label }}</span><span class="block text-[13px] leading-[19.5px]">{{ a.disabled }}</span></div>
-{% elif a.get("href") %}<a role="menuitem" href="{{ a.href }}" class="{{ _cls }}">{{ a.label }}</a>
+{% elif a.get("href") %}<a role="menuitem" href="{{ a.href }}"{% if a.get("target") %} target="{{ a.target }}" rel="noopener noreferrer"{% endif %} class="{{ _cls }}">{{ a.label }}</a>
 {% else %}<button role="menuitem" type="button" class="{{ _cls }}" {{ a.get("attrs", "")|safe }}{% if a.get("confirm") %} data-confirm="{{ a.confirm }}"{% if a.get("confirm_title") %} data-confirm-title="{{ a.confirm_title }}"{% endif %}{% if a.get("confirm_ok") %} data-confirm-ok="{{ a.confirm_ok }}"{% endif %}{% if danger %} data-confirm-tone="delete"{% endif %}{% endif %}{% if a.get("toast") %} data-toast-after="{{ a.toast }}"{% endif %}>{{ a.label }}</button>{% endif %}
 {%- endmacro %}
 <header data-record-head class="mb-3">
@@ -495,7 +495,10 @@
     {% if ((primary or secondary) and not editing) or actions or _extra %}
     <div data-head-controls class="flex flex-wrap justify-end items-center gap-2 ml-auto shrink-0 max-w-full">
       {% if primary and not editing %}
-      {{ button(primary.label, variant="primary", type="button", href=primary.get("href"), size="sm", attrs=primary.get("attrs", ""), cls="min-h-11 md:min-h-9") }}
+      {#- `confirm` on a primary action (review A4, #1770): passed as data to
+          the button macro's own confirm door — a screen that gives none
+          keeps exactly the button she had. -#}
+      {{ button(primary.label, variant="primary", type="button", href=primary.get("href"), size="sm", attrs=primary.get("attrs", ""), cls="min-h-11 md:min-h-9", confirm=primary.get("confirm")) }}
       {% endif %}
       {% if secondary and not editing %}
       {{ button(secondary.label, variant="secondary", type="button", href=secondary.href, size="sm", attrs="data-head-secondary", cls="min-h-11 md:min-h-9") }}
@@ -558,15 +561,20 @@
    design-system-end-state §1.3, §1.4, §3.1, §3.2, §3.4, §3.5) ─────────────────
 
    `record_columns` — the reading group of a record page: a form column of
-   768 px, 24 px, a summary column of 300 px (1 092 px), left-aligned against the
-   page margin and never centred, so a form starts on the same x as a list, the
-   title and the tabs. The summary stands beside the form while the form keeps
-   640 px (a frame of 964 px); narrower, it goes above the form.
+   768 px by default, GROWING WITH THE SCREEN up to a readable cap of
+   1 056 px when the caller asks `wide=True` (Koen, 9 October 2026: "links
+   houden, maar het scherm benutten" — his words about the PAGE screen's
+   form; the CI run of 9 October scoped her, #1770), 24 px, a summary
+   column of 300 px beside her, left-aligned against the page margin and
+   never centred, so a form starts on the same x as a list, the title and
+   the tabs. The summary stands beside the form while the form keeps
+   640 px (964 px of frame); narrower, it goes above the form.
    `aside` is the summary's HTML (`{% set %}` … `{% endset %}`); the caller is the
-   form column. A screen sets no width of its own. #}
-{% macro record_columns(aside=None) -%}
+   form column. A screen sets no width of its own beyond asking for the
+   wide group. #}
+{% macro record_columns(aside=None, wide=False) -%}
 <div data-record-frame class="record-frame">
-<div data-record-columns class="record-columns">
+<div data-record-columns class="record-columns"{% if wide %} data-wide{% endif %}>
   <div data-form-column class="record-form-column">{{ caller() }}</div>
   {% if aside %}<aside data-summary-column class="record-summary-column">{{ aside }}</aside>{% endif %}
 </div>
@@ -1270,15 +1278,21 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 
 {# Modal (design-system §2.5): Alpine stuurt een boolean in de parent-scope aan.
    Gebruik: <div x-data="{ open:false }"> … {% call ui.modal('open', 'Titel') %}…{% endcall %}. #}
-{% macro modal(state, title, max_w="max-w-lg") -%}
+{% macro modal(state, title, max_w="max-w-lg", restore_focus=True) -%}
 {# A6 (golf 4, #913): openen onthoudt wie de focus had en zet hem op de sluitknop
    (eerste focusbare element van het dialoogpatroon); sluiten geeft hem terug aan
    de trigger. Op $el bewaard, niet globaal: twee modals op één scherm mogen
    elkaars herkomst niet overschrijven. Bij paginalading (state al false) is
-   _vorige undefined en doet de effect-tak niets. #}
+   _vorige undefined en doet de effect-tak niets.
+
+   `restore_focus=False` (CR-17): the dialog takes the focus when it opens, as
+   always, and does NOT hand it back when it closes — for a caller that brings
+   the focus back itself. The one caller is `_editor_dialog`, the shell of the
+   document editor's dialogs (see there for why). The default is what this
+   macro has always done, and its markup is unchanged. #}
 <div x-show="{{ state }}" x-cloak role="dialog" aria-modal="true" class="fixed inset-0 z-50 flex items-center justify-center p-4"
      style="background:rgba(17,17,17,.5)" @keydown.escape.window="{{ state }} = false"
-     x-effect="{{ state }} ? ($el._vorige = document.activeElement, $nextTick(() => $el.querySelector('button[aria-label]')?.focus())) : ($el._vorige && $el._vorige.focus(), $el._vorige = null)">
+     x-effect="{{ state }} ? ($el._vorige = document.activeElement, $nextTick(() => $el.querySelector('button[aria-label]')?.focus())) : ({% if restore_focus %}$el._vorige && $el._vorige.focus(), {% endif %}$el._vorige = null)">
   <div class="bg-white rounded-2xl shadow-xl w-full {{ max_w }} max-h-[90vh] overflow-auto" @click.outside="{{ state }} = false">
     <div class="flex items-center justify-between border-b border-gray-200 px-5 py-3">
       <h3 class="text-lg font-semibold text-kop">{{ title }}</h3>
@@ -1582,8 +1596,413 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 {%- set veld = input_id or (id ~ "-input") -%}
 <input type="hidden" id="{{ veld }}" name="{{ name }}" value="{{ value or '' }}">
 <div class="rich-text{% if toolbar_on_focus %} rich-text--balk-bij-focus{% endif %}">
-<trix-editor id="{{ id }}" input="{{ veld }}" class="cms-content bg-white text-sm rounded-lg border border-line{% if cls %} {{ cls }}{% endif %}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %} {{ attrs|safe }}></trix-editor>
+<trix-editor id="{{ id }}" input="{{ veld }}" class="prose-raak bg-white text-sm rounded-lg border border-line{% if cls %} {{ cls }}{% endif %}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %} {{ attrs|safe }}></trix-editor>
 </div>
+{%- endmacro %}
+
+{# The shell of every dialog the document editor opens (CR-17): the kit's
+   dialog, with two differences that are one rule — a dialog of the editor
+   leaves the author's place where it was.
+   - It does not hand the focus back itself (`restore_focus=False`).
+   - It tells the editor's script when it has closed (`raak-editor-dialog-closed`).
+   The script noted the author's place when it opened the dialog, and puts it
+   back through the editor's own focus command (`document-editor.js`).
+
+   Why (measured on 13 October 2026, before this shell existed): handed back
+   by the dialog's bare `focus()` on the editor's element, the browser's
+   selection stood at the very start of the page's first paragraph a few
+   milliseconds later and the editor followed it — a selected button, card or
+   run of words no longer selected, and the author's next key typed at the top
+   of the page. Every one of the four dialogs lost the place on at least one
+   way of closing. No script sets that selection; what moves it is not
+   identified, and this shell does not explain it.
+
+   A dialog added to the editor later is opened through this shell and
+   announced by the script like the others, and has the rule without knowing
+   of it. `state` is the Alpine name that opens it, in the scope around the
+   call; `editor_id` names the editor it belongs to. #}
+{% macro _editor_dialog(state, title, editor_id, max_w="max-w-lg") -%}
+{#- The dialog's content is taken before the kit's dialog is called: inside
+    that call block `caller` is the block's own, not this macro's (measured:
+    "No caller defined", and the page with the editor answered with an error). -#}
+{% set _content = caller() %}
+<div x-init="$watch('{{ state }}', open => { if (!open) $dispatch('raak-editor-dialog-closed', { editor: '{{ editor_id }}' }) })">
+{% call modal(state, title, max_w=max_w, restore_focus=False) %}{{ _content }}{% endcall %}
+</div>
+{%- endmacro %}
+
+{# Where a button or a card leads: the four destinations as a choice and the
+   field that belongs to the chosen one. `p` is the dialog's own prefix for
+   its state (`b` for the button, `c` for the card): `<p>Kind`, `<p>Page`,
+   `<p>Form`, `<p>Href`, `<p>Fout`. One macro, so the two dialogs offer the
+   same four in the same words. The pages and the forms are the caller's own
+   lists; an empty list hides its option — an offered choice must resolve. #}
+{% macro _destination_choice(p, question, pages, forms, lid_worden) -%}
+{% set _on = "'bg-blue-700 text-white border-blue-700' : 'bg-white border-gray-300 hover:bg-gray-50'" %}
+  <div class="mt-4">
+    <span class="block text-sm font-medium text-gray-700 mb-1">{{ question }}</span>
+    <div class="flex flex-wrap gap-2">
+      {% if pages %}
+      <button type="button" class="px-3 py-1.5 text-sm rounded-lg border"
+              :class="{{ p }}Kind === 'page' ? {{ _on|safe }}"
+              @click="{{ p }}Kind = 'page'">{{ _("Een pagina van de site") }}</button>
+      {% endif %}
+      {% if forms %}
+      <button type="button" class="px-3 py-1.5 text-sm rounded-lg border"
+              :class="{{ p }}Kind === 'form' ? {{ _on|safe }}"
+              @click="{{ p }}Kind = 'form'">{{ _("Een formulier") }}</button>
+      {% endif %}
+      {% if lid_worden %}
+      <button type="button" class="px-3 py-1.5 text-sm rounded-lg border"
+              :class="{{ p }}Kind === 'screen' ? {{ _on|safe }}"
+              @click="{{ p }}Kind = 'screen'">{{ _("Word lid") }}</button>
+      {% endif %}
+      <button type="button" class="px-3 py-1.5 text-sm rounded-lg border"
+              :class="{{ p }}Kind === 'href' ? {{ _on|safe }}"
+              @click="{{ p }}Kind = 'href'">{{ _("Een adres buiten de site") }}</button>
+    </div>
+    <div class="mt-3">
+      {% if pages %}
+      <select x-show="{{ p }}Kind === 'page'" class="w-full border border-gray-300 rounded-lg px-3 py-2" x-model="{{ p }}Page">
+        {% for pid, ptitle in pages %}
+        <option value="{{ pid }}">{{ ptitle }}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
+      {% if forms %}
+      <select x-show="{{ p }}Kind === 'form'" class="w-full border border-gray-300 rounded-lg px-3 py-2" x-model="{{ p }}Form">
+        {% for fslug, ftitle in forms %}
+        <option value="{{ fslug }}">{{ ftitle }}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
+      {# The x-show stands on her own wrapper, in plain markup: Jinja's
+         single-quoted macro attribute knows no escape, so the input's
+         attrs carry the model only. The refusal sentence of a bad
+         address stands under her field, in the dialog — nothing is
+         dispatched, nothing inserted (review S1 of 12 October 2026). #}
+      <div x-show="{{ p }}Kind === 'href'">
+        {{ input_control("", cls="w-full", attrs='x-model="' ~ p ~ 'Href" placeholder="https://"') }}
+        <p x-show="{{ p }}Fout" x-text="{{ p }}Fout" class="text-sm text-red-700 mt-1"></p>
+      </div>
+    </div>
+  </div>
+{%- endmacro %}
+
+{# ── The document editor (CR-17 #1671, slice 2) ────────────────────────────────
+   TipTap beside Trix: `ui.rich_text` (Trix) keeps serving the newsletter and
+   the meeting notes until phase 7; a page gets this editor. No macro with
+   two engines. `blocks` is the set's configuration (the domain provides
+   her) and `value_json` the document, both as JSON in the page; the toolbar
+   is built by `document-editor.js` FROM that configuration — no toolbar
+   markup or configuration in a domain template (C6 3, gate 14 widened):
+   this macro is the one place an editor stands in a template.
+
+   Slice 3: the editor's own files travel WITH this macro and not with the
+   admin shell (B4, Koen 7 October 2026, option a) — a back-office screen
+   without an editor carries none of her bytes. `defer` keeps the files
+   after the first a no-op, on a full page as in swapped content; the
+   script's own guard exits on a second run. `prose-figures.css` is the
+   ONE source of the figure's look — the site links her too, so the author
+   sees the placement the visitor gets (the parity #1230 guarded).
+
+   The dialogs the toolbar opens stand here for the same reason as the
+   toolbar: a screen that writes its own figure or link dialog is a third
+   copy of the editor. The figure dialog asks the kit's picker
+   (`media.api`, #1474) for the picture, the author for the alternative
+   text (required — a page without her is unusable with a screen reader),
+   the caption and the placement; the editor hears the choice as
+   `raak-figure-chosen`. The link dialog replaces the browser's `prompt`
+   (B5, review of #1699): the UI norm has no browser dialogs. #}
+{% macro document_editor(name, blocks, value_json, id=None, cls="", button_pages=None, button_forms=None, button_lid_worden=True, codes=None) -%}
+{%- set editor_id = id or (name ~ "-editor") -%}
+<link rel="stylesheet" href="{{ statisch('vendor/tiptap-3.31.4.css') }}">
+<link rel="stylesheet" href="{{ statisch('prose-figures.css') }}">
+<script src="{{ statisch('vendor/tiptap-3.31.4.min.js') }}" defer></script>
+<script src="{{ statisch('document-editor.js') }}" defer></script>
+<input type="hidden" id="{{ editor_id }}-input" name="{{ name }}" value="{{ value_json }}">
+<div class="document-editor{% if cls %} {{ cls }}{% endif %}" id="{{ editor_id }}"
+     data-document-editor data-input="{{ editor_id }}-input"{% if codes %} data-codes-label="{{ _('Code') }}"{% endif %}
+     data-config='{{ blocks|tojson }}'></div>
+{% if codes %}
+{# The codes (CR-17; Koen, 12 October 2026): the insert menu's item "Code"
+   opens this list — the caller's own, `[{code, label}]`. A choice puts the
+   code at the cursor as plain text, exactly what an author types; the
+   renderer replaces it as it always did. No node, no chip: the value shown
+   in the editor is a later change request's. #}
+<div x-data="{ codes: false }"
+     @raak-code-choose.window="if ($event.detail.editor === '{{ editor_id }}') codes = true">
+  {% call _editor_dialog("codes", _("Code"), editor_id, max_w="max-w-lg") %}
+  <p class="text-sm text-gray-600 mb-3">{{ _("Kies een code. Ze komt als tekst in het document; op de pagina staat op die plaats de waarde.") }}</p>
+  <ul class="space-y-1" data-code-choices>
+    {% for c in codes %}
+    <li><button type="button" data-code="{{ c.code }}"
+                class="w-full min-h-11 rounded-lg border border-gray-300 bg-white px-3 py-2 text-left hover:bg-gray-50"
+                @click="$dispatch('raak-code-chosen', { editor: '{{ editor_id }}', code: $el.dataset.code }); codes = false">
+      <span class="block font-mono text-xs text-blue-700 [overflow-wrap:anywhere]">{{ c.code }}</span>
+      <span class="block text-sm text-ink-soft">{{ c.label }}</span></button></li>
+    {% endfor %}
+  </ul>
+  <div class="mt-4 flex justify-end">{{ btn_secondary(_("Annuleren"), attrs='@click="codes = false"') }}</div>
+  {% endcall %}
+</div>
+{% endif %}
+{% if blocks.figure %}
+{# The dialog opens empty for a new picture, and filled with what a placed
+   picture holds when the choose event carries it (`attrs`, `url`): that
+   picture is the editor's selection, and Invoegen replaces it. #}
+<div x-data="{ figure: false, chosen: null, alt: '', caption: '', placement: 'full' }"
+     @raak-figure-choose.window="if ($event.detail.editor === '{{ editor_id }}') {
+                                   const held = $event.detail.attrs || null;
+                                   chosen = held ? { id: Number(held.media_id), url: $event.detail.url,
+                                                     width: held.width || null, height: held.height || null } : null;
+                                   alt = held ? (held.alt || '') : '';
+                                   caption = held ? (held.caption || '') : '';
+                                   placement = held ? (held.placement || 'full') : 'full';
+                                   figure = true }"
+     @media-picked="chosen = { id: Number($event.detail.id), url: $event.detail.url,
+                              width: Number($event.detail.width) || null,
+                              height: Number($event.detail.height) || null };
+                    alt = $event.detail.title"
+     @raak-figure-insert="if (chosen && alt.trim()) {
+                            $dispatch('raak-figure-chosen', { editor: '{{ editor_id }}',
+                                                              media_id: chosen.id, alt: alt,
+                                                              caption: caption, placement: placement,
+                                                              width: chosen.width, height: chosen.height });
+                            figure = false }">
+  {% call _editor_dialog("figure", _("Afbeelding"), editor_id, max_w="max-w-5xl") %}
+  {# Invoegen gebeurt UIT DE BIBLIOTHEEK en niet door te slepen — de editor
+     weigert bestanden met opzet, want dat zou een onbeperkt uploadpad naar
+     een publieke pagina zijn (#1173). Wie een nieuwe afbeelding wil, laadt
+     ze eerst op bij Media. #}
+  <p class="text-sm text-gray-600 mb-3">{{ _("Kies een afbeelding uit de bibliotheek.") }}</p>
+  <div id="mp-{{ editor_id }}-figuur" class="min-h-[12rem]" hx-get="/admin/media/kiezer?field={{ editor_id }}-figuur" hx-target="this"
+       hx-trigger="revealed once" hx-swap="innerHTML"></div>
+  <div class="mt-4 flex items-center gap-3" x-show="chosen" x-cloak>
+    <img :src="chosen ? chosen.url : ''" alt="" class="h-16 w-16 rounded-lg border border-gray-200 object-cover bg-gray-50">
+    <span class="text-sm text-gray-600">{{ _("Gekozen afbeelding") }}</span>
+  </div>
+  <div class="mt-4">
+    {{ label(_("Alternatieve tekst"), editor_id ~ "-fig-alt", required=True) }}
+    {{ input_control("", id=editor_id ~ "-fig-alt", cls="w-full", attrs='x-model="alt"') }}
+    <p class="text-xs text-gray-500 mt-1">{{ _("Wat er op de afbeelding te zien is — dit leest een schermlezer voor.") }}</p>
+  </div>
+  <div class="mt-4">
+    {{ label(_("Bijschrift"), editor_id ~ "-fig-caption") }}
+    {{ input_control("", id=editor_id ~ "-fig-caption", cls="w-full", attrs='x-model="caption"') }}
+    <p class="text-xs text-gray-500 mt-1">{{ _("Staat onder de afbeelding op de pagina; mag leeg blijven.") }}</p>
+  </div>
+  {# De plaatsingen van de set, met hun woorden uit de configuratie — geen
+     vrij percentage, om dezelfde reden als #1207's drie maten: pagina's met
+     37, 40 en 45 % naast elkaar zien er rommelig uit zonder dat iemand
+     ziet waarom. Gewone knoppen en geen radio's: dit dialoogje staat in
+     geen form, maar de waarde reist toch niet via een name. #}
+  <div class="mt-4">
+    <span class="block text-sm font-medium text-gray-700 mb-1">{{ _("Plaatsing") }}</span>
+    <div class="flex flex-wrap gap-2">
+      {% for pl in blocks.figure.placements %}
+      <button type="button" class="px-3 py-1.5 text-sm rounded-lg border"
+              :class="placement === '{{ pl.id }}' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white border-gray-300 hover:bg-gray-50'"
+              @click="placement = '{{ pl.id }}'">{{ pl.label }}</button>
+      {% endfor %}
+    </div>
+    <p class="text-xs text-gray-500 mt-1">{{ _("Op een smal scherm staat elke afbeelding op volle breedte.") }}</p>
+  </div>
+  <div class="mt-4 flex justify-end gap-2">
+    {{ btn_secondary(_("Annuleren"), attrs='@click="figure = false"') }}
+    {# `disabled:opacity-30` net als de pijltjes in de kit: zonder zichtbare
+       uit-stand leest een knop die niets doet als kapot. De alt is verplicht,
+       ook bij opnieuw invoegen — een uitlegpagina zonder alternatieve tekst
+       is onbruikbaar met een schermlezer. #}
+    {{ btn_primary(_("Invoegen"), type="button", cls="disabled:opacity-30",
+                   attrs='@click="$dispatch(\'raak-figure-insert\')"'
+                         ' :disabled="!chosen || !alt.trim()"') }}
+  </div>
+  {% endcall %}
+</div>
+{% endif %}
+{% set _bied_paginas = button_pages is not none and button_pages|length > 0 %}
+{% set _bied_formulieren = button_forms is not none and button_forms|length > 0 %}
+{% set _eerste_soort = "page" if _bied_paginas else ("form" if _bied_formulieren else ("screen" if button_lid_worden else "href")) %}
+{% if blocks.toolbar.insert and blocks.toolbar.insert | selectattr("id", "equalto", "button") | list %}
+{# The button's dialog (CR-17 #1679): her label, her variant, and the ONE
+   destination she leads to — Koen, 11 October 2026: a page of the site, a
+   form of the tenant, one application screen (Lid worden), or an outside
+   address. The pages and the forms are the caller's own lists (cms's
+   record screen passes the tenant's; the kit page passes invented ones);
+   an empty list hides her option — an offered choice must resolve. "Word
+   lid" is the caller's word too: the screen is mounted behind the
+   membership module, so a tenant without her is not offered the choice
+   (review A3 of 12 October 2026). The apply logic lives on the wrapper
+   (the link dialog's pattern): the button only says "klaar", the wrapper
+   holds the guard. The dialog opens filled with what the selected button
+   holds — the choose event carries her attrs (review A1) — and an
+   address that is no address is refused here, in a sentence at the
+   field, before anything travels to the editor (review S1). #}
+<div x-data="{ button: false, bLabel: '', bVariant: 'secondary', bKind: '{{ _eerste_soort }}',
+              bPage: {{ (button_pages[0][0] if button_pages else "null") }}, bForm: '{{ button_forms[0][0] if button_forms else "" }}', bHref: '', bFout: '', bPos: null }"
+     @raak-button-choose.window="if ($event.detail.editor === '{{ editor_id }}') {
+                                   bLabel = ($event.detail.attrs && $event.detail.attrs.label) || '',
+                                   bVariant = ($event.detail.attrs && $event.detail.attrs.variant) || 'secondary',
+                                   bKind = $event.detail.attrs
+                                     ? ($event.detail.attrs.page_id ? 'page'
+                                        : ($event.detail.attrs.form_slug ? 'form'
+                                           : ($event.detail.attrs.screen ? 'screen' : 'href')))
+                                     : '{{ _eerste_soort }}',
+                                   bPage = ($event.detail.attrs && $event.detail.attrs.page_id) || {{ (button_pages[0][0] if button_pages else "null") }},
+                                   bForm = ($event.detail.attrs && $event.detail.attrs.form_slug) || '{{ button_forms[0][0] if button_forms else "" }}',
+                                   bHref = ($event.detail.attrs && $event.detail.attrs.href) || '',
+                                   bFout = '',
+                                   bPos = ($event.detail.pos !== undefined ? $event.detail.pos : null),
+                                   button = true }"
+     @raak-button-apply.window="if (button) {
+                                   var adres = bKind === 'href' ? bHref.trim() : '';
+                                   var fout = bKind === 'href' ? window.raakOutsideAddress(adres) : '';
+                                   if (fout === 'start') {
+                                     bFout = '{{ _("Een adres buiten de site begint met http:// of https://.") }}';
+                                   } else if (fout === 'space') {
+                                     bFout = '{{ _("Een adres bevat geen spaties.") }}';
+                                   } else if (bLabel.trim()) {
+                                     $dispatch('raak-button-chosen', { editor: '{{ editor_id }}',
+                                                                       label: bLabel, variant: bVariant, kind: bKind,
+                                                                       page_id: bPage ? Number(bPage) : null,
+                                                                       form_slug: bForm || null, href: adres || null,
+                                                                       pos: bPos });
+                                     button = false;
+                                   } }">
+  {% call _editor_dialog("button", _("Knop"), editor_id, max_w="max-w-lg") %}
+  {{ label(_("Tekst op de knop"), editor_id ~ "-btn-label") }}
+  {{ input_control("", id=editor_id ~ "-btn-label", cls="w-full", attrs='x-model="bLabel"') }}
+  <div class="mt-4">
+    <span class="block text-sm font-medium text-gray-700 mb-1">{{ _("Vorm") }}</span>
+    <div class="flex flex-wrap gap-2">
+      <button type="button" class="px-3 py-1.5 text-sm rounded-lg border"
+              :class="bVariant === 'primary' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white border-gray-300 hover:bg-gray-50'"
+              @click="bVariant = 'primary'">{{ _("Primair") }}</button>
+      <button type="button" class="px-3 py-1.5 text-sm rounded-lg border"
+              :class="bVariant === 'secondary' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white border-gray-300 hover:bg-gray-50'"
+              @click="bVariant = 'secondary'">{{ _("Secundair") }}</button>
+    </div>
+  </div>
+  {{ _destination_choice("b", _("Waar leidt de knop naartoe?"), button_pages if _bied_paginas else [], button_forms if _bied_formulieren else [], button_lid_worden) }}
+  <div class="mt-4 flex justify-end gap-2">
+    {{ btn_secondary(_("Annuleren"), attrs='@click="button = false"') }}
+    {{ btn_primary(_("Invoegen"), type="button", cls="disabled:opacity-30",
+                   attrs='@click="$dispatch(\'raak-button-apply\')" :disabled="!bLabel.trim()"') }}
+  </div>
+  {% endcall %}
+</div>
+{% endif %}
+{% if blocks.cards %}
+{# The card's dialog (CR-17, C4.9): what a card holds — her title, one line,
+   an icon of the kit OR a picture of the library OR neither, labels as plain
+   text, and the ONE destination, the button's four. It opens empty for a new
+   card and filled with what the clicked card holds; a change clears the
+   other destinations and the other kind of top (the script sends every
+   attribute, the unchosen ones null). `cMode` says what Invoegen does: a new
+   block with this card, this card changed, or a card after this one. #}
+<div data-card-dialog="{{ editor_id }}"
+     x-data="{ card: false, cTitle: '', cLine: '', cTop: 'none', cIcon: '', cMedia: null, cLabels: '',
+              cKind: '{{ _eerste_soort }}', cPage: {{ (button_pages[0][0] if button_pages else "null") }},
+              cForm: '{{ button_forms[0][0] if button_forms else "" }}', cHref: '', cFout: '', cPos: null, cMode: 'new' }"
+     @raak-card-choose.window="if ($event.detail.editor === '{{ editor_id }}') {
+                                 var a = $event.detail.attrs || {};
+                                 cTitle = a.title || ''; cLine = a.line || '';
+                                 cTop = a.media_id ? 'picture' : (a.icon ? 'icon' : 'none');
+                                 cIcon = a.icon || '';
+                                 cMedia = a.media_id ? { id: a.media_id, url: '{{ blocks.figure.mediaUrl if blocks.figure else "" }}' + a.media_id } : null;
+                                 cLabels = (a.labels || []).join(', ');
+                                 cKind = $event.detail.attrs
+                                   ? (a.page_id ? 'page' : (a.form_slug ? 'form' : (a.screen ? 'screen' : 'href')))
+                                   : '{{ _eerste_soort }}';
+                                 cPage = a.page_id || {{ (button_pages[0][0] if button_pages else "null") }};
+                                 cForm = a.form_slug || '{{ button_forms[0][0] if button_forms else "" }}';
+                                 cHref = a.href || ''; cFout = '';
+                                 cPos = ($event.detail.pos !== undefined ? $event.detail.pos : null);
+                                 cMode = $event.detail.mode || 'new';
+                                 card = true }"
+     @media-picked="cMedia = { id: Number($event.detail.id), url: $event.detail.url }"
+     @raak-card-apply.window="if (card) {
+                                 var adres = cKind === 'href' ? cHref.trim() : '';
+                                 var fout = cKind === 'href' ? window.raakOutsideAddress(adres) : '';
+                                 if (fout === 'start') {
+                                   cFout = '{{ _("Een adres buiten de site begint met http:// of https://.") }}';
+                                 } else if (fout === 'space') {
+                                   cFout = '{{ _("Een adres bevat geen spaties.") }}';
+                                 } else if (cTitle.trim()) {
+                                   $dispatch('raak-card-chosen', { editor: '{{ editor_id }}',
+                                     title: cTitle.trim(), line: cLine.trim(), top: cTop, icon: cIcon,
+                                     media_id: cMedia ? cMedia.id : null,
+                                     labels: cLabels.split(',').map(function (l) { return l.trim(); }).filter(Boolean),
+                                     kind: cKind, page_id: cPage ? Number(cPage) : null,
+                                     form_slug: cForm || null, href: adres || null,
+                                     pos: cPos, mode: cMode });
+                                   card = false;
+                                 } }">
+  {% call _editor_dialog("card", _("Kaart"), editor_id, max_w="max-w-2xl") %}
+  {{ label(_("Titel"), editor_id ~ "-card-title", required=True) }}
+  {{ input_control("", id=editor_id ~ "-card-title", cls="w-full", attrs='x-model="cTitle"') }}
+  <div class="mt-4">
+    {{ label(_("Regel onder de titel"), editor_id ~ "-card-line") }}
+    {{ input_control("", id=editor_id ~ "-card-line", cls="w-full", attrs='x-model="cLine"') }}
+  </div>
+  <div class="mt-4">
+    <span class="block text-sm font-medium text-gray-700 mb-1">{{ _("Bovenaan de kaart") }}</span>
+    <div class="flex flex-wrap gap-2">
+      {% for value, text in [("none", _("Niets")), ("icon", _("Een icoon")), ("picture", _("Een afbeelding"))] %}
+      <button type="button" class="px-3 py-1.5 text-sm rounded-lg border" data-card-top="{{ value }}"
+              :class="cTop === '{{ value }}' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white border-gray-300 hover:bg-gray-50'"
+              @click="cTop = '{{ value }}'">{{ text }}</button>
+      {% endfor %}
+    </div>
+    <div x-show="cTop === 'icon'" x-cloak class="mt-3 flex flex-wrap gap-1" role="group" aria-label="{{ _('Icoon') }}">
+      {% for name in blocks.cards.icons %}
+      <button type="button" data-card-icon="{{ name }}" aria-label="{{ name }}" title="{{ name }}"
+              class="inline-grid h-11 w-11 md:h-9 md:w-9 place-items-center rounded-lg border"
+              :class="cIcon === '{{ name }}' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white border-gray-300 text-ink hover:bg-gray-50'"
+              :aria-pressed="(cIcon === '{{ name }}').toString()"
+              @click="cIcon = '{{ name }}'">{{ icon(name, 20) }}</button>
+      {% endfor %}
+    </div>
+    <div x-show="cTop === 'picture'" x-cloak class="mt-3">
+      <div id="mp-{{ editor_id }}-kaart" class="min-h-[12rem]" hx-get="/admin/media/kiezer?field={{ editor_id }}-kaart" hx-target="this"
+           hx-trigger="intersect once" hx-swap="innerHTML"></div>
+      <div class="mt-3 flex items-center gap-3" x-show="cMedia" x-cloak>
+        <img :src="cMedia ? cMedia.url : ''" alt="" class="h-16 w-28 rounded-lg border border-gray-200 object-cover bg-gray-50">
+        <span class="text-sm text-gray-600">{{ _("Gekozen afbeelding") }}</span>
+      </div>
+    </div>
+  </div>
+  <div class="mt-4">
+    {{ label(_("Labels"), editor_id ~ "-card-labels") }}
+    {{ input_control("", id=editor_id ~ "-card-labels", cls="w-full", attrs='x-model="cLabels"') }}
+    <p class="text-xs text-gray-500 mt-1">{{ _("Korte woorden onder de kaart, gescheiden door een komma; mag leeg blijven.") }}</p>
+  </div>
+  {{ _destination_choice("c", _("Waar leidt de kaart naartoe?"), button_pages if _bied_paginas else [], button_forms if _bied_formulieren else [], button_lid_worden) }}
+  <div class="mt-4 flex justify-end gap-2">
+    {{ btn_secondary(_("Annuleren"), attrs='@click="card = false"') }}
+    {{ btn_primary(_("Invoegen"), type="button", cls="disabled:opacity-30",
+                   attrs='@click="$dispatch(\'raak-card-apply\')" data-card-apply'
+                         ' :disabled="!cTitle.trim() || (cTop === \'icon\' && !cIcon) || (cTop === \'picture\' && !cMedia)"') }}
+  </div>
+  {% endcall %}
+</div>
+{% endif %}
+{% if "link" in blocks.marks %}
+<div x-data="{ link: false, url: '' }"
+     @raak-link-edit.window="if ($event.detail.editor === '{{ editor_id }}') { url = $event.detail.href || ''; link = true; $nextTick(() => $refs.linkInput.select()) }"
+     @raak-link-apply.window="if (link) { $dispatch('raak-link-save', { editor: '{{ editor_id }}', url: url.trim() }); link = false }">
+  {% call _editor_dialog("link", _("Link"), editor_id, max_w="max-w-lg") %}
+  {{ label(_("Webadres"), editor_id ~ "-link-url") }}
+  {{ input_control("", id=editor_id ~ "-link-url", cls="w-full", attrs='x-model="url" x-ref="linkInput" placeholder="https://"') }}
+  <p class="text-xs text-gray-500 mt-1">{{ _("Leeg laten en opslaan haalt de link weg.") }}</p>
+  <div class="mt-4 flex justify-end gap-2">
+    {{ btn_secondary(_("Annuleren"), attrs='@click="link = false"') }}
+    {{ btn_primary(_("Opslaan"), type="button", attrs='@click="$dispatch(\'raak-link-apply\')"') }}
+  </div>
+  {% endcall %}
+</div>
+{% endif %}
 {%- endmacro %}
 
 {# `aria_label` als parameter en niet via `attrs` (#663/#699): `_()` levert Markup,

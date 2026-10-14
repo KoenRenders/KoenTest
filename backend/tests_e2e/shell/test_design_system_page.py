@@ -102,6 +102,43 @@ def test_the_kit_page_is_as_wide_as_the_window(browser, width):
         page.close()
 
 
+def test_the_demo_dialog_takes_the_focus_and_hands_it_back(browser):
+    """The kit's dialog (`ui.modal`), in the browser: opening puts the focus
+    on the dialog's close button, and closing — by Escape, by Annuleren, by
+    the close button — gives it back to the element that had it. That is the
+    macro's default, and it is what every dialog but one relies on (CR-17
+    gave the macro `restore_focus`; the card dialog of the document editor
+    turns it off and brings the focus back itself).
+
+    The unit test pins the wiring; this is the behaviour, which nothing
+    measured before. Broken on purpose (13 October 2026), put back by the
+    reverse edit: the condition in the macro turned round, so the default no
+    longer hands the focus back → red at the first close ("expected to be
+    focused").
+    """
+    from playwright.sync_api import expect
+
+    page = _open(browser, 1440)
+    try:
+        opener = page.get_by_role("button", name="Toon de modal")
+        dialog = page.locator("div[x-show='demo'][role='dialog']")
+        closers = (
+            lambda: page.keyboard.press("Escape"),
+            lambda: dialog.get_by_role("button", name="Annuleren").click(),
+            lambda: dialog.locator("button[aria-label='Sluiten']").click(),
+        )
+        for close in closers:
+            opener.click()
+            expect(dialog).to_be_visible()
+            expect(dialog.locator("button[aria-label='Sluiten']")).to_be_focused()
+            close()
+            expect(dialog).to_be_hidden()
+            expect(opener).to_be_focused()
+        assert page.errors == [], f"the kit page throws: {page.errors}"
+    finally:
+        page.close()
+
+
 def test_the_edit_toggle_of_the_detail_demo_works(browser):
     """The button that threw: it is there, and a click hides it (its own state
     says "editing" now)."""

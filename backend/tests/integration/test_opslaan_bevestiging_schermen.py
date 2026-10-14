@@ -79,13 +79,18 @@ def test_een_pagina_opslaan_bevestigt(client, db_session):
         data={
             "title": "Toasttest",
             "slug": "toast-test",
-            "content": "<p>hoi</p>",
+            "document": '{"type": "doc", "content": []}',
             "sort_order": "0",
         },
     )
 
-    assert resp.status_code == 200, resp.text
-    assert OOB in resp.text, "een geslaagde opslag zegt niets"
+    # Snede 3 (#1671): een geslaagde opslag is een 204 met de weg terug
+    # (htmx volgt de header) — de toast staat op de pagina waar die heen
+    # leidt, met de vlag uit de redirect.
+    assert resp.status_code == 204, resp.text
+    assert resp.headers["HX-Redirect"] == f"/admin/paginas/{pagina.id}?opgeslagen=1"
+    teruggkeerd = client.get(f"/admin/paginas/{pagina.id}?opgeslagen=1", headers=hdr)
+    assert OOB in teruggkeerd.text, "een geslaagde opslag zegt niets"
 
 
 def test_een_pagina_openen_bevestigt_niets(client, db_session):
