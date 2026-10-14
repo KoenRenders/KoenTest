@@ -1,4 +1,6 @@
-# meetings — componentcontract (CR-09, #258)
+# meetings — board meetings
+
+*First written for CR-09, #258.*
 
 ## Purpose and process
 
@@ -52,6 +54,20 @@ bereikt nooit een LLM.
 *Counted in the code on 13 October 2026:* imports the facades of activities, auth, cms, mail, mdm, media, membership; subscribes to no event; calls no port.
 
 ## Owns
+
+<!-- figure: name=lc-meeting caption=A_meeting:_agenda,_report,_sent -->
+```mermaid
+stateDiagram-v2
+  [*] --> agenda : created (service.create_meeting)
+  agenda --> report : the first minutes are typed (service._touch)
+  report --> sent : the report is mailed to the board (send_meeting_mail)
+  sent --> report : the secretary reopens it (reopen, refused unless sent)
+  sent --> [*]
+```
+
+*What to see:* the step from agenda to report is not a button but the first
+edit of the minutes. Attendance (`present`, `excused`) is a value per person,
+toggled, not a lifecycle.
 
 ### Migraties
 

@@ -1,4 +1,6 @@
-# mdm — componentcontract (fase 2, #400)
+# mdm — master data
+
+*First written for fase 2, #400.*
 
 ## Purpose and process
 

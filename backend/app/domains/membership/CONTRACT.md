@@ -1,4 +1,6 @@
-# membership — componentcontract (fase 4a, #402)
+# membership — households and the yearly membership
+
+*First written for fase 4a, #402.*
 
 ## Purpose and process
 

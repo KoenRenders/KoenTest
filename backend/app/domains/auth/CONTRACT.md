@@ -1,4 +1,6 @@
-# auth — componentcontract (fase 1b, #399)
+# auth — identity, rights and the session
+
+*First written for fase 1b, #399.*
 
 ## Purpose and process
 

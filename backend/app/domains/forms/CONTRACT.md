@@ -1,4 +1,4 @@
-# CONTRACT — forms
+# forms — the form engine
 
 ## Purpose and process
 
@@ -51,6 +51,21 @@ domain asks through the ports.
 Where the Dutch line above says no facade is consumed, the code imports two.
 
 ## Owns
+
+<!-- figure: name=lc-form caption=A_form:_draft,_open_or_closed,_set_by_the_board_in_its_settings -->
+```mermaid
+stateDiagram-v2
+  [*] --> draft : created (service.create_form)
+  draft --> open : the board opens it (the form's settings)
+  open --> closed : the board closes it
+  closed --> open : the board reopens it
+  open --> draft : the board takes it back to draft
+  closed --> [*]
+```
+
+*What to see:* no transition is refused; the status is a setting. What it
+guards is elsewhere: a submission is accepted only when the form is `open`
+(`submit_form`, `update_submission`), and a draft form is not listed.
 
 - **Schema**: `form` (forms, form_sections, form_fields, form_field_options,
   form_submissions, form_submission_answers) — geen cross-schema FK's.

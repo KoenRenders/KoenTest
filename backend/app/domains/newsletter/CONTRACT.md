@@ -1,4 +1,6 @@
-# newsletter — component contract (CR-05, #984)
+# newsletter — the newsletter and its co-writer
+
+*First written for CR-05, #984.*
 
 ## Purpose and process
 
@@ -55,6 +57,42 @@ machinery when it is built.
 *Counted in the code on 13 October 2026:* imports the facades of activities, auth, chatbot, cms, mail, mdm, media, meetings, membership; subscribes to no event; calls `StoreFile` (media).
 
 ## Owns
+
+<!-- figure: name=lc-newsletter caption=A_newsletter_and_its_deliveries -->
+```mermaid
+stateDiagram-v2
+  state letter {
+    [*] --> draft
+    draft --> sending : the author starts the send (service.start_sending)
+    sending --> sent : the last batch is done (send_batch)
+    sent --> sending : failed deliveries are resent (resend_failed)
+  }
+  state delivery {
+    [*] --> queued : one per confirmed subscriber (start_sending)
+    queued --> sent_d : mailed (send_batch)
+    queued --> failed : the mail failed
+    queued --> skipped : the subscriber is no longer confirmed
+    failed --> queued : resent (resend_failed)
+  }
+```
+
+*What to see:* a letter is `sending` while any delivery is `queued`; the
+batch job moves deliveries, and the letter follows the last one. (`sent_d` is
+the delivery's `sent`: Mermaid needs distinct state ids.)
+
+<!-- figure: name=lc-subscriber caption=A_subscriber:_pending,_confirmed,_unsubscribed -->
+```mermaid
+stateDiagram-v2
+  [*] --> pending : signs up on the site (service.subscribe_public)
+  [*] --> confirmed : added or imported by the board (add_by_admin, run_import)
+  pending --> confirmed : confirms the mail (confirm)
+  confirmed --> unsubscribed : unsubscribes, or the board does (unsubscribe, unsubscribe_by_admin)
+  unsubscribed --> confirmed : subscribes again (resubscribe, add_by_admin)
+  unsubscribed --> pending : signs up on the site again (subscribe_public)
+```
+
+*What to see:* a public sign-up always passes `pending`; the board's door
+skips it. Only a `confirmed` subscriber gets a delivery.
 
 ### Where to start reading
 

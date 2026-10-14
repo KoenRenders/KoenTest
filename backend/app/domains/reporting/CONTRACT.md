@@ -1,4 +1,6 @@
-# reporting — component contract (CR-06, #832; written in CR-13 phase 4)
+# reporting — the universe, the query panel, the change report
+
+*First written for CR-06, #832; written in CR-13 phase 4.*
 
 ## Purpose and process
 
