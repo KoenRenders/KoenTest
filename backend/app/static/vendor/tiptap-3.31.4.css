@@ -1,0 +1,243 @@
+/* TipTap v3 ships no CSS; this file is ours — the kit's chrome for the
+   document editor (CR-17 #1671, slice 2). Everything the editor's own
+   markup needs; the surrounding form chrome comes from the kit's classes
+   in the `ui.document_editor` macro. No inline styles anywhere: the CSP
+   blocks them, and the editor's nodes render as plain, classed DOM. */
+
+/* The toolbar the JavaScript builds (`document-editor.js`) is styled HERE,
+   like `trix.css` styles the toolbar `trix.js` builds — never through the
+   generated app.css: build-css.sh scans templates, and markup a script
+   injects must not depend on a class that happens to be generated. Kit
+   tokens, the same controls hairline and focus tint. */
+
+.document-editor .de-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-bottom: 8px;
+  /* The tools stay in reach while a long page scrolls (#1391 W3, the
+     behaviour the Trix screen had): sticky under the shell's own header,
+     whose height the shell names in --shell-kop (the env bar counts).
+     A solid background — the text may not shine through her. */
+  position: sticky;
+  top: var(--shell-kop, 4rem);
+  z-index: 10;
+  background: var(--surface, #fff);
+}
+
+.document-editor .de-btn {
+  font: inherit;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 0.375rem;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.document-editor .de-btn:hover {
+  background: var(--surface-2);
+}
+
+/* The pressed state (the toolbar's is-on): the brand's tint, the same one
+   the kit's active controls carry. */
+.document-editor .de-btn.is-on {
+  background: rgb(var(--c-brand) / 0.08);
+  border-color: rgb(var(--c-brand) / 0.35);
+}
+
+.document-editor .de-menu {
+  position: relative;
+}
+
+.document-editor .de-menu-items {
+  position: absolute;
+  z-index: 10;
+  margin-top: 4px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: #fff;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  /* Capped by `openInRoom` when neither below nor above holds her (the
+     review of #3110b37e, A2): the menu scrolls inside herself rather
+     than offering items nothing can reach. */
+  overflow-y: auto;
+}
+
+/* The flipped menu (the same review): she opens above her summary when
+   the room there is the larger — on a short page the room below is the
+   record bar's. */
+.document-editor .de-menu--up .de-menu-items {
+  top: auto;
+  bottom: calc(100% + 4px);
+  margin-top: 0;
+}
+
+.document-editor .de-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+}
+
+/* The editing surface: the macro draws the border and the padding; the
+   editor itself is transparent. ProseMirror's focus outline is off — the
+   macro's wrapper shows the focus (`.rich-text--balk-bij-focus` pattern). */
+.document-editor .de-surface {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 12px;
+  overflow-x: auto;
+}
+
+.document-editor .tiptap {
+  outline: none;
+  min-height: 8rem;
+}
+
+/* The placeholder (TipTap's Placeholder extension), the same soft ink the
+   kit uses for hints. */
+.document-editor .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--ink-soft);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* The columns, the button and the callout in the editor (#1679): the
+   editing aid shows each block for what she is — the two columns of the
+   grid, the button as the chip she is (the site gives her the kit's
+   button look), the callout as her box. The site's own measures live in
+   the prose rules; this file is the author's editing surface only. */
+.document-editor .tiptap .prose-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  margin: 0.5rem 0;
+}
+.document-editor .tiptap .prose-column {
+  border: 1px dashed var(--line);
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+}
+.document-editor .tiptap .prose-button {
+  display: block;
+  margin: 0.5rem 0;
+}
+.document-editor .tiptap a[data-button] {
+  display: inline-block;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--surface-2);
+  font-weight: 600;
+  cursor: pointer;
+}
+.document-editor .tiptap .prose-callout {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+  padding: 16px;
+  margin: 0.5rem 0;
+}
+
+/* The element the editor draws right after a block that is selected as a
+   whole (`holdWholeBlock` in document-editor.js, where the reason stands) is
+   an empty span: it takes no room in the page and needs no rule to stay out of
+   the way (a rule that took it out of the flow stood here and was taken out
+   again: every measurement was the same without it). But it stands between
+   the selected block and the block after it, and the site's rule "a button
+   right after a button gets 8 px before it, on a wide screen" then no longer
+   sees its neighbour — this rule gives that button its 8 px back (measured:
+   without it the buttons after a selected button moved 8 px to the left). */
+/* The same element inside a cards block — drawn there only for a card that
+   is alone in its block. A child of the block would be laid out as one of
+   its cards: on a phone (one column) it got a row of its own, the block grew
+   by 16 px, and the card was not kept. So it is taken out of the rows — and
+   it keeps a HEIGHT: out of the rows without one, the card lost its
+   selection at both widths; with one it is kept at both and nothing moves
+   (measured, 13 October 2026, each way in turn). */
+.document-editor .tiptap .prose-cards > .de-hold {
+  position: absolute;
+  height: 1em;
+}
+@media (min-width: 640px) {
+  .document-editor .tiptap a.prose-button + .de-hold + a.prose-button {
+    margin-left: 0.5rem;
+  }
+}
+
+/* A selected block shows that it is selected (Koen, 13 October 2026, to the
+   question whether a selected block gets a visible edge — one rule for every
+   block of the editor, with the blue focus ring the kit draws around an
+   active field — or stays without a mark: "A ivm geselecteerd blok"). One
+   rule for every block the editor selects as a whole — a card, a button, a
+   picture — and the kit's own ring: its `focus` token, 3 px, 3 px away
+   (design-system.md, the colour table). No rule per kind of block. Without
+   it the arrows walked from card to card and Delete removed a card the
+   author could not see was selected.
+
+   Only while the editor has the focus (its own class for that): it is a
+   focus ring. The editor holds a page's first block as its selection from
+   the moment the page opens, when that block is one it selects as a whole —
+   without the condition a page that starts with a picture, a button or a
+   cards block opened with a ring around a block nobody had touched
+   (measured, 13 October 2026). The consequence, left to be looked at in
+   use: while the dialog of a block is open the focus is in the dialog, and
+   the block being edited carries no ring. */
+.document-editor .tiptap.ProseMirror-focused .ProseMirror-selectednode {
+  outline: 3px solid rgb(var(--c-focus));
+  outline-offset: 3px;
+}
+
+/* A table in the editor: the author's EDITING GRID, a deliberate
+   difference from the site (the review of #3110b37e, B1, said here where
+   the choice lives): a full hairline grid and tighter cells (4/8 px) —
+   the cell edges stay visible while editing, where the site shows one
+   line under a row (C4.13) and her wider cells (12/16 px). The selected
+   cell carries the kit's focus tint, so the author sees which cell the
+   cursor is in. */
+.document-editor .tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5rem 0;
+}
+.document-editor .tiptap th,
+.document-editor .tiptap td {
+  border: 1px solid var(--line);
+  padding: 0.25rem 0.5rem;
+  vertical-align: top;
+}
+.document-editor .tiptap .selectedCell::after {
+  background: rgb(0 81 164 / 0.08);
+}
+
+/* The figure without her picture: a block no dialog produces (she refuses
+   to insert one), rendered as the kit's dashed placeholder box with her
+   alt text, so the author sees a block and not a gap. A figure WITH her
+   picture wears the site's own classes (`prose-figure--…`, from
+   `prose-figures.css`, loaded with the macro) — the parity this file
+   deliberately does not copy. */
+.document-editor .tiptap figure.de-figure-empty {
+  border: 1px dashed var(--line);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin: 0.5rem 0;
+  background: var(--surface-2);
+  color: var(--ink-soft);
+  text-align: center;
+  font-size: 0.875rem;
+}
+
+/* The insert menu ("Blok invoegen ▾"): a disclosure that opens on click.
+   Kit classes do the rest; this only keeps the summary a hand. */
+.document-editor details summary {
+  cursor: pointer;
+}

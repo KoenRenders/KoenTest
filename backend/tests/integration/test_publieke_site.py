@@ -15,10 +15,25 @@ def test_homepage_renders_with_intro_and_activities(client, db_session):
     if not intros:
         intros = [CmsPage(slug="home-intro", title="Intro")]
         db_session.add(intros[0])
+    # CR-17 (#1671): de site toont het GEPUBLICEERDE DOCUMENT, dus schrijft
+    # deze test de intro zoals een redacteur dat doet: door de deuren van de
+    # app — Opslaan, Publiceren. `intro.content` overschrijven toetst niets
+    # meer: de lezer kijkt er niet meer naar.
+    from app.domains.cms.api import publish, save_document
+
     for intro in intros:
         intro.is_published = True
-        intro.content = "<p>Welkom bij Raak!</p>"
-    db_session.flush()
+        save_document(
+            db_session,
+            intro.id,
+            {
+                "type": "doc",
+                "content": [
+                    {"type": "paragraph", "content": [{"type": "text", "text": "Welkom bij Raak!"}]}
+                ],
+            },
+        )
+        publish(db_session, intro.id)
     resp = client.get("/")
     assert resp.status_code == 200
     assert "Welkom bij Raak" in resp.text and "Word lid" in resp.text

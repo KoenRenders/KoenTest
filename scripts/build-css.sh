@@ -179,7 +179,7 @@ cat > "$TMP/in.css" << 'CSS'
   /* The site's name in the header where a tenant has no logo, and the drawer's
      head: semibold like the headings (the serif face had one weight only). */
   body[data-shell="site"] .font-brand{font-weight:600}
-  body[data-shell="site"] .cms-content :is(h1,h2){color:rgb(var(--c-kop))}
+  body[data-shell="site"] .home-intro :is(h1,h2){color:rgb(var(--c-kop))}
   /* #1656 (Koen, 6 October 2026; CR-11 Q87, design-system.md §7): the headings
      of a public page's BODY (`.cms-page`, under the page's own title). The
      renderer shows them one level down, so the editor's Kop, Subkop and Kleine
@@ -324,10 +324,17 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .admin-sidebar{position:fixed;bottom:0;left:0;z-index:30;width:var(--nav-current);display:flex;flex-direction:column;background:rgb(var(--c-nav));border-right:1px solid rgb(var(--c-line));color:rgb(var(--c-nav-ink));overflow:hidden}
 .admin-frame{margin-left:var(--nav-current);min-width:0}
 .admin-content:has([data-list-page]){max-width:none}
-/* CR-11 block 6 (#1558), design-system-end-state §1.4, §3.2. A record page
-   (it carries the record head) takes the frame like a list page; inside it the reading group is 768 + 24 +
-   300 px, left-aligned; the summary stands beside the form while the form keeps
-   640 px (964 px of frame), else above it. The form grid has four tracks, 12 px apart; it goes to
+/* CR-11 block 6 (#1558), design-system-end-state §1.4, §3.2 — widened by CR-17
+   slice 4 (Koen, 9 October 2026: "links houden, maar het scherm benutten").
+   A record page (it carries the record head) takes the frame like a list
+   page; inside it the reading group is LEFT-aligned and never centred.
+   The PAGE screen's form column grows with the screen up to a readable
+   cap of 1 056 px (his words: the screen may be used; the cap keeps her
+   lines readable) — hers alone, carried by `[data-wide]`; every other
+   record keeps her 768 px. Narrower, the form column simply takes what
+   the frame gives. The summary
+   stands beside the form while the form keeps 640 px (964 px of frame),
+   else above it. The form grid has four tracks, 12 px apart; it goes to
    one column when the section is narrower than 532 px inside (two half fields
    of 260 px and their gap) — a container query, which a utility cannot say.
    16 px between the cards of a form column (#1899, CR-11 B10 of 10 October
@@ -335,6 +342,16 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .admin-content:has([data-record-head]){max-width:none}
 .record-frame{container-type:inline-size;container-name:record}
 .record-columns{display:grid;grid-template-columns:minmax(0,768px);gap:24px;align-items:start}
+/* CR-17 slice 4, scoped after the CI run of 9 October (#1770): the wide
+   reading group is the PAGE screen's own (Koen's words were about her
+   form), carried by her own attribute — an existing record keeps her width.
+
+   The ONE named exception to #1929's "one width of 768 px for every record"
+   (below). Koen, 13 October 2026, asked through the master CLI whether the
+   page screen keeps using the screen up to 1 056 px, as he said on 9 October
+   ("links houden, maar het scherm benutten"), with 768 px for the other
+   records (option a), or becomes 768 px without exception (option b): "4a". */
+.record-columns[data-wide]{grid-template-columns:minmax(0,1056px)}
 .record-form-column{min-width:0}
 .form-flow{display:grid;gap:16px;min-width:0}
 /* CR-11 pilot B (#1589, §2.6): the public form page — one column of 768 px,
@@ -359,6 +376,7 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 .form-flow>[data-form-message]:not(:has(*)){display:none}
 .record-summary-column{min-width:0;order:-1}
 @container (min-width:964px){.record-columns:has(>.record-summary-column){grid-template-columns:minmax(0,768px) 300px}.record-summary-column{order:0}}
+@container (min-width:964px){.record-columns[data-wide]:has(>.record-summary-column){grid-template-columns:minmax(0,1056px) 300px}}
 /* #1929 (Koen, 12 October 2026, to "Kies je c, één breedte van 768 px voor elk
    record in beide modi?": "Ja"; CR-11 Q96): one width for every record, in read
    and in edit mode. The 1 092 px editor of #1610 is gone; a full-width field
@@ -706,6 +724,148 @@ body[data-shell="site"]>main{padding-bottom:24px}
   .site-pages{height:auto}
   .site-footer-row{gap:48px}
 }
+/* ── CR-17 (#1671, slice 4): the prose rules — `.prose-raak`, one class ───────
+   Both shells lost their hand-written `.cms-content` blocks (site_base and
+   admin_base carried near-identical sets — two places for one fact): every
+   wrapper that styles rendered content now carries `.prose-raak`, and the
+   rules live HERE. The link colour is the shell's own token (`--link`) —
+   ONE set, both shells the brighter tint (Koen, 10 October 2026,
+   "Akkoord"; the ocean stays the headings' colour). The table rules
+   are new (measured in phase 0: nothing styled a table); on a phone a
+   table's block scrolls inside itself while the page does not (CR-11 Q14's
+   declared exception) — `width:max-content` keeps her natural width, the
+   `max-width` brings the scrollbar the moment she is wider than her
+   column. The figure rules (radius, shadow, placements, the <640 px
+   stack) live in `prose-figures.css` — ONE source with the editor. */
+.prose-raak h1{font-size:1.5rem;font-weight:700;color:var(--brand-ocean);margin:1rem 0 .5rem}
+.prose-raak h2{font-size:1.25rem;font-weight:700;color:var(--brand-ocean);margin:1rem 0 .5rem}
+.prose-raak h3{font-size:1.1rem;font-weight:600;margin:.75rem 0 .25rem}
+.prose-raak h4{font-weight:600;margin:.5rem 0 .25rem}
+.prose-raak p{margin:.5rem 0;line-height:1.6}
+.prose-raak ul{list-style:disc;padding-left:1.5rem;margin:.5rem 0}
+.prose-raak ol{list-style:decimal;padding-left:1.5rem;margin:.5rem 0}
+.prose-raak li{margin:.25rem 0}
+.prose-raak a{color:var(--link);text-decoration:underline}
+/* #1567: a form button placed by the form placeholder is the kit button, not a text link. */
+.prose-raak [data-form-button] a{color:var(--ink);text-decoration:none}
+.prose-raak strong,.prose-raak b{font-weight:700}
+.prose-raak em,.prose-raak i{font-style:italic}
+.prose-raak del,.prose-raak s{text-decoration:line-through}
+.prose-raak blockquote{border-left:3px solid var(--line);padding-left:1rem;color:var(--ink-soft);margin:.5rem 0}
+.prose-raak pre{background:var(--surface-2);border:1px solid var(--line);border-radius:.375rem;padding:.5rem .75rem;margin:.5rem 0;font-family:ui-monospace,monospace;font-size:.875em;white-space:pre-wrap}
+.prose-raak code{font-family:ui-monospace,monospace;font-size:.875em}
+.prose-raak img{max-width:100%;height:auto;border-radius:.5rem;margin:.5rem 0}
+/* Drie maten voor een pagina-afbeelding (#1207), relatief aan de kolom. */
+.prose-raak img.cms-beeld-klein{max-width:33%}
+.prose-raak img.cms-beeld-half{max-width:50%}
+@media (max-width:640px){
+  .prose-raak img.cms-beeld-klein,.prose-raak img.cms-beeld-half{max-width:100%}
+}
+.prose-raak hr{border-top:1px solid var(--line);margin:1rem 0}
+/* CR-17 phase 2 (#1679, C4.13 — beslissing 14): the table's look. One 1 px
+   line between rows, no vertical lines, no bands; the header row the
+   author's own on surface-2, semibold; cells 12/16 px, text 14 px. Decided
+   with the look (Koen, 11 October 2026): NO line under a wide table — no
+   script on the public site — and NO right-aligned numbers; everything
+   stays left.
+   A table stays a table at every width, and what holds her scrolls (the
+   design review's choice, the master CLI's comment of 11 October 2026):
+   she fills her holder and her lines run to her holder's edge; the moment
+   her content is wider, the HOLDER scrolls — one rule on `.prose-raak`
+   covers the page's container, the home intro and the newsletter archive
+   alike. The `table>tr` rule of the first cut is gone: measured, every
+   parsed table carries her rows in a tbody (a bare `<table><tr>` is
+   parsed with section "body"), so nothing ever matched her.
+   And the holder gives her focus ring room (review S1 of 11 October
+   2026): overflow clips, so a link on the holder's left edge lost her
+   ring's left side. The room is INSIDE the holder — 2 px padding, won
+   back with a 2 px negative margin, so every visible position stays
+   where she was. The Trix editor keeps her own box: her class is on the
+   element herself, a negative margin would push her out of line with the
+   fields beside her, and her internal padding already keeps links off
+   her clip edge. The page editor's surface keeps hers for the same
+   reason (review A1 of 12 October 2026): her class sits on the element
+   herself (`de-surface`), and the negative margin pushed her 2 px out
+   of line with the toolbar above her. */
+.prose-raak{overflow-x:auto}
+.prose-raak:not(trix-editor):not(.de-surface){margin-inline:-2px;padding-inline:2px}
+.prose-raak table{border-collapse:collapse;width:100%;margin:.5rem 0;font-size:.875rem;line-height:1.5}
+.prose-raak :is(th,td){border-bottom:1px solid rgb(var(--c-line));padding:.75rem 1rem;text-align:left;vertical-align:top}
+.prose-raak tbody tr:last-child :is(th,td){border-bottom:none}
+.prose-raak th{font-weight:600;background:rgb(var(--c-surface-2))}
+/* CR-17 phase 2 (#1679, C4.13): the columns, the button and the callout.
+   Columns: two sub-documents of equal width, 32 px between, top-aligned
+   (middle — `prose-columns--middle`, the adapter's derived case — when
+   one column holds only a figure); under 640 px ONE column, the text
+   before the image. The button: the kit's button, left under its text,
+   on her label above 40 px, full width 44 px on a phone. The callout:
+   text only, a neutral surface with the line and radius 14, 16 px
+   inside — no title, icon or colour stripe. */
+.prose-columns{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start;margin:.5rem 0}
+.prose-columns--middle{align-items:center}
+.prose-raak .prose-column>*:first-child{margin-top:0}
+@media (max-width:639.98px){
+  /* stretch, not the grid's align-items:start: in a column flex that
+     start means "shrink to content", and a stacked column must take
+     her full width (a button inside her follows). */
+  .prose-columns{display:flex;flex-direction:column;gap:24px;align-items:stretch}
+  .prose-columns .prose-column:has(figure){order:2}
+}
+.prose-raak a.prose-button{display:inline-flex;align-items:center;justify-content:center;border-radius:.5rem;padding:.625rem 1rem;margin:.5rem 0;font-weight:600;font-size:.875rem;line-height:1.25rem;text-decoration:none}
+.prose-raak a.prose-button--primary{background:var(--primary);color:#fff}
+/* Review S2 of 12 October 2026: her border made the secondary 2 px taller
+   beside a primary one (42 against 40) — her padding gives back what her
+   border takes, so the two stand one height. Two buttons after each other
+   touched: 8 px between them, on a wide screen only (on a phone each is a
+   full row of her own, and a left margin there would push her out). */
+.prose-raak a.prose-button--secondary{border:1px solid rgb(var(--c-control-line));padding:calc(.625rem - 1px) 1rem;color:var(--ink)}
+@media (min-width:640px){
+  .prose-raak a.prose-button + a.prose-button{margin-left:.5rem}
+}
+.prose-callout{border:1px solid rgb(var(--c-line));border-radius:14px;background:var(--surface-2);padding:16px;margin:.5rem 0}
+/* CR-17 phase 2, the cards (C4.9, C4.13): a block of link cards, 16 px
+   between them. Two per row for one or two cards — so a lone card is as wide
+   as a card in a row of two — and three per row from the third card on; the
+   last row starts at the left and is never stretched (a grid, not a flex
+   row). One per row on a phone and inside a column. The count is read from
+   the block itself (`:has`), so the site and the editor cannot disagree.
+   A card: the public card's line and radius 14, 16 px inside; an icon in a
+   44 px tile on the soft brand tint (radius 6) or a picture of 16:9 from edge
+   to edge; the title 18 px, the line 16 px and the labels 12 px in the soft
+   ink. The whole card is the link: the title's link is stretched over it, so
+   there is one link, and its focus ring (3 px) stands around the card. No
+   hover reveal — a phone has no hover. */
+.prose-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:.5rem 0}
+.prose-cards:has(>:nth-child(3)){grid-template-columns:repeat(3,minmax(0,1fr))}
+.prose-column .prose-cards,.prose-column .prose-cards:has(>:nth-child(3)){grid-template-columns:minmax(0,1fr)}
+@media (max-width:639.98px){
+  .prose-cards,.prose-cards:has(>:nth-child(3)){grid-template-columns:minmax(0,1fr)}
+}
+.prose-card{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:4px;border:1px solid rgb(var(--c-line));border-radius:14px;background:#fff;padding:16px;overflow:hidden}
+.prose-card:has(a.prose-card-title:focus-visible){outline:3px solid rgb(var(--c-blue-600));outline-offset:2px}
+.prose-card-icon{display:grid;place-items:center;width:44px;height:44px;border-radius:6px;background:rgb(var(--c-blue-50));color:rgb(var(--c-brand));margin-bottom:8px}
+.prose-raak img.prose-card-picture{display:block;width:calc(100% + 32px);max-width:none;margin:-16px -16px 8px;aspect-ratio:16/9;object-fit:cover;border-radius:0;box-shadow:none}
+.prose-raak .prose-card-title{font-size:18px;line-height:1.35;font-weight:600;color:var(--ink);text-decoration:none}
+.prose-raak a.prose-card-title::after{content:"";position:absolute;inset:0}
+.prose-raak a.prose-card-title:focus-visible{outline:none}
+.prose-card-line{font-size:16px;line-height:1.5;color:rgb(var(--c-ink-soft))}
+.prose-card-labels{font-size:12px;line-height:1.5;color:rgb(var(--c-ink-soft))}
+@media (max-width:639.98px){
+  .prose-raak a.prose-button{display:flex;width:100%;min-height:44px}
+}
+/* ── CR-17 (#1671 slice 4; phase 2 #1679, C4.13 "Where the width lives"):
+   ONE container of 1 024 px, CENTRED (the master CLI's comment of
+   11 October 2026 is the source until the paragraph stands on `master`),
+   with one left line INSIDE her: the text blocks run to at most 768 px,
+   the blocks C4.13 names wide (the table, a figure on "volledig", the
+   columns and the cards) fill the container. The
+   cap names no element types: every direct child is narrow unless the
+   wide list says otherwise, so a new text block is narrow without anyone
+   remembering her. On a phone the viewport minus her gutters (the shell's
+   <main> gives them). */
+.doc-page{width:100%;max-width:1024px;margin-left:auto;margin-right:auto}
+.doc-page>:not(.prose-raak){max-width:768px}
+.doc-page .prose-raak>*:not(table):not(.prose-figure--full):not(.prose-columns):not(.prose-cards){max-width:768px}
 /* ── The Assistent panel (CR-11 pilot A, K8 — #1562; end state §3.15) ──────────
    One component, `_raakje_panel.html`, in two modes.
 

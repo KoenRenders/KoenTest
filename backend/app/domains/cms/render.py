@@ -17,6 +17,8 @@ from typing import Dict, Optional
 
 import nh3
 
+from app.i18n import _
+
 # Sanitisatie-allowlist voor CMS-inhoud (#476): dezelfde soort bescherming als de
 # oude DOMPurify (React), maar server-side. Enkel de tags/attributen die de
 # WYSIWYG-editor produceert; nh3 verwijdert al de rest (<script>, on*-handlers) en
@@ -53,6 +55,16 @@ _ALLOWED_TAGS = {
     "blockquote",
     "pre",
     "code",
+    # The figure of a published document (CR-17 #1671, slice 3): the wrapper
+    # carries the placement (`prose-figure--…`) and the caption her words —
+    # without her in the allowlist a published figure loses both, exactly
+    # what slice 1's review E note warned about (#1673). Slice 3 is the
+    # moment she first reaches the site: the page screen publishes
+    # documents. A Trix-era figure wrapper also survives now; her `img`
+    # keeps her own size class and the wrapper matches no style — measured
+    # in test_figure_placements_1671.py's sibling, the legacy pin below.
+    "figure",
+    "figcaption",
     "img",
     "table",
     "thead",
@@ -67,6 +79,14 @@ _ALLOWED_TAGS = {
 _ALLOWED_ATTRS = {
     "a": {"href", "title", "target"},
     "img": {"src", "alt", "title", "width", "height"},
+    # An ordered list's start is the author's own (Koen, 7 October 2026,
+    # option 1 of the third look, #1699): the renderer writes her on the
+    # <ol>, so the sanitiser must let her through — one attribute, one
+    # element, nothing else. The same holds for a merged cell's spans
+    # (8 October 2026): what the author merged, the site shows.
+    "ol": {"start"},
+    "th": {"colspan", "rowspan"},
+    "td": {"colspan", "rowspan"},
     "*": {"class"},
 }
 
@@ -399,3 +419,549 @@ def render_cms_content(content: Optional[str], db=None, *, on_page: bool = False
     content = _SITES.sub(lambda m: _sites_html(m.group(1), db), content)
     # And the form buttons (#1567), the same way.
     return _FORM.sub(lambda m: _form_button_html(m.group(1), m.group(2), db), content)
+
+
+# ── Documents (CR-17 phase 1, #1671) ─────────────────────────────────────────
+#
+# A page's content is a structured document against `cms/schema.py`; the HTML
+# below is a RENDERING of it, never the storage. The pipeline mirrors the old
+# one on purpose — the same sanitiser over the output, the same substitutions
+# after it — so a migrated page renders byte-for-byte as it did (R17, test 12):
+# the round trip `render_document(parse_html(page.content)) == the old public
+# output` is the migration's proof of losslessness.
+#
+# No legacy flags (Koen, 6 October 2026): a page whose paragraphs are Trix
+# divs, or whose picture carries a Trix-era size, keeps her HTML — her words
+# stand in the draft. A figure placed through the editor renders as the kit's
+# picture with the public radius and shadow (C4.8). The document never decides
+# pixels — the prose rules do.
+
+
+def _mark_html(mark: dict) -> tuple[str, str]:
+    """The open and close tag of one mark. `del` and not `s`: the stored pages
+    carry Trix' spelling, so the round trip holds; `em`/`strong` for the same
+    reason."""
+    if mark["type"] == "link":
+        href = escape(mark.get("attrs", {}).get("href", ""), quote=True)
+        return f'<a href="{href}">', "</a>"
+    tag = {"bold": "strong", "italic": "em", "strike": "del"}[mark["type"]]
+    return f"<{tag}>", f"</{tag}>"
+
+
+def _inline_html(nodes: "list[dict] | None") -> str:
+    """Inline content: text, marks, hard breaks and value nodes.
+
+    A paragraph inside a table cell renders without its `<p>` (cell context,
+    the shape tables have always had); everywhere else a paragraph keeps it.
+    """
+    parts = []
+    for node in nodes or []:
+        kind = node["type"]
+        if kind == "text":
+            text = escape(node.get("text", ""), quote=False)
+            for mark in node.get("marks") or []:
+                open_tag, close_tag = _mark_html(mark)
+                text = f"{open_tag}{text}{close_tag}"
+            parts.append(text)
+        elif kind == "hardBreak":
+            parts.append("<br>")
+        elif kind == "value":
+            code = node.get("attrs", {}).get("code", "")
+            parts.append(escape(_values().get(code, ""), quote=False))
+        else:
+            raise ValueError(f"unknown inline node: {kind}")
+    return "".join(parts)
+
+
+def _blocks_html(
+    blocks: "list[dict] | None",
+    cell: bool = False,
+    preview: bool = False,
+    db=None,
+    late: "list[str] | None" = None,
+) -> str:
+    parts = []
+    for node in blocks or []:
+        parts.append(_block_html(node, cell, preview, db, late))
+    # A cell or a list item holds bare paragraphs (no <p>); Enter in a cell
+    # is the author's own line break — blocks joined with nothing ran her
+    # lines together on the site (review B1, #1770). Outside a cell the
+    # blocks carry their own margins; nothing joins them.
+    return "<br>".join(parts) if cell else "".join(parts)
+
+
+def _block_html(
+    node: dict,
+    cell: bool = False,
+    preview: bool = False,
+    db=None,
+    late: "list[str] | None" = None,
+) -> str:
+    kind = node["type"]
+    content = node.get("content")
+
+    if kind == "paragraph":
+        inner = _inline_html(content)
+        return inner if cell else f"<p>{inner}</p>"
+
+    if kind == "heading":
+        # The document stores the author's choice; `render_document` shifts a
+        # page body one level down through `headings_one_level_down` — the
+        # ONE place that knows the shift (#1656, review B4a #1673).
+        level = int(node.get("attrs", {}).get("level", 2))
+        return f"<h{level}>{_inline_html(content)}</h{level}>"
+
+    if kind in ("bulletList", "orderedList"):
+        tag = "ul" if kind == "bulletList" else "ol"
+        # A list item's paragraphs render bare, like today's Trix lists: no
+        # <p> inside the <li> (measured: with it, every round trip failed).
+        items = "".join(
+            f"<li>{_blocks_html(item.get('content'), cell=True)}</li>" for item in content or []
+        )
+        # An ordered list's start is the author's own (Koen, 7 October 2026:
+        # render her — option 1 of the third look, #1699). Only a start that
+        # differs from the default lands on the <ol>: TipTap writes start=1
+        # for every list she makes, and a start="1" would change the HTML
+        # of pages that never asked for one.
+        start = ""
+        if kind == "orderedList":
+            value = (node.get("attrs") or {}).get("start")
+            if isinstance(value, int) and value != 1:
+                start = f' start="{value}"'
+        return f"<{tag}{start}>{items}</{tag}>"
+
+    if kind == "table":
+        # The rows carry their section: a table typed WITH <thead> renders
+        # thead + tbody, a bare table renders bare rows — both exactly as
+        # the sanitised HTML of today does (#1671).
+        head = "".join(
+            _block_html(row)
+            for row in content or []
+            if (row.get("attrs") or {}).get("section") == "head"
+        )
+        body = "".join(
+            _block_html(row)
+            for row in content or []
+            if (row.get("attrs") or {}).get("section") == "body"
+        )
+        bare = "".join(
+            _block_html(row) for row in content or [] if not (row.get("attrs") or {}).get("section")
+        )
+        return (
+            "<table>"
+            + (f"<thead>{head}</thead>" if head else "")
+            + (f"<tbody>{body}</tbody>" if body else "")
+            + bare
+            + "</table>"
+        )
+
+    if kind == "tableRow":
+        return f"<tr>{''.join(_block_html(c) for c in content or [])}</tr>"
+
+    if kind in ("tableHeader", "tableCell"):
+        tag = "th" if kind == "tableHeader" else "td"
+        # A merged cell is the author's own (Koen, 8 October 2026): the
+        # spans she merged show on the site as she made them. Only a real
+        # span lands on the tag — the editor's 1s stay invisible, so an
+        # ordinary table keeps today's HTML.
+        attrs = node.get("attrs") or {}
+        spans = ""
+        for name in ("colspan", "rowspan"):
+            value = attrs.get(name)
+            if isinstance(value, int) and value > 1:
+                spans += f' {name}="{value}"'
+        return f"<{tag}{spans}>{_blocks_html(content, cell=True)}</{tag}>"
+
+    if kind == "figure":
+        return _figure_html(node)
+
+    if kind in ("columns", "column"):
+        # C4.6/C4.13: two sub-documents of equal width, 32 px between; the
+        # alignment is the stored `align` (the editor adapter derives her,
+        # #1679's design review B4) written as a class — the sanitiser
+        # allows no data attributes, and the class is the look's own
+        # vocabulary. A column renders her children bare: the wrapper
+        # carries the grid, the columns the blocks.
+        if kind == "columns":
+            align = (node.get("attrs") or {}).get("align") or "top"
+            cls = "prose-columns"
+            if align == "middle":
+                cls += " prose-columns--middle"
+            inner = _blocks_html(content, preview=preview, db=db, late=late)
+            return f'<div class="{cls}">{inner}</div>'
+        inner = _blocks_html(content, preview=preview, db=db, late=late)
+        return f'<div class="prose-column">{inner}</div>'
+
+    if kind == "button":
+        return _button_html(node, preview=preview, db=db)
+
+    if kind == "callout":
+        # C4.13: text only, on a neutral surface with the line and radius
+        # 14, 16 px inside — no title, icon or colour stripe. Her words are
+        # inline content, sanitised with everything else. An empty callout
+        # renders NOTHING (review S5 of 12 October 2026): on the site she
+        # was an empty box of 34 px.
+        words = _inline_html(content)
+        if not words.strip():
+            return ""
+        return f'<div class="prose-callout">{words}</div>'
+
+    if kind == "cards":
+        # A card draws an icon — an <svg> the sanitiser would take out — so
+        # the block is built whole, every word of the author's escaped, and
+        # placed AFTER the sanitiser, as the sites cards and the form button
+        # are (#1543, #1567). Here stands only the place it goes to.
+        block = _cards_html(node, preview=preview, db=db)
+        if not block:
+            return ""
+        if late is None:
+            return block
+        late.append(block)
+        return f"<div>{_LATE}{len(late) - 1}{_LATE}</div>"
+
+    raise ValueError(f"unknown block node: {kind}")
+
+
+def _figure_html(node: dict) -> str:
+    # The address comes from media.api — the one place that knows its shape
+    # (CR-15 §C4.6); no module writes it itself (the media seam gate).
+    from app.domains.media.api import media_url
+
+    attrs = node.get("attrs", {})
+    media_id = attrs.get("media_id")
+    src = media_url(media_id)
+    # The kit's figure — the only rendering: radius and shadow come from the
+    # prose rules, never from the file (C4.8). A Trix-era picture keeps her
+    # page on the HTML fallback (no legacy sizes, Koen 6 October 2026); a
+    # figure placed through the editor lands here. The sanitiser keeps the
+    # wrapper since slice 3 (review E's note on #1673 resolved there): the
+    # page screen publishes documents, and without the wrapper the visitor
+    # loses the placement and the caption.
+    placement = attrs.get("placement") or "full"
+    alt = escape(attrs.get("alt") or "", quote=True)
+    size = ""
+    if attrs.get("width") and attrs.get("height"):
+        size = f' width="{attrs["width"]}" height="{attrs["height"]}"'
+    figure = (
+        f'<figure class="prose-figure prose-figure--{placement}">'
+        f'<img src="{src}" alt="{alt}"{size} loading="lazy">'
+    )
+    if attrs.get("caption"):
+        figure += f"<figcaption>{escape(attrs['caption'])}</figcaption>"
+    return figure + "</figure>"
+
+
+#: The look of a refused button in the admin preview (review S7 of 12 October
+#: 2026): the kit's own notice — the same surface, line and left accent as
+#: `ui.save_refusal`, on the span the sentences already carry. One constant,
+#: one look: the sentences below say her in plain words.
+REFUSED_CLS = (
+    "prose-refused inline-block rounded-md border border-red-200 border-l-[3px] "
+    "border-l-red-600 bg-red-50 px-3 py-1.5 text-sm text-ink"
+)
+
+
+#: The mark of a block that is placed after the sanitiser. Private-use
+#: characters: nothing an author types and nothing the sanitiser changes.
+_LATE = "\ue000cards\ue001"
+
+#: Why a destination cannot be reached, in the words the admin preview shows —
+#: one sentence per block and reason; on the site such a block shows nothing
+#: (A4's one rule).
+_UNREACHABLE = {
+    ("button", "site-block"): _("Deze knop wijst naar een siteblok dat op geen eigen adres staat."),
+    ("button", "page"): _("Deze knop wijst naar een pagina die niet (meer) bestaat."),
+    ("button", "form"): _("Deze knop wijst naar een formulier dat geen inzendingen meer aanneemt."),
+    # No "vereniging": the tenant that meets this sentence is by nature not
+    # always one (review of 12 October 2026).
+    ("button", "screen"): _("Deze knop wijst naar een scherm dat hier niet wordt aangeboden."),
+    ("card", "site-block"): _("Deze kaart wijst naar een siteblok dat op geen eigen adres staat."),
+    ("card", "page"): _("Deze kaart wijst naar een pagina die niet (meer) bestaat."),
+    ("card", "form"): _("Deze kaart wijst naar een formulier dat geen inzendingen meer aanneemt."),
+    ("card", "screen"): _("Deze kaart wijst naar een scherm dat hier niet wordt aangeboden."),
+}
+
+
+def _destination(attrs: dict, db) -> "tuple[str | None, str | None, bool]":
+    """Where a button or a card leads: `(address, None, outside)` — or
+    `(None, reason, False)` when the ONE destination it holds cannot be
+    reached (Koen, 11 October 2026: a page of the site, a reference that
+    survives a slug change; a form of the tenant; the one application screen
+    of this CR, Lid worden; or an outside address, http(s), already refused at
+    the save when it is anything else).
+
+    The addresses go through `path_for` (#1477/B7): a tenant reached by her
+    path prefix would be sent to the wrong door by a bare one. The form asks
+    forms' own door — `form_button_target` decides whether the form exists
+    and is open, the same door the `{{form:...}}` code uses.
+    """
+    from app.domains.forms.api import form_button_target
+    from app.ui import path_for
+
+    if attrs.get("page_id") is not None:
+        from app.domains.cms.models import CmsPage
+        from app.domains.cms.service import serves_at_address
+
+        page = (
+            db.query(CmsPage)
+            # The tenant's own listener scopes her (the request sets the
+            # contextvar; a bare session sees every tenant — how the tests
+            # reach the seed).
+            .filter(CmsPage.id == attrs["page_id"], CmsPage.is_published.is_(True))
+            .first()
+        )
+        if page is None:
+            return None, "page", False
+        # The site's own blocks stand at no address of their own (review A2
+        # of 12 October 2026): the page list asks the same
+        # `serves_at_address`, so what the picker offers is exactly what the
+        # resolver resolves.
+        if not serves_at_address(page):
+            return None, "site-block", False
+        return path_for(f"/{page.slug}"), None, False
+    if attrs.get("form_slug"):
+        resolved = form_button_target(db, attrs["form_slug"])
+        if resolved is None:
+            return None, "form", False
+        return resolved[1], None, False
+    if attrs.get("screen"):
+        # The one application screen is mounted behind the membership module
+        # (main.py): for a tenant without her it is not offered in the dialog
+        # and an existing one is unreachable — the same one rule as every
+        # unreachable target (review A3 of 12 October 2026).
+        from app.domains.mdm.api import module_enabled
+        from app.kernel.modules import ModuleCode
+
+        if not module_enabled(ModuleCode.MEMBERSHIP):
+            return None, "screen", False
+        return path_for("/lid-worden"), None, False
+    return attrs.get("href") or "", None, True
+
+
+def _resolved(attrs: dict, db) -> "tuple[str | None, str | None, bool]":
+    """`_destination` with the caller's own session where she has one (the
+    request's, the test's): one link is one query, not a session of her own.
+    Without a caller she opens one, exactly as the form button does."""
+    from app.database import SessionLocal
+
+    if db is not None:
+        return _destination(attrs, db)
+    own_db = SessionLocal()
+    try:
+        return _destination(attrs, own_db)
+    finally:
+        own_db.close()
+
+
+def _unreachable_html(block: str, reason: str) -> str:
+    return f'<span class="{REFUSED_CLS}">{_UNREACHABLE[(block, reason)]}</span>'
+
+
+def _button_html(node: dict, preview: bool = False, db=None) -> str:
+    """The kit's button with the author's label and her ONE resolved
+    destination (#1679). What cannot be reached renders NOTHING on the site —
+    never a button that leads nowhere (A4's one rule, the form button's own,
+    #1567) — and the reason in the admin preview."""
+    attrs = node.get("attrs") or {}
+    label = escape(attrs.get("label") or "")
+    variant = attrs.get("variant") or "secondary"
+    address, reason, outside = _resolved(attrs, db)
+    if address is None:
+        return _unreachable_html("button", reason or "page") if preview else ""
+    rel = ' rel="noopener noreferrer"' if outside else ""
+    return (
+        f'<a class="prose-button prose-button--{variant}" '
+        f'href="{escape(address, quote=True)}"{rel}>{label}</a>'
+    )
+
+
+def _cards_html(node: dict, preview: bool = False, db=None) -> str:
+    """A block of link cards (C4.9, C4.13): layout, not data. How many stand
+    in a row is the look's own rule, read from the block (`build-css.sh`). A
+    card whose destination cannot be reached is left out on the site and shows
+    its reason in the admin preview; a block with no card left renders
+    nothing."""
+    cards = [
+        html
+        for html in (_card_html(card, preview, db) for card in node.get("content") or [])
+        if html
+    ]
+    if not cards:
+        return ""
+    return f'<div class="prose-cards">{"".join(cards)}</div>'
+
+
+def _card_html(node: dict, preview: bool = False, db=None) -> str:
+    """One card: the whole card is the link (the title's link is stretched
+    over it by the look's rules), so there is one link and no nested one."""
+    from app.domains.media.api import media_url
+    from app.ui.kit.icons import icon_paths
+
+    attrs = node.get("attrs") or {}
+    address, reason, outside = _resolved(attrs, db)
+    if address is None:
+        return _unreachable_html("card", reason or "page") if preview else ""
+    top = ""
+    if attrs.get("media_id") is not None:
+        # Decorative: the title beside it is the link's name.
+        top = (
+            f'<img class="prose-card-picture" src="{media_url(attrs["media_id"])}" '
+            'alt="" loading="lazy">'
+        )
+    elif attrs.get("icon") in icon_paths():
+        top = (
+            '<span class="prose-card-icon" aria-hidden="true">'
+            '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+            'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
+            f'stroke-linejoin="round">{icon_paths()[attrs["icon"]]}</svg></span>'
+        )
+    rel = ' rel="noopener noreferrer"' if outside else ""
+    title = (
+        f'<a class="prose-card-title" href="{escape(address, quote=True)}"{rel}>'
+        f"{escape(attrs.get('title') or '')}</a>"
+    )
+    line = (
+        f'<span class="prose-card-line">{escape(attrs["line"])}</span>' if attrs.get("line") else ""
+    )
+    labels = [escape(label) for label in attrs.get("labels") or [] if label.strip()]
+    marks = f'<span class="prose-card-labels">{" · ".join(labels)}</span>' if labels else ""
+    return f'<div class="prose-card">{top}{title}{line}{marks}</div>'
+
+
+def render_document(
+    document, db=None, *, on_page: bool = False, target: str = "site", preview: bool = False
+) -> str:
+    """A validated document (dict or JSON string) to site HTML (CR-17, C4.2) —
+    or to plain text (``target="text"``): the words the chatbot's context
+    reads, no tags at all.
+
+    The same net as the old path, in the same order: build the HTML from the
+    schema's nodes, sanitise the OUTPUT (nh3, the same allowlist), then the
+    substitutions the text may carry — the five configuration codes first
+    (a code stays TEXT in the document; the renderer replaces it as
+    `render_cms_content` does today, the value BLOCK is phase 5), then the
+    sites cards and a form button — code built and escaped, placed after the
+    sanitiser as before (#1543, #1567). The text target walks the same schema
+    and carries the same substitutions, reduced to their words.
+    """
+    if isinstance(document, str):
+        import json
+
+        document = json.loads(document)
+    if target == "text":
+        return _document_text(document, db)
+    late: list[str] = []
+    html = (
+        _blocks_html(document.get("content") or [], preview=preview, db=db, late=late)
+        if document
+        else ""
+    )
+    html = sanitize_cms_html(html) or ""
+    for index, block in enumerate(late):
+        html = html.replace(f"<div>{_LATE}{index}{_LATE}</div>", block)
+    if on_page:
+        html = headings_one_level_down(html)
+    for code, value in _values().items():
+        html = html.replace(f"{{{{{code}}}}}", value)
+    html = _SITES.sub(lambda m: _sites_html(m.group(1), db), html)
+    return _FORM.sub(lambda m: _form_button_html(m.group(1), m.group(2), db), html)
+
+
+def _document_text(document, db=None) -> str:
+    """The words of a document: what the chatbot's context reads (C2 cms,
+    *Readers*). Blocks in order, blank lines between them; a value block its
+    current value; a figure its alt text; the sites cards and a form button
+    their words, not their markup."""
+
+    if not document:
+        return ""
+    lines: list[str] = []
+
+    def walk(node: dict) -> None:
+        kind = node["type"]
+        content = node.get("content") or []
+        if kind == "doc":
+            for child in content:
+                walk(child)
+            return
+        if kind == "paragraph":
+            lines.append(_inline_text(content))
+        elif kind == "heading":
+            lines.append(_inline_text(content))
+        elif kind in ("bulletList", "orderedList"):
+            # An ordered list numbers from her start (option 1, #1699): the
+            # chatbot reads what the author wrote — "5." stays "5.", not a
+            # bare dash that could be any list.
+            number = (node.get("attrs") or {}).get("start") if kind == "orderedList" else None
+            for item in content:
+                # An item holds blocks, not only inlines: a nested list (or a
+                # paragraph after her) lost her words when only the inline
+                # parts were read (review B2, #1770). Blocks walk in order;
+                # an inline-only item keeps her one line.
+                for b in item.get("content") or []:
+                    if b.get("type") in ("bulletList", "orderedList", "table", "figure"):
+                        walk(b)
+                    else:
+                        words = _inline_text(b.get("content") or [])
+                        if number is None:
+                            lines.append(f"- {words}")
+                        else:
+                            lines.append(f"{number}. {words}")
+                            number += 1
+        elif kind == "table":
+            for row in content:
+                cells = []
+                for cell in row.get("content") or []:
+                    words = " ".join(
+                        _inline_text(p.get("content") or []) for p in cell.get("content") or []
+                    )
+                    cells.append(words)
+                lines.append(" | ".join(cells))
+        elif kind == "figure":
+            alt = (node.get("attrs") or {}).get("alt") or ""
+            if alt:
+                lines.append(alt)
+        elif kind in ("columns", "column"):
+            for child in content:
+                walk(child)
+        elif kind == "callout":
+            # Her words are content, not attributes (the review's B3: read
+            # from where they stand, never silently dropped).
+            words = _inline_text(content)
+            if words:
+                lines.append(words)
+        elif kind in ("button", "card", "cards"):
+            attrs = node.get("attrs") or {}
+            words = " ".join(
+                str(attrs.get(k, "")) for k in ("label", "title", "line") if attrs.get(k)
+            )
+            if words:
+                lines.append(words)
+            for child in content:
+                walk(child)
+
+    def _inline_text(nodes: list) -> str:
+        words = []
+        for node in nodes:
+            kind = node["type"]
+            if kind == "text":
+                words.append(unescape(node.get("text", "")))
+            elif kind == "hardBreak":
+                words.append(" ")
+            elif kind == "value":
+                words.append(unescape(_values().get(node.get("attrs", {}).get("code", ""), "")))
+        # A word split over two marks ("wo" + "rd", each bold) is one word:
+        # joining with a space made "wo rd" of her (review B2, #1770). The
+        # spaces the author typed sit IN her text nodes; a hardBreak is the
+        # only inline that stands for a break of her own.
+        text = "".join(words)
+        for code, value in _values().items():
+            text = text.replace(f"{{{{{code}}}}}", value)
+        return text.strip()
+
+    walk(document)
+    text = "\n\n".join(line for line in lines if line.strip())
+    # The same substitutions the site carries, as their words (#1615's rule:
+    # a placeholder is shown in WORDS, never its markup).
+    text = _SITES.sub(lambda m: sites_in_words(m.group(1), db), text)
+    return _FORM.sub(lambda m: unescape(m.group(2) or "").strip() or m.group(1), text)

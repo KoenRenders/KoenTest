@@ -54,7 +54,7 @@ class Scripted:
         self.answers = list(answers)
         self.asked: list[str] = []
 
-    def complete(self, messages, tools=None, tool_choice=None):
+    def complete(self, messages, tools=None, tool_choice=None, json_answer=False):
         self.asked.append(json.dumps(messages, ensure_ascii=False))
         return AssistantMessage(
             content=self.answers.pop(0) if self.answers else json.dumps({"unsupported": []})

@@ -56,6 +56,7 @@ class LLMProvider(ABC):
         messages: list[dict[str, Any]],
         tools: Optional[list[dict[str, Any]]] = None,
         tool_choice: Optional[str] = None,
+        json_answer: bool = False,
     ) -> AssistantMessage:
         """Vraag het model om één antwoord op de gespreksgeschiedenis.
 
@@ -63,5 +64,11 @@ class LLMProvider(ABC):
         assistant/tool). ``tools`` is de lijst function-tool-specs of None.
         ``tool_choice`` forceert het tool-gedrag ('any' = verplicht een tool
         kiezen, 'auto' = model beslist); None → 'auto' wanneer er tools zijn.
+
+        ``json_answer`` (#1968) asks for the answer as one JSON object, through
+        the provider's own setting where it has one — the one place a fixed
+        shape is asked for; the callers reach it through
+        ``chatbot.answers.json_answer``. Asked only on a call without tools:
+        whether a provider takes both in one call is not measured.
         """
         raise NotImplementedError

@@ -1,0 +1,49 @@
+{% import "_macros.html" as ui %}
+{# The record head of the page screen (snede 3, #1671), as her own partial —
+   the kit's rule (§3.9): a head partial hands `ui.record_header` her actions
+   as data and draws no control beside her (the gate reads every partial that
+   calls the macro). The way back is the head's own `back` — this partial is
+   the whole of #main when a refused save swaps her back in, so the way back
+   travels with her.
+
+   The actions are the assignment's: Voorbeeld opens the draft as the visitor
+   will see her (a new tab, #554), Publiceren makes her live (one history row,
+   one transaction); Geschiedenis stands beside the form in _cp_record, and
+   Verwijderen lives in the record form's action bar (#1561's edit mode). #}
+{# Offline halen (Koen, 8 October 2026, decision 1a on #1734): only a
+   live page can leave the site; she keeps everything. Not a delete, so
+   her own confirm text (§2.12). #}
+{# The badge reads the FLAG — the one source of "is she live": the public
+   route opens on her (#1734's review B3, resolved where the offline action
+   forced the question: the list already read the flag, the record now does
+   too). #}
+{#- The publish action: her route always, and — while the page still runs
+    on her stored HTML (review A4, #1770) — a confirmation, for the same
+    reason the record actions carry theirs: the old text does not come
+    back once the draft replaces her. The confirm travels as DATA (the
+    macro's own door), never as an attribute string. -#}
+{#- `hx-target="#main"`: a refusal answers with the record fragment, and
+    the fragment belongs in #main — without her the swap lands inside the
+    pressed button (the third read's defect, #1770). The save form does
+    the same. -#}
+{%- set publiceren = {"label": _("Publiceren"), "attrs": 'hx-post="/admin/paginas/' ~ p.id ~ '/publiceren" hx-target="#main" hx-swap="innerHTML"'} %}
+{%- if live_via_oude_tekst|default(False) %}
+{%- set publiceren = {"label": _("Publiceren"), "attrs": 'hx-post="/admin/paginas/' ~ p.id ~ '/publiceren" hx-target="#main" hx-swap="innerHTML"',
+                      "confirm": _("Deze pagina loopt nu nog op haar oude tekst. Publiceren zet het concept live en de oude tekst bestaat dan niet meer — vergelijk het concept eerst met de live pagina (Voorbeeld).")} %}
+{%- endif %}
+{{ ui.record_header(
+    p.title,
+    badges=([{"label": _("Gepubliceerd"), "tone": "green"}] if p.is_published else [{"label": _("Concept"), "tone": "gray"}])
+            + ([{"label": _("Concept gewijzigd"), "tone": "blue"}] if wijzigend else []),
+    facts=[{"kind": "reference", "text": "/" ~ p.slug, "href": "/" ~ p.slug}],
+    primary=(publiceren if vertaling and vertaling.draft_json is not none else None),
+    actions=([
+      {"kind": "record", "verb": "state", "label": _("Offline halen"),
+       "confirm": _("Deze pagina van de site halen? De pagina zelf en haar concept blijven staan."),
+       "attrs": 'hx-post="/admin/paginas/' ~ p.id ~ '/offline-halen"'},
+    ] if p.is_published else [])
+    + [
+      {"kind": "tool", "label": _("Voorbeeld"),
+       "href": "/admin/paginas/" ~ p.id ~ "/voorbeeld", "target": "_blank"},
+    ],
+    back={"href": "/admin/paginas", "label": _("Pagina's")}) }}

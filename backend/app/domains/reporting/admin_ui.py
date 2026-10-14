@@ -1103,6 +1103,7 @@ async def _ask(request: Request, db: Session, email: str, *, scope: Optional[Sco
     from app.domains.chatbot.api import (
         ChatTimeout,
         GuardedProvider,
+        Part,
         QuestionRefused,
         SeamBlocked,
         admin_chat_char_budget,
@@ -1114,6 +1115,7 @@ async def _ask(request: Request, db: Session, email: str, *, scope: Optional[Sco
     )
     from app.domains.reporting.assistant import (
         CAPABILITY,
+        LABEL_TOOLS,
         SCAN_PROMPT_NAMES,
         build_system_prompt,
         detokenise,
@@ -1163,7 +1165,21 @@ async def _ask(request: Request, db: Session, email: str, *, scope: Optional[Sco
     provider = GuardedProvider(
         get_provider(settings.admin_chat_model),
         admin_rules(
-            lambda: scan_names(db), capability=CAPABILITY, scan_prompt_names=SCAN_PROMPT_NAMES
+            lambda: scan_names(db),
+            capability=CAPABILITY,
+            scan_prompt_names=SCAN_PROMPT_NAMES,
+            label_tools=LABEL_TOOLS,
+            # #1969 (Koen, 13 October 2026: "2a"): the guard stays strict on a
+            # report's values; the refusal says that the result was held back,
+            # that the question was fine, and where the report is built by hand.
+            tool=Part(
+                where="het resultaat van het rapport",
+                advice=_(
+                    "Je vraag zelf was in orde: je kan hetzelfde rapport met de hand "
+                    "samenstellen in Rapporten."
+                ),
+                link=("/admin/rapporten", _("Naar Rapporten")),
+            ),
         ),
         sink_for(email),
     )
@@ -1191,6 +1207,7 @@ async def _ask(request: Request, db: Session, email: str, *, scope: Optional[Sco
                 vraag=vraag,
                 antwoord="",
                 error=str(gestopt),
+                error_link=getattr(gestopt, "link", None),
                 payload=_last_payload(provider),
                 history=_history_out(turns),
             ).as_context(),

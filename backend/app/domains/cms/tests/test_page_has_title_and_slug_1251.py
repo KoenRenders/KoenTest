@@ -97,7 +97,12 @@ def test_the_editor_keeps_a_title_that_is_sent_empty_as_before(client, db_sessio
         f"/admin/paginas/{page.id}", data={"title": "", "slug": "", "content": ""}, headers=headers
     )
 
-    assert answer.status_code == 200, answer.text
+    # CR-17 (#1671, slice 3): the editor's save is the record page's own save —
+    # she answers 204 with an HX-Redirect (pinned by the review on #1734), where
+    # master's Trix screen re-rendered with 200. The rule this file pins is
+    # unchanged: empty fields are left out and the page keeps what she had.
+    assert answer.status_code == 204, answer.text
+    assert answer.headers["HX-Redirect"].startswith(f"/admin/paginas/{page.id}")
     db_session.expire_all()
     assert (page.title, page.slug) == ("Over ons", "over-ons")
 

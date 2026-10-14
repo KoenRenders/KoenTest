@@ -115,18 +115,33 @@ def test_editing_the_platform_home_in_paginas_changes_it(platform_workspace, db_
     client.cookies.set(SESSION_COOKIE, session)
     home = _pages(db_session, _platform(db_session).id)["start"]
 
+    # CR-17 (#1671): the screen saves a DOCUMENT and publishing makes her
+    # live — the editor's emission, the adapter's input, the same flow an
+    # author drives. A `{{tenants}}` code stays TEXT in the document.
+    import json
+
+    from app.domains.cms.parse import parse_html
+
+    document = parse_html(
+        "<p>Welkom op ons platform, in eigen woorden.</p><p>{{tenants}}</p>", on_page=True
+    )
+    assert document is not None, "the test's content does not convert"
     saved = client.post(
         f"/admin/paginas/{home.id}",
         data={
             "title": home.title,
             "slug": "start",
-            "content": "<p>Welkom op ons platform, in eigen woorden.</p><p>{{tenants}}</p>",
-            "is_published": "1",
+            "document": json.dumps(document),
             "is_home": "1",
         },
         headers={"X-CSRF-Token": csrf_token_for(session), "HX-Request": "true"},
     )
-    assert saved.status_code == 200, saved.text[-400:]
+    assert saved.status_code == 204, saved.text[-400:]
+    published = client.post(
+        f"/admin/paginas/{home.id}/publiceren",
+        headers={"X-CSRF-Token": csrf_token_for(session), "HX-Request": "true"},
+    )
+    assert published.status_code == 204, published.text[-400:]
     client.cookies.clear()
     html = client.get("/").text
     assert "Welkom op ons platform, in eigen woorden." in html

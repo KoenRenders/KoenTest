@@ -51,7 +51,6 @@ a second thing to build, and the form shows what was taken.
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 from dataclasses import dataclass, field
@@ -275,18 +274,16 @@ def _every_word_stands_in(value: str, sources: str) -> bool:
     return bool(words) and all(word in known for word in words)
 
 
-def _parse_json(text: str) -> dict[str, Any]:
-    start, end = (text or "").find("{"), (text or "").rfind("}")
-    unusable = _("Raakje gaf geen bruikbaar voorstel. Probeer het opnieuw.")
-    if start < 0 or end <= start:
-        raise ProposerError(unusable)
+def _json_answer(provider: Any, messages: list[dict[str, Any]]) -> dict[str, Any]:
+    """Raakje's answer as a JSON object, by the kernel's one rule (#1968): asked
+    for as JSON, retried once, logged without content. The second failure is
+    this screen's sentence."""
+    from app.domains.chatbot.api import UnusableAnswer, json_answer
+
     try:
-        data = json.loads(text[start : end + 1])
-    except json.JSONDecodeError as exc:
-        raise ProposerError(unusable) from exc
-    if not isinstance(data, dict):
-        raise ProposerError(unusable)
-    return data
+        return json_answer(provider, messages)
+    except UnusableAnswer as exc:
+        raise ProposerError(_("Raakje gaf geen bruikbaar voorstel. Probeer het opnieuw.")) from exc
 
 
 def _text(data: dict[str, Any], key: str, limit: int) -> str:
@@ -677,7 +674,8 @@ def _verify(
     before Toepassen. The `claim` the verification names is shown with its
     reason; it does not decide."""
     listing = "\n".join(f"{i}. {scrub(s, names)}" for i, s in enumerate(sentences, 1))
-    reply = provider.complete(
+    data = _json_answer(
+        provider,
         [
             {"role": "system", "content": VERIFY_PROMPT},
             {
@@ -685,10 +683,9 @@ def _verify(
                 "content": f"{sources_message}\n\nOMSCHRIJVING (zinnen genummerd)\n{listing}",
             },
         ],
-        tools=None,
     )
     found: dict[int, str] = {}
-    for item in _parse_json(reply.content or "").get("unsupported") or []:
+    for item in data.get("unsupported") or []:
         if not isinstance(item, dict):
             continue
         try:
@@ -706,11 +703,12 @@ def _verify(
     return found
 
 
-def _provider(db: Session, actor: str) -> Any:
+def _provider(db: Session, actor: str, record: str = "") -> Any:
     from app.config import settings
     from app.domains.chatbot.api import (
         AiCapability,
         GuardedProvider,
+        Part,
         admin_rules,
         get_provider,
         sink_for,
@@ -726,6 +724,19 @@ def _provider(db: Session, actor: str) -> Any:
             lambda: person_name_parts(db),
             capability=AiCapability.ACTIVITY_DRAFTING,
             scan_prompt_names=SCAN_PROMPT_NAMES,
+            # #1969: a refusal says whether the hit stands in the fiche or in
+            # the question; what is not the fiche is placed by its role.
+            parts=lambda: (
+                [
+                    Part(
+                        where="de fiche van de activiteit",
+                        text=record,
+                        advice="Haal dat gegeven even uit de fiche.",
+                    )
+                ]
+                if record
+                else []
+            ),
         ),
         sink_for(actor),
     )
@@ -759,8 +770,9 @@ def propose(
     activity = standing or standing_of(stored)
     record = scrub(record_text(activity), names)
     sources = f"FICHE\n{record}\n\nVRAAG\n{asked}"
-    provider = _provider(db, actor)
-    answer = provider.complete(
+    provider = _provider(db, actor, record)
+    data = _json_answer(
+        provider,
         [
             {"role": "system", "content": SYSTEM_PROMPT},
             {
@@ -768,9 +780,7 @@ def propose(
                 "content": f"VANDAAG: {today.isoformat()} ({long_date(today)})\n\n{sources}",
             },
         ],
-        tools=None,
     )
-    data = _parse_json(answer.content or "")
     proposal = Proposal(reply=_text(data, "reply", REPLY_MAX))
 
     name = _text(data, "name", NAME_MAX)

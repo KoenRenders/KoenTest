@@ -745,6 +745,11 @@ TOOL_SPECS: list[dict[str, Any]] = [
 
 ALLOWED_TOOLS = {spec["function"]["name"] for spec in TOOL_SPECS}
 
+#: #1986: the result of each of these tools is declared with labels (#1154): its
+#: keys and its `key` and `name` fields come from `universe.py`, so the guard
+#: reads them as labels — only for these tools.
+LABEL_TOOLS = frozenset(ALLOWED_TOOLS)
+
 
 def _check_exposure(keys: list[str]) -> str:
     """The phase-1 fence. Returns the refusal text, or an empty string."""
