@@ -86,11 +86,13 @@ def _sweep_sources(db: Session) -> list[dict]:
     """De taak-kandidaten van de 4 sweep-bronnen (behartigen is event-gedreven)."""
     from app.domains.mail.api import EmailLog, MailStatus
     from app.domains.payment.api import (
+        PAYABLE_TYPE,
         GatewayPayment,
         PaymentRecord,
         PaymentStatus,
         PaymentType,
     )
+    from app.kernel.codes import code_label
     from app.kernel.jobs import JobStatus, KernelJob
 
     kandidaten: list[dict] = []
@@ -103,10 +105,14 @@ def _sweep_sources(db: Session) -> list[dict]:
         )
         .all()
     ):
+        # #1991: the payment in words — the payable's label from payment's own
+        # code list ("Lidmaatschap" → "lidmaatschap"), with its number. The
+        # record's id says nothing to the treasurer; it stays the subject.
+        wat = code_label(PAYABLE_TYPE.name, r.payable_type)
         kandidaten.append(
             dict(
                 kind=PAYMENT_CONFIRM_REFUND,
-                title=f"Refund {r.id} bevestigen ({r.payable_type.value} #{r.payable_id})",
+                title=f"Terugbetaling {wat[:1].lower()}{wat[1:]} #{r.payable_id} bevestigen",
                 # #704: het record-id, niet het payable — `subject_type` zegt
                 # "payment_record" en de waarde hoort dat te zijn.
                 subject_type="payment_record",
@@ -206,8 +212,25 @@ def sweep(db: Session, payload: dict) -> None:
 
     if settings.workbench_enabled:
         open_taken = api.open_tasks(db, ["ADMIN", "FINANCE"])
-        bestaande = {t.title for t in open_taken}
         kandidaten = _sweep_sources(db)
+        # #1991: an open task of the sweep's own kinds whose cause is still
+        # there, under a title that was built otherwise when it was made, gets
+        # the title its cause has now — the same task, its history kept. Found
+        # by kind and subject; without this the title check below would close
+        # it as if its cause were gone and open a new one beside it.
+        nu = {(k["kind"], k["subject_type"], k["subject_id"]): k["title"] for k in kandidaten}
+        hertiteld = False
+        for taak in open_taken:
+            onderwerp = getattr(taak.subject_type, "value", taak.subject_type)
+            titel = nu.get((taak.kind, onderwerp, taak.subject_id))
+            if taak.kind in SWEEP_SOORTEN and titel is not None and taak.title != titel:
+                # Kind and id only: a title can hold an address (a failed mail).
+                logger.warning("werkbank-sweep: nieuwe titel — %s #%s", taak.kind, taak.id)
+                taak.title = titel
+                hertiteld = True
+        if hertiteld:
+            db.flush()
+        bestaande = {t.title for t in open_taken}
         for kandidaat in kandidaten:
             if kandidaat["title"] in bestaande:
                 continue
