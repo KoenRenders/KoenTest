@@ -31,7 +31,7 @@
                      tag=({"label": _("wacht op bevestiging"), "tone": "yellow"} if m.pending and edit else None),
                      one={"chosen": m.primary and not m.pending, "tag": _("hoofdadres"), "make": _("Maak hoofdadres"),
                           "removable": True, "choosable": not m.pending}) %}
-  {{ ui.field("e." ~ m.key ~ ".value", _("E-mail"), kind="email", value=m.value, edit=edit,
+  {{ ui.field("e." ~ m.key ~ ".value", attribute="mdm.contact_detail.email", kind="email", value=m.value, edit=edit,
               id="e-" ~ m.key ~ "-value", required=required, label_hidden=True) }}
 {% endcall %}
 {%- endmacro %}
@@ -51,18 +51,18 @@
    person in a household and not of an account alone (`group.details_required`;
    CR-22 R17 as corrected on 10 October 2026). #}
 {% macro person_fields(group, p) -%}
-{{ ui.field("h." ~ p.key ~ ".first_name", _("Voornaam"), value=p.first_name, edit=True, required=True,
+{{ ui.field("h." ~ p.key ~ ".first_name", attribute="mdm.person.first_name", value=p.first_name, edit=True, required=True,
             id="h-" ~ p.key ~ "-first_name", attrs='data-row-title-source autocomplete=given-name maxlength=' ~ '"' ~ group.name_max ~ '"') }}
-{{ ui.field("h." ~ p.key ~ ".last_name", _("Achternaam"), value=p.last_name, edit=True, required=True,
+{{ ui.field("h." ~ p.key ~ ".last_name", attribute="mdm.person.last_name", value=p.last_name, edit=True, required=True,
             id="h-" ~ p.key ~ "-last_name", attrs='data-row-title-source autocomplete=family-name maxlength=' ~ '"' ~ group.name_max ~ '"') }}
-{{ ui.field("h." ~ p.key ~ ".date_of_birth", _("Geboortedatum"), kind="date", value=p.date_of_birth,
+{{ ui.field("h." ~ p.key ~ ".date_of_birth", attribute="mdm.person.date_of_birth", kind="date", value=p.date_of_birth,
             edit=True, required=group.details_required, id="h-" ~ p.key ~ "-date_of_birth") }}
-{{ ui.field("h." ~ p.key ~ ".gender_code", _("Geslacht"), kind="select", value=p.gender_code, edit=True,
+{{ ui.field("h." ~ p.key ~ ".gender_code", attribute="mdm.person.gender_code", kind="select", value=p.gender_code, edit=True,
             required=group.details_required, options=[("", _("— kies —"))] + group.gender_options|list,
             id="h-" ~ p.key ~ "-gender_code") }}
-{{ ui.field("h." ~ p.key ~ ".mobile", _("Mobiel"), kind="phone", value=p.mobile, edit=True,
+{{ ui.field("h." ~ p.key ~ ".mobile", attribute="mdm.contact_detail.mobile", kind="phone", value=p.mobile, edit=True,
             required=(group.contact_required and p.is_main), id="h-" ~ p.key ~ "-mobile") }}
-{{ ui.field("h." ~ p.key ~ ".phone", _("Telefoon"), kind="phone", value=p.phone, edit=True,
+{{ ui.field("h." ~ p.key ~ ".phone", attribute="mdm.contact_detail.phone", kind="phone", value=p.phone, edit=True,
             id="h-" ~ p.key ~ "-phone") }}
 {%- endmacro %}
 

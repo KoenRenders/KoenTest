@@ -809,13 +809,17 @@
 {% set _field_full = ["url", "email", "textarea", "upload", "checkbox_group", "radio_group", "tiles"] %}
 {% set _field_quarter_ok = ["number", "date", "time", "select", "switch", "text", "color"] %}
 {% set _field_control = "block w-full min-w-0 h-11 md:h-10 rounded-md border bg-surface px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-[3px] focus-visible:ring-focus disabled:bg-surface-2 disabled:text-ink-soft disabled:cursor-not-allowed" %}
-{% macro field(name, label, kind="text", value="", edit=True, span=None, long=False, required=False,
+{% macro field(name, label=None, kind="text", value="", edit=True, span=None, long=False, required=False,
                help=None, error=None, placeholder="", unit=None, options=[], id=None, attrs="",
                rows=3, form=None, accept="image/*,application/pdf", current_url=None,
                current_label=None, delete_attrs="", delete_confirm=None, disabled=False,
                display=None, help_in_read=False, preview_url=None, delete_name=None,
                beside_field=False, help_lines=False, label_hidden=False,
-               fallback=None, fallback_note=None, beside_switch=False, unavailable={}) -%}
+               fallback=None, fallback_note=None, beside_switch=False, unavailable={},
+               attribute=None) -%}
+{#- CR-33: `attribute=` reads the label from the register (`kernel/attributes.py`); a typed
+    `label` stays for a field that is no datum (a search box). Both at once is refused. -#}
+{%- set label = attribute_label(attribute, label) -%}
 {%- set _id = id or name -%}
 {%- if fallback and not placeholder -%}{%- set placeholder = fallback -%}{%- endif -%}
 {%- if kind == "email" and beside_switch -%}{%- set _span = "half" -%}

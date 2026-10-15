@@ -73,15 +73,30 @@ def convert_notes(bind) -> int:
             "WHERE notes IS NOT NULL AND btrim(notes) <> ''"
         )
     ).fetchall()
+
+    def has_words(node) -> bool:
+        if isinstance(node, dict):
+            if str(node.get("text", "")).strip():
+                return True
+            return any(has_words(child) for child in node.get("content") or [])
+        return False
+
+    written = 0
     for item_id, notes in rows:
+        document = document_from_trix(notes)
+        # A point that says nothing (`<div><br></div>`) stores nothing, as the save
+        # of the new editor does for a blank one (#2038 review B2).
+        if not has_words(document):
+            continue
         bind.execute(
             sa.text(
                 "UPDATE meetings.meeting_items SET notes_document = CAST(:d AS JSONB) WHERE id = :i"
             ),
-            {"d": json.dumps(document_from_trix(notes)), "i": item_id},
+            {"d": json.dumps(document), "i": item_id},
         )
+        written += 1
     bind.execute(sa.text("ALTER TABLE meetings.meeting_items DROP COLUMN notes"))
-    return len(rows)
+    return written
 
 
 def upgrade() -> None:

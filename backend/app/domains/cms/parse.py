@@ -214,6 +214,20 @@ class _Builder:
             return items[-1]["content"]
         return self.blocks
 
+    def _end_item_words(self) -> None:
+        """A list nested in an item: the break that ends the item's own words
+        (`<li>twee<br><ul>`) is not a line the author typed — the nested list
+        starts on its own line anyway — so it goes. Without this the break stood
+        as an empty line before the sub-list, and the renderer's own line between
+        an item's blocks added one more on every round trip (#2038 review A2)."""
+        if not self.open or self.open[-1][0] == "blockquote" or not self.open[-1][1]:
+            return
+        content = self.open[-1][1][-1]["content"]
+        if content and content[-1].get("type") == "paragraph":
+            words = content[-1]["content"]
+            while words and words[-1].get("type") == "hardBreak":
+                words.pop()
+
     def _open_paragraph(self) -> None:
         self.flush_inline()
         paragraph: dict[str, Any] = {"type": "paragraph", "content": []}
@@ -259,6 +273,8 @@ class _Builder:
             # loose words here, closed off as her paragraph where she ends.
             self.inline = []
             self.in_text_block = False
+            if tag != "blockquote":
+                self._end_item_words()
             self.open.append((tag, []))
         elif tag == "li":
             if not self.open or self.open[-1][0] == "blockquote":
