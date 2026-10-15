@@ -47,9 +47,16 @@ def make_home_pages(bind) -> tuple[list[int], list[int]]:
     tenants it made a page for and the ones it left alone."""
     from app.domains.cms.home_page import home_document
 
+    # Every association (kind VERENIGING), also one without a single page yet, and
+    # every other tenant that has pages (a company, the platform): each needs a home.
     tenants = [
         row[0]
-        for row in bind.execute(sa.text("SELECT DISTINCT tenant_id FROM cms.cms_pages")).fetchall()
+        for row in bind.execute(
+            sa.text(
+                "SELECT id FROM mdm.organizations WHERE kind = 'VERENIGING' "
+                "UNION SELECT DISTINCT tenant_id FROM cms.cms_pages ORDER BY 1"
+            )
+        ).fetchall()
     ]
     made, skipped = [], []
     for tenant_id in tenants:
@@ -90,7 +97,22 @@ def make_home_pages(bind) -> tuple[list[int], list[int]]:
             ),
             {"t": tenant_id},
         ).first()
-        language = (intro[1] if intro and intro[1] else None) or "nl"
+        # The tenant's own language, as the seed takes it (`cms.service._language`):
+        # the setting's language part when `mdm.language_codes` knows it, else `nl`.
+        setting = bind.execute(
+            sa.text(
+                "SELECT value FROM kernel_tenant_settings "
+                "WHERE tenant_id = :t AND key = 'language' AND coalesce(btrim(value), '') <> ''"
+            ),
+            {"t": tenant_id},
+        ).scalar()
+        wanted = (setting or "nl_BE").strip().replace("-", "_").split("_")[0]
+        language = (
+            bind.execute(
+                sa.text("SELECT code FROM mdm.language_codes WHERE code = :c"), {"c": wanted}
+            ).scalar()
+            or "nl"
+        )
         intro_blocks = list((intro[2] or {}).get("content") or []) if intro else []
         document = home_document(
             intro_blocks,
@@ -123,16 +145,12 @@ def make_home_pages(bind) -> tuple[list[int], list[int]]:
             ).bindparams(sa.bindparam("doc", type_=JSONB)),
             {"p": page_id, "lang": language, "doc": document},
         )
-        # The intro's text lives in the page now; the block is not a site block any
-        # more and must not be served at an address of its own.
-        bind.execute(
-            sa.text(
-                "UPDATE cms.cms_pages SET is_published = false "
-                "WHERE tenant_id = :t AND slug = 'home-intro'"
-            ),
-            {"t": tenant_id},
-        )
         made.append(tenant_id)
+    # `home-intro` is no site block any more and must not be served at an address
+    # of its own — made INVISIBLE FOR EVERY TENANT, also one that kept the home page
+    # it had (a company, the platform) or that could not take a slug: its row stays,
+    # not published, and it never reaches `/home-intro` or the sitemap.
+    bind.execute(sa.text("UPDATE cms.cms_pages SET is_published = false WHERE slug = 'home-intro'"))
     return made, skipped
 
 
