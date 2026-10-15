@@ -4,7 +4,7 @@
 **Status:** shaped with Koen on 15 October 2026, reshaped the same day from per-person to anonymous · not assigned to a release; open decisions in B8
 **Tracking issue:** #2027 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (rendering of a letter, a public pixel and redirect route, the send screen, the archive of sent letters)
-**Reading:** A 801 words · B 1 108 · C 1 557 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 914 words · B 1 264 · C 1 515 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -43,7 +43,7 @@ flowchart LR
 ```mermaid
 flowchart LR
   subgraph author["Board member (author)"]
-    b1[Send the letter, measuring on]:::tool
+    b1[Send the letter]:::tool
     b2[Open the result in the archive]:::tool
     b3[Compare the letters]:::tool
     s([Next letter written with that knowledge]):::done
@@ -68,10 +68,10 @@ flowchart LR
 *What to see:* the reader does nothing new; the platform counts, and nobody is named.
 
 What it says on the screen (Dutch):
-- on the send screen, a choice **Meten hoeveel mensen deze brief openen en op welke links ze klikken**
 - on a sent letter in the archive, a block **Resultaat**: *Verstuurd*, *Geopend (indicatie)* with a percentage, *Geklikt (indicatie)* with a percentage, and a list **Links**: each link with the number of people who clicked it
 - in the archive list, per letter: subject, number of links, percentage opened, percentage clicked, so letters can be compared
-- on each measured letter, in the footer and in the plain-text part, one line: *Wij tellen anoniem hoeveel brieven geopend en hoeveel links aangeklikt worden.*
+- on every letter, in the footer and in the plain-text part, one line: *Wij tellen anoniem hoeveel brieven geopend en hoeveel links aangeklikt worden.*
+- in the privacy statement, a section on the newsletter that says what is counted and what is not (proposed text under A5)
 
 ## A4. Benefits — what the change earns
 
@@ -84,6 +84,8 @@ What it says on the screen (Dutch):
 
 Koen's dictation of 15 October 2026. What it taught us from the code: the portal sends one mail per recipient (CR-05 §3.7), so a code per mail is possible without a campaign service. Reporting need: the result block and the archive list of A3, no export.
 
+Proposed text for the privacy statement, to be approved by Koen: *Bij de nieuwsbrief tellen we hoeveel brieven geopend worden en hoe vaak een link wordt aangeklikt. Dat gebeurt anoniem: we houden niet bij wie een brief las, wie op welke link klikte of wanneer. Een uitgeschreven adres krijgt geen nieuwsbrief meer.* (The last sentence only if it stays true after CR-36.)
+
 ## A6. Business requirements — what the board asks, with MoSCoW
 
 | # | Requirement | MoSCoW | Source | Comment |
@@ -91,11 +93,11 @@ Koen's dictation of 15 October 2026. What it taught us from the code: the portal
 | R1 | See, per sent letter, how many people opened it | Must | Koen, 15 Oct 2026 | anonymous |
 | R2 | See, per link of a letter, how many people clicked it | Must | Koen, 15 Oct 2026 | anonymous |
 | R3 | Compare letters in the archive list | Should | Koen, 15 Oct 2026 | "analyses naar doen, zodat we dat kunnen verbeteren" |
-| R4 | The sender decides, per letter, whether it is measured | Must | Koen, 15 Oct 2026 | "De verzender kan wel beslissen niet te meten." |
-| R5 | Tell the reader that the letter is counted, anonymously | Should | my reading of the GDPR; Q1 | |
+| R4 | Every letter is counted, always; there is no switch for the sender and no button for the reader | Must | Koen, 15 Oct 2026 | "We meten altijd. Het is toch anoniem." |
+| R5 | Tell the reader that the letters are counted, anonymously: a footer line, and the privacy statement says what is counted and what is not | Must | Koen, 15 Oct 2026 | the statement: "dat we niet trekken wie leest, wie op wat klikt"; the footer line is my proposal, Q1 |
 | R6 | The unsubscribe link is never counted or changed | Must | CR-05 §3.4, §3.7 | |
 | R7 | Who opened, who clicked what, and when | Won't | Koen, 15 Oct 2026 | "geen requirement" |
-| R8 | A button for the reader to refuse counting | Won't | Koen, 15 Oct 2026 | not for members, and with anonymous counting not for anyone |
+| R8 | A switch to not measure a letter, or a button for the reader to refuse counting | Won't | Koen, 15 Oct 2026 | not needed when counting is anonymous |
 | R9 | Export of the result | Won't | — | not asked |
 
 ## A7. Non-functional requirements — security, privacy, house style, tenants
@@ -105,19 +107,20 @@ Koen's dictation of 15 October 2026. What it taught us from the code: the portal
 | **Security** | the pixel and the redirect accept only a code the portal itself made; a link can only go to an address that stood in that letter |
 | **Privacy** | the portal keeps no link between a code and a person: the code lives in the mail only; no address, IP address or device is stored; whether this is anonymous in the legal sense and what the footer line must say is Q1 |
 | **House style** | result block and list from the kit; 390 px first; "Geopend" and "Geklikt" are labelled as an indication |
-| **Multi-tenant** | per tenant; the sender chooses per letter, no tenant setting |
+| **Multi-tenant** | per tenant; always on, no setting |
 
 ## A8. Acceptance criteria — what the business signs off on HDEV
 
 | # | Criterion | Requirement | Walkthrough steps |
 |---|---|---|---|
-| AC1 | After opening a measured test mail, the letter counts one opening | R1 | send to a made-up address, open it twice: still one |
+| AC1 | After opening a real mail sent to a made-up address, the letter counts one opening | R1 | send to a made-up address, open it twice: still one |
 | AC2 | After a click, that link counts one clicker | R2 | click a link twice: still one |
 | AC3 | The unsubscribe link still works and is not listed | R6 | use it |
-| AC4 | A letter sent without the tick has no pixel and no rewritten link | R4 | read the mail source |
-| AC5 | The footer line is there when the letter is measured, also in a member's letter | R5 | read the mail |
+| AC4 | A letter sent after the change carries the pixel and the rewritten links, members' letters included | R4 | read the mail source |
+| AC5 | The footer line is in every letter | R5 | read the mail |
 | AC6 | The archive list shows opened and clicked percentages per letter | R3 | open the archive |
 | AC7 | Nothing in the result names or identifies a person | R7 | read the result and the stored events |
+| AC8 | The privacy statement has the newsletter section | R5 | open the privacy page |
 
 ---
 
@@ -129,15 +132,15 @@ The portal counts itself, and does not know who. Each mail carries one **code** 
 
 Facts that shape the screen: an open is an **indication** (mail programs that load images in advance show an open that never happened, programs that block images hide a real one), and so is a click (a mail filter that tests links in advance clicks every link). The screen says *indicatie* on both.
 
-The rewriting works on the **letter as it is rendered**, after the activity blocks are expanded, so the links of an activity (*Schrijf je in!*, its title) are counted too and the design does not change when the newsletter moves to the page editor (#2023). Whether a letter is measured is the **sender's choice on the send screen**, made once when sending starts and kept on the letter. Four decisions: **self-built, no third party** (Europe First); **anonymous by construction**, not by promise; **the unsubscribe link and the preview and test mail are never counted**; **the results stay**, because they hold no personal data (Q3).
+The rewriting works on the **letter as it is rendered**, after the activity blocks are expanded, so the links of an activity (*Schrijf je in!*, its title) are counted too and the design does not change when the newsletter moves to the page editor (#2023). **Every letter is measured, always** (Koen, 15 October 2026): counting is anonymous, so there is no switch for the sender, no button for the reader and no second scenario to build and test. The privacy statement is updated to say what is counted and what is not (A5). Four decisions: **self-built, no third party** (Europe First); **anonymous by construction**, not by promise; **the unsubscribe link and the preview and test mail are never counted**; **the results stay**, because they hold no personal data (Q3).
 
 ## B2. Fit with the process and the requirements — for the business
 
-Covers R1–R6. Use: *Nieuwsbrief* → *Versturen* → tick *Meten* → send; later *Archief* → a sent letter → *Resultaat*, and the archive list to compare.
+Covers R1–R6. Use: *Nieuwsbrief* → *Versturen* → send; later *Archief* → a sent letter → *Resultaat*, and the archive list to compare.
 
 ## B3. The whole across the modules — for the architect
 
-Everything inside `newsletter`: the rendering (`render_mail`, `render_text`) rewrites links and adds the pixel when the letter is measured; two public routes, `/nieuwsbrief/o/<code>.gif` (the pixel) and `/nieuwsbrief/k/<code>/<link>` (the click); table `newsletter.letter_links` (per letter: id, url, filled the first time a link is rendered) and `newsletter.letter_events` (letter, code, kind, link, day; unique on letter, code, kind and link). One field on the letter, `measured`. Four entries in `newsletter.api` (record an open, record a click, look a link up, the results) because the screens may call only the facade. No other domain changes, and **no token on the delivery**: CR-36 (#2026) keeps its own.
+Everything inside `newsletter`: the rendering (`render_mail`, `render_text`) rewrites links and adds the pixel in every letter; two public routes, `/nieuwsbrief/o/<code>.gif` (the pixel) and `/nieuwsbrief/k/<code>/<link>` (the click); table `newsletter.letter_links` (per letter: id, url, filled the first time a link is rendered) and `newsletter.letter_events` (letter, code, kind, link, day; unique on letter, code, kind and link). Four entries in `newsletter.api` (record an open, record a click, look a link up, the results) because the screens may call only the facade. No other domain changes, and **no token on the delivery**: CR-36 (#2026) keeps its own.
 
 ## B3a. Standards the model follows — and where it deviates, on purpose
 
@@ -149,30 +152,30 @@ None. The two public routes name their callers in the CONTRACT (a mail client; a
 
 ## B5. Cost — investment and running cost, and what operations must know
 
-About 6 days (my estimate, to be set by the build read). Running cost: one small row per different code per open and per click, kept. Operations: a link in a measured letter points at the portal's address; if the portal is down, links of a sent letter fail until it is back — said in the CONTRACT. The signing secret is derived from the portal's existing secret; rotating that secret makes the codes of letters sent earlier unrecognisable, so their late opens and clicks are not counted.
+About 5 days (my estimate, to be set by the build read). Running cost: one small row per different code per open and per click, kept. Operations: a link in a letter points at the portal's address; if the portal is down, links of a sent letter fail until it is back — said in the CONTRACT. The signing secret is derived from the portal's existing secret; rotating that secret makes the codes of letters sent earlier unrecognisable, so their late opens and clicks are not counted.
 
 ## B6. Phasing — shippable phases, and what changes on the failure paths
 
 | Phase | Content | Days |
 |---|---|---|
-| 0 | codes, link store, rewrite on the rendered letter, pixel and click routes, the choice on the send screen; dark: nothing is rewritten unless the sender ticks it | 4 |
+| 0 | codes, link store, rewrite on the rendered letter, pixel and click routes, the footer line, the privacy statement section | 3 |
 | 1 | the result block and the archive list | 2 |
 
 Failure paths: a code that does not verify gives the 1×1 image for the pixel and a 404 for a link; a link that is gone from the store gives 404; a failed event write never blocks the redirect.
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
-A link in a letter that leaves through the portal goes through one function; a test fails when a mail of a measured letter carries an external address that is not in the link store. A second gate: the events table has no column that can hold an address, a delivery or an IP.
+A link in a letter that leaves through the portal goes through one function; a test fails when a mail carries an external address that is not in the link store. A second gate: the events table has no column that can hold an address, a delivery or an IP.
 
 ## B8. Open decisions — what the approver still decides
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
-| Q1 | Is counting codes that are not linked to a person enough that no consent is needed, with the footer line? The legal reading is unverified | yes, after the accountant or a privacy adviser agrees; the design cannot name a person, so the question is only about the footer line and the pixel | the wording of the footer line; at worst a tick at sign-up for later letters |
+| Q1 | Is counting codes that are not linked to a person enough that no consent is needed, with the footer line and the privacy statement? The legal reading is unverified | yes, after the accountant or a privacy adviser agrees; the design cannot name a person, so the question is only about the footer line and the pixel | the wording of the footer line; at worst a tick at sign-up for later letters |
 | Q2 | Is *indicatie* on opens and on clicks acceptable? | yes | nothing; the alternative is no figure at all |
 | Q3 | Keep the results (they are anonymous) or remove them after twelve months? | keep: there is no personal data and the comparison over years is the point | a purge at start-up if removed |
-| Q4 | Is *Meten* ticked on the send screen from the start, or does the sender tick it? | ticked: it is anonymous now, and a measure nobody ticks measures nothing | the default of one field |
-| Q5 | Who sees the result: everyone who may send a newsletter? | yes | the right on the screen |
+| Q4 | Who sees the result: everyone who may send a newsletter? | yes | the right on the screen |
+| Q5 | How does the privacy statement get its newsletter section: a data migration that appends it to the `privacy` page of every tenant that lacks it (as migration 061 did for the speech-input section), or Koen writes it in the page editor? | the migration, so every tenant has it from the release; the text of A5 once approved | the migration and its test, or nothing to build |
 
 ## B9. Decisions log — dated answers
 
@@ -180,8 +183,9 @@ A link in a letter that leaves through the portal goes through one function; a t
 |---|---|---|
 | 15 Oct 2026 | Requirements R1, R2 as written in A6 (dictation, not an answer to a question) | Koen |
 | 15 Oct 2026 | The content of the first, per-person version was in order: "Dan ben ik het ook eens met CR37. Voor mij is die ook in orde." (not an answer to the open questions, not an assignment; the document was then reshaped) | Koen |
-| 15 Oct 2026 | No *Niet meten* button for the reader; the sender decides per letter whether it is measured | Koen, to my explanation of the link *Niet meten*: "We gaan de nieuwsbrief naar leden niet uitbreiden met een knop \"niet meten\". De verzender kan wel beslissen niet te meten." |
+| 15 Oct 2026 | No *Niet meten* button for the reader; the sender decides per letter whether it is measured (superseded by the last row of this log) | Koen, to my explanation of the link *Niet meten*: "We gaan de nieuwsbrief naar leden niet uitbreiden met een knop \"niet meten\". De verzender kan wel beslissen niet te meten." |
 | 15 Oct 2026 | Anonymous counting; who read what and when is not a requirement | Koen, to my asking per person or counts: "Kunnen we anders niet gaan voor een oplossing dat we anoniem meten? [...] Maar ik vind persoonlijk ook dat puur trekken, welke persoon heeft gelezen, wanneer, wie heeft op welke knop geklikt, wanneer. Ik vind dat zelf ook een beetje creepy. Dus voor mij is dat geen requirement." |
+| 15 Oct 2026 | Every letter is measured, always: no switch for the sender, no button for the reader; the privacy statement is updated to say that who reads and who clicks is not tracked | Koen, to my asking whether *Meten* is ticked from the start: "Nu we toch anoniem meten, zou ik zelfs die optie om niet te meten verwijderen. Het is simpel. We meten altijd. Het is toch anoniem. Dan moeten we die verschillende scenario's ook niet testen. Die knop ook niet bouwen." and "herinneren we eraan dat we onze privacy clausule updaten. [...] dat we niet trekken wie leest, wie op wat klikt, dat dat duidelijk verwoord is." |
 
 ---
 
@@ -196,7 +200,6 @@ Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2
 | One mail per recipient | relies on | `send_batch`, `newsletter/service.py:1817` | holds | a code per rendered mail |
 | `render_mail` and `render_text` know the unsubscribe URL, not a code | changes | `service.py:1501, 1473`; call site `1868` | must change | both gain an optional `code`, default none |
 | The links of an activity block are made when the letter is rendered, not in the stored body | changes | `expand_blocks`, `service.py:1195–1230` | must change | rewrite on the rendered HTML; the link store fills on first use (C4.1) |
-| A letter is immutable once sending starts | relies on | `_refuse_unless_draft` | holds | `measured` is set once at start |
 | The letter's origin is `link_base` | relies on | `service.py:1515` | holds | pixel and redirect use it |
 | The public unsubscribe page shows on GET and acts on POST, without a rate limit | relies on | `newsletter/ui.py:118–147` | holds | the new routes need no per-IP limit (C4.2); the signing check refuses forged codes without a query |
 | The signup limiter is 5 calls per 60 seconds per IP | relies on | `limiter.py:125` | does not fit | proxies fetch hundreds of pixels from a few addresses; not used |
@@ -208,14 +211,15 @@ Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2
 
 ## C2. Per module: what must happen
 
-- **newsletter**: `newsletters.measured` (bool, the sender's choice on the send screen, fixed at `start_sending`); `letter_links` (tenant, letter, url, unique on letter and url); `letter_events` (tenant, letter, code, kind, link, day, unique on letter, code, kind, link); a function that makes a code (random number, signature over letter id and number, derived from the portal's secret with its own context) and one that verifies it; `render_mail` and `render_text` take an optional `code`; one rewrite function for the HTML and the text; the pixel at the end of the HTML only; the footer line in HTML and text; the two routes; `api.py`: `record_open`, `record_click`, `link_target`, `results_of`; the archive block and the list columns (subject, number of links, opened %, clicked %).
-- **templates**: the *Meten* choice on the send screen; the result block, the links list and the list columns in the archive.
+- **newsletter**: `letter_links` (tenant, letter, url, unique on letter and url); `letter_events` (tenant, letter, code, kind, link, day, unique on letter, code, kind, link); a function that makes a code (random number, signature over letter id and number, derived from the portal's secret with its own context) and one that verifies it; `render_mail` and `render_text` take an optional `code`; one rewrite function for the HTML and the text; the pixel at the end of the HTML only; the footer line in HTML and text; the two routes; `api.py`: `record_open`, `record_click`, `link_target`, `results_of`; the archive block and the list columns (subject, number of links, opened %, clicked %).
+- **cms**: the section of the privacy statement (Q5).
+- **templates**: the result block, the links list and the list columns in the archive.
 
 ## C3. Cross-cutting impact — the checklist of what gets forgotten
 
 - CR-33 attribute register: the events are about no person (*intern*, no personal attribute); the signing secret is a secret, not an attribute.
 - CONTRACT.md of `newsletter`: two public routes with their callers, the rewritten links, and that a link of a sent letter fails while the portal is down.
-- The privacy statement and the footer line (Q1).
+- The privacy statement (the `privacy` CMS page, tested by `cms/tests/test_cms_privacy.py`) and the footer line (Q1, Q5).
 - Alembic: one migration; head counted before the push.
 - The pixel route sends `Cache-Control: no-store`; Caddy's snippets do not touch `/nieuwsbrief` (not read in the shared parts).
 
@@ -229,7 +233,7 @@ Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2
 
 **C4.4 No time, no address.** An event keeps the day, not the time, so an event cannot be matched to the moment one mail left. The first-ten-seconds rule of the earlier version falls away with it: early clicks of link-testing filters count, and the figure says *indicatie*.
 
-**C4.5 The choice is made once.** On the send screen, kept on the letter at `start_sending` as `measured`. A letter in the middle of a send never changes shape, and the archive says which letters were measured.
+**C4.5 No switch.** Every letter is measured. There is no field on the letter, no setting and no screen element, so there is one path to build and to test.
 
 **C4.6 The numbers.** Opened % = different codes with an open ÷ mails sent (status sent) of that letter; clicked % likewise; per link the number of different codes. A letter sent twice to one reader (a resend of a failed delivery) counts the second mail as another code, a small and accepted overcount.
 
@@ -243,8 +247,8 @@ No IP, no user agent, no address, no delivery, no time of day. The signature use
 
 | # | Test |
 |---|---|
-| T1 | not measured: the mail is byte-identical to today (snapshot) |
-| T2 | measured: every external link of the rendered letter, an activity block's links included, goes through the portal; the unsubscribe link does not |
+| T1 | every real mail carries the pixel and rewritten links; the test mail and the preview do not (snapshot) |
+| T2 | every external link of the rendered letter, an activity block's links included, goes through the portal; the unsubscribe link does not |
 | T3 | a click forwards to the stored address and writes one event; a second click of the same code writes none |
 | T4 | a link id of another letter, or a code of another letter, gives 404 and writes nothing |
 | T5 | a code with a wrong signature gives the GIF and writes nothing, and runs no query |
@@ -253,24 +257,23 @@ No IP, no user agent, no address, no delivery, no time of day. The signature use
 | T8 | the test mail and the preview carry no pixel and no rewritten link |
 | T9 | a failing event write still redirects |
 | T10 | the plain-text part's URLs are rewritten, and carry the footer line |
-| T11 | the sender's choice is fixed at the start: changing it afterwards changes nothing for a running send |
-| T12 | a letter sent without the tick has no pixel, no rewritten link and no footer line, members' letters included |
-| T13 | a member's letter carries the footer line when measured |
+| T11 | after the privacy migration the `privacy` page has the newsletter section, and a second run adds nothing (if Q5 is the migration) |
+| T13 | a member's letter carries the footer line |
 | T14 | fifty pixel fetches of different codes from one address are all recorded |
 | T15 | a link that appears for the first time in the third batch gets a store row |
 | T16 | the archive list percentages equal the counts of the events |
 
 ## C7. The gate — what refuses a deviation from now on
 
-A gate (T2's form) that renders a measured letter with an external link in a block and in the body and fails when a link is not in `letter_links`; and T7's gate on the columns of `letter_events`; both proved by an additive violation (a link added to a block; a column added to the table).
+A gate (T2's form) that renders a letter with an external link in a block and in the body and fails when a link is not in `letter_links`; and T7's gate on the columns of `letter_events`; both proved by an additive violation (a link added to a block; a column added to the table).
 
 ## C8. Prototype findings — what was measured before the build
 
-Not yet taken: send a measured letter to three mail programs with made-up addresses and record which opens and clicks arrive; check the rewritten link with a URL as its visible text.
+Not yet taken: send a letter to three mail programs with made-up addresses and record which opens and clicks arrive; check the rewritten link with a URL as its visible text.
 
 ## C9. Screens before the build — the concepts the approver saw
 
-Not yet made: the *Meten* choice on the send screen, the result block with the links list, and the archive list with the percentage columns, at 390 px.
+Not yet made: the result block with the links list, and the archive list with the percentage columns, at 390 px.
 
 ## C10. Close-out at the release
 
@@ -288,4 +291,4 @@ Who opened or clicked; any profile of a person; an export; device or place stati
 
 ## Relationship to existing work — issues and change requests
 
-CR-05 (newsletter) is the base; CR-36 (mail to earlier participants, #2026) is independent and its letters are measured like any other; CR-33 (attribute register) gets the entries.
+CR-05 (newsletter) is the base; CR-36 (mail to earlier participants, #2026) is independent and its letters are counted like any other; CR-33 (attribute register) gets the entries.
