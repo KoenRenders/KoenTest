@@ -169,6 +169,7 @@ A letter's recipients are always a derived list with one precedence rule and one
 | 15 Oct 2026 | Requirement R1, R2, R4 as written in A6 (dictation, not an answer to a question) | Koen |
 | 15 Oct 2026 | R5 (Raakje suggests a past activity) leaves the scope: one phase | Koen: "haal die fase 2 op basis van een activiteit voorstellen, haal dat maar uit de scope, zodanig dat het een eenfasige change request wordt" |
 | 15 Oct 2026 | People already registered for the activity the letter advertises stay on the recipient list; no exclusion | Koen, to "moeten mensen die al voor de nieuwe activiteit ingeschreven zijn uit de ontvangerslijst vallen?": "Nee, dat is geen probleem. Als die mensen die nog een mail krijgen, ook al zijn ze al ingeschreven, dat is geen probleem." |
+| 15 Oct 2026 | The portal makes no link between the old activities of the audience and the activity the letter advertises; the author does that in the letter, with the insert helper that exists | Koen, to my explanation of the two kinds of activity: "Ik ben het ook met die redenering eens. [...] Het feit dat er geen link is tussen oud en nieuw, dat is helemaal aan de gebruiker om dat te doen." |
 
 ---
 
