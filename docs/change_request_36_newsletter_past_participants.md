@@ -4,7 +4,7 @@
 **Status:** shaped with Koen on 15 October 2026 · not assigned to a release; B8 answered
 **Tracking issue:** #2026 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (audience choice, recipient list, send screen, Raakje's sources), the activities facade (a read of registration addresses), the unsubscribe page
-**Reading:** A 759 words · B 1 822 · C 1 898 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 759 words · B 1 942 · C 1 977 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -249,6 +249,8 @@ About 6 days (my estimate; the build read of 15 October added a re-check at send
 |---|---|---|
 | 1 | audience, list of activities, recipient rule with the re-check at send, participant unsubscribe (a subscriber row) and resubscribe, send screen words, archive | 6 |
 
+**Order:** built after part 7b of #2023 (the letter on the page editor): both touch `service.py` (`update_draft`, `render_*`, the copy plan), `drafting.py`, the newsletter's attributes and the test-mail snapshot; built the other way round, four conflicts are solved twice. Nothing in this change depends on 7b. The insert helper of B1 becomes the editor's *Blok invoegen › Activiteit*, over the same featured list. The migration comes after 7a (209) and 7b (210).
+
 Failure paths: an activity chosen and then deleted before sending is dropped from the list and the screen says so; a letter whose audience becomes empty cannot be sent.
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
@@ -279,6 +281,7 @@ A letter's recipients are always a derived list with one precedence rule and one
 | 15 Oct 2026 | Q4: Raakje drafting the letter is a mechanism that exists | Koen, to Q4: "ja, dat is een mechanisme dat nu al bestaat, moet dus niets voor gebeuren" (my reading: the drafting itself needs nothing new) |
 | 15 Oct 2026 | The chosen past activities go to Raakje as a source of the draft, with name and date and never an address, so the letter can name them (R4) | Koen, to "Moeten de gekozen eerdere activiteiten als bron naar Raakje gaan, ja of nee?": "ja, geef ze mee" |
 | 15 Oct 2026 | One list: a participant who unsubscribes becomes a subscriber row with the status *unsubscribed*; no separate table of addresses | Koen, to my question whether to keep two places or merge them: "Ik zie dat eigenlijk heel eenvoudig. [...] Ja, dat record wordt simpelweg dan toegevoegd als die zegt, ik wil geen mails meer ontvangen. Dus dan wordt hij als abonnee direct toegevoegd met de status dat hem uitgeschreven is." |
+| 15 Oct 2026 | The signing helper is built in `kernel`, shared with CR-37 | Koen, to "Wil je dat het hulpje in `newsletter` blijft staan tot CR-34 het echt nodig heeft?" (after the explanation that CR-34's call-back route is a third user in another domain): "we gaan dan voor kernel" |
 | 15 Oct 2026 | Erasure of an address from the archives (the right to be forgotten) is not built in this change; see the known gap under Non-goals | Koen, to my question whether erasure by address should be part of this change: "Het recht om vergeten te worden gaan we voorlopig even laten liggen." |
 
 ---
@@ -313,11 +316,11 @@ Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2
   - service: `recipients_of(db, letter)` replaces the call at `service.py:1700`; the summary, the sentence and the counts take the letter; the sentence uses the union of the chosen activities, not a sum; `send_batch` re-checks a participant delivery (C4.2); `copy_newsletter` clears the chosen activities, `delete_draft` deletes them;
   - routes: the public unsubscribe page resolves a subscriber token, then a signed delivery link (`/nieuwsbrief/uitschrijven/d/<delivery id>.<signature>`); for a delivery link POST creates the subscriber row (*unsubscribed*, source *participant*, no `consented_at`, its own unsubscribe token) and shows the existing page with that token, so *Toch opnieuw* is the existing `resubscribe` and needs no new path;
   - screens: the audience choice with the list (htmx fragment, kit macros), offered only when the `activities` module is on for the tenant; the send screen sentence with the count of skipped addresses; the archive line.
-- **drafting**: the chosen activities go to `set_draft_sources`; Raakje's examples of earlier letters (`drafting.py:285–291`) are looked at per audience: a participant letter about another activity is a weak example, the build decides whether to leave it out.
+- **drafting**: the chosen activities go to `set_draft_sources`; Raakje's examples of earlier letters (`drafting.py:285–291`, which after 7b read the letter's text with markers derived from the document, not `body_html`) are looked at per audience: a participant letter about another activity is a weak example, the build decides whether to leave it out.
 
 ## C3. Cross-cutting impact — the checklist of what gets forgotten
 
-- The readers of C1, one by one; the test-mail snapshot test `test_newsletter_test_mail_unchanged_1251.py` covers two audiences only and stays unchanged.
+- The readers of C1, one by one; the test-mail snapshot test `test_newsletter_test_mail_unchanged_1251.py` covers two audiences only; part 7b of #2023 regenerates it once, so "unchanged" means unchanged by this change, from that baseline, to which this change adds a third audience and nothing else.
 - CR-33 attribute register (the architecture review of 15 October): entries for `newsletter.audience_activity` (`activity_id`, `name`, `last_date`: *intern*); the source *participant* needs no entry (no classification per code value); no purpose is added to the help of the registration's address (a screen does not say what another domain does with a value). The purpose of the second use goes in the privacy statement, in one newsletter section that CR-37 (Q5) adds and this change shares. CR-33's coverage gate refuses a migration without the entries once its phase 1 is on master; whoever lands second registers the columns.
 - The signing helper is `kernel/signing.py`, shared with CR-37 (B1 of its review): whichever of the two lands first builds it.
 - CONTRACT.md of `newsletter` and `activities`; the architecture document where it names three audiences.
@@ -388,6 +391,7 @@ Status line, as-built notes folded in, tracking issue closed (`CLAUDE.md` step 1
 |---|---|---|---|
 | 08 | 15 Oct 2026 | Q1–Q4 and 4b of B8 asked in Q&A nr. 08; the build read of dev2 (#2026, 15 Oct 2026) is taken in | answered 15 Oct 2026, in B9 |
 | — | 15 Oct 2026 | The architecture review on #2026 (15 Oct 2026): A1 (erase keeps the opt-out), A2 (the meaning of source, the third path), A4 (CR-33 boundary), B1 (a signed link instead of a stored token), B2 (one re-check) and C1–C3 are taken in; A3 (the legal basis and the sentence on the registration form, the hint under the audience) and B3 (the wording of *Toch opnieuw*) are Koen's and are put to him by the architecture CLI | taken in; two points open for Koen |
+| — | 15 Oct 2026 | The second build read of dev1 on #2026 (against 7b of #2023): buildable as written; "unchanged" read from the 7b baseline; the drafting reader and the insert helper change their form; order after 7b | taken in |
 
 ## Non-goals — deliberately outside this change
 
