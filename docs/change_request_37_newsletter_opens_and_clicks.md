@@ -4,7 +4,7 @@
 **Status:** shaped with Koen on 15 October 2026, reshaped the same day from per-person to anonymous · not assigned to a release; B8 answered, a second build read is due
 **Tracking issue:** #2027 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (rendering of a letter, a public pixel and redirect route, the send screen, the archive of sent letters)
-**Reading:** A 907 words · B 1 372 · C 1 522 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 907 words · B 1 404 · C 1 522 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -139,6 +139,41 @@ The rewriting works on the **letter as it is rendered**, after the activity bloc
 Covers R1–R6. Use: *Nieuwsbrief* → *Versturen* → send; later *Archief* → a sent letter → *Resultaat*, and the archive list to compare.
 
 ## B3. The whole across the modules — for the architect
+
+<!-- figure: name=cr37-structure caption=Green_is_new_orange_is_changed_grey_is_only_used -->
+```mermaid
+flowchart LR
+  subgraph NL["newsletter"]
+    nn["new: tables letter_links and letter_events<br/>two public routes: pixel and click<br/>facade: record an open, record a click, look a link up, the results<br/>screens: Resultaat block, links list"]:::new
+    nc["changed: render_mail and render_text rewrite the links and add the pixel; archive list gets three columns"]:::chg
+    nu["used: letters, deliveries, send_batch"]:::use
+  end
+  subgraph CMS["cms"]
+    cc["changed: the privacy page gets a newsletter section (migration)"]:::chg
+  end
+  subgraph KER["kernel"]
+    ku["used: the portal's signing secret"]:::use
+  end
+  nc -->|code per mail| nn
+  nn -->|signature| ku
+  classDef new fill:#eef7ee,stroke:#005d29
+  classDef chg fill:#fff7ed,stroke:#f16532
+  classDef use fill:#eeeeee,stroke:#52607a
+```
+
+*Green new, orange changed, grey used.*
+
+```mermaid
+erDiagram
+  LETTER ||--o{ LETTER_LINK : "links of the letter"
+  LETTER ||--o{ LETTER_EVENT : "counted"
+  LETTER_LINK ||--o{ LETTER_EVENT : "clicked"
+  LETTER { int id string subject }
+  LETTER_LINK { int id int tenant_id int letter_id string url }
+  LETTER_EVENT { int tenant_id int letter_id string code string kind int link_id date day }
+```
+
+*New: `LETTER_LINK` and `LETTER_EVENT`. The event holds no address, delivery, IP or time of day; the code is random and stored nowhere else.*
 
 Everything inside `newsletter`: the rendering (`render_mail`, `render_text`) rewrites links and adds the pixel in every letter; two public routes, `/nieuwsbrief/o/<code>.gif` (the pixel) and `/nieuwsbrief/k/<code>/<link>` (the click); table `newsletter.letter_links` (per letter: id, url, filled the first time a link is rendered) and `newsletter.letter_events` (letter, code, kind, link, day; unique on letter, code, kind and link). Four entries in `newsletter.api` (record an open, record a click, look a link up, the results) because the screens may call only the facade. No other domain changes, and **no token on the delivery**: CR-36 (#2026) keeps its own.
 
