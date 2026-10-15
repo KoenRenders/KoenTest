@@ -283,9 +283,9 @@ def _article_with_a_photo(client, db_session, every_module_on):
     return headers, product, variant, attachment
 
 
-def _save_fields(product, variant, **extra) -> dict:
+def _save_fields(product, variant, *, name="T-shirt Raak", **extra) -> dict:
     fields = {
-        "name": "T-shirt Raak",
+        "name": name,
         "v_order": str(variant.id),
         f"v.{variant.id}.name": "M",
     }
@@ -328,14 +328,13 @@ def test_a_description_over_255_characters_is_refused(client, db_session, every_
     assert "te lang" in answer.text
 
 
-def test_another_articles_attachment_text_is_refused(client, db_session, every_module_on):
-    """S1: the article's save refuses an attachment that is another article's."""
-    import pytest
-
+def test_another_articles_attachment_key_changes_nothing(client, db_session, every_module_on):
+    """S1: the article's save reads only its own attachments, so a posted key of
+    another article's attachment leaves that article unchanged."""
     from app.domains.media.api import MediaAsset, MediaKind
-    from app.domains.product.api import ProductAttachment, set_attachment_text
+    from app.domains.product.api import ProductAttachment
 
-    _headers, product, _variant, _attachment = _article_with_a_photo(
+    headers, product, variant, _attachment = _article_with_a_photo(
         client, db_session, every_module_on
     )
     other = create_product(db_session, "Ander artikel")
@@ -344,9 +343,100 @@ def test_another_articles_attachment_text_is_refused(client, db_session, every_m
     )
     db_session.add(other_photo)
     db_session.flush()
-    other_attachment = ProductAttachment(product_id=other.id, media_asset_id=other_photo.id)
+    other_attachment = ProductAttachment(
+        product_id=other.id, media_asset_id=other_photo.id, description="Van het andere"
+    )
     db_session.add(other_attachment)
     db_session.commit()
 
-    with pytest.raises(LookupError):
-        set_attachment_text(db_session, product.id, other_attachment.id, title="", description="X")
+    answer = client.post(
+        f"/admin/producten/{product.id}",
+        data=_save_fields(
+            product, variant, **{f"bijlage.{other_attachment.id}.description": "Gekaapt"}
+        ),
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert answer.status_code == 303
+    assert db_session.get(ProductAttachment, other_attachment.id).description == "Van het andere"
+
+
+def _article_with_two_photos(client, db_session, every_module_on):
+    from app.domains.media.api import MediaAsset, MediaKind
+    from app.domains.pricing.api import add_prices
+    from app.domains.product.api import ProductAttachment
+
+    headers = _operator(client, db_session, every_module_on)
+    product = create_product(db_session, "T-shirt Raak")
+    set_status(db_session, product.id, ProductStatus.ON_SALE)
+    variant = add_variant(db_session, product.id, "M")
+    add_prices(
+        db_session,
+        product_id=product.id,
+        variant_id=variant.id,
+        valid_from=date(2026, 1, 1),
+        amount=Decimal("15.00"),
+        member_amount=None,
+    )
+    photos = []
+    for i in range(2):
+        photo = MediaAsset(
+            kind=MediaKind.PRODUCT_PHOTO,
+            title=f"foto{i}.png",
+            data=b"x",
+            content_type="image/png",
+        )
+        db_session.add(photo)
+        db_session.flush()
+        attachment = ProductAttachment(product_id=product.id, media_asset_id=photo.id)
+        db_session.add(attachment)
+        photos.append(attachment)
+    db_session.commit()
+    return headers, product, variant, photos
+
+
+def test_a_refused_attachment_writes_nothing(client, db_session, every_module_on):
+    """W1: a save with one valid and one too-long description is refused and writes
+    nothing — not the name, not the first description."""
+    from app.domains.product.api import ProductAttachment, get_product
+
+    headers, product, variant, photos = _article_with_two_photos(
+        client, db_session, every_module_on
+    )
+    answer = client.post(
+        f"/admin/producten/{product.id}",
+        data=_save_fields(
+            product,
+            variant,
+            name="Nieuwe naam",
+            **{
+                f"bijlage.{photos[0].id}.description": "Eerste ok",
+                f"bijlage.{photos[1].id}.description": "x" * 256,
+            },
+        ),
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert answer.status_code == 422
+    assert get_product(db_session, product.id).name == "T-shirt Raak"
+    assert db_session.get(ProductAttachment, photos[0].id).description is None
+
+
+def test_a_missing_field_changes_nothing(client, db_session, every_module_on):
+    """A save that does not send an attachment's field keeps its word."""
+    from app.domains.product.api import ProductAttachment
+
+    headers, product, variant, attachment = _article_with_a_photo(
+        client, db_session, every_module_on
+    )
+    attachment.description = "Blijf"
+    db_session.commit()
+
+    answer = client.post(
+        f"/admin/producten/{product.id}",
+        data=_save_fields(product, variant),
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert answer.status_code == 303
+    assert db_session.get(ProductAttachment, attachment.id).description == "Blijf"

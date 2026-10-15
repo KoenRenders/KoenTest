@@ -260,14 +260,46 @@ def product_update(
         return value if isinstance(value, str) else ""
 
     ordered = [(str(key), _text(f"v.{key}.name")) for key in form.getlist("v_order")]
-    attachment_words = [
-        (
-            attachment.id,
-            _text(f"bijlage.{attachment.id}.title"),
-            _text(f"bijlage.{attachment.id}.description"),
+    attachment_words = []
+    for attachment in attachments_of(db, product_id):
+        word_title = (
+            _text(f"bijlage.{attachment.id}.title")
+            if form.getlist(f"bijlage.{attachment.id}.title")
+            else None
         )
-        for attachment in attachments_of(db, product_id)
-    ]
+        word_description = (
+            _text(f"bijlage.{attachment.id}.description")
+            if form.getlist(f"bijlage.{attachment.id}.description")
+            else None
+        )
+        attachment_words.append((attachment.id, word_title, word_description))
+
+    # W1: every attachment's words first, so a too-long word refuses the whole save
+    # before anything is written, and the refusal names that attachment's own field.
+    for attachment_id, word_title, word_description in attachment_words:
+        if word_title is not None and len(word_title) > 255:
+            return refusal_response(
+                request,
+                [
+                    FieldError(
+                        f"bijlage.{attachment_id}.title",
+                        _("De titel is te lang (hoogstens 255 tekens)."),
+                    )
+                ],
+                "#product-melding",
+            )
+        if word_description is not None and len(word_description) > 255:
+            return refusal_response(
+                request,
+                [
+                    FieldError(
+                        f"bijlage.{attachment_id}.description",
+                        _("De beschrijving is te lang (hoogstens 255 tekens)."),
+                    )
+                ],
+                "#product-melding",
+            )
+
     try:
         update_product(db, product_id, name=name, description=description)
         set_pre_order(
@@ -277,8 +309,10 @@ def product_update(
             pre_order_until=_parse_date(pre_order_until),
         )
         sync_variants(db, product_id, ordered)
-        for attachment_id, title, description in attachment_words:
-            set_attachment_text(db, product_id, attachment_id, title=title, description=description)
+        for attachment_id, word_title, word_description in attachment_words:
+            set_attachment_text(
+                db, product_id, attachment_id, title=word_title, description=word_description
+            )
     except SizeNameRefusal as refusal:
         return refusal_response(
             request, [FieldError(refusal.field, str(refusal))], "#product-melding"
