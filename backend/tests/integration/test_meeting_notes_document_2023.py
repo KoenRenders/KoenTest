@@ -8,6 +8,7 @@ fails; the blank editor storing an empty document → the blank test fails.
 
 import importlib.util
 import json
+import re
 from datetime import date
 from pathlib import Path
 
@@ -88,6 +89,7 @@ def test_a_nested_list_has_no_blank_line_before_its_sub_list_and_keeps_none_on_a
     assert render_document(again) == html
 
 
+EMAIL = r"[\w.+-]+@[\w-]+\.[\w.]+"
 SEED_SNAPSHOT = Path(__file__).parent / "snapshots" / "seed_page_documents_2023.json"
 
 
@@ -105,6 +107,9 @@ def test_the_parser_makes_the_documents_of_the_seeded_pages_it_always_made(db_se
         for page in list_pages(db_session)
         if page.content
     }
+    # The seed names the association's own address; the repository keeps none (the
+    # example-domain gate): the snapshot holds a placeholder in its place.
+    made = json.loads(re.sub(EMAIL, "contact@example.org", json.dumps(made, ensure_ascii=False)))
     assert len(made) >= 3, "the seed holds fewer pages with content than this snapshot measures"
     if not SEED_SNAPSHOT.exists():
         SEED_SNAPSHOT.parent.mkdir(exist_ok=True)
