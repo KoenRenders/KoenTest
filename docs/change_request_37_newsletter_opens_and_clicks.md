@@ -169,6 +169,7 @@ A link in a letter that leaves through the portal goes through one function; a t
 | Date | Decision | By |
 |---|---|---|
 | 15 Oct 2026 | Requirements R1, R2 as written in A6 (dictation, not an answer to a question) | Koen |
+| 15 Oct 2026 | The content of the document is in order; the questions Q1–Q4 of B8 stay open | Koen, on reading the document: "Dan ben ik het ook eens met CR37. Voor mij is die ook in orde." (not an answer to Q1–Q4, and not an assignment to a release) |
 
 ---
 
