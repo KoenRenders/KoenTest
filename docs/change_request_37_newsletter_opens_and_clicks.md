@@ -4,7 +4,7 @@
 **Status:** shaped with Koen on 15 October 2026, reshaped the same day from per-person to anonymous · not assigned to a release; B8 answered, a second build read is due
 **Tracking issue:** #2027 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (rendering of a letter, a public pixel and redirect route, the send screen, the archive of sent letters)
-**Reading:** A 887 words · B 1 917 · C 1 912 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 909 words · B 2 052 · C 2 122 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -65,7 +65,7 @@ flowchart LR
   classDef done fill:#ffffff,stroke:#52607a
 ```
 
-*What to see:* the reader does nothing new; the platform counts, and nobody is named.
+*What to see:* the reader does nothing new; the platform counts, and nobody is named. A letter that is forwarded carries the same code, so a second reader's open counts as the first's: one code, one count.
 
 What it says on the screen (Dutch):
 - on a sent letter in the archive, a block **Resultaat**: *Verstuurd*, *Geopend (indicatie)* with a percentage, *Geklikt (indicatie)* with a percentage, and a list **Links**: each link with the number of people who clicked it
@@ -260,7 +260,7 @@ None. The two public routes name their callers in the CONTRACT (a mail client; a
 
 ## B5. Cost — investment and running cost, and what operations must know
 
-About 5 days (my estimate, to be set by the build read). Running cost: one small row per different code per open and per click, kept. Operations: a link in a letter points at the portal's address; if the portal is down, links of a sent letter fail until it is back — said in the CONTRACT. The signing secret is derived from the portal's existing secret; rotating that secret makes the codes of letters sent earlier unrecognisable, so their late opens and clicks are not counted. The sending mailbox keeps the sent mails with their codes: the portal keeps no link, the mailbox is the association's.
+About 5 days (my estimate, to be set by the build read). Running cost: one small row per different code per open and per click, kept. Operations: a link in a letter points at the portal's address; if the portal is down, links of a sent letter fail until it is back — said in the CONTRACT. The signing secret is derived from the portal's existing secret; rotating that secret makes the codes of letters sent earlier unrecognisable, so their late opens and clicks are not counted; the same secret signs sessions and other links, so the CONTRACT says that a rotation also ends the counting of late opens and that nothing else in this change depends on it. The sending mailbox keeps the sent mails with their codes: the portal keeps no link, the mailbox is the association's.
 
 ## B6. Phasing — shippable phases, and what changes on the failure paths
 
@@ -268,6 +268,8 @@ About 5 days (my estimate, to be set by the build read). Running cost: one small
 |---|---|---|
 | 0 | codes, link store, rewrite on the rendered letter, pixel and click routes, the footer line, the privacy statement section | 3 |
 | 1 | the result block and the archive list | 2 |
+
+**Order:** built after part 7b of #2023 (the letter on the page editor): both touch `service.py` (`render_mail`, `render_text`), the archive screen, the newsletter's attributes and the test-mail snapshot, which 7b regenerates once; "byte-identical" holds from that baseline. Migration numbers come after 7a (209) and 7b (210).
 
 Failure paths: a code that does not verify gives the 1×1 image for the pixel and a 404 for a link; a link that is gone from the store gives 404; a failed event write never blocks the redirect.
 
@@ -283,7 +285,7 @@ A link in a letter that leaves through the portal goes through one function; a t
 | Q2 (answered, B9) | Is *indicatie* on opens and on clicks acceptable? | yes | nothing; the alternative is no figure at all |
 | Q3 (answered, B9) | Keep the results (they are anonymous) or remove them after twelve months? | keep: there is no personal data and the comparison over years is the point | a purge at start-up if removed |
 | Q4 (answered, B9) | Who sees the result: everyone who may send a newsletter? | yes | the right on the screen |
-| Q5 (answered, B9) | How does the privacy statement get its newsletter section: a data migration that appends it to the `privacy` page of every tenant that lacks it (as migration 061 did for the speech-input section), or Koen writes it in the page editor? | the migration (Koen's choice), so every tenant has it from the release; the text of A5 | the migration and its test, or nothing to build |
+| Q5 (answered, B9) | How does the privacy statement get its newsletter section: a data migration that appends it to the `privacy` page of every tenant that lacks it (as migration 061 did for the speech-input section; since CR-17 through the CMS's document, see C3), or Koen writes it in the page editor? | the migration (Koen's choice), so every tenant has it from the release; the text of A5 | the migration and its test, or nothing to build |
 
 ## B9. Decisions log — dated answers
 
@@ -298,6 +300,7 @@ A link in a letter that leaves through the portal goes through one function; a t
 | 15 Oct 2026 | Q2: opens and clicks are shown as *indicatie* | Koen, to question 6: "ja" |
 | 15 Oct 2026 | Q3: the results are kept | Koen, to question 7 (keep or remove after twelve months): "akkoord" |
 | 15 Oct 2026 | Q4: everyone who may send a newsletter sees the result | Koen, to question 8: "ja" |
+| 15 Oct 2026 | The signing helper is built in `kernel`, shared with CR-36 | Koen, to "Wil je dat het hulpje in `newsletter` blijft staan tot CR-34 het echt nodig heeft?" (after the explanation that CR-34's call-back route is a third user in another domain): "we gaan dan voor kernel" |
 | 15 Oct 2026 | Q5: a migration adds the newsletter section to the privacy page of every tenant that lacks it | Koen, to question 9 (a migration or he writes it himself): "a" |
 
 ---
@@ -313,7 +316,7 @@ Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2
 | One mail per recipient | relies on | `send_batch`, `newsletter/service.py:1817` | holds | a code per rendered mail |
 | `send_campaign_mail` logs every campaign mail with its recipient and full body for 365 days, and a campaign mail has no retry job | relies on / changes | `mail/service.py:220–250`, `:481–487`; `config.py:37` | measured by the architecture review of 15 October: today a code joins to a recipient through the log | the body is logged with the codes replaced (C4.2, T17) |
 | `render_mail` and `render_text` know the unsubscribe URL, not a code | changes | `service.py:1501, 1473`; call site `1868` | must change | both gain an optional `code`, default none |
-| The links of an activity block are made when the letter is rendered, not in the stored body | changes | `expand_blocks`, `service.py:1195–1230` | must change | rewrite on the rendered HTML; the link store fills on first use (C4.1) |
+| The links of an activity block are made when the letter is rendered, not in the stored body | changes | `expand_blocks`, `service.py:1195–1230` (after part 7b of #2023: `render_body` and `mail_blocks`; re-measure at the handover) | must change | rewrite on the rendered HTML; the link store fills on first use (C4.1) |
 | The letter's origin is `link_base` | relies on | `service.py:1515` | holds | pixel and redirect use it |
 | The public unsubscribe page shows on GET and acts on POST, without a rate limit | relies on | `newsletter/ui.py:118–147` | holds | the new routes need no per-IP limit (C4.2); the signing check refuses forged codes without a query |
 | The signup limiter is 5 calls per 60 seconds per IP | relies on | `limiter.py:125` | does not fit | proxies fetch hundreds of pixels from a few addresses; not used |
@@ -332,7 +335,7 @@ Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2
 ## C3. Cross-cutting impact — the checklist of what gets forgotten
 
 - CR-33 attribute register: an entry per column, classification *intern*: `letter_links.url`, `letter_events.code`, `kind`, `link_id`, `day`; the signing secret is a secret, not an attribute. `email_log.body` is already *nooit* in the inventory, which is why the placeholder matters.
-- The migration of the privacy section runs after CR-17's conversion of page bodies (#2023, the page editor, also v2.17), or detects the format of the body first; the second to land cannot know the first, so the build names the order.
+- The privacy page is a document since CR-17 (a translation with `draft_json` and `published_json`, a history row per publish; `content` only for a page that did not convert). The migration of Q5 writes through the CMS's own door, `save_document` and `publish`, per tenant, in the stored heading levels, so that both versions and the history carry the section and a *restore* does not take it away; a page that kept its HTML gets the section in `content` and in the draft. The build measures the state of the privacy page on the three environments first; the answer decides which paths the migration needs.
 - CONTRACT.md of `newsletter`: two public routes with their callers, the rewritten links, and that a link of a sent letter fails while the portal is down.
 - The privacy statement (the `privacy` CMS page, tested by `cms/tests/test_cms_privacy.py`) and the footer line (Q1, Q5).
 - Alembic: one migration; head counted before the push.
@@ -340,7 +343,7 @@ Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2
 
 ## C4. Detailed decisions — one subsection each, with the reasons
 
-**C4.1 Rewriting.** After `expand_blocks` and `with_inline_styles`, on the rendered HTML, and on the URLs of the text part. Every `http` and `https` link is rewritten except the unsubscribe link; `mailto:`, `tel:` and in-page anchors stay. The destination is read from `letter_links`, never from the request, so the route cannot be an open redirect; the store row is created the first time a link is rendered, as an insert that does nothing on a conflict on the unique key (letter, url). The rewrite skips a link that already points under `/nieuwsbrief/k/` and the pixel itself, so rendering the same HTML twice does not wrap a link twice. Known limit, measured in C8: when the visible text of a link is a URL, the href differs from the text and some filters weigh that.
+**C4.1 Rewriting.** After the blocks are built (`expand_blocks`, after part 7b of #2023 `render_body`) and `with_inline_styles`, on the rendered HTML, and on the URLs of the text part, which after 7b is written as `text (address)`. The rewrite reads an `<a>` with its attributes in any order and any quote; links stand in the activity block, the calendar, a button block and the paragraphs of the body. A picture block is an `<img>` with an absolute address, not a link: it is neither rewritten nor counted. Every `http` and `https` link is rewritten except the unsubscribe link; `mailto:`, `tel:` and in-page anchors stay. The destination is read from `letter_links`, never from the request, so the route cannot be an open redirect; the store row is created the first time a link is rendered, as an insert that does nothing on a conflict on the unique key (letter, url). The rewrite skips a link that already points under `/nieuwsbrief/k/` and the pixel itself, so rendering the same HTML twice does not wrap a link twice. Known limit, measured in C8: when the visible text of a link is a URL, the href differs from the text and some filters weigh that.
 
 **C4.2 The code and the pixel.** The code is `<letter id>.<12 random bytes>.<signature>`; it is made in `render_mail` for each mail and stored nowhere, not in the e-mail log either (the logged body carries a placeholder). `GET /nieuwsbrief/o/<code>.gif` verifies the signature without a query, answers the same 43-byte GIF with `no-store` for a good and a bad code, and writes (letter, code, open, day) once. No per-IP limit, for the reason in C1.
 
@@ -363,7 +366,7 @@ No IP, no user agent, no address, no delivery, no time of day. The signature use
 | # | Test |
 |---|---|
 | T1 | every real mail carries the pixel and rewritten links; the test mail and the preview do not (snapshot) |
-| T2 | every external link of the rendered letter, an activity block's links included, goes through the portal; the unsubscribe link does not |
+| T2 | every external link of a rendered letter that holds an activity block, a calendar and a button block goes through the portal; the unsubscribe link does not |
 | T3 | a click forwards to the stored address and writes one event; a second click of the same code writes none |
 | T4 | a link id of another letter, or a code of another letter, gives 404 and writes nothing |
 | T5 | a code with a wrong signature gives the GIF and writes nothing (that it runs no query is a design sentence, not asserted) |
@@ -372,7 +375,7 @@ No IP, no user agent, no address, no delivery, no time of day. The signature use
 | T8 | the test mail and the preview carry no pixel and no rewritten link |
 | T9 | a failing event write still redirects |
 | T10 | the plain-text part's URLs are rewritten, and carry the footer line |
-| T11 | after the privacy migration the `privacy` page has the newsletter section, and a second run adds nothing |
+| T11 | after the privacy migration the rendered `privacy` page has the newsletter section (asserted on the page, not on `content`), a *restore* of an earlier version keeps it, and a second run adds nothing |
 | T13 | a member's letter carries the footer line |
 | T14 | fifty pixel fetches of different codes from one address are all recorded |
 | T17 | after one letter is sent in a test, no row of `email_log.body` contains `/nieuwsbrief/o/` or `/nieuwsbrief/k/` (proved by an additive violation: log the unreplaced body) |
@@ -401,6 +404,7 @@ Status line, as-built notes folded in, tracking issue closed (`CLAUDE.md` step 1
 |---|---|---|---|
 | 08 | 15 Oct 2026 | Q1–Q5 of B8 asked as questions 5 to 9 of Q&A nr. 08; the build read of dev2 (#2027, 15 Oct 2026) was on the per-person version and is taken in where it still applies | answered 15 Oct 2026, in B9; a second build read is due |
 | — | 15 Oct 2026 | The architecture review on #2027 (15 Oct 2026): A1 (the e-mail log tied a code to a person: the logged body carries a placeholder), A4 (`UNIQUE NULLS NOT DISTINCT`), B1 (one signing helper in `kernel`), B2, B3, B4 (order with CR-17), B5 (CR-33 entries) and C1 are taken in; A2 (fold the rows into counts), A3 (a floor of ten addresses) and A5 (pixel or clicks only) are Koen's and are put to him by the architecture CLI | taken in; three points open for Koen |
+| — | 15 Oct 2026 | The second build read of dev1 on #2027 (against 7b of #2023): the privacy migration writes through the CMS's document, the rewrite handles the new kinds of link, order after 7b, a rotation note and a forwarded-mail sentence are taken in | taken in |
 
 ## Non-goals — deliberately outside this change
 
