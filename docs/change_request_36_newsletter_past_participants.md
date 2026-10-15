@@ -4,7 +4,7 @@
 **Status:** shaped with Koen on 15 October 2026 · not assigned to a release; open decisions in B8
 **Tracking issue:** #2026 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (audience choice, recipient list, send screen, Raakje's sources), the activities facade (a read of registration addresses), the unsubscribe page
-**Reading:** A 762 words · B 761 · C 931 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 762 words · B 861 · C 931 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -121,7 +121,7 @@ A fourth audience, *Ingeschreven op eerdere activiteiten*, next to Leden, Niet-l
 2. **An address that unsubscribed is never mailed through this audience** (CR-05 §3.6: an import never resubscribes). A participant's unsubscribe link writes that opt-out; it does not make the person a subscriber.
 3. **"Attended" means registered.** The portal does not record presence. A registration that was deleted, or an activity that was cancelled, counts for nobody.
 
-*Raakje* gets the chosen activities as the source "voorbije activiteiten" of the letter, with name and date, so the letter can say it. Raakje does not suggest an activity (R5): the author ticks it.
+*Raakje* gets the chosen activities as the source "voorbije activiteiten" of the letter, with name and date, so the letter can say it. Raakje does not suggest an activity (R5): the author ticks it. Only the *old* activities are chosen as audience; the activity the letter advertises is put in the text with the existing insert helper, and the portal links the two nowhere. Someone already registered for the new activity still gets the letter (B9).
 
 ## B2. Fit with the process and the requirements — for the business
 
@@ -168,6 +168,7 @@ A letter's recipients are always a derived list with one precedence rule and one
 |---|---|---|
 | 15 Oct 2026 | Requirement R1, R2, R4 as written in A6 (dictation, not an answer to a question) | Koen |
 | 15 Oct 2026 | R5 (Raakje suggests a past activity) leaves the scope: one phase | Koen: "haal die fase 2 op basis van een activiteit voorstellen, haal dat maar uit de scope, zodanig dat het een eenfasige change request wordt" |
+| 15 Oct 2026 | People already registered for the activity the letter advertises stay on the recipient list; no exclusion | Koen, to "moeten mensen die al voor de nieuwe activiteit ingeschreven zijn uit de ontvangerslijst vallen?": "Nee, dat is geen probleem. Als die mensen die nog een mail krijgen, ook al zijn ze al ingeschreven, dat is geen probleem." |
 
 ---
 
