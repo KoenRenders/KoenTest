@@ -4,7 +4,7 @@
 **Status:** shaped with Koen on 15 October 2026 · not assigned to a release; open decisions in B8, and nothing is built before Q1 is answered
 **Tracking issue:** #2027 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (rendering of a letter, a public pixel and redirect route, the archive screen of a sent letter), the tenant settings
-**Reading:** A 690 words · B 949 · C 1 533 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 690 words · B 1 022 · C 1 578 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -135,7 +135,7 @@ Covers R1–R5. Use: *Nieuwsbrief* → *Archief* → a sent letter → *Resultaa
 
 ## B3. The whole across the modules — for the architect
 
-Everything inside `newsletter`: the rendering (`render_mail`, `render_text`) rewrites links when the letter is measured; three public routes, `/nieuwsbrief/o/<token>.gif` (the pixel), `/nieuwsbrief/k/<token>/<link>` (the click) and `/nieuwsbrief/niet-meten/<token>` (GET shows, POST stops); table `newsletter.letter_links` (per letter: id, url, filled the first time a link is rendered) and `newsletter.delivery_events` (delivery, kind, link, at). **Shared with CR-36 (#2026):** the delivery `token`, the objections table (purpose `measuring` here) and the erasure by address; whichever is assigned first builds them. One setting in the tenant configuration through the existing settings facade. Four entries in `newsletter.api` (record an open, record a click, look a link up, the results) because the screens may call only the facade. No other domain changes.
+Everything inside `newsletter`: the rendering (`render_mail`, `render_text`) rewrites links when the letter is measured; three public routes, `/nieuwsbrief/o/<token>.gif` (the pixel), `/nieuwsbrief/k/<token>/<link>` (the click) and `/nieuwsbrief/niet-meten/<token>` (GET shows, POST stops); table `newsletter.letter_links` (per letter: id, url, filled the first time a link is rendered) and `newsletter.delivery_events` (delivery, kind, link, at). **Shared with CR-36 (#2026):** the delivery `token`, the objections table (purpose `measuring` here); whichever is assigned first builds them. One setting in the tenant configuration through the existing settings facade. Four entries in `newsletter.api` (record an open, record a click, look a link up, the results) because the screens may call only the facade. No other domain changes.
 
 ## B4. Rules this change needs an exception from — decided once, here
 
@@ -143,13 +143,13 @@ None. The two public routes name their caller in the CONTRACT (a mail client; a 
 
 ## B5. Cost — investment and running cost, and what operations must know
 
-About 8 days (my estimate; the build read of 15 October added the rendered-HTML rewrite, the objection route, erasure and retention). The shared parts are in it; with CR-36 built first it is about 6. Running cost: one small row per open and click; twelve months of retention. Operations: a link in a letter now points at the portal's address; if the portal is down, links of a sent letter fail until it is back — said in the CONTRACT.
+About 7 days (my estimate; the build read of 15 October added the rendered-HTML rewrite, the objection route and retention). The shared parts are in it; with CR-36 built first it is about 5. Running cost: one small row per open and click; twelve months of retention. Operations: a link in a letter now points at the portal's address; if the portal is down, links of a sent letter fail until it is back — said in the CONTRACT.
 
 ## B6. Phasing — shippable phases, and what changes on the failure paths
 
 | Phase | Content | Days |
 |---|---|---|
-| 0 | tables, link store, rewrite on the rendered letter, pixel, click and *Niet meten* routes, setting, retention purge, erasure by address; dark: nothing is rewritten while the setting is off | 5 |
+| 0 | tables, link store, rewrite on the rendered letter, pixel, click and *Niet meten* routes, setting, retention purge; dark: nothing is rewritten while the setting is off | 5 |
 | 1 | the result screen on the archive | 3 |
 
 Failure paths: an unknown token gives a 1×1 image for the pixel and a 404 for a link; a link that is gone from the store forwards nowhere and gives 404; a failed event write never blocks the redirect.
@@ -173,6 +173,7 @@ A link in a letter that leaves through the portal goes through one function; a t
 |---|---|---|
 | 15 Oct 2026 | Requirements R1, R2 as written in A6 (dictation, not an answer to a question) | Koen |
 | 15 Oct 2026 | The content of the document is in order; the questions Q1–Q4 of B8 stay open | Koen, on reading the document: "Dan ben ik het ook eens met CR37. Voor mij is die ook in orde." (not an answer to Q1–Q4, and not an assignment to a release) |
+| 15 Oct 2026 | Erasure of an address from the archives (the right to be forgotten) is not built in this change; it is a known gap, not a decision that it should stay one | Koen, to my question whether erasure by address should be part of this change: "Het recht om vergeten te worden gaan we voorlopig even laten liggen." (the wording of this row is mine; he asked that it not be written as his decision that nothing will be done) |
 
 ---
 
@@ -191,7 +192,6 @@ Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2
 | The letter's origin is `link_base` | relies on | `service.py:1515` | holds | pixel and redirect use it |
 | The public unsubscribe page shows on GET and acts on POST, without a rate limit | relies on | `newsletter/ui.py:118–147` | holds | a link-following filter unsubscribes nobody; the new pages follow it |
 | The signup limiter is 5 calls per 60 seconds per IP | relies on | `limiter.py:125` | does not fit | proxies fetch hundreds of pixels from a few addresses; the pixel and the click get no per-IP limit (C4.2) |
-| `erase` reaches deliveries through `subscriber_id`; a member's delivery has none | changes | `service.py:305` | must change | erasure by address, shared with CR-36 (C4.7) |
 | No recurring-job registry; the e-mail log is purged at start-up | relies on | `kernel/jobs.py:39`, `main.py:131` | holds | the purge follows that pattern (C4.8) |
 | A member's mail has no footer line besides name and address; `render_text` has its own footer | changes | `service.py:1511–1529, 1473–1488` | must change | the measuring line in both |
 | The test mail and the preview share `render_mail` | relies on | `service.py:1608`; `admin_ui.py:886–893`; snapshot test `test_newsletter_test_mail_unchanged_1251.py` | holds | no token passed: byte-identical |
@@ -226,13 +226,13 @@ Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2
 
 **C4.6 *Niet meten*.** The link of the footer carries the delivery's token. GET shows a page, POST writes the objection (`measuring`) on the normalised address and deletes the events of that address's deliveries. `send_batch` checks the objection when it renders each delivery: an objecting address gets the letter unmeasured and without the footer line.
 
-**C4.7 Erasure.** `erase_address` (shared with CR-36, C4.4 there) anonymises the deliveries of an address, a member's too; the events hang on the delivery and stay as counts without a person. The objection row stays.
+**C4.7 Erasure.** Not part of this change (B9, Non-goals). The events hang on the delivery, not on a person row, so whenever an address is anonymised in the archive its events stay as counts. The objection row holds the address only.
 
 **C4.8 Retention.** A purge of events older than twelve months at start-up, as `_purge_old_email_logs` does, and at every `start_sending`. It runs at a restart, which is every deploy; the CONTRACT says so.
 
 ## C5. Privacy and security — the mechanics behind A7
 
-No IP, no user agent. Events hang on a delivery, so erasing an address leaves counts and no person. The objection list is address-only and survives erasure, because without it the person would be measured again. The click route forwards only to a stored address. A scanner that follows the *Niet meten* link changes nothing: GET only shows.
+No IP, no user agent. Events hang on a delivery, so whenever an address is anonymised the events stay as counts without a person. The objection list is address-only. The click route forwards only to a stored address. A scanner that follows the *Niet meten* link changes nothing: GET only shows.
 
 ## C6. Tests — what the build must prove
 
@@ -244,7 +244,6 @@ No IP, no user agent. Events hang on a delivery, so erasing an address leaves co
 | T4 | a link id of another letter gives 404 and writes nothing |
 | T5 | an unknown pixel token gives the GIF and writes nothing |
 | T6 | an event in the first ten seconds is not counted |
-| T7 | `erase_address` leaves the counts and removes the person, for a subscriber and for a member |
 | T8 | the purge removes events older than twelve months and nothing newer, at start-up and at send start |
 | T9 | the test mail and the preview carry no pixel and no rewritten link |
 | T10 | a failing event write still redirects |
@@ -281,6 +280,8 @@ Status line, as-built notes folded in, tracking issue closed (`CLAUDE.md` step 1
 ## Non-goals — deliberately outside this change
 
 Export, comparison between letters, a profile of a person over time, device or place statistics, measuring any mail other than the newsletter.
+
+**Known gap, to be taken up later:** removing an address from the archives of sent letters. Today it works for a subscriber (the *Verwijderen* action anonymises his deliveries); a member's delivery and, with this change, a participant's has no such action, so the address stays in the archive. The build read found it for members already. It is left out for now; it is not decided that it stays out.
 
 ## Relationship to existing work — issues and change requests
 
