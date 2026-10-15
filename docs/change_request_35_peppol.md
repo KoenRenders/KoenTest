@@ -1,10 +1,10 @@
 # Change Request 35 — Invoices through Peppol
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 15 October 2026 by the design-documentation CLI, on Koen's dictation (his request to this session, the same day) · build read not yet asked · not assigned to a release · **prerequisites:** CR-34 (invoices for the webshop) built, and the part of CR-26 (party model) that lets a Belgian company with a VAT number buy in the shop (B8 Q7)
+**Status:** shaped on 15 October 2026 by the design-documentation CLI, on Koen's dictation (his request to this session, the same day) · build read not yet asked · not assigned to a release · **prerequisites:** CR-34 (invoices for the webshop) built, and CR-26 (party model) phase 1, "the buyer", which lets a Belgian company with a VAT number buy in the shop (B8 Q7)
 **Tracking issue:** #2010 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** `payment` (the delivery of an invoice, its status, the sending, the screen), the kernel (a port for the Peppol network, with a stub for dev and tests), `mdm` (read: the organisation's identifications), `sales` (the checkout's checks on a company's details), the settings and one secret
-**Reading:** A 1 053 words · B 1 564 · C 1 478 — measured on 15 October 2026, drawings excluded, tables included; budgets A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1 053 words · B 1 576 · C 1 479 — measured on 15 October 2026, drawings excluded, tables included; budgets A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -305,7 +305,7 @@ Standards checked: **UBL 2.1** and **Peppol BIS Billing 3.0** (the file), **EN 1
 | Q4 | The rules check: the provider's validation, or a validator inside the portal? | The provider's if it offers one, else a library; the prototype decides | F2, C2 |
 | Q5 | The accountant confirms which buyers fall under the mandate (VAT-liable in Belgium, the exemptions) and which penalties apply | Ask before the build read | R6, F8 |
 | Q6 | Is Koen's second route kept beside this one? | Yes, until this is live; R8 serves it | R8 |
-| Q7 | Which part of CR-26 lets a Belgian company with a VAT number buy in the shop? | The same cut as CR-34 Q2 | the start of phase 1 |
+| Q7 | Which part of CR-26 lets a Belgian company with a VAT number buy in the shop? | CR-26 phase 1, "the buyer": the cut of CR-34 Q2, still the architecture CLI's reading until Koen answers | the start of phase 1 |
 | Q8 | The status: a call-back from the provider, or asking now and then? | A call-back that names the message, and a fetch; asking now and then only as a fallback | F7 |
 
 ## B9. Decisions log — dated answers
@@ -428,4 +428,4 @@ An access point of our own; receiving invoices; sending to the Netherlands or el
 
 ## Relationship to existing work — issues and change requests
 
-CR-34 (invoices for the webshop, #2009): the prerequisite, whose issue gains the check; CR-26 (party model): the cut of B8 Q7; CR-21 (webshop): the checkout; CR-24 (back-office rights): who sees the status; CR-28 (workbench tasks): a later task for a failed send, not built here.
+CR-34 (invoices for the webshop, #2009): the prerequisite, whose issue gains the check; CR-26 (party model): phase 1, "the buyer" (B8 Q7); CR-21 (webshop): the checkout; CR-24 (back-office rights): who sees the status; CR-28 (workbench tasks): a later task for a failed send, not built here.
