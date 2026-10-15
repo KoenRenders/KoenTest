@@ -24,7 +24,7 @@
     <tr class="border-b border-line last:border-0" data-access-row>
       <td class="py-2 pr-4">{{ r.email }}</td>
       <td class="py-2 pr-4">{% if r.workspace is none %}<em>{{ _("Alle werkruimtes") }}</em>{% else %}{{ r.workspace }}{% endif %}</td>
-      <td class="py-2 pr-4 font-mono text-xs">{{ r.role }}</td>
+      <td class="py-2 pr-4">{{ r.role | code_label("role") }}</td>
       <td class="py-2">{{ ui.badge(_("Actief") if r.active else _("Inactief"), "green" if r.active else "gray") }}</td>
     </tr>
     {% endfor %}

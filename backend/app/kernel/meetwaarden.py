@@ -24,7 +24,7 @@ rapportagelaag. Zo mag de UI-kit deze functie gebruiken zonder de universe te
 kennen.
 """
 
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from app.kernel.geld import bedrag
 
@@ -34,6 +34,26 @@ def _decimaal(waarde) -> Decimal | None:
         return Decimal(str(waarde))
     except (InvalidOperation, ValueError, TypeError):
         return None
+
+
+def plain_number(waarde) -> str:
+    """Een gewoon getal, zoals een mens het schrijft (#1977): hoogstens twee
+    decimalen, afgerond op de halve, overbodige nullen weg, de nl-BE-komma, geen
+    duizendtalteken (gelijk aan de andere formaten): `8.00` → "8", `8.50` → "8,5",
+    `39.775` → "39,78", `1250` → "1250".
+
+    Geen soort van `Format` en dus niet in `FORMATTERS`: de universe van de
+    rapportage declareert geen "getal", en de poort eist dat de twee gelijk blijven.
+    Een antwoord op een getalvraag van een formulier is geen meetwaarde van een rapport.
+    """
+    getal = _decimaal(waarde)
+    if getal is None:
+        return str(waarde)
+    afgerond = getal.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    tekst = f"{afgerond:f}"
+    if "." in tekst:
+        tekst = tekst.rstrip("0").rstrip(".")
+    return "0" if tekst in ("-0", "") else tekst.replace(".", ",")
 
 
 def _geheel(waarde) -> str:

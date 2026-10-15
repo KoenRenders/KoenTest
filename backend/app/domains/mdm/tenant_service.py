@@ -169,6 +169,14 @@ def set_modules(db, tenant_id: int, codes) -> None:
     invalidate_tenant_codes()
 
 
+def _dutch_enumeration(labels: list[str]) -> str:
+    """The labels as Dutch writes a list of alternatives: commas between all but
+    the last two, " of " before the last ("A", "A of B", "A, B of C") (#1888)."""
+    if len(labels) < 2:
+        return "".join(labels)
+    return f"{', '.join(labels[:-1])} of {labels[-1]}"
+
+
 def _checked_modules(codes) -> set:
     """The module codes as members, refused before anything changes when one is
     unknown or lacks a module it depends on (`ModuleRefused`, naming it)."""
@@ -181,7 +189,7 @@ def _checked_modules(codes) -> set:
     for code in sorted(chosen, key=lambda c: c.value):
         for alternatives in REGISTRY[code].depends_on:
             if not chosen & set(alternatives):
-                needed = " of ".join(REGISTRY[a].label for a in alternatives)
+                needed = _dutch_enumeration([REGISTRY[a].label for a in alternatives])
                 raise ModuleRefused(f"{REGISTRY[code].label} heeft {needed} nodig.", code)
     return chosen
 

@@ -899,8 +899,14 @@ def _card_html(node: dict, preview: bool = False, db=None) -> str:
     from app.ui.kit.icons import icon_paths
 
     attrs = node.get("attrs") or {}
-    address, reason, outside = _resolved(attrs, db)
-    if address is None:
+    # A card with no destination at all is a text card (CR-32 R4): no link and
+    # nothing to resolve. One with a destination that cannot be reached stays
+    # left out, as before.
+    from app.domains.cms.schema import destinations_set
+
+    text_card = not destinations_set(attrs)
+    address, reason, outside = (None, None, False) if text_card else _resolved(attrs, db)
+    if address is None and not text_card:
         return _unreachable_html("card", reason or "page") if preview else ""
     top = ""
     if attrs.get("media_id") is not None:
@@ -917,16 +923,26 @@ def _card_html(node: dict, preview: bool = False, db=None) -> str:
             f'stroke-linejoin="round">{icon_paths()[attrs["icon"]]}</svg></span>'
         )
     rel = ' rel="noopener noreferrer"' if outside else ""
-    title = (
-        f'<a class="prose-card-title" href="{escape(address, quote=True)}"{rel}>'
-        f"{escape(attrs.get('title') or '')}</a>"
+    if text_card:
+        title = f'<span class="prose-card-title">{escape(attrs.get("title") or "")}</span>'
+    else:
+        title = (
+            f'<a class="prose-card-title" href="{escape(address or "", quote=True)}"{rel}>'
+            f"{escape(attrs.get('title') or '')}</a>"
+        )
+    number = (
+        f'<span class="prose-card-number">{escape(attrs["number"])}</span>'
+        if attrs.get("number")
+        else ""
     )
+    body = f'<p class="prose-card-text">{escape(attrs["text"])}</p>' if attrs.get("text") else ""
     line = (
         f'<span class="prose-card-line">{escape(attrs["line"])}</span>' if attrs.get("line") else ""
     )
     labels = [escape(label) for label in attrs.get("labels") or [] if label.strip()]
     marks = f'<span class="prose-card-labels">{" · ".join(labels)}</span>' if labels else ""
-    return f'<div class="prose-card">{top}{title}{line}{marks}</div>'
+    cls = "prose-card prose-card--text" if text_card else "prose-card"
+    return f'<div class="{cls}">{number}{top}{title}{line}{body}{marks}</div>'
 
 
 def render_document(document, db=None, *, target: str = "site", preview: bool = False) -> str:
@@ -1033,7 +1049,9 @@ def _document_text(document, db=None) -> str:
         elif kind in ("button", "card", "cards"):
             attrs = node.get("attrs") or {}
             words = " ".join(
-                str(attrs.get(k, "")) for k in ("label", "title", "line") if attrs.get(k)
+                str(attrs.get(k, ""))
+                for k in ("label", "number", "title", "line", "text")
+                if attrs.get(k)
             )
             if words:
                 lines.append(words)

@@ -861,6 +861,8 @@ body[data-shell="site"]>main{padding-bottom:24px}
 .prose-raak a.prose-card-title::after{content:"";position:absolute;inset:0}
 .prose-raak a.prose-card-title:focus-visible{outline:none}
 .de-gallery{margin:.5rem 0;padding:.75rem 1rem;border:1px dashed rgb(var(--c-line));border-radius:8px;background:rgb(var(--c-surface-2));font-size:.875rem}
+.prose-card-number{font-size:14px;font-weight:700;letter-spacing:.06em;color:rgb(var(--c-brand))}
+.prose-card-text{margin:0;font-size:16px;line-height:1.5;color:rgb(var(--c-ink-soft))}
 .prose-card-line{font-size:16px;line-height:1.5;color:rgb(var(--c-ink-soft))}
 /* A value in the page editor (CR-32 R19): a chip with the value it has now; on the
    site the value is plain text, so there is no public rule. */

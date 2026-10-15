@@ -1637,11 +1637,18 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    `<p>Form`, `<p>Href`, `<p>Fout`. One macro, so the two dialogs offer the
    same four in the same words. The pages and the forms are the caller's own
    lists; an empty list hides its option — an offered choice must resolve. #}
-{% macro _destination_choice(p, question, pages, forms, lid_worden) -%}
+{% macro _destination_choice(p, question, pages, forms, lid_worden, none_choice=None) -%}
 {% set _on = "'bg-blue-700 text-white border-blue-700' : 'bg-white border-gray-300 hover:bg-gray-50'" %}
   <div class="mt-4">
     <span class="block text-sm font-medium text-gray-700 mb-1">{{ question }}</span>
     <div class="flex flex-wrap gap-2">
+      {# A choice of NO destination, offered by the one block that may have none
+         (the card: a text card, CR-32 R4); the button needs one. #}
+      {% if none_choice %}
+      <button type="button" class="px-3 py-1.5 text-sm rounded-lg border" data-destination-none
+              :class="{{ p }}Kind === 'none' ? {{ _on|safe }}"
+              @click="{{ p }}Kind = 'none'">{{ none_choice }}</button>
+      {% endif %}
       {% if pages %}
       <button type="button" class="px-3 py-1.5 text-sm rounded-lg border"
               :class="{{ p }}Kind === 'page' ? {{ _on|safe }}"
@@ -1924,19 +1931,23 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    other destinations and the other kind of top (the script sends every
    attribute, the unchosen ones null). `cMode` says what Invoegen does: a new
    block with this card, this card changed, or a card after this one. #}
+{# "Nergens heen" is read from the card by the schema's one rule — an empty
+   address is no destination (`destinations_set`, CR-32 Z1): the chain below
+   falls to 'none' for an empty `href` just as the renderer makes a text card. #}
 <div data-card-dialog="{{ editor_id }}"
-     x-data="{ card: false, cTitle: '', cLine: '', cTop: 'none', cIcon: '', cMedia: null, cLabels: '',
+     x-data="{ card: false, cTitle: '', cNumber: '', cText: '', cLine: '', cTop: 'none', cIcon: '', cMedia: null, cLabels: '',
               cKind: '{{ _eerste_soort }}', cPage: {{ (button_pages[0][0] if button_pages else "null") }},
               cForm: '{{ button_forms[0][0] if button_forms else "" }}', cHref: '', cFout: '', cPos: null, cMode: 'new' }"
      @raak-card-choose.window="if ($event.detail.editor === '{{ editor_id }}') {
                                  var a = $event.detail.attrs || {};
                                  cTitle = a.title || ''; cLine = a.line || '';
+                                 cNumber = a.number || ''; cText = a.text || '';
                                  cTop = a.media_id ? 'picture' : (a.icon ? 'icon' : 'none');
                                  cIcon = a.icon || '';
                                  cMedia = a.media_id ? { id: a.media_id, url: '{{ blocks.figure.mediaUrl if blocks.figure else "" }}' + a.media_id } : null;
                                  cLabels = (a.labels || []).join(', ');
                                  cKind = $event.detail.attrs
-                                   ? (a.page_id ? 'page' : (a.form_slug ? 'form' : (a.screen ? 'screen' : 'href')))
+                                   ? (a.page_id ? 'page' : (a.form_slug ? 'form' : (a.screen ? 'screen' : (a.href ? 'href' : 'none'))))
                                    : '{{ _eerste_soort }}';
                                  cPage = a.page_id || {{ (button_pages[0][0] if button_pages else "null") }};
                                  cForm = a.form_slug || '{{ button_forms[0][0] if button_forms else "" }}';
@@ -1955,6 +1966,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
                                  } else if (cTitle.trim()) {
                                    $dispatch('raak-card-chosen', { editor: '{{ editor_id }}',
                                      title: cTitle.trim(), line: cLine.trim(), top: cTop, icon: cIcon,
+                                     number: cNumber.trim(), text: cText.trim(),
                                      media_id: cMedia ? cMedia.id : null,
                                      labels: cLabels.split(',').map(function (l) { return l.trim(); }).filter(Boolean),
                                      kind: cKind, page_id: cPage ? Number(cPage) : null,
@@ -1965,6 +1977,15 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   {% call _editor_dialog("card", _("Kaart"), editor_id, max_w="max-w-2xl") %}
   {{ label(_("Titel"), editor_id ~ "-card-title", required=True) }}
   {{ input_control("", id=editor_id ~ "-card-title", cls="w-full", attrs='x-model="cTitle"') }}
+  <div class="mt-4">
+    {{ label(_("Nummer"), editor_id ~ "-card-number") }}
+    {{ input_control("", id=editor_id ~ "-card-number", cls="w-full", attrs='x-model="cNumber" maxlength="12"') }}
+    <p class="text-xs text-gray-500 mt-1">{{ _("Een cijfer of korte tekst boven de titel; mag leeg blijven.") }}</p>
+  </div>
+  <div class="mt-4">
+    {{ label(_("Tekst"), editor_id ~ "-card-text") }}
+    {{ textarea_control("", id=editor_id ~ "-card-text", rows=3, base="block w-full rounded-lg border border-gray-300 px-3 py-2", attrs='x-model="cText"') }}
+  </div>
   <div class="mt-4">
     {{ label(_("Regel onder de titel"), editor_id ~ "-card-line") }}
     {{ input_control("", id=editor_id ~ "-card-line", cls="w-full", attrs='x-model="cLine"') }}
@@ -2001,7 +2022,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     {{ input_control("", id=editor_id ~ "-card-labels", cls="w-full", attrs='x-model="cLabels"') }}
     <p class="text-xs text-gray-500 mt-1">{{ _("Korte woorden onder de kaart, gescheiden door een komma; mag leeg blijven.") }}</p>
   </div>
-  {{ _destination_choice("c", _("Waar leidt de kaart naartoe?"), button_pages if _bied_paginas else [], button_forms if _bied_formulieren else [], button_lid_worden) }}
+  {{ _destination_choice("c", _("Waar leidt de kaart naartoe?"), button_pages if _bied_paginas else [], button_forms if _bied_formulieren else [], button_lid_worden, none_choice=_("Nergens heen")) }}
   <div class="mt-4 flex justify-end gap-2">
     {{ btn_secondary(_("Annuleren"), attrs='@click="card = false"') }}
     {{ btn_primary(_("Invoegen"), type="button", cls="disabled:opacity-30",
