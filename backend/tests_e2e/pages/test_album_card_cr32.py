@@ -142,20 +142,36 @@ def test_the_card_moves_photo_by_photo_and_a_click_opens_the_album_it_shows(setu
         page.close()
 
 
+def _after_five_seconds(page, path):
+    """Load `path` on a fake clock and let five seconds go by — no waiting on the real
+    clock (the gate of #997): the timers of the page run when the test says so."""
+    page.clock.install()
+    page.goto(path)
+    pagina_klaar(page)
+    first = page.evaluate(_STATE)
+    page.clock.run_for(5000)
+    return first, page.evaluate(_STATE)
+
+
+def test_the_fake_clock_does_move_the_card(setup):
+    """The control of the two tests below: on the same fake clock, with motion
+    allowed, five seconds move the card — so "it did not move" means something."""
+    b, _id, slug, _ids, _session = setup
+    page = b.new_page(base_url=BASE, viewport={"width": 390, "height": 844})
+    try:
+        first, later = _after_five_seconds(page, f"/{slug}")
+        assert later["src"] != first["src"], (first, later)
+    finally:
+        page.close()
+
+
 def test_with_reduced_motion_the_card_stands_still(setup):
     b, _id, slug, _ids, _session = setup
-    context = b.new_context(
-        base_url=BASE, reduced_motion="reduce", viewport={"width": 390, "height": 844}
-    )
+    context = b.new_context(base_url=BASE, reduced_motion="reduce", viewport={"width": 390, "height": 844})
     page = context.new_page()
     try:
-        page.goto(f"/{slug}")
-        pagina_klaar(page)
-        first = page.evaluate(_STATE)
-        page.wait_for_timeout(4500)
-        assert page.evaluate(_STATE) == first, (
-            "the card moved for a visitor who asked for stillness"
-        )
+        first, later = _after_five_seconds(page, f"/{slug}")
+        assert later == first, "the card moved for a visitor who asked for stillness"
     finally:
         context.close()
 
@@ -165,10 +181,7 @@ def test_in_the_preview_the_card_stands_still(setup):
     page = b.new_page(base_url=BASE, viewport={"width": 390, "height": 844})
     try:
         login_met_sessie(page, session)
-        page.goto(f"/admin/paginas/{page_id}/voorbeeld")
-        pagina_klaar(page)
-        first = page.evaluate(_STATE)
-        page.wait_for_timeout(4500)
-        assert page.evaluate(_STATE) == first
+        first, later = _after_five_seconds(page, f"/admin/paginas/{page_id}/voorbeeld")
+        assert later == first
     finally:
         page.close()

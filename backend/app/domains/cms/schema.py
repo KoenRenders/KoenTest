@@ -197,7 +197,7 @@ NODES: dict[str, dict[str, Any]] = {
     # `count` of them; the data is the activities module's.
     # In no group, like `section`: a data block stands at the root and nowhere else
     # (the page template gives it a container of its own, outside the prose).
-    "activities": {"attrs": {"count": tuple(range(1, 13))}},
+    "activities": {"attrs": {"count": tuple(range(1, 51))}},
     # CR-32 R13, R14 (F13): ONE card that moves through the latest `albums` albums
     # of the photo page, showing at most `photos` photos of each, every `interval`
     # seconds (0: it stands still); the media module supplies the data.
