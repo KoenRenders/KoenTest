@@ -4,7 +4,7 @@
 **Status:** shaped with Koen on 15 October 2026 · not assigned to a release; open decisions in B8, and nothing is built before Q1 is answered
 **Tracking issue:** #2027 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (rendering of a letter, a public pixel and redirect route, the archive screen of a sent letter), the tenant settings
-**Reading:** A 625 words · B 691 · C 837 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 690 words · B 949 · C 1 533 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -68,10 +68,10 @@ flowchart LR
 *What to see:* the reader does nothing new; the platform notes it by itself.
 
 What it says on the screen (Dutch), on the sent letter in the archive:
-- a block **Resultaat**: *Verstuurd*, *Geopend (indicatie)*, *Geklikt*
+- a block **Resultaat**: *Verstuurd*, *Geopend (indicatie)*, *Geklikt (indicatie)*, and whether the letter was measured at all
 - a list **Links**: each link with its number of clickers
 - a list **Wie**: address, *geopend*, *geklikt op …*; filter *Geopend / Geklikt / Niet geopend*
-- on each letter, in the footer, one line saying that the association sees whether the letter was opened and which links were clicked
+- on each measured letter, members' letters included, in the footer and in the plain-text part, one line saying that the association sees whether the letter was opened and which links were clicked, and a link **Niet meten** that stops it for that address
 
 ## A4. Benefits — what the change earns
 
@@ -89,7 +89,7 @@ Koen's dictation of 15 October 2026. What it taught us from the code: the portal
 |---|---|---|---|---|
 | R1 | See, per sent letter, who opened it | Must | Koen, 15 Oct 2026 | "wie een nieuwsbrief geopend heeft" |
 | R2 | See, per link of a letter, who clicked | Must | Koen, 15 Oct 2026 | "wie op welke link geklikt heeft" |
-| R3 | Tell the reader that this is measured | Must | my reading of the GDPR; Q1 | |
+| R3 | Tell the reader that this is measured, and let the reader stop it | Must | my reading of the GDPR; Q1 | |
 | R4 | The unsubscribe link is never measured or changed | Must | CR-05 §3.4, §3.7 | |
 | R5 | A figure per letter: how many opened, how many clicked | Should | my proposal | |
 | R6 | Export of the result | Won't | — | not asked |
@@ -112,7 +112,8 @@ Koen's dictation of 15 October 2026. What it taught us from the code: the portal
 | AC2 | After a click, the address shows under that link | R2 | click a link |
 | AC3 | The unsubscribe link still works and is not listed | R4 | use it |
 | AC4 | With measuring off, no pixel and no rewritten link is in the mail | R3 | read the mail source |
-| AC5 | The footer line is there when measuring is on | R3 | read the mail |
+| AC5 | The footer line and *Niet meten* are there when measuring is on, also in a member's letter | R3 | read the mail |
+| AC6 | After *Niet meten* the address is not measured in the rest of a running send | R3 | use it between two batches |
 
 ---
 
@@ -122,9 +123,11 @@ Koen's dictation of 15 October 2026. What it taught us from the code: the portal
 
 The portal measures itself: a pixel (a one-pixel image from the portal's own address) for an open, and a redirect for a click. Each mail carries its delivery's token; every link of the letter, except the unsubscribe link, goes through the portal, which notes the click and forwards the reader to the real address. Events are rows per delivery: kind, link, time. Nothing else is stored.
 
-Facts that shape the screen, not the design: an open is an **indication** — mail programs that load images in advance (Apple's mail privacy protection) show an open that never happened, and programs that block images hide a real one; a click is nearly always real, but a mail filter that tests links in advance can produce clicks at the moment of delivery. The screen says *indicatie* and the build ignores events in the first ten seconds after a delivery left.
+Facts that shape the screen, not the design: an open is an **indication** — mail programs that load images in advance (Apple's mail privacy protection) show an open that never happened, and programs that block images hide a real one; a click is an indication too, because a mail filter that tests links in advance clicks every link, also later and again. The screen says *indicatie* on both and the build ignores events in the first ten seconds after a delivery left.
 
-Four decisions: **self-built, no third party** (Europe First); **a tenant setting, default off**, per tenant; **the unsubscribe link and the preview/test mail are never measured**; **retention**: events are removed after twelve months (Q3).
+The rewriting works on the **letter as it is rendered**, after the activity blocks are expanded, so the links of an activity (*Schrijf je in!*, its title) are measured too and the design does not change when the newsletter moves to the page editor (#2023). Whether a letter is measured is read **once, when sending starts**, and kept on the letter; the archive says *gemeten: ja/nee*.
+
+Four decisions: **self-built, no third party** (Europe First); **a tenant setting, default off**, per tenant; **the unsubscribe link and the preview/test mail are never measured**; **retention**: events are removed after twelve months (Q3), by a purge at start-up and at every send start, as the e-mail log is purged today.
 
 ## B2. Fit with the process and the requirements — for the business
 
@@ -132,7 +135,7 @@ Covers R1–R5. Use: *Nieuwsbrief* → *Archief* → a sent letter → *Resultaa
 
 ## B3. The whole across the modules — for the architect
 
-Everything inside `newsletter`: the rendering (`render_mail`, `render_text`) rewrites links when the setting is on; two public routes `/nieuwsbrief/o/<token>.gif` and `/nieuwsbrief/k/<token>/<link>`; table `newsletter.letter_links` (per letter: id, url) and `newsletter.delivery_events` (delivery, kind, link, at). One setting in the tenant configuration read through the existing settings facade. No other domain changes.
+Everything inside `newsletter`: the rendering (`render_mail`, `render_text`) rewrites links when the letter is measured; three public routes, `/nieuwsbrief/o/<token>.gif` (the pixel), `/nieuwsbrief/k/<token>/<link>` (the click) and `/nieuwsbrief/niet-meten/<token>` (GET shows, POST stops); table `newsletter.letter_links` (per letter: id, url, filled the first time a link is rendered) and `newsletter.delivery_events` (delivery, kind, link, at). **Shared with CR-36 (#2026):** the delivery `token`, the objections table (purpose `measuring` here) and the erasure by address; whichever is assigned first builds them. One setting in the tenant configuration through the existing settings facade. Four entries in `newsletter.api` (record an open, record a click, look a link up, the results) because the screens may call only the facade. No other domain changes.
 
 ## B4. Rules this change needs an exception from — decided once, here
 
@@ -140,13 +143,13 @@ None. The two public routes name their caller in the CONTRACT (a mail client; a 
 
 ## B5. Cost — investment and running cost, and what operations must know
 
-About 7 days (my estimate, to be set by the build read). Running cost: one small row per open and click; twelve months of retention. Operations: a link in a letter now points at the portal's address; if the portal is down, links of a sent letter fail until it is back — said in the CONTRACT.
+About 8 days (my estimate; the build read of 15 October added the rendered-HTML rewrite, the objection route, erasure and retention). The shared parts are in it; with CR-36 built first it is about 6. Running cost: one small row per open and click; twelve months of retention. Operations: a link in a letter now points at the portal's address; if the portal is down, links of a sent letter fail until it is back — said in the CONTRACT.
 
 ## B6. Phasing — shippable phases, and what changes on the failure paths
 
 | Phase | Content | Days |
 |---|---|---|
-| 0 | tables, link store, pixel and redirect routes, setting, retention job; dark: nothing is rewritten while the setting is off | 4 |
+| 0 | tables, link store, rewrite on the rendered letter, pixel, click and *Niet meten* routes, setting, retention purge, erasure by address; dark: nothing is rewritten while the setting is off | 5 |
 | 1 | the result screen on the archive | 3 |
 
 Failure paths: an unknown token gives a 1×1 image for the pixel and a 404 for a link; a link that is gone from the store forwards nowhere and gives 404; a failed event write never blocks the redirect.
@@ -159,8 +162,8 @@ A link in a letter that leaves through the portal goes through one function; a t
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
-| Q1 | Per person ("wie"), or only counts per letter and per link? Per person is personal data and, for members who cannot unsubscribe (CR-05 §3.4), cannot be refused by them. (a) per person, with a footer notice and a link *niet meten* that stops measuring that address; (b) counts only, nobody named; (c) per person only for subscribers who agree | a, after the accountant or a privacy adviser agrees; legal facts here are unverified | a adds a table of objecting addresses; b is simpler and answers only part of the request; c leaves almost nobody to measure |
-| Q2 | Is *indicatie* on the open acceptable, given mail programs that load images in advance? | yes | nothing; the alternative is dropping opens and keeping clicks |
+| Q1 | Per person ("wie"), or only counts per letter and per link? Per person is personal data and, for members who cannot unsubscribe (CR-05 §3.4), cannot be refused by them. (a) per person, with a footer notice and a link *Niet meten* that stops measuring that address, members included; (b) counts only, nobody named; (c) per person only for subscribers who agree | a, after the accountant or a privacy adviser agrees; legal facts here are unverified; answer it together with Q1 of CR-36 (#2026), because both stack a purpose on the same people | a adds the objection route and its check at send; b is simpler and answers only part of the request; c leaves almost nobody to measure |
+| Q2 | Is *indicatie* on opens and on clicks acceptable, given mail programs that load images and test links in advance? | yes | nothing; the alternative is showing no figure at all |
 | Q3 | Retention of the events: twelve months? | yes | the retention job |
 | Q4 | Who sees the result: everyone who may send a newsletter? | yes | the right on the screen |
 
@@ -177,64 +180,85 @@ A link in a letter that leaves through the portal goes through one function; a t
 
 ## C1. Verified premises — measured before the handover
 
-Measured on master @ `ef4b130c` on 15 October 2026; to be re-measured at the handover.
+Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2027 re-measured it the same day, with #2023 read as the next change to the same code); to be re-measured at the handover.
 
 | Concept or claim | Kind | Measurement | Verdict | Consequence |
 |---|---|---|---|---|
-| One mail per recipient, a delivery row each | relies on | `send_batch` (`newsletter/service.py:1817`) | holds | the token belongs on the delivery |
-| `render_mail` and `render_text` take the delivery's unsubscribe URL, not the delivery | changes | `service.py:1501`, `1868` | must change | both gain the delivery's token |
+| One mail per recipient, a delivery row each | relies on | `send_batch`, `newsletter/service.py:1817` | holds | the token belongs on the delivery |
+| `render_mail` and `render_text` know the unsubscribe URL, not the delivery | changes | `service.py:1501, 1473`; call site `1868` | must change | both gain an optional token, default none |
+| The links of an activity block are made when the letter is rendered, not in the stored body | changes | `expand_blocks`, `service.py:1195–1230` | must change | rewrite on the rendered HTML; the link store fills on first use, not at start (C4.1) |
+| A letter is immutable once sending starts | relies on | `_refuse_unless_draft` | holds | `measured` is set once at start |
 | The letter's origin is `link_base` | relies on | `service.py:1515` | holds | pixel and redirect use it |
-| The public unsubscribe page is GET to show, POST to act | relies on | `newsletter/ui.py:118,131` | holds | a filter that follows links does not unsubscribe anybody |
-| The signup limiter exists | relies on | `app.limiter.newsletter_signup_limiter` (`ui.py:27`) | holds | reuse for the two routes |
-| `erase` anonymises a subscriber's deliveries | relies on | `service.py:305` | holds | events of an anonymised delivery lose their token and stay as counts |
-| The test mail is rendered by the same function | relies on | `render_test`, snapshot test `test_newsletter_test_mail_unchanged_1251.py` | holds | the test mail passes no token: it stays byte-identical |
+| The public unsubscribe page shows on GET and acts on POST, without a rate limit | relies on | `newsletter/ui.py:118–147` | holds | a link-following filter unsubscribes nobody; the new pages follow it |
+| The signup limiter is 5 calls per 60 seconds per IP | relies on | `limiter.py:125` | does not fit | proxies fetch hundreds of pixels from a few addresses; the pixel and the click get no per-IP limit (C4.2) |
+| `erase` reaches deliveries through `subscriber_id`; a member's delivery has none | changes | `service.py:305` | must change | erasure by address, shared with CR-36 (C4.7) |
+| No recurring-job registry; the e-mail log is purged at start-up | relies on | `kernel/jobs.py:39`, `main.py:131` | holds | the purge follows that pattern (C4.8) |
+| A member's mail has no footer line besides name and address; `render_text` has its own footer | changes | `service.py:1511–1529, 1473–1488` | must change | the measuring line in both |
+| The test mail and the preview share `render_mail` | relies on | `service.py:1608`; `admin_ui.py:886–893`; snapshot test `test_newsletter_test_mail_unchanged_1251.py` | holds | no token passed: byte-identical |
+| The two public routes are page routes, not `/api/v1` | relies on | `test_rules_gate.py:516` | holds | the JSON gate does not ask for a caller; the CONTRACT names it; `ui.py` calls `api.py` only |
+| Nothing of the newsletter is in the reporting universe | relies on | `reporting/universe.py` | holds | no entry; the results are read through `newsletter.api` |
 
 ## C2. Per module: what must happen
 
-- **newsletter**: `deliveries.track_token` (nullable, unique, random); tables `letter_links`, `delivery_events`; `start_sending` fills `letter_links` from the sanitised body when the setting is on; `render_mail` and `render_text` rewrite every external link except the unsubscribe link, and add the pixel at the end of the HTML only; routes in `ui.py`; `results_of(db, letter_id)` in `api.py`; retention job in `kernel_jobs`.
+- **newsletter**: `deliveries.token` (shared with CR-36); `newsletters.measured` (bool, set at `start_sending` from the setting); `letter_links` (tenant, letter, url, unique on letter and url); `delivery_events` (tenant, delivery, kind, link, at, early); `address_objections` with the purpose `measuring` (shared); `render_mail` and `render_text` take an optional `track_token`; one rewrite function used for the HTML and the text; the pixel at the end of the HTML only; the footer line and *Niet meten* in HTML and text; the routes of B3; `api.py`: `record_open`, `record_click`, `link_target`, `results_of`; `send_batch` checks the objection per delivery at render time; the purge; the archive screen with *Resultaat*, the links list and the who list.
 - **tenant configuration**: `newsletter_measure_opens` (bool, default off).
-- **templates**: result block, links list, who list with filter, footer line, in the archive screen.
+- **templates**: result block, links list, who list with filter, in the archive screen.
 
 ## C3. Cross-cutting impact — the checklist of what gets forgotten
 
-- CR-33 register: the events are about a person (*intern*, tied to the address, retention twelve months); the token is *intern*.
-- CONTRACT.md of `newsletter`: two new public routes with their callers, the retention, the rewritten links.
+- CR-33 register: the events are about a person (*intern*, tied to the delivery, retention twelve months); the token and the objection table get entries (the register's gate is not on master yet; the merge order decides who carries it).
+- CONTRACT.md of `newsletter`: three public routes with their callers (a mail client, a reader's browser), the retention at a restart, the rewritten links, and that a link of a sent letter fails while the portal is down.
 - The privacy statement and the footer line (Q1).
-- Alembic: one migration; head counted before the push.
-- The Caddy compression and security-header snippets are untouched; the pixel route sends `Cache-Control: no-store`.
+- Alembic: one migration; head counted before the push; two nullable columns on `deliveries` would be one (the shared `token`).
+- The pixel route sends `Cache-Control: no-store`; Caddy's snippets do not touch `/nieuwsbrief` (not read in the shared parts).
 
 ## C4. Detailed decisions — one subsection each, with the reasons
 
-**C4.1 Rewriting.** Only when the setting is on and the delivery has a token. The forwarding address is read from `letter_links`, never from the request, so the route cannot be an open redirect. The unsubscribe link, `mailto:` links and the in-page anchors stay as they are.
+**C4.1 Rewriting.** After `expand_blocks` and `with_inline_styles`, on the rendered HTML, and on the URLs of the text part. Every `http` and `https` link is rewritten except the unsubscribe link and the *Niet meten* link; `mailto:`, `tel:` and in-page anchors stay. The destination is read from `letter_links`, never from the request, so the route cannot be an open redirect; the store row is created the first time a link is rendered, under the unique key (letter, url), so a link that changes during a send is simply a new row. Known limit, measured in C8: when the visible text of a link is a URL, the href differs from the text and some filters weigh that.
 
-**C4.2 Pixel.** `GET /nieuwsbrief/o/<token>.gif` always returns the same 43-byte GIF with `no-store`; a write happens only for a known token, once per delivery per hour.
+**C4.2 Pixel.** `GET /nieuwsbrief/o/<token>.gif` always returns the same 43-byte GIF with `no-store`. A write only for a known token and only once per delivery per hour. No per-IP limit, for the reason in C1; an unknown token costs one indexed lookup, as on the unsubscribe page.
 
-**C4.3 Click.** `GET /nieuwsbrief/k/<token>/<link_id>`: both must belong to the same letter, else 404; the event is written, a write failure is swallowed, the answer is a 302.
+**C4.3 Click.** `GET /nieuwsbrief/k/<token>/<link_id>`: the delivery and the link must belong to the same letter, else 404; the event is written, a failing write is swallowed, the answer is a 302. No limiter.
 
-**C4.4 First ten seconds.** An event within ten seconds of `sent_at` of its delivery is stored but flagged `early` and left out of the figures.
+**C4.4 First ten seconds.** An event within ten seconds of the delivery's `sent_at` is stored, flagged `early`, and left out of the figures.
+
+**C4.5 The setting is read once.** At `start_sending`; the letter keeps `measured`. A letter in the middle of a send never changes shape, and the archive says which letters were measured.
+
+**C4.6 *Niet meten*.** The link of the footer carries the delivery's token. GET shows a page, POST writes the objection (`measuring`) on the normalised address and deletes the events of that address's deliveries. `send_batch` checks the objection when it renders each delivery: an objecting address gets the letter unmeasured and without the footer line.
+
+**C4.7 Erasure.** `erase_address` (shared with CR-36, C4.4 there) anonymises the deliveries of an address, a member's too; the events hang on the delivery and stay as counts without a person. The objection row stays.
+
+**C4.8 Retention.** A purge of events older than twelve months at start-up, as `_purge_old_email_logs` does, and at every `start_sending`. It runs at a restart, which is every deploy; the CONTRACT says so.
 
 ## C5. Privacy and security — the mechanics behind A7
 
-No IP, no user agent. Events are linked to a delivery, not to a subscriber row, so erasing a subscriber (CR-05 §4) leaves counts and no person. The objection list (Q1 a) is address-only and survives erasure of the subscriber, because without it the person would be measured again.
+No IP, no user agent. Events hang on a delivery, so erasing an address leaves counts and no person. The objection list is address-only and survives erasure, because without it the person would be measured again. The click route forwards only to a stored address. A scanner that follows the *Niet meten* link changes nothing: GET only shows.
 
 ## C6. Tests — what the build must prove
 
 | # | Test |
 |---|---|
-| T1 | setting off: the mail is byte-identical to today (snapshot) |
-| T2 | setting on: every external link goes through the portal; the unsubscribe link does not |
+| T1 | not measured: the mail is byte-identical to today (snapshot) |
+| T2 | measured: every external link of the rendered letter, an activity block's links included, goes through the portal; the unsubscribe link and *Niet meten* do not |
 | T3 | a click forwards to the stored address and writes one event |
 | T4 | a link id of another letter gives 404 and writes nothing |
 | T5 | an unknown pixel token gives the GIF and writes nothing |
 | T6 | an event in the first ten seconds is not counted |
-| T7 | erasing a subscriber leaves the counts and removes the person |
-| T8 | the retention job removes events older than twelve months and nothing newer |
-| T9 | the test mail carries no pixel and no rewritten link |
+| T7 | `erase_address` leaves the counts and removes the person, for a subscriber and for a member |
+| T8 | the purge removes events older than twelve months and nothing newer, at start-up and at send start |
+| T9 | the test mail and the preview carry no pixel and no rewritten link |
 | T10 | a failing event write still redirects |
+| T11 | the plain-text part's URLs are rewritten, and carry the footer line |
+| T12 | switching the setting during a send does not change the letter |
+| T13 | an objection between two batches: the rest of the letter goes unmeasured (red when the check at render is removed) |
+| T14 | a member's letter carries the footer line and *Niet meten* when measured, nothing when not |
+| T15 | fifty pixel fetches from one address are all recorded |
+| T16 | GET on *Niet meten* changes nothing; POST writes the objection and deletes the address's events |
+| T17 | a link that appears for the first time in the third batch gets a store row |
 
 ## C7. The gate — what refuses a deviation from now on
 
-A gate (T2's form) that renders a measured letter with an external link and fails when the link is not in `letter_links`; proved by an additive violation.
+A gate (T2's form) that renders a measured letter with an external link in a block and in the body and fails when a link is not in `letter_links`; proved by an additive violation.
 
 ## C8. Prototype findings — what was measured before the build
 
@@ -252,7 +276,7 @@ Status line, as-built notes folded in, tracking issue closed (`CLAUDE.md` step 1
 
 | Q&A | Date | Question | Status |
 |---|---|---|---|
-| — | 15 Oct 2026 | Q1–Q4 of B8 go into a Q&A file for Koen | open |
+| — | 15 Oct 2026 | Q1–Q4 of B8 go into a Q&A file for Koen; the build read of dev2 (#2027, 15 Oct 2026) is taken in | open |
 
 ## Non-goals — deliberately outside this change
 
