@@ -718,6 +718,7 @@ _UNREACHABLE = {
         "Deze galerij toont niets: het album bestaat niet meer of heeft geen foto's."
     ),
     ("activities", "empty"): _("Dit blok toont niets: er zijn geen komende activiteiten."),
+    ("albums", "empty"): _("Deze kaart toont niets: er is nog geen album met foto's."),
 }
 
 
@@ -903,6 +904,68 @@ def _activities_html(node: dict, preview: bool = False, db=None) -> str:
             own_db.close()
 
 
+def _albums_html(node: dict, preview: bool = False, db=None) -> str:
+    """The album card (CR-32 R13, R14, F13): ONE `pub.photo_card` — the photo
+    page's card, one picture slot — that moves through the latest `albums` albums
+    and at most `photos` photos of each, one photo at a time, the cover first, then
+    the next album; every `interval` seconds, in the visitor's browser (Alpine). The
+    card links to the album it shows at that moment. It stands still with interval
+    0, under `prefers-reduced-motion` (in the script) and in the admin preview. An
+    album without a photo is skipped (`list_albums` holds only albums with one);
+    with no album at all the block is nothing on the site and its reason in the
+    preview."""
+    from datetime import date
+
+    from app.database import SessionLocal
+    from app.domains.media.api import list_activity_photos, list_albums, media_url
+    from app.ui import path_for, templates
+
+    attrs = node.get("attrs") or {}
+    albums_n, photos_n, interval = attrs.get("albums"), attrs.get("photos"), attrs.get("interval")
+    if not (isinstance(albums_n, int) and isinstance(photos_n, int) and isinstance(interval, int)):
+        return ""
+    own_db = SessionLocal() if db is None else None
+    session = db if db is not None else own_db
+    try:
+
+        def when(album):
+            return album.sort_date or (album.dates[0].start_date if album.dates else None)
+
+        latest = sorted(
+            list_albums(session), key=lambda a: (when(a) or date.min, a.id), reverse=True
+        )[:albums_n]
+        short_date = templates.env.filters["kortedatum"]
+        frames = []
+        for album in latest:
+            for photo in list_activity_photos(session, album.id)[:photos_n]:
+                frames.append(
+                    {
+                        "src": media_url(photo["id"], thumb=True),
+                        "name": album.name,
+                        "date": short_date(when(album)) if when(album) else "",
+                        "href": path_for(f"/activiteiten/{album.id}/fotos"),
+                    }
+                )
+    finally:
+        if own_db is not None:
+            own_db.close()
+    if not frames:
+        return _unreachable_html("albums", "empty") if preview else ""
+    first = frames[0]
+    macro = getattr(templates.env.get_template("_public_macros.html").module, "photo_card")
+    return str(
+        macro(
+            first["name"],
+            first["href"],
+            first["src"],
+            None,
+            frames=frames,
+            interval=0 if preview else interval,
+            date_text=first["date"],
+        )
+    ).strip()
+
+
 def _gallery_html(node: dict, preview: bool = False, db=None) -> str:
     """One album as a grid of its photos (CR-32 R20): each a thumbnail that opens
     the photo. The data is the media module's, asked through its facade; an
@@ -1032,7 +1095,8 @@ def render_document(
 
 #: What renders each data block of `schema.DATA_BLOCKS`: one function per block.
 _DATA_BLOCKS = {
-    "activities": lambda node, preview, db: _activities_html(node, preview=preview, db=db)
+    "activities": lambda node, preview, db: _activities_html(node, preview=preview, db=db),
+    "albums": lambda node, preview, db: _albums_html(node, preview=preview, db=db),
 }
 
 

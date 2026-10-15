@@ -66,7 +66,7 @@ TONES: tuple[str, ...] = ("plain", "tint", "accent")
 #: supplies at render time. Each is named in the registry (`home_blocks`) by the
 #: module that owns it, so the editor offers it, and the save accepts it, only
 #: where that module is on (`service._check_references`).
-DATA_BLOCKS: tuple[str, ...] = ("activities",)
+DATA_BLOCKS: tuple[str, ...] = ("activities", "albums")
 
 #: Where a button and a card may lead: the four destinations, of which a
 #: node carries exactly one (`_one_destination`).
@@ -198,6 +198,16 @@ NODES: dict[str, dict[str, Any]] = {
     # In no group, like `section`: a data block stands at the root and nowhere else
     # (the page template gives it a container of its own, outside the prose).
     "activities": {"attrs": {"count": tuple(range(1, 13))}},
+    # CR-32 R13, R14 (F13): ONE card that moves through the latest `albums` albums
+    # of the photo page, showing at most `photos` photos of each, every `interval`
+    # seconds (0: it stands still); the media module supplies the data.
+    "albums": {
+        "attrs": {
+            "albums": tuple(range(1, 7)),
+            "photos": tuple(range(1, 9)),
+            "interval": (0, *range(2, 11)),
+        }
+    },
     "value": {"group": "inline", "inline": True, "atom": True, "attrs": {"code": VALUE_CODES}},
     "hardBreak": {"group": "inline", "inline": True},
     "text": {"group": "inline", "text": True, "marks": ("bold", "italic", "strike", "link")},
@@ -355,6 +365,7 @@ BLOCK_SETS: dict[str, dict[str, Any]] = {
             "section",
             "gallery",
             "activities",
+            "albums",
             "value",
         ),
     },
@@ -759,6 +770,7 @@ def _toolbar_label(command_id: str) -> str:
         "section": _("Sectie"),
         "gallery": _("Galerij"),
         "activities": _("Activiteiten"),
+        "albums": _("Albumkaart"),
         "value": _("Code"),
     }.get(command_id, command_id)
 
@@ -888,6 +900,16 @@ def schema_for(
         "cards": (
             {"icons": list(_icon_names()), "destinations": list(_DESTINATION_ATTRS)}
             if "cards" in BLOCK_SETS[set_name]["insert"]
+            else None
+        ),
+        # The words of the album card's settings, in the block itself (CR-32 R13).
+        "albumCard": (
+            {
+                "albums": _("Albums"),
+                "photos": _("Foto's per album"),
+                "interval": _("Seconden (0 = staat stil)"),
+            }
+            if "albums" in insert
             else None
         ),
         # The gallery's dialog (CR-32 R20): the albums the author may choose between

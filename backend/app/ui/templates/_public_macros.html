@@ -59,14 +59,27 @@
 
 {# An album on the photo overview: the kit's card as a link, the cover in
    16 : 9 to its edges, the name and the date under it. #}
-{% macro photo_card(name, href, cover, date=None) -%}
-{% call ui.card(href=href, attrs="data-photo-card") %}
+{# CR-32 R14 (F13): the SAME card, optionally MOVING — `frames` is a list of
+   `{src, name, date, href}`, `interval` the seconds between two (0: it stands
+   still). The server draws the first frame; with more than one frame and an
+   interval, Alpine swaps the one picture slot, the name, the date and the link
+   to the next frame, photo by photo, and stops under `prefers-reduced-motion`.
+   `date_text` is the first frame's date, already written (a frame carries its
+   own). No second card macro. #}
+{% macro photo_card(name, href, cover, date=None, frames=None, interval=0, date_text=None) -%}
+{%- set cycling = frames and frames|length > 1 and interval -%}
+{#- A moving card is not boosted: htmx reads a boosted link's address once, when it
+    processes the element, so after Alpine swapped the href a click still opened the
+    FIRST album (seen in the e2e). A plain link follows the href it has now. -#}
+{%- set _attrs -%}data-photo-card{% if cycling %} hx-boost="false" x-data='{ frames: {{ frames|tojson }}, i: 0, get f() { return this.frames[this.i] }, init() { if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return; setInterval(() => { this.i = (this.i + 1) % this.frames.length }, {{ interval * 1000 }}) } }' :href="f.href"{% endif %}{%- endset -%}
+{% call ui.card(href=href, attrs=_attrs) %}
   <div class="aspect-video bg-surface-2 overflow-hidden">
-    <img src="{{ cover }}" alt="{{ name }}" class="w-full h-full object-cover" loading="lazy">
+    <img src="{{ cover }}" alt="{{ name }}" class="w-full h-full object-cover" loading="lazy"{% if cycling %} :src="f.src" :alt="f.name"{% endif %}>
   </div>
   <div class="p-4">
-    <div class="font-semibold text-ink">{{ name }}</div>
-    {% if date %}<div class="text-sm text-ink-soft mt-1">{{ date|kortedatum }}</div>{% endif %}
+    <div class="font-semibold text-ink"{% if cycling %} x-text="f.name"{% endif %}>{{ name }}</div>
+    {% if date_text %}<div class="text-sm text-ink-soft mt-1"{% if cycling %} x-text="f.date"{% endif %}>{{ date_text }}</div>
+    {% elif date %}<div class="text-sm text-ink-soft mt-1">{{ date|kortedatum }}</div>{% endif %}
   </div>
 {% endcall %}
 {%- endmacro %}
