@@ -1,5 +1,7 @@
 {% extends "site_base.html" %}
-{% block title %}{{ page.title }} · {{ site_name }}{% endblock %}
+{# The home page's tab is the site's name alone (CR-32 R17): its title is the
+   organisation's name, which the header already says. #}
+{% block title %}{% if page.is_home %}{{ site_name }}{% else %}{{ page.title }} · {{ site_name }}{% endif %}{% endblock %}
 {% block content %}
 {# CR-17 slice 4 (#1671) and phase 2 (#1679, C4.13 "Where the width lives"):
    the page is a document page — ONE container of 1 024 px, CENTRED, with
@@ -26,7 +28,13 @@
 {# #1656 (CR-11 Q87): the title above is the page's only h1. `cms-page` gives the
    headings of a page BODY their sizes (24, 18 and 16 px, `scripts/build-css.sh`); the
    renderer shows them one level down (`render_cms_content(on_page=True)`). #}
-<div class="prose-raak cms-page" data-page-body>{{ content_html | safe }}</div>
+{# CR-32 phase 5: the page is parts — the author's blocks in the prose container, a
+   data block of a module (the activity list) in a container of its own beside it,
+   so the prose rules never reach the module's markup. #}
+{% for kind, html in content_parts %}
+{% if kind == "data" %}<div class="page-data">{{ html | safe }}</div>
+{% else %}<div class="prose-raak cms-page" data-page-body>{{ html | safe }}</div>{% endif %}
+{% endfor %}
 {# #924: de privacypagina toont de contactgegevens van de vereniging uit de
    ENTITEIT. Ze stonden er als vrije tekst in — naam, adres en het e-mailadres
    meermaals — en die regels zijn bij migratie 121 weggehaald.

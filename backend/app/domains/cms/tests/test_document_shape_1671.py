@@ -480,6 +480,7 @@ class TestEveryNodeRenders:
             {"type": "callout", "content": [{"type": "text", "text": "Let op."}]},
             {"type": "blockquote", "content": [_par("Een citaat.")]},
             {"type": "gallery", "attrs": {"activity_id": 1}},
+            {"type": "activities", "attrs": {"count": 6}},
             {
                 "type": "section",
                 "attrs": {"tone": "tint", "eyebrow": "Bovenkopje"},

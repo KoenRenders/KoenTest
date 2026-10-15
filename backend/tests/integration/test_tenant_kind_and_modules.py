@@ -74,15 +74,28 @@ def _blocks(db_session, tenant_id: int) -> dict[str, CmsPage]:
 @pytest.mark.parametrize(
     "kind,expected", [(TenantKind.COMPANY, COMPANY), (TenantKind.ASSOCIATION, EVERY), (None, EVERY)]
 )
-def test_a_new_tenant_starts_with_its_kinds_modules_and_two_site_blocks(db_session, kind, expected):
+def test_a_new_tenant_starts_with_its_kinds_modules_a_footer_and_a_home_page(
+    db_session, kind, expected
+):
     org = create_tenant(db_session, name="Bakkerij & Co", code="bakkerij-1478", kind=kind)
     assert org.kind is (kind or TenantKind.ASSOCIATION)
     assert enabled_modules(org.id, db=db_session) == expected
 
     blocks = _blocks(db_session, org.id)
-    assert set(blocks) == {"home-intro", "site-footer"}
+    # CR-32 R17: the footer block and the tenant's home page (flagged, in the CMS);
+    # `home-intro` is no site block any more.
+    assert set(blocks) == {"site-footer", "start"}
     assert all(b.is_published and not b.show_in_nav for b in blocks.values())
-    assert "Welkom bij Bakkerij &amp; Co." in blocks["home-intro"].content, "escaped, not raw"
+    assert blocks["start"].is_home and blocks["start"].title == "Bakkerij & Co"
+    from app.domains.cms.api import published_document, render_document
+
+    home = published_document(db_session, blocks["start"])
+    assert "Welkom bij Bakkerij & Co." in str(home), "the welcome line is the page's intro"
+    assert "Welkom bij Bakkerij &amp; Co." in render_document(home, db_session), "escaped, not raw"
+    # The composition follows the modules the kind gives (CR-19): a band and
+    # activities only where those modules are on.
+    kinds_of_block = {b["type"] for b in home["content"]}
+    assert ("activities" in kinds_of_block) is ("activities" in expected)
     assert blocks["site-footer"].content == "<p>Bakkerij &amp; Co</p>"
 
 
