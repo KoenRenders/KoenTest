@@ -3,7 +3,7 @@
 **Status:** shaped on 15 October 2026 by the architecture CLI, on Koen's question through the master CLI · not read against the code yet · not assigned to a release
 **Tracking issue:** to be created by the master CLI — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the `cms` domain (the page schema, the renderer, the editor's node set), the kit (`scripts/build-css.sh`, the public shell `site_base.html`), the tenant settings of the kernel (`tenant_config`), the media library (one picture kind); a follow-up of CR-17 (web content) and CR-19 (tenant kinds)
-**Reading:** A ≈ 1 450 words · B ≈ 2 400 · C ≈ 1 500, drawings excluded; the budget is A ≤ 1 500, B ≤ 2 500
+**Reading:** A 2 126 words · B 2 550 · C 1 752 — measured on 15 October 2026, drawings excluded; the budget is A ≤ 1 500, B ≤ 2 500: **over budget**, because three questions of one day stand in one change request (the concept site, the album card, the home page); whether to trim, split or accept is Koen's (B8.8)
 
 ---
 
@@ -277,6 +277,7 @@ A rule, for the schema: **a visual choice in a document is a name from a short l
 4. **Two typeface pairs or three**: `default` and `neutral` cover the association and the concept; a third pair is a later row plus its font files.
 5. **The association's home as a CMS page** (B4): confirm that `home.html` retires once the home page is rebuilt on HDEV and signed off (A8.9), or keep both. My proposal: retire it in the same change — two homes are two places for one fact.
 6. **The album card's defaults**: three albums, four photos, every three seconds (Koen's example); and whether the card shows the album's name and date under the photos as the photo page does. My proposal: yes, the same card.
+8. **One change request or two**: the concept site's three points (phases 1–3) and the association's home with the album card (phases 4–5) share the schema and the renderer but nothing else; they can be one document over budget or two within it. My proposal: one, phased as B6, because the data blocks and the sections meet on the same home page.
 7. **Where the data blocks stand on the concept site**: the company tenant has no activities and no members, so it sees neither block (R18); the album card it may use if it has albums — the concept's 24 screenshots are figures, not an album.
 
 ## B9. Decisions log — dated answers
