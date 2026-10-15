@@ -1,6 +1,6 @@
 # CR-26 — The party model: one person and one organisation per account, the facts per tenant
 
-**Status:** shaped on 15 October 2026 by the architecture CLI with Koen (Q&A nr. 05 of 15 October 2026, nine questions and a tenth answered the same day) · depends on CR-20 (tenant apart from organisation, #1578), decided and not built · not assigned to a release · build read not yet asked
+**Status:** shaped on 15 October 2026 by the architecture CLI with Koen (Q&A nr. 05 of 15 October 2026, nine questions and a tenth answered the same day) · depends on CR-20 (tenant apart from organisation, #1578), decided and not built · for v2.18 on Koen's word (not assigned yet: the assignment follows the build read) · build read not yet asked
 **Tracking issue:** #2020 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** `mdm` (persons, organisations, households, addresses, contacts, identifications, bank accounts: the party and what hangs on it), the kernel's tenancy (an account scope beside the tenant scope), `auth` (who a sign-in is), `membership` (one household at a time), `sales` (the buyer of an order, CR-21), the public account pages (*Mijn organisatie*), reporting (the views on persons and addresses)
 **Reading:** A 1 894 words · B 3 641 · C 3 482 — measured on 15 October 2026, drawings excluded, tables included; prose alone A 826 · B 1 545 · C 2 454. The budget is A ≤ 1 500, B ≤ 2 500: over budget in the tables (the requirements, the traceability matrix, the standards table, the decisions log), the prose within it; Koen accepted the same for CR-32 and CR-33
@@ -373,7 +373,7 @@ Total: about L + M + M, one dev CLI, after CR-20 and before CR-34's phase 1; the
 | 2 | `party_relationships` (with `organization_persons` migrated), *Mijn organisatie*, `organisation_by_vat`, `act_for`, `sales_orders.buyer_party_id`, the checkout choice | 1, CR-21's checkout on master | an invalid VAT number is refused before the organisation exists; a second person on the same VAT number is linked, not refused; *namens* without a relation is impossible | one migration; CR-34 may start after this phase |
 | 3 | `party_id` on addresses, contacts, identifications (one table with `external_numbers`), bank accounts; the two-column tables gone | 1 | none on the happy path; a write with both columns can no longer exist | one migration |
 
-The three phases ship in one release (Koen), in this order, one builder; CR-34 phase 1 after phase 2.
+The three phases ship in one release (Koen), in this order, one builder; CR-34 phase 1 after phase 2. The release is v2.18, with CR-20 before and CR-34 after (Q11). Until then v2.17 builds nothing that assumes a person per tenant in new code: no new `person_id`/`organization_id` pair outside `mdm`, and no company fields in CR-21's checkout.
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
@@ -387,7 +387,6 @@ The three phases ship in one release (Koen), in this order, one builder; CR-34 p
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
-| Q11 | Which release? Koen put CR-20, CR-21 and CR-34 on v2.17; this change sits between CR-20 and CR-34 | v2.17, after CR-20, before CR-34's phase 1; if v2.17 must close earlier, CR-26 phases 1–3 and CR-34 move together | the order on #1902 |
 | Q12 | Today's duplicates across departments of one account (the same person imported at A and B): merged by the administration with the existing merge tool, or left as two parties until someone merges | left, with a report listing probable duplicates (same name, birth date and postal code) for the administration; no automatic merge (R12) | phase 1's migration and one report |
 | Q13 | The *acts for* relation: made by the person alone (as proposed), or confirmed by the department before an order on behalf is accepted? | by the person alone; the VAT number is checked in form, and CR-34's invoice carries it; a confirmation step is a workbench task later if abuse appears | F7 |
 
@@ -402,6 +401,7 @@ The three phases ship in one release (Koen), in this order, one builder; CR-34 p
 | 15 October 2026 | Roles derived from facts, no role table, CR-20's role column goes: "ja op 1"; relations in phase 1 (then phase 2 after the re-ordering): "ja op 2"; the VAT number required for a company order, the enterprise number not: "BTW-nummer zou ik verplicht maken bij een bestelling, ondernemingsnummer hoeft niet" | Koen |
 | 15 October 2026 | A company buys through a signed-in person who registers the organisation once: "Zouden we een bedrijf niet altijd verplichten een account te maken? Anders moeten we ook nog een veld btw-nummer, adres, … gaan voorzien op een bestelformulier." — "Ik bedoel een persoon namens dat bedrijf." — "ja, akkoord" | Koen |
 | 15 October 2026 | The party is per account, not per tenant, to the proposal of a copy per tenant: "dit vind ik eigenlijk wel niet goed, de natuurlijke persoon en de organisatie zouden niet mogen verdubbeld worden … Je kan wel maar van één afdeling lid zijn."; then to "partij per account, feiten per tenant, lidmaatschap van één afdeling tegelijk" and "CR-20 vooraf, CR-26 fase 1 de partij per account vóór de koper": "ja op 1, ja op 2" | Koen |
+| 15 October 2026 | Release: CR-26 on v2.18, not v2.17 ("ik was sowieso van plan dit pas in v2.18 te stoppen. Zie jij noodzaak om dit al in v2.17 te doen?" — no); CR-34 on v2.18 too ("deze moet ook in v2.18: CR-34 (facturen webshop)") | Koen |
 | 15 October 2026 | Context, out of scope: member pricing between departments is not fixed; Raak Nationaal's system keeps persons per department and moves a member by deactivating and activating | Koen |
 
 ---
@@ -549,6 +549,7 @@ Not built.
 
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
+| Q11 | 15 October 2026 | Which release: v2.17 between CR-20 and CR-34, or later? (architecture CLI) | v2.18, with CR-20 (tenant apart from organisation) before it and CR-34 (invoices for the webshop) after it, as one chain. Koen: "ik was sowieso van plan dit pas in v2.18 te stoppen", and on CR-34: "deze moet ook in v2.18". Nothing in v2.17 needs the party: the webshop's private buyers and guests work without it, and moving the order's `person_id` to `buyer_party_id` later is one small migration |
 | Q1–Q10 | 15 October 2026 | The ten questions of Q&A nr. 05 (architecture CLI) | Koen's answers in B9; questions 4, 5, 6, 9 and 10 settled in the chat the same day, 6 revised from *per tenant* to *per account* on his reading |
 | — | 13 October 2026 | Q&A nr. 03, questions 2–6 (architecture CLI) | 2, 3, 4 answered through nr. 05 (8, 1, 2); 5 (what CR-26 is, CR-20 before it) answered by B6; 6 (the leading principles) belongs to the architecture document, not to this change |
 
