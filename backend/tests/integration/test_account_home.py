@@ -11,7 +11,8 @@ R14, R26; C6 T18).
 
 Red (each restored after): the include of `_membership_card.html` taken out of
 `account_home.html` → the card test; `aria-current` taken out of
-`account_page` → the menu test; `account_nav` given a fixed "Mijn Raak" → the
+`_site_account.items` (since #1886 the page's menu renders through it) → the
+menu test; `account_nav` given a fixed "Mijn Raak" → the
 site-name test.
 """
 
@@ -99,29 +100,35 @@ def test_a_member_sees_the_same_membership_card_as_on_mijn_gezin(client, db_sess
         assert templates.env.filters["kortedatum"](card.valid_until) in landing
 
 
-def test_the_pages_menu_is_the_account_menu_and_marks_where_you_are(client, member):
-    main = _main(client.get("/mijn").text)
-    menu = main[main.index("data-account-page-menu") : main.index("</nav>")]
-    rows = re.findall(r'<a href="([^"]+)" class="site-drawer-row"([^>]*)>(.*?)</a>', menu, re.S)
-    assert [href for href, _attrs, _body in rows] == [
-        "/mijn",
-        "/mijn/gegevens",
-        "/leden/gezin",
-        "/mijn/inschrijvingen",
+def _rows(nav: str) -> list[tuple[str, str, str]]:
+    """Each link of a menu: its href, its opening tag, its content."""
+    return [
+        (re.search(r'href="([^"]+)"', tag).group(1), tag, body)
+        for tag, body in re.findall(r"(<a [^>]*>)(.*?)</a>", nav, re.S)
     ]
+
+
+def test_the_pages_menu_is_the_account_menu_and_marks_where_you_are(client, member):
+    """#1886: the menu on the left and the links at the bottom are the account
+    menu of the header — the pages, then Uitloggen (Admin only with a way into
+    the back office, which this member has not) — and both mark the page."""
+    main = _main(client.get("/mijn").text)
+    expected = ["/mijn", "/mijn/gegevens", "/leden/gezin", "/mijn/inschrijvingen", "/afmelden"]
+    menu = main[main.index("data-account-page-menu") : main.index("</nav>")]
+    rows = _rows(menu)
+    assert [href for href, _tag, _body in rows] == expected
     assert 'aria-current="page"' in rows[0][1]
-    assert all("aria-current" not in attrs for _href, attrs, _body in rows[1:])
-    assert all(body.count("<svg") == 1 for _href, _attrs, body in rows)
+    assert all("aria-current" not in tag for _href, tag, _body in rows[1:])
+    assert all(body.count("<svg") == 1 for _href, _tag, body in rows)
+    # Uitloggen leaves the session: a full navigation, as in the header.
+    assert 'hx-boost="false"' in rows[-1][1]
     # No heading above the menu: its first item carries the page's title (Q35).
     assert "<h2" not in menu and "<h3" not in menu and "Mijn Raak Millegem" in rows[0][2]
-    # On a phone the same items stand as links at the bottom — without the page itself.
+    # Below 1 088 px the same menu stands as links at the bottom, the page marked.
     links = main[main.index("data-account-links") :]
-    links = links[: links.index("</nav>")]
-    assert re.findall(r'<a href="([^"]+)"', links) == [
-        "/mijn/gegevens",
-        "/leden/gezin",
-        "/mijn/inschrijvingen",
-    ]
+    links = _rows(links[: links.index("</nav>")])
+    assert [href for href, _tag, _body in links] == expected
+    assert 'aria-current="page"' in links[0][1]
     assert (
         # #1730: wherever the menu is not on the page — below 1 088 px.
         "min-[1088px]:hidden"

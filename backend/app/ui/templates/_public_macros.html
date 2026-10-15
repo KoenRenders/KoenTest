@@ -1,4 +1,5 @@
 {% import "_macros.html" as ui %}
+{% import "_site_account.html" as account %}
 {# ── The public activity and photo pages (CR-11 pilot C, C1 — #1663; end state
    §2.7). What the activity card, the activity page and the photo pages each
    wrote by hand, once. C1 changes NO measure, colour or position: each macro
@@ -190,15 +191,20 @@
    the page that is open. `heading=False`: the page brings its own head — a form
    page (`ui.public_form_page`) with its title, its badge and its one action.
 
-   `account_links(nav, active)`: the same items as rows at the bottom of the
-   landing page, wherever the menu is not on the page — from there every page is one tap away without
-   opening the drawer. #}
-{% macro account_page(title, nav, active, heading=True) -%}
+   `account_links(nav, active, gebruiker)`: the same menu at the bottom of the
+   landing page, wherever the menu is not on the page — from there every page is
+   one tap away without opening the drawer.
+
+   #1886: both render the shell's account list (`_site_account.items`), so they
+   carry what the header's menu and the drawer carry — Admin for who has a way
+   into the back office, and Uitloggen — in the same order, with the page that
+   is open marked (Koen, 15 October 2026, to what "Meer in je account" becomes:
+   "a", the same list, the current page marked instead of left out). `gebruiker`
+   is the shell's signed-in visitor (`site_context`). #}
+{% macro account_page(title, nav, active, gebruiker, heading=True) -%}
 <div data-account-page class="min-[1088px]:grid min-[1088px]:grid-cols-[240px_minmax(0,1fr)] min-[1088px]:gap-8">
   <nav data-account-page-menu aria-label="{{ title }}" class="hidden min-[1088px]:block">
-    {% for n in nav %}
-    <a href="{{ path_for(n.href) }}" class="site-drawer-row"{% if n.href == active %} aria-current="page"{% endif %}>{{ ui.icon(n.icon, 18) }}<span class="min-w-0 [overflow-wrap:anywhere]">{{ n.label }}</span></a>
-    {% endfor %}
+    {{ account.items(gebruiker, nav, "site-drawer-row", active=active) }}
   </nav>
   <div data-account-content class="min-w-0 max-w-[768px]">
     {% if heading %}
@@ -209,13 +215,8 @@
 </div>
 {%- endmacro %}
 
-{% macro account_links(nav, active) -%}
-{% set _others = nav | rejectattr("href", "equalto", active) | list %}
-{% if _others %}
+{% macro account_links(nav, active, gebruiker) -%}
 <nav data-account-links aria-label="{{ _('Meer in je account') }}" class="mt-8 border-t border-line pt-4 min-[1088px]:hidden">
-  {% for n in _others %}
-  <a href="{{ path_for(n.href) }}" class="site-drawer-row">{{ ui.icon(n.icon, 18) }}<span class="min-w-0 [overflow-wrap:anywhere]">{{ n.label }}</span>{{ ui.icon("chevron-right", 16, "ml-auto shrink-0 text-ink-soft") }}</a>
-  {% endfor %}
+  {{ account.items(gebruiker, nav, "site-drawer-row", active=active) }}
 </nav>
-{% endif %}
 {%- endmacro %}
