@@ -628,11 +628,7 @@ def save_draft(
     doc = _json.loads(document) if isinstance(document, str) else document
     doc = document_from_editor(doc)
     _schema.validate_document(doc)
-    from app.domains.media.api import offered_by_picker
-
-    for media_id in sorted(_figure_media_ids(doc)):
-        if not offered_by_picker(db, media_id):
-            raise _schema.InvalidShape(f"Onbekende afbeelding: {media_id}")
+    _check_references(db, doc)
     lang = _language(db, page, language)
     translation = (
         db.query(CmsPageTranslation)
@@ -664,6 +660,43 @@ def save_document(
     return save_draft(db, page_id, document, by=by, commit=commit)
 
 
+def _check_references(db, doc: dict) -> None:
+    """What a document points at must exist and be offered (the ONE door, for a
+    save and for a publish): a picture the picker would not show this tenant
+    (C6 7), and an album the photo page does not list (CR-32 R20 — the validator
+    decides by shape alone and knows no data). Refused by name, before the first
+    write."""
+    from app.domains.cms import schema as _schema
+    from app.domains.media.api import list_albums, offered_by_picker
+
+    for media_id in sorted(_figure_media_ids(doc)):
+        if not offered_by_picker(db, media_id):
+            raise _schema.InvalidShape(f"Onbekende afbeelding: {media_id}")
+    wanted = _gallery_activity_ids(doc)
+    if wanted:
+        known = {album.id for album in list_albums(db)}
+        for activity_id in sorted(wanted - known):
+            raise _schema.InvalidShape(f"Onbekend album: {activity_id}")
+
+
+def _gallery_activity_ids(document: Optional[dict]) -> set[int]:
+    """The activities the galleries of a document show."""
+    ids: set[int] = set()
+
+    def walk(node):
+        if not isinstance(node, dict):
+            return
+        if node.get("type") == "gallery":
+            activity_id = (node.get("attrs") or {}).get("activity_id")
+            if isinstance(activity_id, int):
+                ids.add(activity_id)
+        for child in node.get("content") or []:
+            walk(child)
+
+    walk(document)
+    return ids
+
+
 def _assert_publishable(db, document) -> dict:
     """The door every live-going document passes (review A3, #1770): what
     Opslaan already refuses — an unknown node, a shape the schema does not
@@ -674,14 +707,11 @@ def _assert_publishable(db, document) -> dict:
     import json as _json
 
     from app.domains.cms import schema as _schema
-    from app.domains.media.api import offered_by_picker
 
     doc = _json.loads(document) if isinstance(document, str) else document
     doc = document_from_editor(doc)
     _schema.validate_document(doc)
-    for media_id in sorted(_figure_media_ids(doc)):
-        if not offered_by_picker(db, media_id):
-            raise _schema.InvalidShape(f"Onbekende afbeelding: {media_id}")
+    _check_references(db, doc)
     return doc
 
 

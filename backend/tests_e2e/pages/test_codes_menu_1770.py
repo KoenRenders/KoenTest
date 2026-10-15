@@ -1,9 +1,10 @@
-"""E2E: a code chosen from the insert menu (CR-17; Koen, 12 October 2026).
+"""E2E: a code chosen from the insert menu (CR-17; Koen, 12 October 2026; CR-32 R19:
+the choice is a value node, shown as a chip with the value it has now).
 
 The insert menu has one item "Code". It opens the list the card "Codes" beside
-the editor shows, without the form codes. A choice puts the code at the cursor
-as plain text — what an author types — and the public page shows its value
-there.
+the editor shows, without the codes that stay typed text. A choice puts a value
+node at the cursor, a chip with the value it has now, and the public page shows
+that value there.
 
 Walked at 390 px, in a paragraph, in a table cell and in a callout: the three
 places a code is typed today.
@@ -92,7 +93,7 @@ def _choose_code_at_the_end_of(page, block) -> None:
     expect(page.locator(DIALOG)).to_be_hidden()
 
 
-def test_a_code_from_the_menu_stands_as_text_and_renders_as_its_value(setup):
+def test_a_code_from_the_menu_is_a_value_chip_and_renders_as_its_value(setup):
     from app.domains.cms.render import _values
 
     browser, page_id, slug, session = setup
@@ -112,17 +113,18 @@ def test_a_code_from_the_menu_stands_as_text_and_renders_as_its_value(setup):
         page.locator(f"{INSERT} [data-insert-code]").click()
         expect(page.locator(DIALOG)).to_be_visible()
 
-        # The list is the card's, without the form codes.
+        # The list is the closed list of values (CR-32 R19); the card beside the
+        # editor still shows every code, the typed-only ones too.
+        from app.domains.cms.schema import VALUE_CODES
+
         offered = [
             e.get_attribute("data-code") for e in page.locator(f"{DIALOG} [data-code]").all()
         ]
         card = [t.strip() for t in page.locator("[data-placeholders] dt").all_inner_texts()]
-        assert offered and offered == [c for c in card if not c.startswith("{{form:")], (
-            offered,
-            card,
-        )
+        assert offered == [f"{{{{{code}}}}}" for code in VALUE_CODES], offered
+        assert all(code in card for code in offered), (offered, card)
         assert [c for c in card if c.startswith("{{form:")], "the card lost its form codes"
-        assert "{{tenants:raak}}" in offered
+        assert "{{tenants:raak}}" in card and "{{tenants:raak}}" not in offered
         # Every choice can be pressed on a phone: inside the window, 44 px high.
         for box in (e.bounding_box() for e in page.locator(f"{DIALOG} [data-code]").all()):
             assert box["x"] >= 0 and box["x"] + box["width"] <= 390 and box["height"] >= 44, box
@@ -130,16 +132,21 @@ def test_a_code_from_the_menu_stands_as_text_and_renders_as_its_value(setup):
         expect(page.locator(DIALOG)).to_be_hidden()
 
         tiptap = f"{EDITOR} .tiptap"
+        value = _values()["membership_price_full"]
         _choose_code_at_the_end_of(page, page.locator(f"{tiptap} > p").first)
-        assert page.locator(f"{tiptap} > p").first.inner_text() == f"Het lidgeld is {CODE}"
+        assert page.locator(f"{tiptap} > p").first.inner_text().strip() == f"Het lidgeld is {value}"
         _choose_code_at_the_end_of(page, page.locator(f"{tiptap} td").first)
-        assert page.locator(f"{tiptap} td").first.inner_text().strip() == f"In een cel: {CODE}"
+        assert page.locator(f"{tiptap} td").first.inner_text().strip() == f"In een cel: {value}"
         _choose_code_at_the_end_of(page, page.locator(f"{tiptap} .prose-callout"))
-        assert page.locator(f"{tiptap} .prose-callout").inner_text() == f"In een kader: {CODE}"
+        assert (
+            page.locator(f"{tiptap} .prose-callout").inner_text().strip()
+            == f"In een kader: {value}"
+        )
+        assert page.locator(f"{tiptap} .prose-value").count() == 3, "a chip stands in each place"
 
-        # What the form holds is text, no node of its own.
+        # What the form holds is a value node, no text.
         stored = page.locator("#cp-document-input").input_value()
-        assert stored.count(CODE) == 3 and '"value"' not in stored
+        assert stored.count('"value"') == 3 and CODE not in stored
 
         with page.expect_navigation(timeout=15000):
             page.locator("[data-action-bar] button[data-form-save]").click()

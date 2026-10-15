@@ -20,11 +20,10 @@ router = APIRouter(include_in_schema=False)
 
 @router.get("/fotos", response_class=HTMLResponse)
 def fotos_overzicht(request: Request, db: Session = Depends(get_db)):
-    from app.domains.activities.api import list_activities
-    from app.domains.media.api import activity_photo_covers
+    from app.domains.media.api import activity_photo_covers, list_albums
 
     covers = {row["activity_id"]: row["thumb_url"] for row in activity_photo_covers(db)}
-    albums = [a for a in list_activities(db, scope="archived") if a.id in covers]
+    albums = list_albums(db)
 
     per_jaar: dict[int, list] = {}
     for album in albums:

@@ -1748,6 +1748,28 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   {% endcall %}
 </div>
 {% endif %}
+{% if blocks.gallery %}
+{# The gallery's dialog (CR-32 R20): one album of the photo page, chosen from the
+   caller's own list (`blocks.gallery.albums`). The block holds the album's id;
+   the photos are the media module's, shown at render time. To change the album,
+   remove the block and insert another. #}
+<div x-data="{ gallery: false, gAlbum: {{ blocks.gallery.albums[0].id }} }"
+     @raak-gallery-choose.window="if ($event.detail.editor === '{{ editor_id }}') gallery = true"
+     @raak-gallery-apply.window="if (gallery) { $dispatch('raak-gallery-chosen', { editor: '{{ editor_id }}', activity_id: Number(gAlbum) }); gallery = false }">
+  {% call _editor_dialog("gallery", _("Galerij"), editor_id, max_w="max-w-lg") %}
+  {{ label(blocks.gallery.albumLabel, editor_id ~ "-gallery-album") }}
+  <select id="{{ editor_id }}-gallery-album" class="w-full border border-gray-300 rounded-lg px-3 py-2" x-model="gAlbum" data-gallery-album>
+    {% for album in blocks.gallery.albums %}
+    <option value="{{ album.id }}">{{ album.label }}</option>
+    {% endfor %}
+  </select>
+  <div class="mt-4 flex justify-end gap-2">
+    {{ btn_secondary(_("Annuleren"), attrs='@click="gallery = false"') }}
+    {{ btn_primary(_("Invoegen"), type="button", attrs='@click="$dispatch(\'raak-gallery-apply\')" data-gallery-apply') }}
+  </div>
+  {% endcall %}
+</div>
+{% endif %}
 {% if blocks.figure %}
 {# The dialog opens empty for a new picture, and filled with what a placed
    picture holds when the choose event carries it (`attrs`, `url`): that

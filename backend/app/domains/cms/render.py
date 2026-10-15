@@ -602,6 +602,9 @@ def _block_html(
     if kind == "button":
         return _button_html(node, preview=preview, db=db)
 
+    if kind == "gallery":
+        return _gallery_html(node, preview=preview, db=db)
+
     if kind == "section":
         # CR-32 F1–F3: a band of the page. A div, because the sanitiser's
         # allow-list has no `section` and a security allow-list does not grow
@@ -709,6 +712,9 @@ _UNREACHABLE = {
     ("card", "page"): _("Deze kaart wijst naar een pagina die niet (meer) bestaat."),
     ("card", "form"): _("Deze kaart wijst naar een formulier dat geen inzendingen meer aanneemt."),
     ("card", "screen"): _("Deze kaart wijst naar een scherm dat hier niet wordt aangeboden."),
+    ("gallery", "empty"): _(
+        "Deze galerij toont niets: het album bestaat niet meer of heeft geen foto's."
+    ),
 }
 
 
@@ -835,6 +841,39 @@ def hero_view(page, db=None, *, preview: bool = False) -> "dict | None":
         "lead": hero.get("lead") or "",
         "actions_html": actions,
     }
+
+
+def _gallery_html(node: dict, preview: bool = False, db=None) -> str:
+    """One album as a grid of its photos (CR-32 R20): each a thumbnail that opens
+    the photo. The data is the media module's, asked through its facade; an
+    activity that is no album (any more) or holds no photo renders NOTHING on the
+    site — the reason in the admin preview, as for a button that leads nowhere.
+    The photos carry the kit's own look (the prose rules' radius and shadow)."""
+    from app.database import SessionLocal
+    from app.domains.media.api import list_activity_photos, list_albums, media_url
+
+    activity_id = (node.get("attrs") or {}).get("activity_id")
+    own_db = SessionLocal() if db is None else None
+    session = db if db is not None else own_db
+    try:
+        photos = (
+            list_activity_photos(session, activity_id)
+            if isinstance(activity_id, int)
+            and any(album.id == activity_id for album in list_albums(session))
+            else []
+        )
+    finally:
+        if own_db is not None:
+            own_db.close()
+    if not photos:
+        return _unreachable_html("gallery", "empty") if preview else ""
+    items = "".join(
+        f'<a href="{media_url(photo["id"])}">'
+        f'<img src="{media_url(photo["id"], thumb=True)}" alt="{escape(photo.get("title") or "", quote=True)}" '
+        'loading="lazy"></a>'
+        for photo in photos
+    )
+    return f'<div class="prose-gallery">{items}</div>'
 
 
 def _cards_html(node: dict, preview: bool = False, db=None) -> str:

@@ -317,7 +317,7 @@ def test_the_document_editor_s_dialogs_and_only_they_bring_the_focus_back_themse
     assert "design_system.html:demo" in plain and "_email_log_lijst.html:open" in plain, (
         f"the scan did not find the ordinary dialogs it is known to have: {sorted(plain)}"
     )
-    assert sorted(through_the_shell) == ["button", "card", "codes", "figure", "link"], (
+    assert sorted(through_the_shell) == ["button", "card", "codes", "figure", "gallery", "link"], (
         f"the editor's dialogs through the shell: {sorted(through_the_shell)}"
     )
     # Its answer.

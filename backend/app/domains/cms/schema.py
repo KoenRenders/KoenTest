@@ -177,6 +177,11 @@ NODES: dict[str, dict[str, Any]] = {
             **_DESTINATION_ATTRS,
         }
     },
+    # CR-32 R20 (from CR-17 F5): one album of the photo page — an archived
+    # activity with photos — shown as a grid of its photos. A leaf: the data (the
+    # photos) is the media module's, supplied at render time; the service refuses
+    # an activity that is not an album at the save (the validator knows no data).
+    "gallery": {"group": "block", "attrs": {"activity_id": "int"}},
     "value": {"group": "inline", "inline": True, "atom": True, "attrs": {"code": VALUE_CODES}},
     "hardBreak": {"group": "inline", "inline": True},
     "text": {"group": "inline", "text": True, "marks": ("bold", "italic", "strike", "link")},
@@ -324,7 +329,17 @@ BLOCK_SETS: dict[str, dict[str, Any]] = {
         "blocks": ("blockquote",),
         # C4.13's menu order: Tabel · Afbeelding · Kolommen · Knop · Kader ·
         # Kaarten.
-        "insert": ("table", "figure", "columns", "button", "callout", "cards", "section", "value"),
+        "insert": (
+            "table",
+            "figure",
+            "columns",
+            "button",
+            "callout",
+            "cards",
+            "section",
+            "gallery",
+            "value",
+        ),
     },
     # Phase 7; the shape stands here so the one schema is the whole design.
     "letter": {
@@ -711,11 +726,12 @@ def _toolbar_label(command_id: str) -> str:
         "callout": _("Kader"),
         "cards": _("Kaarten"),
         "section": _("Sectie"),
+        "gallery": _("Galerij"),
         "value": _("Code"),
     }.get(command_id, command_id)
 
 
-def schema_for(set_name: str) -> dict[str, Any]:
+def schema_for(set_name: str, *, albums: "list[tuple[int, str]] | None" = None) -> dict[str, Any]:
     """The editor's configuration for one set, as data for the macro.
 
     Everything the browser needs to build the toolbar and the insert menu:
@@ -825,6 +841,17 @@ def schema_for(set_name: str) -> dict[str, Any]:
         # the kit (`app.ui.kit.icons`) — the same list the validation asks.
         "cards": (
             {"icons": list(_icon_names())} if "cards" in BLOCK_SETS[set_name]["insert"] else None
+        ),
+        # The gallery's dialog (CR-32 R20): the albums the author may choose between
+        # — `(activity id, label)` from the caller, who owns the data; none when
+        # there is no album, and then the menu offers no gallery.
+        "gallery": (
+            {
+                "albums": [{"id": album_id, "label": label} for album_id, label in albums],
+                "albumLabel": _("Album"),
+            }
+            if albums and "gallery" in BLOCK_SETS[set_name]["insert"]
+            else None
         ),
         # The section's tone choice, in words (CR-32): the same names the
         # validation accepts.
