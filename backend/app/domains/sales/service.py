@@ -541,6 +541,44 @@ def order_payment_state(db: Session, order_id: int) -> dict:
     return order_payment_states(db, [order_id]).get(order_id, {})
 
 
+def board_order_person(db: Session, email: str) -> tuple[Any, bool]:
+    """The person the board's typed e-mail names, and whether they are a member
+    today (R43, F18, T22): the order hangs on the person of the typed address,
+    never on the seller. `(None, False)` when the address names nobody — unknown,
+    not confirmed, or not an e-mail."""
+    from app.domains.auth.api import login_person_for_email
+    from app.domains.membership.api import has_valid_membership
+    from app.kernel.clock import belgian_today
+
+    typed = (email or "").strip()
+    if "@" not in typed:
+        return None, False
+    person = login_person_for_email(db, typed)
+    if person is None:
+        return None, False
+    return person, has_valid_membership(person, belgian_today())
+
+
+def parse_items(form) -> tuple[list[tuple[int, int]], str | None]:
+    """The `(variant_id, quantity)` pairs the basket or the board's order form
+    posts, the same variant summed to one line. Returns `(items, error)` — `error`
+    a sentence when the two posted lists do not line up or a value is not a
+    number (a doubled variant is not an error, it is one line)."""
+    from app.i18n import _
+
+    try:
+        variant_ids = [int(str(v)) for v in form.getlist("variant_id")]
+        quantities = [int(str(q)) for q in form.getlist("quantity")]
+    except ValueError:
+        return [], _("Ongeldig aantal.")
+    if len(variant_ids) != len(quantities):
+        return [], _("Ongeldig aantal.")
+    merged: dict[int, int] = {}
+    for variant_id, quantity in zip(variant_ids, quantities):
+        merged[variant_id] = merged.get(variant_id, 0) + quantity
+    return sorted(merged.items()), None
+
+
 def order_delivery_state(db: Session, order) -> str:
     """The order's delivery status from its lines (F5): "Wordt besteld" while
     nothing is delivered and a line still waits for the supplier, else "Klaar om

@@ -21,6 +21,7 @@ from app.domains.sales.api import (
     offered_products,
     orders_of_person,
     owned_order,
+    parse_items,
     submit_order,
 )
 from app.domains.sales.viewmodels import (
@@ -51,24 +52,6 @@ def _buyer(request: Request, db: Session) -> tuple[int | None, bool]:
 def _member(request: Request, db: Session) -> bool:
     """Is the signed-in person a member with a valid membership today? (F3, R11)."""
     return _buyer(request, db)[1]
-
-
-def _parse_items(form) -> tuple[list[tuple[int, int]], str | None]:
-    """The basket's `(variant_id, quantity)` pairs, the same variant summed to one
-    line. Returns `(items, error)` — `error` a sentence when the two posted lists
-    do not line up or a value is not a number (a doubled variant is not an error,
-    it is one line)."""
-    try:
-        variant_ids = [int(str(v)) for v in form.getlist("variant_id")]
-        quantities = [int(str(q)) for q in form.getlist("quantity")]
-    except ValueError:
-        return [], _("Ongeldig aantal.")
-    if len(variant_ids) != len(quantities):
-        return [], _("Ongeldig aantal.")
-    merged: dict[int, int] = {}
-    for variant_id, quantity in zip(variant_ids, quantities):
-        merged[variant_id] = merged.get(variant_id, 0) + quantity
-    return sorted(merged.items()), None
 
 
 @router.get("/webshop", response_class=HTMLResponse)
@@ -136,7 +119,7 @@ async def mandje(request: Request, db: Session = Depends(get_db)) -> Response:
         )
 
     form = await request.form()
-    items, parse_error = _parse_items(form)
+    items, parse_error = parse_items(form)
     person_id, member = _buyer(request, db)
     if parse_error is not None:
         return templates.TemplateResponse(
@@ -186,7 +169,7 @@ async def order_submit(request: Request, db: Session = Depends(get_db)) -> Respo
             "#bestel-melding",
             send=True,
         )
-    items, parse_error = _parse_items(form)
+    items, parse_error = parse_items(form)
     if parse_error is not None:
         return refusal_response(
             request, [FieldError("", parse_error)], "#bestel-melding", send=True

@@ -1,6 +1,7 @@
 {% extends "list_page.html" %}
 {% import "_macros.html" as ui %}
 {% block list_title %}{{ _("Verkoop") }}{% endblock %}
+{% block list_primary %}{{ ui.btn_primary(_("Bestelling toevoegen"), href="/admin/verkoop/nieuw") }}{% endblock %}
 {% block list_toolbar %}
 {{ ui.toolbar("/admin/verkoop/lijst", "#verkoop-lijst", "verkoop-filter",
               segments=segments, status_name="segment", status_current=segment, status_legend=_("Status"),

@@ -522,6 +522,18 @@
    "platform": "OPERATOR",
    "tenant": "OPERATOR"
   },
+  "GET /admin/verkoop/nieuw": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/verkoop/nieuw/koppeling": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/verkoop/nieuw/maten": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
   "GET /admin/verkoop/{order_id}": {
    "platform": "OPERATOR",
    "tenant": "OPERATOR"
@@ -1337,6 +1349,10 @@
   "POST /admin/vergaderingen/{meeting_id}/verstuur": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/verkoop/nieuw": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
   },
   "POST /admin/verkoop/{order_id}/annuleren": {
    "platform": "OPERATOR",

@@ -136,3 +136,26 @@ class OrderPageView(ViewModel):
         context.pop("site", None)
         context.update(self.site)
         return context
+
+
+@dataclass(frozen=True, kw_only=True)
+class BoardOrderView(ViewModel):
+    """`admin_verkoop_nieuw.html` — Verkoop's "Bestelling toevoegen" (R43, F18):
+    the typed address, the person it links to, and the order's lines at the member
+    price of that person, never the seller's."""
+
+    email: str = ""
+    linked_name: str = ""
+    lines: list[dict[str, Any]] = field(default_factory=list)
+    total: Any = None
+    member_applied: bool = False
+    articles: list[tuple[str, str]] = field(default_factory=list)
+    product_id: str = ""
+    sizes: list[dict[str, Any]] = field(default_factory=list)
+    site: dict[str, Any] = field(default_factory=dict)
+
+    def as_context(self) -> dict[str, Any]:
+        context = super().as_context()
+        context.pop("site", None)
+        context.update(self.site)
+        return context

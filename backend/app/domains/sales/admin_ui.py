@@ -16,13 +16,18 @@ from app.database import get_db
 from app.domains.auth.api import SESSION_COOKIE, Right, csrf_token_for, require_csrf, require_right
 from app.domains.sales.api import (
     SalesError,
+    article_offer,
+    basket_lines,
+    board_order_person,
     cancel_order,
     deliver_line,
     get_order,
     list_orders,
+    offered_products,
     order_view,
+    parse_items,
 )
-from app.domains.sales.viewmodels import OrderPageView, VerkoopView
+from app.domains.sales.viewmodels import BoardOrderView, OrderPageView, VerkoopView
 from app.i18n import _
 from app.kernel.refusals import FieldError
 from app.ui import admin_nav, refusal_response, templates
@@ -133,6 +138,170 @@ def _verkoop_view(
         oob=oob,
         segments=SEGMENTS,
         nav_items=nav_items or [],
+    )
+
+
+@router.get("/admin/verkoop/nieuw", response_class=HTMLResponse)
+def add_order(
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.SALES_VIEW)),
+):
+    """Verkoop's "Bestelling toevoegen" (R43, F18): the order page in the admin
+    shell, the person of the typed address."""
+    return templates.TemplateResponse(
+        request,
+        "admin_verkoop_nieuw.html",
+        _board_order_view(db, request, email="", items=[]).as_context(),
+    )
+
+
+@router.get("/admin/verkoop/nieuw/koppeling", response_class=HTMLResponse)
+def add_order_link(
+    request: Request,
+    email: str = "",
+    db: Session = Depends(get_db),
+    _u: str = Depends(require_right(Right.SALES_VIEW)),
+):
+    """The "deze bestelling wordt gekoppeld aan …" line, as the e-mail is typed."""
+    person, member = board_order_person(db, email)
+    vm = BoardOrderView(
+        email=(email or "").strip(),
+        linked_name=f"{person.first_name} {person.last_name}".strip() if person else "",
+        member_applied=member,
+    )
+    return templates.TemplateResponse(request, "_verkoop_koppeling.html", vm.as_context())
+
+
+@router.get("/admin/verkoop/nieuw/maten", response_class=HTMLResponse)
+def add_order_sizes(
+    request: Request,
+    product_id: str = "",
+    email: str = "",
+    db: Session = Depends(get_db),
+    _u: str = Depends(require_right(Right.SALES_VIEW)),
+):
+    """The size tiles and the "Artikel toevoegen" row for one article (Q90)."""
+    _person, member = board_order_person(db, email)
+    sizes: list[dict] = []
+    if product_id:
+        try:
+            offer = article_offer(db, int(product_id), member=member)
+        except (TypeError, ValueError):
+            offer = None
+        sizes = offer["sizes"] if offer else []
+    return templates.TemplateResponse(
+        request,
+        "_verkoop_maten.html",
+        BoardOrderView(product_id=product_id, sizes=sizes).as_context(),
+    )
+
+
+@router.post("/admin/verkoop/nieuw", response_class=HTMLResponse)
+async def add_order_submit(
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.SALES_MANAGE)),
+    _csrf: None = Depends(require_csrf),
+):
+    """Add a line (re-render the form) or save the order (R43, F18)."""
+    from app.domains.mdm.api import PaymentMethod
+    from app.domains.sales.api import submit_order
+    from app.kernel.refusals import FieldError
+
+    form = await request.form()
+    action = str(form.get("action") or "save")
+    email = str(form.get("email") or "").strip()
+    items, parse_error = parse_items(form)
+
+    if action == "add":
+        new_variant = str(form.get("new_variant_id") or "").strip()
+        new_quantity = str(form.get("new_quantity") or "").strip()
+        if parse_error is None and new_variant:
+            try:
+                variant_id, quantity = int(new_variant), int(new_quantity)
+            except ValueError:
+                variant_id, quantity = 0, 0
+            if variant_id > 0 and quantity > 0:
+                merged = dict(items)
+                merged[variant_id] = merged.get(variant_id, 0) + quantity
+                items = sorted(merged.items())
+        vm = _board_order_view(db, request, email=email, items=items, product_id="")
+        return templates.TemplateResponse(request, "_verkoop_nieuw_form.html", vm.as_context())
+
+    if parse_error is not None:
+        return refusal_response(
+            request, [FieldError("", parse_error)], "#bestel-melding", send=True
+        )
+    person, member = board_order_person(db, email)
+    if person is None:
+        return refusal_response(
+            request,
+            [FieldError("email", _("Dit e-mailadres is bij niemand gekend."))],
+            "#bestel-melding",
+            send=True,
+        )
+    if not items:
+        return refusal_response(
+            request,
+            [FieldError("", _("Voeg minstens één artikel toe."))],
+            "#bestel-melding",
+            send=True,
+        )
+    try:
+        method = PaymentMethod(str(form.get("payment_method") or "transfer"))
+    except ValueError:
+        method = PaymentMethod.TRANSFER
+    try:
+        _checkout, order_id = submit_order(
+            db,
+            person_id=person.id,
+            member=member,
+            contact_name="",
+            contact_email=email,
+            phone="",
+            method=method,
+            items=items,
+        )
+    except SalesError as refusal:
+        return refusal_response(
+            request, [FieldError("", str(refusal))], "#bestel-melding", send=True
+        )
+    return _redirect(request, f"/admin/verkoop/{order_id}")
+
+
+def _board_order_view(
+    db: Session,
+    request: Request,
+    *,
+    email: str,
+    items: list[tuple[int, int]],
+    product_id: str = "",
+) -> BoardOrderView:
+    """The "Bestelling toevoegen" view-model (R43): the lines at the member price
+    of the typed person, the articles for the picker, and the chosen article's
+    sizes."""
+    from decimal import Decimal
+
+    person, member = board_order_person(db, email)
+    linked_name = ""
+    if person is not None:
+        linked_name = f"{person.first_name} {person.last_name}".strip()
+    lines = basket_lines(db, member=member, items=items)
+    total = sum(
+        (line["price"] * line["quantity"] for line in lines if line["available"]),
+        Decimal("0"),
+    )
+    articles = [(str(p["id"]), p["name"]) for p in offered_products(db, member=member)]
+    return BoardOrderView(
+        email=email,
+        linked_name=linked_name,
+        lines=lines,
+        total=total,
+        member_applied=member and any(line["available"] for line in lines),
+        articles=articles,
+        product_id=product_id,
+        site={"nav_items": admin_nav(NAV, request), "csrf_token": _csrf(request)},
     )
 
 

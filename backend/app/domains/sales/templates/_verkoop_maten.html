@@ -1,0 +1,13 @@
+{% import "_macros.html" as ui %}
+{% if sizes %}
+{% set size_options = [] %}{% set unavailable = {} %}
+{% for s in sizes %}{% if s.pre_order %}{% set __ = size_options.append([s.id, s.name, _("op bestelling")]) %}{% else %}{% set __ = size_options.append([s.id, s.name]) %}{% endif %}{% if not s.available %}{% set __ = unavailable.update({s.id: _("uitverkocht")}) %}{% endif %}{% endfor %}
+{{ ui.field("new_variant_id", _("Maat"), kind="tiles", options=size_options, unavailable=unavailable, required=True) }}
+<div class="flex flex-wrap items-center gap-3">
+  <span class="text-sm font-medium text-gray-700">{{ _("Aantal") }}</span>
+  {{ ui.quantity("new_quantity", "new_quantity", 1, min=1, max=99) }}
+  {{ ui.btn_primary(_("Artikel toevoegen"), type="submit", attrs='name="action" value="add"') }}
+</div>
+{% else %}
+<p class="text-sm text-ink-soft">{{ _("Kies een artikel om de maten te zien.") }}</p>
+{% endif %}

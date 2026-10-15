@@ -103,6 +103,10 @@ PARTNER_EMAIL = "marie.jommeke@example.com"
 HOOFDLID_GSM = "0470 00 00 01"
 PARTNER_GSM = "0470 00 00 02"
 
+# A member on the Webshop tenant, so Verkoop's "Bestelling toevoegen" has a member
+# to link to (R43, W26): the board types the address and the page names the member.
+WEBSHOP_LID_EMAIL = "webshop.lid@example.com"
+
 # #1238 punt 4: de voettekst van de afdrukomgeving. Zonder deze regels staat op elk
 # beeld de zaai-inhoud van migratie 027 — «Naam van de vereniging» · «straat en
 # nummer», «postcode en gemeente» — en dat leest op een uitlegpagina als een
@@ -312,6 +316,51 @@ def main() -> None:
                     amount=Decimal("8.00"),
                     member_amount=None,
                 )
+
+            # A member on the Webshop tenant, for Verkoop's "Bestelling toevoegen"
+            # (R43, W26): the board types the address and the page names the member.
+            webshop_lid = (
+                db.query(Person)
+                .join(ContactDetail, ContactDetail.person_id == Person.id)
+                .filter(ContactDetail.value == WEBSHOP_LID_EMAIL)
+                .first()
+            )
+            if webshop_lid is None:
+                lid_member = Member()
+                db.add(lid_member)
+                db.flush()
+                lid_person = Person(
+                    first_name="Webshop",
+                    last_name="Lid",
+                    date_of_birth=date(1990, 1, 1),
+                    gender_code="F",
+                )
+                db.add(lid_person)
+                db.flush()
+                db.add(
+                    MemberPerson(
+                        member_id=lid_member.id, person_id=lid_person.id, relation_type="HOOFDLID"
+                    )
+                )
+                db.add(
+                    ContactDetail(
+                        person_id=lid_person.id,
+                        contact_type_code="EMAIL",
+                        value=WEBSHOP_LID_EMAIL,
+                        is_primary=True,
+                    )
+                )
+                jaar = vandaag.year
+                db.add(
+                    Membership(
+                        member_id=lid_member.id,
+                        year=jaar,
+                        is_active=True,
+                        valid_from=date(jaar, 1, 1),
+                        valid_to=date(jaar, 12, 31),
+                    )
+                )
+                db.flush()
         finally:
             current_tenant_id.reset(token)
 

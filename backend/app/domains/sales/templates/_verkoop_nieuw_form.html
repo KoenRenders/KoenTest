@@ -1,0 +1,34 @@
+{% import "_macros.html" as ui %}
+<form id="bestel-form" hx-post="/admin/verkoop/nieuw" hx-target="#bestel-form" hx-swap="outerHTML">
+  <div id="bestel-melding" data-form-message></div>
+  {% call ui.record_columns() %}
+  <div class="form-flow">
+    {% call ui.section(_("Contact")) %}
+      {{ ui.field("email", _("E-mailadres van de koper"), kind="email", value=email, required=True,
+                 attrs='hx-get="/admin/verkoop/nieuw/koppeling" hx-target="#koppeling" hx-swap="innerHTML" hx-trigger="input changed delay:400ms"') }}
+      <div id="koppeling" data-span="full">{% include "_verkoop_koppeling.html" %}</div>
+    {% endcall %}
+    {% call ui.section(_("Artikelen")) %}
+      {% if lines %}
+      <div data-span="full" class="space-y-1">
+        {% for l in lines %}
+        <div class="flex items-center justify-between gap-3 text-sm">
+          <span class="min-w-0">{{ l.name }}{% if l.size %} · {{ _("maat") }} {{ l.size }}{% endif %} · {{ l.quantity }} ×</span>
+          <span class="font-medium shrink-0">€ {{ (l.price * l.quantity)|geld }}</span>
+        </div>
+        <input type="hidden" name="variant_id" value="{{ l.variant_id }}">
+        <input type="hidden" name="quantity" value="{{ l.quantity }}">
+        {% endfor %}
+      </div>
+      {% endif %}
+      {{ ui.field("product_id", _("Artikel"), kind="select", value=product_id, options=articles,
+                 attrs='hx-get="/admin/verkoop/nieuw/maten" hx-target="#maten" hx-swap="innerHTML" hx-trigger="change"') }}
+      <div id="maten" data-span="full">{% include "_verkoop_maten.html" %}</div>
+    {% endcall %}
+    {% call ui.section(_("Betalen")) %}
+      {{ ui.payment_choice("transfer") }}
+    {% endcall %}
+    {{ ui.total_line(total, note=_("(ledenprijs)") if member_applied else "") }}
+  </div>
+  {% endcall %}
+</form>

@@ -914,3 +914,35 @@ def test_de_bewegingen_hebben_de_juiste_kolommen(webshop_page):
     for i in range(empty.count()):
         assert not empty.nth(i).is_visible(), "een lege reden toont een lege regel"
     assert _geen_zijwaartse_scroll(page)
+
+
+def test_bestelling_toevoegen_koppelt_het_lid_en_prijst_hem(webshop_page):
+    """R43/W26/T22, at 390 px: type the member's e-mail, the page names the member,
+    add the T-shirt at the member price, save — the order is in Verkoop."""
+    from seed_e2e import WEBSHOP_LID_EMAIL
+
+    page = webshop_page
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.goto("/admin/verkoop/nieuw")
+
+    page.locator('input[name="email"]').fill(WEBSHOP_LID_EMAIL)
+    page.wait_for_selector("[data-koppeling]", state="visible")
+    assert "Webshop Lid" in page.locator("[data-koppeling]").inner_text()
+
+    page.locator('select[name="product_id"]').select_option(label="Webshop T-shirt")
+    page.wait_for_selector("#maten [data-tile]")
+    page.locator("#maten [data-tile]").first.click()
+    with htmx_afgerond(page):
+        page.get_by_role("button", name="Artikel toevoegen").click()
+
+    assert "Webshop T-shirt" in page.locator("main").inner_text()
+    assert "12,00" in page.locator("main").inner_text(), "de ledenprijs hoort op de regel te staan"
+    assert "15,00" not in page.locator("main").inner_text(), (
+        "de gewone prijs hoort er niet te staan"
+    )
+    assert _geen_zijwaartse_scroll(page)
+
+    with htmx_afgerond(page):
+        page.get_by_role("button", name="Bestelling opslaan").click()
+    page.wait_for_url("**/admin/verkoop/**")
+    assert "Bestelling" in page.locator("main").inner_text()

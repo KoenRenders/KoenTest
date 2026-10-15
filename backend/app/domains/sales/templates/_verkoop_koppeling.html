@@ -1,0 +1,5 @@
+{% if linked_name %}
+<p data-koppeling class="text-sm text-ink">{{ _("Deze bestelling wordt gekoppeld aan") }} <span class="font-semibold">{{ linked_name }}</span>.</p>
+{% elif email and "@" in email %}
+<p data-koppeling class="text-sm text-red-700">{{ _("Dit e-mailadres is bij niemand gekend.") }}</p>
+{% endif %}

@@ -999,3 +999,85 @@ def test_the_verkoop_list_segments_and_counter_follow_the_filter(
     assert geen == 0
     assert "Geen bestelling gevonden" in geen_html
     assert "0–0 van 0" in geen_html
+
+
+def test_bestelling_toevoegen_hangs_on_the_typed_person_and_his_member_price(
+    client, db_session, every_module_on
+):
+    """T22/R43/F18: Verkoop's order hangs on the person of the typed address and
+    carries his member price — never the seller's."""
+    from app.domains.membership.api import Membership
+    from app.domains.product.api import add_variant, create_product, set_status
+    from app.domains.sales.models import SalesOrder, SalesOrderLine
+    from tests.conftest import board_session, create_test_family
+
+    member, person = create_test_family(db_session, email="lid@example.com")
+    today = date.today()
+    db_session.add(
+        Membership(
+            member_id=member.id,
+            year=today.year,
+            is_active=True,
+            valid_from=date(today.year, 1, 1),
+            valid_to=date(today.year, 12, 31),
+        )
+    )
+    product = create_product(db_session, "T-shirt")
+    set_status(db_session, product.id, ProductStatus.ON_SALE)
+    variant = add_variant(db_session, product.id, "M")
+    add_prices(
+        db_session,
+        product_id=product.id,
+        variant_id=variant.id,
+        valid_from=date(2026, 1, 1),
+        amount=Decimal("15.00"),
+        member_amount=Decimal("10.00"),
+    )
+    receive(db_session, variant.id, quantity=5)
+    db_session.commit()
+
+    headers = board_session(client)
+    response = client.post(
+        "/admin/verkoop/nieuw",
+        data={
+            "action": "save",
+            "email": "lid@example.com",
+            "variant_id": str(variant.id),
+            "quantity": "1",
+            "payment_method": "transfer",
+        },
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    assert response.headers["location"].startswith("/admin/verkoop/")
+
+    order = db_session.query(SalesOrder).one()
+    assert order.person_id == person.id
+    line = db_session.query(SalesOrderLine).one()
+    assert line.unit_price == Decimal("10.00")
+
+
+def test_bestelling_toevoegen_refuses_a_short_article(client, db_session, every_module_on):
+    """T22: a short article is refused through the board's order, as on the public
+    page — a 422, not a 500."""
+    from tests.conftest import board_session, create_test_family
+
+    create_test_family(db_session, email="lid@example.com")
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=1)
+    db_session.commit()
+
+    headers = board_session(client)
+    response = client.post(
+        "/admin/verkoop/nieuw",
+        data={
+            "action": "save",
+            "email": "lid@example.com",
+            "variant_id": str(m.id),
+            "quantity": "2",
+            "payment_method": "transfer",
+        },
+        headers=headers,
+    )
+    assert response.status_code == 422
+    assert "voorraad" in response.text
