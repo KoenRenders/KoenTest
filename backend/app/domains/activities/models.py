@@ -347,6 +347,10 @@ def _blank(value: object) -> bool:
     return not (str(value) if value is not None else "").strip()
 
 
+#: The unique index that accepts a shown registration form once (#1987).
+SUBMISSION_KEY_CONSTRAINT = "uq_registrations_submission_key"
+
+
 @aggregate
 class Registration(TenantMixin, SoftDeleteMixin, Base):
     """One registration for an activity: the aggregate of CR-13 phase 1 (#757).
@@ -396,6 +400,17 @@ class Registration(TenantMixin, SoftDeleteMixin, Base):
             postgresql_where=text("deleted_at IS NULL AND form_submission_id IS NOT NULL"),
         ),
         Index("uq_registrations_answer_token", "answer_token", unique=True),
+        # #1987: a shown form is accepted once — the database decides, so two
+        # posts at the same moment cannot both pass a check (`form_guard.is_repeat`).
+        Index(
+            SUBMISSION_KEY_CONSTRAINT,
+            "tenant_id",
+            "submission_key",
+            unique=True,
+            # A deleted registration frees its key (review of dev1, finding 2): the
+            # key holds while the registration lives, as the lookup sees it.
+            postgresql_where=text("submission_key IS NOT NULL AND deleted_at IS NULL"),
+        ),
         {"schema": "activities"},
     )
 
@@ -433,6 +448,9 @@ class Registration(TenantMixin, SoftDeleteMixin, Base):
     # The form builder refuses to delete a submission it marked `attached`.
     form_submission_id = Column(Integer, nullable=True)
     answer_token = Column(String(64), nullable=True)
+    # #1987: the key of the shown form this registration came from — its token's
+    # time and random part (`form_guard.submission_key`). Nothing else reads it.
+    submission_key = Column(String(64), nullable=True)
 
     activity = relationship("Activity", back_populates="registrations")
     person = relationship("Person", backref="registrations")

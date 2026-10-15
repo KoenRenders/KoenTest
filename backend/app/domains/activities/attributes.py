@@ -441,6 +441,14 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.NONE,  # K1
     ),
     Attribute(
+        key="activities.registration.submission_key",
+        columns=("activities.registrations.submission_key",),
+        label=None,
+        name_en="Submission key",
+        help="The key of the shown form the registration came from (#1987): a form is accepted once.",
+        ai_exposure=AiExposure.NONE,  # K1, as the answer token: a technical key
+    ),
+    Attribute(
         key="activities.registration_item.quantity",
         columns=("activities.registration_items.quantity",),
         label=None,

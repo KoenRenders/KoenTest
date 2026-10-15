@@ -21,12 +21,15 @@ caller without this form sends.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Optional
 
 from pydantic import ValidationError
 
 from app.domains.mdm.api import (
+    CONTACT,
     EmailAddressInvalid,
+    EmailRow,
     HouseholdRefused,
     MainMemberMobileMissing,
     MemberPerson,
@@ -44,6 +47,37 @@ from app.kernel.refusals import FieldError
 
 #: The payment methods a visitor may choose on the public page.
 PAYMENT_METHODS = ("online", "transfer")
+
+
+@dataclass(frozen=True)
+class OwnDetails:
+    """What a signed-in account brings to his own sign-up as the main member
+    (#1883): his name, his confirmed e-mail addresses (the primary one first) and
+    his mobile. They are shown as his and not typed (Koen, 15 October 2026: "a"),
+    so the form takes these and not what a request may post in their place —
+    nothing is silently overwritten, and no second person arises from a typed
+    address."""
+
+    first_name: str
+    last_name: str
+    emails: tuple[str, ...]
+    mobile: str
+
+
+def own_details(person: Any) -> OwnDetails:
+    """The details of this account, read from his own rows."""
+    rows = [c for c in person.contact_details if c.deleted_at is None]
+    confirmed = sorted(
+        (c for c in rows if c.contact_type_code == CONTACT.EMAIL and c.confirmed_at is not None),
+        key=lambda c: (not c.is_primary, c.id),
+    )
+    mobile = next((c.value or "" for c in rows if c.contact_type_code == CONTACT.MOBILE), "")
+    return OwnDetails(
+        first_name=person.first_name or "",
+        last_name=person.last_name or "",
+        emails=tuple(c.value for c in confirmed if c.value),
+        mobile=mobile,
+    )
 
 
 def _empty(row: PersonRow) -> bool:
@@ -91,17 +125,27 @@ def _addresses(row: PersonRow, errors: list[FieldError]) -> list[str]:
 
 
 def signup_from_form(
-    form: Any, *, payment: bool = True
+    form: Any, *, payment: bool = True, own: Optional[OwnDetails] = None
 ) -> tuple[Optional[FamilyCreate], list[FieldError]]:
     """The household this form asks to create, or what stands in its way —
     everything at once, each refusal at its field.
 
     `payment=False`: the board's Nieuw lid (#1899), the same form without the
-    payment choice — the household is made a member at once, nothing is charged."""
+    payment choice — the household is made a member at once, nothing is charged.
+
+    `own` (#1883): a signed-in account signing up — the main member's name,
+    e-mail addresses and mobile are his own, whatever the request posts."""
     household = household_from_form(form)
     errors: list[FieldError] = list(household.errors)
     refused = {error.field for error in errors}
     rows = [row for index, row in enumerate(household.persons) if index == 0 or not _empty(row)]
+    if own is not None and rows:
+        main = rows[0]
+        main.first_name, main.last_name, main.mobile = own.first_name, own.last_name, own.mobile
+        main.emails = [
+            EmailRow(key=f"own{index}", value=value, primary=index == 0)
+            for index, value in enumerate(own.emails)
+        ]
 
     members: list[FamilyMemberCreate] = []
     relations: list[str] = []

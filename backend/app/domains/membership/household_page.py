@@ -12,7 +12,7 @@ them apart (`mdm.household_save`).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal
 from typing import Any, Optional
@@ -67,6 +67,10 @@ class PersonView:
     #: Mijn gezin: "b maar uiteraard niet het hoofdlid"; #1899). Partner or child
     #: — nobody is made or unmade main member through it.
     choose_relation: bool = False
+    #: #1883: a signed-in account signing up — the name, the e-mail addresses and
+    #: the mobile number stand as his and are not typed here; he changes them on
+    #: Mijn gegevens (Koen, 15 October 2026: "a"). The rest of the card is asked.
+    own: bool = False
 
 
 @dataclass(frozen=True)
@@ -280,8 +284,13 @@ def _options(codes: dict) -> tuple[tuple, tuple, tuple, dict[str, str]]:
     )
 
 
-def signup_group(codes: dict) -> HouseholdGroup:
-    """An empty sign-up: the main member, open, with one e-mail row to fill in."""
+def signup_group(codes: dict, *, own: Any = None, short_date=None) -> HouseholdGroup:
+    """An empty sign-up: the main member, open, with one e-mail row to fill in.
+
+    `own` (#1883): the signed-in account who signs up, read through the block
+    Mijn gegevens shows of him (`person_block`) — no second copy of his details.
+    He stands as the main member: his name, e-mail addresses and mobile as his,
+    what he gave already filled in."""
     genders, relations, postal, relation_labels = _options(codes)
     main = RelationType.PRIMARY_MEMBER.value
     new_person, new_email = _new_rows(relation_labels)
@@ -296,6 +305,19 @@ def signup_group(codes: dict) -> HouseholdGroup:
         primary_key="n0e",
         fold="open",
     )
+    if own is not None:
+        mine = person_block(own, codes, short_date=short_date).person
+        head = replace(
+            mine,
+            key=head.key,
+            prefix=head.prefix,
+            title=head.title,
+            subtitle=head.subtitle,
+            is_main=True,
+            relation_type=main,
+            fold="open",
+            own=True,
+        )
     return HouseholdGroup(
         main=head,
         members=(),

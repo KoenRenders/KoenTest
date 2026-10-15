@@ -41,6 +41,7 @@ import hashlib
 import hmac
 import ipaddress
 import logging
+import secrets
 import time
 from dataclasses import dataclass
 
@@ -119,15 +120,53 @@ def _secret() -> bytes:
     return settings.secret_key.encode()
 
 
-def _sign(timestamp: int) -> str:
-    message = _PURPOSE + b":" + str(timestamp).encode()
+def _sign(timestamp: int, nonce: str) -> str:
+    message = _PURPOSE + b":" + str(timestamp).encode() + b":" + nonce.encode()
     return hmac.new(_secret(), message, hashlib.sha256).hexdigest()[:32]
 
 
 def issue_token(now: float | None = None) -> str:
-    """The signed render time, for the form's hidden field."""
+    """The signed render time with a random part, for the form's hidden field:
+    `<time>.<random>.<signature>`. The random part makes each shown form its own
+    (#1987): the key a form is accepted once by (`submission_key`)."""
     timestamp = int(time.time() if now is None else now)
-    return f"{timestamp}.{_sign(timestamp)}"
+    nonce = secrets.token_hex(8)
+    return f"{timestamp}.{nonce}.{_sign(timestamp, nonce)}"
+
+
+def _read(token: str) -> tuple[int, str] | None:
+    """The time and the random part of a token we signed, or None. A token from
+    before #1987 (`<time>.<signature>`) is not ours any more: the form it came
+    with is refused once, and comes back with a fresh one (`STALE_MESSAGE`)."""
+    stamp, _, rest = token.partition(".")
+    nonce, _, signature = rest.partition(".")
+    if not stamp.isdigit() or not nonce or not signature:
+        return None
+    if not hmac.compare_digest(signature, _sign(int(stamp), nonce)):
+        return None
+    return int(stamp), nonce
+
+
+def submission_key(values) -> str | None:
+    """The key a shown form is accepted once by (#1987): `<time>.<random>` of
+    its token, when the token is ours; None without one, or with one we never
+    issued. Read from the submitted values, so a caller that skips the guard
+    (`TRUSTED`, the board's channel) still has its form's key. Koen, 15 October
+    2026: the signed field every public form carries becomes the key, nothing
+    is stored for it beforehand ("a")."""
+    token = values.get(TOKEN_FIELD)
+    read = _read(token) if isinstance(token, str) else None
+    return f"{read[0]}.{read[1]}" if read else None
+
+
+def is_repeat(error: Exception, constraint: str) -> bool:
+    """Does this refusal of the database say the form was already accepted — the
+    unique `constraint` on its `submission_key`? (#1987.) Two posts of one form at
+    the same moment both find nothing and both insert; the constraint decides,
+    and the loser answers with what the winner made. Every form that is accepted
+    once asks this one question."""
+    diag = getattr(getattr(error, "orig", None), "diag", None)
+    return getattr(diag, "constraint_name", None) == constraint
 
 
 def refusal(proof: Proof | _Trusted, now: float | None = None) -> Refusal | None:
@@ -138,10 +177,10 @@ def refusal(proof: Proof | _Trusted, now: float | None = None) -> Refusal | None
         return Refusal.HONEYPOT
     if not proof.token:
         return Refusal.NO_TOKEN
-    stamp, _, signature = proof.token.partition(".")
-    if not stamp.isdigit() or not hmac.compare_digest(signature, _sign(int(stamp))):
+    read = _read(proof.token)
+    if read is None:
         return Refusal.BAD_TOKEN
-    age = (time.time() if now is None else now) - int(stamp)
+    age = (time.time() if now is None else now) - read[0]
     if age < MIN_SECONDS:
         return Refusal.TOO_FAST
     if age > MAX_AGE_SECONDS:
