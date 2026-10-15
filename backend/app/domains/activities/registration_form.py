@@ -464,6 +464,14 @@ def submit(
                 db, activity.id, data, background_tasks, current_member=channel.person
             )
     except HTTPException as exc:
+        # #1987 (review of dev1, finding 1): the same form posted twice within
+        # milliseconds — the first committed after this one looked its key up, so
+        # this one met the rules the first changed (it took the last place, it hit
+        # the limit per address). The registration exists: answer with it, not
+        # with the refusal.
+        earlier = registration_for_submission(db, key)
+        if earlier is not None:
+            return answered_again(db, earlier)
         # A refused answer names its question (`VeldFout`): the page marks it.
         question = getattr(exc, "veld_id", None)
         return refused(FieldError(f"f{question}" if question is not None else "", str(exc.detail)))

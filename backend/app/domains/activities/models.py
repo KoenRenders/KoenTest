@@ -407,7 +407,9 @@ class Registration(TenantMixin, SoftDeleteMixin, Base):
             "tenant_id",
             "submission_key",
             unique=True,
-            postgresql_where=text("submission_key IS NOT NULL"),
+            # A deleted registration frees its key (review of dev1, finding 2): the
+            # key holds while the registration lives, as the lookup sees it.
+            postgresql_where=text("submission_key IS NOT NULL AND deleted_at IS NULL"),
         ),
         {"schema": "activities"},
     )

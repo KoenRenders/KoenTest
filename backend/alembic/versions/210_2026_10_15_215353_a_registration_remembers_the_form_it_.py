@@ -8,7 +8,9 @@ form carries a key (the random part of its signed token, Koen, 15 October 2026:
 "a"), and the registration it makes stores it under a unique index per tenant:
 the database decides, so two posts at the same moment cannot both pass a check.
 
-Existing registrations have no key (NULL), and the index leaves those out.
+Existing registrations have no key (NULL), and the index leaves those out; a
+deleted registration frees its key, so the key holds while the registration
+lives — as the lookup, which does not see a deleted one, sees it.
 Idempotent: the column and the index are made only when they are not there.
 """
 
@@ -39,7 +41,7 @@ def upgrade() -> None:
     op.execute(
         f"CREATE UNIQUE INDEX IF NOT EXISTS {INDEX} "
         "ON activities.registrations (tenant_id, submission_key) "
-        "WHERE submission_key IS NOT NULL"
+        "WHERE submission_key IS NOT NULL AND deleted_at IS NULL"
     )
 
 
