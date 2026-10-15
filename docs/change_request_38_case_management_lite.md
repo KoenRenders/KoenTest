@@ -4,7 +4,7 @@
 **Status:** shaped with Koen on 15 October 2026 · not assigned to a release · the data model and the domain boundaries of B3 are a proposal for the architecture CLI to confirm
 **Tracking issue:** to be opened by the master CLI
 **Applies to:** the workbench (`workflow`), the form engine (`forms`), a new domain `cases`, the party model (CR-26), the shop (CR-21) and activities for the sale step; the back-office menu and the public site
-**Reading:** A 1 461 words · B 2 250 · C 1 481 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1 495 words · B 2 300 · C 1 497 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -121,7 +121,7 @@ What it says on the screen (Dutch), decided here:
 
 ## A5. Supplied material — and what it taught us
 
-Koen's dictation of 15 October 2026. It taught us that the building blocks exist: the workbench with tasks and a step list, the form engine with sections and questions, forms that can be exported and imported as a definition, and the form-to-task link of the contact message. Reporting need: a list of cases per type and status, and per closing reason; counted, not exported (A6 R13).
+Koen's dictation of 15 October 2026. It taught us that the blocks exist: the workbench, the form engine and its form export and import, and the form-to-task link of the contact message. Reporting need: a list of cases per type and status, and per closing reason; counted, not exported (A6 R13).
 
 ## A6. Business requirements — what the board asks, with MoSCoW
 
@@ -132,6 +132,7 @@ Koen's dictation of 15 October 2026. It taught us that the building blocks exist
 | R3 | A case is about a person, and optionally about an organisation the person acts for | Must | Koen, 15 Oct 2026 | needs the party model (CR-26) |
 | R4 | A case follows a process of steps; each step is a task for a role, chosen per step in the process | Must | Koen, 15 Oct 2026 | "Aan een taak moet je natuurlijk ook rollen kunnen toekennen." |
 | R17 | A due date on a task | Won't | Koen, 15 Oct 2026 | "Due dates buiten de scope." |
+| R18 | A history of the status of a case, and of who completed which task when | Won't | Koen, 15 Oct 2026 | "Oké, dat gaat het misschien automatisch hebben, maar dat nemen we allemaal buiten scope." The workbench task keeps its own done-by and done-at; nothing is built for it |
 | R5 | A step may have a form; what is filled in is kept with the step | Must | Koen, 15 Oct 2026 | |
 | R6 | A decision after a step, on a field of a form, sends the case on one way or another | Must | Koen, 15 Oct 2026 | admissible or not; won or lost |
 | R7 | A case has a status from a list: Open, In behandeling, Gesloten, and a closing reason | Must | Koen, 15 Oct 2026 | "een codelijst" |
@@ -277,6 +278,7 @@ A matter the portal follows over several steps is a case of a type, not a new ta
 | 15 Oct 2026 | A screen to model a process from start to end is part of this change, in the way of the form engine, with step types and decisions that set the status and say which task follows; the earlier proposal to deliver the first types ready-made without an editor is withdrawn | Koen: "Ik weet dus dat ja, de formulieren die al manueel kunnen gemaakt worden, dat er dus ook een scherm is om die processen van startpunt tot eindpunt te kunnen modelleren. Dat mag visueel gewoon in het scherm zijn, in een textueel scherm zoals de Form Engine […] Dus analyseer dan maar eens een keer dat die verschillende opties mogelijk zijn in een scherm" |
 | 15 Oct 2026 | Standards: look at CMMN and others before inventing; the analysis stands in B3a | Koen: "laten we dan het warm water niet opnieuw uitvinden" |
 | 15 Oct 2026 | Every task of a process is given a role; due dates are out of the scope | Koen: "Aan een taak moet je natuurlijk ook rollen kunnen toekennen. Dat ben ik juist vergeten te zeggen. [...] Due dates buiten de scope." |
+| 15 Oct 2026 | A history of the status and of who completed which task when is out of the scope | Koen: "Ook buiten scope is historiek op status meten van wie welke taak wanneer voltooid heeft. Oké, dat gaat het misschien automatisch hebben, maar dat nemen we allemaal buiten scope." |
 
 ---
 
@@ -381,7 +383,7 @@ Status line, as-built notes folded in, tracking issue closed (`CLAUDE.md` step 1
 
 ## Non-goals — deliberately outside this change
 
-Due dates on tasks; a canvas editor with dragging of shapes; dropdowns of articles or activities in an intake form; conditions other than a field equal to an option; parallel steps, timers, messages between cases and sub-processes; assigning a task to a person (a task goes to a role); a client portal showing the case to the client.
+Due dates on tasks; a history of statuses and of who did what when (beyond what a task already keeps); a canvas editor with dragging of shapes; dropdowns of articles or activities in an intake form; conditions other than a field equal to an option; parallel steps, timers, messages between cases and sub-processes; assigning a task to a person (a task goes to a role); a client portal showing the case to the client.
 
 ## Relationship to existing work — issues and change requests
 
