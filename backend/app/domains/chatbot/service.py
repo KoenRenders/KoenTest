@@ -156,7 +156,7 @@ def run_chat(
     """
     # `fields` (CR-33 F6) go to the guarded provider as they are: the classification and
     # the rendering are its, and a provider without that seam is not offered them.
-    extra = {"fields": fields} if fields else {}
+    extra: dict[str, Any] = {"fields": fields} if fields else {}
     for i in range(max_rounds):
         if deadline is not None and time.monotonic() > deadline:
             raise ChatTimeout(
