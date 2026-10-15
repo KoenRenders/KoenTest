@@ -4,7 +4,7 @@
 **Status:** shaped with Koen on 15 October 2026 · not assigned to a release; B8 answered
 **Tracking issue:** #2026 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (audience choice, recipient list, send screen, Raakje's sources), the activities facade (a read of registration addresses), the unsubscribe page
-**Reading:** A 758 words · B 1 351 · C 1 466 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 758 words · B 1 502 · C 1 547 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -118,7 +118,7 @@ Koen's dictation of 15 October 2026 only. Reporting need: the archive of a sent 
 A fourth audience, *Eerdere deelnemers*, next to Leden, Abonnees and Allebei. With it the letter keeps a list of the activities chosen. The recipients are the contact addresses of the registrations on those activities, deduplicated by address, fixed when sending starts like every audience. Four rules decide the rest:
 
 1. **One rule for everybody: someone who is on a list already is not mailed twice.** Order of precedence: a household with a membership for the working year gets it as a member (as in CR-05 §3.3, no unsubscribe line); a confirmed subscriber as a subscriber; everyone else as a *participant*.
-2. **An address that objected is never mailed through this audience**: it unsubscribed as a subscriber (CR-05 §3.6), or the person used the unsubscribe link of a participant letter. The second is kept as an address-only objection and never as a subscriber, so nobody becomes a subscriber by having registered; the check is made again at the moment each mail leaves, because a send takes days.
+2. **An address that unsubscribed is never mailed through this audience.** There is one list: the subscriber rows. A participant who uses the unsubscribe link of a letter gets a subscriber row with the status *unsubscribed* and the source *participant* (Koen, B9), so one rule holds for everybody and nothing is kept elsewhere. The check is made again at the moment each mail leaves, because a send takes days.
 3. **"Attended" means registered.** The portal does not record presence. A registration that was deleted, or an activity that was cancelled, counts for nobody; a registration whose payment never completed counts (the person showed interest).
 4. **Addresses are compared in one spelling**: trimmed and lower-case, checked as everywhere in the newsletter. An address that does not pass is skipped and counted on the send screen.
 
@@ -131,7 +131,7 @@ Covers R1–R4 and R6. An example of use: *Nieuwsbrief*, step *Doelgroep* → th
 ## B3. The whole across the modules — for the architect
 
 - `activities` gives two reads through its facade: the past activities that may be offered, and the raw addresses of the registrations on a set of activities, per tenant. `newsletter` never reads `Registration` itself and normalises the addresses itself.
-- `newsletter` owns the audience, the list of chosen activities (a soft reference across the schema line, with the activity's name and date copied when the send starts, so the archive survives a later deletion), the delivery kind `participant`, one `token` per delivery, and an address-only table of objections.
+- `newsletter` owns the audience, the list of chosen activities (a soft reference across the schema line, with the activity's name and date copied when the send starts, so the archive survives a later deletion), the delivery kind `participant`, one `token` per delivery, and a new source *participant* on the subscriber list.
 - No new module and no new edge: `newsletter` already consumes `activities.api`.
 
 ## B4. Rules this change needs an exception from — decided once, here
@@ -146,7 +146,7 @@ About 6 days (my estimate; the build read of 15 October added a re-check at send
 
 | Phase (the only one) | Content | Days |
 |---|---|---|
-| 1 | audience, list of activities, recipient rule with the re-check at send, participant unsubscribe and resubscribe, send screen words, archive | 6 |
+| 1 | audience, list of activities, recipient rule with the re-check at send, participant unsubscribe (a subscriber row) and resubscribe, send screen words, archive | 6 |
 
 Failure paths: an activity chosen and then deleted before sending is dropped from the list and the screen says so; a letter whose audience becomes empty cannot be sent.
 
@@ -177,6 +177,8 @@ A letter's recipients are always a derived list with one precedence rule and one
 | 15 Oct 2026 | Q3: the activities offered are those of the last three working years | Koen, to Q3: "ja" |
 | 15 Oct 2026 | Q4: Raakje drafting the letter is a mechanism that exists | Koen, to Q4: "ja, dat is een mechanisme dat nu al bestaat, moet dus niets voor gebeuren" (my reading: the drafting itself needs nothing new) |
 | 15 Oct 2026 | The chosen past activities go to Raakje as a source of the draft, with name and date and never an address, so the letter can name them (R4) | Koen, to "Moeten de gekozen eerdere activiteiten als bron naar Raakje gaan, ja of nee?": "ja, geef ze mee" |
+| 15 Oct 2026 | One list: a participant who unsubscribes becomes a subscriber row with the status *unsubscribed*; no separate table of addresses | Koen, to my question whether to keep two places or merge them: "Ik zie dat eigenlijk heel eenvoudig. [...] Ja, dat record wordt simpelweg dan toegevoegd als die zegt, ik wil geen mails meer ontvangen. Dus dan wordt hij als abonnee direct toegevoegd met de status dat hem uitgeschreven is." |
+| 15 Oct 2026 | Adding everybody who attended an activity to the subscriber list, without asking consent, is the association's practice and happens outside this change request; Koen knows it may not be allowed | Koen: "Wij vragen daar geen toestemmingen voor, wij doen dat gewoon. [...] Ik weet dat dat misschien niet mag"; to "is dit iets voor CR-36, een eigen CR, of buiten een CR om?": "het gebeurt buiten de cr om" |
 | 15 Oct 2026 | Erasure of an address from the archives (the right to be forgotten) is not built in this change; see the known gap under Non-goals | Koen, to my question whether erasure by address should be part of this change: "Het recht om vergeten te worden gaan we voorlopig even laten liggen." |
 
 ---
@@ -194,8 +196,8 @@ Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2
 | `recipients_for`, `audience_summary`, `_audience_said`, `audience_counts` take only the audience; `start_sending` calls `recipients_for` | changes | `service.py:429, 484, 509, 1700`; `admin_ui.py:1001` | must change | they take the letter, because the participants need its chosen activities |
 | `send_batch` re-checks only a subscriber delivery | changes | `service.py:1853–1862` | must change | a participant delivery gets its own re-check (C4.2) |
 | A registration keeps its address as given; members are lower-cased; subscribers go through `normalize_email`; deliveries are unique on (letter, address) | changes | `activities/models.py:470`; `mdm/service.py:1613`; `service.py:75` | must change | C4.3 |
-| The unsubscribe page shows on GET and acts on POST; the resubscribe form finds a subscriber by token | relies on / changes | `ui.py:118–147`; `_nb_publiek.html:54`; `subscriber_by_unsubscribe_token` | holds for subscribers; a participant needs its own path | C4.2 |
-| `list_subscribers` and `subscriber_counts` return every subscriber row | relies on | `service.py:96, 107` | holds | an objection is no subscriber row, so the *Uitgeschreven* count does not grow with people who never joined |
+| The unsubscribe page shows on GET and acts on POST; the resubscribe form finds a subscriber by token | relies on / changes | `ui.py:118–147`; `_nb_publiek.html:54`; `subscriber_by_unsubscribe_token` | holds for subscribers; a participant's delivery token creates the row on POST (C4.2) | C4.2 |
+| `list_subscribers` and `subscriber_counts` return every subscriber row | relies on | `service.py:96, 107` | holds | the *Uitgeschreven* count also counts a participant who unsubscribed, though he never subscribed (Koen, B9) |
 | The test mail and the preview each decide the delivery kind from the audience | changes | `service.py:1608`; `admin_ui.py:886–893` | must change | one function (C4.5) |
 | `copy_newsletter` and `delete_draft` | changes | `service.py:807, 819` | must change | clear, respectively delete, the chosen activities |
 | An activity has `is_cancelled`, a draft/published status and soft-deletable dates | relies on | `activities/models.py:234`, `ActivityDate` | holds | C4.6 |
@@ -207,29 +209,29 @@ Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2
 
 - **activities**: `past_activities(db, since_year)` (id, name, last non-deleted date; published, not cancelled, a non-deleted date, all dates before today) and `registration_addresses(db, activity_ids)` (the raw distinct addresses of the non-deleted registrations). Tenant-scoped.
 - **newsletter**:
-  - models: `Audience.PARTICIPANTS`, `DeliveryKind.PARTICIPANT`, `deliveries.token` (nullable, unique, random), `newsletter_audience_activities` (tenant, letter, activity, name and date filled at `start_sending`), `address_objections` (tenant, normalised address, date; unique on tenant and address);
+  - models: `Audience.PARTICIPANTS`, `DeliveryKind.PARTICIPANT`, `deliveries.token` (nullable, unique, random), `newsletter_audience_activities` (tenant, letter, activity, name and date filled at `start_sending`), and the value `participant` in `SubscriberSource` with its code-table row (the source column has a foreign key to a code list);
   - service: `recipients_of(db, letter)` replaces the call at `service.py:1700`; the summary, the sentence and the counts take the letter; the sentence uses the union of the chosen activities, not a sum; `send_batch` re-checks a participant delivery (C4.2); `copy_newsletter` clears the chosen activities, `delete_draft` deletes them;
-  - routes: the public unsubscribe page resolves a subscriber token, then a delivery token; for a delivery token POST writes the objection, and the resubscribe route deletes it (the person stays a participant, not a subscriber);
+  - routes: the public unsubscribe page resolves a subscriber token, then a delivery token; for a delivery token POST creates the subscriber row (*unsubscribed*, source *participant*, no `consented_at`, its own unsubscribe token) and shows the existing page with that token, so *Toch opnieuw* is the existing `resubscribe` and needs no new path;
   - screens: the audience choice with the list (htmx fragment, kit macros), offered only when the `activities` module is on for the tenant; the send screen sentence with the count of skipped addresses; the archive line.
 - **drafting**: the chosen activities go to `set_draft_sources`; Raakje's examples of earlier letters (`drafting.py:285–291`) are looked at per audience: a participant letter about another activity is a weak example, the build decides whether to leave it out.
 
 ## C3. Cross-cutting impact — the checklist of what gets forgotten
 
 - The readers of C1, one by one; the test-mail snapshot test `test_newsletter_test_mail_unchanged_1251.py` covers two audiences only and stays unchanged.
-- CR-33 attribute register: the purpose list of a registration's `contact_email` gains "newsletter, to earlier participants"; the token and the objection table get entries (the register's gate is not on master yet; the merge order decides who carries it).
+- CR-33 attribute register: the purpose list of a registration's `contact_email` gains "newsletter, to earlier participants"; the delivery token gets an entry, and the source *participant* is a new value of an existing column (the register's gate is not on master yet; the merge order decides who carries it).
 - CONTRACT.md of `newsletter` and `activities`; the architecture document where it names three audiences.
 - Privacy statement of the registration form (Q1).
 - Alembic: one migration; head counted before the push.
 
 ## C4. Detailed decisions — one subsection each, with the reasons
 
-**C4.1 Recipient rule.** `recipients_of` builds members, then subscribers, then participants (each `setdefault` on the normalised address), then drops every participant address that has an objection or an unsubscribed subscriber row. A member address is never dropped (CR-05 §3.4).
+**C4.1 Recipient rule.** `recipients_of` builds members, then subscribers, then participants (each `setdefault` on the normalised address), then drops every participant address that has an unsubscribed subscriber row. A member address is never dropped (CR-05 §3.4).
 
-**C4.2 The participant's link and the check at send.** A participant delivery gets a random `token`; the unsubscribe link is `/nieuwsbrief/uitschrijven/<token>`, GET shows, POST writes the objection , one-click POST likewise. *Toch opnieuw* deletes the objection and nothing more: no `consented_at`, no subscriber, so "source = proof of consent" stays true. `send_batch` checks, at the moment each participant mail leaves, the objection table and the subscriber rows, and skips with "uitgeschreven tijdens het versturen", as for a subscriber.
+**C4.2 The participant's link and the check at send.** A participant delivery gets a random `token`; the unsubscribe link is `/nieuwsbrief/uitschrijven/<token>`, GET shows, POST creates the subscriber row described in B1 (an existing row of that address is set to *unsubscribed* instead; the address is normalised first), one-click POST likewise. *Toch opnieuw* is the existing resubscribe: the person then is a confirmed subscriber with `consented_at` set at that moment, which is true, because he asked for it himself. `send_batch` checks, at the moment each participant mail leaves, the subscriber rows, and skips with "uitgeschreven tijdens het versturen", as for a subscriber.
 
 **C4.3 One spelling.** `registration_addresses` returns raw addresses; `newsletter` runs each through `normalize_email`, an address it refuses is skipped and counted, and the delivery row stores the normalised form (so (letter, address) stays unique per person).
 
-**C4.4 Erasure.** Not part of this change (B9, Non-goals): the existing `erase` of a subscriber is untouched. The objection row holds the address only.
+**C4.4 Erasure.** Not part of this change (B9, Non-goals): the existing `erase` of a subscriber is untouched, and now also removes the row of a participant who unsubscribed.
 
 **C4.5 One mapping.** A function audience → delivery kind of a sample mail serves `render_test` and the preview; the new audience is one entry.
 
@@ -247,17 +249,17 @@ The registration address is used for a second purpose; Q1 decides the basis and 
 | T2 | a deleted registration and a cancelled activity add nobody; an unpaid registration counts |
 | T3 | a member address gets the member kind, no unsubscribe line |
 | T4 | a subscriber address gets the subscriber kind |
-| T5 | an unsubscribed subscriber and an objection are absent, unless the address is a member's |
-| T6 | the participant link, called once and by one-click POST, writes the objection; a second letter skips the address |
+| T5 | an unsubscribed subscriber, including one created from a participant link, is absent, unless the address is a member's |
+| T6 | the participant link, called once and by one-click POST, creates one subscriber row *unsubscribed* with source *participant*; a second letter skips the address |
 | T7 | another tenant's registrations never appear |
 | T8 | copy clears audience and activities; deleting a draft deletes them |
 | T9 | the audience-said sentence counts the union, not the sum |
 | T10 | the test mail of a participant letter carries the unsubscribe line |
 | T11 | a participant who objects during a running send is skipped (red when the re-check is removed) |
-| T12 | a mixed-case registration against a lower-case objection is not mailed |
+| T12 | a mixed-case registration against a lower-case unsubscribed row is not mailed |
 | T13 | an address that fails the check is skipped and counted |
-| T15 | *Toch opnieuw* removes the objection and creates no subscriber |
-| T16 | the subscriber counts do not change when a participant objects |
+| T15 | *Toch opnieuw* on such a row makes a confirmed subscriber with `consented_at` set |
+| T16 | the *Uitgeschreven* count grows by one when a participant unsubscribes (a deliberate effect) |
 | T17 | a tenant without the `activities` module is not offered the option |
 | T18 | the archive keeps the activity's name after the activity is soft-deleted |
 
