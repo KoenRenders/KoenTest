@@ -116,6 +116,7 @@ class Attribute:
 
 
 _REGISTRY: dict[str, Attribute] = {}
+_LOADED = False
 
 
 def register(attr: Attribute) -> None:
@@ -160,6 +161,11 @@ def attribute(key: str) -> Attribute:
     try:
         return _REGISTRY[key]
     except KeyError:
+        if not _LOADED:
+            # A caller that ran before the domains were imported (a script, a unit
+            # test): load the declarations once, as the app's start does.
+            load_all_attributes()
+            return attribute(key)
         domain = key.split(".")[0]
         known = sorted(k for k in _REGISTRY if k.split(".")[0] == domain)
         raise LookupError(
@@ -210,6 +216,8 @@ def load_all_attributes() -> None:
     import importlib
     from pathlib import Path
 
+    global _LOADED
+    _LOADED = True
     # The kernel's own tables (jobs, tenant settings) are declared beside it.
     importlib.import_module("app.kernel.data_attributes")
     domains = Path(__file__).resolve().parents[1] / "domains"

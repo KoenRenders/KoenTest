@@ -11,7 +11,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="mdm.address.street",
         columns=("mdm.addresses.street",),
-        label=None,
+        label="Straat",
         name_en="Street",
         help="The street of the address.",
         ai_exposure=AiExposure.NONE,  # K1
@@ -19,7 +19,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="mdm.address.house_number",
         columns=("mdm.addresses.house_number",),
-        label=None,
+        label="Huisnummer",
         name_en="House number",
         help="The house number of the address.",
         ai_exposure=AiExposure.NONE,  # K1
@@ -27,7 +27,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="mdm.address.bus_number",
         columns=("mdm.addresses.bus_number",),
-        label=None,
+        label="Bus",
         name_en="Bus number",
         help="The bus number of the address.",
         ai_exposure=AiExposure.NONE,  # K1
@@ -35,7 +35,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="mdm.address.postal_code_id",
         columns=("mdm.addresses.postal_code_id",),
-        label=None,
+        label="Postcode",
         name_en="Postal code id",
         help="The postal code id of the address, a code of its code list.",
         ai_exposure=AiExposure.INTERNAL,  # K0
@@ -115,7 +115,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="mdm.member_person.relation_type",
         columns=("mdm.member_persons.relation_type",),
-        label=None,
+        label="Relatie",
         name_en="Relation type",
         help="The relation type of the member person, a code of its code list.",
         ai_exposure=AiExposure.INTERNAL,  # K0
@@ -235,7 +235,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="mdm.person.last_name",
         columns=("mdm.persons.last_name",),
-        label=None,
+        label="Achternaam",
         name_en="Last name",
         help="The last name of the person.",
         ai_exposure=AiExposure.NONE,  # K1
@@ -243,7 +243,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="mdm.person.first_name",
         columns=("mdm.persons.first_name",),
-        label=None,
+        label="Voornaam",
         name_en="First name",
         help="The first name of the person.",
         ai_exposure=AiExposure.NONE,  # K1
@@ -251,7 +251,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="mdm.person.date_of_birth",
         columns=("mdm.persons.date_of_birth",),
-        label=None,
+        label="Geboortedatum",
         name_en="Date of birth",
         help="The date of birth of the person.",
         ai_exposure=AiExposure.NONE,  # K1
@@ -259,7 +259,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="mdm.person.gender_code",
         columns=("mdm.persons.gender_code",),
-        label=None,
+        label="Geslacht",
         name_en="Gender code",
         help="The gender code of the person, a code of its code list.",
         ai_exposure=AiExposure.INTERNAL,  # K0
@@ -303,4 +303,20 @@ CONTACT_VALUES: tuple[Attribute, ...] = (
         help="The web address or social-network address of a contact (WEBSITE, FACEBOOK, INSTAGRAM, TIKTOK).",
         ai_exposure=AiExposure.NONE,  # K1: a person's page identifies them
     ),
+)
+
+# Several columns, one datum: the address as it reads on one line (street, number, box,
+# postal code). Its label is the word of the changes list and of the import's check.
+ADDRESS_LINE = Attribute(
+    key="mdm.address.line",
+    columns=(
+        "mdm.addresses.street",
+        "mdm.addresses.house_number",
+        "mdm.addresses.bus_number",
+        "mdm.addresses.postal_code_id",
+    ),
+    label="Adres",
+    name_en="Address",
+    help="The address on one line: street, house number, box and postal code.",
+    ai_exposure=AiExposure.NONE,  # K1
 )

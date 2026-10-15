@@ -44,13 +44,13 @@ from app.domains.mdm.api import (
     PostalCode,
 )
 from app.domains.mdm.change_lines import (
-    ADDRESS_LABEL,
-    RELATION_LABEL,
     FieldChange,
+    address_label,
     address_line,
     contact_change,
     lines_text,
     person_change,
+    relation_label,
     relation_value,
 )
 from app.domains.mdm.codes import CONTACT, EXTERNAL
@@ -532,7 +532,7 @@ def _sync_address(
             return None
         changed = FieldChange(
             key="adres",
-            label=ADDRESS_LABEL,
+            label=address_label(),
             old=address_line(
                 existing.street, existing.house_number, existing.bus_number, existing.postal_code
             ),
@@ -573,7 +573,7 @@ def _sync_address(
                 actor=actor,
             )
         # A first address: the new line alone.
-        return FieldChange(key="adres", label=ADDRESS_LABEL, old=None, new=new_line)
+        return FieldChange(key="adres", label=address_label(), old=None, new=new_line)
 
 
 # ── Persoon aanmaken ────────────────────────────────────────────────────────
@@ -877,7 +877,7 @@ def _sync_family(
                 [
                     FieldChange(
                         key="relatie",
-                        label=RELATION_LABEL,
+                        label=relation_label(),
                         old=relation_value(mp.relation_type),
                         new=relation_value(row["_relatie"]),
                     )

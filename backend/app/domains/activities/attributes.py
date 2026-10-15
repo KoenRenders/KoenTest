@@ -379,7 +379,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.registration.contact_name",
         columns=("activities.registrations.contact_name",),
-        label=None,
+        label="Naam",
         name_en="Contact name",
         help="The contact name of the registration.",
         ai_exposure=AiExposure.TOKENISED,  # K2
@@ -387,7 +387,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.registration.contact_email",
         columns=("activities.registrations.contact_email",),
-        label=None,
+        label="E-mail",
         name_en="Contact email",
         help="The contact email of the registration.",
         ai_exposure=AiExposure.NONE,  # K1
@@ -395,7 +395,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.registration.phone",
         columns=("activities.registrations.phone",),
-        label=None,
+        label="Mobiel",
         name_en="Phone",
         help="The phone of the registration.",
         ai_exposure=AiExposure.NONE,  # K1

@@ -184,6 +184,32 @@ templates.env.filters["phone"] = readable_phone
 templates.env.globals["geld"] = _bedrag
 
 
+def _attribute_label(key: str | None, label: str | None) -> str | None:
+    """The label of a kit field (CR-33 F2): `attribute=` reads it from the register,
+    a typed `label` stays for a field that is no datum (a search box). Both at once is
+    refused, and so is an attribute no screen has a label for: raised everywhere, PROD
+    included, because the template gate resolves every key before it can reach a screen
+    (`tests/test_field_labels_ratchet.py`)."""
+    if key is None:
+        return label
+    if label is not None:
+        raise ValueError(
+            f"a kit field gets its label from `attribute={key!r}` or from `label=`, not both"
+        )
+    from app.i18n import _
+    from app.kernel.attributes import attribute as _attribute
+
+    entry = _attribute(key)
+    if entry.label is None:
+        raise ValueError(f"attribute {key!r} has no label: add one in its attributes.py")
+    return _(entry.label)
+
+
+# A global, like `geld` above: looked up when the macro runs, so a hand-built
+# environment that loads the kit needs it too (tests/_shell_env.py).
+templates.env.globals["attribute_label"] = _attribute_label
+
+
 # Een meetwaarde per opmaaksoort (#875): `{{ waarde|meetwaarde(c.format) }}`. Eén
 # plek voor alle vijf de soorten die de universe declareert — het paneel kende er
 # één en drukte de rest rauw af, met `0E-20` als resultaat.

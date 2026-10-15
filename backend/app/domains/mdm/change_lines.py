@@ -13,11 +13,8 @@ contact row of the changes list:
 
 **The words** (Koen, 7 October 2026): a contact type and a relation read by
 their label in the code table — Mobiel, E-mail, Telefoon; Hoofdlid, Partner,
-(meerderjarig) kind. The fields of a person and of an address have no source
-for their label yet: every screen types its own. They are typed once more
-HERE, in the words of the household record — a fourth place, known and named
-on the issue, until the shared source of #1692 exists. The screens still say
-"Gsm" and "E-mailadres"; that difference is known too.
+(meerderjarig) kind. The fields of a person and of an address read their label
+from the attribute register (CR-33), the same source as the household record.
 
 **The values** as the app shows them elsewhere: a phone or mobile number
 through the readable formatter (#1675), a date in the Belgian form, a relation
@@ -43,25 +40,33 @@ REMOVED = "(verwijderd)"
 
 
 def person_field_label(attribute: str) -> str:
-    """The label of a person's field, by the model's attribute, in the words
-    of the household record.
-
-    Copy behind `_()`, not a code table: a field's name is no stored code. See
-    the module's docstring: no shared source yet (#1692).
-    """
-    if attribute == "first_name":
-        return _("Voornaam")
-    if attribute == "last_name":
-        return _("Achternaam")
-    if attribute == "date_of_birth":
-        return _("Geboortedatum")
-    if attribute == "gender_code":
-        return _("Geslacht")
-    raise KeyError(attribute)
+    """The label of a person's field, by the model's attribute: read from the
+    attribute register (CR-33 F3), the one source of the words of the household
+    record. A field without an entry raises `KeyError`."""
+    entry = _entry(f"mdm.person.{attribute}")
+    return _(entry.label)
 
 
-RELATION_LABEL = "Relatie"
-ADDRESS_LABEL = "Adres"
+def relation_label() -> str:
+    """*Relatie*: the word for how a person stands in a household (register)."""
+    return _(_entry("mdm.member_person.relation_type").label)
+
+
+def address_label() -> str:
+    """*Adres*: the address on one line (register, a composite entry)."""
+    return _(_entry("mdm.address.line").label)
+
+
+def _entry(key: str):
+    from app.kernel.attributes import attribute
+
+    try:
+        entry = attribute(key)
+    except LookupError as error:
+        raise KeyError(key) from error
+    if not entry.label:
+        raise KeyError(key)
+    return entry
 
 
 @dataclass(frozen=True)
