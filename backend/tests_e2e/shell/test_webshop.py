@@ -927,7 +927,8 @@ def test_bestelling_toevoegen_koppelt_het_lid_en_prijst_hem(webshop_page):
 
     page.locator('input[name="email"]').fill(WEBSHOP_LID_EMAIL)
     page.wait_for_selector("[data-koppeling]", state="visible")
-    assert "Webshop Lid" in page.locator("[data-koppeling]").inner_text()
+    assert "bestaand lid" in page.locator("[data-koppeling]").inner_text()
+    assert "Webshop Lid" not in page.locator("[data-koppeling]").inner_text()
 
     page.locator('select[name="product_id"]').select_option(label="Webshop T-shirt")
     page.wait_for_selector("#maten [data-tile]")

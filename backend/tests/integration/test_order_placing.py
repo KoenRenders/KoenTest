@@ -1081,3 +1081,191 @@ def test_bestelling_toevoegen_refuses_a_short_article(client, db_session, every_
     )
     assert response.status_code == 422
     assert "voorraad" in response.text
+
+
+def _board_user(db, role: str, email: str) -> str:
+    from app.domains.auth.api import User, UserRole
+    from app.kernel.tenancy import TENANT_MILLEGEM_ID
+
+    user = User(email=email, is_active=True)
+    db.add(user)
+    db.flush()
+    db.add(UserRole(user_id=user.id, role_code=role, tenant_id=TENANT_MILLEGEM_ID))
+    db.commit()
+    return email
+
+
+def _as(client, email: str) -> dict:
+    from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+
+    value = make_session_value(email)
+    client.cookies.set(SESSION_COOKIE, value)
+    return {"X-CSRF-Token": csrf_token_for(value)}
+
+
+def test_de_koppeling_noemt_nooit_een_naam(client, db_session, every_module_on):
+    """A1 (CR-24 AC6): the link line says the address is known, never who it is."""
+    from tests.conftest import create_test_family
+
+    create_test_family(db_session, email="lid@example.com")
+    db_session.commit()
+    headers = _as(client, _board_user(db_session, "SALES", "verkoper@example.com"))
+
+    answer = client.post(
+        "/admin/verkoop/nieuw/koppeling", data={"email": "lid@example.com"}, headers=headers
+    )
+    assert answer.status_code == 200
+    assert "bestaand lid" in answer.text
+    assert "Persoon" not in answer.text, "the link line must not name the person"
+
+
+def test_de_helpers_vragen_manage(client, db_session, every_module_on):
+    """A1: a board user without `sales.manage` is refused the two helpers."""
+    _as(client, _board_user(db_session, "MASTERDATA", "masterdata@example.com"))
+    for path in ("/admin/verkoop/nieuw/koppeling", "/admin/verkoop/nieuw/maten"):
+        assert client.post(path, data={"email": "lid@example.com"}).status_code == 403, path
+
+
+def test_het_bestuur_biedt_alleen_overschrijving_aan(client, db_session, every_module_on):
+    """A2: the board's form offers no online choice, and a posted online choice is
+    refused."""
+    from tests.conftest import create_test_family
+
+    create_test_family(db_session, email="lid@example.com")
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    db_session.commit()
+    headers = _as(client, _board_user(db_session, "SALES", "verkoper@example.com"))
+
+    assert "Online betalen" not in client.get("/admin/verkoop/nieuw", headers=headers).text
+
+    response = client.post(
+        "/admin/verkoop/nieuw",
+        data={
+            "action": "save",
+            "email": "lid@example.com",
+            "variant_id": str(m.id),
+            "quantity": "1",
+            "payment_method": "online",
+        },
+        headers=headers,
+    )
+    assert response.status_code == 422
+    assert "overschrijving" in response.text
+
+
+def test_een_lijn_kan_verwijderd_worden(client, db_session, every_module_on):
+    """B2: removing one line re-renders the form without it."""
+    from tests.conftest import create_test_family
+
+    create_test_family(db_session, email="lid@example.com")
+    shirt = _variant_with_price_and_stock(
+        db_session, name="T-shirt", size="M", amount="15.00", stock=5
+    )
+    zak = _variant_with_price_and_stock(db_session, name="Zak", size="M", amount="8.00", stock=5)
+    db_session.commit()
+    headers = _as(client, _board_user(db_session, "SALES", "verkoper@example.com"))
+
+    body = (
+        "email=lid@example.com"
+        f"&variant_id={shirt.id}&variant_id={zak.id}"
+        "&quantity=1&quantity=1"
+        f"&remove_variant_id={zak.id}"
+    )
+    removed = client.post(
+        "/admin/verkoop/nieuw",
+        content=body,
+        headers={"Content-Type": "application/x-www-form-urlencoded", **headers},
+    )
+    assert removed.status_code == 200
+    assert f'name="variant_id" value="{shirt.id}"' in removed.text
+    assert f'name="variant_id" value="{zak.id}"' not in removed.text
+
+
+def test_een_onbekend_of_meervoudig_adres_wordt_geweigerd(client, db_session, every_module_on):
+    """B3/B4: an unknown address and an address on several persons are each a 422."""
+    from tests.conftest import create_test_family
+
+    create_test_family(db_session, email="dubbel@example.com")
+    create_test_family(db_session, email="dubbel@example.com")
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    db_session.commit()
+    headers = _as(client, _board_user(db_session, "SALES", "verkoper@example.com"))
+
+    def _save(email: str) -> dict:
+        return client.post(
+            "/admin/verkoop/nieuw",
+            data={
+                "action": "save",
+                "email": email,
+                "variant_id": str(m.id),
+                "quantity": "1",
+                "payment_method": "transfer",
+            },
+            headers=headers,
+        )
+
+    unknown = _save("niemand@example.com")
+    assert unknown.status_code == 422
+    assert "niemand gekend" in unknown.text
+
+    multiple = _save("dubbel@example.com")
+    assert multiple.status_code == 422
+    assert "meerdere" in multiple.text
+
+
+def test_het_adres_wordt_genormaliseerd_op_hoofdletters_en_spaties(
+    client, db_session, every_module_on
+):
+    """B4: an address typed with another case and spaces resolves the same person."""
+    from app.domains.sales.models import SalesOrder
+    from tests.conftest import create_test_family
+
+    _member, person = create_test_family(db_session, email="lid@example.com")
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    db_session.commit()
+    headers = _as(client, _board_user(db_session, "SALES", "verkoper@example.com"))
+
+    response = client.post(
+        "/admin/verkoop/nieuw",
+        data={
+            "action": "save",
+            "email": "  LID@example.com  ",
+            "variant_id": str(m.id),
+            "quantity": "1",
+            "payment_method": "transfer",
+        },
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    assert db_session.query(SalesOrder).one().person_id == person.id
+
+
+def test_een_bestelling_op_een_persoon_bewaart_geen_getypt_adres(
+    client, db_session, every_module_on
+):
+    """B5: an order that hangs on a person stores no typed address."""
+    from app.domains.sales.models import SalesOrder
+    from tests.conftest import create_test_family
+
+    _member, person = create_test_family(db_session, email="lid@example.com")
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    db_session.commit()
+    headers = _as(client, _board_user(db_session, "SALES", "verkoper@example.com"))
+
+    response = client.post(
+        "/admin/verkoop/nieuw",
+        data={
+            "action": "save",
+            "email": "lid@example.com",
+            "variant_id": str(m.id),
+            "quantity": "1",
+            "payment_method": "transfer",
+        },
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    order = db_session.query(SalesOrder).one()
+    assert order.person_id == person.id
+    assert not (order.guest_email or "").strip()

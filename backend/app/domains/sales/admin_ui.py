@@ -30,6 +30,7 @@ from app.domains.sales.api import (
 from app.domains.sales.viewmodels import BoardOrderView, OrderPageView, VerkoopView
 from app.i18n import _
 from app.kernel.refusals import FieldError
+from app.limiter import board_order_limiter
 from app.ui import admin_nav, refusal_response, templates
 
 router = APIRouter()
@@ -156,33 +157,43 @@ def add_order(
     )
 
 
-@router.get("/admin/verkoop/nieuw/koppeling", response_class=HTMLResponse)
-def add_order_link(
+@router.post(
+    "/admin/verkoop/nieuw/koppeling",
+    response_class=HTMLResponse,
+    dependencies=[Depends(board_order_limiter)],
+)
+async def add_order_link(
     request: Request,
-    email: str = "",
     db: Session = Depends(get_db),
-    _u: str = Depends(require_right(Right.SALES_VIEW)),
+    _u: str = Depends(require_right(Right.SALES_MANAGE)),
+    _csrf: None = Depends(require_csrf),
 ):
-    """The "deze bestelling wordt gekoppeld aan …" line, as the e-mail is typed."""
-    person, member = board_order_person(db, email)
-    vm = BoardOrderView(
-        email=(email or "").strip(),
-        linked_name=f"{person.first_name} {person.last_name}".strip() if person else "",
-        member_applied=member,
-    )
-    return templates.TemplateResponse(request, "_verkoop_koppeling.html", vm.as_context())
+    """Re-render the form as the e-mail changes (R43): the line list re-prices at
+    the member price of the typed person, and the link line says whether the
+    address is known — never a name (CR-24 AC6)."""
+    form = await request.form()
+    email = str(form.get("email") or "").strip()
+    items, _parse_error = parse_items(form)
+    vm = _board_order_view(db, request, email=email, items=items)
+    return templates.TemplateResponse(request, "_verkoop_nieuw_form.html", vm.as_context())
 
 
-@router.get("/admin/verkoop/nieuw/maten", response_class=HTMLResponse)
-def add_order_sizes(
+@router.post(
+    "/admin/verkoop/nieuw/maten",
+    response_class=HTMLResponse,
+    dependencies=[Depends(board_order_limiter)],
+)
+async def add_order_sizes(
     request: Request,
-    product_id: str = "",
-    email: str = "",
     db: Session = Depends(get_db),
-    _u: str = Depends(require_right(Right.SALES_VIEW)),
+    _u: str = Depends(require_right(Right.SALES_MANAGE)),
+    _csrf: None = Depends(require_csrf),
 ):
     """The size tiles and the "Artikel toevoegen" row for one article (Q90)."""
-    _person, member = board_order_person(db, email)
+    form = await request.form()
+    product_id = str(form.get("product_id") or "")
+    email = str(form.get("email") or "").strip()
+    _status, _person, member = board_order_person(db, email)
     sizes: list[dict] = []
     if product_id:
         try:
@@ -204,7 +215,7 @@ async def add_order_submit(
     _email: str = Depends(require_right(Right.SALES_MANAGE)),
     _csrf: None = Depends(require_csrf),
 ):
-    """Add a line (re-render the form) or save the order (R43, F18)."""
+    """Add a line, remove one, or save the order (R43, F18)."""
     from app.domains.mdm.api import PaymentMethod
     from app.domains.sales.api import submit_order
     from app.kernel.refusals import FieldError
@@ -213,6 +224,9 @@ async def add_order_submit(
     action = str(form.get("action") or "save")
     email = str(form.get("email") or "").strip()
     items, parse_error = parse_items(form)
+
+    if form.get("remove_variant_id"):
+        action = "remove"
 
     if action == "add":
         new_variant = str(form.get("new_variant_id") or "").strip()
@@ -229,11 +243,33 @@ async def add_order_submit(
         vm = _board_order_view(db, request, email=email, items=items, product_id="")
         return templates.TemplateResponse(request, "_verkoop_nieuw_form.html", vm.as_context())
 
+    if action == "remove":
+        remove_variant = str(form.get("remove_variant_id") or "").strip()
+        if parse_error is None and remove_variant:
+            try:
+                remove_id = int(remove_variant)
+            except ValueError:
+                remove_id = 0
+            items = [(v, q) for v, q in items if v != remove_id]
+        vm = _board_order_view(db, request, email=email, items=items, product_id="")
+        return templates.TemplateResponse(request, "_verkoop_nieuw_form.html", vm.as_context())
+
     if parse_error is not None:
         return refusal_response(
             request, [FieldError("", parse_error)], "#bestel-melding", send=True
         )
-    person, member = board_order_person(db, email)
+    status, person, member = board_order_person(db, email)
+    if status == "multiple":
+        return refusal_response(
+            request,
+            [
+                FieldError(
+                    "email", _("Dit adres hoort bij meerdere personen; vraag een ander adres.")
+                )
+            ],
+            "#bestel-melding",
+            send=True,
+        )
     if person is None:
         return refusal_response(
             request,
@@ -248,17 +284,25 @@ async def add_order_submit(
             "#bestel-melding",
             send=True,
         )
-    try:
-        method = PaymentMethod(str(form.get("payment_method") or "transfer"))
-    except ValueError:
-        method = PaymentMethod.TRANSFER
+    method = PaymentMethod(str(form.get("payment_method") or "transfer"))
+    if method is PaymentMethod.ONLINE:
+        return refusal_response(
+            request,
+            [
+                FieldError(
+                    "", _("Een bestelling die het bestuur invoert, betaalt per overschrijving.")
+                )
+            ],
+            "#bestel-melding",
+            send=True,
+        )
     try:
         _checkout, order_id = submit_order(
             db,
             person_id=person.id,
             member=member,
             contact_name="",
-            contact_email=email,
+            contact_email="",
             phone="",
             method=method,
             items=items,
@@ -283,10 +327,7 @@ def _board_order_view(
     sizes."""
     from decimal import Decimal
 
-    person, member = board_order_person(db, email)
-    linked_name = ""
-    if person is not None:
-        linked_name = f"{person.first_name} {person.last_name}".strip()
+    status, _person, member = board_order_person(db, email)
     lines = basket_lines(db, member=member, items=items)
     total = sum(
         (line["price"] * line["quantity"] for line in lines if line["available"]),
@@ -295,7 +336,7 @@ def _board_order_view(
     articles = [(str(p["id"]), p["name"]) for p in offered_products(db, member=member)]
     return BoardOrderView(
         email=email,
-        linked_name=linked_name,
+        status=status,
         lines=lines,
         total=total,
         member_applied=member and any(line["available"] for line in lines),

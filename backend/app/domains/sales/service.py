@@ -541,22 +541,24 @@ def order_payment_state(db: Session, order_id: int) -> dict:
     return order_payment_states(db, [order_id]).get(order_id, {})
 
 
-def board_order_person(db: Session, email: str) -> tuple[Any, bool]:
-    """The person the board's typed e-mail names, and whether they are a member
-    today (R43, F18, T22): the order hangs on the person of the typed address,
-    never on the seller. `(None, False)` when the address names nobody — unknown,
-    not confirmed, or not an e-mail."""
-    from app.domains.auth.api import login_person_for_email
+def board_order_person(db: Session, email: str) -> tuple[str, Any | None, bool]:
+    """Who the board's typed address names (R43, F18, T22): `(status, person,
+    member)` with `status` "linked" (the person, and whether he is a member
+    today), "unknown" (no one signs in with it) or "multiple" (the address does
+    not say who). The order hangs on the person, never on the seller."""
+    from app.domains.auth.api import sign_in_identity
     from app.domains.membership.api import has_valid_membership
     from app.kernel.clock import belgian_today
 
     typed = (email or "").strip()
     if "@" not in typed:
-        return None, False
-    person = login_person_for_email(db, typed)
+        return "unknown", None, False
+    status, person = sign_in_identity(db, typed)
+    if status == "multiple":
+        return "multiple", None, False
     if person is None:
-        return None, False
-    return person, has_valid_membership(person, belgian_today())
+        return "unknown", None, False
+    return "linked", person, has_valid_membership(person, belgian_today())
 
 
 def parse_items(form) -> tuple[list[tuple[int, int]], str | None]:
