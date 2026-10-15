@@ -140,7 +140,7 @@ Reporting need: the accountant gets the invoices of a period, a list and the doc
 | R3 | An invoice has a number — rising, without gaps, with or without a year — and a date | Must | Koen, 15 Oct 2026 | "1, 2, 3 is fine" |
 | R4 | The invoice names the seller and the buyer. A person: name and address. An organisation: also its VAT number | Must | Koen, 15 Oct 2026 | |
 | R5 | VAT is worked out and shown. It is 21 % to begin with, and **every article carries a VAT rate** | Must | Koen, 15 Oct 2026 | |
-| R6 | Not paid online: the invoice says to pay by transfer, with the OGM, within a **payment term that is a setting** (7 days to begin with). Paid online: it says "voldaan" | Must | Koen, 15 Oct 2026 | the OGM is the one the payment already has |
+| R6 | Not paid online: the invoice says to pay by transfer, with the OGM, within the **payment term the tenant already has** (7 days to begin with; the setting of registrations and memberships, not a new one). Paid online: it says "voldaan" | Must | Koen, 15 Oct 2026 | the OGM is the one the payment already has |
 | R7 | The invoice has what Belgian law requires on it | Must | Koen, 15 Oct 2026 | the list stands in C4.1, to be confirmed by the accountant (Q10) |
 | R8 | An invoice belongs to a booking: its amount is a receivable followed against payments | Must | Koen, 15 Oct 2026 | "daar hangt ook een boeking aan"; not a general ledger (Q9) |
 | R9 | Verkoop sees the invoices of its sales. Boekhouding sees all invoices and follows the payments | Must | Koen, 15 Oct 2026 | |
@@ -202,7 +202,7 @@ The portal issues an **invoice** when a sale is settled in business terms. The i
 | F4 | An article has a VAT rate from a short list; the default is 21 % | R5 |
 | F5 | Net, VAT per rate and total are computed from the gross line amounts and equal the payment | R5, R6 |
 | F6 | The payment text is "Voldaan" for a paid charge, else the OGM of the charge and a due date = invoice date + term | R6 |
-| F7 | The due date term is a setting with a default of 7 days | R6 |
+| F7 | The due date is the invoice date plus the tenant's existing payment term, read once at issue and frozen; this change adds no second term | R6 |
 | F8 | An invoice cannot be updated or deleted after issue | R12 |
 | F9 | A change or cancel of an invoiced order issues a credit note and, if the sale stands, a new invoice | R12 |
 | F10 | The invoice is shown on a screen and as a PDF with the site's logo | R1 |
@@ -263,7 +263,7 @@ flowchart LR
 **Walkthrough** (HDEV, the shop tenant with the module on, Mollie in test mode)
 
 *Private buyer.* W1 Order a helmet and pay online; see the shop's thank-you page. W2 Open the mail; see an invoice with number, date, seller, 21 % VAT worked out, "Voldaan". W3 Under *Mijn aankopen* open the same invoice.
-*Company buyer.* W4 Order again, tick *Ik koop als bedrijf*, give a VAT number, choose a transfer. W5 Open the mail; see the VAT number, the OGM and a due date seven days on. W6 In the invoice settings set the term to 14 days; the next invoice says 14.
+*Company buyer.* W4 Order again, tick *Ik koop als bedrijf*, give a VAT number, choose a transfer. W5 Open the mail; see the VAT number, the OGM and a due date seven days on. W6 In the tenant settings set *Betaaltermijn (dagen)* to 14; the next invoice says 14.
 *Boekhouding.* W7 Under *Facturen* find the open invoice. W8 Confirm the transfer on the payments screen; the invoice reads paid.
 *Rates.* W9 Give one article 6 % and order it with another; the lines carry their rates and the totals per rate add up to the payment.
 *Correction.* W10 Cancel the first order; a credit note appears, the invoice stays.
@@ -319,7 +319,7 @@ erDiagram
   VAT_SUBTOTAL { int invoice_id string category numeric percent numeric net numeric vat }
   INVOICE_SEQUENCE { int organization_id int last_number }
   VAT_RATE { string code string category numeric percent string country }
-  INVOICE_SETTINGS { int tenant_id int organization_id int term_days }
+  INVOICE_SETTINGS { int tenant_id int organization_id }
 ```
 
 *New: all six. The order and the article are soft references across schemas; the seller and the buyer are copied columns, not keys, because the document is frozen.*
@@ -369,7 +369,7 @@ Part C's detail will change these; S/M/L until the team has a track record. No p
 
 **Running cost.** Storage of PDFs is negligible. Maintenance added: the VAT rate list when a rate changes; the EU distance-sale limit to watch (Q6).
 
-**Operations.** The module switch of the tenant; the settings (issuing organisation, term); no env var is expected. Invoices and the sequence are in the backup as any table. A missed number cannot be re-used: a restore of the dump restores the sequence with the invoices.
+**Operations.** The module switch of the tenant; the setting of the issuing organisation, and the existing payment term; no env var is expected. Invoices and the sequence are in the backup as any table. A missed number cannot be re-used: a restore of the dump restores the sequence with the invoices.
 
 ## B6. Phasing — shippable phases, and what changes on the failure paths
 
@@ -422,6 +422,7 @@ Measured on master @ `ff5eeb3a` and on the build branch of CR-21 @ `508ee052` on
 | A module is a registry entry plus a CHECK migration | relies on | `kernel/modules.py` docstring; `ModuleCode` has eleven members, none for invoices | holds | `INVOICES` is the twelfth |
 | `PayableType` has no invoice and needs none | relies on | `payment/models.py:78-88`: REGISTRATION, MEMBERSHIP (ORDER added by CR-21) | holds | the ledger keeps pointing at the order |
 | Articles carry no VAT rate | changes | `product/models.py` on the CR-21 branch: `Product`, `ProductVariant`, no rate column | holds | phase 0 adds it |
+| The payment term already exists, once | relies on | `kernel/tenant_config.py:641` `tenant_payment_term_days`; `config.py:145` default 7; `payment` lists it in its module's `tenant_settings` (`kernel/modules.py:196`); read by `payment/transfer_due.py:93` for the screens and both mails | holds | the invoice reads it; no `term_days` of its own (one place for one fact) |
 | Readers of the article's price | changes | to be found by searching `unit_price` in `sales`, `pricing`, `payment` | open | listed at the build read |
 | The delete rule for a soft-deleted order | changes | CR-21 B9, 8 Oct 2026: cancel is a soft delete (`activities/service.py:2427-2466` as the model) | holds | B4 row |
 
@@ -447,7 +448,7 @@ Measured on master @ `ff5eeb3a` and on the build branch of CR-21 @ `508ee052` on
 | Events, ports, handlers; which gate sees a new call across domains | new subscriber in `payment` for `sales` events through the kernel contract; the import gate refuses any direct import |
 | Mail templates | the invoice mail |
 | Migration | additive throughout |
-| Tenant settings, env vars | module switch, issuing organisation, term; env: none |
+| Tenant settings, env vars | module switch, issuing organisation; the payment term is the existing setting; env: none |
 | JSON routes | none; the PDF is a screen's download behind the session |
 | External services | none in this change; the Peppol access point is CR-35 |
 | Copy actions | article copy takes the rate |
