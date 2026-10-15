@@ -191,8 +191,12 @@ def test_cms_placeholders_public_vs_editor(client, db_session):
 
     from app.domains.cms.api import draft_document, publish, save_document
 
+    # CR-32 R17: the home is a page of the CMS now — the one the tenant flagged.
+    from app.kernel.tenancy import TENANT_MILLEGEM_ID
+
     intro_id = db_session.execute(
-        sa.text("SELECT id FROM cms.cms_pages WHERE slug = 'home-intro' ORDER BY id")
+        sa.text("SELECT id FROM cms.cms_pages WHERE is_home AND tenant_id = :t ORDER BY id"),
+        {"t": TENANT_MILLEGEM_ID},
     ).scalar()
     save_document(
         db_session,

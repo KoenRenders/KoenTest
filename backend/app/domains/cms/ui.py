@@ -11,10 +11,9 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.cms.api import (
-    get_published_page,
     hero_view,
-    published_html,
     published_page,
+    published_parts,
     published_slugs,
 )
 from app.i18n import _
@@ -25,52 +24,19 @@ router = APIRouter(include_in_schema=False)
 
 @router.get("/", response_class=HTMLResponse)
 def homepage(request: Request, db: Session = Depends(get_db)):
-    from app.domains.activities.api import list_activities
-
-    # #727: `is_published` geldt ook voor de blokken die de site zelf invult. Er
-    # stond een vinkje "Gepubliceerd" op het beheerscherm dat niets deed — uitzetten
-    # veranderde niets aan de homepagina. Gepubliceerd → getoond, niet gepubliceerd
-    # → niet getoond, zonder uitzondering voor blok-pagina's; die uitzondering was
-    # juist de verwarring.
-    # CR-19 (#1477): a tenant may flag one of its pages as the home page; `/`
-    # then renders that page, exactly as its own address would.
+    """The tenant's home page: the page it flagged as its home (CR-19, #1477), as
+    its own address would render it. There is no second home (CR-32 R17): the
+    composition the shell used to make from the intro, the membership band and the
+    activity list is that page's document now, seeded for every tenant
+    (`seed_home_page`) and edited under Pagina's. A tenant whose home page the
+    board unpublished or removed answers like any address without a page.
+    #727: `is_published` holds for it too — unpublished means not shown."""
     from app.domains.cms.api import published_home_page
 
     home_page = published_home_page(db)
-    if home_page is not None:
-        return _render_page(request, db, home_page)
-
-    intro = get_published_page(db, "home-intro")
-    # Golf 11 (F31, #913): de lidmaatschapsband toont bedrag en geldigheid uit
-    # dezelfde betaal-helpers als het Word-lid-scherm en de aanrekening zelf —
-    # het tarief staat dus niet meer als tekst in de intro.
-    from app.domains.forms.api import contact_form
-    from app.domains.mdm.api import module_enabled
-    from app.domains.payment.api import membership_price_for_date, membership_valid_period
-    from app.kernel.modules import ModuleCode
-
-    # CR-19 (#1477): the composition follows the module set — a block of a
-    # module that is off is absent, not empty.
-    toon_lidgeld = module_enabled(ModuleCode.MEMBERSHIP)
-    toon_activiteiten = module_enabled(ModuleCode.ACTIVITIES)
-    _van, tot = membership_valid_period()
-    return templates.TemplateResponse(
-        request,
-        "home.html",
-        {
-            **site_context(db, request),
-            "intro_html": published_html(db, intro) if intro else None,
-            "toon_lidgeld": toon_lidgeld,
-            # #1509: and only when the contact form can take a message — a
-            # tenant without it had a button that led nowhere.
-            "toon_contact": module_enabled(ModuleCode.FORMS) and contact_form(db) is not None,
-            "toon_activiteiten": toon_activiteiten,
-            "activities": list_activities(db, scope="upcoming") if toon_activiteiten else [],
-            "scope": "upcoming",
-            "lidgeld": {"prijs": membership_price_for_date(), "tot": tot},
-            "bericht_verzonden": request.query_params.get("bericht") == "verzonden",
-        },
-    )
+    if home_page is None:
+        raise HTTPException(status_code=404, detail=_("Pagina niet gevonden"))
+    return _render_page(request, db, home_page)
 
 
 def _payment_confirmed(db: Session, request: Request) -> bool | None:
@@ -201,14 +167,18 @@ def _render_page(request: Request, db: Session, page):
     """One published page in the site shell — at its own address, or at `/`
     when it is the tenant's home page (#1477)."""
     slug = page.slug
+    context = site_context(db, request)
+    # The signed-in visitor (CR-32 F14): the page renders a button to "Word lid"
+    # as "Mijn gezin" for a member with a household.
+    viewer = context.get("gebruiker")
     return templates.TemplateResponse(
         request,
         "cms_pagina.html",
         {
-            **site_context(db, request),
+            **context,
             "page": page,
-            "content_html": published_html(db, page),
-            "hero": hero_view(page, db),
+            "content_parts": published_parts(db, page, viewer=viewer),
+            "hero": hero_view(page, db, viewer=viewer),
             # #924: één vaste slug krijgt het contactblok uit de organisatie, zoals de
             # footer er een krijgt. Geen shortcode en geen nieuwe pagina: er ís geen
             # contactpagina, en een blok dat van een paginanaam afhangt werkt niet voor

@@ -72,7 +72,11 @@ class Module:
     route_prefixes: tuple[str, ...] = ()
     #: Dashboard tiles, by their report key (`reporting.DASHBOARD_TEGELS`).
     dashboard_tiles: tuple[str, ...] = ()
-    #: Blocks of the shell's home page that belong to this module.
+    #: The DATA BLOCKS this module offers to the page editor (CR-32 F16): nodes of
+    #: the page schema whose data the module supplies at render time. The editor
+    #: offers a block only to a tenant that has the module on, and the save
+    #: refuses it otherwise. A module with nothing to supply here (membership:
+    #: its band is made of ordinary blocks and values) lists none.
     home_blocks: tuple[str, ...] = ()
     #: Fixed paths this module adds to the sitemap.
     sitemap_paths: tuple[str, ...] = ()
@@ -116,7 +120,7 @@ MODULES: tuple[Module, ...] = (
             "/mijn/inschrijvingen",
         ),
         dashboard_tiles=("dashboard_upcoming_activities",),
-        home_blocks=("activity_cards",),
+        home_blocks=("activities",),
         sitemap_paths=("/activiteiten", "/activiteiten/archief"),
         reporting_folders=("Activiteiten",),
         record_tables=("activities.activities", "activities.registrations"),
@@ -133,7 +137,6 @@ MODULES: tuple[Module, ...] = (
             "dashboard_active_members",
             "dashboard_member_persons",
         ),
-        home_blocks=("membership_band",),
         sitemap_paths=("/lid-worden",),
         newsletter_audiences=("members", "non_members", "both"),
         reporting_folders=("Leden",),

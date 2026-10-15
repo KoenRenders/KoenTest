@@ -26,7 +26,8 @@ def test_de_introband_toont_tarief_en_geldigheid_uit_de_betaal_api(client, db_se
     from app.domains.payment.api import membership_price_for_date, membership_valid_period
 
     html = client.get("/").text
-    assert f"€ {membership_price_for_date()}".replace(".", ",") in html
+    # CR-32: the fee is a value of the page (`€35,00`), no longer a number in a template.
+    assert f"€{membership_price_for_date()}".replace(".", ",") in html
     _van, tot = membership_valid_period()
     assert f"per gezin, geldig tot en met {tot.year}" in html
     # De twee knoppen staan in de band; de hero-variant is er bewust niet.

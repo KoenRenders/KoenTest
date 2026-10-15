@@ -112,6 +112,12 @@ def _record_ctx(
     from app.domains.forms.api import form_button_choices
     from app.domains.mdm.api import module_enabled
 
+    # The data blocks this tenant's modules offer (CR-32 F16): the registry's
+    # `home_blocks` of every module that is on.
+    from app.domains.mdm.api import module_enabled as _on
+    from app.kernel.modules import MODULES
+
+    data_blocks = [block for module in MODULES if _on(module.code) for block in module.home_blocks]
     # The albums a gallery block may show (CR-32 R20): the photo page's own list.
     from app.domains.media.api import list_albums
     from app.kernel.modules import ModuleCode
@@ -152,7 +158,7 @@ def _record_ctx(
         "document_json": (
             document if document is not None else _json.dumps(editable_document(db, page))
         ),
-        "editor_config": schema.schema_for("page", albums=gallery_albums),
+        "editor_config": schema.schema_for("page", albums=gallery_albums, data_blocks=data_blocks),
         "button_pages": button_pages,
         "button_forms": button_forms,
         "button_lid_worden": button_lid_worden,
@@ -526,7 +532,7 @@ def pagina_voorbeeld(
     """Admin-voorbeeld van een pagina — óók een concept (ongepubliceerd), #554. De
     publieke /{slug}-route blijft enkel gepubliceerde pagina's tonen (404 op concept),
     dus 'Bekijk' linkt hierheen zodat je een concept kan bekijken vóór publicatie."""
-    from app.domains.cms.api import draft_html, get_page_by_id, hero_view
+    from app.domains.cms.api import draft_parts, get_page_by_id, hero_view
     from app.ui import site_context
 
     page = get_page_by_id(db, page_id)
@@ -538,7 +544,7 @@ def pagina_voorbeeld(
         {
             **site_context(db, request),
             "page": page,
-            "content_html": draft_html(db, page),
+            "content_parts": draft_parts(db, page),
             "hero": hero_view(page, db, preview=True),
             # #924: het voorbeeld toont wat de bezoeker ziet, dus ook het contactblok
             # op de privacypagina. Expliciet meegeven en niet aan de sjabloon

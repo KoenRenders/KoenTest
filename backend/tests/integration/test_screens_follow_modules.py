@@ -118,8 +118,11 @@ def test_an_association_renders_as_before(client, db_session, modules):
 def test_a_company_home_page_has_no_fee_no_cards_and_no_newsletter(client, modules):
     modules(COMPANY)
     home = client.get("/").text
-    assert 'lid-worden"' not in home and "per gezin" not in home
-    assert "Activiteiten</h2>" not in home
+    # CR-32 R17/R18: the home is a page now; the blocks of a module that is off
+    # are absent where the module owns the data (the activity cards) or the way
+    # (the button to Word lid) — the page's own words are the board's.
+    assert 'lid-worden"' not in home, "the button to Word lid needs the membership module"
+    assert "data-card-title" not in home, "the activities block needs the activities module"
     assert "Contacteer ons" in home, "forms is on"
     assert 'id="nb-voet-link"' not in home, "the newsletter module is off"
     assert "data-footer-newsletter" not in home, "and its footer column goes with it"
@@ -290,4 +293,6 @@ def test_a_flagged_page_is_the_home_page_and_the_flag_moves(client, db_session):
     assert "Taarten op bestelling." in client.get("/").text
 
     update_page(db_session, second.id, CmsPageUpdate(is_home=False))
-    assert "per gezin" in client.get("/").text, "no flag: the composition again"
+    # CR-32 R17: there is no second home — without a flagged page `/` answers like
+    # any address without a page.
+    assert client.get("/").status_code == 404

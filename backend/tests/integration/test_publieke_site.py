@@ -8,32 +8,24 @@ from tests.conftest import seed_postal_code, signup_fields
 
 
 def test_homepage_renders_with_intro_and_activities(client, db_session):
-    # Sinds #727 geldt `is_published` ook voor dit blok. Alle rijen met deze slug:
-    # de migraties seeden er één per tenant en het verzoek kiest de zijne (zie
-    # test_siteblokken_publicatie.py, waar de tegenproef staat).
-    intros = db_session.query(CmsPage).filter(CmsPage.slug == "home-intro").all()
-    if not intros:
-        intros = [CmsPage(slug="home-intro", title="Intro")]
-        db_session.add(intros[0])
-    # CR-17 (#1671): de site toont het GEPUBLICEERDE DOCUMENT, dus schrijft
-    # deze test de intro zoals een redacteur dat doet: door de deuren van de
-    # app — Opslaan, Publiceren. `intro.content` overschrijven toetst niets
-    # meer: de lezer kijkt er niet meer naar.
-    from app.domains.cms.api import publish, save_document
+    # CR-32 R17: the home is the tenant's flagged page of the CMS; its intro is
+    # the first block of its document. The site shows the PUBLISHED DOCUMENT, so
+    # the test writes the intro as an editor does: through the doors of the app,
+    # Opslaan and Publiceren — in front of what the seed built (the band, the
+    # activities), which stays.
+    from app.domains.cms.api import publish, published_document, save_document
 
-    for intro in intros:
-        intro.is_published = True
+    homes = db_session.query(CmsPage).filter(CmsPage.is_home.is_(True)).all()
+    assert homes, "no tenant has a home page: the seed did not run"
+    for home in homes:
+        document = published_document(db_session, home) or {"type": "doc", "content": []}
+        intro = {"type": "paragraph", "content": [{"type": "text", "text": "Welkom bij Raak!"}]}
         save_document(
             db_session,
-            intro.id,
-            {
-                "type": "doc",
-                "content": [
-                    {"type": "paragraph", "content": [{"type": "text", "text": "Welkom bij Raak!"}]}
-                ],
-            },
+            home.id,
+            {"type": "doc", "content": [intro, *document["content"]]},
         )
-        publish(db_session, intro.id)
+        publish(db_session, home.id)
     resp = client.get("/")
     assert resp.status_code == 200
     assert "Welkom bij Raak" in resp.text and "Word lid" in resp.text
