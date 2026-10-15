@@ -23,8 +23,8 @@ from app.kernel.codes import create_code_list
 # cannot collide. The number at the front of the FILE NAME is there for
 # readability only — alembic ignores it, and sorting on it does not give the
 # head: the head is what `alembic heads` says.
-revision = "206_2026_10_10_110506"
-down_revision = "205_2026_10_10_105206"
+revision = "303_2026_10_10_110506"
+down_revision = "302_2026_10_10_105206"
 branch_labels = None
 depends_on = None
 

@@ -17,8 +17,8 @@ from alembic import op
 # readability only — alembic ignores it, and sorting on it does not give the
 # head: two branches can pick the same prefix. The head is what `alembic heads`
 # says.
-revision = "207_2026_10_10_101936"
-down_revision = "206_2026_10_10_110506"
+revision = "304_2026_10_10_101936"
+down_revision = "303_2026_10_10_110506"
 branch_labels = None
 depends_on = None
 

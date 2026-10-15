@@ -12,8 +12,8 @@ from alembic import op
 # The id is a timestamp, not a sequence number (#951). The number at the front
 # of the FILE NAME is for readability only — alembic ignores it; the head is
 # what `alembic heads` says.
-revision = "210_2026_10_12_143408"
-down_revision = "209_2026_10_12_123500"
+revision = "307_2026_10_12_143408"
+down_revision = "306_2026_10_12_123500"
 branch_labels = None
 depends_on = None
 

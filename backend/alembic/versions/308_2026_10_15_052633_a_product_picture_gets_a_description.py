@@ -18,8 +18,8 @@ from alembic import op
 # `ruff format` writes, or every new migration turns CI red. A `repr` still, not
 # a bare string, because `down_revision` is a tuple for a merge and None for the
 # first migration.
-revision = "211_2026_10_15_052633"
-down_revision = "210_2026_10_12_143408"
+revision = "308_2026_10_15_052633"
+down_revision = "307_2026_10_12_143408"
 branch_labels = None
 depends_on = None
 
