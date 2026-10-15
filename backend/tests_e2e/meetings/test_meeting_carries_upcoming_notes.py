@@ -29,13 +29,13 @@ _MEASURE = """(name) => {
     .find(h => h.textContent.trim() === 'Volgende activiteiten').closest('div.rounded-2xl');
   const point = [...card.querySelectorAll('[id^="vg-punt-"]')]
     .find(p => p.querySelector('span').textContent.trim() === name);
-  const editor = point.querySelector('trix-editor');
+  const editor = point.querySelector('.document-editor');
   const r = editor.getBoundingClientRect();
   return {
     doc: document.documentElement.scrollWidth, vw: innerWidth,
     card_right: Math.round(card.getBoundingClientRect().right),
     editor_right: Math.round(r.right), editor_width: Math.round(r.width),
-    editor_text: editor.textContent.trim(),
+    editor_text: point.querySelector('.ProseMirror').textContent.trim(),
   };
 }"""
 
@@ -67,7 +67,15 @@ def _previous_meeting_with_a_note(name: str) -> None:
         meeting = create_meeting(db, meeting_date=date(2028, 2, 3))
         upcoming = next(s for s in document_of(db, meeting) if s.kind is SectionKind.UPCOMING)
         point = next(i for i in upcoming.items if i.label == name)
-        update_item(db, meeting, point.id, notes=f"<p>{NOTE}</p>")
+        update_item(
+            db,
+            meeting,
+            point.id,
+            notes={
+                "type": "doc",
+                "content": [{"type": "paragraph", "content": [{"type": "text", "text": NOTE}]}],
+            },
+        )
         meeting.report_sent_at = datetime.now(timezone.utc)
         meeting.status = MeetingStatus.SENT
         db.commit()

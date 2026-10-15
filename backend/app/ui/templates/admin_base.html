@@ -140,6 +140,9 @@
        moment dat je hem nodig had. */
     .rich-text--balk-bij-focus trix-toolbar { display: none; }
     .rich-text--balk-bij-focus:focus-within trix-toolbar { display: block; }
+    /* The same for the page editor's bar (the notes of a meeting: one editor per point). */
+    .de-bar-on-focus .de-bar { display: none; }
+    .de-bar-on-focus:focus-within .de-bar { display: flex; }
   </style>
   <script>
     if (!window.__raakTrixFilesBlocked) {

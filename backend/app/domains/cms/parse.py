@@ -498,3 +498,24 @@ def _word_count(document: Optional[dict]) -> int:
 
     walk(document or {})
     return count
+
+
+def document_from_trix(content: Optional[str]) -> dict:
+    """A text a Trix editor stored (a letter, a point's notes) as a document, for
+    the migration that moves them onto the page editor (CR-17 phase 7, #2023).
+
+    Never refuses: these texts have no "keep the old HTML" side — the old column
+    goes in the same change — so the conversion is the lenient one of a page's
+    draft (an unknown tag degrades to its words) and, where even that does not
+    validate against the schema, the words as plain paragraphs. Formatting may
+    soften; no word is lost. The result is a document the schema accepts, which
+    is what a save of the new editor would store.
+    """
+    from app.domains.cms.schema import validate_document
+
+    try:
+        document = parse_html(content, lenient=True) or {"type": "doc", "content": []}
+        validate_document(document)
+        return document
+    except Exception:
+        return plain_text_document(content)

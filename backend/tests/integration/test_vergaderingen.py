@@ -52,6 +52,7 @@ from app.domains.meetings.api import (
     send_meeting_mail,
     set_attendance,
 )
+from tests._meeting_notes import note
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -171,7 +172,7 @@ def test_ideeen_gaan_mee_naar_de_volgende_agenda(db_session):
         vorige,
         ideeen,
         title="Bezoek Molen Ezaart",
-        notes="Koen en Wim bekijken het bakhuisje.",
+        notes=note("Koen en Wim bekijken het bakhuisje."),
     )
     vorige.report_sent_at = vorige.created_at
     db_session.flush()
@@ -919,7 +920,7 @@ def test_een_vergadering_verschuiven_stelt_de_agenda_opnieuw_samen(db_session):
     punt = next(i for i in secties[SectionKind.UPCOMING].items if i.label == "Bowlen")
     from app.domains.meetings.api import update_item
 
-    update_item(db_session, meeting, punt.id, notes="Jo heeft het onder controle.")
+    update_item(db_session, meeting, punt.id, notes=note("Jo heeft het onder controle."))
 
     update_meeting(
         db_session,
@@ -1234,7 +1235,7 @@ def test_cursieve_tekst_krijgt_een_echte_cursieve_letter(client, db_session):
     from app.domains.meetings.api import update_item
 
     punt = add_item(db_session, meeting, sectie, title="Opmaak")
-    update_item(db_session, meeting, punt.id, notes="<div><em>schuin</em></div>")
+    update_item(db_session, meeting, punt.id, notes=note("schuin", italic=True))
 
     inhoud = client.get(f"/admin/vergaderingen/{meeting.id}/pdf").content
     lezer = PdfReader(BytesIO(inhoud))
