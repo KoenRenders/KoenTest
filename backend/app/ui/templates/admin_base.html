@@ -141,8 +141,10 @@
     .rich-text--balk-bij-focus trix-toolbar { display: none; }
     .rich-text--balk-bij-focus:focus-within trix-toolbar { display: block; }
     /* The same for the page editor's bar (the notes of a meeting: one editor per point). */
-    .de-bar-on-focus .de-bar { display: none; }
-    .de-bar-on-focus:focus-within .de-bar { display: flex; }
+    /* Three classes: the editor's own sheet (loaded later, by the macro) sets the bar and the surface with two. */
+    .de-bar-on-focus .document-editor .de-bar { display: none; }
+    .de-bar-on-focus:focus-within .document-editor .de-bar { display: flex; }
+    .de-bar-on-focus .document-editor .tiptap { min-height: 3rem; }
   </style>
   <script>
     if (!window.__raakTrixFilesBlocked) {
