@@ -1,6 +1,6 @@
 # CR-26 — The party model: one person and one organisation per account, the facts per tenant
 
-**Status:** shaped on 15 October 2026 by the architecture CLI with Koen (Q&A nr. 05 of 15 October 2026, nine questions and a tenth answered the same day) · depends on CR-20 (tenant apart from organisation, #1578), decided and not built · for v2.18 on Koen's word (not assigned yet: the assignment follows the build read) · build read not yet asked
+**Status:** shaped on 15 October 2026 by the architecture CLI with Koen (Q&A nr. 05 of 15 October 2026, nine questions and a tenth answered the same day) · depends on CR-20 (tenant apart from organisation, #1578), decided and not built · for v2.18 on Koen's word (not assigned yet: the assignment follows the build read) · **B8 empty** (15 October 2026) · Koen's reading and the three screen concepts (C9) to come, then the build read
 **Tracking issue:** #2020 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** `mdm` (persons, organisations, households, addresses, contacts, identifications, bank accounts: the party and what hangs on it), the kernel's tenancy (an account scope beside the tenant scope), `auth` (who a sign-in is), `membership` (one household at a time), `sales` (the buyer of an order, CR-21), the public account pages (*Mijn organisatie*), reporting (the views on persons and addresses)
 **Reading:** A 2 052 words · B 4 048 · C 3 771 — measured on 15 October 2026 after Koen's revision, drawings excluded, tables included; prose alone A 913 · B 1 701 · C 2 614. The budget is A ≤ 1 500, B ≤ 2 500: over budget in the tables (the requirements, the traceability matrix, the standards table, the decisions log), the prose within it; Koen accepted the same for CR-32 and CR-33
@@ -387,9 +387,10 @@ The three phases ship in one release (Koen), in this order, one builder; CR-34 (
 
 ## B8. Open decisions — what the approver still decides
 
+None open (15 October 2026): every question of the shaping stands answered in the Q&A log; the document waits for Koen's reading and the three screen concepts (C9), then the build read.
+
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
-| Q13 | The *acts for* relation: made by the person alone (as proposed), or confirmed by the department before an order on behalf is accepted? | by the person alone; the VAT number is checked in form, and CR-34's invoice carries it; a confirmation step is a workbench task later if abuse appears | F7 |
 
 ## B9. Decisions log — dated answers
 
@@ -405,6 +406,7 @@ The three phases ship in one release (Koen), in this order, one builder; CR-34 (
 | 15 October 2026 | Release: CR-26 on v2.18, not v2.17 ("ik was sowieso van plan dit pas in v2.18 te stoppen. Zie jij noodzaak om dit al in v2.17 te doen?" — no); CR-34 on v2.18 too ("deze moet ook in v2.18: CR-34 (facturen webshop)") | Koen |
 | 15 October 2026 | The household once per account too, memberships per department: "Ik denk dat ik fout ben. Je bent inderdaad maar één persoon. … We maken die maar één keer, ook als gezin maar één keer. En je kan, ja, van twee raken lid worden. … Stel nu dat je twee keer lid bent, zal je ook wel twee ID's krijgen van Raak Nationaal. … dan gaan we dat zo oplossen." — to the restatement (one person and one household per account, membership as the fact per department, *Word lid* for an existing household): "akkoord" | Koen |
 | 15 October 2026 | The guest buyer's address: a buyer copy on the order for every buyer (CR-34 Q&A nr. 06, question 1, option b, and the architecture CLI's reading of it for F8) | Koen; the architecture CLI |
+| 15 October 2026 | Q13 the *acts for* relation without a confirmation step: "akkoord zonder bevestiging" | Koen |
 | 15 October 2026 | Q12 the duplicates: "ja, laten staan"; a purchase-order reference and a separate delivery address for a company order: out of scope, a new change request | Koen |
 | 15 October 2026 | Context, out of scope: member pricing between departments is not fixed; Raak Nationaal's system keeps persons per department and moves a member by deactivating and activating | Koen |
 
@@ -555,6 +557,7 @@ Not built.
 |---|---|---|---|
 | Q11 | 15 October 2026 | Which release: v2.17 between CR-20 and CR-34, or later? (architecture CLI) | v2.18, with CR-20 (tenant apart from organisation) before it and CR-34 (invoices for the webshop) after it, as one chain. Koen: "ik was sowieso van plan dit pas in v2.18 te stoppen", and on CR-34: "deze moet ook in v2.18". Nothing in v2.17 needs the party: the webshop's private buyers and guests work without it, and moving the order's `person_id` to `buyer_party_id` later is one small migration |
 | Q12 | 15 October 2026 | Today's duplicates across departments of one account: merged by the administration with the merge tool from a report of probable duplicates, or left as two parties? (architecture CLI) | "ja, laten staan" (Koen): left, with a report (same last name, first name, birth date, postal code) for the administration; no automatic merge |
+| Q13 | 15 October 2026 | The *acts for* relation: made by the person alone under *Mijn organisatie*, or confirmed by the department before an order on behalf counts? (architecture CLI) | "akkoord zonder bevestiging" (Koen): the person alone; the VAT number is checked in form, the invoice carries it, a wrongly addressed invoice is credited (CR-34); a confirmation task on the workbench is a row later if abuse appears |
 | Q14 | 15 October 2026 | Does a company order need more than the buyer: a purchase-order reference on the invoice, a delivery address apart from the organisation's? (architecture CLI) | "die twee zaken zijn out-of-scope, dus onderdeel van een nieuwe CR" (Koen); Non-goals |
 | Q1–Q10 | 15 October 2026 | The ten questions of Q&A nr. 05 (architecture CLI) | Koen's answers in B9; questions 4, 5, 6, 9 and 10 settled in the chat the same day, 6 revised from *per tenant* to *per account* on his reading, and once more the same afternoon: the household per account too, memberships per department ("Ik denk dat ik fout ben. Je bent inderdaad maar één persoon.") |
 | — | 13 October 2026 | Q&A nr. 03, questions 2–6 (architecture CLI) | 2, 3, 4 answered through nr. 05 (8, 1, 2); 5 (what CR-26 is, CR-20 before it) answered by B6; 6 (the leading principles) belongs to the architecture document, not to this change |
