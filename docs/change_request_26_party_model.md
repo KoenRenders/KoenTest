@@ -362,7 +362,7 @@ Checked to say so: the import gate (every cross-domain read through `mdm.api`); 
 | reporting | M: the views on persons and addresses by fact, an account folder | S: the buyer in the orders folder | S: the views on addresses and contacts |
 | tests | M: the new gates, the fixtures that build a person per tenant | S | S |
 
-Total: about L + M + M, one dev CLI, after CR-20 and before CR-34's phase 1; the migration of phase 1 is proven on a snapshot of HDEV and PROD before the handover (C8). No purchase. **Running cost:** none. **Operations:** no env var; the deploy of the release takes the checked dump first (`raak backup`, `raak restore-test`), as for CR-20.
+Total: about L + M + M, one dev CLI, after CR-20 and before CR-34 (invoices for the webshop, whole, on v2.18 on Koen's word); the migration of phase 1 is proven on a snapshot of HDEV and PROD before the handover (C8). No purchase. **Running cost:** none. **Operations:** no env var; the deploy of the release takes the checked dump first (`raak backup`, `raak restore-test`), as for CR-20.
 
 ## B6. Phasing — shippable phases, and what changes on the failure paths
 
@@ -370,10 +370,10 @@ Total: about L + M + M, one dev CLI, after CR-20 and before CR-34's phase 1; the
 |---|---|---|---|---|
 | 0 | CR-20: tenants out of organisations, with `account_id` on the tenant | — | its own | its own |
 | 1 | `parties`, the account scope on persons and organisations, the migration (a party per existing person and organisation, `account_id` from the tenant's account), the one-household index, the sign-in per account, the lists by fact, the import recognising a known person by member number or e-mail within the account, the reporting views | 0 | a person found at another tenant of the account is no longer created again: the import reports *known, linked* instead of *new*; a second active household is refused with the first named; a sign-in at a tenant where the person has no fact works and shows an empty *Mijn gezin* | one migration; the dump checked before; no env var |
-| 2 | `party_relationships` (with `organization_persons` migrated), *Mijn organisatie*, `organisation_by_vat`, `act_for`, `sales_orders.buyer_party_id`, the checkout choice | 1, CR-21's checkout on master | an invalid VAT number is refused before the organisation exists; a second person on the same VAT number is linked, not refused; *namens* without a relation is impossible | one migration; CR-34 may start after this phase |
+| 2 | `party_relationships` (with `organization_persons` migrated), *Mijn organisatie*, `organisation_by_vat`, `act_for`, `sales_orders.buyer_party_id`, the checkout choice | 1, CR-21's checkout on master | an invalid VAT number is refused before the organisation exists; a second person on the same VAT number is linked, not refused; *namens* without a relation is impossible | one migration; CR-34 (the whole change request, Koen) may start after this phase |
 | 3 | `party_id` on addresses, contacts, identifications (one table with `external_numbers`), bank accounts; the two-column tables gone | 1 | none on the happy path; a write with both columns can no longer exist | one migration |
 
-The three phases ship in one release (Koen), in this order, one builder; CR-34 phase 1 after phase 2. The release is v2.18, with CR-20 before and CR-34 after (Q11). Until then v2.17 builds nothing that assumes a person per tenant in new code: no new `person_id`/`organization_id` pair outside `mdm`, and no company fields in CR-21's checkout.
+The three phases ship in one release (Koen), in this order, one builder; CR-34 (invoices for the webshop), whole, after phase 2. The release is v2.18, with CR-20 before and CR-34 after (Q11; Koen to the master CLI, 15 October 2026: the whole of CR-34, phases 0 to 3, in v2.18). Until then v2.17 builds nothing that assumes a person per tenant in new code: no new `person_id`/`organization_id` pair outside `mdm`, and no company fields in CR-21's checkout.
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
