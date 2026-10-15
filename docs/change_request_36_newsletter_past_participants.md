@@ -166,6 +166,7 @@ flowchart LR
 **Walkthrough** — on HDEV, with made-up registrations on the reserved example domain.
 
 *The author (Nieuwsbrief)*
+
 1. Open a draft and choose *Eerdere deelnemers*. See: the list of past activities of the last three working years, each with its number of addresses.
 2. Tick two activities that have one person in common. See: a sentence such as "212 adressen van mensen die waren ingeschreven op …, waarvan 140 al als lid de brief krijgen", and the person on both counted once.
 3. Ask Raakje for a draft. See: the draft can name the chosen activities and their date.
@@ -173,13 +174,16 @@ flowchart LR
 5. Send the letter. See: it is queued.
 
 *The person registered earlier (made-up address)*
+
 6. Open the mail and use the unsubscribe link. See: the page confirms.
 
 *The author again*
+
 7. Write a second letter to the same activities. See: the sentence skips that address.
 8. Open the sent letter in the archive. See: the chosen activities are named.
 
 *Where it must refuse or fall back*
+
 9. As the person of step 6, press *Toch opnieuw*. See: a later letter reaches the address again.
 10. In a tenant without the activities module, open the audience choice. See: the option is not offered.
 
