@@ -1,9 +1,9 @@
 # CR-33 — The attribute register: one name and one AI classification per datum
 
-**Status:** shaped on 15 October 2026 by the architecture CLI, on Koen's question through the master CLI (#1692, "2 mag je aan brainstorm doorgeven") · the positioning against the other field lists talked through with Koen the same day · not assigned to a release · build read not yet asked
+**Status:** shaped on 15 October 2026 by the architecture CLI, on Koen's question through the master CLI (#1692, "2 mag je aan brainstorm doorgeven") · the positioning against the other field lists talked through with Koen the same day · turned from label-first to **model-first** the same day on Koen's reading ("ja") · not assigned to a release · build read not yet asked
 **Tracking issue:** to be created by the master CLI from the draft in Koen's project folder (CR33 register van gegevens); until then #1692 is the status
-**Applies to:** the kernel (a new register beside the code lists), every domain that shows a datum (the kit's fields, exports, the changes list, the import's check, mails), the reporting universe (names, descriptions and the AI classification become derived), the chatbot seam (the one AI port applies the classification by key for every surface)
-**Reading:** A 1 630 words · B 3 065 · C 4 079 — measured on 15 October 2026, drawings excluded, tables included; prose alone A 800 · B 1 490 · C 2 590. The budget is A ≤ 1 500, B ≤ 2 500: **over budget in the tables** (the step table of A2, the traceability matrix and walkthrough of B2, the standards table of B3a); the prose is within it. Whether that is accepted is Koen's (B8, Q7)
+**Applies to:** the kernel (a new register beside the code lists), **every domain's data model** (one entry per stored business datum, 386 columns on the webshop's build branch, about 350 on master), every domain that shows a datum (the kit's fields, exports, the changes list, the import's check, mails), the reporting universe (names, descriptions and the AI classification become derived), the chatbot seam (the one AI port applies the classification by key for every surface)
+**Reading:** A 1 973 words · B 3 696 · C 5 070 — measured on 15 October 2026 after the turn to model-first, drawings excluded, tables included; prose alone A 1 093 · B 1 657 · C 3 165. The budget is A ≤ 1 500, B ≤ 2 500: **over budget in the tables** (the step table of A2, the traceability matrix and walkthrough of B2, the standards table of B3a); the prose is within it. Whether that is accepted is Koen's (B8, Q7)
 
 ---
 
@@ -14,6 +14,8 @@
 The same datum reads differently depending on where a board member looks. A mobile number is *Gsm* on the household record, *Mobiel nummer* on the registration form, *Mobiel* in the changes list and *gsm* in the import's check; an e-mail address is *E-mailadres* on the screens and *E-mail* in the changes list; a relation is *Relatie* on the screen and *Relatietype* in a report. Koen, 7 October 2026, when #1687 (the import's check) showed it: *"laten we voor consistente naamgeving gaan zoals gegevens/attributen in model, schermen, rapporten, … benoemd worden"*. He decided the words that day (Mobiel, E-mail, Relatie, the value *(meerderjarig) kind* stays), and #1692 (one source for labels) carries them. What #1692 leaves open is where that one source lives and what else it answers.
 
 A second list answers a second question about the same data: *what may go to the AI, and in what form*. That list exists only inside the reporting universe, per report object, so the assistant that answers questions over reports is governed by it, and the five modules that talk to the AI directly (the newsletter's co-writer, the activity proposer and fiche, the design studio, the document reader) are not: each decides per call what it puts in the prompt, with a pattern guard behind it. Koen, 15 October 2026, asked why the classification should stay per report object: *"Sowieso gaat er een moment komen dat een module – zonder via de reporting module te passeren – rechtstreeks vragen met de AI gaat uitwisselen. Of zetten we die poort dicht?"* The door is already open, so the classification has to stand where the datum is.
+
+And where the datum is, is the data model, not the screen. Koen, reading the first version of this document the same day: *"Vertrek je vanuit de databank? … Ik denk dat het best is om ook de database te incorporeren. Dus dat je alle velden van de databank of in de module logica. Misschien is dat de plaats om van te vertrekken."* A register of what is shown is a register of what we happened to show; a register of what is stored is complete, and only a complete one can promise that nothing reaches a model unclassified. So the register starts from every stored business datum, and a label is what a datum gets once a screen shows it.
 
 ## A2. As-is process — how it works today, and where it hurts
 
@@ -92,6 +94,7 @@ flowchart LR
 - **#1692's measured table** (dev1, 7 October 2026): nine data of a person and an address, each across the household screen, the reports, the code tables and the import column. It taught that only the contact type and the relation have a source for their label, the code table; the others have none.
 - **Koen's words** of 7 and 15 October 2026 (B9).
 - **Measurements on master @ `ff5eeb3a`** (15 October 2026, C1): 145 kit field calls, 70 with a typed label; 48 occurrences of the four old words; 145 report objects with their own name and description, classified 129 plain, 9 tokenised, 7 never; 1 691 sentences in the translation catalogue; 57 code tables; five modules calling the AI through the chatbot's facade, none through the universe; the public assistant reading activities, pages, documents and the Raakje content with a pattern guard only.
+- **The inventory of the data model** (architecture CLI, 15 October 2026, in Koen's project folder: *inventaris-gegevens-20261015.md* in the CR33 folder): every business column of every domain table, read from the ORM in the running build container of CR-21 (webshop): 74 tables, 755 columns, of which 369 technical (ids, keys, timestamps) and **386 business data**; on master, without the four webshop schemas, about 63 tables and 350 business data. Per row a proposed label where the column name has a fixed word, and a proposed AI classification **by rule** (K0–K10: a code, an identifying datum or a secret, the name of a person, free text about a person, public content, what the public activity page shows, free text of the organisation, an amount or date or flag, a default): plain 303, public 47, never 31, tokenised 5; 116 rows carry a default that asks a look. It taught that the rules decide most rows and that Koen's decision is needed on the rules and on the exceptions, not on 386 rows.
 - **Reporting need:** none beyond what exists; the help text per datum is offered to the report panel as the column description it does not have (R7).
 
 ## A6. Business requirements — what the board asks, with MoSCoW
@@ -107,6 +110,7 @@ flowchart LR
 | R7 | A report can say what a column means, in one line | Should | reporting's deferred column descriptions | the help text per datum |
 | R8 | A new datum cannot be shown without a name in the register, and cannot go to an AI without a classification | Should | shaping | the gate of B7 |
 | R9 | Renaming database columns to match the words | Won't | shaping, `AGENTS.md` *Do not rename* | labels are copy, identifiers are code |
+| R10 | Every stored business datum is in the register with its classification, whether a screen shows it or not; the register starts from the data model, per module | Must | Koen, 15 October 2026 ("ja" to model-first) | the technical columns (ids, keys, timestamps) by one rule |
 
 ## A7. Non-functional requirements — security, privacy, house style, tenants
 
@@ -134,8 +138,9 @@ flowchart LR
 
 ## B1. Solution outline — the solution and the decisions that shape it
 
-One **register of attributes** in the kernel, declared per domain beside its code lists, one entry per datum: the key (`mdm.person.mobile`), the Dutch label as every other screen text (it goes through the translation catalogue), the English name, one line of help, and the **AI classification** in four levels (public · plain · tokenised · never). Every reader of a datum's name takes it from the register: the kit's fields, the exports, the changes list, the import's check, the mails, the reporting universe. The universe keeps no name, description or AI flag of its own: each object names the attribute it stands on, and the one AI port (the chatbot's facade) reads the classification by key for every structured value a module hands it, whatever the surface, with the pattern guard kept for free text. A ratchet over the typed labels shrinks to zero.
+One **register of attributes** in the kernel, declared per domain beside its code lists, **starting from the data model**: one entry per stored business datum (386 columns on the webshop's build branch, about 350 on master; the 369 technical columns by one rule), plus the data that are not one column (a code-split column, a composite, a derivation, a measure). An entry has the key (`mdm.person.mobile`), the columns it covers, the Dutch label as every other screen text (it goes through the translation catalogue), the English name, one line of help, and the **AI classification** in four levels (public · plain · tokenised · never); the label may be empty until a screen shows the datum. A gate reads the ORM and refuses a business column no entry covers. Every reader of a datum's name takes it from the register: the kit's fields, the exports, the changes list, the import's check, the mails, the reporting universe. The universe keeps no name, description or AI flag of its own: each object names the attribute it stands on, and the one AI port (the chatbot's facade) reads the classification by key for every structured value a module hands it, whatever the surface, with the pattern guard kept for free text. A ratchet over the typed labels shrinks to zero.
 
+- **Model-first, not label-first.** Decided: the register covers every business column of every domain table, measured against the ORM, and a label is a property a datum gets when shown. Rejected alternative: register only what a screen shows (the first version of this document). Lost on Koen's reading: completeness of the AI classification can only be checked against what is stored, and the inventory (A5) showed that rules classify most columns, so the cost is 386 one-line entries, not 386 decisions.
 - **The register is code, not a table.** Decided: a frozen dataclass per entry, declared in `<domain>/attributes.py`, registered in the kernel like a code list (`kernel/codes.py` already has the form: declaration in the owning domain, a registry the gates iterate, a lookup by name). Rejected alternative: a database table like the code lists. Lost because a label is copy, not data: it changes with a release, never per tenant, and a table would need a migration, a seed and a screen for something nobody edits at run time.
 - **The label is a sentence of the catalogue.** Decided: the register holds the Dutch label as the msgid and `_()` translates it, as it does for the 70 typed labels today. Rejected alternative: a label per language in the register. Lost because it would be a second translation mechanism beside the catalogue of #1341.
 - **Code lists stay the source for values.** The register says how the field reads, the code list how its values read (Mobiel the field, Mobiel the contact type: two entries, two sources, by design). Rejected alternative: fold field labels into the code lists. Lost because most fields have no value list.
@@ -145,7 +150,9 @@ One **register of attributes** in the kernel, declared per domain beside its cod
 
 | # | Derived requirement | From |
 |---|---|---|
-| F1 | A register entry has key, label, English name, help, classification; the key is unique; the label is unique within a domain | R1, R8 |
+| F1 | A register entry has key, the columns it covers, label (may be empty until shown), English name, help, classification; the key is unique; a non-empty label is unique within a domain | R1, R8, R10 |
+| F10 | Every business column of every table that is no code, label or history table is covered by at least one entry (directly, as a code-split or as a composite); technical columns (id, tenant_id, the foreign keys, created/updated/deleted timestamps and authors) are covered by one rule and need no entry | R10 |
+| F11 | The entries are made from the inventory of A5, per module, with the classification the rules give and the exceptions Koen decides on the inventory | R10 |
 | F2 | The kit field takes an attribute key and reads the label; the explicit label stays allowed for a field that is no datum (a search box) | R1 |
 | F3 | The changes list, the import check, the payment export and the mails read their field names from the register | R1, R2 |
 | F4 | The universe object carries `attribute` (and `grain` for a time grain of a date) and loses `name`, `description`, `ai_exposure`; the generated reporting documentation reads them from the register | R4, R7 |
@@ -191,6 +198,7 @@ flowchart LR
 | R7 | a column's meaning is the attribute's help | F4 | reporting | T5 | AC3 |
 | R8 | a new field without a name, or a new object without an attribute, fails CI | F8 | kernel, tests | T10, T11 | — |
 | R9 | Won't: no column is renamed | — | — | — | — |
+| R10 | every stored datum has an entry; the gate counts against the model | F10, F11 | kernel, every domain | T13 | — |
 
 **Walkthrough (HDEV, board member with the Leden and Rapportering modules):**
 1. Open a household record. See *Mobiel* and *E-mail* as field labels, *Relatie* at a person.
@@ -262,7 +270,8 @@ flowchart LR
 erDiagram
   ATTRIBUTE {
     string key "new: domain.entity.field"
-    string label_nl "new: msgid of the catalogue"
+    string columns "new: schema.table.column, one or more, like fk_from of a code list"
+    string label_nl "new: msgid of the catalogue, empty until shown"
     string name_en "new"
     string help "new: one line"
     enum ai_exposure "new: public, plain, tokenised, none"
@@ -313,23 +322,24 @@ Checked to say so: the import gate (`tests/test_import_boundaries.py`: readers g
 
 | Module | Phase 1 (names) | Phase 2 (classification and the port) |
 |---|---|---|
-| kernel | S: the dataclass, the registry, the lookup, the Jinja global | S: `AiExposure` moves in, gains PUBLIC |
+| kernel | M: the dataclass, the registry, the lookup, the Jinja global, the coverage gate against the ORM | S: `AiExposure` moves in, gains PUBLIC |
+| every domain | M in total: `attributes.py` per domain from the inventory, 386 one-line entries (about 350 on master), the classification per rule, the exceptions as Koen decided them on the inventory | — |
 | ui (kit) | S: `attribute=` on `field()` | — |
-| mdm, membership | M: entries for person, address, contact; the household record, Mijn gezin, the changes list, the import check, the word changes | — |
-| activities | S: entries for the registration contact, the form word | M: proposer and fiche hand fields |
+| mdm, membership | M: the household record, Mijn gezin, the changes list, the import check, the word changes | — |
+| activities | S: the form word | M: proposer and fiche hand fields |
 | payment | S: export header from the register | — |
 | reporting | M: the universe gets `attribute=` on 145 objects and `grain=` on 51, about 30 to 36 entries of its own, the three gates move, docs read the register | S: `ai_exposure` removed, read through the attribute |
 | chatbot | — | M: `fields` on both chats, the classification per surface, the guard reading |
 | newsletter, designstudio | — | S each: hand fields |
 | tests | S: ratchet and hard gate | S: the port gates |
 
-Total: phase 1 about M+, phase 2 about M; one dev CLI each, in sequence (phase 2 touches the universe again). Analysis is this document; the build read and the HDEV validation as for every change request. No purchase. **Running cost:** none; no job, no service. **Operations:** no env var, no setting, no kill switch; the import's test file for the walkthrough is made up.
+Total: phase 1 about L (the entries are many but mechanical; the classification is decided on the inventory before the build), phase 2 about M; one dev CLI each, in sequence (phase 2 touches the universe again). Analysis is this document; the build read and the HDEV validation as for every change request. No purchase. **Running cost:** none; no job, no service. **Operations:** no env var, no setting, no kill switch; the import's test file for the walkthrough is made up.
 
 ## B6. Phasing — shippable phases, and what changes on the failure paths
 
 | Phase | Ships | Failure paths that change | Na de merge |
 |---|---|---|---|
-| 1 | the register (kernel), the entries for the fields of #1692's table and of the registration contact, `attribute=` on the kit field, the changes list and the import check and the payment export reading it, the universe objects naming their attribute (name and description derived), the three universe gates moved, the 48 word changes, the ratchet | a kit field with a key the register does not know fails at render under `StrictUndefined` in dev and test, as a missing variable does; a universe object without an attribute fails at import | no migration, no env var; snapshot and measurement baselines move where a label changes width |
+| 1 | the register (kernel) with the coverage gate against the ORM, the entries of every domain from the inventory (every business column, the classification as decided), labels for the fields of #1692's table and of the registration contact, `attribute=` on the kit field, the changes list and the import check and the payment export reading it, the universe objects naming their attribute (name and description derived), the three universe gates moved, the 48 word changes, the ratchet | a kit field with a key the register does not know fails at render under `StrictUndefined` in dev and test, as a missing variable does; a universe object without an attribute fails at import | no migration, no env var; snapshot and measurement baselines move where a label changes width |
 | 2 | `AiExposure` in the kernel with PUBLIC, every attribute classified, the universe's flag removed, `fields` on `run_chat` and the public chat, the classification applied per surface, the five callers hand fields, the hard gate on the port | a value under a NONE key is refused before the call with the key in the message, where today it would have gone; a PUBLIC-only surface given a PLAIN key refuses; a free-text hit stays what it is today | no migration, no env var; the admin assistant's answers over tokenised data unchanged |
 
 Phase 1 alone fixes the words and the one source. Phase 2 needs 1 (the keys). Not parallel with a phase of another change request that touches the universe or the seam; parallel with CR-32 (sections, cards, data blocks and a tenant's own look) is fine, they share no file.
@@ -338,9 +348,9 @@ Phase 1 alone fixes the words and the one source. Phase 2 needs 1 (the keys). No
 
 **The rule:** a datum has one entry in the attribute register; its label, its English name, its help and its AI classification are read from there, and nothing reaches a language model without the entry that allows it. Home: `docs/code-style.md` (one line beside the code-list rule) and the architecture document, part D (the vocabulary of a datum: register for the name, code list for the values, catalogue for the language, universe for the questions) and part E (E52).
 
-**Reach and baseline, measured on master @ `ff5eeb3a`:** 70 kit field calls with a typed label, 145 universe objects with their own name, 48 occurrences of the four old words, five modules formatting values into prompt text. After phase 1: typed labels frozen as a ratchet and shrunk for the fields of this change, universe names 0, old words 0. After phase 2: prompt-formatted values 0, hard gate.
+**Reach and baseline, measured on master @ `ff5eeb3a` and on the webshop's build branch:** 0 of about 350 business columns covered by an entry (386 with the webshop's), 70 kit field calls with a typed label, 145 universe objects with their own name, 48 occurrences of the four old words, five modules formatting values into prompt text. After phase 1: every business column covered (hard gate), typed labels frozen as a ratchet and shrunk for the fields of this change, universe names 0, old words 0. After phase 2: prompt-formatted values 0, hard gate.
 
-**Ratchet or hard:** the label gate is a ratchet (a field that is no datum, a search box, keeps a typed label; the list may only shrink); the universe gate and the port gate are hard.
+**Ratchet or hard:** the coverage gate is hard from phase 1 (every column, or the build does not pass); the label gate is a ratchet (a field that is no datum, a search box, keeps a typed label; the list may only shrink); the universe gate and the port gate are hard.
 
 ## B8. Open decisions — what the approver still decides
 
@@ -349,6 +359,8 @@ Phase 1 alone fixes the words and the one source. Phase 2 needs 1 (the keys). No
 | Q4 | Which release? | v2.18, before the webshop's phases (CR-21 adds tens of fields that would then be named from the register from day one); otherwise v2.19 | the order in the webshop's tracker |
 | Q5 | Does the report panel show the help line now (R7, Should), or does the register only hold it? | show it where the panel already shows descriptions today, nothing new on the screen; a new place is a design question for design-documentation | phase 1's reporting work: S either way |
 | Q6 | Does phase 2 also classify the tenant's form-builder fields and the CMS page content as attributes? | no: they are data a tenant enters, the pattern guard covers their text; the page's *title* and an activity's fields are platform attributes and are classified | the scope of phase 2's entries |
+| Q9 | The webshop's 34 business columns (CR-21, in build on v2.18) are in the inventory but not on master: does CR-33's phase 1 register them, or does CR-21 add its own `attributes.py` when it merges after phase 1? | whichever lands second registers the other's columns: the coverage gate makes it impossible to forget, so no coordination beyond the gate is needed | the order on the v2.18 tracker |
+| Q10 | The classification rules K0–K10 of the inventory, and the 116 rows they leave at a default: decided on the inventory file, rule by rule, before the handover | read the rule table first, then only the rows marked *(to check)*; the person-identifying rule (K1) and the public rules (K4–K6) are the ones that matter | the entries of phase 1 |
 | Q7 | The reading budget is exceeded by the tables (A 1 630, B 3 065 words with tables; 800 and 1 490 without): accept as one document, or move the walkthrough and the standards table to Part C? | accept: the tables are what the approver checks, and the prose is within budget | the shape of the document, not its content |
 
 ## B9. Decisions log — dated answers
@@ -362,6 +374,7 @@ Phase 1 alone fixes the words and the one source. Phase 2 needs 1 (the keys). No
 | 15 October 2026 | One port, one classification, two checks, and the public assistant's scope named: "Ja, de publieke chatbot, dat gaat over activiteiten, webpagina's en content die we invoerden in de module Raakje content." | Koen |
 | 15 October 2026 | The classification comes from the register, not from the universe (to "gaan we dan ai_exposure uit universe laten komen of vanuit het register?", the recommendation "vanuit het register" was not contested) | architecture CLI's reading, recorded as such |
 | 15 October 2026 | One change request with two phases, names then classification: "één cr, kan ik die al eens lezen?" | Koen |
+| 15 October 2026 | The register starts from the data model, not from the labels; the inventory per module is the appendix on which Koen decides the exceptions (to "Akkoord met model-eerst, met de inventaris als bijlage voor jouw beslissing?"): "ja"; his reading before it: "Ik denk dat het best is om ook de database te incorporeren. Dus dat je alle velden van de databank of in de module logica. Misschien is dat de plaats om van te vertrekken." | Koen |
 
 ---
 
@@ -373,7 +386,9 @@ Measured on master @ `ff5eeb3a` on 15 October 2026; to be re-measured on the han
 
 | Concept or claim | Kind | Readers or measurement | Verdict | Consequence |
 |---|---|---|---|---|
-| The code lists already have the form the register copies: declaration in the owning domain, a registry the gates iterate, a lookup by name that refuses two lists with one name | relies on | `backend/app/kernel/codes.py:162` (`CodeList`), `:200` (`register`), `:221` (`code_list`) | holds | the register mirrors it: `Attribute`, `register`, `attribute()` |
+| The code lists already have the form the register copies: declaration in the owning domain, a registry the gates iterate, a lookup by name that refuses two lists with one name, and `fk_from` naming the columns a list covers so a gate can check it against the database | relies on | `backend/app/kernel/codes.py:162` (`CodeList`, `fk_from`), `:200` (`register`), `:221` (`code_list`) | holds | the register mirrors it: `Attribute` with `columns`, `register`, `attribute()`, and a coverage gate over `Base.metadata` |
+| The data model: 74 tables, 755 columns, 369 technical (id, tenant_id, `*_id`, created/updated/deleted timestamps and authors), 386 business columns; code, label and history tables excluded (113 code and label tables, 14 history tables) | measurement | the ORM metadata read in the running build container of CR-21 on 15 October 2026 (the inventory script); per schema: activities 51, form 41, designstudio 38, newsletter 33, mdm 32, meetings 26, ai 23, payment 16, workflow 16, cms 15, media 15, auth 13, reporting 13, sales 11, public 10, product 10, stock 9, mail 6, pricing 4, membership 4 | the four webshop schemas (34 columns) are not on master: about 63 tables and 350 business columns there | every business column gets an entry (F10); to be re-measured on master at the handover |
+| The inventory's rules classify most columns: K0 a code 56, K1 identifying or secret 29, K2 a person's name 5, K3 free text about a person 2, K4 public content 28, K5 the public activity page 19, K7 organisation text 20, K8 amount/date/flag 130, K9 default 96, K10 one column with several data 1 | measurement | the inventory file, rule column | 116 rows at a default | Koen decides the rules and those rows on the inventory (Q10), not in the build |
 | `UniverseObject` carries `name`, `description`, `ai_exposure` as required fields, `sensitive` and `additive` as declared-not-enforced | changes | `backend/app/domains/reporting/universe.py:239–298`; readers: `engine.py`, `docs.py`, `assistant.py`, `exports.py`, `admin_ui.py`, the gate file | must change (C2 reporting) | `attribute` replaces the three; `sensitive` and `additive` stay as they are |
 | `AiExposure` has no default and three members; a missing flag is an import error | changes | `universe.py:71–93`; readers: `universe.py` (145 declarations), `assistant.py`, `seam.py`, `docs.py` | must change (C2 kernel, reporting, chatbot) | moves to `kernel/attributes.py`, gains PUBLIC; the universe imports it from there during phase 1 |
 | 145 universe objects: 104 dimensions, 28 measures, 13 details; 129 plain, 9 tokenised, 7 never; of the 117 dimensions and details 51 are time grains of a date (keys ending in year, quarter, month, day, weekday), 28 present a field with a fallback word or a code's label, 2 are a `CASE` on a count, the rest plain columns | measurement | `grep -c "UniverseObject("`, the `kind=`, `ai_exposure=`, `key=` and `sql=` counts on `universe.py` | — | three shapes of derivation (C4.5): the field's entry, the date's entry with a grain, an entry of reporting's own |
@@ -395,7 +410,9 @@ Measured on master @ `ff5eeb3a` on 15 October 2026; to be re-measured on the han
 
 ## C2. Per module: what must happen
 
-**kernel** (phase 1, first). *Code:* `kernel/attributes.py`: `AiExposure(str, TechnicalEnum)` with PUBLIC, PLAIN, TOKENISED, NONE (moved from the universe in phase 2, imported from here by the universe already in phase 1 so the move is one import line); `@dataclass(frozen=True) class Attribute(key, label, name_en, help, ai_exposure)`; `register()` refusing two entries with one key or two labels in one domain; `registry()`, `attribute(key)` raising `LookupError` naming the known keys of that domain; `load_all_attributes()` importing every domain's `attributes.py`, as `load_all_code_lists()` does. *Templates:* a Jinja global `attribute` beside `_`. *Database:* none. *Tests:* T1, T10.
+**kernel** (phase 1, first). *Code:* `kernel/attributes.py`: `AiExposure(str, TechnicalEnum)` with PUBLIC, PLAIN, TOKENISED, NONE (moved from the universe in phase 2, imported from here by the universe already in phase 1 so the move is one import line); `@dataclass(frozen=True) class Attribute(key, columns, label, name_en, help, ai_exposure)` where `columns` is a tuple of `schema.table.column` the entry covers (one for a plain field, several for a composite, one shared by the code-split entries of `mdm.contact_details.value`) and `label` may be `None` until a screen shows the datum; `register()` refusing two entries with one key or two non-empty labels in one domain; `registry()`, `attribute(key)` raising `LookupError` naming the known keys of that domain; `covered_columns()` for the gate; `TECHNICAL_COLUMNS`, the one rule for `id`, `tenant_id`, `*_id`, `created_at`, `updated_at`, `deleted_at`, `created_by`, `updated_by`; `load_all_attributes()` importing every domain's `attributes.py`, as `load_all_code_lists()` does. *Templates:* a Jinja global `attribute` beside `_`. *Database:* none. *Tests:* T1, T10, T13.
+
+**every domain** (phase 1). *Code:* `attributes.py` per domain, generated once from the inventory (A5) and then maintained by hand like `codes.py`: one entry per business column with the classification as decided on the inventory, the label filled for the columns a screen shows today, `name_en` the column's own name, `help` one line; the composite and derived entries beside them. A domain without business columns of its own (membership has four) still gets the file, so the gate has one place per domain to point at. The webshop schemas per Q9.
 
 **ui (the kit)** (phase 1). *Screens:* every screen with a kit field, unchanged in look; judged at 390 px on the four screens of C9. *Code:* `field()` in `_macros.html:812` gains `attribute=None`; when given, `label` is `_(attribute(key).label)` and a `label` argument is refused (two sources). *Tests:* T2.
 
@@ -436,6 +453,10 @@ Measured on master @ `ff5eeb3a` on 15 October 2026; to be re-measured on the han
 
 ## C4. Detailed decisions — one subsection each, with the reasons
 
+### C4.0 Model-first: the register covers what is stored
+
+The first version of this document registered what a screen shows. Koen read it and asked whether the database was the place to start. It is, for one reason that decides it: a classification that must be complete can only be checked against a closed set, and the set of stored columns is closed (the ORM metadata), while the set of shown labels is whatever the templates happen to contain. The code lists already use that shape: `fk_from` names the storing columns and a gate checks them against the database. The register does the same with `columns`, and the coverage gate reads `Base.metadata`, skips the code, label and history tables, applies the one technical rule, and refuses any remaining column no entry names. The inventory (A5) made the cost visible: 386 entries, of which the rules classify 270 without a question; the rest Koen looks at once, on the file, before the build. A label, from here on, is what a datum gets when a screen shows it, so a column without a screen has an entry with an empty label and a full classification.
+
 ### C4.1 The register is a Python declaration per domain
 
 The code lists of CR-12 are tables because their values are data: a tenant's import can add a contact type, and a label of a value is read in SQL. A field's label is copy: it changes with a release, is the same for every tenant, and is read by a template or a formatter. The code-list form (declaration in the domain, registry in the kernel, gates over the registry) is right; the storage is not needed. Declaring in the domain keeps the owner visible and the import gate silent; a cross-domain reader never imports another domain's `attributes.py`, it asks the kernel by key.
@@ -446,7 +467,7 @@ The 70 typed labels already go through `_()`. The register keeps that: the Dutch
 
 ### C4.3 Keys name the datum, not the column
 
-`mdm.person.mobile` is a datum that is stored as a contact row with code MOBILE, not a column; `activities.registration.contact_mobile` is a column. The key follows the domain's own concept and the English code name where there is one; no database identifier changes (R9).
+`mdm.person.mobile` is a datum that is stored as a contact row with code MOBILE, not a column; `activities.registration.contact_mobile` is a column. The key follows the domain's own concept and the English code name where there is one; no database identifier changes (R9). Three cases where a column and a datum are not one-to-one, all three already needed by reporting: **one column, several data** (`mdm.contact_details.value` by contact type: one entry whose label comes from the code list, the shape `change_lines.py` already uses; the inventory marks it K10); **several columns, one datum** (the address on one line: a composite entry naming its columns); **no column** (an age, an open amount, a measure: a derived entry naming its sources in the help). The coverage gate counts a column as covered when any entry names it.
 
 ### C4.4 Four levels, on the datum
 
@@ -491,12 +512,14 @@ What the build must prove:
 - **T10** the label ratchet: a frozen list of the 70 kit calls with a typed label; a new typed label outside it fails with the call's file and the hint `attribute=`; an entry that disappears must leave the list.
 - **T11** the universe gate: no object carries `name=`, `description=` or `ai_exposure=` any more (phase 1 for the first two, phase 2 for the third).
 - **T12** the port gate: no file in the AI callers formats a value into prompt text with the known idioms (`f"Naam: {`, `f"- {…id}: {…name}"`); proven with an added line.
+- **T13** the coverage gate: every column of every table in `Base.metadata` that is no code, label or history table and no technical column is named by at least one attribute's `columns`; message names `schema.table.column` and the domain's `attributes.py`; asserts it found more than 300 business columns before judging (a gate that finds nothing is green for the wrong reason); proven with a column added to a test-only model.
 
 Impact on the test landscape: `test_reporting_universe_gate.py` loses three tests to the register's gate file and keeps the rest; `test_guard_reading_1986.py` gains the field cases; the e2e golden flows of membership and the registration page re-record where they read a label by text; the measurement baseline of #1605 moves on four screens; the HTML snapshots of the household record move by three words. No other suite is expected to change: no route, no model, no migration.
 
 ## C7. The gate — what refuses a deviation from now on
 
-Three gates, all pytest under `backend/tests/` or the domain's `tests/`, run by `backend-tests.yml` on every push:
+Four gates, all pytest under `backend/tests/` or the domain's `tests/`, run by `backend-tests.yml` on every push:
+- **the coverage gate** (T13): reads the ORM metadata, applies the technical rule, and refuses a business column no entry covers; message: *"<schema>.<table>.<column> has no attribute: add it to <domain>/attributes.py with its classification"*; hard from phase 1; proven with a test-only column.
 - **the label ratchet** (T10): reads every `ui.field(` call in the templates, lists those with a typed label, compares with the frozen list; message: *"<template>:<line> types a label: give the field an `attribute=` or, if it is no datum, add it to the ratchet with the reason"*; proven with an added typed label.
 - **the register and universe gate** (T1, T4, T5, T11): every universe object names an existing attribute; every attribute has a non-empty help and a classification; no object carries its own name, description or flag; message names the object key and the missing piece; proven with an added object.
 - **the port gate** (T6, T12): every call into `run_chat`/`run_public_chat` from outside the chatbot passes `fields=` or is on the list of text-only callers (the document reader); no formatting idiom in the AI callers; the seam refuses an unknown or forbidden key before the call; proven with an added formatted line and with a NONE key on the mock provider.
@@ -524,6 +547,7 @@ Not built.
 | Q1 | 15 October 2026 | Where do `ai_exposure` and `sensitive` live: on the datum or on the report object until CR-16 needs them? (architecture CLI) | "verhuis naar het gegeven op 2, dat is voor mij duidelijk" (Koen). `sensitive` stays on the object: it describes a dimension's cut, not a datum |
 | Q2 | 15 October 2026 | One port, one classification, two checks? (architecture CLI) | "Ja, de publieke chatbot, dat gaat over activiteiten, webpagina's en content die we invoerden in de module Raakje content." (Koen); the fourth level *public* follows |
 | Q3 | 15 October 2026 | One change request with two phases, or the classification apart? (architecture CLI) | "één cr, kan ik die al eens lezen?" (Koen) |
+| Q9 | 15 October 2026 | "Vertrek je vanuit de databank? Dus is de databank betrokken? Dus, of zijn het enkel de labels? Ik denk dat het best is om ook de database te incorporeren. … Want misschien valt één veld in twee labels uit elkaar." (Koen) | Model-first (C4.0): every business column covered, measured against the ORM; the three cases where column and datum are not one-to-one in C4.3; the inventory per module as the appendix; Koen: "ja" |
 | Q8 | 15 October 2026 | "Ik denk dat het in de rapporteringslaag niet alleen measures zijn, ook bijgemaakte dimensies. Check je dat die ook een goede oplossing krijgen in de CR?" (Koen) | Measured: 117 dimensions and details, of which 51 time grains of a date, 28 a field with a fallback or a code's label, 2 a `CASE` on a count, the rest plain columns. Three shapes with three answers in C4.5: the field's entry, the date's entry with a grain, an entry of reporting's own |
 
 ## Non-goals — deliberately outside this change
@@ -545,3 +569,4 @@ Not built.
 - CR-11 block 10 / #1562: the assistant reads the screen's selection; unchanged.
 - #1341 (the translation catalogue), #1719 (the gate on Mobiel/E-mail), #1605 (the measurement baseline).
 - The architecture document: part D gains the vocabulary of a datum, part E the row E52.
+- The inventory of the data model, *inventaris-gegevens-20261015.md*, in Koen's project folder (the CR33 folder), outside the repository: it is generated from the ORM and will be regenerated on the handover commit.
