@@ -284,6 +284,7 @@ A letter's recipients are always a derived list with one precedence rule and one
 | 15 Oct 2026 | The signing helper is built in `kernel`, shared with CR-37 | Koen, to "Wil je dat het hulpje in `newsletter` blijft staan tot CR-34 het echt nodig heeft?" (after the explanation that CR-34's call-back route is a third user in another domain): "we gaan dan voor kernel" |
 | 15 Oct 2026 | The existing `erase` on an *unsubscribed* row keeps the row with the normalised address and the status, clears the first name and the tokens, and anonymises the deliveries, so the opt-out is not undone | Koen, to my explanation of this repair (C4.4): "akkoord" |
 | 15 Oct 2026 | The unsubscribe link of a participant is signed per delivery, with no token stored (C4.2) | Koen, to "Keur je de getekende uitschrijflink zonder opgeslagen token goed, ja of nee?": "ja, akkoord" |
+| 15 Oct 2026 | No sentence about the newsletter on the registration form and no hint under the audience: out of scope | Koen, to my summary of the open point (the sentence on the registration form and the hint under the audience): "dit is out-of-scope en doen we niet" |
 | 15 Oct 2026 | Erasure of an address from the archives (the right to be forgotten) is not built in this change; see the known gap under Non-goals | Koen, to my question whether erasure by address should be part of this change: "Het recht om vergeten te worden gaan we voorlopig even laten liggen." |
 
 ---
@@ -326,7 +327,6 @@ Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2
 - CR-33 attribute register (the architecture review of 15 October): entries for `newsletter.audience_activity` (`activity_id`, `name`, `last_date`: *intern*); the source *participant* needs no entry (no classification per code value); no purpose is added to the help of the registration's address (a screen does not say what another domain does with a value). The purpose of the second use goes in the privacy statement, in one newsletter section that CR-37 (Q5) adds and this change shares. CR-33's coverage gate refuses a migration without the entries once its phase 1 is on master; whoever lands second registers the columns.
 - The signing helper is `kernel/signing.py`, shared with CR-37 (B1 of its review): whichever of the two lands first builds it.
 - CONTRACT.md of `newsletter` and `activities`; the architecture document where it names three audiences.
-- Privacy statement of the registration form (Q1).
 - Alembic: one migration; head counted before the push.
 
 ## C4. Detailed decisions — one subsection each, with the reasons
@@ -345,7 +345,7 @@ Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2
 
 ## C5. Privacy and security — the mechanics behind A7
 
-The registration address is used for a second purpose; Q1 decides the basis and the form text. The link is signed with a key derived from the portal's secret, so nothing is stored per delivery; a bad signature and an unknown delivery answer the same (no oracle). The unsubscribe page has no per-IP limit today and gets none now. Erasure of an address from the archives: C4.4.
+The registration address is used for a second purpose; Q1 is answered (B9). The link is signed with a key derived from the portal's secret, so nothing is stored per delivery; a bad signature and an unknown delivery answer the same (no oracle). The unsubscribe page has no per-IP limit today and gets none now. Erasure of an address from the archives: C4.4.
 
 ## C6. Tests — what the build must prove
 
@@ -392,12 +392,12 @@ Status line, as-built notes folded in, tracking issue closed (`CLAUDE.md` step 1
 | Q&A | Date | Question | Status |
 |---|---|---|---|
 | 08 | 15 Oct 2026 | Q1–Q4 and 4b of B8 asked in Q&A nr. 08; the build read of dev2 (#2026, 15 Oct 2026) is taken in | answered 15 Oct 2026, in B9 |
-| — | 15 Oct 2026 | The architecture review on #2026 (15 Oct 2026): A1 (erase keeps the opt-out), A2 (the meaning of source, the third path), A4 (CR-33 boundary), B1 (a signed link instead of a stored token), B2 (one re-check) and C1–C3 are taken in; A3 (the legal basis and the sentence on the registration form, the hint under the audience) and B3 (the wording of *Toch opnieuw*) are Koen's and are put to him by the architecture CLI | taken in; two points open for Koen |
+| — | 15 Oct 2026 | The architecture review on #2026 (15 Oct 2026): A1 (erase keeps the opt-out), A2 (the meaning of source, the third path), A4 (CR-33 boundary), B1 (a signed link instead of a stored token), B2 (one re-check) and C1–C3 are taken in; A3 (a sentence on the registration form, a hint under the audience) is out of scope (Koen, B9); B3 (the wording of *Toch opnieuw*) is Koen's and is put to him by the architecture CLI | taken in; one point open for Koen |
 | — | 15 Oct 2026 | The second build read of dev1 on #2026 (against 7b of #2023): buildable as written; "unchanged" read from the 7b baseline; the drafting reader and the insert helper change their form; order after 7b | taken in |
 
 ## Non-goals — deliberately outside this change
 
-A suggestion by Raakje of a fitting past activity; segments by age, payment or presence; a saved audience; mail to the registrants of an activity about that activity (CR-05 §3.14, a separate change).
+A suggestion by Raakje of a fitting past activity; segments by age, payment or presence; a saved audience; mail to the registrants of an activity about that activity (CR-05 §3.14, a separate change). A sentence about the newsletter on the registration form, and a hint under the audience choice.
 
 **Known gap, to be taken up later:** removing an address from the archives of sent letters. Today it works for a subscriber (the *Verwijderen* action anonymises his deliveries); a member's delivery and, with this change, a participant's has no such action, so the address stays in the archive. The build read found it for members already. It is left out for now; it is not decided that it stays out.
 
