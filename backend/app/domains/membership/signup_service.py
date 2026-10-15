@@ -46,7 +46,7 @@ def register_family(
     *,
     db: Session,
     signed_in: Person | None,
-    proof,
+    proof: form_guard.AnyProof,
 ) -> FamilyRegisteredResponse | None:
     """The public door: register a new family (member household).
 

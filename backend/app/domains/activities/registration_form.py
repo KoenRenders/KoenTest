@@ -293,6 +293,8 @@ class Outcome:
     name: str = ""
     #: What is still to pay by bank transfer (`DONE`); zero when nothing is.
     transfer_amount: Any = 0
+    #: The guard did not take the form (`REFUSED`): the answer carries a fresh token for it (#2039).
+    fresh_guard: bool = False
 
 
 def submit(
@@ -303,7 +305,7 @@ def submit(
     form: Mapping[str, Any],
     background_tasks: BackgroundTasks,
     *,
-    proof: Any,
+    proof: form_guard.AnyProof,
     actor: str = "",
 ) -> Outcome:
     """Process one submitted form — the same steps for both channels.
@@ -323,11 +325,18 @@ def submit(
     from app.schemas.activity import RegistrationCreate, RegistrationItemCreate
 
     values = form_values(form)
-    if form_guard.refused(proof, f"registration {component.id}"):
+    try:
+        if form_guard.refused(proof, f"registration {component.id}"):
+            return Outcome(
+                kind=OutcomeKind.DONE,
+                name=(values.get("contact_name") or "").strip(),
+                transfer_amount=0,
+            )
+    except form_guard.NotSent as hurry:
+        # A person's pace (Koen, 15 October 2026): no thanks for a registration that does not
+        # exist — the form as it was typed, one line over it.
         return Outcome(
-            kind=OutcomeKind.DONE,
-            name=(values.get("contact_name") or "").strip(),
-            transfer_amount=0,
+            kind=OutcomeKind.REFUSED, errors=[FieldError("", str(hurry))], fresh_guard=True
         )
     quantities = form_quantities(form)
     ctx = form_context(channel, activity, component, values=values, quantities=quantities)

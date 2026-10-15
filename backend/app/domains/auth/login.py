@@ -176,7 +176,9 @@ def _link(db: Session, token: str, return_to: str) -> str:
     return link
 
 
-def start_login(db: Session, email: str, return_to: str = "", *, proof) -> None:
+def start_login(
+    db: Session, email: str, return_to: str = "", *, proof: form_guard.AnyProof
+) -> None:
     """De volledige request-login-stap (ook gebruikt door het aanmeldscherm,
     fase 1 #399): gekend adres → magic-link + OTP; meerdere gezinnen → uitleg-
     mail; onbekend → stil. De aanroeper toont ALTIJD dezelfde generieke respons.
@@ -220,7 +222,9 @@ def start_login(db: Session, email: str, return_to: str = "", *, proof) -> None:
         db.commit()
 
 
-def start_account(db: Session, request: AccountRequest, return_to: str = "", *, proof) -> None:
+def start_account(
+    db: Session, request: AccountRequest, return_to: str = "", *, proof: form_guard.AnyProof
+) -> None:
     """The step behind "Account aanmaken" (CR-22 R3, R4, F4; #1707).
 
     **The caller answers the same in every case** — "We stuurden een code naar

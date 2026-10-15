@@ -287,3 +287,49 @@ def test_the_board_page_shows_the_same_cards(browser, setup):
     # The board registers for somebody else: no member nudge.
     assert page.locator("[data-member-nudge]").count() == 0
     page.close()
+
+
+def test_a_stale_page_says_so_keeps_what_was_typed_and_the_second_press_goes_through(
+    browser, setup
+):
+    """The guard did not take the form (#2039; Koen, 15 October 2026): a page whose token is a
+    week old. The banner says so, the typed values stay, nothing is registered — and the answer
+    carried a fresh token for the form, so the second press, a moment later, is taken."""
+    import time
+
+    from app.kernel.form_guard import issue_token
+
+    page = _open(browser, setup["url"], 390, 844)
+    name = f"Oude pagina {secrets.token_hex(2)}"
+    page.fill("#contact_name", name)
+    page.fill("#contact_email", "oude-pagina-e2e@example.org")
+    page.fill("#phone", "0470000000")
+    page.locator('input[name="payment_method"][value="transfer"]').check()
+    page.evaluate(
+        "(token) => { document.querySelector('input[name=form_ts]').value = token }",
+        issue_token(now=time.time() - 8 * 24 * 3600),
+    )
+    page.click("[data-form-save]")
+    banner = page.locator("[data-save-refusal]")
+    expect(banner).to_contain_text("Deze pagina was verouderd en is niet verstuurd.")
+    assert page.input_value("#contact_name") == name, "what was typed is gone"
+    assert _registrations_named(name) == 0, "a registration was made on a stale page"
+    # The answer refreshed the token: the page's own clock decides when it is old enough.
+    laat_de_wacht_passeren(page)
+    page.click("[data-form-save]")
+    head = page.locator("[data-public-form-page][data-result] h1")
+    expect(head).to_have_text("Je inschrijving is ontvangen")
+    assert _registrations_named(name) == 1
+    page.close()
+
+
+def _registrations_named(name: str) -> int:
+    import app.models  # noqa: F401
+    from app.database import SessionLocal
+    from app.domains.activities.api import Registration
+
+    db = SessionLocal()
+    try:
+        return db.query(Registration).filter(Registration.contact_name == name).count()
+    finally:
+        db.close()

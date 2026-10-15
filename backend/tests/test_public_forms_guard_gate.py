@@ -27,6 +27,8 @@ SNAPSHOT = Path(__file__).resolve().parents[1] / "app/domains/auth/tests/snapsho
 
 #: What a guarded handler does with the form it received: builds the proof from it.
 PROOF_FROM_FORM = re.compile(r"Proof(\.from_(request|values))?\(")
+#: ... and hands it on: a keyword argument `proof=` in the call to the service.
+PROOF_HANDED_ON = re.compile(r"\bproof\s*=")
 
 #: Public POST routes that mail an address typed into them, and so carry the guard.
 GUARDED = {
@@ -131,8 +133,9 @@ def test_every_guarded_handler_reads_a_proof():
     for route_key in sorted(GUARDED):
         assert route_key in handlers, f"no route {route_key}"
         source = inspect.getsource(handlers[route_key])
-        if not PROOF_FROM_FORM.search(source):
+        if not (PROOF_FROM_FORM.search(source) and PROOF_HANDED_ON.search(source)):
             missing.append(route_key)
-    assert not missing, "these guarded routes read no proof from their form:\n  " + "\n  ".join(
-        missing
+    assert not missing, (
+        "these guarded routes build no proof from their form or do not hand it on:\n  "
+        + "\n  ".join(missing)
     )

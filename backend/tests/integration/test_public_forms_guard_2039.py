@@ -31,14 +31,34 @@ def _too_fast(data: dict) -> dict:
     return {**_without(data), "website": "", "form_ts": issue_token(now=time.time())}
 
 
+def _expired(data: dict) -> dict:
+    return {
+        **_without(data),
+        "website": "",
+        "form_ts": issue_token(now=time.time() - 8 * 24 * 3600),
+    }
+
+
+def _forged(data: dict) -> dict:
+    return {**_without(data), "website": "", "form_ts": "1700000000.not-a-signature"}
+
+
 def _honeypot(data: dict) -> dict:
     return {**data, "website": "https://spam.example.org"}
 
 
-REFUSALS = {
-    "without the guard's fields": _without,
-    "as fast as the page was rendered": _too_fast,
-    "with the honeypot filled": _honeypot,
+HURRY = "Even geduld, probeer opnieuw."
+STALE = "Deze pagina was verouderd en is niet verstuurd. Kijk je gegevens na en verstuur opnieuw."
+
+#: Not a person: the ordinary answer, nothing stored. Only a filled honeypot.
+REFUSALS = {"with the honeypot filled": _honeypot}
+#: Everything else the guard does not take (Koen, 15 October 2026, on #2039: "a", "akkoord"):
+#: the form again as typed, a fresh token, one line, nothing stored and no thanks.
+PACE = {
+    "as fast as the page was rendered": (_too_fast, HURRY),
+    "a page left open for a week": (_expired, STALE),
+    "without the guard's fields": (_without, STALE),
+    "with a forged token": (_forged, STALE),
 }
 
 
@@ -59,6 +79,19 @@ def test_a_refused_sign_in_sends_and_stores_nothing(client, db_session, how):
     db_session.expire_all()
     assert db_session.query(LoginToken).count() == tokens, "a refused request stored a token"
     assert queued_mails(db_session, SEEDED_ADMIN_EMAIL) == [], "a refused request sent a mail"
+
+
+@pytest.mark.parametrize("how", sorted(PACE))
+def test_the_sign_in_says_hurry_to_a_person_s_pace(client, db_session, how):
+    tokens = db_session.query(LoginToken).count()
+    data = PACE[how][0]({**form_guard_fields(), "email": SEEDED_ADMIN_EMAIL})
+    step = client.post("/aanmelden", data=data)
+    assert PACE[how][1] in step.text and "data-code-sent" not in step.text, how
+    assert f'value="{SEEDED_ADMIN_EMAIL}"' in step.text, "what was typed is gone"
+    assert 'name="form_ts"' in step.text, "the form comes back without a fresh token"
+    db_session.expire_all()
+    assert db_session.query(LoginToken).count() == tokens
+    assert queued_mails(db_session, SEEDED_ADMIN_EMAIL) == []
 
 
 def test_a_person_at_a_normal_pace_gets_the_sign_in_mail(client, db_session):
@@ -111,6 +144,22 @@ def test_a_refused_registration_registers_and_mails_nothing(client, db_session, 
     assert queued_mails(db_session, address) == [], "a refused request sent a mail"
 
 
+@pytest.mark.parametrize("how", sorted(PACE))
+def test_the_registration_says_hurry_and_registers_nothing(client, db_session, how):
+    from app.domains.activities.api import Registration
+
+    act = _registration(db_session)
+    address = "snel-2039@example.org"
+    response = _registration_post(client, act, PACE[how][0](form_guard_fields()), address)
+    assert PACE[how][1] in response.text, "no line"
+    assert "ontvangen" not in response.text.lower(), (
+        "thanked for a registration that does not exist"
+    )
+    db_session.expire_all()
+    assert db_session.query(Registration).count() == 0
+    assert queued_mails(db_session, address) == []
+
+
 def test_a_person_at_a_normal_pace_registers_and_gets_the_mail(client, db_session):
     from app.domains.activities.api import Registration
     from app.kernel.jobs import run_due_jobs
@@ -144,6 +193,23 @@ def test_a_refused_sign_up_makes_no_household_and_sends_no_mail(client, db_sessi
     assert response.status_code == 200, how
     db_session.expire_all()
     assert db_session.query(Member).count() == households, "a refused request made a household"
+    assert queued_mails(db_session, address) == []
+
+
+@pytest.mark.parametrize("how", sorted(PACE))
+def test_lid_worden_says_hurry_and_makes_no_household(client, db_session, how):
+    from app.domains.mdm.api import Member
+    from tests.conftest import signup_fields
+
+    address = "snel-lid-2039@example.org"
+    households = db_session.query(Member).count()
+    response = client.post(
+        "/lid-worden", data=PACE[how][0](signup_fields(db_session, emails=(address,)))
+    )
+    assert PACE[how][1] in response.text, how
+    assert "ontvangen" not in response.text.lower(), "thanked for a membership that was not made"
+    db_session.expire_all()
+    assert db_session.query(Member).count() == households
     assert queued_mails(db_session, address) == []
 
 

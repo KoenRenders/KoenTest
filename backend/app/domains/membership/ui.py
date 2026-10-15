@@ -88,7 +88,7 @@ async def sign_up_submit(
 ):
     from app.domains.membership.api import register_family
     from app.domains.membership.signup_form import signup_from_form
-    from app.kernel.form_guard import Proof
+    from app.kernel.form_guard import NotSent, Proof
     from app.kernel.refusals import FieldError
 
     form = await request.form()
@@ -110,6 +110,15 @@ async def sign_up_submit(
         # the object): it stands in the banner, the form stays as typed.
         return refusal_response(
             request, [FieldError("", str(refusal.detail))], SIGNUP_MESSAGE, send=True
+        )
+    except NotSent as hurry:
+        # A person's pace (Koen, 15 October 2026): the banner over the form as typed.
+        return refusal_response(
+            request,
+            [FieldError("", str(hurry))],
+            SIGNUP_MESSAGE,
+            send=True,
+            guard_form="#lid-worden-form",
         )
 
     checkout_url = getattr(result, "checkout_url", None)

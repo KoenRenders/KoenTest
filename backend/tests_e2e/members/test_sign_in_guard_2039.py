@@ -45,8 +45,21 @@ def _tokens(email: str) -> int:
         db.close()
 
 
-def test_a_person_typing_an_address_gets_the_code(browser):
+def _admin_email() -> str:
+    """The address of the seeded admin, as the other browser tests of the meetings read it:
+    from the environment, or from the test configuration — never by importing it before the
+    app, which would point the database url at the unit-test database."""
+    override = os.environ.get("E2E_ADMIN_EMAIL")
+    if override:
+        return override
+    import app.models  # noqa: F401
     from tests.conftest import SEEDED_ADMIN_EMAIL
+
+    return SEEDED_ADMIN_EMAIL
+
+
+def test_a_person_typing_an_address_gets_the_code(browser):
+    SEEDED_ADMIN_EMAIL = _admin_email()
 
     before = _tokens(SEEDED_ADMIN_EMAIL)
     page = browser.new_page(base_url=BASE, viewport={"width": 390, "height": 844})

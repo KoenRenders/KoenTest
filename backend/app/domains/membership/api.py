@@ -270,7 +270,7 @@ def household_renew_membership(db, person, payment_method: str = "online"):
     return _impl(person=person, db=db, payment_method=payment_method)
 
 
-def register_family(db, data, background_tasks, *, signed_in=None, proof):
+def register_family(db, data, background_tasks, *, proof, signed_in=None):
     """Publieke gezinsregistratie — de flow staat in signup_service.
 
     `signed_in` (CR-22 R9, #1713): the person the visitor is signed in as, or
