@@ -1,7 +1,7 @@
 # CR-32 — Sections, text cards, data blocks and a tenant's own look: the page editor hosts a company site and the association's home page
 
 **Status:** shaped on 15 October 2026 by the architecture CLI, on Koen's question through the master CLI · not read against the code yet · not assigned to a release
-**Tracking issue:** to be created by the master CLI — the one place where what is open stands; this document is the design, the issue is the status
+**Tracking issue:** #2003 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the `cms` domain (the page schema, the renderer, the editor's node set), the kit (`scripts/build-css.sh`, the public shell `site_base.html`), the tenant settings of the kernel (`tenant_config`), the media library (one picture kind); a follow-up of CR-17 (web content) and CR-19 (tenant kinds)
 **Reading:** A 2 126 words · B 2 550 · C 1 752 — measured on 15 October 2026, drawings excluded; the budget is A ≤ 1 500, B ≤ 2 500: **over budget**, because three questions of one day stand in one change request (the concept site, the album card, the home page); whether to trim, split or accept is Koen's (B8.8)
 
