@@ -25,7 +25,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-BACKEND = Path(__file__).resolve().parents[1]
+BACKEND = Path(__file__).resolve().parents[4]
 
 #: The code argument of a tenant created in the e2e seed.
 _SEEDED = re.compile(r"""\bcode\s*=\s*["']([a-z0-9-]+)["']""")
