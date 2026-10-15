@@ -20,6 +20,12 @@ and a send of one mail per recipient in a queue under a daily cap.
 - **Audiences:** `member_addresses`, `recipients_for`, `audience_counts`.
 - **Letters:** `create_newsletter`, `update_draft`, `set_draft_sources`,
   `copy_newsletter`, `delete_draft`, `list_newsletters`, `get_newsletter`.
+  A letter's text is a document of the page editor's `letter` set
+  (`Newsletter.body_document`, CR-17 phase 7); `letter_document` validates what the
+  editor sends, `markup_of` gives the text with markers Raakje reads and writes
+  (`letter_markup.py`: `[[activiteit:…]]`, `[[kalender]]`, `[[afsluiting]]`),
+  `render_body` builds the mail's body from the blocks (`mail_blocks`),
+  `letter_is_blank` says whether there is anything to send.
 - **Content helpers:** `activity_facts`, `activity_line_html`, `calendar_html`,
   `closing_html`, `insertable_activities`.
 - **Sending:** `render_test` (a read: the test mail rendered; the door hands it

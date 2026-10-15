@@ -14,7 +14,7 @@ it is the page that takes a proposal:
   works); a marked passage stays out unless "klopt, behouden" is ticked, which it
   is not by default; the page's own autosave stores the result;
 - Negeren takes the marks away and the draft remembers it;
-- "Kalender invoegen" places the calendar group; the preview text is a growing
+- the calendar block is the calendar group; the preview text is a growing
   field with a limit of 200.
 
 The e2e backend has no model key, so the proposal is seeded as the draft keeps
@@ -101,7 +101,7 @@ def _seed() -> dict:
                             }
                         ],
                         "facts": [],
-                        "snapshot": nb_snapshot(letter.body_html),
+                        "snapshot": nb_snapshot(nb.markup_of(letter)),
                         "names": {},
                         "status": "open",
                     },
@@ -164,9 +164,7 @@ def _page(setup, letter: int, width: int = 1920):
     login_met_sessie(page, session, BASE)
     page.goto(f"/admin/nieuwsbrieven/{data['letters'][letter]}")
     pagina_klaar(page)
-    page.wait_for_function(
-        "document.getElementById('nb-trix') && document.getElementById('nb-trix').editor"
-    )
+    page.wait_for_function("window.raakDocumentEditor && window.raakDocumentEditor('nb-editor')")
     return page
 
 
@@ -183,6 +181,7 @@ def _open_panel(page):
 def _stored(letter_id: int) -> dict:
     import app.models  # noqa: F401
     from app.database import SessionLocal
+    from app.domains.newsletter import api as nb
     from app.domains.newsletter.models import DraftingMessage, Newsletter
 
     db = SessionLocal()
@@ -198,7 +197,7 @@ def _stored(letter_id: int) -> dict:
         return {
             "subject": letter.subject,
             "preview": letter.preview_text,
-            "body": letter.body_html,
+            "body": nb.markup_of(letter),
             "status": message.proposal["status"],
         }
     finally:
@@ -210,11 +209,12 @@ _GROUPS = """() => [...document.querySelectorAll('[data-choice-group]')].map(g =
   count: g.querySelector('[data-choice-count]').innerText, chips: g.querySelectorAll('[data-choice]').length,
   add: !!g.querySelector('[data-choice-add]')}))"""
 
-_FIELDS = """() => ['subject', 'preview_text', 'body_html'].map(name => { const f = document.querySelector(`[data-field="${name}"]`);
+_FIELDS = """() => ['subject', 'preview_text', 'body'].map(name => { const f = document.querySelector(`[data-field="${name}"]`);
   const note = f.querySelector('[data-proposal-note]');
   return {name, proposed: f.hasAttribute('data-proposed'), applied: f.hasAttribute('data-proposal-applied'), note: note ? note.innerText : ''}; })"""
 
-TEXT_OF = "() => document.getElementById('nb-trix').editor.getDocument().toString()"
+EDITOR = "window.raakDocumentEditor('nb-editor')"
+TEXT_OF = f"() => {EDITOR}.state.doc.textBetween(0, {EDITOR}.state.doc.content.size, '\\n')"
 
 
 # ── The choices on the page ──────────────────────────────────────────────────
@@ -257,18 +257,22 @@ def test_the_three_groups_stand_on_the_page_and_a_choice_follows_without_a_page_
     page.close()
 
 
-def test_kalender_invoegen_places_the_calendar_group(setup):
+def test_the_calendar_block_is_the_calendar_group(setup):
+    """ "Blok invoegen › Kalender" puts one block in the letter; the mail builds it
+    from the letter's calendar group when it is rendered (#2023)."""
     page = _page(setup, 0)
     expected = page.locator('[data-choice-group="calendar"] [data-choice]').count()
-    page.locator("#nb-trix").click()
-    with page.expect_response(lambda r: "/invoegen/kalender" in r.url):
-        page.get_by_role("button", name="Kalender invoegen").click()
-    page.wait_for_function(
-        "document.getElementById('nb-trix').editor.getDocument().toString().includes('Paneelwandeling 1')"
-    )
-    lines = page.evaluate("document.querySelectorAll('#nb-trix li').length")
-    assert lines == expected, "one line per activity of the calendar group"
+    page.locator("#nb-editor .ProseMirror").click()
+    page.locator("#nb-editor summary").click()
+    page.locator("#nb-editor .de-menu-item", has_text="Kalender").click()
+    assert page.locator("#nb-editor [data-letter-block=calendar]").count() == 1
+    with htmx_afgerond(page):
+        page.locator("#nb-onderwerp").click()
+    letter = setup[2]["letters"][0]
+    preview = page.request.get(f"/admin/nieuwsbrieven/{letter}/voorbeeld").text()
+    assert "Paneelwandeling 1" in preview, "the calendar's lines stand in the mail"
     assert page.locator("[data-picker]").count() == 0, "no second choice in a picker"
+    assert expected >= 4
     page.close()
 
 
@@ -357,7 +361,7 @@ def test_toepassen_fills_subject_preview_and_text_and_leaves_the_marked_sentence
     assert "Kom naar de wandeling." in stored["body"] and "zaklopen" not in stored["body"]
 
     # undo takes the text back: it went in through the editor
-    page.evaluate("document.getElementById('nb-trix').editor.undo()")
+    page.evaluate(f"{EDITOR}.commands.undo()")
     assert "Kom naar de wandeling." not in page.evaluate(TEXT_OF)
     assert page.errors == []
     page.close()
@@ -372,9 +376,7 @@ def test_a_ticked_passage_is_kept_and_an_applied_proposal_offers_nothing(setup):
     if _stored(letter)["status"] == "open":
         block.locator('input[name="keep"]').check()
         block.locator("[data-proposal-apply]").click()
-        page.wait_for_function(
-            "document.getElementById('nb-trix').editor.getDocument().toString().includes('zaklopen')"
-        )
+        page.wait_for_function(f"{EDITOR}.state.doc.textContent.includes('zaklopen')")
     assert "zaklopen" in page.evaluate(TEXT_OF), "ticked: the sentence stays"
     assert _stored(letter)["status"] == "applied"
     page.close()

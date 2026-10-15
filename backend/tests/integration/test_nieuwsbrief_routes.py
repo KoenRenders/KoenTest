@@ -535,7 +535,7 @@ def test_het_voorbeeld_toont_de_brief_zoals_hij_aankomt(client, db_session):
     """Sinds de activiteit als markering in de brief staat (#984, 19 september
     2026) moet de schrijver het resultaat kunnen zien zonder te mailen.
 
-    Broken on purpose: `expand_blocks` uit `render_mail` → het voorbeeld toont
+    Broken on purpose: `render_body` uit `render_mail` → het voorbeeld toont
     de rauwe markering en deze test faalt.
     """
     _login(client)

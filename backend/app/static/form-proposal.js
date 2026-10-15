@@ -122,7 +122,10 @@
       var content = Array.isArray(value) ? value : [];
       var chain = page.chain().focus();
       if (item.placement === "selection" && item.range && item.range.length === 2) {
-        chain.insertContentAt({ from: item.range[0], to: item.range[1] }, content);
+        /* A rewrite of some words is some words: one paragraph replaces the selection
+           with its own text, not with a paragraph in the middle of another. */
+        var inline = content.length === 1 && content[0].type === "paragraph" ? content[0].content || [] : content;
+        chain.insertContentAt({ from: item.range[0], to: item.range[1] }, inline);
       } else if (item.placement === "cursor") {
         chain.insertContent(content);
       } else {

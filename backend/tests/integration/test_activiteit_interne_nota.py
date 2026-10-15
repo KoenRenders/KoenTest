@@ -129,23 +129,31 @@ def test_de_bot_leest_wel_de_publieke_omschrijving(db_session, activiteit):
     assert antwoord["description"] == "Twee zinnen die de bezoeker leest."
 
 
-def test_de_nota_zit_niet_in_het_nieuwsbriefblok(client, db_session, activiteit):
-    """Het blok dat "Activiteit invoegen" in een nieuwsbrief zet (#984).
+def test_de_nota_zit_niet_in_het_nieuwsbriefblok(db_session, activiteit):
+    """Het blok dat een activiteit in een nieuwsbrief zet (#984; sinds #2023 een blok
+    van de brief dat de mail bij het versturen bouwt).
 
-    Een aparte test omdat deze weg achter een beheerdersessie zit: de brief is
-    intern, maar wat erin staat vertrekt naar honderden lezers.
+    Een aparte test omdat deze weg naar buiten leidt: de brief is intern, maar wat
+    erin staat vertrekt naar honderden lezers.
     """
     from app.domains.newsletter import service as nb
 
-    _login(client)
     letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
-    db_session.flush()
+    nb.update_draft(
+        db_session,
+        letter,
+        subject="x",
+        body={
+            "type": "doc",
+            "content": [{"type": "activity", "attrs": {"activity_id": activiteit.id}}],
+        },
+        audience="members",
+    )
 
-    antwoord = client.get(f"/admin/nieuwsbrieven/{letter.id}/invoegen/activiteit/{activiteit.id}")
+    html = nb.render_body(db_session, letter, base_url="https://raak.example")
 
-    assert antwoord.status_code == 200
-    assert "Quiz met een nota" in antwoord.text, "het blok gaat wel over deze activiteit"
-    assert NOTA.split()[0] not in antwoord.text, "de interne nota komt mee in de nieuwsbrief"
+    assert "Quiz met een nota" in html, "het blok gaat wel over deze activiteit"
+    assert NOTA.split()[0] not in html, "de interne nota komt mee in de nieuwsbrief"
 
 
 def test_de_export_van_een_onderdeel_draagt_de_nota_niet(client, db_session, activiteit):

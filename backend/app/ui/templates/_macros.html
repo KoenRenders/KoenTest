@@ -1795,7 +1795,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    caller's own (`blocks.activity.activities`) and follows the page's choices: the
    screen says `raak-letter-featured` with the new list whenever it changes them.
    Nothing featured: the dialog says where to choose. #}
-<div x-data="{ activity: false, list: {{ blocks.activity.activities|tojson }}, aId: '' }"
+<div x-data='{ activity: false, list: {{ blocks.activity.activities|tojson }}, aId: "" }'
      @raak-letter-featured.window="list = $event.detail"
      @raak-activity-choose.window="if ($event.detail.editor === '{{ editor_id }}') { aId = list.length ? String(list[0].id) : ''; activity = true }"
      @raak-activity-apply.window="if (activity && aId) { $dispatch('raak-activity-chosen', { editor: '{{ editor_id }}', activity_id: Number(aId) }); activity = false }">

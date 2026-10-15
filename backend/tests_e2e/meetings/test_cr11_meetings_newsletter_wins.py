@@ -29,7 +29,6 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests._letter import letter_doc
 from tests_e2e.schermen import BASE, login_met_sessie, pagina_klaar  # noqa: E402
 
 SHOTS = "/scratch/shots_1391"
@@ -71,7 +70,7 @@ def _data() -> dict:
             db,
             letter,
             subject=f"Najaar {tag}",
-            body_document=letter_doc("<div>Tot binnenkort.</div>"),
+            body_html="<div>Tot binnenkort.</div>",
             audience=Audience.NON_MEMBERS,
         )
         return {"sent": sent.id, "upcoming": upcoming.id, "letter": letter.id}

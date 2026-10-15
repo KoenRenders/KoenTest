@@ -43,7 +43,7 @@ def _block_of(match: "re.Match[str]") -> dict[str, Any]:
 def _paragraph(inline: list[dict[str, Any]]) -> "dict[str, Any] | None":
     """A paragraph of what stands left of a marker — none when only blanks do."""
     has_words = any(n["type"] == "text" and n["text"].strip() for n in inline)
-    return {"type": "paragraph", "content": inline} if has_words else None
+    return {"type": "paragraph", "content": list(inline)} if has_words else None
 
 
 def _text_of(paragraph: dict[str, Any]) -> str:

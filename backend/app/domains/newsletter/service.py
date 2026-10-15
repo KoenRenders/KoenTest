@@ -1234,7 +1234,7 @@ def mail_blocks(db: Session, letter: Newsletter, *, base_url: str) -> dict:
 
     def figure(node: dict) -> str:
         attrs = node.get("attrs") or {}
-        src = media_url(attrs.get("media_id"), base_url=base_url)
+        src = media_url(int(attrs["media_id"]), base_url=base_url)
         caption = (
             f'<div style="font-size:13px;color:#52607a;padding-top:4px">{esc(attrs["caption"])}</div>'
             if attrs.get("caption")
