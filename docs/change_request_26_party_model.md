@@ -389,7 +389,6 @@ The three phases ship in one release (Koen), in this order, one builder; CR-34 (
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
-| Q12 | Today's duplicates across departments of one account (the same person imported at A and B): merged by the administration with the existing merge tool, or left as two parties until someone merges | left, with a report listing probable duplicates (same name, birth date and postal code) for the administration; no automatic merge (R12) | phase 1's migration and one report |
 | Q13 | The *acts for* relation: made by the person alone (as proposed), or confirmed by the department before an order on behalf is accepted? | by the person alone; the VAT number is checked in form, and CR-34's invoice carries it; a confirmation step is a workbench task later if abuse appears | F7 |
 
 ## B9. Decisions log — dated answers
@@ -406,6 +405,7 @@ The three phases ship in one release (Koen), in this order, one builder; CR-34 (
 | 15 October 2026 | Release: CR-26 on v2.18, not v2.17 ("ik was sowieso van plan dit pas in v2.18 te stoppen. Zie jij noodzaak om dit al in v2.17 te doen?" — no); CR-34 on v2.18 too ("deze moet ook in v2.18: CR-34 (facturen webshop)") | Koen |
 | 15 October 2026 | The household once per account too, memberships per department: "Ik denk dat ik fout ben. Je bent inderdaad maar één persoon. … We maken die maar één keer, ook als gezin maar één keer. En je kan, ja, van twee raken lid worden. … Stel nu dat je twee keer lid bent, zal je ook wel twee ID's krijgen van Raak Nationaal. … dan gaan we dat zo oplossen." — to the restatement (one person and one household per account, membership as the fact per department, *Word lid* for an existing household): "akkoord" | Koen |
 | 15 October 2026 | The guest buyer's address: a buyer copy on the order for every buyer (CR-34 Q&A nr. 06, question 1, option b, and the architecture CLI's reading of it for F8) | Koen; the architecture CLI |
+| 15 October 2026 | Q12 the duplicates: "ja, laten staan"; a purchase-order reference and a separate delivery address for a company order: out of scope, a new change request | Koen |
 | 15 October 2026 | Context, out of scope: member pricing between departments is not fixed; Raak Nationaal's system keeps persons per department and moves a member by deactivating and activating | Koen |
 
 ---
@@ -554,6 +554,8 @@ Not built.
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
 | Q11 | 15 October 2026 | Which release: v2.17 between CR-20 and CR-34, or later? (architecture CLI) | v2.18, with CR-20 (tenant apart from organisation) before it and CR-34 (invoices for the webshop) after it, as one chain. Koen: "ik was sowieso van plan dit pas in v2.18 te stoppen", and on CR-34: "deze moet ook in v2.18". Nothing in v2.17 needs the party: the webshop's private buyers and guests work without it, and moving the order's `person_id` to `buyer_party_id` later is one small migration |
+| Q12 | 15 October 2026 | Today's duplicates across departments of one account: merged by the administration with the merge tool from a report of probable duplicates, or left as two parties? (architecture CLI) | "ja, laten staan" (Koen): left, with a report (same last name, first name, birth date, postal code) for the administration; no automatic merge |
+| Q14 | 15 October 2026 | Does a company order need more than the buyer: a purchase-order reference on the invoice, a delivery address apart from the organisation's? (architecture CLI) | "die twee zaken zijn out-of-scope, dus onderdeel van een nieuwe CR" (Koen); Non-goals |
 | Q1–Q10 | 15 October 2026 | The ten questions of Q&A nr. 05 (architecture CLI) | Koen's answers in B9; questions 4, 5, 6, 9 and 10 settled in the chat the same day, 6 revised from *per tenant* to *per account* on his reading, and once more the same afternoon: the household per account too, memberships per department ("Ik denk dat ik fout ben. Je bent inderdaad maar één persoon.") |
 | — | 13 October 2026 | Q&A nr. 03, questions 2–6 (architecture CLI) | 2, 3, 4 answered through nr. 05 (8, 1, 2); 5 (what CR-26 is, CR-20 before it) answered by B6; 6 (the leading principles) belongs to the architecture document, not to this change |
 
@@ -565,6 +567,7 @@ Not built.
 - A role table (R9): comes with the first role without a fact.
 - VIES validation of VAT numbers; CR-34 or CR-35 may add it.
 - Household merging or a household as a party.
+- A purchase-order reference of the buyer on the order or the invoice, and a delivery address apart from the organisation's address: a change request of their own (Koen, 15 October 2026: "die twee zaken zijn out-of-scope, dus onderdeel van een nieuwe CR").
 - CR-20 itself: a dependency, decided elsewhere; this change notes one row of it (B4).
 
 ## Relationship to existing work — issues and change requests
