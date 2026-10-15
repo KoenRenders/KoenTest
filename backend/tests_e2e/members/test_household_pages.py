@@ -34,8 +34,6 @@ from types import SimpleNamespace
 import pytest
 from playwright.sync_api import expect, sync_playwright
 
-from tests.conftest import form_guard_proof
-
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.schermen import (  # noqa: E402
@@ -219,6 +217,10 @@ def _sign_up(
             ]
     data, errors = signup_from_form(FormData(fields))
     assert data is not None, errors
+    from tests.conftest import (
+        form_guard_proof,  # in the body: a module-level import of conftest sets the DB url
+    )
+
     db = _db()
     try:
         register_family(db, data, BackgroundTasks(), proof=form_guard_proof())

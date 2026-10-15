@@ -41,7 +41,13 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, htmx_stil, login_met_sessie, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    htmx_stil,
+    laat_de_wacht_passeren,
+    login_met_sessie,
+    pagina_klaar,
+)
 
 _BOXES = """() => {
   const box = e => { if (!e || !e.checkVisibility()) return null; const r = e.getBoundingClientRect();
@@ -206,6 +212,7 @@ def test_a_refusal_marks_the_fields_and_keeps_what_was_typed(browser, setup):
     page = _open(browser, setup["url"], 390, 844)
     page.fill("#phone", "0470000000")
     page.fill("#remarks", "Blijft staan")
+    laat_de_wacht_passeren(page)
     page.click("[data-form-save]")
     banner = page.locator("[data-save-refusal]")
     expect(banner).to_contain_text("Verzenden kan nog niet: controleer 2 velden.")
@@ -257,6 +264,7 @@ def test_leaving_with_changes_asks_and_a_good_save_does_not(browser, setup):
     page.fill("#contact_email", "verlater-e2e@example.org")
     page.fill("#phone", "0470000000")
     page.locator('input[name="payment_method"][value="transfer"]').check()
+    laat_de_wacht_passeren(page)
     page.click("[data-form-save]")
     head = page.locator("[data-public-form-page][data-result] h1")
     expect(head).to_have_text("Je inschrijving is ontvangen")

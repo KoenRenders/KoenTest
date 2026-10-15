@@ -552,7 +552,8 @@ def fill_signup(
 
 
 def send_form(page) -> None:
-    """Press the one button of the page's action bar."""
+    """Press the one button of the page's action bar (after the guard's two seconds, #2039)."""
+    laat_de_wacht_passeren(page)
     page.locator("[data-form-save]").click()
 
 
@@ -778,3 +779,25 @@ class Activiteitdetail:
     def foutmeldingen(self):
         """De meldingen die htmx_ux() in de toast-host zet (#649)."""
         return self.page.locator("#toasts [data-fout]")
+
+
+def laat_de_wacht_passeren(page, *, timeout: int = 5000) -> None:
+    """Wait until the public form on this page is old enough for the guard (#2039).
+
+    Every public form that mails an address carries a signed render time and is silently
+    refused when it comes in less than `form_guard.MIN_SECONDS` after it was shown. A person
+    takes longer than that; a test that fills the form with `fill()` does not. This waits for
+    the condition itself — the age of the page's own `form_ts` token against the browser's
+    clock — and not for a sleep, so it costs at most those seconds and not one more.
+    """
+    from app.kernel.form_guard import MIN_SECONDS
+
+    page.wait_for_function(
+        """(minimum) => {
+            const field = document.querySelector('input[name=form_ts]');
+            if (!field) return true;
+            return Date.now() / 1000 - Number(field.value.split('.')[0]) > minimum + 0.3;
+        }""",
+        arg=MIN_SECONDS,
+        timeout=timeout,
+    )

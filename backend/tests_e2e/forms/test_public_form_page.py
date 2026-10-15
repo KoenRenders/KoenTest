@@ -34,7 +34,12 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, pagina_klaar, refusal_shown  # noqa: E402
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    laat_de_wacht_passeren,
+    pagina_klaar,
+    refusal_shown,
+)
 
 #: The guard drops a submission sent within two seconds of the page's load —
 #: silently, with the ordinary thanks (#1297). A person takes longer, because a
@@ -192,6 +197,8 @@ def test_an_empty_required_question_is_named_and_marked(browser, forms):
     first.fill("een antwoord")
     _type(third)
 
+    laat_de_wacht_passeren(page)
+
     page.click("[data-form-save]")
 
     banner = refusal_shown(page)
@@ -211,6 +218,7 @@ def test_an_empty_required_question_is_named_and_marked(browser, forms):
 
     # Answered: the send goes through and the thank-you page takes the form's place.
     refused.locator("input").fill("het ontbrekende antwoord")
+    laat_de_wacht_passeren(page)
     page.click("[data-form-save]")
     head = page.locator("[data-public-form-page][data-result] h1")
     expect(head).to_have_text("Bedankt voor je reactie")
@@ -238,6 +246,7 @@ def test_a_branching_form_shows_the_sections_on_the_path(browser, forms):
     page.get_by_label("B", exact=True).check()
     page.wait_for_function(f"() => JSON.stringify(({shown})()) === '[true,false,true]'")
     _type(_field(page, "Slotvraag").locator("input"))
+    laat_de_wacht_passeren(page)
     page.click("[data-form-save]")
     expect(page.locator("[data-public-form-page][data-result] h1")).to_have_text(
         "Bedankt voor je reactie"
@@ -252,6 +261,7 @@ def test_a_question_on_the_path_is_asked_for(browser, forms):
     page = _open(browser, forms["branching"])
     page.get_by_label("A", exact=True).check()
     _type(_field(page, "Slotvraag").locator("input"))
+    laat_de_wacht_passeren(page)
     page.click("[data-form-save]")
     expect(page.locator("[data-save-refusal]")).to_contain_text("controleer 1 veld")
     expect(_field(page, "Waarom A?").locator("[data-refused-message]")).to_be_visible()
