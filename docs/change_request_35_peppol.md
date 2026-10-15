@@ -1,10 +1,10 @@
 # Change Request 35 — Invoices through Peppol
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 15 October 2026 by the design-documentation CLI, on Koen's dictation (his request to this session, the same day) · build read not yet asked · for v2.18 on Koen's word (not assigned yet: the assignment follows the build read) · **prerequisites:** CR-34 (invoices for the webshop) built, and CR-26 (party model) phase 2, "the buyer", and phase 3, which gives the buyer's identifications (B8 Q7)
+**Status:** shaped on 15 October 2026 by the design-documentation CLI, on Koen's dictation (his request to this session, the same day) · build read not yet asked · for v2.18 on Koen's word (not assigned yet: the assignment follows the build read) · **prerequisites:** CR-34 (invoices for the webshop) built, and CR-26 (party model) phase 2, "the buyer" (B8 Q7); the buyer's endpoint is copied onto the invoice by CR-34, so phase 3 of CR-26 is no prerequisite
 **Tracking issue:** #2010 — the one place where what is open stands; this document is the design, the issue is the status
-**Applies to:** `payment` (the delivery of an invoice, its status, the sending, the screen), the kernel (a port for the Peppol network, with a stub for dev and tests), `mdm` (read: the organisation's identifications), `sales` (the checkout's checks on a company's details), the settings and one secret
-**Reading:** A 1 053 words · B 1 666 · C 1 479 — measured on 15 October 2026, drawings excluded, tables included; budgets A ≤ 1 500, B ≤ 2 500
+**Applies to:** `payment` (the delivery of an invoice, its status, the sending, the screen), a provider interface for the Peppol network with a stub for dev and tests, in `payment`, `mdm` (the check of a company's details, CR-26), the settings and one secret
+**Reading:** A 1 053 words · B 1 790 · C 1 613 — measured on 15 October 2026, drawings excluded, tables included; budgets A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -147,9 +147,9 @@ Koen has no ambition to be an access point; the portal talks to the network thro
 
 The portal writes the invoice as a Peppol file (UBL), checks it before it is issued, sends it through the interface of an access-point provider, and keeps the provider's answers as the status of the invoice. A person only acts on a failure.
 
-- **D1 — A provider's access point behind a port; no access point of our own.** The kernel has a port for the network and the provider is an adapter, with a stub for dev and the browser tests, as for the payment provider. Europe First: an EU provider. Rejected: an access point of our own — membership, certification and audits for a trial (C8).
-- **D2 — Check before issuing, not after.** An invoice is frozen once numbered (CR-34 D2), so what cannot be sent must not be numbered. The checkout checks the company's details; the issue checks the whole file. Rejected: checking at sending — the invoice would already exist with a number and be wrong.
-- **D3 — One automatic send, then only by hand.** Koen wants no automatic correcting or retrying. Rejected: a retry loop.
+- **D1 — A provider's access point behind a provider interface; no access point of our own.** The access point is a provider like the payment provider: an interface, the real adapter, a stub for dev and the browser tests, and a factory from the settings, all in `payment`; it is not a kernel port, which is a synchronous order from one domain to another with one handler. Europe First: an EU provider. Rejected: an access point of our own — membership, certification and audits for a trial (C8).
+- **D2 — Check before issuing, not after.** An invoice is frozen once numbered (CR-34 D2), so what cannot be sent must not be numbered. The company's details are checked where they are entered, under *Mijn organisatie* (CR-26); the issue checks the whole file with a small rule set of our own and no network call (C4.3). Rejected: checking at sending — the invoice would already exist with a number and be wrong.
+- **D3 — One automatic send, then only by hand.** Koen wants no automatic correcting or retrying of a message. The send is a job, so a network failure before the message reached the provider is tried again by the job; a message the provider refused is never tried again. Rejected: a retry loop on rejections.
 - **D4 — A failure that is the network's or the connection's: send the same document again. A failure that is the buyer's data: credit and issue anew.** The second uses CR-34's credit note (F9). Rejected: editing a numbered invoice, even one never delivered (Q3).
 - **D5 — The status is a small append-only history**: one row per attempt, so the invoice shows its last status and the history shows what happened.
 - **D6 — The status call-back is not trusted**: it only names the message; the status is read from the provider, as for the payment webhook.
@@ -161,7 +161,7 @@ The portal writes the invoice as a Peppol file (UBL), checks it before it is iss
 |---|---|---|
 | F1 | The writer produces Peppol BIS Billing 3.0 from an invoice or a credit note | R1 |
 | F2 | The issue of an invoice to a Belgian VAT-liable company runs the file through the rules and refuses with a list of what is wrong | R5 |
-| F3 | The checkout refuses a malformed VAT number or a field over its length, in words | R5 |
+| F3 | A malformed VAT number or a field over its length is refused where the company is entered, under *Mijn organisatie*, in words | R5 |
 | F4 | Sending happens after the outer commit of the issue, once | R1, D3 |
 | F5 | A delivery row per attempt: status, provider message id, error code and text | R2, R3 |
 | F6 | The invoice screen shows the last status and the history; **Opnieuw versturen** is offered on a failed one | R2–R4 |
@@ -196,7 +196,7 @@ flowchart LR
 | R2 | The status on the invoice | F5, F6 | payment | T3 | AC1 |
 | R3 | The error as it is | F5 | payment | T4 | AC2 |
 | R4 | The button | F6 | payment | T5 | AC2 |
-| R5 | The check at issue and at the checkout | F2, F3 | payment, sales | T6, T7 | AC3 |
+| R5 | The check at issue and where the company is entered | F2, F3 | payment, mdm | T6, T7 | AC3 |
 | R6 | The condition on the buyer | F8 | payment | T8 | AC4 |
 | R7 | The lookup | F9 | payment | T9 | AC5 |
 | R8 | The download | F1 | payment | T10 | — |
@@ -212,16 +212,16 @@ flowchart LR
 <!-- figure: name=cr35-structure caption=Green_is_new_orange_is_changed_grey_is_only_used -->
 ```mermaid
 flowchart LR
-  subgraph KER["kernel"]
-    k1["new: PeppolPort"]:::new
+  subgraph KER["payment: providers"]
+    k1["new: provider interface, stub, factory"]:::new
   end
   subgraph PAY["payment"]
     p1["new: UBL writer, rules check, sender, InvoiceDelivery, call-back route, screen part"]:::new
     p2["changed: issue calls the check"]:::chg
     p3["used: Invoice, credit note (CR-34)"]:::use
   end
-  subgraph SAL["sales"]
-    s1["changed: the checkout checks a company's details"]:::chg
+  subgraph SAL["mdm: Mijn organisatie"]
+    s1["changed: Mijn organisatie checks the company's details (CR-26)"]:::chg
   end
   subgraph MDM["mdm"]
     m1["used: OrganizationIdentification"]:::use
@@ -229,8 +229,8 @@ flowchart LR
   subgraph EXT["outside"]
     e1["the provider and the Peppol network"]:::ext
   end
-  s1 -->|api| p1
-  p1 -->|port| k1
+  p1 -->|api| s1
+  p1 --> k1
   k1 -.-> e1
   p1 -->|api| m1
   classDef new fill:#eef7ee,stroke:#005d29
@@ -249,7 +249,7 @@ erDiagram
 
 *New: one table, append-only; the invoice itself is untouched.*
 
-`payment` calls the port; the adapter calls the provider over HTTPS. The send is a post-commit step of the issue, as the invoice mail is. Impact on what exists: CR-34's issue gains one call (the check); the checkout gains checks; one JSON route exists (the call-back), with its caller named in the contract (`test_every_json_route_names_its_caller`); the module list is unchanged. The import and layer gates hold.
+`payment` calls the provider interface; the adapter calls the provider over HTTPS. The send is a job after the issue, as the invoice mail is. Impact on what exists: CR-34's issue gains one call (the check); `mdm` gains the checks of a company's details; one JSON route exists (the call-back), with its caller named in the contract (`test_every_json_route_names_its_caller`); the module list is unchanged. The import and layer gates hold.
 
 ## B3a. Standards the model follows — and where it deviates, on purpose
 
@@ -280,6 +280,8 @@ Standards checked: **UBL 2.1** and **Peppol BIS Billing 3.0** (the file), **EN 1
 | — | Build read, review, HDEV, release steps | 3 |
 | **Total** | | **15** |
 
+Phase 0 (the writer, the check, the stub, landing dark) is about 4 days and needs no provider; the rest depends on the provider.
+
 **Running cost.** At about 50 documents a year: nothing on the two free plans, about 12.50 euro a year at a quarter of a euro per invoice, about 83 euro a year on a monthly plan (C8). Read from the providers' own pages on 15 October 2026; a contract may differ. **Operations.** One secret (the provider's key) in each environment's own file, set by Koen before a deploy; a switch per tenant; the issuing organisation's Peppol identity at the provider. If the provider is down the invoice stays issued with the status *failed* and is sent again by hand.
 
 ## B6. Phasing — shippable phases, and what changes on the failure paths
@@ -307,7 +309,7 @@ If the provider's contract is not there at the release, the change lands **dark*
 | Q4 | The rules check: the provider's validation, or a validator inside the portal? | A validator inside the portal before numbering, so the invoice's transaction holds no network call; the provider's validation at send. The build read checks this | F2, C2 |
 | Q5 | The accountant confirms which buyers fall under the mandate (VAT-liable in Belgium, the exemptions) and which penalties apply | Ask before the build read | R6, F8 |
 | Q6 | Is Koen's second route kept beside this one? | Yes, until this is live; R8 serves it | R8 |
-| Q7 | Which part of CR-26 lets a Belgian company with a VAT number buy in the shop? | CR-26 phase 2, "the buyer": answered with CR-26's decisions, see CR-34 C4.10 | the start of phase 1 |
+| Q7 | Which part of CR-26 lets a Belgian company with a VAT number buy in the shop? | CR-26 phase 2, "the buyer": answered with CR-26's decisions (CR-34 C4.10); the endpoint is a field of the buyer copy | the start of phase 1 |
 | Q8 | The status: a call-back from the provider, or asking now and then? | A call-back that names the message, and a fetch; asking now and then only as a fallback | F7 |
 
 ## B9. Decisions log — dated answers
@@ -327,7 +329,7 @@ Measured on master @ `ff5eeb3a` on 15 October 2026; CR-34 is not built, so what 
 | Concept or claim | Kind | Measurement | Verdict | Consequence |
 |---|---|---|---|---|
 | A provider sits behind an interface with a stub | relies on | `payment/providers/base.py`, `mollie.py`, `stub.py` | holds | the same shape for Peppol |
-| The kernel has a ports mechanism | relies on | `kernel/ports.py`: `Port`, `PortNotHandled`, `PortHandledTwice` | holds | the Peppol port is one more |
+| The kernel port is a synchronous order between domains with one handler | relies on | `kernel/ports.py`: `Port`, `PortNotHandled`, `PortHandledTwice` | holds | not used for the provider, which follows the pattern of `payment/providers` (D1) |
 | A secret is read from settings, not from code | relies on | `payment/providers/mollie.py` (`settings.mollie_api_key`) | holds | the provider's key the same |
 | An organisation's identifications are a list with scheme and country | relies on | `mdm/models.py` `OrganizationIdentification` | holds | the endpoint id is read from it; the scheme list may need one row |
 | The invoice, its credit note and the issue hook exist | relies on | CR-34 B3 and C2 | to be built | a prerequisite |
@@ -335,9 +337,9 @@ Measured on master @ `ff5eeb3a` on 15 October 2026; CR-34 is not built, so what 
 
 ## C2. Per module: what must happen
 
-**kernel.** `PeppolPort` with `send(document) → message id`, `status(message id)`, `lookup(participant)`; stub adapter for dev and tests.
-**payment.** *Code:* `ubl.py` (the writer), `invoice_rules.py` (the check), `peppol_sender.py` (sends after the outer commit, writes a delivery row), `api.py`: `send_invoice`, `resend_invoice`, `delivery_status`; the call-back route and its subscriber. *Database:* `invoice_deliveries(id, invoice_id FK RESTRICT, channel, status code, provider_message_id, error_code, error_text, attempted_at)`, a code list for the status, and `invoice_settings` gains the switch and the participant id; additive. *Screens:* the status badge, the history and the button on the invoice. *Tests:* T1–T10.
-**sales.** The checkout checks a company's VAT number (format and check digits of the Belgian number) and field lengths against the same rules. T7.
+**providers** (in `payment`, as `payment/providers`): `PeppolProvider` with `send(document) → message id`, `status(message id)`, `lookup(participant)`; the real adapter and a stub for dev and tests; a factory from the settings.
+**payment.** *Code:* `ubl.py` (the writer), `invoice_rules.py` (the check), `peppol_sender.py` (a job on `kernel_jobs` after the issue, writes a delivery row), `api.py`: `send_invoice`, `resend_invoice`, `delivery_status`; the call-back route and its subscriber; the route accepts only an id that belongs to a delivery row of its own, otherwise 404, and is rate-limited like the payment webhook, with its caller named in the contract of `payment`. *Database:* `invoice_deliveries(id, invoice_id FK RESTRICT, channel, status code, provider_message_id, error_code, error_text, attempted_at)`, a code list for the status, and `invoice_settings` gains the switch and the participant id; additive. *Screens:* the status badge, the history and the button on the invoice. *Tests:* T1–T10.
+**mdm.** *Mijn organisatie* checks a company's VAT number (format and check digits of the Belgian number) and field lengths against the same rules (CR-26 F7). T7.
 **mdm.** Read only. Reporting: none, no view reads these columns.
 
 ## C3. Cross-cutting impact — the checklist of what gets forgotten
@@ -349,7 +351,7 @@ Measured on master @ `ff5eeb3a` on 15 October 2026; CR-34 is not built, so what 
 | Fixed UI decisions | none |
 | Design-system documentation | the status badge |
 | Code lists | the delivery status |
-| Events, ports, handlers; which gate sees a new call | a new port; the import gate refuses a direct provider import from a screen |
+| Events, ports, handlers; which gate sees a new call | a provider interface in `payment`; the import gate refuses a direct provider import from a screen |
 | Mail templates | none |
 | Migration | additive |
 | Settings, env vars | the switch, the participant id; env: the provider's key |
@@ -363,8 +365,8 @@ Measured on master @ `ff5eeb3a` on 15 October 2026; CR-34 is not built, so what 
 
 **C4.1 Who is sent.** The buyer is an organisation with a Belgian VAT identification, on an invoice or a credit note of a tenant with the switch on. Anything else is not sent and has no delivery row (F8).
 **C4.2 The file.** BIS 3.0 identifiers, the buyer's endpoint id from its enterprise number, the payment means and the structured communication as in CR-34's document; one function, no I/O.
-**C4.3 The check.** Required fields, formats, lengths and the Belgian number's check digits before issue; the rule set of the format (schematron) via the provider or a library (Q4). The failure is a list of what is wrong, in words, with the field named; the same messages serve the checkout.
-**C4.4 Sending and failing.** The send is a step after the outer commit. A network or connection failure writes FAILED with the text; nothing retries. **Opnieuw versturen** writes a new row. A failure caused by the buyer's data offers *Credit and issue anew* (CR-34 F9).
+**C4.3 The check.** Required fields, formats, lengths and the Belgian number's check digits before issue, as a small rule set of our own without a network call (no schematron in Python is promised); the provider's full validation runs at the send, and a refusal on data is *credit and issue anew* (D4). The failure is a list of what is wrong, in words, with the field named; the same messages serve *Mijn organisatie*.
+**C4.4 Sending and failing.** The send is a job (`kernel_jobs`, its own transaction): a connection failure before the provider got the message is tried again with a back-off; a message the provider answered with a failure writes FAILED with the text and nothing retries it. **Opnieuw versturen** writes a new row. A failure caused by the buyer's data offers *Credit and issue anew* (CR-34 F9).
 **C4.5 Status.** The call-back carries a message id; the route fetches the status and writes the row. Asking now and then is the fallback (Q8).
 
 ## C5. Privacy and security — the mechanics behind A7
@@ -381,7 +383,7 @@ The key lives in the environment file of each host and is never logged. The call
 | T4 | A refusal stores the code and the text and shows them | F5 |
 | T5 | Resending writes a new row and sends once | F6 |
 | T6 | An invalid file is refused at issue with the field named, and no number is taken | F2 |
-| T7 | A malformed VAT number and an over-long field are refused at the checkout in words | F3 |
+| T7 | A malformed VAT number and an over-long field are refused under *Mijn organisatie* in words | F3 |
 | T8 | The condition of C4.1 holds for each of its parts | R6 |
 | T9 | A buyer not on the network is stored as not reachable | F9 |
 | T10 | The file validates against the format's rules and the download returns it | F1 |
@@ -406,11 +408,11 @@ Price research on 15 October 2026, read from each provider's own page (not a con
 
 *What it says:* at this volume the choice is not about price but about whether the free plan's API, status and test environment are really there. The first prototype therefore runs the same invoice file through the free plans of Peppyrus and Recommand and, as the fallback, the sandbox of e-invoice.be, and looks at: validation messages, status by callback or by asking, the test network, and what a failed send returns.
 
-*First prototype at the build read:* the file for one real invoice, put through the rules of BIS 3.0 and through the provider's validation, to see which fields fail.
+*Re-read the Peppyrus plans after 1 November 2026, before phase 1 is built.* *First prototype at the build read:* the file for one real invoice, put through the rules of BIS 3.0 and through the provider's validation, to see which fields fail.
 
 ## C9. Screens before the build — the concepts the approver saw
 
-Not made yet. Required, at 390 px with invented data: the invoice with its status and history, the failed state with the button, and the checkout message for a company's details.
+Not made yet. Required, at 390 px with invented data: the invoice with its status and history, the failed state with the button, and the message under *Mijn organisatie* for a company's details.
 
 ## C10. Close-out at the release
 
@@ -430,4 +432,4 @@ An access point of our own; receiving invoices; sending to the Netherlands or el
 
 ## Relationship to existing work — issues and change requests
 
-CR-34 (invoices for the webshop, #2009): the prerequisite, whose issue gains the check; CR-26 (party model): phase 2, "the buyer" (B8 Q7); CR-21 (webshop): the checkout; CR-24 (back-office rights): who sees the status; CR-28 (workbench tasks): a later task for a failed send, not built here.
+CR-33 (attribute register): every new column gets its entry, the deliveries *intern*; CR-34 (invoices for the webshop, #2009): the prerequisite, whose issue gains the check; CR-26 (party model): phase 2, "the buyer" (B8 Q7); CR-21 (webshop): the checkout; CR-24 (back-office rights): who sees the status; CR-28 (workbench tasks): a later task for a failed send, not built here.
