@@ -72,33 +72,25 @@ def test_paginas_htmx_geeft_enkel_de_kaarten(client, db_session):
     assert 'name="q"' not in fragment.text
 
 
-def test_trix_wordt_een_keer_geladen_vanuit_de_schil(client, db_session):
-    """Sinds #634 laadt de editor uit de AdminShell, niet uit de pagina-template.
+def test_de_schil_laadt_geen_trix_meer(client, db_session):
+    """Sinds #634 laadde de editor uit de AdminShell, niet uit de pagina-template
+    (onder hx-boost loopt een tweede uitvoering stuk op
+    `customElements.define('trix-editor')`).
 
-    Voorheen stond `<script src="trix.min.js">` in admin_pagina.html: dat was
-    zuiniger (alleen op het editorscherm), maar onder hx-boost wordt die pagina in
-    #main geswapt en loopt een tweede uitvoering stuk op
-    `customElements.define('trix-editor')`. Nu staat de bibliotheek in de <head>
-    van de schil — één keer per sessie — en houdt de pagina alleen haar eigen
-    configuratie over. Die omkering is bewust; de gate bewaakt de nieuwe regel.
-
-    CR-17 snede 3 (#1671): het PAGINASCHERM draagt geen Trix meer — de
-    document-editor nam haar plaats in; de schil laadt Trix nog altijd voor
-    de schermen die haar tot fase 7 houden (de nieuwsbrief, de notities).
+    CR-17 snede 3 (#1671): het PAGINASCHERM droeg geen Trix meer; CR-17 fase 7
+    (#2023) nam ook de nieuwsbrief en de notities mee, en de schil laadt Trix niet
+    meer. De document-editor reist met haar macro, niet met de schil.
     """
     _login(client)
     p = _pagina(db_session, "Met editor", "met-editor", False)
 
     lijst = client.get("/admin/paginas").text
     editor = client.get(f"/admin/paginas/{p.id}").text
-    # De schil levert de bibliotheek voor de schermen die haar nog dragen,
-    # dus ook de lijst draagt hem — één keer.
-    assert lijst.count("trix.min.js") == 1
-    assert editor.count("trix.min.js") == 1
-    # ...en het paginascherm voegt geen tweede scripttag en geen editor toe:
-    # de document-editor is de enige die er staat.
-    assert "data-document-editor" in editor
-    assert "<trix-editor" not in editor
+    assert "trix" not in lijst.lower().replace("matrix", "")
+    assert "trix" not in editor.lower().replace("matrix", "")
+    # De lijst draagt de editor niet; het paginascherm draagt de document-editor.
+    assert "document-editor.js" not in lijst
+    assert "data-document-editor" in editor and "<trix-editor" not in editor
     assert "Pagina's" in editor  # terugkeerlink van de recordkop
 
 

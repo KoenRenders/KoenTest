@@ -1582,28 +1582,6 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
              x-on:input="groei()" {% endif %}{{ attrs|safe }}>{{ value }}</textarea>
 {%- endmacro %}
 
-{# De opgemaakte-tekst-editor (Trix) — één vorm voor elk scherm dat opgemaakte
-   tekst bewaart (#984). Hij stond als losse markup in de pagina-editor en in de
-   vergadernotities, en de nieuwsbrief zou de derde kopie worden.
-
-   Trix leest de beginwaarde uit het verborgen veld en schrijft elke wijziging er
-   meteen in terug; het formulier verstuurt dus gewoon `name`. De server
-   ontsmet de HTML bij het bewaren (`cms/render.py`) — deze macro belooft niets
-   over veiligheid.
-
-   `toolbar_on_focus` klapt de opmaakbalk in tot je in het veld klikt: voor
-   schermen met veel editors onder elkaar, zoals twintig agendapunten. De CSS
-   daarvoor staat in de beheerschil, naast waar Trix geladen wordt. `attrs` gaat
-   naar de editor zelf (bv. `x-show`), niet naar het verborgen veld. #}
-{% macro rich_text(name, id, value="", input_id=None, placeholder="", cls="",
-                   attrs="", toolbar_on_focus=False) -%}
-{%- set veld = input_id or (id ~ "-input") -%}
-<input type="hidden" id="{{ veld }}" name="{{ name }}" value="{{ value or '' }}">
-<div class="rich-text{% if toolbar_on_focus %} rich-text--balk-bij-focus{% endif %}">
-<trix-editor id="{{ id }}" input="{{ veld }}" class="prose-raak bg-white text-sm rounded-lg border border-line{% if cls %} {{ cls }}{% endif %}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %} {{ attrs|safe }}></trix-editor>
-</div>
-{%- endmacro %}
-
 {# The shell of every dialog the document editor opens (CR-17): the kit's
    dialog, with two differences that are one rule — a dialog of the editor
    leaves the author's place where it was.
@@ -1701,9 +1679,8 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 {%- endmacro %}
 
 {# ── The document editor (CR-17 #1671, slice 2) ────────────────────────────────
-   TipTap beside Trix: `ui.rich_text` (Trix) keeps serving the newsletter and
-   the meeting notes until phase 7; a page gets this editor. No macro with
-   two engines. `blocks` is the set's configuration (the domain provides
+   The one editor of every screen that keeps formatted text: a page, the meeting
+   notes, the newsletter (CR-17 phase 7 took the last two off Trix). `blocks` is the set's configuration (the domain provides
    her) and `value_json` the document, both as JSON in the page; the toolbar
    is built by `document-editor.js` FROM that configuration — no toolbar
    markup or configuration in a domain template (C6 3, gate 14 widened):

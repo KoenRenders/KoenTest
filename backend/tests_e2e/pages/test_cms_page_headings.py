@@ -194,18 +194,3 @@ def test_the_page_editor_offers_kop_subkop_and_kleine_kop_and_saves_what_was_sto
         assert page.errors == [], f"the editor throws: {page.errors}"
     finally:
         page.close()
-
-
-def test_another_editor_keeps_its_own_heading_button(setup):
-    """Only the page editor: the kit's rich text field (the newsletter's and the
-    meeting notes' editor) still has the editor's own heading button."""
-    b, _id, _slug, session = setup
-    page = b.new_page(base_url=BASE, viewport={"width": 1440, "height": 900})
-    try:
-        login_met_sessie(page, session)
-        page.goto("/admin/design-system")
-        pagina_klaar(page)
-        page.wait_for_selector("trix-toolbar", state="attached")
-        assert page.locator('trix-toolbar [data-trix-attribute="heading1"]').count() >= 1
-    finally:
-        page.close()

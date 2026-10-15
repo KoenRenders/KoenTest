@@ -111,49 +111,23 @@
   <script src="{{ statisch('repeating-group.js') }}" defer></script>
   <script src="{{ statisch('record-form.js') }}" defer></script>
   <script src="{{ statisch('form-proposal.js') }}" defer></script>
-  {# Trix WYSIWYG (#520), verhuisd uit admin_pagina.html naar de schil (#634):
-     htmx voert <script>-tags in ingeswapte inhoud uit, en Trix een tweede keer
-     laden faalt op customElements.define('trix-editor'). In de schil laadt het
-     precies één keer per sessie — met hx-boost zelfs goedkoper dan per pagina. #}
-  <link rel="stylesheet" href="{{ statisch('vendor/trix.css') }}">
-  <script src="{{ statisch('vendor/trix.min.js') }}" defer></script>
   {# The document editor (CR-17 #1671, slice 3, B4 — Koen, 7 October 2026,
      option a): TipTap, her chrome and her script load NOWHERE here. They
      travel with the `ui.document_editor` macro — on the pages that carry
      an editor, and only there; a back-office screen without an editor
-     carries none of the editor's bytes (441 KB of JavaScript). The same
-     guard as Trix's above holds inside the macro: `defer` keeps every
-     instance after the first a no-op, and the script's own guard exits on
-     a second run. #}
-  {# Bijlagen in een Trix-editor bestaan hier nergens: er is geen upload-hook, dus
-     een gesleept bestand zou een data-URI worden die de HTML opblaast en toch door
-     de sanitisatie sneuvelt. De knop verbergen en het accepteren blokkeren hoort
-     dus bij Trix zelf en niet bij één scherm — het stond eerst alleen in het
-     pagina-scherm, waardoor de paperclip in de vergadernotities wél verscheen en
-     niets deed (#939). #}
+     carries none of the editor's bytes (441 KB of JavaScript). `defer` keeps
+     every instance after the first a no-op, and the script's own guard exits
+     on a second run. #}
   <style>
-    trix-toolbar .trix-button-group--file-tools { display: none; }
-    /* `ui.rich_text(toolbar_on_focus=True)`: de balk verschijnt pas wanneer je in
-       het veld klikt (#939, sinds #984 voor elk scherm). `focus-within` en niet
-       `:has(trix-editor:focus)`: de linkknop opent een dialoogje ín de balk, en
-       dat neemt de focus over — met de enge regel verdween de balk precies op het
-       moment dat je hem nodig had. */
-    .rich-text--balk-bij-focus trix-toolbar { display: none; }
-    .rich-text--balk-bij-focus:focus-within trix-toolbar { display: block; }
-    /* The same for the page editor's bar (the notes of a meeting: one editor per point). */
-    /* Three classes: the editor's own sheet (loaded later, by the macro) sets the bar and the surface with two. */
+    /* The page editor's bar is folded away until the editor has focus (the notes of a
+       meeting: one editor per point). Three classes: the editor's own sheet, loaded
+       later by the macro, sets the bar and the surface with two. */
     .de-bar-on-focus .document-editor .de-bar { display: none; }
     .de-bar-on-focus:focus-within .document-editor .de-bar { display: flex; }
     .de-bar-on-focus .document-editor .tiptap { min-height: 3rem; }
   </style>
-  <script>
-    if (!window.__raakTrixFilesBlocked) {
-      window.__raakTrixFilesBlocked = true;
-      addEventListener("trix-file-accept", function (e) { e.preventDefault(); });
-    }
-  </script>
-  {# Spraak-in en voorlezen voor Raakje in de backoffice (#917). Zelfde plaats en
-     zelfde redenering als Trix hierboven: in de schil, niet in het scherm. Een
+  {# Spraak-in en voorlezen voor Raakje in de backoffice (#917). In de schil en
+     niet in het scherm: een
      <script> in gebooste inhoud draait bij élke navigatie opnieuw en hangt
      document-listeners op; hier laadt het precies één keer per sessie.
 
@@ -161,8 +135,7 @@
      verkeerde vraag stellen: met hx-boost wordt alleen `#main` vervangen, dus de
      schil van de eerste pagina die je opent bepaalt wat er geladen is. Wie via de
      rapportenlijst naar de assistent boost, zou dan een dode microfoonknop
-     krijgen. Samen ~21 KB, deferred — minder dan Trix, dat hier om dezelfde reden
-     onvoorwaardelijk staat voor één scherm. #}
+     krijgen. Samen ~21 KB, deferred — en het laadt één keer. #}
   <script src="{{ statisch('stt.js') }}"
           data-worklet="{{ statisch('stt-pcm-worklet.js') }}" defer></script>
   <script src="{{ statisch('tts.js') }}" defer></script>
