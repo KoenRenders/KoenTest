@@ -1586,6 +1586,13 @@ The webshop (CR-21 → E25) decided fifteen rows for its `product`, `pricing`,
 for stock movements, `cac:Location`; GTIN and GLN "not now", each as a later
 row. They move to D1 at the close-out of the release that builds them.
 
+The attribute register (CR-33 → E52) decided its shape against **ISO/IEC
+11179-3** (metadata registries): one entry per data element with name and
+definition apart, the value domain a separate object (the code lists of
+CR-12), the representation left on the report object, no registration
+authority; the AI classification (public, plain, tokenised, never) is ours, a
+decision about what a model may receive and not a legal category.
+
 # Part E — Evolutions
 
 This document describes what runs. Everything that is planned, in build or
@@ -1697,6 +1704,7 @@ rejected choices.
 | E49 | BPMN 2.0 as the *execution* model of the workbench and of the end-to-end processes, not only their drawing standard: a process definition is a BPMN document that an engine runs, and the figure of A2 is that definition | today a `WorkflowDefinition` is a flat JSON list of steps (kind, title, role), one definition exists (*Bericht behartigen*), and the end-to-end processes live in code and in people's heads; with BPMN as the definition, the drawing and the running process are one fact, editable in a modeller | to examine, then a change request (Koen, 14 October 2026: "Kan je ook de standaard zoals BPMN voor procesflows/taken/... gebruiken? Ik bedoel echt voor de executie, flow van de werkbank en e2e processen in het systeem.") | open |
 | E50 | DMN as the target for decisions: a decision table (who gets which task, which price applies, when a refund is due) as data an engine evaluates, instead of a query in code | not used today; every such rule is a function in the owning domain (CR-13, *a rule has one home*); DMN would make the table that home for rules of this kind, readable by the board | to examine with E49 (Koen, 14 October 2026: "en DMN voor decisions als target, momenteel nog niet gebruikt, te bekijken of we introduceren") | open |
 | E51 | Sections with a tone and full-bleed bands, a hero as a property of the page, text cards, the value and gallery blocks (CR-17's former phase 5), the activity and album data blocks, the association's home page from blocks, a tenant's favicon and typeface pair; the page stores the heading levels it shows | the concept site of the company tenant iX hosted and edited on the platform, and a home page the board composes | CR-32 (sections, cards, data blocks and a tenant's own look), #2003, v2.17 (Koen, 15 October 2026: "v2.17") | in build, phases 1–3 first |
+| E52 | One attribute register in the kernel, declared per domain like the code lists: per datum one label (a sentence of the translation catalogue), an English name, one line of help and the AI classification in four levels (public, plain, tokenised, never); the kit's fields, the exports, the changes list, the import's check, the mails and the reporting universe read it; the universe keeps no name, description or AI flag of its own; the chatbot's facade applies the classification by key for every surface, with the pattern guard kept for free text | one word per datum everywhere a volunteer reads it (Koen, 7 October 2026: "laten we voor consistente naamgeving gaan"), and an AI boundary that follows the datum into every module that talks to a model (Koen, 15 October 2026: "verhuis naar het gegeven") | CR-33 (the attribute register), #1692; not assigned to a release | shaped, build read to ask |
 
 The *non-goals* of every change request — 141 items in 23 documents on 13
 October 2026 — stay in the document that decided them, one place per fact;
@@ -1717,6 +1725,7 @@ request, the sections touched.
 
 | Release | Change request | Sections touched |
 |---|---|---|
+| — (15 October 2026) | E52: the attribute register, CR-33 shaped | E |
 | — (15 October 2026) | E51: CR-32 on v2.17; E22 follows the move of CR-17's phase 5 | E |
 | — (14 October 2026) | E49 and E50: BPMN as execution model and DMN for decisions, to examine; E40 re-opened | E |
 | — (14 October 2026) | D0: every standard of part D in one sentence, on Koen's question | D |
