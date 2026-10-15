@@ -322,13 +322,24 @@
      draws her, so the author sees the row she is making; her icon is taken
      from the dialog's own choice of icons, the one place the page carries the
      kit's drawings. */
-  var CARD_ATTRS = ["title", "line", "icon", "media_id", "labels", "page_id", "href", "form_slug", "screen"];
+  var CARD_ATTRS = ["title", "number", "text", "line", "icon", "media_id", "labels", "page_id", "href", "form_slug", "screen"];
 
-  function cardView(node, mediaUrl, mountId) {
+  function cardView(node, mediaUrl, mountId, destinations) {
     var a = node.attrs;
     var dom = document.createElement("div");
-    dom.className = "prose-card";
+    /* The kinds come from the schema (`config.cards.destinations`) and an empty
+       value is no destination — the server's one rule (`destinations_set`). */
+    var hasDestination = destinations.some(function (k) {
+      return a[k] !== null && a[k] !== undefined && a[k] !== "";
+    });
+    dom.className = hasDestination ? "prose-card" : "prose-card prose-card--text";
     dom.setAttribute("data-card", "");
+    if (a.number) {
+      var number = document.createElement("span");
+      number.className = "prose-card-number";
+      number.textContent = a.number;
+      dom.appendChild(number);
+    }
     if (a.media_id) {
       var img = document.createElement("img");
       img.className = "prose-card-picture";
@@ -359,6 +370,12 @@
       line.textContent = a.line;
       dom.appendChild(line);
     }
+    if (a.text) {
+      var text = document.createElement("p");
+      text.className = "prose-card-text";
+      text.textContent = a.text;
+      dom.appendChild(text);
+    }
     if (a.labels && a.labels.length) {
       var labels = document.createElement("span");
       labels.className = "prose-card-labels";
@@ -370,6 +387,7 @@
 
   function cardsNodes(RaakTiptap, config, mountId) {
     var mediaUrl = (config.figure && config.figure.mediaUrl) || "";
+    var destinations = (config.cards && config.cards.destinations) || [];
     var cards = RaakTiptap.Node.create({
       name: "cards",
       group: "block",
@@ -436,7 +454,7 @@
       },
       addNodeView: function () {
         return function (props) {
-          return { dom: cardView(props.node, mediaUrl, mountId) };
+          return { dom: cardView(props.node, mediaUrl, mountId, destinations) };
         };
       },
     });
@@ -1124,6 +1142,8 @@
        carried only the new destination kept the old one on the node. */
     var attrs = {
       title: choice.title || "",
+      number: choice.number || null,
+      text: choice.text || null,
       line: choice.line || null,
       icon: choice.top === "icon" ? choice.icon || null : null,
       media_id: choice.top === "picture" ? choice.media_id || null : null,
@@ -1136,7 +1156,8 @@
     if (choice.kind === "page") attrs.page_id = choice.page_id;
     else if (choice.kind === "form") attrs.form_slug = choice.form_slug;
     else if (choice.kind === "screen") attrs.screen = "lid-worden";
-    else attrs.href = choice.href || "";
+    else if (choice.kind === "href") attrs.href = choice.href || "";
+    /* "none": a text card — every destination stays null (CR-32 R4). */
     var pos = choice.pos;
     if (choice.mode === "new" || pos === null || pos === undefined) {
       editor
