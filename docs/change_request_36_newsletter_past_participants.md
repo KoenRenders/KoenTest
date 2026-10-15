@@ -4,7 +4,7 @@
 **Status:** shaped with Koen on 15 October 2026 · not assigned to a release; B8 answered
 **Tracking issue:** #2026 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (audience choice, recipient list, send screen, Raakje's sources), the activities facade (a read of registration addresses), the unsubscribe page
-**Reading:** A 759 words · B 1 942 · C 1 977 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 759 words · B 2 110 · C 1 987 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -184,7 +184,7 @@ flowchart LR
 
 *Where it must refuse or fall back*
 
-9. As the person of step 6, press *Toch opnieuw*. See: a later letter reaches the address again.
+9. As the person of step 6, press *Toch opnieuw*. See: the sentence *Je ontvangt vanaf nu onze nieuwsbrief.* and a later letter reaches the address again.
 10. In a tenant without the activities module, open the audience choice. See: the option is not offered.
 
 ## B3. The whole across the modules — for the architect
@@ -285,6 +285,7 @@ A letter's recipients are always a derived list with one precedence rule and one
 | 15 Oct 2026 | The existing `erase` on an *unsubscribed* row keeps the row with the normalised address and the status, clears the first name and the tokens, and anonymises the deliveries, so the opt-out is not undone | Koen, to my explanation of this repair (C4.4): "akkoord" |
 | 15 Oct 2026 | The unsubscribe link of a participant is signed per delivery, with no token stored (C4.2) | Koen, to "Keur je de getekende uitschrijflink zonder opgeslagen token goed, ja of nee?": "ja, akkoord" |
 | 15 Oct 2026 | No sentence about the newsletter on the registration form and no hint under the audience: out of scope | Koen, to my summary of the open point (the sentence on the registration form and the hint under the audience): "dit is out-of-scope en doen we niet" |
+| 15 Oct 2026 | After *Toch opnieuw* the existing text stays and one sentence is added: *Je ontvangt vanaf nu onze nieuwsbrief.* | Koen, to "Keur je die ene zin op de pagina na *Toch opnieuw* goed, ja of nee?": "ja, akkoord" |
 | 15 Oct 2026 | Erasure of an address from the archives (the right to be forgotten) is not built in this change; see the known gap under Non-goals | Koen, to my question whether erasure by address should be part of this change: "Het recht om vergeten te worden gaan we voorlopig even laten liggen." |
 
 ---
@@ -333,7 +334,7 @@ Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2
 
 **C4.1 Recipient rule.** `recipients_of` builds members, then subscribers, then participants (each `setdefault` on the normalised address), then drops every participant address that has an unsubscribed subscriber row. A member address is never dropped (CR-05 §3.4).
 
-**C4.2 The participant's link and the check at send.** The unsubscribe link of a participant delivery is `/nieuwsbrief/uitschrijven/d/<delivery id>.<signature>`: the delivery row gives the address and the letter. GET shows, POST creates the subscriber row described in B1 (an existing row of that address is set to *unsubscribed* instead; the address is normalised first), one-click POST likewise. *Toch opnieuw* is the existing resubscribe: the person then is a confirmed subscriber with `consented_at` set at that moment, because he asked for it himself, and he receives every subscriber letter from then on, so the page says so (wording: Koen's). A participant who later signs up on the public form takes the existing path: `subscribe()` on an *unsubscribed* row makes it *pending* with source *public_form*, `consented_at` and the confirmation mail; the source *participant* is lost, which is right. `send_batch` has one re-check for every delivery: an *unsubscribed* row exists for the delivery's normalised address, and the delivery is not a member's: skip with "uitgeschreven tijdens het versturen".
+**C4.2 The participant's link and the check at send.** The unsubscribe link of a participant delivery is `/nieuwsbrief/uitschrijven/d/<delivery id>.<signature>`: the delivery row gives the address and the letter. GET shows, POST creates the subscriber row described in B1 (an existing row of that address is set to *unsubscribed* instead; the address is normalised first), one-click POST likewise. *Toch opnieuw* is the existing resubscribe: the person then is a confirmed subscriber with `consented_at` set at that moment, because he asked for it himself, and he receives every subscriber letter from then on, so the page, after the existing text, adds the sentence *Je ontvangt vanaf nu onze nieuwsbrief.* (Koen, B9). A participant who later signs up on the public form takes the existing path: `subscribe()` on an *unsubscribed* row makes it *pending* with source *public_form*, `consented_at` and the confirmation mail; the source *participant* is lost, which is right. `send_batch` has one re-check for every delivery: an *unsubscribed* row exists for the delivery's normalised address, and the delivery is not a member's: skip with "uitgeschreven tijdens het versturen".
 
 **C4.3 One spelling.** `registration_addresses` returns raw addresses; `newsletter` runs each through `normalize_email`, an address it refuses is skipped and counted, and the delivery row stores the normalised form (so (letter, address) stays unique per person).
 
@@ -365,7 +366,7 @@ The registration address is used for a second purpose; Q1 is answered (B9). The 
 | T12 | a mixed-case registration against a lower-case unsubscribed row is not mailed |
 | T13 | an address that fails the check is skipped and counted |
 | T14 | a participant who then signs up on the public form follows the double opt-in and the row takes source *public_form* |
-| T15 | *Toch opnieuw* on such a row makes a confirmed subscriber with `consented_at` set |
+| T15 | *Toch opnieuw* on such a row makes a confirmed subscriber with `consented_at` set, and the page says *Je ontvangt vanaf nu onze nieuwsbrief.* |
 | T16 | the *Uitgeschreven* count grows by one when a participant unsubscribes (a deliberate effect) |
 | T17 | a tenant without the `activities` module is not offered the option |
 | T18 | the archive keeps the activity's name after the activity is soft-deleted |
@@ -392,7 +393,7 @@ Status line, as-built notes folded in, tracking issue closed (`CLAUDE.md` step 1
 | Q&A | Date | Question | Status |
 |---|---|---|---|
 | 08 | 15 Oct 2026 | Q1–Q4 and 4b of B8 asked in Q&A nr. 08; the build read of dev2 (#2026, 15 Oct 2026) is taken in | answered 15 Oct 2026, in B9 |
-| — | 15 Oct 2026 | The architecture review on #2026 (15 Oct 2026): A1 (erase keeps the opt-out), A2 (the meaning of source, the third path), A4 (CR-33 boundary), B1 (a signed link instead of a stored token), B2 (one re-check) and C1–C3 are taken in; A3 (a sentence on the registration form, a hint under the audience) is out of scope (Koen, B9); B3 (the wording of *Toch opnieuw*) is Koen's and is put to him by the architecture CLI | taken in; one point open for Koen |
+| — | 15 Oct 2026 | The architecture review on #2026 (15 Oct 2026): A1 (erase keeps the opt-out), A2 (the meaning of source, the third path), A4 (CR-33 boundary), B1 (a signed link instead of a stored token), B2 (one re-check) and C1–C3 are taken in; A3 (a sentence on the registration form, a hint under the audience) is out of scope (Koen, B9); B3 (the wording after *Toch opnieuw*) is decided by Koen (B9) | taken in; nothing open for Koen |
 | — | 15 Oct 2026 | The second build read of dev1 on #2026 (against 7b of #2023): buildable as written; "unchanged" read from the 7b baseline; the drafting reader and the insert helper change their form; order after 7b | taken in |
 
 ## Non-goals — deliberately outside this change
