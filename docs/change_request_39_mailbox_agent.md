@@ -2,7 +2,7 @@
 
 **Project:** Web Portal "Raak Millegem"
 **Status:** opened with Koen on 15 October 2026 · a study first: Part B is a frame with open questions, Part C is not written · not assigned to a release
-**Tracking issue:** to be opened by the master CLI
+**Tracking issue:** #2031
 **Applies to:** a new idea, *agents* (a periodic job with a purpose); the mail domain (reading a mailbox), the chatbot's provider seam and its guard, the cases of CR-38, the party model of CR-26, the shop (CR-21) and activities as targets
 **Reading:** A 927 words · B 923 · C 418 — measured per part; A ≤ 1 500, B ≤ 2 500
 
