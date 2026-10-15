@@ -887,6 +887,9 @@ body[data-shell="site"]>main{padding-bottom:24px}
    container's full width, outside the prose rules (CR-32 phase 5). */
 .page-data{margin:1rem 0}
 .page-data:last-child{margin-bottom:0}
+/* The album card is ONE card of the photo page, not a banner: as wide as one there
+   (CR-32 R14), left on the container's line. */
+.page-data>[data-photo-card]{max-width:24rem}
 .doc-page .prose-raak>*:not(table):not(.prose-figure--full):not(.prose-columns):not(.prose-cards):not(.prose-section):not(.prose-gallery){max-width:768px}
 /* ── CR-32 (F1–F3, F5): a band that spans the page, with the container put back
    inside it. The band breaks out of `.doc-page` by the width the container
