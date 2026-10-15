@@ -13,7 +13,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         columns=("mdm.addresses.street",),
         label="Straat",
         name_en="Street",
-        help="The street of the address.",
+        help="De straatnaam van dit adres, zonder huisnummer.",
         ai_exposure=AiExposure.NONE,  # K1
     ),
     Attribute(
@@ -21,7 +21,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         columns=("mdm.addresses.house_number",),
         label="Huisnummer",
         name_en="House number",
-        help="The house number of the address.",
+        help="Het huisnummer.",
         ai_exposure=AiExposure.NONE,  # K1
     ),
     Attribute(
@@ -29,7 +29,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         columns=("mdm.addresses.bus_number",),
         label="Bus",
         name_en="Bus number",
-        help="The bus number of the address.",
+        help="Het busnummer, leeg als er geen is.",
         ai_exposure=AiExposure.NONE,  # K1
     ),
     Attribute(
@@ -37,7 +37,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         columns=("mdm.addresses.postal_code_id",),
         label="Postcode",
         name_en="Postal code id",
-        help="The postal code id of the address, a code of its code list.",
+        help="De postcode van een adres, uit de postcodetabel.",
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
@@ -117,7 +117,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         columns=("mdm.member_persons.relation_type",),
         label="Relatie",
         name_en="Relation type",
-        help="The relation type of the member person, a code of its code list.",
+        help="Hoofdlid, partner of (meerderjarig) kind binnen het gezin.",
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
@@ -261,7 +261,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         columns=("mdm.persons.gender_code",),
         label="Geslacht",
         name_en="Gender code",
-        help="The gender code of the person, a code of its code list.",
+        help="Het geslacht van een persoon.",
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
 )
@@ -317,6 +317,35 @@ ADDRESS_LINE = Attribute(
     ),
     label="Adres",
     name_en="Address",
-    help="The address on one line: street, house number, box and postal code.",
+    help="Straat, huisnummer en bus op één lijn.",
     ai_exposure=AiExposure.NONE,  # K1
+)
+
+
+# The data the reporting universe stands on that no single stored column is (CR-33 phase 1).
+UNIVERSE_ENTRIES: tuple[Attribute, ...] = (
+    Attribute(
+        key="mdm.member.created_at",
+        columns=("mdm.members.created_at",),
+        label="Aanmaakdatum gezin",
+        name_en="Created at",
+        help="Wanneer het gezin in de administratie kwam.",
+        ai_exposure=AiExposure.INTERNAL,
+    ),
+    Attribute(
+        key="mdm.address.municipality",
+        columns=("mdm.addresses.postal_code_id",),
+        label="Gemeente",
+        name_en="Municipality",
+        help="De gemeente van een adres, uit de postcodetabel.",
+        ai_exposure=AiExposure.INTERNAL,
+    ),
+    Attribute(
+        key="mdm.member.id",
+        columns=("mdm.members.id",),
+        label="Gezin",
+        name_en="Id",
+        help="Het gezin zelf.",
+        ai_exposure=AiExposure.INTERNAL,
+    ),
 )

@@ -11,9 +11,9 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="membership.membership.year",
         columns=("membership.memberships.year",),
-        label=None,
+        label="Lidmaatschapsjaar",
         name_en="Year",
-        help="The year of the membership.",
+        help="Het jaar waarover een lidmaatschap gaat.",
         ai_exposure=AiExposure.INTERNAL,  # K8
     ),
     Attribute(

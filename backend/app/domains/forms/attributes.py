@@ -11,9 +11,9 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="forms.form.title",
         columns=("form.forms.title",),
-        label=None,
+        label="Formulier",
         name_en="Title",
-        help="The title of the form.",
+        help="Naam van het formulier.",
         ai_exposure=AiExposure.INTERNAL,  # K9
     ),
     Attribute(
@@ -43,9 +43,9 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="forms.form.status",
         columns=("form.forms.status",),
-        label=None,
+        label="Status van het formulier",
         name_en="Status",
-        help="The status of the form, a code of its code list.",
+        help="Waar het formulier staat: concept, gepubliceerd of gesloten.",
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
@@ -91,9 +91,9 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="forms.form.is_anonymous",
         columns=("form.forms.is_anonymous",),
-        label=None,
+        label="Anoniem formulier",
         name_en="Is anonymous",
-        help="The is anonymous of the form.",
+        help="Of het formulier anoniem ingevuld wordt.",
         ai_exposure=AiExposure.INTERNAL,  # K8
     ),
     Attribute(
@@ -275,9 +275,9 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="forms.form_submission.submitted_at",
         columns=("form.form_submissions.submitted_at",),
-        label=None,
+        label="Inzenddatum",
         name_en="Submitted at",
-        help="The submitted at of the form submission.",
+        help="Wanneer het formulier ingevuld is.",
         ai_exposure=AiExposure.INTERNAL,  # K8
     ),
     Attribute(
@@ -335,5 +335,18 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         name_en="Value rating",
         help="The value rating of the form submission answer.",
         ai_exposure=AiExposure.INTERNAL,  # K8
+    ),
+)
+
+
+# The data the reporting universe stands on that no single stored column is (CR-33 phase 1).
+UNIVERSE_ENTRIES: tuple[Attribute, ...] = (
+    Attribute(
+        key="forms.form.created_at",
+        columns=("form.forms.created_at",),
+        label="Aanmaakdatum formulier",
+        name_en="Created at",
+        help="Wanneer het formulier aangemaakt is.",
+        ai_exposure=AiExposure.INTERNAL,
     ),
 )

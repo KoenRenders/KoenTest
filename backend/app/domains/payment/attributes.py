@@ -75,9 +75,9 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="payment.payment_record.payable_type",
         columns=("payment.payment_records.payable_type",),
-        label=None,
+        label="Soort",
         name_en="Payable type",
-        help="The payable type of the payment record.",
+        help="Waarvoor betaald wordt: lidgeld of een activiteit.",
         ai_exposure=AiExposure.INTERNAL,  # K9
     ),
     Attribute(
@@ -91,65 +91,86 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="payment.payment_record.amount",
         columns=("payment.payment_records.amount",),
-        label=None,
+        label="Bedrag",
         name_en="Amount",
-        help="The amount of the payment record.",
+        help="Het bedrag van deze ene regel. Een terugbetaling is negatief.",
         ai_exposure=AiExposure.INTERNAL,  # K8
     ),
     Attribute(
         key="payment.payment_record.method",
         columns=("payment.payment_records.method",),
-        label=None,
+        label="Betaalwijze",
         name_en="Method",
-        help="The method of the payment record.",
+        help="Hoe er betaald werd of moet worden: online, overschrijving of cash.",
         ai_exposure=AiExposure.INTERNAL,  # K9
     ),
     Attribute(
         key="payment.payment_record.status",
         columns=("payment.payment_records.status",),
-        label=None,
+        label="Status",
         name_en="Status",
-        help="The status of the payment record.",
+        help="Waar deze betaling staat: in afwachting, betaald, mislukt of geannuleerd.",
         ai_exposure=AiExposure.INTERNAL,  # K9
     ),
     Attribute(
         key="payment.payment_record.type",
         columns=("payment.payment_records.type",),
-        label=None,
+        label="Type",
         name_en="Type",
-        help="The type of the payment record.",
+        help="Of deze regel een vordering is of een terugbetaling.",
         ai_exposure=AiExposure.INTERNAL,  # K9
     ),
     Attribute(
         key="payment.payment_record.amount_paid",
         columns=("payment.payment_records.amount_paid",),
-        label=None,
+        label="Betaald bedrag",
         name_en="Amount paid",
-        help="The amount paid of the payment record.",
+        help="Wat er op deze regel ontvangen is.",
         ai_exposure=AiExposure.INTERNAL,  # K8
     ),
     Attribute(
         key="payment.payment_record.note",
         columns=("payment.payment_records.note",),
-        label=None,
+        label="Notitie",
         name_en="Note",
-        help="The note of the payment record.",
+        help="Wat de penningmeester erbij schreef.",
         ai_exposure=AiExposure.NONE,  # K3
     ),
     Attribute(
         key="payment.payment_record.structured_communication",
         columns=("payment.payment_records.structured_communication",),
-        label=None,
+        label="Mededeling (OGM)",
         name_en="Structured communication",
-        help="The structured communication of the payment record.",
+        help="De gestructureerde mededeling op een overschrijving.",
         ai_exposure=AiExposure.NONE,  # K1
     ),
     Attribute(
         key="payment.payment_record.paid_at",
         columns=("payment.payment_records.paid_at",),
-        label=None,
+        label="Betaaldatum",
         name_en="Paid at",
-        help="The paid at of the payment record.",
+        help="Wanneer er betaald is — iets anders dan wanneer de vordering gemaakt werd.",
         ai_exposure=AiExposure.INTERNAL,  # K8
+    ),
+)
+
+
+# The data the reporting universe stands on that no single stored column is (CR-33 phase 1).
+UNIVERSE_ENTRIES: tuple[Attribute, ...] = (
+    Attribute(
+        key="payment.payment_record.created_at",
+        columns=("payment.payment_records.created_at",),
+        label="Aanmaakdatum",
+        name_en="Created at",
+        help="Wanneer de vordering aangemaakt is — iets anders dan wanneer er betaald is.",
+        ai_exposure=AiExposure.INTERNAL,
+    ),
+    Attribute(
+        key="payment.payment_record.id",
+        columns=("payment.payment_records.id",),
+        label="Betaling",
+        name_en="Id",
+        help="Het betaalrecord zelf.",
+        ai_exposure=AiExposure.INTERNAL,
     ),
 )

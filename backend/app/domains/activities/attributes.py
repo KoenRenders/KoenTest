@@ -11,9 +11,9 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.activity.name",
         columns=("activities.activities.name",),
-        label=None,
+        label="Activiteit",
         name_en="Name",
-        help="The name of the activity.",
+        help="Naam van de activiteit.",
         ai_exposure=AiExposure.PUBLIC,  # K5
     ),
     Attribute(
@@ -27,17 +27,17 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.activity.location",
         columns=("activities.activities.location",),
-        label=None,
+        label="Locatie",
         name_en="Location",
-        help="The location of the activity.",
+        help="Waar de activiteit doorgaat, zoals ingevuld bij de activiteit — vrije tekst, dus geen adres en niet genormaliseerd.",
         ai_exposure=AiExposure.PUBLIC,  # K5
     ),
     Attribute(
         key="activities.activity.description",
         columns=("activities.activities.description",),
-        label=None,
+        label="Omschrijving",
         name_en="Description",
-        help="The description of the activity.",
+        help="De omschrijving die het bestuur bij de activiteit schreef — dezelfde zinnen die op de website en in de nieuwsbrief staan.",
         ai_exposure=AiExposure.PUBLIC,  # K5
     ),
     Attribute(
@@ -51,41 +51,41 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.activity.is_cancelled",
         columns=("activities.activities.is_cancelled",),
-        label=None,
+        label="Geannuleerd",
         name_en="Is cancelled",
-        help="The is cancelled of the activity.",
+        help="Of de activiteit geannuleerd werd.",
         ai_exposure=AiExposure.INTERNAL,  # K8
     ),
     Attribute(
         key="activities.activity.members_only",
         columns=("activities.activities.members_only",),
-        label=None,
+        label="Enkel voor leden",
         name_en="Members only",
-        help="The members only of the activity.",
+        help="Of enkel leden zich mochten inschrijven op deze activiteit.",
         ai_exposure=AiExposure.PUBLIC,  # K5
     ),
     Attribute(
         key="activities.activity.board_notes",
         columns=("activities.activities.board_notes",),
-        label=None,
+        label="Notities bestuur",
         name_en="Board notes",
-        help="The board notes of the activity.",
+        help="De interne nota bij de activiteit: afspraken, contacten, wat iemand zichzelf wilde herinneren.",
         ai_exposure=AiExposure.INTERNAL,  # K7
     ),
     Attribute(
         key="activities.activity.status",
         columns=("activities.activities.status",),
-        label=None,
+        label="Publicatiestatus",
         name_en="Status",
-        help="The status of the activity, a code of its code list.",
+        help="Concept of Gepubliceerd.",
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
         key="activities.activity.target_audience",
         columns=("activities.activities.target_audience",),
-        label=None,
+        label="Doelpubliek",
         name_en="Target audience",
-        help="The target audience of the activity, a code of its code list.",
+        help="Voor wie de activiteit bedoeld is — Gezinnen, Volwassenen, Mannen, Vrouwen, Tieners of Kinderen.",
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
@@ -99,25 +99,25 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.activity_date.start_date",
         columns=("activities.activity_dates.start_date",),
-        label=None,
+        label="Startdatum",
         name_en="Start date",
-        help="The start date of the activity date.",
+        help="De eerste dag van de activiteit.",
         ai_exposure=AiExposure.PUBLIC,  # K5
     ),
     Attribute(
         key="activities.activity_date.end_date",
         columns=("activities.activity_dates.end_date",),
-        label=None,
+        label="Einddatum",
         name_en="End date",
-        help="The end date of the activity date.",
+        help="De laatste dag van de activiteit, of de startdag als er maar één is.",
         ai_exposure=AiExposure.PUBLIC,  # K5
     ),
     Attribute(
         key="activities.activity_date.start_time",
         columns=("activities.activity_dates.start_time",),
-        label=None,
+        label="Aanvangsuur",
         name_en="Start time",
-        help="The start time of the activity date.",
+        help="Het uur waarop de activiteit die dag begint, als 19:30. Leeg als er geen uur is ingevuld.",
         ai_exposure=AiExposure.PUBLIC,  # K5
     ),
     Attribute(
@@ -187,9 +187,9 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.activity_product.name",
         columns=("activities.activity_products.name",),
-        label=None,
+        label="Product",
         name_en="Name",
-        help="The name of the activity product.",
+        help="Het gekozen product.",
         ai_exposure=AiExposure.PUBLIC,  # K5
     ),
     Attribute(
@@ -251,9 +251,9 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.activity_sub_registration.name",
         columns=("activities.activity_sub_registrations.name",),
-        label=None,
+        label="Onderdeel",
         name_en="Name",
-        help="The name of the activity sub registration.",
+        help="Het onderdeel van de activiteit waarop ingeschreven werd — een activiteit kan er meerdere hebben, elk met een eigen prijs en capaciteit.",
         ai_exposure=AiExposure.TOKENISED,  # K2
     ),
     Attribute(
@@ -363,17 +363,17 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.registration.registered_at",
         columns=("activities.registrations.registered_at",),
-        label=None,
+        label="Inschrijfdatum",
         name_en="Registered at",
-        help="The registered at of the registration.",
+        help="Wanneer er ingeschreven is.",
         ai_exposure=AiExposure.INTERNAL,  # K8
     ),
     Attribute(
         key="activities.registration.registration_type",
         columns=("activities.registrations.registration_type",),
-        label=None,
+        label="Inschrijfvorm",
         name_en="Registration type",
-        help="The registration type of the registration, a code of its code list.",
+        help="Of er individueel of als gezin ingeschreven werd.",
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
@@ -447,5 +447,18 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         name_en="Quantity",
         help="The quantity of the registration item.",
         ai_exposure=AiExposure.INTERNAL,  # K8
+    ),
+)
+
+
+# The data the reporting universe stands on that no single stored column is (CR-33 phase 1).
+UNIVERSE_ENTRIES: tuple[Attribute, ...] = (
+    Attribute(
+        key="activities.activity.id",
+        columns=("activities.activities.id",),
+        label="Activiteitnummer",
+        name_en="Id",
+        help="Het technische nummer van de activiteit.",
+        ai_exposure=AiExposure.INTERNAL,
     ),
 )

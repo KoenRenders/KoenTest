@@ -67,9 +67,9 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="workflow.workflow_task.kind",
         columns=("workflow.workflow_tasks.kind",),
-        label=None,
+        label="Soort",
         name_en="Kind",
-        help="The kind of the workflow task, a code of its code list.",
+        help="Wat voor taak het is: een terugbetaling bevestigen, een mislukte e-mail, een webhook die afwijkt, een mislukte achtergrondtaak.",
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
@@ -99,17 +99,17 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="workflow.workflow_task.status",
         columns=("workflow.workflow_tasks.status",),
-        label=None,
+        label="Status",
         name_en="Status",
-        help="The status of the workflow task, a code of its code list.",
+        help="Of de taak open staat of afgehandeld is.",
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
         key="workflow.workflow_task.required_role",
         columns=("workflow.workflow_tasks.required_role",),
-        label=None,
+        label="Voor welke rol",
         name_en="Required role",
-        help="The required role of the workflow task, a code of its code list.",
+        help="De rol die deze taak hoort op te pakken — wie ze toegewezen krijgt, niet wie ze afhandelde.",
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
@@ -123,17 +123,30 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="workflow.workflow_task.done_at",
         columns=("workflow.workflow_tasks.done_at",),
-        label=None,
+        label="Afhandeldatum",
         name_en="Done at",
-        help="The done at of the workflow task.",
+        help="Wanneer de taak afgesloten is. Leeg zolang ze open staat.",
         ai_exposure=AiExposure.INTERNAL,  # K8
     ),
     Attribute(
         key="workflow.workflow_task.done_by",
         columns=("workflow.workflow_tasks.done_by",),
-        label=None,
+        label="Afgehandeld door",
         name_en="Done by",
-        help="The done by of the workflow task.",
+        help="Het e-mailadres van wie de taak afsloot. Groepeerbaar: dat is de vraag 'hoeveel heeft ieder van ons afgewerkt'.",
         ai_exposure=AiExposure.NONE,  # K1
+    ),
+)
+
+
+# The data the reporting universe stands on that no single stored column is (CR-33 phase 1).
+UNIVERSE_ENTRIES: tuple[Attribute, ...] = (
+    Attribute(
+        key="workflow.workflow_task.created_at",
+        columns=("workflow.workflow_tasks.created_at",),
+        label="Aanmaakdatum taak",
+        name_en="Created at",
+        help="Wanneer de taak ontstond.",
+        ai_exposure=AiExposure.INTERNAL,
     ),
 )
