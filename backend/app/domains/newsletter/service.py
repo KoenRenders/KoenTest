@@ -14,7 +14,7 @@ import secrets
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -39,6 +39,9 @@ from app.kernel.codes import code_of
 from app.kernel.contracts.media import StoreFile
 from app.kernel.copying import CopyPlan
 from app.kernel.ports import call
+
+if TYPE_CHECKING:
+    from app.domains.activities.api import ActivitySpan
 
 logger = logging.getLogger(__name__)
 
@@ -627,7 +630,7 @@ def chosen_activities(db: Session, letter: Newsletter) -> list[AudienceActivity]
     )
 
 
-def _offered_spans(db: Session, today: Optional[date] = None) -> dict[int, "object"]:
+def _offered_spans(db: Session, today: Optional[date] = None) -> "dict[int, ActivitySpan]":
     from app.domains.activities.api import past_activities
 
     today = today or date.today()
