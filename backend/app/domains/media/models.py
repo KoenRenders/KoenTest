@@ -36,6 +36,7 @@ class MediaKind(CodeEnum):
     ACTIVITY_POSTER = "activity_poster"
     COMPONENT_INFO = "component_info"
     TENANT_LOGO = "tenant_logo"
+    SITE_ICON = "site_icon"
     NEWSLETTER_FILE = "newsletter_file"
     DESIGN_IMAGE = "design_image"
     DESIGN_RENDER = "design_render"
