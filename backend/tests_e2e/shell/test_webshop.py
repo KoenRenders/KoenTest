@@ -23,7 +23,7 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import htmx_afgerond, login_met_sessie  # noqa: E402
+from tests_e2e.schermen import htmx_afgerond, login_met_sessie, refusal_shown  # noqa: E402
 
 WEBSHOP_HOST = "http://webshop.localhost:8000"
 
@@ -333,7 +333,7 @@ def test_elke_weigering_van_de_record_opslag(webshop_page):
     page.locator('input[name="name"]').fill("")
     with htmx_afgerond(page):
         page.locator("[data-form-save]").click()
-    banner.wait_for(state="visible")
+    refusal_shown(page)
     assert page.locator("h1").count() == 1
     assert "Geef het artikel een naam." in banner.inner_text()
 
@@ -342,7 +342,7 @@ def test_elke_weigering_van_de_record_opslag(webshop_page):
     page.locator("[data-group-row]").first.locator('input[name^="v."]').fill("")
     with htmx_afgerond(page):
         page.locator("[data-form-save]").click()
-    banner.wait_for(state="visible")
+    refusal_shown(page)
     assert page.locator("h1").count() == 1
     assert "Geef de maat een naam." in banner.inner_text()
     assert page.locator('input[name="name"]').input_value() == "Webshop T-shirt"
@@ -355,7 +355,7 @@ def test_elke_weigering_van_de_record_opslag(webshop_page):
     rows.last.locator('input[name^="v."]').fill(eerste)
     with htmx_afgerond(page):
         page.locator("[data-form-save]").click()
-    banner.wait_for(state="visible")
+    refusal_shown(page)
     assert page.locator("h1").count() == 1
     assert "Deze maat bestaat al." in banner.inner_text()
     assert page.locator("[data-group-row]").count() == 2
@@ -370,7 +370,7 @@ def test_elke_weigering_van_de_record_opslag(webshop_page):
     row.locator('[data-row-action="remove"]').click()
     with htmx_afgerond(page):
         page.locator("[data-form-save]").click()
-    banner.wait_for(state="visible")
+    refusal_shown(page)
     assert page.locator("h1").count() == 1
     assert f"Maat {size_name} heeft voorraadbewegingen" in banner.inner_text()
     assert page.locator("[data-group-row]").count() == count_before
