@@ -111,8 +111,20 @@ def _record_ctx(
     # tenant without her is not offered the choice (review A3).
     from app.domains.forms.api import form_button_choices
     from app.domains.mdm.api import module_enabled
+
+    # The albums a gallery block may show (CR-32 R20): the photo page's own list.
+    from app.domains.media.api import list_albums
     from app.kernel.modules import ModuleCode
 
+    gallery_albums = [
+        (
+            album.id,
+            f"{album.name} ({(album.sort_date or album.dates[0].start_date).year})"
+            if (album.sort_date or album.dates)
+            else album.name,
+        )
+        for album in list_albums(db)
+    ]
     button_pages = [(p.id, p.title) for p in list_pages(db) if serves_at_address(p)]
     button_forms = form_button_choices(db)
     button_lid_worden = module_enabled(ModuleCode.MEMBERSHIP)
@@ -140,7 +152,7 @@ def _record_ctx(
         "document_json": (
             document if document is not None else _json.dumps(editable_document(db, page))
         ),
-        "editor_config": schema.schema_for("page"),
+        "editor_config": schema.schema_for("page", albums=gallery_albums),
         "button_pages": button_pages,
         "button_forms": button_forms,
         "button_lid_worden": button_lid_worden,

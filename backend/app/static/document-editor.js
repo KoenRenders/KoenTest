@@ -166,6 +166,74 @@
     return [columns, column];
   }
 
+  /* The gallery of CR-32 (R20): a block that holds one album's id and nothing
+     else — the author chooses the album in the dialog of the macro, the photos
+     are the media module's and the page shows them at render time. An atom, like
+     the button and the card; the editor draws a labelled box, not the photos. */
+  function galleryNode(RaakTiptap, config) {
+    var labels = {};
+    ((config.gallery && config.gallery.albums) || []).forEach(function (a) { labels[a.id] = a.label; });
+    return RaakTiptap.Node.create({
+      name: "gallery",
+      group: "block",
+      atom: true,
+      addAttributes: function () {
+        return { activity_id: { default: null } };
+      },
+      parseHTML: function () {
+        return [{ tag: "div[data-gallery]", getAttrs: function (el) { return { activity_id: Number(el.getAttribute("data-gallery")) }; } }];
+      },
+      renderHTML: function (props) {
+        return ["div", { "data-gallery": props.node.attrs.activity_id, class: "de-gallery" }, labels[props.node.attrs.activity_id] || ""];
+      },
+      addNodeView: function () {
+        return function (props) {
+          var dom = document.createElement("div");
+          dom.className = "de-gallery";
+          dom.setAttribute("data-gallery", props.node.attrs.activity_id);
+          dom.textContent = (config.toolbar.insert.filter(function (i) { return i.id === "gallery"; })[0] || {}).label + ": " +
+            (labels[props.node.attrs.activity_id] || "#" + props.node.attrs.activity_id);
+          return { dom: dom };
+        };
+      },
+    });
+  }
+
+  /* The value of CR-32 (R19): an inline atom holding a code of the closed list.
+     The editor shows a chip with the value it has now (read at edit time, the
+     configuration carries it) and the page renders it from the settings. */
+  function valueNode(RaakTiptap, config) {
+    var known = {};
+    (config.values || []).forEach(function (v) { known[v.code] = v; });
+    return RaakTiptap.Node.create({
+      name: "value",
+      group: "inline",
+      inline: true,
+      atom: true,
+      addAttributes: function () {
+        return { code: { default: "" } };
+      },
+      parseHTML: function () {
+        return [{ tag: "span[data-value]", getAttrs: function (el) { return { code: el.getAttribute("data-value") }; } }];
+      },
+      renderHTML: function (props) {
+        var v = known[props.node.attrs.code] || {};
+        return ["span", { "data-value": props.node.attrs.code, class: "prose-value" }, v.value || props.node.attrs.code];
+      },
+      addNodeView: function () {
+        return function (props) {
+          var v = known[props.node.attrs.code] || {};
+          var dom = document.createElement("span");
+          dom.className = "prose-value";
+          dom.setAttribute("data-value", props.node.attrs.code);
+          dom.title = v.label || "";
+          dom.textContent = v.value || props.node.attrs.code;
+          return { dom: dom };
+        };
+      },
+    });
+  }
+
   /* The section of CR-32 (F1–F3): a band of the page — blocks on a tone, with a
      small line above them. It stands at the document's root and nowhere else
      (the server's schema, F2a), so the document's own content expression is
@@ -732,7 +800,8 @@
         item.id === "button" ||
         item.id === "callout" ||
         item.id === "cards" ||
-        item.id === "section"
+        item.id === "section" ||
+        (item.id === "gallery" && !!config.gallery)
       );
     });
     if (insertable.length) {
@@ -770,6 +839,10 @@
             }).run();
           } else if (item.id === "callout") {
             editor.chain().focus().insertContent({ type: "callout" }).run();
+          } else if (item.id === "gallery") {
+            /* The album is chosen in the dialog of the macro; the block lands
+               with it (the server refuses an activity that is no album). */
+            announce("raak-gallery-choose", { editor: editorId });
           } else if (item.id === "section") {
             /* The blocks she has selected become the section; where that is
                not possible (inside a column, a cell, another section) a new
@@ -1199,12 +1272,25 @@
     return /\s/.test(address) ? "space" : "";
   };
 
-  /* A code is text: it lands at the cursor as the characters an author
-     would type, and nothing in the document says it was chosen. */
+  document.addEventListener("raak-gallery-chosen", function (event) {
+    var editor = editors[event.detail.editor];
+    if (!editor || editor.isDestroyed || !event.detail.activity_id) return;
+    editor
+      .chain()
+      .focus()
+      .insertContent({ type: "gallery", attrs: { activity_id: event.detail.activity_id } })
+      .run();
+  });
+
+  /* A code is a VALUE node (CR-32 R19): the closed list's value, shown as a
+     chip with what it is now and rendered from the settings. The menu hands
+     the code with its braces, as the card shows it; the node holds the bare
+     code. */
   document.addEventListener("raak-code-chosen", function (event) {
     var editor = editors[event.detail.editor];
     if (!editor || editor.isDestroyed || !event.detail.code) return;
-    editor.chain().focus().insertContent({ type: "text", text: event.detail.code }).run();
+    var code = String(event.detail.code).replace(/[{}]/g, "");
+    editor.chain().focus().insertContent({ type: "value", attrs: { code: code } }).run();
   });
 
   document.addEventListener("raak-link-save", function (event) {
@@ -1289,6 +1375,12 @@
     }
     if ((config.insert || []).indexOf("cards") !== -1) {
       extensions = extensions.concat(cardsNodes(RaakTiptap, config, mount.id));
+    }
+    if ((config.insert || []).indexOf("value") !== -1) {
+      extensions.push(valueNode(RaakTiptap, config));
+    }
+    if ((config.insert || []).indexOf("gallery") !== -1 && config.gallery) {
+      extensions.push(galleryNode(RaakTiptap, config));
     }
 
     var editor = new RaakTiptap.Editor({

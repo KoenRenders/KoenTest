@@ -1732,15 +1732,16 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
      data-document-editor data-input="{{ editor_id }}-input"{% if codes %} data-codes-label="{{ _('Code') }}"{% endif %}
      data-config='{{ blocks|tojson }}'></div>
 {% if codes %}
-{# The codes (CR-17; Koen, 12 October 2026): the insert menu's item "Code"
-   opens this list — the caller's own, `[{code, label}]`. A choice puts the
-   code at the cursor as plain text, exactly what an author types; the
-   renderer replaces it as it always did. No node, no chip: the value shown
-   in the editor is a later change request's. #}
+{# The codes (CR-17; Koen, 12 October 2026; CR-32 R19): the insert menu's item
+   "Code" opens this list — the caller's own, `[{code, label}]`, the closed list
+   of values. A choice puts a VALUE NODE at the cursor, shown in the editor as a
+   chip with the value it has now; the page shows that value. The one way in:
+   the text path is gone (a code typed by hand still works, the renderer
+   replaces it). #}
 <div x-data="{ codes: false }"
      @raak-code-choose.window="if ($event.detail.editor === '{{ editor_id }}') codes = true">
   {% call _editor_dialog("codes", _("Code"), editor_id, max_w="max-w-lg") %}
-  <p class="text-sm text-gray-600 mb-3">{{ _("Kies een code. Ze komt als tekst in het document; op de pagina staat op die plaats de waarde.") }}</p>
+  <p class="text-sm text-gray-600 mb-3">{{ _("Kies een waarde. Ze staat als blok in de tekst, met de waarde van nu; wijzig je de instelling, dan verandert de pagina mee.") }}</p>
   <ul class="space-y-1" data-code-choices>
     {% for c in codes %}
     <li><button type="button" data-code="{{ c.code }}"
@@ -1751,6 +1752,28 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     {% endfor %}
   </ul>
   <div class="mt-4 flex justify-end">{{ btn_secondary(_("Annuleren"), attrs='@click="codes = false"') }}</div>
+  {% endcall %}
+</div>
+{% endif %}
+{% if blocks.gallery %}
+{# The gallery's dialog (CR-32 R20): one album of the photo page, chosen from the
+   caller's own list (`blocks.gallery.albums`). The block holds the album's id;
+   the photos are the media module's, shown at render time. To change the album,
+   remove the block and insert another. #}
+<div x-data="{ gallery: false, gAlbum: {{ blocks.gallery.albums[0].id }} }"
+     @raak-gallery-choose.window="if ($event.detail.editor === '{{ editor_id }}') gallery = true"
+     @raak-gallery-apply.window="if (gallery) { $dispatch('raak-gallery-chosen', { editor: '{{ editor_id }}', activity_id: Number(gAlbum) }); gallery = false }">
+  {% call _editor_dialog("gallery", _("Galerij"), editor_id, max_w="max-w-lg") %}
+  {{ label(blocks.gallery.albumLabel, editor_id ~ "-gallery-album") }}
+  <select id="{{ editor_id }}-gallery-album" class="w-full border border-gray-300 rounded-lg px-3 py-2" x-model="gAlbum" data-gallery-album>
+    {% for album in blocks.gallery.albums %}
+    <option value="{{ album.id }}">{{ album.label }}</option>
+    {% endfor %}
+  </select>
+  <div class="mt-4 flex justify-end gap-2">
+    {{ btn_secondary(_("Annuleren"), attrs='@click="gallery = false"') }}
+    {{ btn_primary(_("Invoegen"), type="button", attrs='@click="$dispatch(\'raak-gallery-apply\')" data-gallery-apply') }}
+  </div>
   {% endcall %}
 </div>
 {% endif %}
