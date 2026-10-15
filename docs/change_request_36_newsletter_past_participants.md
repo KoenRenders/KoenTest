@@ -65,7 +65,7 @@ flowchart LR
 *What to see:* the three by-hand steps are gone; the letter keeps its queue, archive and unsubscribe link.
 
 What it says on the screen (Dutch):
-- audience choice, a fourth option, working title **Ingeschreven op eerdere activiteiten** (the word is Q5)
+- audience choice, a fourth option: **Eerdere deelnemers**
 - under it a list: **Kies één of meer activiteiten**, past activities newest first, each with its date and the number of addresses
 - the send screen says in words who gets it: "*N adressen van mensen die waren ingeschreven op <activiteit>*", and how many of them already get the letter as member
 
@@ -103,7 +103,7 @@ Koen's dictation of 15 October 2026 only. Reporting need: the archive of a sent 
 
 | # | Criterion | Requirement | Walkthrough steps |
 |---|---|---|---|
-| AC1 | Choosing *Ingeschreven op eerdere activiteiten* shows the list of past activities with their counts | R1, R2 | open a draft, choose it |
+| AC1 | Choosing *Eerdere deelnemers* shows the list of past activities with their counts | R1, R2 | open a draft, choose it |
 | AC2 | The send screen says in words who gets the letter and how many | R1 | tick two activities, read the sentence |
 | AC3 | A person registered twice, or for both activities, gets one mail | R1 | check the recipient count |
 | AC4 | The mail has an unsubscribe link; after using it the person gets nothing from a later letter of this kind | R3 | unsubscribe, send a second letter |
@@ -115,7 +115,7 @@ Koen's dictation of 15 October 2026 only. Reporting need: the archive of a sent 
 
 ## B1. Solution outline — the solution and the decisions that shape it
 
-A fourth audience, working title *Ingeschreven op eerdere activiteiten* (Q5), next to Leden, Abonnees and Allebei. With it the letter keeps a list of the activities chosen. The recipients are the contact addresses of the registrations on those activities, deduplicated by address, fixed when sending starts like every audience. Four rules decide the rest:
+A fourth audience, *Eerdere deelnemers*, next to Leden, Abonnees and Allebei. With it the letter keeps a list of the activities chosen. The recipients are the contact addresses of the registrations on those activities, deduplicated by address, fixed when sending starts like every audience. Four rules decide the rest:
 
 1. **One rule for everybody: someone who is on a list already is not mailed twice.** Order of precedence: a household with a membership for the working year gets it as a member (as in CR-05 §3.3, no unsubscribe line); a confirmed subscriber as a subscriber; everyone else as a *participant*.
 2. **An address that objected is never mailed through this audience**: it unsubscribed as a subscriber (CR-05 §3.6), or the person used the unsubscribe link of a participant letter. The second is kept as an address-only objection and never as a subscriber, so nobody becomes a subscriber by having registered; the check is made again at the moment each mail leaves, because a send takes days.
@@ -163,7 +163,6 @@ A letter's recipients are always a derived list with one precedence rule and one
 | Q2 | May two chosen activities be combined, so a person of either gets the letter? | yes: union, one mail | a letter naming "last year" must then speak generally |
 | Q3 | Which activities are offered: those of the last three working years? | yes | the list length |
 | Q4 | "Je moet ook een nieuwsbriefje kunnen maken om dat te versnellen": does that mean Raakje drafts the letter for this audience (as it does now)? | yes, it does with R4's sources | nothing to build beyond B1 |
-| Q5 | What does the new audience say on the screen? *Abonnees* is the word for subscribers (Koen, 9 October 2026), and *Ingeschreven* also reads as "subscribed to the newsletter". (a) *Eerdere deelnemers*; (b) *Ingeschreven op eerdere activiteiten*; (c) *Aangemeld voor eerdere activiteiten* | a: short, fits a phone, and the list under it says which activities | the label, one code row; a says "deelnemers" although only the registration is known |
 
 ## B9. Decisions log — dated answers
 
@@ -173,6 +172,7 @@ A letter's recipients are always a derived list with one precedence rule and one
 | 15 Oct 2026 | R5 (Raakje suggests a past activity) leaves the scope: one phase | Koen: "haal die fase 2 op basis van een activiteit voorstellen, haal dat maar uit de scope, zodanig dat het een eenfasige change request wordt" |
 | 15 Oct 2026 | People already registered for the activity the letter advertises stay on the recipient list; no exclusion | Koen, to "moeten mensen die al voor de nieuwe activiteit ingeschreven zijn uit de ontvangerslijst vallen?": "Nee, dat is geen probleem. Als die mensen die nog een mail krijgen, ook al zijn ze al ingeschreven, dat is geen probleem." |
 | 15 Oct 2026 | The portal makes no link between the old activities of the audience and the activity the letter advertises; the author does that in the letter, with the insert helper that exists | Koen, to my explanation of the two kinds of activity: "Ik ben het ook met die redenering eens. [...] Het feit dat er geen link is tussen oud en nieuw, dat is helemaal aan de gebruiker om dat te doen." |
+| 15 Oct 2026 | The new audience is called *Eerdere deelnemers* on the screen | Koen, to the question which word the audience carries (a *Eerdere deelnemers*, b *Ingeschreven op eerdere activiteiten*, c *Aangemeld voor eerdere activiteiten*): "eerdere deelnemers op vraag 1 is een goed voorstel" (my reading: he meant that question) |
 
 ---
 
@@ -278,7 +278,7 @@ Status line, as-built notes folded in, tracking issue closed (`CLAUDE.md` step 1
 
 | Q&A | Date | Question | Status |
 |---|---|---|---|
-| — | 15 Oct 2026 | Q1–Q5 of B8 go into a Q&A file for Koen; the build read of dev2 (#2026, 15 Oct 2026) is taken in | open |
+| — | 15 Oct 2026 | Q1–Q4 of B8 go into a Q&A file for Koen; the build read of dev2 (#2026, 15 Oct 2026) is taken in | open |
 
 ## Non-goals — deliberately outside this change
 
