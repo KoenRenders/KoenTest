@@ -4,10 +4,14 @@ A code like `{{membership_price_full}}` stood as plain text in a document and th
 renderer replaced it. The editor's Code item inserts a value node now (a chip
 with the value it has now), so every stored document — draft, published and the
 history of both — gets its typed codes of the closed list rewritten to that
-node. What is not in the list stays text, and is counted in the log: a code
-with a part of its own (`{{tenants:raak}}`), a form button (`{{form:…}}`) and
-whatever else an author typed. A mark on the words a code stood in (bold) is
-not carried to the node: a value has none.
+node. What is not turned into a node stays text, and is counted in the log:
+a code with a part of its own (`{{tenants:raak}}`), a form button
+(`{{form:…}}`), whatever else an author typed, **a code in words that carry a
+link** (a value has no marks, so the link would go: such a code is left alone
+and still renders through the typed path, review of PR #2018) and a code split
+over two text nodes by a mark (it matches inside neither node). Bold and
+italic on the words a code stood in are not carried to the node: a value has
+none — cosmetic, and counted apart.
 
 The rewrite is one way in practice; the downgrade writes the codes back as
 text.
@@ -47,19 +51,46 @@ def codes_to_nodes(node, stats: dict):
     inline content is rebuilt text node by text node, around each code."""
     if isinstance(node, list):
         out: list = []
+        run: list[str] = []  # the text of the consecutive text nodes of this inline run
         for child in node:
             if isinstance(child, dict) and child.get("type") == "text":
+                run.append(child.get("text") or "")
                 out.extend(_split(child, stats))
             else:
+                _count_split(run, stats)
+                run = []
                 out.append(codes_to_nodes(child, stats))
+        _count_split(run, stats)
         return out
     if isinstance(node, dict):
         return {key: codes_to_nodes(value, stats) for key, value in node.items()}
     return node
 
 
+def _count_split(run: list[str], stats: dict) -> None:
+    """A code split over two text nodes (a mark in the middle of it) matches in
+    neither; it stays text, and is counted here: what the joined run holds
+    beyond what each node holds on its own."""
+    if len(run) > 1:
+        stats["left"] += max(
+            len(_ANY.findall("".join(run))) - sum(len(_ANY.findall(text)) for text in run), 0
+        )
+
+
+def _has_link(text_node: dict) -> bool:
+    return any(
+        isinstance(mark, dict) and mark.get("type") == "link"
+        for mark in text_node.get("marks") or []
+    )
+
+
 def _split(text_node: dict, stats: dict) -> list:
     text = text_node.get("text") or ""
+    if _has_link(text_node):
+        # A link is a function, not decoration: the words stay as they are and
+        # every `{{…}}` in them stays text (the typed path still renders it).
+        stats["left"] += len(_ANY.findall(text))
+        return [text_node]
     pieces = _TYPED.split(text)
     if len(pieces) == 1:
         stats["left"] += len(_ANY.findall(text))
@@ -74,7 +105,7 @@ def _split(text_node: dict, stats: dict) -> list:
             out.append({"type": "value", "attrs": {"code": piece}})
             stats["made"] += 1
             if text_node.get("marks"):
-                stats["unmarked"] += 1
+                stats["unmarked"] += 1  # bold, italic: the node has none
     return out
 
 
@@ -84,7 +115,9 @@ def nodes_to_codes(node):
         out: list = []
         for child in node:
             if isinstance(child, dict) and child.get("type") == "value":
-                out.append({"type": "text", "text": "{{" + child["attrs"]["code"] + "}}"})
+                out.append(
+                    {"type": "text", "text": "{{" + child.get("attrs", {}).get("code", "") + "}}"}
+                )
             else:
                 out.append(nodes_to_codes(child))
         return out
@@ -125,8 +158,9 @@ def upgrade() -> None:
     stats = {"made": 0, "left": 0, "unmarked": 0}
     _rewrite(lambda document: codes_to_nodes(document, stats))
     log.info(
-        "CR-32 R19: %(made)s typed codes became value nodes (%(unmarked)s lost a mark), "
-        "%(left)s other {{…}} stay text",
+        "CR-32 R19: %(made)s typed codes became value nodes (%(unmarked)s lost a bold or "
+        "italic mark); %(left)s {{…}} stay text (counted per text node: a code with a part of "
+        "its own, a form button, a code in a link, a code split by a mark)",
         stats,
     )
 
