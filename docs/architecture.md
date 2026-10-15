@@ -456,12 +456,12 @@ structure and carry a gate.
 |---|---|---|---|
 | P1 | Keep it simple | one rule for everyone beats a rule with exceptions; a decision that makes code superfluous removes that code in the same change | `AGENTS.md`; the review (C4) |
 | P2 | First time right | an open question is answered before what depends on it is built; no workaround to get past one | `AGENTS.md`; the review |
-| P3 | One place per fact | a rule, a value, a figure lives once; the second place derives from the first or a gate fails on the difference | `AGENTS.md` (*Twee keer dezelfde reparatie*); `docs/code-style.md` (*A rule has one home*); `test_rules_gate.py` |
+| P3 | One place per fact | a rule, a value, a figure lives once; the second place derives from the first or a gate fails on the difference | `AGENTS.md` (*Twee keer dezelfde reparatie*); `test_rules_gate.py` |
 | P4 | Model on standards | build only what is needed today, in the form a standard gives it (UBL 2.1 / EN 16931, ISO 20022, ISO 6523) so that the extension is a row, not a rework | `AGENTS.md` (*Modelleer op standaarden*, 15 September 2026); part D; the build read of a change request |
-| P5 | A test must be able to go red | a gate is proven red once with one deliberate violation; a gate that looked nowhere is green for nothing | `AGENTS.md` (*Testen en test-evidence*); `test_gate_niet_leeg.py` |
-| P6 | Europe first | an EU option is sought before any tool, service or model; a deviation is written down with its trade-off | `AGENTS.md` (*Europe First*); the proposal of every new dependency |
-| P7 | Mobile is the norm on the public side, desktop in the back office | about four in five visits to the public site are on a phone, so every public screen is designed and judged at 390 px first; in the back office it is the other way round (about four in five on a desktop), so a back-office screen is designed for the desktop and must still work at 390 px | `docs/design-system.md`; the merge gate at 390 px (C4); the `measure` job (C3) |
-| P8 | Issue first, and one source of truth per release | every deployable change has an issue; the release tracker says what ships and how | `AGENTS.md` (*Development workflow*); the process gates (C5) |
+| P5 | A rule has one home | a validation, an aggregate's `check()`, a service or a constraint: each rule is written once, at the one address that fits it | `docs/code-style.md` (*A rule has one home*, CR-13); `test_rules_gate.py` |
+| P6 | A test must be able to go red | a gate is proven red once with one deliberate violation; a gate that looked nowhere is green for nothing | `AGENTS.md` (*Testen en test-evidence*); `test_gate_niet_leeg.py` |
+| P7 | Europe first | an EU option is sought before any tool, service or model; a deviation is written down with its trade-off | `AGENTS.md` (*Europe First*); the proposal of every new dependency |
+| P8 | Mobile is the norm on the public side, desktop in the back office | about four in five visits to the public site are on a phone, so every public screen is designed and judged at 390 px first; in the back office it is the other way round (about four in five on a desktop), so a back-office screen is designed for the desktop and must still work at 390 px | `docs/design-system.md`; the merge gate at 390 px (C4); the `measure` job (C3) |
 | P9 | Domain separation with facades | a domain is reached through `api.py` only; the kernel imports no domain; no foreign key crosses a schema except towards a code table of `mdm` or `auth` | `test_import_boundaries.py`, `test_schema_boundaries.py` |
 | P10 | A screen builds a view-model and chooses a template, nothing else | a UI module never touches the session; a template asks for nothing its view-model does not promise; `StrictUndefined` outside production | `test_layer_gate.py`, `test_template_variables_gate.py` |
 | P11 | ERP-ready data | master data is never hard-deleted; merges keep a survivorship chain; every entity has an append-only history table written in the same transaction; cross-domain references are values | `mdm/service.py` (`merge_persons`, `resolve`), `kernel/history.py`, `test_payable_delete_gate.py` |
@@ -470,6 +470,8 @@ structure and carry a gate.
 | P14 | Gatekeepers in the request path | eighteen checks between a request and a row, most of them explicit route dependencies so each is testable alone; the financial gate is separate from the administrative one | A8; `test_role_model_gates.py`, `test_rights_gate.py` |
 | P15 | Security by design, refused at startup | a weak `SECRET_KEY`, `DEBUG` or SQL echo stop the application in UAT and production; no API docs there; logs carry an allow-list of fields | `config.py`; the tests on the 404 of `/docs` |
 | P16 | AI in both directions, inside a boundary | built with AI agents inside the gates; AI in the product behind an allow-listed tool list, every call logged, every feature dark-launched per environment | `test_public_tool_boundary_gate.py`, `test_ai_log_coverage_gate.py` |
+
+*Issue first* and the one release tracker are rules of the way of working too (A5, C5), not principles: they say how work is recorded, not how the system is decided. The eight above are the eight Koen agreed to on 15 October 2026 ("akkoord" to the list of the architecture CLI's question of 13 October).
 
 ## A4. System context and deployment
 
@@ -1734,8 +1736,9 @@ request, the sections touched.
 | — (14 October 2026) | Coverage per module as a column of the module table in part B | B |
 | — (14 October 2026) | The browser flows in C3: the golden flows of the public side and the back office, the suites per area, the measurement baseline | C3 |
 | — (14 October 2026) | Coverage per module, per layer and of the money code in C3, from run 38517522227; E47 | C3, E |
-| — (14 October 2026) | Koen's reading notes before his meeting: P7, the outside services in A4, the Mollie adapter in A9, the parties of the request figure in A8, built evolutions leave a contract, ruff, drift and ratchet explained, E46; the decision citations taken out of parts A–D (they stay in E) | A3, A4, A8, A9, B, C, E |
+| — (14 October 2026) | Koen's reading notes before his meeting: P7 (mobile, now P8), the outside services in A4, the Mollie adapter in A9, the parties of the request figure in A8, built evolutions leave a contract, ruff, drift and ratchet explained, E46; the decision citations taken out of parts A–D (they stay in E) | A3, A4, A8, A9, B, C, E |
 | — (14 October 2026) | E45: the contracts' title lines are the module headings, the lifecycles under *Owns* | part B, the fifteen contracts |
+| — (15 October 2026) | A3: the eight leading principles as Koen agreed them (Q&A of 13 October, question 6: "akkoord"): *A rule has one home* a principle of its own (P5), *Issue first* a rule of the way of working under the table; E49/E50 stay "to examine" without a change request (Koen, the same day: "laat E49/E50 op te onderzoeken") | A3, E |
 | — (13 October 2026) | the restructuring (Koen's decisions of 11 and 13 October 2026; #1952, #1953, #1954) | the whole document: five parts and Appendix B, measured against `master` @ cf80ccde and the docs commits of the same day; chapter 8 and the Gespreksleidraad to `docs/reference-architecture.md`; the PDF built, not committed |
 
 # Appendix B — Evidence index
