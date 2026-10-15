@@ -210,6 +210,8 @@ def load_all_attributes() -> None:
     import importlib
     from pathlib import Path
 
+    # The kernel's own tables (jobs, tenant settings) are declared beside it.
+    importlib.import_module("app.kernel.data_attributes")
     domains = Path(__file__).resolve().parents[1] / "domains"
     for module in sorted(domains.glob("*/attributes.py")):
         importlib.import_module(f"app.domains.{module.parent.name}.attributes")
