@@ -25,7 +25,7 @@ def test_schema_for_names_exactly_the_page_set():
     # Knop · Kader — Linkkaart · Kaarten · Formulier join as their commits
     # build them.
     assert config["insert"] == ["table", "figure", "columns", "button", "callout", "cards"]
-    assert [h["level"] for h in config["headings"]] == [1, 2, 3]
+    assert [h["level"] for h in config["headings"]] == [2, 3, 4]
     assert set(config["marks"]) == {"bold", "italic", "strike", "link"}
     assert config["nodes"] == sorted(schema.NODES)
 
@@ -99,16 +99,13 @@ def test_the_seeded_pages_render_the_same_from_the_document(db_session):
     for page in pages:
         measured += 1
         translation = get_translation(db_session, page)
-        on_page = page.slug not in SEED_SLUGS
-        today = normalise_html(render_cms_content(page.content or "", db_session, on_page=on_page))
+        today = normalise_html(render_cms_content(page.content or "", db_session, on_page=True))
         if translation is None or translation.published_json is None:
             kept += 1
             # The draft exists (F11) and holds the page's words.
             assert translation is not None and translation.draft_json is not None
             continue
-        from_document = normalise_html(
-            render_document(translation.published_json, db_session, on_page=on_page)
-        )
+        from_document = normalise_html(render_document(translation.published_json, db_session))
         assert from_document == today, (
             f"page {page.slug}: the HTML from the document differs from today"
         )
@@ -138,8 +135,8 @@ def test_a_div_page_falls_back_to_her_html_with_her_words_in_the_draft():
     convert byte-equal, so the page keeps her HTML - the visitor sees today's
     page - and her words stand in the draft for the editor."""
     content = "<div>Eerste alinea.</div><div>Tweede alinea.</div>"
-    assert parse_html(content, on_page=True) is None, "a div page converts"
-    draft = parse_html(content, on_page=True, lenient=True)
+    assert parse_html(content) is None, "a div page converts"
+    draft = parse_html(content, lenient=True)
     assert "Eerste alinea." in render_document(draft, None, target="text")
 
 

@@ -308,8 +308,8 @@ def _derive_documents_from_content(db, page: CmsPage) -> None:
     """
     from app.domains.cms.parse import parse_html
 
-    document = parse_html(page.content, on_page=not is_site_block(page.slug))
-    draft = document or parse_html(page.content, on_page=not is_site_block(page.slug), lenient=True)
+    document = parse_html(page.content)
+    draft = document or parse_html(page.content, lenient=True)
     translation = get_translation(db, page)
     if translation is None:
         translation = CmsPageTranslation(
@@ -409,7 +409,7 @@ def editable_document(db, page: CmsPage, language: Optional[str] = None) -> dict
     draft = draft_document(db, page, language)
     if draft is not None:
         return draft
-    parsed = parse_html(page.content, on_page=not is_site_block(page.slug), lenient=True)
+    parsed = parse_html(page.content, lenient=True)
     if parsed and parsed.get("content"):
         return parsed
     return {"type": "doc", "content": []}
@@ -441,8 +441,7 @@ def published_html(db, page: CmsPage, language: Optional[str] = None) -> str:
 
     document = published_document(db, page, language)
     if document is not None:
-        on_page = not is_site_block(page.slug)
-        return render_document(document, db, on_page=on_page)
+        return render_document(document, db)
     return render_cms_content(page.content or "", db, on_page=not is_site_block(page.slug)) or ""
 
 
@@ -457,7 +456,7 @@ def draft_html(db, page: CmsPage, language: Optional[str] = None) -> str:
     if document is not None:
         # The preview passes her own flag: a reference that leads nowhere
         # shows her words here (A4's one rule) and nothing on the site.
-        return render_document(document, db, on_page=not is_site_block(page.slug), preview=True)
+        return render_document(document, db, preview=True)
     return render_cms_content(page.content or "", db, on_page=not is_site_block(page.slug)) or ""
 
 

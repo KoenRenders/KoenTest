@@ -51,7 +51,7 @@ def test_a_numeric_heading_level_is_refused():
     slice 1 because bool is an int in Python and 2.0 == 2 — the two
     measured escapes; "2" and 4 were already refused by the tuple check.
     All four refuse with the attribute's name now."""
-    for level in (True, 2.0, "2", 4):
+    for level in (True, 2.0, "2", 1, 5):
         with pytest.raises(UnknownAttribute, match="heading.level"):
             validate_document(
                 _doc(
@@ -179,7 +179,7 @@ def test_a_full_page_document_validates():
         _doc(
             {
                 "type": "heading",
-                "attrs": {"level": 1},
+                "attrs": {"level": 2},
                 "content": [{"type": "text", "text": "Kop"}],
             },
             _par("Een alinea."),

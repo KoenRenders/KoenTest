@@ -65,11 +65,26 @@ def _tenant_languages(bind) -> dict[int, str]:
     return {tenant_id: value.strip() for tenant_id, value in settings}
 
 
+def _as_authored(document):
+    """This migration stores the level the author chose (h1–h3). The parser
+    stores the level a heading shows since CR-32 (h2–h4, migration 204 shifts
+    the documents this one wrote); to keep writing what this migration always
+    wrote, the parser's levels are moved back one. Frozen history that reads
+    live code has to follow the code's meaning (CR-32 F19)."""
+    if isinstance(document, dict):
+        out = {key: _as_authored(value) for key, value in document.items()}
+        if document.get("type") == "heading":
+            out["attrs"] = {**document["attrs"], "level": document["attrs"]["level"] - 1}
+        return out
+    if isinstance(document, list):
+        return [_as_authored(item) for item in document]
+    return document
+
+
 def _convert_pages(bind) -> dict:
     """Every page into a translation row; the counts for the log line."""
     from app.domains.cms.parse import parse_html, plain_text_document
     from app.domains.cms.schema import locale_language
-    from app.domains.cms.service import SITE_BLOCK_SLUGS
 
     languages = _tenant_languages(bind)
     pages = bind.execute(
@@ -87,7 +102,6 @@ def _convert_pages(bind) -> dict:
             language_mapped += 1
         if len(title or "") > 200:
             titles_cut += 1
-        on_page = slug not in SITE_BLOCK_SLUGS
         existing = bind.execute(
             sa.text(
                 "SELECT 1 FROM cms.page_translations WHERE page_id = :page AND language = :lang"
@@ -100,8 +114,8 @@ def _convert_pages(bind) -> dict:
         # process counts as "kept her HTML" instead of stopping the deploy —
         # the honest fallback, per page.
         try:
-            document = parse_html(content, on_page=on_page)
-            draft = document or parse_html(content, on_page=on_page, lenient=True)
+            document = _as_authored(parse_html(content))
+            draft = document or _as_authored(parse_html(content, lenient=True))
         except Exception:
             # The guard (review C2, #1673): one page that makes the converter
             # raise counts as "kept her HTML" instead of stopping the deploy —

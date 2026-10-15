@@ -45,13 +45,12 @@ VALUE_CODES: tuple[str, ...] = (
 #: set her beside the text, then the small one.
 FIGURE_PLACEMENTS: tuple[str, ...] = ("full", "left", "right", "small")
 
-#: The heading levels an author can choose: Kop, Subkop, Kleine kop — the same
-#: three as today (#1656), stored as levels 1–3. The renderer picks the TAG
-#: from where the document stands (h2–h4 under a page's title, h1–h3 in a
-#: fragment such as the home intro), exactly as `render_cms_content(on_page=…)`
-#: has done since #1656 (C4.2). An h4 typed through the old HTML door does not
-#: convert losslessly and keeps its HTML (F11).
-HEADING_LEVELS: tuple[int, ...] = (1, 2, 3)
+#: The heading levels an author can choose: Kop, Subkop, Kleine kop — stored
+#: as the levels they SHOW, h2–h4 (CR-32 R21/F19, Koen, 15 October 2026: "Akkoord
+#: om de pagina te laten opslaan wat ze renderen"). The page's title is the only
+#: h1 (#1656); the renderer shifts nothing. A fourth level typed through the old
+#: HTML door does not convert losslessly and keeps its HTML (F11).
+HEADING_LEVELS: tuple[int, ...] = (2, 3, 4)
 
 #: Where a button and a card may lead: the four destinations, of which a
 #: node carries exactly one (`_one_destination`).

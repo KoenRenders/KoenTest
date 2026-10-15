@@ -131,7 +131,7 @@ _BAR = """() => { const editor = document.querySelector('#cp-document');
   const knoppen = [...bar.querySelectorAll('.de-btn')].filter(b => b.closest('details') === null);
   const headings = knoppen.filter(b => /^(Kop|Subkop|Kleine kop)$/.test(b.innerText.trim()));
   return {labels: headings.map(b => b.innerText.trim()),
-          levels: headings.map(b => b.innerText.trim() === 'Kop' ? 1 : b.innerText.trim() === 'Subkop' ? 2 : 3),
+          levels: headings.map(b => b.innerText.trim() === 'Kop' ? 2 : b.innerText.trim() === 'Subkop' ? 3 : 4),
           own_heading_button: [...bar.querySelectorAll('.de-btn')].filter(b => b.innerText.trim() === 'Titel').length,
           other_buttons: [...bar.querySelectorAll('.de-btn')].length,
           old_labels: [...bar.querySelectorAll('.de-btn')].filter(b => /^(H[123]|Titel)$/.test(b.innerText.trim())).length}; }"""
@@ -149,7 +149,7 @@ def test_the_page_editor_offers_kop_subkop_and_kleine_kop_and_saves_what_was_sto
         page.wait_for_selector("#cp-document .tiptap")
         m = page.evaluate(_BAR)
         print("MEASURE editor bar", m)
-        assert m["labels"] == ["Kop", "Subkop", "Kleine kop"] and m["levels"] == [1, 2, 3]
+        assert m["labels"] == ["Kop", "Subkop", "Kleine kop"] and m["levels"] == [2, 3, 4]
         assert m["old_labels"] == 0, 'a button still reads "H2" or "Titel"'
         assert m["own_heading_button"] == 0, "the level Kop is offered twice"
         assert m["other_buttons"] >= 5, "the rest of the editor's toolbar is gone"
@@ -168,7 +168,7 @@ def test_the_page_editor_offers_kop_subkop_and_kleine_kop_and_saves_what_was_sto
         print("MEASURE document after the three headings", document[:200])
         # The page's own headings may satisfy a bare level check — the proof
         # is the TYPED words, each under her own level.
-        for level, label in ((1, "Kop"), (2, "Subkop"), (3, "Kleine kop")):
+        for level, label in ((2, "Kop"), (3, "Subkop"), (4, "Kleine kop")):
             assert f"{label} van de test" in document, f"the typed {label} was not written"
             assert f'"level":{level}' in compact, f"level {level} was not written"
 
@@ -185,12 +185,12 @@ def test_the_page_editor_offers_kop_subkop_and_kleine_kop_and_saves_what_was_sto
         compact = document_na.replace(" ", "")
         # The page's own levels may satisfy a bare level check — the proof
         # is the TYPED words, each under her own level.
-        for level, label in ((1, "Kop"), (2, "Subkop"), (3, "Kleine kop")):
+        for level, label in ((2, "Kop"), (3, "Subkop"), (4, "Kleine kop")):
             assert f"{label} van de test" in document_na, (
                 f"the typed {label} did not survive the save and the reopen"
             )
             assert f'"level":{level}' in compact, f"level {level} left the document"
-        assert '"level":4' not in compact, "the shift was written into the stored document"
+        assert '"level":5' not in compact, "a level beyond Kleine kop was written"
         assert page.errors == [], f"the editor throws: {page.errors}"
     finally:
         page.close()

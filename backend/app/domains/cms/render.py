@@ -505,9 +505,7 @@ def _block_html(
         return inner if cell else f"<p>{inner}</p>"
 
     if kind == "heading":
-        # The document stores the author's choice; `render_document` shifts a
-        # page body one level down through `headings_one_level_down` — the
-        # ONE place that knows the shift (#1656, review B4a #1673).
+        # The document stores the level it shows (CR-32 R21): no shift here.
         level = int(node.get("attrs", {}).get("level", 2))
         return f"<h{level}>{_inline_html(content)}</h{level}>"
 
@@ -837,9 +835,7 @@ def _card_html(node: dict, preview: bool = False, db=None) -> str:
     return f'<div class="prose-card">{top}{title}{line}{marks}</div>'
 
 
-def render_document(
-    document, db=None, *, on_page: bool = False, target: str = "site", preview: bool = False
-) -> str:
+def render_document(document, db=None, *, target: str = "site", preview: bool = False) -> str:
     """A validated document (dict or JSON string) to site HTML (CR-17, C4.2) —
     or to plain text (``target="text"``): the words the chatbot's context
     reads, no tags at all.
@@ -868,8 +864,6 @@ def render_document(
     html = sanitize_cms_html(html) or ""
     for index, block in enumerate(late):
         html = html.replace(f"<div>{_LATE}{index}{_LATE}</div>", block)
-    if on_page:
-        html = headings_one_level_down(html)
     for code, value in _values().items():
         html = html.replace(f"{{{{{code}}}}}", value)
     html = _SITES.sub(lambda m: _sites_html(m.group(1), db), html)
