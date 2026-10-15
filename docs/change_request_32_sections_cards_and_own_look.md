@@ -52,7 +52,7 @@ Where it hurts, measured against the concept site: a band that spans the page in
 
 ## A3. To-be process — how it should work afterwards
 
-The same process, with more things the author can say: a **section** with a tone, a **hero** at the top of a page, a **card with a text**, and three **data blocks** the modules supply at render time — the **activity list**, the **membership band** and the **album card** that cycles through the latest albums; and in the tenant's settings a **favicon** and a **typeface pair** beside the colours. With the data blocks the association's home page becomes a page of the CMS. Nothing else changes: the same editor, the same publish, the same shell.
+The same process, with more things the author can say: a **section** with a tone, a **hero** at the top of a page, a **card with a text**, and two **data blocks** the modules supply at render time — the **activity list** and the **album card** that cycles through the latest albums — while the membership band is made from blocks that exist (a section, the fee as a value, two buttons); and in the tenant's settings a **favicon** and a **typeface pair** beside the colours. With the data blocks the association's home page becomes a page of the CMS. Nothing else changes: the same editor, the same publish, the same shell.
 
 <!-- figure: name=cr32-to-be caption=Writing_a_company_site_afterwards_-_the_same_steps,_a_brand_file_and_three_more_blocks -->
 ```mermaid
@@ -101,7 +101,7 @@ The concept site in Koen's project folder (a one-page site: `index.html`, `style
 | R13 | An album card on any page: the author sets how many of the latest albums (1–6), how many photos per album at most (1–8) and the interval in seconds (0 = no movement, else 2–10); it cycles through the albums and their photos; a click opens the album | Must |
 | R14 | The album card is the photo page's card, the same look; it moves only when the visitor's browser allows motion, and never on a page that is being edited | Must |
 | R15 | The activity list is a block: the upcoming activities as the home page shows them today, with how many at most | Must |
-| R16 | The membership band is a block: the fee of the year, *Word lid* and *Contacteer ons*, as today | Must |
+| R16 | The membership band of the home page can be made from blocks: a section in the accent tone, the fee of the year as a value placeholder in a paragraph (CR-17's value block, phase 5), the *Word lid* button and the *Contacteer ons* button | Must |
 | R17 | With R15 and R16 the association's home page is a page of the CMS, flagged as home (CR-19), with the same content as today; the header and the footer stay the shell's | Must — the second acceptance walk |
 | R18 | A data block is offered only to a tenant whose module is on (a company without activities cannot insert the activity list) | Must |
 
@@ -138,7 +138,7 @@ Three additions to the page set of the schema, one addition to the brand file, n
 1. **`section`** — a block node holding blocks, with a `tone` (plain · tint · accent) and an optional `eyebrow`. The renderer draws it as a band that spans the shell's width; inside the band stands the page's container (1 024 px, the left line) exactly as C4.13 draws the rest of the page. A `plain` section is a band without colour — a way to say "this belongs together" and to carry the eyebrow.
 2. **`hero`** — a block node that may stand only first in a page, with `tone`, an optional `eyebrow`, a `lead` and up to two `button` children. Its title is the **page's title**: the page has one h1 (#1656), the hero draws it large instead of the title line. A page without a hero keeps the title line.
 3. **A text card** — not a new node: the `card` gets two optional attributes, `number` and `text`, and its destination becomes optional. A card without a destination is a text card; the kit draws it without the stretched link and without the arrow. The `cards` block keeps its one rule for the count per row (R5), the kit's own.
-4. **Three data blocks** — `activities`, `membership_band`, `albums` — nodes with settings and no content, whose data the owning module supplies at render time, the pattern CR-17 C4.5 chose for the newsletter's activity blocks. `activities` (attr `count`, 1–12) draws the upcoming activities with the kit's activity cards (`_activiteiten_cards.html`, as the home does today); `membership_band` draws the fee, *Word lid* and *Contacteer ons* as `home.html` does; `albums` (attrs `albums` 1–6, `photos` 1–8, `interval` 0 or 2–10 seconds) draws the photo page's card (`pub.photo_card`) cycling with Alpine, no library, and respects `prefers-reduced-motion`. Each is offered in the insert menu only when its module is on for the tenant (R18): the registry's `home_blocks` becomes that list, so a module names the data blocks it offers to the page set, and the home page's own template retires.
+4. **Two data blocks** — `activities`, `albums` — nodes with settings and no content, whose data the owning module supplies at render time, the pattern CR-17 C4.5 chose for the newsletter's activity blocks. `activities` (attr `count`, 1–12) draws the upcoming activities with the kit's activity cards (`_activiteiten_cards.html`, as the home does today); `albums` (attrs `albums` 1–6, `photos` 1–8, `interval` 0 or 2–10 seconds) draws the photo page's card (`pub.photo_card`) cycling with Alpine, no library, and respects `prefers-reduced-motion`. Each is offered in the insert menu only when its module is on for the tenant (R18): the registry's `home_blocks` becomes that list, so a module names the data blocks it offers to the page set, and the home page's own template retires. The **membership band** needs no data block: it is a section in the accent tone with the fee as a value placeholder (`membership_price_full`, CR-17 phase 5, parked — until it is built the band shows no amount) and two buttons; the switch of today's band — *Mijn gezin* instead of *Word lid* for a signed-in member with a household — is B8.9.
 5. **The brand file** gains two settings: `site_icon_media_id` (the favicon, a picture of the library) and `site_typeface` (a code of the platform's pairs: `default` = Inter with Radio Canada Big as display, `neutral` = Inter alone). The surface of a tint is derived from the brand colour as the blue scale already is (`brand_tokens`); the accent band uses the accent colour with the text colour `_accent_text` already chooses.
 
 What shapes it: **C4.7 of CR-17 holds** — not a site builder; a tone is a name, a typeface is a choice from a list, the pixels are the kit's. **One place per fact** — the hero has no title of its own, the page's title is it. **Model on what exists** — the card grows two attributes instead of a second card node; the section is one node with a tone instead of three; the brand tokens of #1622 carry the bands.
@@ -161,8 +161,8 @@ What shapes it: **C4.7 of CR-17 holds** — not a site builder; a tone is a name
 | F12 | R11 | the renderer's output for a document without `section` and `hero` is byte-identical to today's (test 9) |
 | F13 | R13, R14 | `albums` node: attrs `albums: int` (1–6), `photos: int` (1–8), `interval: int` (0, 2–10); the renderer asks `media.api` for the latest albums with their cover and first photos (the photo page's own query) and draws `pub.photo_card` per album with the photos under it; an Alpine `x-data` cycles albums and photos on the interval, stops under `prefers-reduced-motion` and in the admin preview; the card is a link to the album's page |
 | F14 | R15 | `activities` node: attr `count: int` (1–12); the renderer asks `activities.api` for the upcoming activities and includes `_activiteiten_cards.html`, the home's own partial, so one partial serves both until the home retires |
-| F15 | R16 | `membership_band` node, no attrs; the renderer asks `membership.api` for the fee of the year and draws the band as `home.html` does today, with the two buttons through the button resolver (`screen = lid-worden`, `form_slug` of the contact form) |
-| F16 | R17, R18 | `ModuleSpec.home_blocks` lists the data blocks a module offers to the page set (`activities` → `activities`; `membership` → `membership_band`; `media` → `albums`); the insert menu shows a data block only when the module is on for the tenant; the validator refuses a data block of a module that is off, by name; when every association tenant has a flagged home page, `home.html` and its route branch are removed in the same change (keep it simple) |
+| F15 | R16 | no node: a `section` with tone `accent`, a paragraph with the `value` node `membership_price_full` (CR-17 phase 5), a `button` to the screen *lid-worden* and a `button` to the contact form; the switch to *Mijn gezin* for a signed-in member, if kept (B8.9), is one rule of the button resolver for every button to that screen |
+| F16 | R17, R18 | `ModuleSpec.home_blocks` lists the data blocks a module offers to the page set (`activities` → `activities`; `media` → `albums`; `membership` offers none: its band is made from ordinary blocks); the insert menu shows a data block only when the module is on for the tenant; the validator refuses a data block of a module that is off, by name; when every association tenant has a flagged home page, `home.html` and its route branch are removed in the same change (keep it simple) |
 
 ## B2. Fit with the process and the requirements — for the business
 
@@ -177,7 +177,7 @@ What shapes it: **C4.7 of CR-17 holds** — not a site builder; a tone is a name
 | R11 | unchanged rendering without the new nodes (F12) |
 | R12 | the acceptance walk on HDEV (A8.7) |
 | R13, R14 | the album card (F13) |
-| R15, R16 | the activity list and the membership band (F14, F15) |
+| R15, R16 | the activity list (F14); the membership band from existing blocks (F15) |
 | R17, R18 | the data blocks per module, the home as a CMS page, `home.html` retired (F16); the second walk (A8.9) |
 
 The step of A3 that is new — the brand file in the settings — is the tenant's settings screen of the operator today; whether the company's owner may set them is CR-24's question of rights, not this change's (B8).
@@ -209,9 +209,6 @@ flowchart TB
   subgraph ACT["activities"]
     ACTAPI["api: upcoming activities (exists)"]
   end
-  subgraph MEM["membership"]
-    MEMAPI["api: the fee of the year (exists)"]
-  end
   REG["kernel/modules.py: home_blocks = the data blocks a module offers"]
   TPL["cms_pagina.html: the title inside the hero"]
   HOME["home.html and its route branch: retired"]
@@ -221,7 +218,6 @@ flowchart TB
   REN --> TPL
   REN --> ALB
   REN --> ACTAPI
-  REN --> MEMAPI
   ED --> REG
   REN --> HOME
   classDef new fill:#eef7ee,stroke:#005d29,color:#14171c;
@@ -229,7 +225,7 @@ flowchart TB
   classDef unchanged fill:#eef3f9,stroke:#d7e0ec,color:#14171c;
   class TC,KIND,ALB new
   class SCH,REN,ED,CSS,SHELL,TPL,REG,HOME changed
-  class ACTAPI,MEMAPI unchanged
+  class ACTAPI unchanged
 ```
 
 *What to see:* no new table, no new domain; two settings and one code-list row are the only new data; the data blocks read through the facades that exist (one query of media's is new), and the home page's own template retires.
@@ -260,7 +256,7 @@ Investment: three phases, each a few days for a dev CLI; the editor extensions a
 | 2 | the text card: `card.number`, `card.text`, destination optional; renderer and card form | a card with both a text and an unreachable destination behaves as today (left out on the site, reason in the preview) |
 | 3 | the brand file: favicon and typeface pair; shell, settings screen, media kind | a missing picture falls back to the platform's icon; an unknown pair code is refused by the code list |
 
-| 4 | the data blocks `activities` and `membership_band`, `home_blocks` as the offer per module, the association's home page rebuilt as a CMS page on HDEV, then `home.html` retired | a data block of a module that is off is refused at the save; a flagged home page that fails to render falls back to nothing but an error, as any page — there is no second home |
+| 4 | the data block `activities`, `home_blocks` as the offer per module, the association's home page rebuilt as a CMS page on HDEV (the band from a section, the value and two buttons), then `home.html` retired — depends on CR-17 phase 5 for the fee's value | a data block of a module that is off is refused at the save; a flagged home page that fails to render falls back to nothing but an error, as any page — there is no second home |
 | 5 | the `albums` block: media's query for the latest albums, the card, the Alpine cycle, reduced motion | an album without photos is skipped; with no album at all the block renders nothing on the site and its reason in the preview |
 
 Phase 1 alone makes the concept's ten sections possible; phase 2 its cards; phase 3 its look; phase 4 the association's home; phase 5 the moving card. Each is useful alone; 4 and 5 do not depend on 1 to 3.
@@ -271,12 +267,13 @@ A rule, for the schema: **a visual choice in a document is a name from a short l
 
 ## B8. Open decisions — what the approver still decides
 
-1. **The platform's own home page, or a company tenant with its own domain?** Open with Koen (the master CLI, 15 October 2026). The design holds for both: the platform is a tenant of its own kind (CR-19); the difference is the domain and the menu.
+1. ~~The platform's own home page, or a company tenant with its own domain?~~ **Decided**: a company tenant, iX, with its own domain (Koen, 15 October 2026: "De website zou over een tenant gaan, IX. Dus de website die master doorgaf gaat over een tenant, IX, die dus specifieke requirements heeft rond layouting en visualisatie en mogelijkheden van de website."). The tenant's own requirements on layout and visualisation are R1–R9; what the kit decides for every tenant stays the kit's (C4.4).
 2. **The three points not passed on**: in-page anchors (one page per section instead), the collapsible galleries (the pictures under each other), the download (a form). The master CLI's recommendation; Koen did not answer. My reading: all three stay out, and R12's walk shows whether a page per section reads well.
 3. **Who sets the brand file**: the operator (today's settings screen, OPERATOR only) or the company's own administrator. CR-24's rights model answers it; this change adds the two settings to the existing screen.
 4. **Two typeface pairs or three**: `default` and `neutral` cover the association and the concept; a third pair is a later row plus its font files.
 5. **The association's home as a CMS page** (B4): confirm that `home.html` retires once the home page is rebuilt on HDEV and signed off (A8.9), or keep both. My proposal: retire it in the same change — two homes are two places for one fact.
 6. **The album card's defaults**: three albums, four photos, every three seconds (Koen's example); and whether the card shows the album's name and date under the photos as the photo page does. My proposal: yes, the same card.
+9. **The switching button**: today's band shows *Mijn gezin* instead of *Word lid* to a signed-in member with a household. (a) make that the rule of every button to the screen *lid-worden*, in the resolver — one rule, no block; (b) drop it, the member has *Mijn gezin* in the menu. My proposal: a. Open with Koen.
 8. **One change request or two**: the concept site's three points (phases 1–3) and the association's home with the album card (phases 4–5) share the schema and the renderer but nothing else; they can be one document over budget or two within it. My proposal: one, phased as B6, because the data blocks and the sections meet on the same home page.
 7. **Where the data blocks stand on the concept site**: the company tenant has no activities and no members, so it sees neither block (R18); the album card it may use if it has albums — the concept's 24 screenshots are figures, not an album.
 
@@ -285,6 +282,8 @@ A rule, for the schema: **a visual choice in a document is a name from a short l
 | Date | Decision | By |
 |---|---|---|
 | 15 Oct 2026 | The question: host and edit the concept site on the platform; points 2, 3 and 5 to the architecture CLI ("Geef je 2, 3 en 5 door aan brainstorm?") | Koen, through the master CLI |
+| 15 Oct 2026 | The site is a tenant, iX, a company with its own domain (B8.1, his words there) | Koen, in the chat with the architecture CLI |
+| 15 Oct 2026 | The membership band is not a data block: a section, the fee as a value (CR-17 phase 5) and two buttons; the switching button is B8.9 — to Koen's question what the band is ("op zich is dat toch gewoon een grafisch element met twee knoppen in") | the architecture CLI, with Koen |
 | 15 Oct 2026 | Added to this change request: the album card that cycles through the latest albums (A1, point 6), and the home page from the CMS with the activity list and the sign-up band as blocks (A1, point 7) — his words in A1 | Koen, in the chat with the architecture CLI |
 
 ---
@@ -322,7 +321,8 @@ To measure at the build read: whether `kernel_tenant_settings` seeds its known k
 | kernel | `tenant_config.py`: the two keys, their validation (a media id of kind `site_icon`; a code of `typeface_pairs`) |
 | media | one row in the kind list, `site_icon`; the picker offers it where the settings ask |
 | `app/ui` (tenants screen) | two fields on the tenant's settings |
-| `activities`, `membership` | nothing new in the facade; the renderer reads what the home read; `home_blocks` renamed to the data blocks offered |
+| `activities` | nothing new in the facade; the renderer reads what the home read; `home_blocks` renamed to the data blocks offered |
+| `membership` | nothing: its band is ordinary blocks; the fee's value is CR-17 phase 5 |
 | `media` | one facade function: the latest albums with their cover and first photos (the photo page's query, once); `home_blocks = ("albums",)` |
 | `cms` (home) | `homepage` renders the flagged page only; `home.html` and the intro's special case retire when the association's home is flagged (phase 4) |
 
@@ -365,7 +365,7 @@ The favicon is served by media's own door (`GET /media/{id}`) with the kind chec
 10. Browser: the author inserts a section, sets its tone, inserts a hero with two buttons, saves, publishes; the site shows the band at 390 px and 1 280 px; the measurement baseline holds the hero's and the band's positions.
 11. Public ratchet: the kit's text card is not counted as a hand-written card.
 12. Data blocks: a document with `activities` on a tenant whose activities module is off is refused with the block's name; on a tenant with it on, the renderer draws the upcoming activities through `activities.api` and never touches the session (the layer gate holds).
-13. Membership band: the block renders the fee of the year and the two buttons; the contact button resolves through the button resolver to the contact form; without a contact form the button is left out.
+13. Membership band from blocks: a section in the accent tone with the value `membership_price_full`, a button to *lid-worden* and a button to the contact form renders the fee and the two buttons; without a contact form the button is left out; if B8.9 is *a*, a signed-in member with a household sees *Mijn gezin* on every button to *lid-worden* (one test on the resolver).
 14. Album card: three albums, four photos, interval three → the markup carries the albums and photos and the Alpine state; interval 0 → no timer; the admin preview renders without the timer; an album without photos is skipped; a click target is the album's page.
 15. Home parity: the association's home rebuilt as a flagged CMS page renders the same intro, band and activity cards as `home.html` did — snapshot of the old home on the old code, compared element by element (the convention's snapshot rule).
 16. Browser: the home page at 390 px and 1 280 px after phase 4 — the measurement baseline keeps the home's positions.
