@@ -67,6 +67,12 @@ class NewsletterComposeView(ViewModel):
     featured_options: list[dict[str, Any]]
     #: `(id, title)` of the site's pages a button of the letter may lead to.
     button_pages: list[tuple[int, str]]
+    #: The list under *Eerdere deelnemers* (CR-36): shown only while that audience is
+    #: the one chosen.
+    participants_shown: bool
+    participant_offered: list[Any]
+    participant_lines: list[AudienceLine]
+    participant_notes: list[str]
     # How many whole meeting reports go along (CR-11 W13).
     report_count: int
     csrf_token: str
@@ -74,6 +80,21 @@ class NewsletterComposeView(ViewModel):
     notice: Optional[str] = None
     choices_error: Optional[str] = None
     nav_items: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True, kw_only=True)
+class NewsletterParticipantsView(ViewModel):
+    """`_nb_deelnemers.html` — the list of earlier activities under the audience
+    *Eerdere deelnemers*, and who it makes the letter go to (CR-36, #2026). The fields
+    are the compose view's, so the fragment and the page include the same partial."""
+
+    letter: Any
+    participants_shown: bool
+    participant_offered: list[Any]
+    participant_lines: list[AudienceLine]
+    participant_notes: list[str]
+    csrf_token: str
+    choices_error: Optional[str] = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -132,6 +153,9 @@ class NewsletterArchiveView(ViewModel):
     status_label: str
     status_tone: str
     audience_label: str
+    #: The earlier activities a letter to *Eerdere deelnemers* went to, as a sentence
+    #: ("" for any other audience; CR-36 R6).
+    audience_activities: str
     progress: Any
     expected: str
     started: str

@@ -54,6 +54,7 @@ from app.domains.newsletter.letter_markup import (
     markup_to_document,
 )
 from app.domains.newsletter.models import (
+    Audience,
     DraftingMessage,
     LetterStatus,
     MessageRole,
@@ -263,6 +264,10 @@ class Sources:
     tool_results: list[str] = field(default_factory=list)
     #: The coming activities as fields of the register: the port classifies and renders them.
     upcoming_fields: list[Any] = field(default_factory=list)
+    #: The earlier activities a letter to *Eerdere deelnemers* is addressed to, as
+    #: "naam (datum)" — never an address (CR-36 R4), so the letter can say "fijn dat je
+    #: er vorig jaar bij was".
+    earlier: list[str] = field(default_factory=list)
 
     def fact_text(self) -> str:
         """The text a fact must be found in (layer 3). Style examples excluded."""
@@ -273,6 +278,7 @@ class Sources:
                 self.instruction,
                 *self.letter,
                 self.upcoming,
+                *self.earlier,
                 *self.tool_results,
             ]
         )
@@ -297,8 +303,24 @@ def _upcoming_fields(db: Session) -> list[Any]:
     return fields
 
 
+def _earlier_lines(db: Session, letter: Newsletter, names: set[str]) -> list[str]:
+    """The chosen earlier activities of a letter to *Eerdere deelnemers*, name and date."""
+    if letter.audience != Audience.PARTICIPANTS:
+        return []
+    return [
+        scrub(
+            f"{row.name or row.activity_id}"
+            + (f" ({row.last_date.strftime('%d-%m-%Y')})" if row.last_date else ""),
+            names,
+        )
+        for row in nb.chosen_activities(db, letter)
+    ]
+
+
 def _examples(db: Session, letter: Newsletter, names: set[str]) -> list[str]:
-    if not letter.audience:
+    # A letter to earlier participants is about one activity: another such letter is no
+    # example of the tone (CR-36, C2), so there are none.
+    if not letter.audience or letter.audience == Audience.PARTICIPANTS:
         return []
     earlier = (
         db.query(Newsletter)
@@ -348,6 +370,7 @@ def gather_sources(
         upcoming_fields=_upcoming_fields(db),
         house_style=scrub(tenant_newsletter_house_style(db), names),
         examples=_examples(db, letter, names),
+        earlier=_earlier_lines(db, letter, names),
     )
 
 
@@ -406,6 +429,10 @@ _ACTIVITY = (
     "Haal die activiteit even uit de brief of pas haar tekst aan.",
 )
 _REPORT = ("een vergaderverslag sinds de vorige brief", "")
+_EARLIER = (
+    "een eerdere activiteit van de ontvangers",
+    "Haal die activiteit even uit de doelgroep van de brief.",
+)
 _UPCOMING = ("de lijst van komende activiteiten", "")
 _HOUSE_STYLE = (
     "de huisstijl van de nieuwsbrief",
@@ -438,6 +465,15 @@ def _sections(src: Sources) -> list[tuple[str, tuple[str, str] | None]]:
                 "## Uit de aangevinkte vergaderverslagen (INTERN — neem alleen over wat "
                 "lezers aanbelangt)\n" + "\n".join(f"- {p}" for p in src.points),
                 _REPORT,
+            )
+        )
+    if src.earlier:
+        sections.append(
+            (
+                "## Voorbije activiteiten waaraan de ontvangers deelnamen (naam, datum) — "
+                "de brief mag zeggen dat het fijn was dat ze erbij waren\n"
+                + "\n".join(f"- {line}" for line in src.earlier),
+                _EARLIER,
             )
         )
     if src.instruction:

@@ -173,7 +173,12 @@ def test_both_names_the_two_lists_and_what_they_share(client, db_session, world)
     assert _button(html) == "Verstuur naar 4 ontvangers"
 
 
-@pytest.mark.parametrize("audience", list(Audience))
+#: The three audiences that are lists; *Eerdere deelnemers* is derived from the letter's
+#: chosen activities and has its own tests (`test_newsletter_participants_cr36.py`).
+LISTS = [a for a in Audience if a != Audience.PARTICIPANTS]
+
+
+@pytest.mark.parametrize("audience", LISTS)
 def test_the_numbers_are_those_of_the_list_that_is_sent(db_session, world, audience):
     """The summary and the recipient list come from the same calls: what the
     screen counts is what leaves."""
@@ -238,6 +243,8 @@ def test_the_concept_screen_says_who_each_audience_is_before_a_choice(client, db
         ("members", "Leden", "3"),
         ("non_members", "Abonnees", "2"),
         ("both", "Allebei", "4"),
+        # CR-36: the tenant has the activities module; no activity chosen yet.
+        ("participants", "Eerdere deelnemers", "0"),
     ]
     assert lines == [
         (f"Leden van werkjaar {YEAR} · 3 adressen", MEMBERS_SENTENCE),
@@ -247,7 +254,7 @@ def test_the_concept_screen_says_who_each_audience_is_before_a_choice(client, db
     assert "Niet-leden" not in html and "niet-leden" not in html
 
 
-@pytest.mark.parametrize("audience", list(Audience))
+@pytest.mark.parametrize("audience", LISTS)
 def test_the_two_screens_say_the_same_of_the_same_audience(client, db_session, world, audience):
     """Every line and the overlap of the send screen stand on the concept screen,
     word for word: one function words both, and this fails when one of the two

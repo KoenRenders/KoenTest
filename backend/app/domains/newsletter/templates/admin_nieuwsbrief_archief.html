@@ -13,6 +13,10 @@
 {% endcall %}
 {% if error %}{{ ui.error_banner(error) }}{% endif %}
 {% if notice %}{{ ui.success_banner(notice) }}{% endif %}
+{# CR-36 R6: whom a letter to earlier participants went to, said in the archive. #}
+{% if audience_activities %}
+<p class="text-sm mb-4" data-audience-activities>{{ _("Verstuurd naar de mensen die waren ingeschreven op: %(wat)s.", wat=audience_activities) }}</p>
+{% endif %}
 
 <div class="grid gap-4 lg:grid-cols-[22rem_minmax(0,1fr)] items-start">
   <div class="bg-surface border border-line rounded-2xl p-5 space-y-3">

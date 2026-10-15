@@ -798,27 +798,37 @@ def participant_recipients(
     return out, summary
 
 
+#: What a sample mail of each audience is (the test mail and the preview): the
+#: unsubscribe line shows when the audience can contain somebody who may unsubscribe —
+#: everybody but the members (C4.5). One entry per audience: a fifth audience that is
+#: not here fails `test_every_audience_has_its_entries` instead of getting a member's
+#: mail without the line.
+_SAMPLE_KIND = {
+    Audience.MEMBERS: DeliveryKind.MEMBER,
+    Audience.NON_MEMBERS: DeliveryKind.SUBSCRIBER,
+    Audience.BOTH: DeliveryKind.SUBSCRIBER,
+    Audience.PARTICIPANTS: DeliveryKind.PARTICIPANT,
+}
+
+
 def recipients_of(db: Session, letter: Newsletter) -> list[Recipient]:
     """The recipient list of this letter — the one place where an audience becomes
     addresses. Three audiences are lists (`recipients_for`), the fourth is derived
     from the activities the letter names. A new audience is one more entry here and in
-    `sample_kind_of` (C7)."""
-    if letter.audience == Audience.PARTICIPANTS:
-        return participant_recipients(db, letter)[0]
+    `_SAMPLE_KIND` (C7)."""
     if letter.audience is None:
         raise NewsletterError(_("Kies eerst voor wie deze nieuwsbrief is."))
-    return recipients_for(db, letter.audience)
+    if letter.audience == Audience.PARTICIPANTS:
+        return participant_recipients(db, letter)[0]
+    if letter.audience in (Audience.MEMBERS, Audience.NON_MEMBERS, Audience.BOTH):
+        return recipients_for(db, letter.audience)
+    raise NewsletterError(_("Kies eerst voor wie deze nieuwsbrief is."))
 
 
 def sample_kind_of(audience: Optional[Audience]) -> DeliveryKind:
-    """The kind of the sample mail (the test mail and the preview) for an audience:
-    the unsubscribe line shows when the audience can contain somebody who may
-    unsubscribe — everybody but the members (C4.5)."""
-    if audience in (Audience.NON_MEMBERS, Audience.BOTH):
-        return DeliveryKind.SUBSCRIBER
-    if audience == Audience.PARTICIPANTS:
-        return DeliveryKind.PARTICIPANT
-    return DeliveryKind.MEMBER
+    """The kind of the sample mail for an audience (see `_SAMPLE_KIND`); a letter
+    without an audience shows as a member's."""
+    return _SAMPLE_KIND[audience] if audience is not None else DeliveryKind.MEMBER
 
 
 # ── Letters ──────────────────────────────────────────────────────────────────
