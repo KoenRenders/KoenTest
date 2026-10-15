@@ -71,7 +71,6 @@ TYPED_LABELS: dict[str, dict[str, int]] = {
         "Terug te betalen bedrag": 1,
     },
     "domains/pricing/templates/admin_prijs.html": {
-        "Ledenprijs": 1,
         "Maten": 1,
     },
     "domains/product/templates/_product_bijlagen.html": {

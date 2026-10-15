@@ -34,15 +34,15 @@
     {% endfor %}
     <p data-span="full" class="text-[13px] text-ink-soft">{{ _("De artikelen worden voor je gereserveerd zodra je bestelt.") }}</p>
   {% endcall %}
+  {{ ui.total_line(total, note=_("(ledenprijs)") if member_applied else "") }}
   {% call ui.section(_("Contact")) %}
-    {{ ui.field("contact_name", attribute="sales.sales_order.guest_name", required=True) }}
-    {{ ui.field("contact_email", attribute="sales.sales_order.guest_email", kind="email", required=True) }}
-    {{ ui.field("phone", attribute="sales.sales_order.guest_mobile", kind="phone", required=True) }}
+    {{ ui.field("contact_name", attribute="sales.sales_order.guest_name", required=True, value=contact_name) }}
+    {{ ui.field("contact_email", attribute="sales.sales_order.guest_email", kind="email", required=True, value=contact_email) }}
+    {{ ui.field("phone", attribute="sales.sales_order.guest_mobile", kind="phone", required=True, value=phone) }}
   {% endcall %}
   {% call ui.section(_("Betalen")) %}
     {{ ui.payment_choice("online") }}
   {% endcall %}
-  {{ ui.total_line(total, note=_("(ledenprijs)") if member_applied else "") }}
   {{ ui.action_bar(save_label=_("Bestellen en betalen"), busy_label=_("Bestellen…"), form="bestel-form", cancel_href="/webshop", send=True) }}
 </div>
 </form>

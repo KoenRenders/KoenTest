@@ -69,8 +69,8 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         columns=("stock.stock_movements.actor",),
         label=None,
         name_en="Actor",
-        help="Wie de beweging boekte.",
-        ai_exposure=AiExposure.NONE,  # K1
+        help="Wie de beweging boekte, als e-mailadres.",
+        ai_exposure=AiExposure.INTERNAL,  # K2
     ),
     Attribute(
         key="stock.stock_movement.order_line_id",

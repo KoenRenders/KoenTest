@@ -839,22 +839,19 @@ def test_de_actiebalk_is_zo_breed_als_het_formulier(webshop_page):
     assert _geen_zijwaartse_scroll(page)
 
 
-def test_ontvangst_in_de_kop_en_correctie_onder_het_menu(webshop_page):
-    """'+ Ontvangst' alone in the head, 'Correctie' under the toolbar's `⋯` — the
-    list norm (Koen's fourth point, corrected by the read)."""
+def test_ontvangst_en_correctie_staan_samen_in_de_kop(webshop_page):
+    """'+ Ontvangst' and 'Correctie' stand together in the head, not under the
+    toolbar's `⋯` (Koen, 15 October 2026)."""
     page = webshop_page
     page.set_viewport_size({"width": 390, "height": 844})
     page.goto("/admin/voorraad")
     page.wait_for_selector("[data-list-primary]")
 
     primary = page.locator("[data-list-primary] a, [data-list-primary] button")
-    assert primary.count() == 1
-    assert "Ontvangst" in primary.first.inner_text()
-
-    page.locator("[data-more-button]").click()
-    menu = page.locator("[data-more-menu]")
-    menu.wait_for(state="visible")
-    assert "Correctie" in menu.inner_text()
+    assert primary.count() == 2
+    assert "Ontvangst" in primary.nth(1).inner_text()
+    assert "Correctie" in primary.nth(0).inner_text()
+    assert page.locator("[data-more-button]").count() == 0
     assert _geen_zijwaartse_scroll(page)
 
 
@@ -947,3 +944,119 @@ def test_bestelling_toevoegen_koppelt_het_lid_en_prijst_hem(webshop_page):
         page.get_by_role("button", name="Bestelling opslaan").click()
     page.wait_for_url("**/admin/verkoop/**")
     assert "Bestelling" in page.locator("main").inner_text()
+
+
+def test_een_upload_leegt_noch_blokkeert_een_onbewaarde_wijziging(webshop_page):
+    """Koen's faults 1 and 2: an upload is its own action — it never empties the
+    article's unsaved fields and never stops the save with Blijven/Weggooien."""
+    from io import BytesIO
+
+    from PIL import Image
+
+    page = webshop_page
+    _open_artikel_in_bewerkmodus(page)
+
+    page.locator('input[name="name"]').fill("Gewijzigde naam")
+    buf = BytesIO()
+    Image.new("RGB", (40, 30), (10, 90, 200)).save(buf, format="PNG")
+    page.locator('form[hx-post$="/fotos"] input[type="file"]').set_input_files(
+        {"name": "foto.png", "mimeType": "image/png", "buffer": buf.getvalue()}
+    )
+    with htmx_afgerond(page):
+        page.locator('button[form="foto-form"]').click()
+
+    assert page.locator('input[name="name"]').input_value() == "Gewijzigde naam", (
+        "de onbewaarde naam moet blijven staan"
+    )
+
+
+def test_een_documenttitel_wordt_met_opslaan_bewaard(webshop_page):
+    """Koen's fault 2: a document's title is saved by the article's one Opslaan —
+    never a "Kies een bestand" for the upload's empty file field."""
+    page = webshop_page
+    record = _open_artikel_in_bewerkmodus(page)
+
+    page.locator('form[hx-post$="/documenten"] input[type="file"]').set_input_files(
+        {
+            "name": "maattabel.pdf",
+            "mimeType": "application/pdf",
+            "buffer": b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 300]>>endobj\nxref\n0 4\n0000000000 65535 f \ntrailer<</Size 4/Root 1 0 R>>\n%%EOF\n",
+        }
+    )
+    with htmx_afgerond(page):
+        page.locator('button[form="document-form"]').click()
+
+    page.locator('input[name^="bijlage."][name$=".title"]').first.fill("Maattabel T-shirts")
+    with htmx_afgerond(page):
+        page.locator("[data-action-bar] [data-form-save]").click()
+
+    page.goto(record)
+    page.wait_for_selector("[data-record-head]")
+    assert "Maattabel T-shirts" in page.locator("main").inner_text()
+
+
+def test_het_mandje_toont_het_totaal_en_behoudt_het_contact(webshop_page):
+    """Koen's faults 4 and 6: the total stands under the lines and a quantity
+    change re-renders the lines and the total, never the typed contact."""
+    page = webshop_page
+    page.set_viewport_size({"width": 390, "height": 844})
+    _voeg_de_maat_toe_aan_het_mandje(page)
+    with htmx_afgerond(page):
+        page.locator("form[data-basket-form] button[type=submit]").click()
+    page.wait_for_url("**/webshop/mandje")
+
+    assert "Totaal" in page.locator("main").inner_text()
+    assert "15,00" in page.locator("main").inner_text()
+
+    page.locator('input[name="contact_name"]').fill("An")
+    page.locator('input[name="contact_email"]').fill("an@example.com")
+    page.locator('input[name="phone"]').fill("0470000000")
+    with htmx_afgerond(page):
+        page.get_by_role("button", name="Eén meer").click()
+    page.wait_for_url("**/webshop/mandje")
+
+    assert page.locator('input[name="contact_name"]').input_value() == "An"
+    assert page.locator('input[name="contact_email"]').input_value() == "an@example.com"
+    assert page.locator('input[name="phone"]').input_value() == "0470000000"
+    assert "30,00" in page.locator("main").inner_text()
+
+
+def test_online_betalen_landt_op_de_stub(browser):
+    """Koen's fault 7: an online order starts the stand-in provider and lands back
+    on the thank-you page, never a red error block."""
+    page = browser.new_page(base_url=WEBSHOP_HOST)
+    page.set_viewport_size({"width": 390, "height": 844})
+    try:
+        _voeg_de_maat_toe_aan_het_mandje(page)
+        with htmx_afgerond(page):
+            page.locator("form[data-basket-form] button[type=submit]").click()
+        page.wait_for_url("**/webshop/mandje")
+        page.locator('input[name="contact_name"]').fill("An")
+        page.locator('input[name="contact_email"]').fill("an@example.com")
+        page.locator('input[name="phone"]').fill("0470000000")
+        page.locator('input[name="payment_method"][value="online"]').check()
+        with htmx_afgerond(page):
+            page.get_by_role("button", name="Bestellen en betalen").click()
+        page.wait_for_url("**/betaling/stub/**")
+        assert "betaling" in page.locator("main").inner_text().lower()
+    finally:
+        page.close()
+
+
+def test_het_contact_wordt_vooraf_ingevuld_voor_een_lid(webshop_page):
+    """Koen's fault 5: the signed-in person's contact fills the basket's contact
+    block, as on the registration for an activity."""
+    from app.domains.auth.api import make_session_value
+    from tests_e2e.schermen import login_met_sessie
+
+    page = webshop_page
+    login_met_sessie(page, make_session_value("webshop.lid@example.com"), WEBSHOP_HOST)
+    page.set_viewport_size({"width": 390, "height": 844})
+
+    _voeg_de_maat_toe_aan_het_mandje(page)
+    with htmx_afgerond(page):
+        page.locator("form[data-basket-form] button[type=submit]").click()
+    page.wait_for_url("**/webshop/mandje")
+
+    assert page.locator('input[name="contact_name"]').input_value() == "Webshop Lid"
+    assert page.locator('input[name="contact_email"]').input_value() == "webshop.lid@example.com"

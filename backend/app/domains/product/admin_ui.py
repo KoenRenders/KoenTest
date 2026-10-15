@@ -389,7 +389,13 @@ async def _store_upload(request: Request, db: Session, product_id: int, kind: st
         )
     except (ProductError, MediaFout) as refusal:
         return refusal_response(request, [FieldError("", str(refusal))], "#product-melding")
-    return _redirect(request, f"/admin/producten/{product_id}?bewerken=1")
+    # In place (Koen, 15 October 2026): the upload re-renders only the attachment
+    # section, never navigating away — the article's unsaved fields stay.
+    return templates.TemplateResponse(
+        request,
+        "_product_bijlagen.html",
+        _record_view(request, db, product, editing=True).as_context(),
+    )
 
 
 @router.post("/admin/producten/{product_id}/fotos")

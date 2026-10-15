@@ -29,9 +29,10 @@
     {% endfor %}
   </div>
   {% if editing %}
-  <div data-span="full" class="space-y-3">
+  <div data-span="full" class="space-y-3" data-command-safe>
     <form id="foto-form" method="post" action="/admin/producten/{{ product.id }}/fotos" enctype="multipart/form-data"
-          hx-post="/admin/producten/{{ product.id }}/fotos" hx-encoding="multipart/form-data">
+          hx-post="/admin/producten/{{ product.id }}/fotos" hx-encoding="multipart/form-data"
+          hx-target="#bijlagen" hx-swap="innerHTML">
       {{ ui.field("file", _("Foto toevoegen"), kind="upload", id="foto-file", accept="image/*") }}
     </form>
     {{ ui.action_bar(save_label=_("Foto opslaan"), form="foto-form", cancel_href="/admin/producten/" ~ product.id ~ "?bewerken=1") }}
@@ -46,9 +47,10 @@
     {% endfor %}
   </div>
   {% if editing %}
-  <div data-span="full" class="space-y-3">
+  <div data-span="full" class="space-y-3" data-command-safe>
     <form id="document-form" method="post" action="/admin/producten/{{ product.id }}/documenten" enctype="multipart/form-data"
-          hx-post="/admin/producten/{{ product.id }}/documenten" hx-encoding="multipart/form-data">
+          hx-post="/admin/producten/{{ product.id }}/documenten" hx-encoding="multipart/form-data"
+          hx-target="#bijlagen" hx-swap="innerHTML">
       {{ ui.field("file", _("Document toevoegen"), kind="upload", id="document-file", accept="application/pdf,image/*") }}
     </form>
     {{ ui.action_bar(save_label=_("Document opslaan"), form="document-form", cancel_href="/admin/producten/" ~ product.id ~ "?bewerken=1") }}

@@ -35,7 +35,7 @@
       {% endfor %}
     </div>
   {% endcall %}
-  {% include "_product_bijlagen.html" %}
+  <div id="bijlagen">{% include "_product_bijlagen.html" %}</div>
   {% call ui.section(_("Op bestelling")) %}
     {{ ui.field("pre_order", attribute="product.product.pre_order", kind="switch", value=product.pre_order, edit=False) }}
     {% if product.pre_order_until %}{{ ui.field("pre_order_until", attribute="product.product.pre_order_until", kind="date", value=product.pre_order_until.isoformat(), edit=False) }}{% endif %}
@@ -63,7 +63,7 @@
       {{ ui.field("pre_order_until", attribute="product.product.pre_order_until", kind="date", value=(product.pre_order_until.isoformat() if product.pre_order_until else ""), help=_("Leeg: zonder einddatum. Daarna verkoopt het artikel wat in voorraad ligt.")) }}
     {% endcall %}
   </form>
-  {% include "_product_bijlagen.html" %}
+  <div id="bijlagen">{% include "_product_bijlagen.html" %}</div>
   {{ ui.action_bar(record=True, form="product-form", cancel_href="/admin/producten/" ~ product.id) }}
 </div>
 {% endcall %}

@@ -115,10 +115,25 @@
   });
 
   /* The basket page's hidden form posts the basket back to the server, so the
-     page re-renders with the server's prices and total after a change. */
+     page re-renders with the server's prices and total after a change. The
+     contact fields go along, so a change keeps what the buyer typed (Koen,
+     15 October 2026). */
   function repostBasket() {
     var form = document.querySelector("form[data-basket-form][action$='/webshop/mandje']");
-    if (form) form.requestSubmit();
+    if (!form) return;
+    ["contact_name", "contact_email", "phone"].forEach(function (name) {
+      var existing = form.querySelector('input[name="' + name + '"]');
+      if (existing) existing.parentNode.removeChild(existing);
+      var source = document.querySelector('input[name="' + name + '"]');
+      if (source && source.value) {
+        var input = document.createElement("input");
+        input.type = "hidden";
+        input.name = name;
+        input.value = source.value;
+        form.appendChild(input);
+      }
+    });
+    form.requestSubmit();
   }
 
   /* Remove a line: drop it from the basket and re-render. */

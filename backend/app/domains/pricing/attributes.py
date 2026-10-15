@@ -41,6 +41,14 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.PUBLIC,  # K5
     ),
     Attribute(
+        key="pricing.price.member_amount",
+        columns=("pricing.prices.amount",),
+        label="Ledenprijs",
+        name_en="Member amount",
+        help="Het bedrag dat leden betalen — dezelfde kolom, de ledenprijs-rij.",
+        ai_exposure=AiExposure.PUBLIC,  # K5
+    ),
+    Attribute(
         key="pricing.price.currency",
         columns=("pricing.prices.currency",),
         label=None,

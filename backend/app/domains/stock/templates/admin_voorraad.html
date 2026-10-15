@@ -2,11 +2,15 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Voorraadbeheer — Raak beheer") }}{% endblock %}
 {% block list_title %}{{ _("Voorraadbeheer") }}{% endblock %}
-{% block list_primary %}{{ ui.btn_primary(_("+ Ontvangst"), href="/admin/voorraad/ontvangst") }}{% endblock %}
+{% block list_primary %}
+<div class="flex items-center gap-2">
+  {{ ui.btn_secondary(_("Correctie"), href="/admin/voorraad/correctie") }}
+  {{ ui.btn_primary(_("+ Ontvangst"), href="/admin/voorraad/ontvangst") }}
+</div>
+{% endblock %}
 {% block list_toolbar %}
 {{ ui.toolbar("/admin/voorraad/lijst", "#voorraad-lijst", "voorraad-filter",
-              q=q, search_placeholder=_("Zoek op artikel…"), total=total, per_page=total,
-              menu=[{"label": _("Correctie"), "href": "/admin/voorraad/correctie"}]) }}
+              q=q, search_placeholder=_("Zoek op artikel…"), total=total, per_page=total) }}
 {% endblock %}
 {% block list_body %}
 <div id="voorraad-lijst" hx-include="#voorraad-filter">

@@ -63,7 +63,7 @@ def test_a_photo_and_a_document_are_uploaded_and_removed(client, db_session, eve
         headers=headers,
         follow_redirects=False,
     )
-    assert photo.status_code == 303
+    assert photo.status_code == 200, "the upload re-renders the attachments in place"
     assert len(attachments_of(db_session, product.id)) == 1
 
     document = client.post(
@@ -72,7 +72,7 @@ def test_a_photo_and_a_document_are_uploaded_and_removed(client, db_session, eve
         headers=headers,
         follow_redirects=False,
     )
-    assert document.status_code == 303
+    assert document.status_code == 200
     assert len(attachments_of(db_session, product.id)) == 2
 
     first = attachments_of(db_session, product.id)[0]
@@ -98,7 +98,7 @@ def test_removing_an_attachment_of_another_article_is_not_found(
         headers=headers,
         follow_redirects=False,
     )
-    assert photo.status_code == 303
+    assert photo.status_code == 200
     attachment = attachments_of(db_session, other.id)[0]
 
     answer = client.post(

@@ -51,6 +51,9 @@ class BasketView(ViewModel):
     lines: list[dict[str, Any]]
     total: Any
     member_applied: bool
+    contact_name: str = ""
+    contact_email: str = ""
+    phone: str = ""
     error: str = ""
     site: dict[str, Any] = field(default_factory=dict)
 

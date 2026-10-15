@@ -54,6 +54,22 @@ def _member(request: Request, db: Session) -> bool:
     return _buyer(request, db)[1]
 
 
+def _contact_prefill(request: Request, db: Session) -> tuple[str, str, str]:
+    """The contact of the signed-in person, to fill the basket's contact block as
+    the registration for an activity does (Koen, 15 October 2026): name, the
+    primary e-mail and the primary mobile. `("", "", "")` when nobody is signed in."""
+    from app.domains.mdm.api import CONTACT
+    from app.ui.account_ui import signed_in_person
+
+    _signed_in, person = signed_in_person(request, db)
+    if person is None:
+        return "", "", ""
+    name = f"{person.first_name} {person.last_name}".strip()
+    email = person.primary_contact(CONTACT.EMAIL)
+    mobile = person.primary_contact(CONTACT.MOBILE)
+    return name, email.value if email else "", mobile.value if mobile else ""
+
+
 @router.get("/webshop", response_class=HTMLResponse)
 def webshop(request: Request, db: Session = Depends(get_db)):
     member = _member(request, db)
@@ -109,11 +125,14 @@ async def mandje(request: Request, db: Session = Depends(get_db)) -> Response:
 
     from app.domains.sales.api import SalesError
 
-    def _vm(*, lines, total, error="") -> BasketView:
+    def _vm(*, lines, total, contact_name="", contact_email="", phone="", error="") -> BasketView:
         return BasketView(
             lines=lines,
             total=total,
             member_applied=member,
+            contact_name=contact_name,
+            contact_email=contact_email,
+            phone=phone,
             error=error,
             site=site_context(db, request),
         )
@@ -121,6 +140,7 @@ async def mandje(request: Request, db: Session = Depends(get_db)) -> Response:
     form = await request.form()
     items, parse_error = parse_items(form)
     person_id, member = _buyer(request, db)
+    contact_name, contact_email, phone = _contact_prefill(request, db)
     if parse_error is not None:
         return templates.TemplateResponse(
             request,
@@ -142,7 +162,15 @@ async def mandje(request: Request, db: Session = Depends(get_db)) -> Response:
         Decimal("0"),
     )
     return templates.TemplateResponse(
-        request, "webshop_mandje.html", _vm(lines=lines, total=total).as_context()
+        request,
+        "webshop_mandje.html",
+        _vm(
+            lines=lines,
+            total=total,
+            contact_name=str(form.get("contact_name") or contact_name),
+            contact_email=str(form.get("contact_email") or contact_email),
+            phone=str(form.get("phone") or phone),
+        ).as_context(),
     )
 
 
