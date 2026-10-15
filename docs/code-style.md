@@ -169,3 +169,15 @@ do is said there and nowhere else. So code never asks for a role by name
 
 The gate is `backend/tests/test_rights_gate.py`: no role-named gate or question
 exists, and role names in application code may only become fewer.
+
+## A visual choice in a document is a name from a short list
+
+The page schema (`cms/schema.py`) stores what an author means, never a look: a
+**tone**, not a colour (`TONES`: plain, tint, accent); a **placement**, not a
+width; a **typeface pair**, not a font name. The pixels come from the kit and the
+tenant's brand tokens at render time. An attribute that would carry a free value
+for the look is a tuple of names instead, and the schema's own shape check
+(`InvalidShape` / `UnknownAttribute`) refuses the rest — no gate to add. A page
+also stores the heading levels it shows (h2–h4): the renderer shifts nothing
+(CR-32 R21). A block that may stand at the root only is left out of the group
+`block`, so no `block+` container can hold it.

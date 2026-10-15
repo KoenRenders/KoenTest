@@ -122,9 +122,7 @@ def test_editing_the_platform_home_in_paginas_changes_it(platform_workspace, db_
 
     from app.domains.cms.parse import parse_html
 
-    document = parse_html(
-        "<p>Welkom op ons platform, in eigen woorden.</p><p>{{tenants}}</p>", on_page=True
-    )
+    document = parse_html("<p>Welkom op ons platform, in eigen woorden.</p><p>{{tenants}}</p>")
     assert document is not None, "the test's content does not convert"
     saved = client.post(
         f"/admin/paginas/{home.id}",

@@ -110,7 +110,7 @@ def test_een_gepubliceerde_intro_staat_er_wel(client, db_session):
 
     rijen = _blok(db_session, "home-intro", INTROTEKST, gepubliceerd=True)
     for rij in rijen:
-        document = parse_html(f"<p>{INTROTEKST}</p>", on_page=False, lenient=True)
+        document = parse_html(f"<p>{INTROTEKST}</p>", lenient=True)
         save_draft(db_session, rij.id, document, by="test")
         publish(db_session, rij.id, by="test")
 

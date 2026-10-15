@@ -505,9 +505,7 @@ def _block_html(
         return inner if cell else f"<p>{inner}</p>"
 
     if kind == "heading":
-        # The document stores the author's choice; `render_document` shifts a
-        # page body one level down through `headings_one_level_down` — the
-        # ONE place that knows the shift (#1656, review B4a #1673).
+        # The document stores the level it shows (CR-32 R21): no shift here.
         level = int(node.get("attrs", {}).get("level", 2))
         return f"<h{level}>{_inline_html(content)}</h{level}>"
 
@@ -594,6 +592,20 @@ def _block_html(
 
     if kind == "button":
         return _button_html(node, preview=preview, db=db)
+
+    if kind == "section":
+        # CR-32 F1–F3: a band of the page. A div, because the sanitiser's
+        # allow-list has no `section` and a security allow-list does not grow
+        # for a tag name; the tone is a class (a name, never a colour), the
+        # plain tone carries none. The kit breaks the band out of the page's
+        # container and puts the container back inside it (`build-css.sh`).
+        attrs = node.get("attrs") or {}
+        tone = attrs.get("tone")
+        cls = "prose-section" + (f" prose-section--{tone}" if tone and tone != "plain" else "")
+        eyebrow = attrs.get("eyebrow")
+        top = f'<p class="prose-section-eyebrow">{escape(eyebrow)}</p>' if eyebrow else ""
+        inner = _blocks_html(content, preview=preview, db=db, late=late)
+        return f'<div class="{cls}">{top}{inner}</div>'
 
     if kind == "blockquote":
         # A quotation (#1985) holds blocks; her paragraphs render bare and a
@@ -784,6 +796,38 @@ def _button_html(node: dict, preview: bool = False, db=None) -> str:
     )
 
 
+def hero_view(page, db=None, *, preview: bool = False) -> "dict | None":
+    """The hero a page opens with (CR-32 F5), as the template draws it — or
+    None when the page opens with its title line. The hero is a property of
+    the page, not of its document: the page's title is its h1 and stays the
+    template's. The buttons are the button block's own, through the one
+    resolver: the first is the primary, the second the secondary, and one
+    that cannot be reached is left out on the site (the reason in the preview)."""
+    hero = getattr(page, "hero", None)
+    if getattr(page, "opening", "title_line") != "hero" or not hero:
+        return None
+    actions = "".join(
+        _button_html(
+            {
+                "attrs": {
+                    **{k: v for k, v in button.items() if k != "label"},
+                    "label": button["label"],
+                    "variant": "primary" if index == 0 else "secondary",
+                }
+            },
+            preview=preview,
+            db=db,
+        )
+        for index, button in enumerate(hero.get("buttons") or [])
+    )
+    return {
+        "tone": hero["tone"],
+        "eyebrow": hero.get("eyebrow") or "",
+        "lead": hero.get("lead") or "",
+        "actions_html": actions,
+    }
+
+
 def _cards_html(node: dict, preview: bool = False, db=None) -> str:
     """A block of link cards (C4.9, C4.13): layout, not data. How many stand
     in a row is the look's own rule, read from the block (`build-css.sh`). A
@@ -837,9 +881,7 @@ def _card_html(node: dict, preview: bool = False, db=None) -> str:
     return f'<div class="prose-card">{top}{title}{line}{marks}</div>'
 
 
-def render_document(
-    document, db=None, *, on_page: bool = False, target: str = "site", preview: bool = False
-) -> str:
+def render_document(document, db=None, *, target: str = "site", preview: bool = False) -> str:
     """A validated document (dict or JSON string) to site HTML (CR-17, C4.2) —
     or to plain text (``target="text"``): the words the chatbot's context
     reads, no tags at all.
@@ -868,8 +910,6 @@ def render_document(
     html = sanitize_cms_html(html) or ""
     for index, block in enumerate(late):
         html = html.replace(f"<div>{_LATE}{index}{_LATE}</div>", block)
-    if on_page:
-        html = headings_one_level_down(html)
     for code, value in _values().items():
         html = html.replace(f"{{{{{code}}}}}", value)
     html = _SITES.sub(lambda m: _sites_html(m.group(1), db), html)
@@ -930,7 +970,10 @@ def _document_text(document, db=None) -> str:
             alt = (node.get("attrs") or {}).get("alt") or ""
             if alt:
                 lines.append(alt)
-        elif kind in ("columns", "column", "blockquote"):
+        elif kind in ("columns", "column", "blockquote", "section"):
+            eyebrow = (node.get("attrs") or {}).get("eyebrow") if kind == "section" else None
+            if eyebrow:
+                lines.append(eyebrow)
             for child in content:
                 walk(child)
         elif kind == "callout":

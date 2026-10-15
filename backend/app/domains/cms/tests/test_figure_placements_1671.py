@@ -124,7 +124,7 @@ def test_the_renderer_writes_the_placement_the_schema_knows(placement):
             }
         ],
     }
-    html = render_document(document, None, on_page=True)
+    html = render_document(document, None)
     assert f"prose-figure--{placement}" in html, (
         f"the renderer does not write the class of placement {placement!r}"
     )
@@ -137,7 +137,7 @@ def test_a_figure_without_placement_renders_full():
         "type": "doc",
         "content": [{"type": "figure", "attrs": {"media_id": 1, "alt": "Het lokaal"}}],
     }
-    assert "prose-figure--full" in render_document(document, None, on_page=True)
+    assert "prose-figure--full" in render_document(document, None)
 
 
 def test_the_published_caption_travels_with_her_figure():
@@ -157,7 +157,7 @@ def test_the_published_caption_travels_with_her_figure():
             }
         ],
     }
-    assert "Ons lokaal aan de Schoolstraat" in render_document(document, None, on_page=True)
+    assert "Ons lokaal aan de Schoolstraat" in render_document(document, None)
 
 
 def test_a_trix_era_picture_keeps_her_own_measure():

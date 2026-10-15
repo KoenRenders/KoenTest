@@ -106,15 +106,13 @@ def normalise_html(html_text: str) -> str:
     return _NEWLINE_BETWEEN_TAGS.sub("><", html_text.strip())
 
 
-def parse_html(
-    content: Optional[str], *, on_page: bool = True, lenient: bool = False
-) -> Optional[dict]:
+def parse_html(content: Optional[str], *, lenient: bool = False) -> Optional[dict]:
     """A page's stored HTML as a document — or None when it does not render
     back to what the page shows today.
 
-    ``on_page`` mirrors the public render call the page gets (``R17``: the
-    comparison must be with what the VISITOR sees, and a page body shows its
-    headings one level down).
+    The document stores the level a heading SHOWS (CR-32 R21): Trix' h1–h3
+    become levels 2–4, the shift the old page body got at render time
+    (``R17``: the comparison is with what the VISITOR sees).
 
     ``lenient`` (F11, the draft of a page that does not convert losslessly):
     never returns None — an unknown tag degrades to its words instead of
@@ -133,11 +131,9 @@ def parse_html(
         # An empty page has an empty document — the same nothing, as a block.
         return {"type": "doc", "content": []}
     sanitized = sanitize_cms_html(image_attributes_from_attachment(content)) or ""
-    # The shift lives in the RENDERER (on_page, #1656): the document stores the
-    # author's own level, so the parser feeds the unshifted HTML and the
-    # comparison shifts the document's output — never both sides (measured:
-    # a double shift turned every heading two levels down).
-    today = headings_one_level_down(sanitized) if on_page else sanitized
+    # The document stores the shown level (CR-32 R21), so the builder shifts
+    # the headings it reads and the comparison is with the page as shown today.
+    today = headings_one_level_down(sanitized)
     builder = _Builder(lenient=lenient)
     _DocumentParser(builder).feed(sanitized)
     builder.finish()
@@ -153,10 +149,6 @@ def parse_html(
     if not builder.lossless:
         return None
     rendered = sanitize_cms_html(_blocks_html(builder.blocks)) or ""
-    if on_page:
-        # The shift, through its one source, after the sanitiser - the same
-        # order as the old path (review B4a, #1673).
-        rendered = headings_one_level_down(rendered)
     if normalise_html(rendered) != normalise_html(today):
         # The measurement, not the parser's opinion: whatever the builder
         # thought, the round trip decides (test 12 is this line, per page).
@@ -235,7 +227,7 @@ class _Builder:
             if tag not in ("h1", "h2", "h3") and not self.lenient:
                 self.refuse(tag)
                 return
-            level = min(int(tag[1]), 3)  # lenient: a fourth level is Kleine kop
+            level = min(int(tag[1]), 3) + 1  # shown level; lenient: a fourth is Kleine kop
             heading: dict[str, Any] = {
                 "type": "heading",
                 "attrs": {"level": level},

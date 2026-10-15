@@ -1,7 +1,7 @@
 # Change Request 17 — Web content: pages as structured documents, one editor for three places
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 1 October 2026, reframed on 4 October 2026 (the CMS must carry a company tenant's whole public site; the association's sites do not change) · **decided on 5 October 2026** (B8 empty) · **not assigned to a release** (Koen, 7 October 2026; the assignments to v2.14.0 and v2.15.0 of 5 and 6 October are withdrawn): the Mistral CLI builds phase 1 (#1671) and phase 2 (#1679) on the integration branch `cr17/web-content`, every pull request read by a Claude dev CLI, and the branch goes to `master` only after Koen's own approval on a local test version; the spike of phase 0 (#1626) was **built on 6 October 2026, TipTap confirmed** (C8; branch `spike/cr17-tiptap`) · **scope closed on 11 October 2026: this change request goes live after phase 5**, in one merge of `cr17/web-content` on Koen's word after his own test — not per phase; phases 6 (the menu) and 7 (the letter and the notes) leave it for a change request of their own, still to be shaped (B9, 11 October)
+**Status:** shaped on 1 October 2026, reframed on 4 October 2026 (the CMS must carry a company tenant's whole public site; the association's sites do not change) · **decided on 5 October 2026** (B8 empty) · **not assigned to a release** (Koen, 7 October 2026; the assignments to v2.14.0 and v2.15.0 of 5 and 6 October are withdrawn): the Mistral CLI builds phase 1 (#1671) and phase 2 (#1679) on the integration branch `cr17/web-content`, every pull request read by a Claude dev CLI, and the branch goes to `master` only after Koen's own approval on a local test version; the spike of phase 0 (#1626) was **built on 6 October 2026, TipTap confirmed** (C8; branch `spike/cr17-tiptap`) · **scope closed on 11 October 2026: this change request goes live after phase 5** (since 15 October 2026 after phase 4: phase 5, the value block and the gallery, moved to CR-32), in one merge of `cr17/web-content` on Koen's word after his own test — not per phase; phases 6 (the menu) and 7 (the letter and the notes) leave it for a change request of their own, still to be shaped (B9, 11 October)
 **Tracking issue:** #1427 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the cms domain (pages, the home blocks, the footer, placeholders, the renderer, the menu); the rich-text editor and its three users (CMS pages, the newsletter, meeting notes); the public page template; the kit macro `ui.rich_text`; the media picker of CR-15; the forms module (a form placed on a page); the public site of a tenant of the kind *company* (CR-19).
 **Reading:** A 1487 words · B 2497 · C 6764 — words to read, code fences excluded, Part C up to the Q&A log; measured on 5 October 2026 after the review of PR #1625; the budget is A ≤ 1 500, B ≤ 2 500
@@ -137,7 +137,7 @@ The words the user reads: "Blok invoegen ▾", "Voorbeeld", "Publiceren", "Gesch
 | AC1 | A table is added, published, edited and published again; still a table, also on a phone. | R1, R7 |
 | AC2 | A page with heading, text, a picture beside the text, two columns and a button; blocks move and go; the picture has the site's corners and shadow. | R2, R4 |
 | AC3 | An edit does not change the site until "Publiceren"; the preview shows the draft; the previous version is restorable. | R3 |
-| AC4 | The membership price is placed as a value and follows the setting. | R5 |
+| AC4 | The membership price is placed as a value and follows the setting. **Moved to CR-32 (A8.10) on 15 October 2026 with phase 5.** | R5 |
 | AC5 | (Could) The newsletter and the notes on the same editor; an activity block arrives as before. | R6 |
 | AC6 | On a phone the editor opens, adds a block and saves; nothing scrolls sideways. | R7 |
 | AC7 | The editor loads from the portal only; no CSP violation. | R9 |
@@ -178,8 +178,8 @@ Decisions, each with the rejected alternative (the reasoning in C4):
 | F2 | `cms.page_translations` (one row per language: title, draft, published, by, at); `cms_page_history` per published version; `content` read-only until dropped. | R3, R15 |
 | F3 | Rendering: schema → site HTML, mail HTML (print later); nh3 as the last net. | R1, R6, R7 |
 | F4 | `ui.rich_text(name, blocks=…)`: the vendored editor with the caller's set, one toolbar, one "Blok invoegen ▾", Opslaan (autosave later). | R2, R6 |
-| F5 | The figure block opens CR-15's picker; a gallery block takes an album (phase 5); the kit renders every figure with the public radius and shadow. | R4 |
-| F6 | The value block lists the placeholder codes and renders the current value (phase 5; the renderer replaces codes from phase 1). | R5 |
+| F5 | The figure block opens CR-15's picker; a gallery block takes an album (**moved to CR-32, phase 4, on 15 October 2026**); the kit renders every figure with the public radius and shadow. | R4 |
+| F6 | The value block lists the placeholder codes and renders the current value (**moved to CR-32, phase 4, on 15 October 2026**; the renderer replaces codes from phase 1). | R5 |
 | F7 | Voorbeeld renders the draft; Publiceren copies draft → published with a history row; Terugzetten restores into the draft. | R3 |
 | F8 | Public page at reading width; a table scrolls inside its block on a phone; columns stack, the form first. | R7 |
 | F9 | Newsletter set (text, figure, button, activity, calendar, closing) replacing the markers; the page's three choices decide the blocks — *Uitgelicht* an activity block each, *In de kalender* one calendar block (CR-11 Q55). Notes set: text, lists, table; autosave. (Could, phase 7.) | R6 |
@@ -275,7 +275,7 @@ flowchart TB
     c9["router: PUT /pages/{id}/draft, GET /schema — new"]:::new
   end
   subgraph media[media — CR-15]
-    m1[picker; gallery of an album — used]:::used
+    m1[picker — used; the gallery of an album moved to CR-32]:::used
   end
   subgraph forms[forms]
     f1[api: render a form inside a page; take the submission — used, one new facade call]:::chg
@@ -364,13 +364,15 @@ Who calls whom: the admin screens call the cms service and render the editor thr
 
 ## B5. Cost — investment and running cost, and what operations must know
 
-| Module | Ph 0 spike | Ph 1 pages | Ph 2 blocks | Ph 3 languages | Ph 4 JSON door | Ph 5 value, gallery | Ph 6 menu (Could) | Ph 7 letter, notes (Could) | Total |
+| Module | Ph 0 spike | Ph 1 pages | Ph 2 blocks | Ph 3 languages | Ph 4 JSON door | Ph 5 value, gallery (moved to CR-32 on 15 Oct 2026) | Ph 6 menu (Could) | Ph 7 letter, notes (Could) | Total |
 |---|---|---|---|---|---|---|---|---|---|
 | ui (kit) | 1 | 1.5 | 1 | 0.5 | — | 0.5 | — | 0.5 | 5 |
 | cms | — | 3.5 | 3 | 2 | 2 | 1 | 1 | 0.5 | 13 |
 | forms; newsletter, meetings | — | — | 0.5 | — | — | — | — | 2.5 | 3 |
 | tests | 0.5 | 1 | 1 | 0.5 | 0.5 | 0.5 | 0.25 | 1 | 5.25 |
 | **Total** | **1.5** | **6** | **5.5** | **3** | **2.5** | **1.5** | **1.25** | **4.5** | **~26 CLI-days** (20 for phases 0–5) |
+
+Phase 5 (1.5 CLI-days: ui 0.5, cms 1, tests 0.5) moved to CR-32 on 15 October 2026: without it this change request is ~25 CLI-days (18.5 for phases 0–4). The totals above are as shaped and still count it.
 
 Purchases: none. **Running cost:** none. **Operations:** no env var; the bundle upgraded like htmx; one contract migration.
 
@@ -383,12 +385,12 @@ Purchases: none. **Running cost:** none. **Operations:** no env var; the bundle 
 | **2 — the blocks** | table (full), columns with alignment, button, callout, **cards** (a lone card is a cards block with one card), **form** | none | a deleted form renders nothing | AC2, AC8, AC9 |
 | **3 — a second language** (Should) | the language selector, a second translation row, `/en/`, the fallback, the switch | none | a page without a translation falls back | walkthrough |
 | **4 — the JSON door** | export and import on the page; the API: pages, draft, publish, the reference lists; the schema served | none | an unknown block refused by name | AC10 |
-| **5 — the value block and the gallery** | the value block in the toolbar (the renderer replaces codes meanwhile); the gallery block on an album | none | none | AC4 |
+| **5 — the value block and the gallery** | moved to CR-32 (phase 4) on 15 October 2026 (it was: the value block in the toolbar, the renderer replacing codes meanwhile, and the gallery block on an album) | none | none | AC4 (moved with it) |
 | **6 — sections in the menu** (Could since 5 Oct, R8; **out of this change request since 11 Oct 2026**, a follow-up change request) | a parent page with pages, app pages and outside addresses under it | additive | none | AC12 |
 | **7 — the letter and the notes** (a follow-up change request, confirmed 11 Oct 2026) | the newsletter on the editor, markers gone, the mail renderer from blocks; the notes | none | a letter the mail renderer refuses is refused at "Versturen…" | AC5 |
 | **later** | the print rendering, the preview's width switch, autosave of the draft; drop `content` two releases after phase 1 | contract for the drop | — | — |
 
-Dependencies: CR-15's picker and a company tenant (CR-19) exist. **Order** (Koen, 7 Oct 2026): 0 → 1 → 2 → 3 → 4 → 5 → 6 are the change; 7 is a follow-up change request. **Revised on 11 Oct 2026** (Koen, to "Gaat de PR van CR-17 (web content) naar master na fase 5, of pas na fase 7?": "CR-17 gaat live na fase 5, de rest zal voor later zijn, via een aparte CR"; and on the merge: "De PR van CR-17 gaat toch pas naar master als gans CR-17 voltooid is?"): **0 → 1 → 2 → 3 → 4 → 5 are the change, merged into `master` once, after phase 5 and after Koen's test of the local version; 6 and 7 go to one change request of their own**, numbered and given a tracking issue when Koen asks for it.
+Dependencies: CR-15's picker and a company tenant (CR-19) exist. **Order** (Koen, 7 Oct 2026): 0 → 1 → 2 → 3 → 4 → 5 → 6 are the change; 7 is a follow-up change request. **Revised on 11 Oct 2026** (Koen, to "Gaat de PR van CR-17 (web content) naar master na fase 5, of pas na fase 7?": "CR-17 gaat live na fase 5, de rest zal voor later zijn, via een aparte CR"; and on the merge: "De PR van CR-17 gaat toch pas naar master als gans CR-17 voltooid is?"): **0 → 1 → 2 → 3 → 4 → 5 are the change, merged into `master` once, after phase 5 and after Koen's test of the local version; 6 and 7 go to one change request of their own**, numbered and given a tracking issue when Koen asks for it. **Revised again on 15 Oct 2026** (phase 5 moved to CR-32, B9): **0 → 1 → 2 → 3 → 4 are the change, merged into `master` once, after phase 4 and after Koen's test of the local version**; the value block and the gallery are phase 4 of CR-32; 6 and 7 stay follow-ups.
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
@@ -425,6 +427,7 @@ None (B9, 5 Oct 2026).
 | 14 Oct 2026 | **Built as: the pages that came from Trix.** The migration converts a page only when its document renders exactly as its HTML did; every other page keeps its HTML and gets its words as a draft. Measured at the comparison: most pages keep their HTML, because Trix stores a paragraph as a `div` (five of seventeen pieces of Trix output convert), and a page with only a nested list keeps it too. On HDEV at the merge: 11 pages, 6 converted, 5 kept their HTML. In such a draft a quotation and a code block each become a paragraph of their own and a list in a list stays nested. Open with Koen at the merge: the quotation is no block in the new editor, and such a page shows "Publiceren" only after one "Opslaan". | master CLI |
 | 14 Oct 2026 | **Built as: the widths and the bundle.** The page screen keeps 1 056 px beside the one record width of CR-11 (Koen, 13 Oct 2026: "4a"); the container block of 1 380 px is gone. The editor bundle was rebuilt in two steps, the second with the network off, with a recorded checksum; pinning its packages by content is #1965 on v2.19.0 (Koen, 13 Oct 2026: "a nu, c met v2.19"). Saving is no longer live: draft, then Publiceren; the HTML source view is gone. The head of the page screen squeezed its fields into one column of the form grid at the merge: #1983. | master CLI |
 | 14 Oct 2026 | **Built as (#1985, merge `537f5feb`): the quotation is a block again.** Koen, to "Moet het citaat als blok terug vóór de tag van v2.17 (a), of mag het weg (b)?": "a, v2.17". A node `blockquote` holding blocks, offered in the page set only (not in `letter` or `notes`): a toolbar button "Citaat", "> " and a pasted quotation. The conversion carries a Trix quotation into it, and a list inside a quotation nests; a quotation inside a list item does not convert (the editor's list item cannot start with one), so such a page keeps its HTML. On Trix output typed for the count: 3 of 20 pieces converted before, 7 of 20 after. The code block stays out. On the "Publiceren" button of a page that kept its HTML, Koen the same day: "er staan er maar 5 op prod, die omzetten is 5 minuten manueel werk, hier gaan we geen investering voor ontwikkelen" — nothing built. | master CLI |
+| 15 Oct 2026 | **Phase 5 moved to CR-32** (the value block and the gallery become phase 4 of CR-32 — sections, text cards, data blocks and a tenant's own look). Koen, to the architecture CLI's "Wil je dat: fase 5 van CR-17 naar CR-32?": "Ja, verhuis fase 5 naar CR-32". This change request now ends after phase 4; F5, F6, AC4, B5, B6, the status line and the node of the diagram follow. The rows of 11 October, Q29 and Q30 stand as they were: they record what was decided then. | Koen, recorded by the master CLI |
 
 ---
 
