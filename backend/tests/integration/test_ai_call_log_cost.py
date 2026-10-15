@@ -311,9 +311,12 @@ def test_the_migration_labels_the_rows_that_were_there(db_session, leeg_logboek)
 
 def test_ocr_is_logged_with_its_department(db_session, leeg_logboek, monkeypatch):
     import app.domains.media.extraction as mx
+    from app.config import settings
+    from app.domains.chatbot.providers import mistral
 
+    monkeypatch.setattr(settings, "mistral_api_key", "sleutel")
     monkeypatch.setattr(
-        mx.httpx,
+        mistral.httpx,
         "post",
         lambda *a, **k: _Antwoord({"id": "ocr-1", "pages": [{"markdown": "Affiche"}]}),
     )
@@ -344,10 +347,12 @@ def test_an_ocr_call_is_logged_with_its_cost(db_session, leeg_logboek, monkeypat
     """
     import app.domains.media.extraction as mx
     from app.config import settings
+    from app.domains.chatbot.providers import mistral
 
+    monkeypatch.setattr(settings, "mistral_api_key", "sleutel")
     monkeypatch.setattr(settings, "ocr_price_per_page_usd", 0.004)
     monkeypatch.setattr(
-        mx.httpx,
+        mistral.httpx,
         "post",
         lambda *a, **k: _Antwoord(
             {
@@ -371,8 +376,11 @@ def test_an_ocr_call_is_logged_with_its_cost(db_session, leeg_logboek, monkeypat
 
 def test_a_failed_ocr_is_logged_too(db_session, leeg_logboek, monkeypatch):
     import app.domains.media.extraction as mx
+    from app.config import settings
+    from app.domains.chatbot.providers import mistral
 
-    monkeypatch.setattr(mx.httpx, "post", lambda *a, **k: _Antwoord({}, status=500))
+    monkeypatch.setattr(settings, "mistral_api_key", "sleutel")
+    monkeypatch.setattr(mistral.httpx, "post", lambda *a, **k: _Antwoord({}, status=500))
     with pytest.raises(httpx.HTTPStatusError):
         mx._ocr_via_mistral(b"png", "image/png", tenant_id=TENANT)
 

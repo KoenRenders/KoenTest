@@ -52,7 +52,7 @@ from app.domains.chatbot.models import (  # noqa: F401
     AiSurface,
     ChatbotInfo,  # noqa: F401
 )
-from app.domains.chatbot.providers import get_provider  # noqa: F401
+from app.domains.chatbot.providers import get_provider, ocr_available  # noqa: F401
 from app.domains.chatbot.seam import (  # noqa: F401
     REDACTION_PLACEHOLDERS,
     GuardedProvider,
@@ -106,6 +106,7 @@ __all__ = [
     "admin_rules",
     "REDACTION_PLACEHOLDERS",
     "get_provider",
+    "ocr_available",
     "public_rules",
     "redact",
     "scrub_names",

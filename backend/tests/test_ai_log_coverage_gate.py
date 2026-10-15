@@ -39,7 +39,6 @@ VENDOR_MARKERS = ("api.mistral.ai", "mistralai", "api.bfl.ai")
 DIRECT = {
     "domains/chatbot/providers/mistral.py": "rule 1 — only built by get_provider",
     "domains/chatbot/stt/providers/voxtral.py": "rule 2 — only built by get_stt_provider",
-    "domains/media/extraction.py": "logs each OCR call itself (_log_ocr)",
 }
 
 FACTORIES = {"domains/chatbot/providers/factory.py", "domains/chatbot/stt/providers/factory.py"}
@@ -80,9 +79,19 @@ def test_every_chat_provider_is_wrapped_with_a_sink():
                 and any(isinstance(a, ast.Call) and _naam(a) == "sink_for" for a in args)
             ):
                 gewikkeld.add(id(eerste))
+        # CR-33 C4.6: the document reader's OCR is a provider method, `get_provider().ocr(…)`;
+        # it carries no text payload for the seam and writes its own row (rule 4 below).
+        ocr_door = {
+            id(n.func.value)
+            for n in ast.walk(tree)
+            if isinstance(n, ast.Call)
+            and isinstance(n.func, ast.Attribute)
+            and n.func.attr == "ocr"
+            and isinstance(n.func.value, ast.Call)
+        }
         for call in _calls(tree, "get_provider"):
             gezien += 1
-            if id(call) not in gewikkeld:
+            if id(call) not in gewikkeld and id(call) not in ocr_door:
                 fouten.append(f"{_rel(pad)}:{call.lineno}")
     assert gezien >= 4, f"only {gezien} get_provider calls found — is the gate looking?"
     assert not fouten, (
