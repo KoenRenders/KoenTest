@@ -14,9 +14,16 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.domains.stock.models import ProductHasMovements
-from app.domains.stock.service import has_movements, reserve
+from app.domains.stock.service import has_movements, issue, release, reserve
 from app.kernel.contracts.product import ProductDeleted, SizeDeleteRefused
-from app.kernel.contracts.stock import ReservationMade, ReserveStock
+from app.kernel.contracts.stock import (
+    IssueStock,
+    ReleaseStock,
+    ReservationMade,
+    ReserveStock,
+    StockIssued,
+    StockReleased,
+)
 from app.kernel.events import subscribe
 from app.kernel.ports import handles
 
@@ -33,6 +40,20 @@ def reserve_stock(port: ReserveStock, db: Session) -> ReservationMade:
         allow_short=port.allow_short,
     )
     return ReservationMade(order_line_id=port.order_line_id)
+
+
+@handles(ReleaseStock)
+def release_stock(port: ReleaseStock, db: Session) -> StockReleased:
+    """Cancel one line's reservation (F8): the article is free again."""
+    release(db, port.order_line_id)
+    return StockReleased(order_line_id=port.order_line_id)
+
+
+@handles(IssueStock)
+def issue_stock(port: IssueStock, db: Session) -> StockIssued:
+    """Deliver one line (F6, R21): the movement and the reservation DELIVERED."""
+    issue(db, port.order_line_id, actor=port.actor)
+    return StockIssued(order_line_id=port.order_line_id)
 
 
 @subscribe(ProductDeleted)

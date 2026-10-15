@@ -26,7 +26,6 @@ from app.domains.sales.api import (
 from app.domains.sales.viewmodels import (
     BasketView,
     BedanktView,
-    WebshopOrderView,
     WebshopProductView,
     WebshopView,
 )
@@ -239,9 +238,12 @@ def my_orders(request: Request, db: Session = Depends(get_db)):
 @router.get("/mijn/aankopen/{order_id}", response_class=HTMLResponse)
 def my_order(request: Request, order_id: int, db: Session = Depends(get_db)):
     """One order of the buyer or of his household (C5: any other id is a 404)."""
+    from app.domains.sales.api import order_view
+    from app.domains.sales.viewmodels import OrderPageView
+
     person_id, _is_member = _buyer(request, db)
     order = owned_order(db, order_id, person_id)
     if order is None:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
-    vm = WebshopOrderView(order=order, order_id=order.id, site=site_context(db, request))
+    vm = OrderPageView(order=order_view(db, order), is_admin=False, site=site_context(db, request))
     return templates.TemplateResponse(request, "webshop_order.html", vm.as_context())

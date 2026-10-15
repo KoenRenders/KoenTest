@@ -187,6 +187,7 @@ def test_the_menu_gained_exactly_one_item_and_nothing_else_moved():
         "/admin/producten",
         "/admin/prijzen",
         "/admin/voorraad",
+        "/admin/verkoop",
         "/admin/paginas",
         "/admin/media",
         "/admin/ai-context",

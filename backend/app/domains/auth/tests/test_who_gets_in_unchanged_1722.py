@@ -389,6 +389,7 @@ ON_A_RIGHT = {
     "/admin/producten": ("product.view", "product.masterdata"),
     "/admin/prijzen": ("price.view", "price.manage"),
     "/admin/voorraad": ("stock.view", "stock.manage"),
+    "/admin/verkoop": ("sales.view", "sales.manage"),
     "/admin/betalingen": ("payment.view", "payment.manage"),
     "/admin/rapporten": ("report.view", "report.manage"),
     "/admin/rapporten/raakje": ("assistant.use", "assistant.use"),

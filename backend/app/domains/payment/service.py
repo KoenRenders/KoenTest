@@ -386,6 +386,12 @@ def membership_payment_states(db: Session, membership_ids) -> dict[int, dict]:
     return payable_payment_states(db, PayableType.MEMBERSHIP, membership_ids)
 
 
+def order_payment_states(db: Session, order_ids) -> dict[int, dict]:
+    """Per webshop order what its bookings say together (CR-21, R34) — see
+    `payable_payment_states`."""
+    return payable_payment_states(db, PayableType.ORDER, order_ids)
+
+
 def selection_count(
     db: Session, *, context: str = "all", view: str = "alle", activity_id: int | None = None
 ) -> int:

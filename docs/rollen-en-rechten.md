@@ -358,13 +358,15 @@ Every route whose gate asks the right. A right without a route here opens nothin
 
 - `POST /admin/prijzen/{product_id}`
 
-### `sales.view` — 0 routes
+### `sales.view` — 2 routes
 
-- none
+- `GET /admin/verkoop`
+- `GET /admin/verkoop/{order_id}`
 
-### `sales.manage` — 0 routes
+### `sales.manage` — 2 routes
 
-- none
+- `POST /admin/verkoop/{order_id}/annuleren`
+- `POST /admin/verkoop/{order_id}/lijn/{line_id}/leveren`
 
 ### `stock.view` — 5 routes
 

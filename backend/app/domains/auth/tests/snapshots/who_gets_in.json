@@ -514,6 +514,14 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
+  "GET /admin/verkoop": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/verkoop/{order_id}": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
   "GET /admin/voorraad": {
    "platform": "OPERATOR",
    "tenant": "OPERATOR"
@@ -1325,6 +1333,14 @@
   "POST /admin/vergaderingen/{meeting_id}/verstuur": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/verkoop/{order_id}/annuleren": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/verkoop/{order_id}/lijn/{line_id}/leveren": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
   },
   "POST /admin/voorraad/correctie": {
    "platform": "OPERATOR",

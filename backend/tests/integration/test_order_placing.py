@@ -717,3 +717,79 @@ def test_a_strangers_order_is_the_same_404_as_a_missing_one(client, db_session, 
     assert stranger.status_code == 404
     assert missing.status_code == 404
     assert stranger.text == missing.text
+
+
+def test_delivering_a_line_marks_it_and_lowers_the_stock(db_session, every_module_on):
+    """F6/R21: delivering one line sets `delivered_at` and the stock goes down by
+    the line's quantity."""
+    from app.domains.mdm.api import PaymentMethod
+    from app.domains.sales.api import deliver_line, place_order
+    from app.domains.stock.api import available
+
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    order = place_order(
+        db_session,
+        person_id=None,
+        guest_name="An",
+        guest_email="an@example.com",
+        guest_mobile="0470000000",
+        method=PaymentMethod.TRANSFER,
+        items=[(m.id, 2)],
+        member=False,
+    )
+    db_session.commit()
+
+    deliver_line(db_session, order.id, order.lines[0].id, actor="beheerder@example.com")
+    db_session.refresh(order)
+    assert order.lines[0].delivered_at is not None
+    assert available(db_session, m.id) == 3
+
+
+def test_cancelling_frees_the_stock_and_leaves_the_lists(db_session, every_module_on):
+    """F8/R22: cancelling soft-deletes the order (it leaves the lists) and the
+    reservation frees the stock."""
+    from app.domains.mdm.api import PaymentMethod
+    from app.domains.sales.api import cancel_order, get_order, place_order
+    from app.domains.stock.api import available
+
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    order = place_order(
+        db_session,
+        person_id=None,
+        guest_name="An",
+        guest_email="an@example.com",
+        guest_mobile="0470000000",
+        method=PaymentMethod.TRANSFER,
+        items=[(m.id, 2)],
+        member=False,
+    )
+    db_session.commit()
+
+    cancel_order(db_session, order.id, actor="beheerder@example.com")
+    assert get_order(db_session, order.id) is None
+    assert available(db_session, m.id) == 5
+
+
+def test_a_delivered_order_cannot_be_cancelled(db_session, every_module_on):
+    """F8: once a line is delivered the whole order can no longer be cancelled."""
+    import pytest
+
+    from app.domains.mdm.api import PaymentMethod
+    from app.domains.sales.api import SalesError, cancel_order, deliver_line, place_order
+
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    order = place_order(
+        db_session,
+        person_id=None,
+        guest_name="An",
+        guest_email="an@example.com",
+        guest_mobile="0470000000",
+        method=PaymentMethod.TRANSFER,
+        items=[(m.id, 2)],
+        member=False,
+    )
+    db_session.commit()
+    deliver_line(db_session, order.id, order.lines[0].id, actor="beheerder@example.com")
+
+    with pytest.raises(SalesError):
+        cancel_order(db_session, order.id, actor="beheerder@example.com")

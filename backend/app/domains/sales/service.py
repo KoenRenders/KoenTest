@@ -531,3 +531,151 @@ def owned_order(db: Session, order_id: int, person_id: int | None):
         .all()
     }
     return order if owner_households & mine else None
+
+
+def order_payment_state(db: Session, order_id: int) -> dict:
+    """The order's payment state from `payment` — "open" or "settled" — with the
+    amounts (R34). An order without a live booking has no state."""
+    from app.domains.payment.api import order_payment_states
+
+    return order_payment_states(db, [order_id]).get(order_id, {})
+
+
+def order_delivery_state(db: Session, order) -> str:
+    """The order's delivery status from its lines (F5): "Wordt besteld" while
+    nothing is delivered and a line still waits for the supplier, else "Klaar om
+    af te halen", "Deels afgeleverd" or "Afgeleverd"."""
+    from app.domains.stock.api import waiting
+    from app.i18n import _
+
+    lines = order.lines
+    if not lines:
+        return _("Klaar om af te halen")
+    delivered = sum(1 for line in lines if line.delivered_at is not None)
+    if delivered == 0:
+        if waiting(db, [line.id for line in lines]):
+            return _("Wordt besteld")
+        return _("Klaar om af te halen")
+    if delivered == len(lines):
+        return _("Afgeleverd")
+    return _("Deels afgeleverd")
+
+
+def list_orders(db: Session) -> list[dict[str, Any]]:
+    """Verkoop's list: every order, newest first, with its payment and delivery
+    state and the buyer's name (F5, R34)."""
+    from app.domains.mdm.api import Person
+    from app.domains.payment.api import order_payment_states
+    from app.domains.sales.models import SalesOrder
+
+    orders = db.query(SalesOrder).order_by(SalesOrder.id.desc()).all()
+    person_ids = {o.person_id for o in orders if o.person_id is not None}
+    persons = (
+        {p.id: p for p in db.query(Person).filter(Person.id.in_(person_ids))} if person_ids else {}
+    )
+    states = order_payment_states(db, [o.id for o in orders]) if orders else {}
+    return [
+        {
+            "id": order.id,
+            "placed_at": order.placed_at,
+            "contact_name": (
+                f"{persons[order.person_id].first_name} {persons[order.person_id].last_name}".strip()
+                if order.person_id in persons
+                else order.guest_name or ""
+            ),
+            "payment": states.get(order.id, {}).get("state", ""),
+            "delivery": order_delivery_state(db, order),
+        }
+        for order in orders
+    ]
+
+
+def deliver_line(db: Session, order_id: int, line_id: int, *, actor: str | None) -> None:
+    """Deliver one line (F6, R21): `stock.api.issue` writes the GOODS_ISSUE and
+    closes the reservation, and the line's `delivered_at` is set — one transaction."""
+    from datetime import datetime, timezone
+
+    from app.domains.sales.models import SalesOrder, SalesOrderLine
+    from app.i18n import _
+    from app.kernel.contracts.stock import IssueStock
+    from app.kernel.ports import call
+
+    order = db.query(SalesOrder).filter(SalesOrder.id == order_id).one_or_none()
+    if order is None:
+        raise SalesError(_("Deze bestelling bestaat niet."))
+    line = (
+        db.query(SalesOrderLine)
+        .filter(SalesOrderLine.id == line_id, SalesOrderLine.order_id == order_id)
+        .one_or_none()
+    )
+    if line is None:
+        raise SalesError(_("Deze regel hoort niet bij deze bestelling."))
+    if line.delivered_at is not None:
+        raise SalesError(_("Deze regel is al geleverd."))
+    call(IssueStock(order_line_id=line.id, actor=actor), db)
+    line.delivered_at = datetime.now(timezone.utc)
+    db.commit()
+
+
+def cancel_order(db: Session, order_id: int, *, actor: str | None) -> None:
+    """Cancel the whole order (F8): the reservations free the stock, the order is
+    soft-deleted and leaves the lists, and `SalesOrderChanged(order_id, 0, actor)`
+    brings a paid order's refund. Refused once a line is delivered."""
+    from app.domains.sales.models import SalesOrder
+    from app.i18n import _
+    from app.kernel.contracts.sales import SalesOrderChanged
+    from app.kernel.contracts.stock import ReleaseStock
+    from app.kernel.events import publish
+    from app.kernel.ports import call
+    from app.soft_delete import soft_delete
+
+    order = db.query(SalesOrder).filter(SalesOrder.id == order_id).one_or_none()
+    if order is None:
+        raise SalesError(_("Deze bestelling bestaat niet."))
+    if any(line.delivered_at is not None for line in order.lines):
+        raise SalesError(_("Een geleverde bestelling kan niet geannuleerd worden."))
+    for line in order.lines:
+        call(ReleaseStock(order_line_id=line.id), db)
+    soft_delete(order)
+    publish(SalesOrderChanged(order_id=order.id, total_due="0", actor=actor), db)
+    db.commit()
+
+
+def order_view(db: Session, order) -> dict[str, Any]:
+    """The order page's data (D6): the lines with their article and size, the
+    contact, the payment and delivery states, and the total. The same view-model
+    the site shell and the admin shell both render."""
+    from app.domains.mdm.api import Person
+    from app.domains.product.api import get_variant, size_of
+    from app.i18n import _
+
+    contact_name = order.guest_name or ""
+    if order.person_id is not None:
+        person = db.get(Person, order.person_id)
+        if person is not None:
+            contact_name = f"{person.first_name} {person.last_name}".strip()
+
+    lines = []
+    for line in order.lines:
+        variant = get_variant(db, line.variant_id)
+        lines.append(
+            {
+                "id": line.id,
+                "name": variant.product.name if variant is not None else _("Artikel"),
+                "size": size_of(variant) if variant is not None else "",
+                "quantity": line.quantity,
+                "unit_price": line.unit_price,
+                "delivered": line.delivered_at is not None,
+            }
+        )
+
+    return {
+        "id": order.id,
+        "placed_at": order.placed_at,
+        "contact_name": contact_name,
+        "lines": lines,
+        "payment": order_payment_state(db, order.id).get("state", ""),
+        "delivery": order_delivery_state(db, order),
+        "total": total_of(order),
+        "cancellable": all(line.delivered_at is None for line in order.lines),
+    }

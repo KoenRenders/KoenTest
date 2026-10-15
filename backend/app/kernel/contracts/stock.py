@@ -34,3 +34,35 @@ class ReserveStock(Port):
     variant_id: int
     quantity: int
     allow_short: bool = False
+
+
+@dataclass(frozen=True)
+class ReleaseStock(Port):
+    """Cancel the reservation of an order line (F8): the article is free again.
+    Nothing happens when the line has no open reservation."""
+
+    order_line_id: int
+
+
+@dataclass(frozen=True)
+class StockReleased:
+    """The outcome of `ReleaseStock`: the reservation was cancelled."""
+
+    order_line_id: int
+
+
+@dataclass(frozen=True)
+class IssueStock(Port):
+    """Deliver an order line (F6, R21): a GOODS_ISSUE movement of its quantity and
+    the reservation DELIVERED. Refused with `NotEnoughStock` while the on hand does
+    not cover the line."""
+
+    order_line_id: int
+    actor: str | None = None
+
+
+@dataclass(frozen=True)
+class StockIssued:
+    """The outcome of `IssueStock`: the line was delivered."""
+
+    order_line_id: int

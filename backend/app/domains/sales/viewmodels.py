@@ -103,3 +103,32 @@ class BedanktView(ViewModel):
         context.pop("site", None)
         context.update(self.site)
         return context
+
+
+@dataclass(frozen=True, kw_only=True)
+class VerkoopView(ViewModel):
+    """`verkoop.html` — Verkoop's list of orders, one segment at a time (Q81)."""
+
+    columns: list[dict[str, Any]]
+    rows: list[dict[str, Any]]
+    segment: str
+    nav_items: list[Any] = field(default_factory=list)
+
+    def as_context(self) -> dict[str, Any]:
+        return super().as_context()
+
+
+@dataclass(frozen=True, kw_only=True)
+class OrderPageView(ViewModel):
+    """The order page, in the site shell and the admin shell (D6) — one view-model,
+    the actions decided by `is_admin`."""
+
+    order: dict[str, Any]
+    is_admin: bool
+    site: dict[str, Any] = field(default_factory=dict)
+
+    def as_context(self) -> dict[str, Any]:
+        context = super().as_context()
+        context.pop("site", None)
+        context.update(self.site)
+        return context

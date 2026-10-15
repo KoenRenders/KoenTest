@@ -625,6 +625,7 @@ _ADMIN_NAV_LAYOUT: list[tuple[str | None, list[str | tuple[str, str]]]] = [
             "/admin/producten",
             "/admin/prijzen",
             "/admin/voorraad",
+            "/admin/verkoop",
         ],
     ),
     (
@@ -724,6 +725,7 @@ _ADMIN_NAV_ICONS: dict[str, str] = {
     "/admin/producten": "package",
     "/admin/prijzen": "tag",
     "/admin/voorraad": "warehouse",
+    "/admin/verkoop": "receipt-text",
     "/admin/betalingen": "wallet",
     "/admin/vergaderingen": "presentation",
     "/admin/nieuwsbrieven": "newspaper",

@@ -768,6 +768,37 @@ def test_een_op_bestelling_maat_zonder_voorraad_toont_op_bestelling(webshop_page
         page.wait_for_url("**" + record)
 
 
+def test_verkoop_toont_de_bestelling_en_levert_een_regel(webshop_page):
+    """Verkoop's list shows the order, and the order page delivers a line (F6), at
+    390 px."""
+    page = webshop_page
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.evaluate("localStorage.removeItem('raak_basket')")
+
+    _voeg_de_maat_toe_aan_het_mandje(page)
+    with htmx_afgerond(page):
+        page.locator("form[data-basket-form] button[type=submit]").click()
+    page.wait_for_url("**/webshop/mandje")
+    page.locator('input[name="contact_name"]').fill("An")
+    page.locator('input[name="contact_email"]').fill("an@example.com")
+    page.locator('input[name="phone"]').fill("0470000000")
+    page.locator('input[name="payment_method"][value="transfer"]').check()
+    with htmx_afgerond(page):
+        page.get_by_role("button", name="Bestellen en betalen").click()
+    page.wait_for_url("**/webshop/bedankt?**")
+
+    page.goto("/admin/verkoop")
+    assert "Bestelling" in page.locator("main").inner_text()
+    assert _geen_zijwaartse_scroll(page)
+
+    page.locator("a[data-row-link]").first.click()
+    page.wait_for_selector("[data-record-head]")
+    with htmx_afgerond(page):
+        page.get_by_role("button", name="Afleveren").click()
+    page.wait_for_url("**/admin/verkoop/**")
+    assert "Afgeleverd" in page.locator("main").inner_text()
+
+
 def test_productbeheer_en_prijsbeheer_zijn_tabellen(webshop_page):
     """The two list screens are the kit's table: one `table`, a row is the way in,
     no sideways scroll (Koen's sixth point)."""

@@ -83,6 +83,7 @@ from app.domains.pricing.handlers import (  # noqa: F401 - event subscription (C
 )
 from app.domains.product.admin_ui import router as product_admin_ui_router
 from app.domains.reporting.admin_ui import router as reporting_admin_ui_router
+from app.domains.sales.admin_ui import router as sales_admin_ui_router
 from app.domains.sales.handlers import (  # noqa: F401 - event subscription (CR-21)
     refuse_delete_with_order_lines,
 )
@@ -239,6 +240,7 @@ app.include_router(product_admin_ui_router, dependencies=_module(M.SHOP))
 app.include_router(pricing_admin_ui_router, dependencies=_module(M.SHOP))
 app.include_router(stock_admin_ui_router, dependencies=_module(M.SHOP))
 app.include_router(sales_ui_router, dependencies=_module(M.SHOP))
+app.include_router(sales_admin_ui_router, dependencies=_module(M.SHOP))
 app.include_router(reporting_admin_ui_router, dependencies=_module(M.REPORTING))
 app.include_router(meetings_admin_ui_router, dependencies=_module(M.MEETINGS))
 app.include_router(designstudio_admin_ui_router, dependencies=_module(M.DESIGNSTUDIO))
