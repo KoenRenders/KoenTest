@@ -1,7 +1,7 @@
 # CR-33 — The attribute register: one name and one AI classification per datum
 
 **Status:** shaped on 15 October 2026 by the architecture CLI, on Koen's question through the master CLI (#1692, "2 mag je aan brainstorm doorgeven") · the positioning against the other field lists talked through with Koen the same day · turned from label-first to **model-first** the same day on Koen's reading ("ja") · Koen names the release the same day (to "Release: v2.18 vóór de webshopfasen, of v2.19?": "Release 2.17, dit impliceert dat webshop ook in v2.17 komt") · over budget accepted ("Ja op 3, geen probleem") · **build read asked** the same day ("laat bouwlezing maar plaatsvinden"); the assignment follows the build read, as the procedure says
-**Tracking issue:** to be created by the master CLI from the draft in Koen's project folder (CR33 register van gegevens); until then #1692 is the status
+**Tracking issue:** #2007 — the one place where what is open stands; this document is the design, the issue is the status (#1692 is the origin)
 **Applies to:** the kernel (a new register beside the code lists), **every domain's data model** (one entry per stored business datum, 386 columns on the webshop's build branch, about 350 on master), every domain that shows a datum (the kit's fields, exports, the changes list, the import's check, mails), the reporting universe (names, descriptions and the AI classification become derived), the chatbot seam (the one AI port applies the classification by key for every surface)
 **Reading:** A 1 973 words · B 3 696 · C 5 070 — measured on 15 October 2026 after the turn to model-first, drawings excluded, tables included; prose alone A 1 093 · B 1 657 · C 3 165. The budget is A ≤ 1 500, B ≤ 2 500: **over budget in the tables** (the step table of A2, the traceability matrix and walkthrough of B2, the standards table of B3a); the prose is within it. Whether that is accepted is Koen's (B8, Q7)
 
@@ -546,7 +546,7 @@ Not built.
 | Q1 | 15 October 2026 | Where do `ai_exposure` and `sensitive` live: on the datum or on the report object until CR-16 needs them? (architecture CLI) | "verhuis naar het gegeven op 2, dat is voor mij duidelijk" (Koen). `sensitive` stays on the object: it describes a dimension's cut, not a datum |
 | Q2 | 15 October 2026 | One port, one classification, two checks? (architecture CLI) | "Ja, de publieke chatbot, dat gaat over activiteiten, webpagina's en content die we invoerden in de module Raakje content." (Koen); the fourth level *public* follows |
 | Q3 | 15 October 2026 | One change request with two phases, or the classification apart? (architecture CLI) | "één cr, kan ik die al eens lezen?" (Koen) |
-| Q4 | 15 October 2026 | Which release: v2.18 before the webshop's phases, or v2.19? (architecture CLI) | "Release 2.17, dit impliceert dat webshop ook in v2.17 komt" (Koen). Reported to the master CLI the same day for the trackers; the assignment itself follows the build read |
+| Q4 | 15 October 2026 | Which release: v2.18 before the webshop's phases, or v2.19? (architecture CLI) | "Release 2.17, dit impliceert dat webshop ook in v2.17 komt" (Koen, in the architecture CLI's chat); to the master CLI the same day: "We gaan van v2.17 een super-release maken, dus inclusief webshop en CR 33 die nog komt." The assignment itself follows the build read |
 | Q7 | 15 October 2026 | The reading budget is exceeded by the tables: accept as one document? (architecture CLI) | "Ja op 3, geen probleem" (Koen) |
 | Q11 | 15 October 2026 | May the build read be asked of the master CLI now, or after Koen's own reading? (architecture CLI) | "laat bouwlezing maar plaatsvinden" (Koen) |
 | Q9 | 15 October 2026 | "Vertrek je vanuit de databank? Dus is de databank betrokken? Dus, of zijn het enkel de labels? Ik denk dat het best is om ook de database te incorporeren. … Want misschien valt één veld in twee labels uit elkaar." (Koen) | Model-first (C4.0): every business column covered, measured against the ORM; the three cases where column and datum are not one-to-one in C4.3; the inventory per module as the appendix; Koen: "ja" |
@@ -563,7 +563,7 @@ Not built.
 
 ## Relationship to existing work — issues and change requests
 
-- Tracking issue: to be created; #1692 (one source for labels) is the origin and keeps its measured table; #1687 (the import's check) built the fourth place and named it.
+- Tracking issue #2007; #1692 (one source for labels) is the origin and keeps its measured table; #1687 (the import's check) built the fourth place and named it.
 - CR-12 (codes and enums): the form the register copies; the code lists stay the source for values.
 - CR-07 (Raakje back office) §5.1–5.2: the three levels and the tokenisation this change moves to the datum.
 - CR-16 (command port): the first caller that will act on data outside the universe; it uses the port as shaped here.
