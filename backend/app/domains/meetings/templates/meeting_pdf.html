@@ -87,8 +87,13 @@
      lijkt de knop stuk (#939). Een kop binnen een notitie is een tussentitel en
      geen paginatitel: kleiner dan de sectiekop, zodat de hoofdstructuur leesbaar
      blijft. */
-  .notes h1, .notes h2, .notes h3 { font-size: 10.5pt; font-weight: 600;
+  .notes h1, .notes h2, .notes h3, .notes h4 { font-size: 10.5pt; font-weight: 600;
                                     color: var(--pdf-ink); margin: 5pt 0 2pt 0; }
+  /* A table in the minutes (the editor of the pages offers one). */
+  .notes table { border-collapse: collapse; margin: 3pt 0; }
+  .notes th, .notes td { border: 0.5pt solid var(--pdf-line); padding: 1.5pt 4pt;
+                         text-align: left; vertical-align: top; }
+  .notes th { font-weight: 600; }
   .notes blockquote { margin: 3pt 0 3pt 0; padding-left: 8pt;
                       border-left: 2pt solid var(--pdf-line); color: var(--pdf-soft); }
   .notes pre { margin: 3pt 0; padding: 3pt 5pt; background: var(--pdf-code);

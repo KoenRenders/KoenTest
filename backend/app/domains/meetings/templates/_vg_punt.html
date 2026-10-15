@@ -85,18 +85,22 @@
 
        Elk punt swapt alleen ZICHZELF (`hx-target` op de eigen rij). Zou dit het
        hele document vervangen, dan viel de editor onder je handen weg zodra
-       iemand anders iets aanklikte. #}
+       iemand anders iets aanklikte.
+
+       De editor is die van de pagina's (CR-17 fase 7): de notities zijn een
+       document van de set `notes`. Hij meldt `raak-editor-blur` als je hem
+       verlaat nadat je iets typte; dat is wat Trix' `trix-blur` was. #}
     {% if editable %}
     <form class="mt-2" hx-post="/admin/vergaderingen/{{ meeting.id }}/punt/{{ item.id }}"
           hx-target="#vg-punt-{{ item.id }}" hx-swap="outerHTML"
-          hx-trigger="trix-blur from:find trix-editor">
+          hx-trigger="raak-editor-blur">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       {# De opmaakbalk staat ingeklapt en verschijnt zodra je in het veld klikt.
          Tijdens een vergadering typ je; een balk boven elk van de twintig punten
          maakt van het verslag een gereedschapskist. #}
-      {{ ui.rich_text("notes", "vg-trix-" ~ item.id, value=item.notes,
-                      input_id="vg-notes-" ~ item.id, placeholder=_("Notities…"),
-                      cls="min-h-[4rem]", toolbar_on_focus=True) }}
+      <div class="de-bar-on-focus">
+        {{ ui.document_editor("notes", notes_editor, item.notes_json, id="vg-notes-" ~ item.id, assets=False) }}
+      </div>
     </form>
     {% elif item.notes %}
     <div class="prose-raak mt-2 text-sm">{{ item.notes|safe }}</div>

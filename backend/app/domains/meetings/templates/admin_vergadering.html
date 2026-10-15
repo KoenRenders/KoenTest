@@ -6,6 +6,9 @@
    staat; er is geen modus om in of uit te gaan. Elke schrijfactie vervangt dit
    ene fragment, zodat er maar één waarheid op het scherm staat. #}
 {{ ui.back_link(_("Alle vergaderingen"), "/admin/vergaderingen") }}
+{# One set of editor files for every point: the notes editors come and go with
+   the swaps of single points, the files stay. #}
+{{ ui.document_editor_assets() }}
 <div id="vg-document">
   {% include "_vg_document.html" %}
 </div>

@@ -16,6 +16,7 @@ doorloop plus een paar gerichte tests op de punten waar een fout geld of
 geloofwaardigheid kost.
 """
 
+import json
 from datetime import date, time
 
 import pytest
@@ -35,6 +36,7 @@ from app.domains.meetings.api import (
     get_meeting,
     sections_of,
 )
+from tests._meeting_notes import note
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -162,7 +164,7 @@ def test_de_hele_weg_van_een_secretaris(client, db_session, postbus):
     client.post(
         f"/admin/vergaderingen/{meeting.id}/punt/{punt.id}",
         headers=headers,
-        data={"notes": "<div>Uitverkocht, 300 tickets.</div>"},
+        data={"notes": json.dumps(note("Uitverkocht, 300 tickets."))},
     )
     opnieuw = next(i for s in document_of(db_session, meeting) for i in s.items if i.id == punt.id)
     assert "300 tickets" in opnieuw.notes
@@ -269,7 +271,7 @@ def test_de_hele_weg_van_een_secretaris(client, db_session, postbus):
     geweigerd = client.post(
         f"/admin/vergaderingen/{meeting.id}/punt/{punt.id}",
         headers=headers,
-        data={"notes": "<div>nog iets</div>"},
+        data={"notes": json.dumps(note("nog iets"))},
     )
     assert "verstuurd" in geweigerd.text.lower()
     client.post(f"/admin/vergaderingen/{meeting.id}/heropen", headers=headers)
@@ -277,7 +279,7 @@ def test_de_hele_weg_van_een_secretaris(client, db_session, postbus):
     client.post(
         f"/admin/vergaderingen/{meeting.id}/punt/{punt.id}",
         headers=headers,
-        data={"notes": "<div>correctie achteraf</div>"},
+        data={"notes": json.dumps(note("correctie achteraf"))},
     )
     hersteld = next(i for s in document_of(db_session, meeting) for i in s.items if i.id == punt.id)
     assert "correctie achteraf" in hersteld.notes

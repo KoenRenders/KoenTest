@@ -24,6 +24,7 @@ from app.domains.newsletter.models import (
     Audience,
     LetterStatus,
 )
+from tests._meeting_notes import note
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -144,7 +145,7 @@ def _sent_meeting_with_point(db, notes, activity=None):
     item = add_item(
         db, meeting, section, title="Vervoer", activity_id=activity.id if activity else None
     )
-    item.notes = notes
+    item.notes_document = note(notes) if notes else None
     meeting.status = MeetingStatus.SENT
     db.commit()
     return item

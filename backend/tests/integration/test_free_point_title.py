@@ -31,6 +31,7 @@ from app.domains.meetings.api import (
     update_item,
 )
 from app.domains.meetings.models import MeetingItem
+from tests._meeting_notes import note
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -48,9 +49,9 @@ def _misc(db, meeting):
     return next(s for s in sections_of(db, meeting) if s.kind is SectionKind.MISC)
 
 
-def _free_point(db, meeting, title: str = "Tentn opbouwen", notes: str = "<p>Jan</p>"):
+def _free_point(db, meeting, title: str = "Tentn opbouwen", notes: "dict | None" = None):
     item = add_item(db, meeting, _misc(db, meeting), title=title)
-    update_item(db, meeting, item.id, notes=notes)
+    update_item(db, meeting, item.id, notes=notes or note("Jan"))
     return item
 
 
@@ -80,7 +81,7 @@ def test_the_new_title_shows_on_screen_and_in_the_pdf(client, db_session):
     db_session.expire_all()
     stored = db_session.get(MeetingItem, item.id)
     assert stored.title == "Tenten opbouwen", "trimmed"
-    assert stored.notes == "<p>Jan</p>", "the notes are left alone"
+    assert stored.notes_document == note("Jan"), "the notes are left alone"
     pdf = templates.env.get_template("meeting_pdf.html").render(
         **_pdf_context(db_session, meeting, kind="agenda")
     )

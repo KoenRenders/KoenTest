@@ -81,7 +81,7 @@ def test_the_first_point_has_no_line_after_its_note_is_saved(browser):
         # Save a note on the first point: the editor posts on blur, and the point
         # alone is swapped back.
         point = page.locator('[id^="vg-punt-"]', has_text=first)
-        point.locator("trix-editor").click()
+        point.locator(".ProseMirror").click()
         page.keyboard.type("Wie brengt de tent mee?")
         with htmx_afgerond(page):
             page.locator("#vg-document h2", has_text="Varia").click()
