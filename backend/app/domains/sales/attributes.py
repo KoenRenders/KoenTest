@@ -9,15 +9,15 @@ from app.kernel.attributes import AiExposure, Attribute
 
 ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
-        key="sales.order.person_id",
+        key="sales.sales_order.person_id",
         columns=("sales.sales_orders.person_id",),
         label=None,
         name_en="Person id",
         help="De koper — de persoon van het getypte adres, nooit de verkoper.",
-        ai_exposure=AiExposure.TOKENISED,  # K2
+        ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="sales.order.guest_name",
+        key="sales.sales_order.guest_name",
         columns=("sales.sales_orders.guest_name",),
         label="Naam",
         name_en="Guest name",
@@ -25,7 +25,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.TOKENISED,  # K2
     ),
     Attribute(
-        key="sales.order.guest_email",
+        key="sales.sales_order.guest_email",
         columns=("sales.sales_orders.guest_email",),
         label="E-mail",
         name_en="Guest email",
@@ -33,7 +33,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.NONE,  # K1
     ),
     Attribute(
-        key="sales.order.guest_mobile",
+        key="sales.sales_order.guest_mobile",
         columns=("sales.sales_orders.guest_mobile",),
         label="Mobiel",
         name_en="Guest mobile",
@@ -41,7 +41,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.NONE,  # K1
     ),
     Attribute(
-        key="sales.order.payment_method",
+        key="sales.sales_order.payment_method",
         columns=("sales.sales_orders.payment_method",),
         label="Betaalwijze",
         name_en="Payment method",
@@ -49,7 +49,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="sales.order.placed_at",
+        key="sales.sales_order.placed_at",
         columns=("sales.sales_orders.placed_at",),
         label=None,
         name_en="Placed at",
@@ -57,7 +57,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="sales.order_line.variant_id",
+        key="sales.sales_order_line.variant_id",
         columns=("sales.sales_order_lines.variant_id",),
         label=None,
         name_en="Variant id",
@@ -65,7 +65,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="sales.order_line.quantity",
+        key="sales.sales_order_line.quantity",
         columns=("sales.sales_order_lines.quantity",),
         label="Aantal",
         name_en="Quantity",
@@ -73,7 +73,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="sales.order_line.unit_code",
+        key="sales.sales_order_line.unit_code",
         columns=("sales.sales_order_lines.unit_code",),
         label=None,
         name_en="Unit code",
@@ -81,7 +81,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="sales.order_line.unit_price",
+        key="sales.sales_order_line.unit_price",
         columns=("sales.sales_order_lines.unit_price",),
         label="Prijs",
         name_en="Unit price",
@@ -89,7 +89,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="sales.order_line.delivered_at",
+        key="sales.sales_order_line.delivered_at",
         columns=("sales.sales_order_lines.delivered_at",),
         label=None,
         name_en="Delivered at",
@@ -97,15 +97,15 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="sales.contact.person_id",
+        key="sales.shop_contact.person_id",
         columns=("sales.shop_contacts.person_id",),
         label=None,
         name_en="Person id",
         help="De contactpersoon van de webshop.",
-        ai_exposure=AiExposure.TOKENISED,  # K2
+        ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="sales.contact.sort_order",
+        key="sales.shop_contact.sort_order",
         columns=("sales.shop_contacts.sort_order",),
         label=None,
         name_en="Sort order",
@@ -113,7 +113,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="sales.settings.intro",
+        key="sales.shop_settings.intro",
         columns=("sales.shop_settings.intro",),
         label="Inleiding",
         name_en="Intro",

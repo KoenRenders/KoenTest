@@ -9,7 +9,7 @@ from app.kernel.attributes import AiExposure, Attribute
 
 ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
-        key="stock.location.name",
+        key="stock.stock_location.name",
         columns=("stock.stock_locations.name",),
         label="Locatie",
         name_en="Name",
@@ -17,7 +17,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="stock.location.is_default",
+        key="stock.stock_location.is_default",
         columns=("stock.stock_locations.is_default",),
         label=None,
         name_en="Is default",
@@ -25,7 +25,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="stock.movement.variant_id",
+        key="stock.stock_movement.variant_id",
         columns=("stock.stock_movements.variant_id",),
         label=None,
         name_en="Variant id",
@@ -33,7 +33,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="stock.movement.quantity",
+        key="stock.stock_movement.quantity",
         columns=("stock.stock_movements.quantity",),
         label="Aantal",
         name_en="Quantity",
@@ -41,7 +41,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="stock.movement.reason",
+        key="stock.stock_movement.reason",
         columns=("stock.stock_movements.reason",),
         label=None,
         name_en="Reason",
@@ -49,15 +49,15 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="stock.movement.note",
+        key="stock.stock_movement.note",
         columns=("stock.stock_movements.note",),
         label="Reden",
         name_en="Note",
         help="De reden van een correctie.",
-        ai_exposure=AiExposure.INTERNAL,  # K0
+        ai_exposure=AiExposure.NONE,  # K3
     ),
     Attribute(
-        key="stock.movement.occurred_at",
+        key="stock.stock_movement.occurred_at",
         columns=("stock.stock_movements.occurred_at",),
         label=None,
         name_en="Occurred at",
@@ -65,7 +65,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="stock.movement.actor",
+        key="stock.stock_movement.actor",
         columns=("stock.stock_movements.actor",),
         label=None,
         name_en="Actor",
@@ -73,7 +73,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.NONE,  # K1
     ),
     Attribute(
-        key="stock.movement.order_line_id",
+        key="stock.stock_movement.order_line_id",
         columns=("stock.stock_movements.order_line_id",),
         label=None,
         name_en="Order line id",
@@ -81,7 +81,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="stock.reservation.order_line_id",
+        key="stock.stock_reservation.order_line_id",
         columns=("stock.stock_reservations.order_line_id",),
         label=None,
         name_en="Order line id",
@@ -89,7 +89,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="stock.reservation.variant_id",
+        key="stock.stock_reservation.variant_id",
         columns=("stock.stock_reservations.variant_id",),
         label=None,
         name_en="Variant id",
@@ -97,7 +97,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="stock.reservation.quantity",
+        key="stock.stock_reservation.quantity",
         columns=("stock.stock_reservations.quantity",),
         label=None,
         name_en="Quantity",
@@ -105,7 +105,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="stock.reservation.status",
+        key="stock.stock_reservation.status",
         columns=("stock.stock_reservations.status",),
         label=None,
         name_en="Status",

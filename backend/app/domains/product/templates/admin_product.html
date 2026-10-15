@@ -15,7 +15,7 @@
 
 {% macro _size_row(key, name) %}
 {% call ui.group_row("v_order", key, edit=True, handle=True, menu=["up", "down", "remove"], label=name) %}
-  {{ ui.field("v." ~ key ~ ".name", _("Maat"), value=name, required=True, label_hidden=True) }}
+  {{ ui.field("v." ~ key ~ ".name", attribute="product.product_variant.properties", value=name, required=True, label_hidden=True) }}
 {% endcall %}
 {% endmacro %}
 
@@ -23,8 +23,8 @@
 {% call ui.record_columns() %}
 <div class="form-flow">
   {% call ui.section(_("Artikel")) %}
-    {{ ui.field("name", _("Naam"), value=product.name, edit=False) }}
-    {{ ui.field("description", _("Omschrijving"), kind="textarea", value=product.description or "", edit=False) }}
+    {{ ui.field("name", attribute="product.product.name", value=product.name, edit=False) }}
+    {{ ui.field("description", attribute="product.product.description", kind="textarea", value=product.description or "", edit=False) }}
   {% endcall %}
   {% call ui.section(_("Maten")) %}
     <div data-span="full" class="flex flex-wrap gap-2">
@@ -37,8 +37,8 @@
   {% endcall %}
   {% include "_product_bijlagen.html" %}
   {% call ui.section(_("Op bestelling")) %}
-    {{ ui.field("pre_order", _("Op bestelling"), kind="switch", value=product.pre_order, edit=False) }}
-    {% if product.pre_order_until %}{{ ui.field("pre_order_until", _("Bestellen tot en met"), kind="date", value=product.pre_order_until.isoformat(), edit=False) }}{% endif %}
+    {{ ui.field("pre_order", attribute="product.product.pre_order", kind="switch", value=product.pre_order, edit=False) }}
+    {% if product.pre_order_until %}{{ ui.field("pre_order_until", attribute="product.product.pre_order_until", kind="date", value=product.pre_order_until.isoformat(), edit=False) }}{% endif %}
   {% endcall %}
 </div>
 {% endcall %}
@@ -50,8 +50,8 @@
         hx-post="/admin/producten/{{ product.id }}" class="form-flow">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     {% call ui.section(_("Artikel")) %}
-      {{ ui.field("name", _("Naam"), value=product.name, required=True, long=True, attrs='maxlength="255"') }}
-      {{ ui.field("description", _("Omschrijving"), kind="textarea", value=product.description or "") }}
+      {{ ui.field("name", attribute="product.product.name", value=product.name, required=True, long=True, attrs='maxlength="255"') }}
+      {{ ui.field("description", attribute="product.product.description", kind="textarea", value=product.description or "") }}
     {% endcall %}
     {% set _size_template %}{{ _size_row("__V__", "") }}{% endset %}
     {% call ui.repeating_group(_("Maten"), "v_order", token="__V__", add_label=_("Maat"), edit=True,
@@ -59,8 +59,8 @@
       {% for size in sizes %}{{ _size_row(size.id, size.name) }}{% endfor %}
     {% endcall %}
     {% call ui.section(_("Op bestelling")) %}
-      {{ ui.field("pre_order", _("Op bestelling"), kind="switch", value=product.pre_order, span="full", help=_("Kopers bestellen en betalen ook zonder voorraad. Wat besteld is, zie je in Voorraadbeheer.")) }}
-      {{ ui.field("pre_order_until", _("Bestellen tot en met"), kind="date", value=(product.pre_order_until.isoformat() if product.pre_order_until else ""), help=_("Leeg: zonder einddatum. Daarna verkoopt het artikel wat in voorraad ligt.")) }}
+      {{ ui.field("pre_order", attribute="product.product.pre_order", kind="switch", value=product.pre_order, span="full", help=_("Kopers bestellen en betalen ook zonder voorraad. Wat besteld is, zie je in Voorraadbeheer.")) }}
+      {{ ui.field("pre_order_until", attribute="product.product.pre_order_until", kind="date", value=(product.pre_order_until.isoformat() if product.pre_order_until else ""), help=_("Leeg: zonder einddatum. Daarna verkoopt het artikel wat in voorraad ligt.")) }}
     {% endcall %}
   </form>
   {% include "_product_bijlagen.html" %}

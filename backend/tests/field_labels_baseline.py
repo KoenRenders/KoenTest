@@ -73,48 +73,20 @@ TYPED_LABELS: dict[str, dict[str, int]] = {
     "domains/pricing/templates/admin_prijs.html": {
         "Ledenprijs": 1,
         "Maten": 1,
-        "Prijs": 1,
-        "Vanaf": 1,
     },
     "domains/product/templates/_product_bijlagen.html": {
-        "Beschrijving": 1,
         "Document toevoegen": 1,
         "Foto toevoegen": 1,
-        "Titel": 1,
-    },
-    "domains/product/templates/admin_product.html": {
-        "Bestellen tot en met": 2,
-        "Maat": 1,
-        "Naam": 2,
-        "Omschrijving": 2,
-        "Op bestelling": 2,
-    },
-    "domains/product/templates/admin_product_nieuw.html": {
-        "Naam": 1,
-    },
-    "domains/sales/templates/_verkoop_maten.html": {
-        "Maat": 1,
     },
     "domains/sales/templates/_verkoop_nieuw_form.html": {
         "Artikel": 1,
         "E-mailadres van de koper": 1,
     },
-    "domains/sales/templates/webshop_mandje.html": {
-        "E-mail": 1,
-        "Mobiel": 1,
-        "Naam": 1,
-    },
-    "domains/sales/templates/webshop_product.html": {
-        "Maat": 1,
-    },
     "domains/stock/templates/admin_correctie.html": {
-        "Aantal": 1,
         "Artikel en maat": 1,
-        "Reden": 1,
         "Richting": 1,
     },
     "domains/stock/templates/admin_ontvangst.html": {
-        "Aantal": 1,
         "Artikel en maat": 1,
     },
     "domains/workflow/templates/werkbank_taak.html": {

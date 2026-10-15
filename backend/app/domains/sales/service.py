@@ -543,9 +543,10 @@ def order_payment_state(db: Session, order_id: int) -> dict:
 
 def board_order_person(db: Session, email: str) -> tuple[str, Any | None, bool]:
     """Who the board's typed address names (R43, F18, T22): `(status, person,
-    member)` with `status` "linked" (the person, and whether he is a member
-    today), "unknown" (no one signs in with it) or "multiple" (the address does
-    not say who). The order hangs on the person, never on the seller."""
+    member)` with `status` "linked" (a household's member), "account" (a person
+    without a household, so never a member), "unknown" (no one signs in with it)
+    or "multiple" (the address does not say who). The order hangs on the person,
+    never on the seller."""
     from app.domains.auth.api import sign_in_identity
     from app.domains.membership.api import has_valid_membership
     from app.kernel.clock import belgian_today
@@ -556,9 +557,10 @@ def board_order_person(db: Session, email: str) -> tuple[str, Any | None, bool]:
     status, person = sign_in_identity(db, typed)
     if status == "multiple":
         return "multiple", None, False
-    if person is None:
+    if status == "none":
         return "unknown", None, False
-    return "linked", person, has_valid_membership(person, belgian_today())
+    linked = "linked" if status == "ok" else "account"
+    return linked, person, has_valid_membership(person, belgian_today())
 
 
 def parse_items(form) -> tuple[list[tuple[int, int]], str | None]:

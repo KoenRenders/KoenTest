@@ -14,9 +14,9 @@
   </div>
   {% if editing %}
   {% if a.is_photo %}
-  {{ ui.field("bijlage." ~ a.id ~ ".description", _("Beschrijving"), value=a.description, form="product-form", attrs='maxlength="255"') }}
+  {{ ui.field("bijlage." ~ a.id ~ ".description", attribute="product.product_attachment.description", value=a.description, form="product-form", attrs='maxlength="255"') }}
   {% else %}
-  {{ ui.field("bijlage." ~ a.id ~ ".title", _("Titel"), value=a.title, form="product-form", attrs='maxlength="255"') }}
+  {{ ui.field("bijlage." ~ a.id ~ ".title", attribute="product.product_attachment.title", value=a.title, form="product-form", attrs='maxlength="255"') }}
   {% endif %}
   {% endif %}
 </div>

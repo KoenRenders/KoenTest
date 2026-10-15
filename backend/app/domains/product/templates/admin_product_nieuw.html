@@ -9,7 +9,7 @@
   {% call ui.record_columns() %}
   <div class="form-flow">
     {% call ui.section(_("Artikel")) %}
-      {{ ui.field("name", _("Naam"), value=name, required=True, long=True, attrs='maxlength="255"') }}
+      {{ ui.field("name", attribute="product.product.name", value=name, required=True, long=True, attrs='maxlength="255"') }}
       <p class="text-sm text-ink-soft" data-span="full">{{ _("De maten, prijzen en foto's voeg je daarna toe.") }}</p>
     {% endcall %}
   </div>

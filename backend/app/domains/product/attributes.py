@@ -30,7 +30,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         label="Status",
         name_en="Status",
         help="Concept, In verkoop of Afgevoerd.",
-        ai_exposure=AiExposure.INTERNAL,  # K0
+        ai_exposure=AiExposure.PUBLIC,  # K5
     ),
     Attribute(
         key="product.product.pre_order",
@@ -49,7 +49,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.PUBLIC,  # K5
     ),
     Attribute(
-        key="product.variant.properties",
+        key="product.product_variant.properties",
         columns=("product.product_variants.properties",),
         label="Maat",
         name_en="Properties",
@@ -57,15 +57,15 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.PUBLIC,  # K5
     ),
     Attribute(
-        key="product.variant.sku",
+        key="product.product_variant.sku",
         columns=("product.product_variants.sku",),
         label=None,
         name_en="Sku",
         help="De interne code van de maat.",
-        ai_exposure=AiExposure.INTERNAL,  # K0
+        ai_exposure=AiExposure.PUBLIC,  # K5
     ),
     Attribute(
-        key="product.variant.sort_order",
+        key="product.product_variant.sort_order",
         columns=("product.product_variants.sort_order",),
         label=None,
         name_en="Sort order",
@@ -73,7 +73,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="product.attachment.description",
+        key="product.product_attachment.description",
         columns=("product.product_attachments.description",),
         label="Beschrijving",
         name_en="Description",
@@ -81,7 +81,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.PUBLIC,  # K5
     ),
     Attribute(
-        key="product.attachment.title",
+        key="product.product_attachment.title",
         columns=("product.product_attachments.title",),
         label="Titel",
         name_en="Title",
@@ -89,7 +89,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.PUBLIC,  # K5
     ),
     Attribute(
-        key="product.attachment.media_asset_id",
+        key="product.product_attachment.media_asset_id",
         columns=("product.product_attachments.media_asset_id",),
         label=None,
         name_en="Media asset id",
@@ -97,7 +97,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="product.attachment.sort_order",
+        key="product.product_attachment.sort_order",
         columns=("product.product_attachments.sort_order",),
         label=None,
         name_en="Sort order",

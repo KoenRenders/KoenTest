@@ -1269,3 +1269,53 @@ def test_een_bestelling_op_een_persoon_bewaart_geen_getypt_adres(
     order = db_session.query(SalesOrder).one()
     assert order.person_id == person.id
     assert not (order.guest_email or "").strip()
+
+
+def test_een_onbestaande_betaalwijze_is_een_weigering(client, db_session, every_module_on):
+    """B2 of the read: a forged payment method is a refusal on its field, not a 500."""
+    from tests.conftest import create_test_family
+
+    create_test_family(db_session, email="lid@example.com")
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    db_session.commit()
+    headers = _as(client, _board_user(db_session, "SALES", "verkoper@example.com"))
+
+    response = client.post(
+        "/admin/verkoop/nieuw",
+        data={
+            "action": "save",
+            "email": "lid@example.com",
+            "variant_id": str(m.id),
+            "quantity": "1",
+            "payment_method": "bitcoin",
+        },
+        headers=headers,
+    )
+    assert response.status_code == 422
+    assert "overschrijving" in response.text
+
+
+def test_een_account_zonder_lidmaatschap_wordt_zo_genoemd(client, db_session, every_module_on):
+    """B3 of the read: an address that signs in as an account (no household) reads
+    "bekend account", never "bestaand lid"."""
+    from app.domains.mdm.api import ContactDetail
+    from tests.conftest import create_test_person
+
+    person = create_test_person(db_session, first_name="An", last_name="Zonder")
+    db_session.add(
+        ContactDetail(
+            person_id=person.id,
+            contact_type_code="EMAIL",
+            value="account@example.com",
+            is_primary=True,
+        )
+    )
+    db_session.commit()
+    headers = _as(client, _board_user(db_session, "SALES", "verkoper@example.com"))
+
+    answer = client.post(
+        "/admin/verkoop/nieuw/koppeling", data={"email": "account@example.com"}, headers=headers
+    )
+    assert answer.status_code == 200
+    assert "bekend account" in answer.text
+    assert "bestaand lid" not in answer.text

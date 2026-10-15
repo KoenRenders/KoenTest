@@ -11,7 +11,7 @@
   <div class="form-flow">
     {% call ui.section() %}
       {{ ui.field("variant_id", _("Artikel en maat"), kind="select", options=options, required=True) }}
-      {{ ui.field("quantity", _("Aantal"), kind="number", required=True, attrs='min="1"') }}
+      {{ ui.field("quantity", attribute="stock.stock_movement.quantity", kind="number", required=True, attrs='min="1"') }}
     {% endcall %}
   </div>
   {% endcall %}

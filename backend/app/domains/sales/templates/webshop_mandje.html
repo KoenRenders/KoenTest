@@ -35,9 +35,9 @@
     <p data-span="full" class="text-[13px] text-ink-soft">{{ _("De artikelen worden voor je gereserveerd zodra je bestelt.") }}</p>
   {% endcall %}
   {% call ui.section(_("Contact")) %}
-    {{ ui.field("contact_name", _("Naam"), required=True) }}
-    {{ ui.field("contact_email", _("E-mail"), kind="email", required=True) }}
-    {{ ui.field("phone", _("Mobiel"), kind="phone", required=True) }}
+    {{ ui.field("contact_name", attribute="sales.sales_order.guest_name", required=True) }}
+    {{ ui.field("contact_email", attribute="sales.sales_order.guest_email", kind="email", required=True) }}
+    {{ ui.field("phone", attribute="sales.sales_order.guest_mobile", kind="phone", required=True) }}
   {% endcall %}
   {% call ui.section(_("Betalen")) %}
     {{ ui.payment_choice("online") }}

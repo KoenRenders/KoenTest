@@ -30,7 +30,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         label=None,
         name_en="Price type",
         help="De gewone prijs of de ledenprijs.",
-        ai_exposure=AiExposure.INTERNAL,  # K0
+        ai_exposure=AiExposure.PUBLIC,  # K5
     ),
     Attribute(
         key="pricing.price.amount",
@@ -54,6 +54,6 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         label="Vanaf",
         name_en="Valid from",
         help="Vanaf welke datum de prijs geldt.",
-        ai_exposure=AiExposure.INTERNAL,  # K0
+        ai_exposure=AiExposure.PUBLIC,  # K5
     ),
 )

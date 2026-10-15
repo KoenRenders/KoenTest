@@ -284,7 +284,10 @@ async def add_order_submit(
             "#bestel-melding",
             send=True,
         )
-    method = PaymentMethod(str(form.get("payment_method") or "transfer"))
+    try:
+        method = PaymentMethod(str(form.get("payment_method") or "transfer"))
+    except ValueError:
+        method = PaymentMethod.ONLINE
     if method is PaymentMethod.ONLINE:
         return refusal_response(
             request,
