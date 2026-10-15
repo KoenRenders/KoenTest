@@ -411,7 +411,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.registration.payment_method",
         columns=("activities.registrations.payment_method",),
-        label=None,
+        label="Betaalmethode",
         name_en="Payment method",
         help="The payment method of the registration.",
         ai_exposure=AiExposure.INTERNAL,  # K9

@@ -753,7 +753,10 @@ def membership_renewal_message(
         (_("Lidmaatschap"), str(year)),
         (_("Geldig tot en met"), valid_to.strftime("%d/%m/%Y")),
         (_("Bedrag"), f"€ {bedrag(amount)}"),
-        (_("Betaalwijze"), method_labels.get(payment_method, payment_method)),
+        (
+            attribute("payment.payment_record.method").text,
+            method_labels.get(payment_method, payment_method),
+        ),
     ]
     rows = "".join(
         f"<li><strong>{escape(label)}:</strong> {escape(value)}</li>" for label, value in facts
@@ -883,7 +886,7 @@ def activity_confirmation_message(
             # is no request and the locale falls back to nl_BE without anything
             # complaining.
             details.append(
-                f"<li><strong>Betaalmethode:</strong> "
+                f"<li><strong>{attribute('activities.registration.payment_method').text}:</strong> "
                 f"{code_label('payment_method', registration.payment_method)}</li>"
             )
 
