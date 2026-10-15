@@ -135,18 +135,25 @@ def test_tiles_show_the_kits_field_error_and_read_as_the_chosen_label():
 
 
 def test_a_tile_without_a_note_renders_exactly_as_before_the_note():
-    """The note must only add (U1): a `tiles` call without a note renders the label
-    byte-for-byte as it did before the note existed — no `flex-wrap`, no note span."""
-    html = _tiles()
-    labels = re.findall(r'<label data-tile class="([^"]*)"', html)
-    assert (
-        labels
-        == [
-            "relative flex min-w-0 min-h-11 items-center justify-center gap-1 rounded-md border border-control-line bg-surface px-1 text-center text-sm font-medium text-ink cursor-pointer hover:bg-surface-2 has-[:checked]:border-2 has-[:checked]:border-blue-700 has-[:checked]:bg-blue-50 has-[:checked]:font-semibold has-[:checked]:text-blue-700 has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-focus"
-        ]
-        * 3
+    """The note must only add (U1): a `tiles` call without a note renders the whole
+    label byte-for-byte as it did before the note existed — no `flex-wrap`, no note
+    span, and no stray whitespace."""
+    html = _field(kind="tiles", name="maat", label="Maat", options=[("m", "M")])
+    label = re.search(r'<label data-tile class="[^"]*">.*?</label>', html, re.S).group(0)
+    assert label == (
+        '<label data-tile class="relative flex min-w-0 min-h-11 items-center justify-center '
+        "gap-1 rounded-md border border-control-line bg-surface px-1 text-center text-sm "
+        "font-medium text-ink cursor-pointer hover:bg-surface-2 has-[:checked]:border-2 "
+        "has-[:checked]:border-blue-700 has-[:checked]:bg-blue-50 has-[:checked]:font-semibold "
+        'has-[:checked]:text-blue-700 has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-focus">\n'
+        '      <input type="radio" name="maat" value="m" class="peer sr-only">\n'
+        '      <span data-tile-check aria-hidden="true" class="hidden shrink-0 peer-checked:inline-flex">'
+        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" '
+        'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
+        'stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true">'
+        '<path d="M20 6 9 17l-5-5"/></svg></span><span class="min-w-0 truncate">M</span>\n'
+        "    </label>"
     )
-    assert "basis-full" not in html
 
 
 def test_a_tile_with_a_note_wraps_and_shows_the_note():

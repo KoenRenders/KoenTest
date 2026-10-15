@@ -27,11 +27,13 @@ from app.domains.product.api import (
     SizeNameRefusal,
     add_attachment,
     attachment_cards,
+    attachments_of,
     create_product,
     delete_product,
     get_product,
     list_products,
     remove_attachment,
+    set_attachment_text,
     set_pre_order,
     set_status,
     size_of,
@@ -258,6 +260,14 @@ def product_update(
         return value if isinstance(value, str) else ""
 
     ordered = [(str(key), _text(f"v.{key}.name")) for key in form.getlist("v_order")]
+    attachment_words = [
+        (
+            attachment.id,
+            _text(f"bijlage.{attachment.id}.title"),
+            _text(f"bijlage.{attachment.id}.description"),
+        )
+        for attachment in attachments_of(db, product_id)
+    ]
     try:
         update_product(db, product_id, name=name, description=description)
         set_pre_order(
@@ -267,6 +277,8 @@ def product_update(
             pre_order_until=_parse_date(pre_order_until),
         )
         sync_variants(db, product_id, ordered)
+        for attachment_id, title, description in attachment_words:
+            set_attachment_text(db, product_id, attachment_id, title=title, description=description)
     except SizeNameRefusal as refusal:
         return refusal_response(
             request, [FieldError(refusal.field, str(refusal))], "#product-melding"
@@ -398,28 +410,6 @@ def product_attachment_remove(
 ):
     try:
         remove_attachment(db, product_id, attachment_id)
-    except LookupError:
-        raise HTTPException(status_code=404, detail=_("Niet gevonden")) from None
-    return _redirect(request, f"/admin/producten/{product_id}?bewerken=1")
-
-
-@router.post("/admin/producten/{product_id}/bijlage/{attachment_id}")
-def product_attachment_text(
-    request: Request,
-    product_id: int,
-    attachment_id: int,
-    title: str = Form(""),
-    description: str = Form(""),
-    db: Session = Depends(get_db),
-    _email: str = Depends(require_right(Right.PRODUCT_MASTERDATA)),
-    _csrf: None = Depends(require_csrf),
-):
-    """The article's own words for a file (S1): a document's title, a picture's
-    description. Stored on the article's link, never on the shared media file."""
-    from app.domains.product.api import set_attachment_text
-
-    try:
-        set_attachment_text(db, product_id, attachment_id, title=title, description=description)
     except LookupError:
         raise HTTPException(status_code=404, detail=_("Niet gevonden")) from None
     return _redirect(request, f"/admin/producten/{product_id}?bewerken=1")

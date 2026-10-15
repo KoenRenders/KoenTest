@@ -457,7 +457,14 @@ def set_attachment_text(
     """The article's own words for a file (S1): a document's `title` (the link's
     text) and a picture's `description` (its `alt`). Both live here, on the
     article's link, not on the shared media file. An attachment that is not this
-    article's, or is not there, raises `LookupError` and changes nothing."""
+    article's, or is not there, raises `LookupError` and changes nothing; a word
+    over 255 characters raises `ProductError` (V1)."""
+    from app.i18n import _
+
+    if len(title or "") > 255:
+        raise ProductError(_("De titel is te lang (hoogstens 255 tekens)."))
+    if len(description or "") > 255:
+        raise ProductError(_("De beschrijving is te lang (hoogstens 255 tekens)."))
     attachment = db.get(ProductAttachment, attachment_id)
     if attachment is None or attachment.product_id != product_id:
         raise LookupError("attachment")

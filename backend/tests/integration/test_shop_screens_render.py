@@ -251,3 +251,102 @@ def test_removing_a_size_with_movements_is_refused(client, db_session, every_mod
     assert answer.status_code == 422
     assert "voorraadbewegingen" in answer.text
     assert [v.id for v in variants_of(db_session, product.id)] == [variant.id]
+
+
+def _article_with_a_photo(client, db_session, every_module_on):
+    """An on-sale article with one size and one picture, the client signed in as
+    the operator — what the S1 save tests post through."""
+    from app.domains.media.api import MediaAsset, MediaKind
+    from app.domains.pricing.api import add_prices
+    from app.domains.product.api import ProductAttachment
+
+    headers = _operator(client, db_session, every_module_on)
+    product = create_product(db_session, "T-shirt Raak")
+    set_status(db_session, product.id, ProductStatus.ON_SALE)
+    variant = add_variant(db_session, product.id, "M")
+    add_prices(
+        db_session,
+        product_id=product.id,
+        variant_id=variant.id,
+        valid_from=date(2026, 1, 1),
+        amount=Decimal("15.00"),
+        member_amount=None,
+    )
+    photo = MediaAsset(
+        kind=MediaKind.PRODUCT_PHOTO, title="foto.png", data=b"x", content_type="image/png"
+    )
+    db_session.add(photo)
+    db_session.flush()
+    attachment = ProductAttachment(product_id=product.id, media_asset_id=photo.id)
+    db_session.add(attachment)
+    db_session.commit()
+    return headers, product, variant, attachment
+
+
+def _save_fields(product, variant, **extra) -> dict:
+    fields = {
+        "name": "T-shirt Raak",
+        "v_order": str(variant.id),
+        f"v.{variant.id}.name": "M",
+    }
+    fields.update(extra)
+    return fields
+
+
+def test_a_posted_description_reaches_the_public_alt(client, db_session, every_module_on):
+    """S1: a description posted through the article's own save reaches the public
+    page's `alt`."""
+    headers, product, variant, attachment = _article_with_a_photo(
+        client, db_session, every_module_on
+    )
+    answer = client.post(
+        f"/admin/producten/{product.id}",
+        data=_save_fields(
+            product, variant, **{f"bijlage.{attachment.id}.description": "De voorkant"}
+        ),
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert answer.status_code == 303
+
+    page = client.get(f"/webshop/{product.id}")
+    assert 'alt="De voorkant"' in page.text
+
+
+def test_a_description_over_255_characters_is_refused(client, db_session, every_module_on):
+    """V1: a description over 255 characters is a refusal, not a 500."""
+    headers, product, variant, attachment = _article_with_a_photo(
+        client, db_session, every_module_on
+    )
+    answer = client.post(
+        f"/admin/producten/{product.id}",
+        data=_save_fields(product, variant, **{f"bijlage.{attachment.id}.description": "x" * 256}),
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert answer.status_code == 422
+    assert "te lang" in answer.text
+
+
+def test_another_articles_attachment_text_is_refused(client, db_session, every_module_on):
+    """S1: the article's save refuses an attachment that is another article's."""
+    import pytest
+
+    from app.domains.media.api import MediaAsset, MediaKind
+    from app.domains.product.api import ProductAttachment, set_attachment_text
+
+    _headers, product, _variant, _attachment = _article_with_a_photo(
+        client, db_session, every_module_on
+    )
+    other = create_product(db_session, "Ander artikel")
+    other_photo = MediaAsset(
+        kind=MediaKind.PRODUCT_PHOTO, title="x.png", data=b"x", content_type="image/png"
+    )
+    db_session.add(other_photo)
+    db_session.flush()
+    other_attachment = ProductAttachment(product_id=other.id, media_asset_id=other_photo.id)
+    db_session.add(other_attachment)
+    db_session.commit()
+
+    with pytest.raises(LookupError):
+        set_attachment_text(db_session, product.id, other_attachment.id, title="", description="X")

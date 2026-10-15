@@ -25,13 +25,19 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "product_attachments",
-        sa.Column("description", sa.String(length=255), nullable=True),
-        schema="product",
-    )
+    inspector = sa.inspect(op.get_bind())
+    columns = [c["name"] for c in inspector.get_columns("product_attachments", schema="product")]
+    if "description" not in columns:
+        op.add_column(
+            "product_attachments",
+            sa.Column("description", sa.String(length=255), nullable=True),
+            schema="product",
+        )
 
 
 def downgrade() -> None:
     # Drops the description column; the titles (already on the table) stay.
-    op.drop_column("product_attachments", "description", schema="product")
+    inspector = sa.inspect(op.get_bind())
+    columns = [c["name"] for c in inspector.get_columns("product_attachments", schema="product")]
+    if "description" in columns:
+        op.drop_column("product_attachments", "description", schema="product")
