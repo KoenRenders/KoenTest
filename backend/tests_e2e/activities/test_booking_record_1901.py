@@ -47,7 +47,13 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, login_met_sessie, pagina_klaar, toasts  # noqa: E402
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    login_met_sessie,
+    pagina_klaar,
+    refusal_shown,
+    toasts,
+)
 
 TAG = uuid.uuid4().hex[:6]
 DIALOG = "[data-dialog]"
@@ -324,16 +330,11 @@ def test_a_refund_is_registered_corrected_to_zero_and_deleted(setup):
         # A refusal stands on the screen, with its reason; nothing is made.
         page.locator("#bk-refund-amount").fill("1000")
         page.locator("[data-form-save]").first.click()
-        banner = page.locator("#terugbetaling-melding [data-save-refusal]")
-        expect(banner).to_be_visible()
+        banner = refusal_shown(page, "#terugbetaling-melding [data-save-refusal]")
         assert "terugbetalen" in banner.inner_text() and "20,00" in banner.inner_text()
-        # The kit shows a refusal in two steps (#1908): the banner comes with the
-        # answer's swap, and one settle later — 20 ms — the reason stands at the
-        # field and the focus moves to it. This test typed in between: the focus
-        # left the Reden field for the amount while its text was on the way, so
-        # "annulering" landed in the number field and the save posted an empty
-        # amount and an empty reason (measured: 9 of 80 walks). The refusal is
-        # shown when its reason stands at the field; only then is typing safe.
+        # `refusal_shown` waited for the second step of the kit's refusal (#1908,
+        # #1910): this test once typed between the banner and the reason at the
+        # field and "annulering" landed in the number field (9 of 80 walks).
         expect(page.locator('[data-field="amount"] [data-refused-message]')).to_contain_text(
             "terugbetalen"
         )

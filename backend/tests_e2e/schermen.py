@@ -113,6 +113,41 @@ def pagina_klaar(page, *, timeout: int = 10_000) -> None:
     htmx_stil(page, timeout=timeout)
 
 
+def refusal_shown(page, banner: str = "[data-save-refusal]", *, timeout: int = 10_000):
+    """A refused save is shown: the banner, the reason at the refused field, and the
+    focus on it. Returns the banner locator (#1910).
+
+    The kit shows a refusal in two steps: the banner comes with the answer's swap,
+    and one htmx settle later (20 ms) `record-form.js` puts the reason at each
+    refused field and moves the focus to the first. A test that waits for the banner
+    and types at once can cross that move and type into the wrong field (9 of 80
+    walks of the booking record's refund test, 12 October 2026). Every test that
+    types after a refusal waits with this instead.
+
+    Ready is the kit's own end of the second step: every link of the banner has the
+    field it marks (`raakTarget`), and the focus stands on the first of them — on
+    the banner itself when it names no field.
+    """
+    from playwright.sync_api import expect
+
+    found = page.locator(banner).first
+    expect(found).to_be_visible(timeout=timeout)
+    page.wait_for_function(
+        """(selector) => {
+          const banner = document.querySelector(selector);
+          if (!banner) return false;
+          const links = [...banner.querySelectorAll('[data-error-for]')];
+          if (!links.length) return document.activeElement === banner;
+          if (!links.every(link => link.raakTarget !== undefined)) return false;
+          const first = links.map(link => link.raakTarget).find(Boolean);
+          return !first || document.activeElement === first;
+        }""",
+        arg=banner,
+        timeout=timeout,
+    )
+    return found
+
+
 def open_registration(page, activity_id: int, component_id: int) -> None:
     """The registration page of one component, reached the way a visitor does: from
     the card's "Inschrijven", which is a link to the page since CR-14 phase 1
