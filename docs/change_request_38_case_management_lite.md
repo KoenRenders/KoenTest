@@ -4,7 +4,7 @@
 **Status:** shaped with Koen on 15 October 2026 · not assigned to a release · the data model and the domain boundaries of B3 are a proposal for the architecture CLI to confirm
 **Tracking issue:** #2030
 **Applies to:** the workbench (`workflow`), the form engine (`forms`), a new domain `cases`, the party model (CR-26), the shop (CR-21) and activities for the sale step; the back-office menu and the public site
-**Reading:** A 1 500 words · B 2 385 · C 1 526 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1 500 words · B 2 444 · C 1 526 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -107,14 +107,14 @@ flowchart TB
 
 What it says on the screen (Dutch), decided here:
 - the umbrella is called **Zaak** (plural *Zaken*); the menu item in the back office is **Zaken**
-- a case has a **status**: *Open* (registered, nobody has worked on it yet), *In behandeling* (being worked on), *Gesloten* (an end is reached); a closed case has a **reden**, for the first two types *Behandeld*, *Niet ontvankelijk*, *Gewonnen*, *Verloren*
-- on the workbench: a button **Nieuwe zaak** with a list of the case types that have a form
-- in the back office, under *Zaken*: **Soorten zaken**, where a type is set up, and per type **Proces**, a screen that lists the steps in order (the form engine's way of working): *Stap toevoegen*, a step type (**Taak met formulier**, **Beslissing**, **Verkoop registreren**, **Einde**), and per step where it goes next
-- on a case: the request on top, a tab per step with what was filled in and when, the process drawn with the current step marked, and the party it is about
+- a case has a **status**: *Open* (registered, nobody has worked on it yet), *In behandeling* (being worked on), *Gesloten* (an end is reached); a closed case has a **reden**: *Behandeld*, *Niet ontvankelijk*, *Gewonnen*, *Verloren*
+- on the workbench: a button **Nieuwe zaak** listing the case types with a form
+- one menu item, *Zaken*; on its list a button **Instellingen** opens **Soorten zaken**, the list of case types (new, rename, intake form, export, import), and per type **Proces**, a screen that lists the steps, as the form engine does: **Stap toevoegen** and four step types, **Taak met formulier**, **Beslissing**, **Verkoop registreren** and **Einde**
+- on a case: the request, a tab per step with its answers, the process drawn with the current step, and the party
 
 ## A4. Benefits — what the change earns
 
-- Every complaint and every opportunity is registered and followed to a visible end, instead of living in mail and memory (no figure; the count of open matters is the first the board lacks).
+- Every complaint and opportunity is registered and followed to a visible end (no figure; the count of open matters is the first the board lacks).
 - A tenant sets up its own case types: one generic tool instead of a screen per matter.
 - Questions per step are structured, so afterwards the board can count: admissible or not, won or lost.
 
@@ -165,6 +165,7 @@ Koen's dictation of 15 October 2026. It taught us that the blocks exist: the wor
 | AC5 | A finished step shows its answers and cannot be changed | R8 | open a done step |
 | AC6 | The opportunity runs to *Gewonnen* by registering a sale, to *Verloren* by a lost answer | R6, R9 | walk both |
 | AC7 | A new case can be started from the workbench for a chosen party | R2 | *Nieuwe zaak* |
+| AC11 | *Instellingen* on the *Zaken* list opens the case types; a type is made, given its form and its process there | R1, R15 | open it |
 | AC8a | *Zaken* lists the cases with their status, and a search finds a case by number, name or a word of the intake answers | R13 | open the menu, search |
 | AC8 | The case screen draws the process with the current step | R10 | open a running case |
 | AC9 | A process exported from one environment imports into another with its forms | R11 | export, import |
@@ -280,6 +281,7 @@ A matter the portal follows over several steps is a case of a type, not a new ta
 | 15 Oct 2026 | Standards: look at CMMN and others before inventing; the analysis stands in B3a | Koen: "laten we dan het warm water niet opnieuw uitvinden" |
 | 15 Oct 2026 | Every task of a process is given a role; due dates are out of the scope | Koen: "Aan een taak moet je natuurlijk ook rollen kunnen toekennen. Dat ben ik juist vergeten te zeggen. [...] Due dates buiten de scope." |
 | 15 Oct 2026 | A history of the status and of who completed which task when is out of the scope | Koen: "Ook buiten scope is historiek op status meten van wie welke taak wanneer voltooid heeft. Oké, dat gaat het misschien automatisch hebben, maar dat nemen we allemaal buiten scope." |
+| 15 Oct 2026 | The case types are managed through a button *Instellingen* on the *Zaken* list, so there is one menu item, not two | Koen, who left the choice open ("kies maar"): "Ik denk bij cases is het voor mij goed dat we misschien de knop instellingen voorzien op de cases menulijn. Dat we daar de processen kunnen definiëren." |
 
 ---
 
@@ -331,7 +333,7 @@ Measured on master @ `ef4b130c` on 15 October 2026 (CR-21 and CR-26 are not on m
 
 **C4.4 Start from the workbench.** *Nieuwe zaak* lists the case types that have an intake form; it opens the form in the back office on behalf of a chosen party or contact details.
 
-**C4.6 The process screen.** One page per case type, `/admin/zaken/soorten/<type>/proces`, a list of steps like the form builder's (htmx, kit macros). The screen holds a small model (steps, type, role, form, routes with rules and status) and writes BPMN with generated layout; opening it reads the stored BPMN back into the same model, and a BPMN that the screen cannot read (an import with elements outside the subset) is refused at import, so the two never disagree. Saving runs the checks of B1a and is refused with the step named. A process with running cases is saved as a new version; running cases keep theirs.
+**C4.6 The process screen.** One page per case type, `/admin/zaken/instellingen/<type>/proces`, a list of steps like the form builder's (htmx, kit macros). The screen holds a small model (steps, type, role, form, routes with rules and status) and writes BPMN with generated layout; opening it reads the stored BPMN back into the same model, and a BPMN that the screen cannot read (an import with elements outside the subset) is refused at import, so the two never disagree. Saving runs the checks of B1a and is refused with the step named. A process with running cases is saved as a new version; running cases keep theirs.
 
 **C4.5 Fixing.** A step's submission is updatable until its task is done; after that `UpdateAttached` is refused.
 
