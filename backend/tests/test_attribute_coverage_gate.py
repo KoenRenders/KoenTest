@@ -6,13 +6,11 @@ Every column of every table that is no code, label or history table is either
 technical by what the metadata says (`kernel.attributes.is_technical`) or named by
 at least one entry of the register.
 
-Proven red (15 October 2026), by ADDING the violation: a column added to a
-throw-away model (`test_a_column_without_an_entry_is_named_with_its_file`), the
-external number of a member shown to count as business
-(`test_an_unkeyed_id_is_business`), a typo in an entry's column
-(`test_an_entry_naming_a_column_that_does_not_exist_is_refused`). The gate also
-asserts it found more than 300 business columns before it judges, so a changed
-glob or an emptied metadata cannot turn it green for the wrong reason.
+Proven red (15 October 2026), by ADDING the violation: a column `probe_nickname`
+added to `mdm.Person` fails `test_every_business_column_has_an_attribute` with
+`mdm.persons.probe_nickname` in the message (then removed). The gate also asserts it
+found more than 300 business columns before it judges, so a changed glob or an
+emptied metadata cannot turn it green for the wrong reason.
 """
 
 import sqlalchemy as sa
