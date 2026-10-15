@@ -31,6 +31,13 @@ EDITOR = "#cp-document"
 _MENU = f"{EDITOR} details.de-menu-insert"
 
 
+LONG_ADDRESS = (
+    "https://www.voorbeeld.example/een/heel/lang/pad/zonder/een/enkele/plaats/om/af/te/breken/"
+    + "x" * 40
+    + "/en-nog-meer-pad/met-nummers-1234567890"
+)
+
+
 def _par(text: str) -> dict:
     return {"type": "paragraph", "content": [{"type": "text", "text": text}]}
 
@@ -73,6 +80,9 @@ def setup():
                     "content": [_par("De tekst in het accent.")],
                 },
                 _par("De alinea onder de banden."),
+                # X1 of the re-read: a pasted address with no place to break stands in
+                # a page that holds a section, whose body is no scroll holder any more.
+                _par(LONG_ADDRESS),
             ],
         },
     )
@@ -175,6 +185,7 @@ _MEASURE = """() => {
     tintBg: getComputedStyle(tint).backgroundColor, accentBg: getComputedStyle(accent).backgroundColor,
     plainBg: getComputedStyle(q('.doc-page')).backgroundColor,
     eyebrow: q('.prose-section-eyebrow').innerText,
+    longRight: Math.round(find('voorbeeld.example').getBoundingClientRect().right),
     // What is PAINTED, not what is measured: the element at both edges of a band
     // is the band's own (a holder with overflow clips it back to the container).
     paintLeft: (() => { const r = tint.getBoundingClientRect();
@@ -204,6 +215,7 @@ def test_the_bands_span_the_page_and_the_text_keeps_its_left_line(setup, width):
         assert m["heroTitle"] == m["heroLead"] == m["above"], "the hero is off the left line"
         assert m["heroH1"] == 1
         assert m["scroll"] == m["vw"], "the page scrolls sideways"
+        assert m["longRight"] <= m["vw"], "a long address runs out of the viewport"
         assert m["tintBg"] != m["accentBg"] != m["plainBg"], (m["tintBg"], m["accentBg"])
         assert m["eyebrow"].lower() == "de uitdaging"
         assert m["paintLeft"] and m["paintRight"], "the band is clipped back to the container"

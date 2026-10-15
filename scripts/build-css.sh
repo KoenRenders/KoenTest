@@ -888,7 +888,10 @@ body[data-shell="site"]{overflow-x:clip}
    are the right size, the paint is not). A page body that holds a section is
    therefore no holder; her tables become their own (CR-32 F2). A page without a
    section keeps the holder exactly as it was (R11). */
-.cms-page:has(>.prose-section){overflow-x:visible}
+/* ...and what the holder held besides a table — a pasted address with no place to
+   break, a long compound word — is held by the text itself: it breaks anywhere
+   (inherited), so the document keeps the viewport's width. */
+.cms-page:has(>.prose-section){overflow-x:visible;overflow-wrap:anywhere}
 .cms-page:has(>.prose-section) table{display:block;max-width:100%;overflow-x:auto}
 .prose-section{padding-block:2.5rem}
 .prose-section>:first-child{margin-top:0}
