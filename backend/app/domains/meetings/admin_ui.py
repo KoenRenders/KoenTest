@@ -177,17 +177,31 @@ def _list_view(
     )
 
 
-def _new_view(request: Request, db: Session, error: Optional[str] = None) -> MeetingNewView:
-    """Het aanmaakscherm, met uur en locatie van de vorige vergadering voorgesteld."""
+def _new_view(
+    request: Request,
+    db: Session,
+    error: Optional[str] = None,
+    typed: Optional[tuple[str, str, str]] = None,
+) -> MeetingNewView:
+    """Het aanmaakscherm, met uur en locatie van de vorige vergadering voorgesteld.
+
+    `typed` (#1860): the date, time and place as they were typed into a form that was
+    refused; the form comes back with them and not with the suggestion."""
     previous = previous_meeting(db, date.today() + timedelta(days=365))
-    return MeetingNewView(
-        suggested_date="",
-        suggested_time=(
+    suggestion = (
+        "",
+        (
             previous.start_time.strftime("%H:%M")
             if previous is not None and previous.start_time
             else ""
         ),
-        suggested_location=(previous.location or "") if previous is not None else "",
+        (previous.location or "") if previous is not None else "",
+    )
+    shown_date, shown_time, shown_location = typed or suggestion
+    return MeetingNewView(
+        suggested_date=shown_date,
+        suggested_time=shown_time,
+        suggested_location=shown_location,
         action="/admin/vergaderingen",
         title=_("Nieuwe vergadering"),
         intro=_(
@@ -203,13 +217,24 @@ def _new_view(request: Request, db: Session, error: Optional[str] = None) -> Mee
 
 
 def _edit_view(
-    request: Request, db: Session, meeting, error: Optional[str] = None
+    request: Request,
+    db: Session,
+    meeting,
+    error: Optional[str] = None,
+    typed: Optional[tuple[str, str, str]] = None,
 ) -> MeetingNewView:
-    """Hetzelfde formulier, maar voor een vergadering die al bestaat."""
+    """Hetzelfde formulier, maar voor een vergadering die al bestaat. `typed` as in
+    `_new_view` (#1860): a refused form comes back with what was typed."""
+    stored = (
+        meeting.meeting_date.isoformat(),
+        meeting.start_time.strftime("%H:%M") if meeting.start_time else "",
+        meeting.location or "",
+    )
+    shown_date, shown_time, shown_location = typed or stored
     return MeetingNewView(
-        suggested_date=meeting.meeting_date.isoformat(),
-        suggested_time=(meeting.start_time.strftime("%H:%M") if meeting.start_time else ""),
-        suggested_location=meeting.location or "",
+        suggested_date=shown_date,
+        suggested_time=shown_time,
+        suggested_location=shown_location,
         action=f"/admin/vergaderingen/{meeting.id}/bewerken",
         title=_("Vergadering wijzigen"),
         intro=_(
@@ -271,7 +296,12 @@ def meeting_create(
         return templates.TemplateResponse(
             request,
             "admin_vergadering_nieuw.html",
-            _new_view(request, db, error=_("Vul een geldige datum in.")).as_context(),
+            _new_view(
+                request,
+                db,
+                error=_("Vul een geldige datum in."),
+                typed=(meeting_date, start_time, location),
+            ).as_context(),
         )
     moment = None
     if start_time:
@@ -790,7 +820,13 @@ def meeting_edit_save(
         return templates.TemplateResponse(
             request,
             "admin_vergadering_nieuw.html",
-            _edit_view(request, db, meeting, error=_("Vul een geldige datum in.")).as_context(),
+            _edit_view(
+                request,
+                db,
+                meeting,
+                error=_("Vul een geldige datum in."),
+                typed=(meeting_date, start_time, location),
+            ).as_context(),
         )
     moment = None
     if start_time:
@@ -806,7 +842,9 @@ def meeting_edit_save(
         return templates.TemplateResponse(
             request,
             "admin_vergadering_nieuw.html",
-            _edit_view(request, db, meeting, error=str(exc)).as_context(),
+            _edit_view(
+                request, db, meeting, error=str(exc), typed=(meeting_date, start_time, location)
+            ).as_context(),
         )
     doel = f"/admin/vergaderingen/{meeting.id}"
     if request.headers.get("HX-Request"):
