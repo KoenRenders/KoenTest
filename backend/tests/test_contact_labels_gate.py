@@ -1,9 +1,9 @@
-"""Refuses "gsm", "Mobiel nummer" or "E-mailadres" as a word a person reads · hard · since #1719.
+"""Refuses "gsm", "Mobiel nummer", "E-mailadres" or "Relatietype" as a word a person reads · hard · since #1719.
 
 The screens say "Mobiel" and "E-mail" (#1719) — one word per contact field,
 on every screen, in every mail and in the changes list.
 
-Three rules over the application's templates and Python (tests left out,
+Four rules over the application's templates and Python (tests left out,
 comments and docstrings not read):
 
 - **nothing a person reads says "gsm"**: not "Gsm", "GSM" or "gsm-nummer". The
@@ -13,7 +13,10 @@ comments and docstrings not read):
   noun ("Vul een mobiel nummer in.");
 - **no field label is "E-mailadres"**: the field is "E-mail". Every compound
   label and every sentence keeps the noun ("Ander e-mailadres", "+ E-mailadres",
-  "Vul een geldig e-mailadres in.").
+  "Vul een geldig e-mailadres in.");
+- **no label is "Relatietype"** (CR-33 F9, 15 October 2026): the word is "Relatie".
+  It stood once, on the universe object `person_relation_type`; the word now comes
+  from the attribute register and the list of allowed places is empty.
 
 What may stay stands in `ALLOWED`, per file with its exact number and its
 reason: the member import's own column name `gsm` (the board's file, not our
@@ -26,7 +29,8 @@ Proven red, each with an ADDITIVE violation (run, restored from HEAD):
 - `{{ _("Gsm") }}` added to `home.html` → "gsm: 1 found, 0 allowed";
 - `x = "Mobiel nummer"` added to `mdm/ui.py` → "Mobiel nummer: 1 found";
 - `{{ ui.label(_("E-mailadres"), "x") }}` added to `home.html` → "E-mailadres:
-  1 found, 0 allowed".
+  1 found, 0 allowed";
+- `x = "Relatietype"` added to `mdm/ui.py` → "Relatietype: 1 found" (CR-33).
 """
 
 from __future__ import annotations
@@ -46,6 +50,7 @@ QUOTED = re.compile(r"""(["'])((?:(?!\1).)*)\1""")
 
 MOBILE_LABELS = {"Mobiel nummer", "Mobiel nummer:"}
 EMAIL_LABELS = {"E-mailadres", "E-mailadres:"}
+RELATION_LABELS = {"Relatietype", "Relatietype:"}
 
 # file (relative to app/) → exact number, per rule.
 ALLOWED: dict[str, dict[str, int]] = {
@@ -62,6 +67,7 @@ ALLOWED: dict[str, dict[str, int]] = {
         # The form builder's code label: stored by a migration.
         "domains/forms/codes.py": 1,
     },
+    "Relatietype": {},
 }
 
 
@@ -116,6 +122,7 @@ def _found() -> dict[str, Counter[str]]:
         found["gsm"][name] += gsm_hits(text)
         found["Mobiel nummer"][name] += sum(1 for s in strings if s.strip() in MOBILE_LABELS)
         found["E-mailadres"][name] += sum(1 for s in strings if s.strip() in EMAIL_LABELS)
+        found["Relatietype"][name] += sum(1 for s in strings if s.strip() in RELATION_LABELS)
     return found
 
 
@@ -137,9 +144,11 @@ def test_the_scan_reads_the_application():
     assert sum(1 for p in files if p.suffix == ".html") > 100
     assert sum(1 for p in files if p.suffix == ".py") > 100
     for name, label in (
-        ("domains/membership/templates/_household_rows.html", "Mobiel"),
-        ("domains/membership/templates/_household_rows.html", "E-mail"),
-        ("domains/activities/templates/_inschrijf_velden.html", "Mobiel"),
+        # The words stand in the register since CR-33; the screens read them from there.
+        ("domains/mdm/attributes.py", "Mobiel"),
+        ("domains/mdm/attributes.py", "E-mail"),
+        ("domains/mdm/attributes.py", "Relatie"),
+        ("domains/activities/attributes.py", "Mobiel"),
         ("domains/reporting/changes.py", "mobiel"),
     ):
         assert label in copy_of(APP / name)[1], f"{name} does not carry the label {label!r}"
@@ -162,3 +171,7 @@ def test_no_label_is_mobiel_nummer():
 
 def test_no_field_label_is_e_mailadres():
     _check("E-mailadres")
+
+
+def test_no_label_is_relatietype():
+    _check("Relatietype")
