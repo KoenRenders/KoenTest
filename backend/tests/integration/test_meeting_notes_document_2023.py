@@ -67,6 +67,54 @@ def test_trix_html_becomes_a_valid_document_and_no_word_is_lost():
     assert {"heading", "paragraph", "bulletList"} <= kinds, kinds
 
 
+def test_a_nested_list_has_no_blank_line_before_its_sub_list_and_keeps_none_on_a_round_trip():
+    """#2038 review A2: `<li>twee<ul>…` became `<li>twee<br><ul>…`, and the break
+    came back once more on every round trip. Broken on purpose: the break that ends
+    an item's words left in the parser → the first assertion fails; the renderer's
+    `<br>` before a nested list back → the second fails."""
+    from app.domains.cms.api import render_document
+    from app.domains.cms.parse import parse_html
+
+    source = "<ul><li>één</li><li>twee<br><ul><li>a</li><li>b</li></ul></li></ul>"
+    document = parse_html(source, lenient=True)
+    second = document["content"][0]["content"][1]["content"]
+    assert [n["type"] for n in second] == ["paragraph", "bulletList"]
+    assert {"type": "hardBreak"} not in second[0]["content"]
+    html = render_document(document)
+    assert "<li>twee<ul>" in html and "<br><ul>" not in html
+    # Round trip: render, parse again, render again — the same.
+    again = parse_html(html, lenient=True)
+    assert again == document
+    assert render_document(again) == html
+
+
+SEED_SNAPSHOT = Path(__file__).parent / "snapshots" / "seed_page_documents_2023.json"
+
+
+def test_the_parser_makes_the_documents_of_the_seeded_pages_it_always_made(db_session):
+    """The fix of A2 touches no page without a nested list: for every seeded page
+    the document `parse_html` makes of her HTML — strict and lenient — equals the
+    snapshot taken with the parser as it was before the fix. To regenerate on
+    purpose delete the file, run the test (it writes and fails once) and say why in
+    the commit."""
+    from app.domains.cms.api import list_pages
+    from app.domains.cms.parse import parse_html
+
+    made = {
+        page.slug: [parse_html(page.content), parse_html(page.content, lenient=True)]
+        for page in list_pages(db_session)
+        if page.content
+    }
+    assert len(made) >= 3, "the seed holds fewer pages with content than this snapshot measures"
+    if not SEED_SNAPSHOT.exists():
+        SEED_SNAPSHOT.parent.mkdir(exist_ok=True)
+        SEED_SNAPSHOT.write_text(json.dumps(made, indent=1, sort_keys=True, ensure_ascii=False))
+        pytest.fail("the snapshot was written: run the test again")
+    assert json.loads(SEED_SNAPSHOT.read_text()) == json.loads(json.dumps(made)), (
+        "a seeded page's document changed"
+    )
+
+
 def test_what_the_converter_cannot_read_still_keeps_its_words():
     document = document_from_trix("<div>één<span>twee</span></div><blink>drie</blink>")
     assert {"één", "twee", "drie"} <= set(_words(document).replace("twee", " twee ").split()) or (
@@ -92,6 +140,10 @@ def test_the_migration_converts_every_written_note_and_drops_the_html_column(db_
     )
     converted = _load().convert_notes(db_session.connection())
     assert converted == 1, "only the written note is converted"
+    blank_after = db_session.execute(
+        text("SELECT notes_document FROM meetings.meeting_items WHERE id = :i"), {"i": blank_id}
+    ).scalar()
+    assert blank_after is None, "a point that says nothing stores nothing"
     columns = {
         row[0]
         for row in db_session.execute(

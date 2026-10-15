@@ -1,0 +1,784 @@
+{
+ "home-intro": [
+  {
+   "content": [
+    {
+     "content": [
+      {
+       "marks": [
+        {
+         "type": "bold"
+        }
+       ],
+       "text": "Welkom bij Raak Voorbeeldafdeling",
+       "type": "text"
+      },
+      {
+       "text": " — dit is de demo-omgeving van het Raak Digital Platform. Alles wat je hier ziet is fictief: schrijf gerust in, betalingen lopen in Mollie-testmodus en e-mails worden enkel gelogd, nooit verstuurd.",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    }
+   ],
+   "type": "doc"
+  },
+  {
+   "content": [
+    {
+     "content": [
+      {
+       "marks": [
+        {
+         "type": "bold"
+        }
+       ],
+       "text": "Welkom bij Raak Voorbeeldafdeling",
+       "type": "text"
+      },
+      {
+       "text": " — dit is de demo-omgeving van het Raak Digital Platform. Alles wat je hier ziet is fictief: schrijf gerust in, betalingen lopen in Mollie-testmodus en e-mails worden enkel gelogd, nooit verstuurd.",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    }
+   ],
+   "type": "doc"
+  }
+ ],
+ "privacy": [
+  {
+   "content": [
+    {
+     "content": [
+      {
+       "marks": [
+        {
+         "type": "italic"
+        }
+       ],
+       "text": "Laatst bijgewerkt: bij de invoering van bezoekersstatistieken. Pas deze tekst gerust aan via de CMS-beheerpagina.",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    },
+    {
+     "attrs": {
+      "level": 3
+     },
+     "content": [
+      {
+       "text": "Wie zijn we?",
+       "type": "text"
+      }
+     ],
+     "type": "heading"
+    },
+    {
+     "content": [
+      {
+       "text": "Deze website wordt beheerd door de feitelijke vereniging Raak Millegem (Milostraat 40, 2400 Mol). Voor vragen over je gegevens kan je ons bereiken via ",
+       "type": "text"
+      },
+      {
+       "marks": [
+        {
+         "attrs": {
+          "href": "mailto:raakmillegem@gmail.com"
+         },
+         "type": "link"
+        }
+       ],
+       "text": "raakmillegem@gmail.com",
+       "type": "text"
+      },
+      {
+       "text": ".",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    },
+    {
+     "attrs": {
+      "level": 3
+     },
+     "content": [
+      {
+       "text": "Welke gegevens verwerken we?",
+       "type": "text"
+      }
+     ],
+     "type": "heading"
+    },
+    {
+     "content": [
+      {
+       "content": [
+        {
+         "content": [
+          {
+           "marks": [
+            {
+             "type": "bold"
+            }
+           ],
+           "text": "Lidmaatschap en inschrijvingen:",
+           "type": "text"
+          },
+          {
+           "text": " naam, contactgegevens en gezinssamenstelling die je zelf invult om lid te worden of in te schrijven voor een activiteit.",
+           "type": "text"
+          }
+         ],
+         "type": "paragraph"
+        }
+       ],
+       "type": "listItem"
+      },
+      {
+       "content": [
+        {
+         "content": [
+          {
+           "marks": [
+            {
+             "type": "bold"
+            }
+           ],
+           "text": "Betalingen:",
+           "type": "text"
+          },
+          {
+           "text": " online betalingen verlopen via onze betaalpartner Mollie. Wij bewaren geen kaart- of rekeninggegevens.",
+           "type": "text"
+          }
+         ],
+         "type": "paragraph"
+        }
+       ],
+       "type": "listItem"
+      }
+     ],
+     "type": "bulletList"
+    },
+    {
+     "attrs": {
+      "level": 3
+     },
+     "content": [
+      {
+       "text": "Waarvoor gebruiken we ze?",
+       "type": "text"
+      }
+     ],
+     "type": "heading"
+    },
+    {
+     "content": [
+      {
+       "text": "Uitsluitend voor onze ledenadministratie, de organisatie van activiteiten en de afhandeling van betalingen. We verkopen of delen je gegevens niet met derden voor commerciële doeleinden.",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    },
+    {
+     "attrs": {
+      "level": 3
+     },
+     "content": [
+      {
+       "text": "Bezoekersstatistieken",
+       "type": "text"
+      }
+     ],
+     "type": "heading"
+    },
+    {
+     "content": [
+      {
+       "text": "Deze website gebruikt Umami, een zelf-gehoste en cookieloze bezoekersstatistiek. Er worden geen persoonsgegevens verzameld en je IP-adres wordt geanonimiseerd. We respecteren de Do-Not-Track-instelling van je browser.",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    },
+    {
+     "attrs": {
+      "level": 3
+     },
+     "content": [
+      {
+       "text": "Jouw rechten",
+       "type": "text"
+      }
+     ],
+     "type": "heading"
+    },
+    {
+     "content": [
+      {
+       "text": "Je kan je gegevens altijd inkijken, laten verbeteren of laten verwijderen. Stuur daarvoor een e-mail naar ",
+       "type": "text"
+      },
+      {
+       "marks": [
+        {
+         "attrs": {
+          "href": "mailto:raakmillegem@gmail.com"
+         },
+         "type": "link"
+        }
+       ],
+       "text": "raakmillegem@gmail.com",
+       "type": "text"
+      },
+      {
+       "text": ".",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    },
+    {
+     "attrs": {
+      "level": 3
+     },
+     "content": [
+      {
+       "text": "Spraakinvoer (\"praten met Raakje\")",
+       "type": "text"
+      }
+     ],
+     "type": "heading"
+    },
+    {
+     "content": [
+      {
+       "text": "Je kunt vragen aan onze chatbot Raakje ook inspreken in plaats van typen. Spraakinvoer is volledig optioneel: je kunt elke vraag ook gewoon intypen, en je microfoon wordt pas gebruikt nadat je daar toestemming voor geeft.",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    },
+    {
+     "content": [
+      {
+       "text": "Hoe je spraak wordt verwerkt, hangt af van je browser:",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    },
+    {
+     "content": [
+      {
+       "content": [
+        {
+         "content": [
+          {
+           "marks": [
+            {
+             "type": "bold"
+            }
+           ],
+           "text": "Browsers met ingebouwde spraakherkenning",
+           "type": "text"
+          },
+          {
+           "text": " sturen je audio naar de servers van hun maker, die zich buiten de Europese Unie (in de Verenigde Staten) bevinden. Dit geldt onder meer voor Google Chrome (Google), Microsoft Edge (Microsoft) en Safari (Apple). Gebruik je zo'n browser, dan verlaat je gesproken bericht de EU en gelden mede de privacyvoorwaarden van die leverancier.",
+           "type": "text"
+          }
+         ],
+         "type": "paragraph"
+        }
+       ],
+       "type": "listItem"
+      },
+      {
+       "content": [
+        {
+         "content": [
+          {
+           "marks": [
+            {
+             "type": "bold"
+            }
+           ],
+           "text": "Browsers zonder ingebouwde cloud-spraakherkenning",
+           "type": "text"
+          },
+          {
+           "text": " — zoals Mozilla Firefox, Vivaldi en Opera — sturen je spraak niet naar zulke partijen. Voor die browsers zetten wij je spraak om via een Europese verwerker (Mistral AI, Frankrijk), zodat de audio binnen de EU verwerkt wordt.",
+           "type": "text"
+          }
+         ],
+         "type": "paragraph"
+        }
+       ],
+       "type": "listItem"
+      }
+     ],
+     "type": "bulletList"
+    },
+    {
+     "content": [
+      {
+       "text": "In beide gevallen gebruiken we je spraak uitsluitend om je vraag naar tekst om te zetten; de audio wordt enkel kortstondig verwerkt en wij bewaren geen opnames.",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    },
+    {
+     "content": [
+      {
+       "marks": [
+        {
+         "type": "bold"
+        }
+       ],
+       "text": "Wil je dat je gesproken berichten de EU niet verlaten?",
+       "type": "text"
+      },
+      {
+       "text": " Gebruik dan een browser zonder ingebouwde cloud-spraakherkenning (bijvoorbeeld Mozilla Firefox, Vivaldi of Opera), of typ je vraag gewoon in.",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    }
+   ],
+   "type": "doc"
+  },
+  {
+   "content": [
+    {
+     "content": [
+      {
+       "marks": [
+        {
+         "type": "italic"
+        }
+       ],
+       "text": "Laatst bijgewerkt: bij de invoering van bezoekersstatistieken. Pas deze tekst gerust aan via de CMS-beheerpagina.",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    },
+    {
+     "attrs": {
+      "level": 3
+     },
+     "content": [
+      {
+       "text": "Wie zijn we?",
+       "type": "text"
+      }
+     ],
+     "type": "heading"
+    },
+    {
+     "content": [
+      {
+       "text": "Deze website wordt beheerd door de feitelijke vereniging Raak Millegem (Milostraat 40, 2400 Mol). Voor vragen over je gegevens kan je ons bereiken via ",
+       "type": "text"
+      },
+      {
+       "marks": [
+        {
+         "attrs": {
+          "href": "mailto:raakmillegem@gmail.com"
+         },
+         "type": "link"
+        }
+       ],
+       "text": "raakmillegem@gmail.com",
+       "type": "text"
+      },
+      {
+       "text": ".",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    },
+    {
+     "attrs": {
+      "level": 3
+     },
+     "content": [
+      {
+       "text": "Welke gegevens verwerken we?",
+       "type": "text"
+      }
+     ],
+     "type": "heading"
+    },
+    {
+     "content": [
+      {
+       "content": [
+        {
+         "content": [
+          {
+           "marks": [
+            {
+             "type": "bold"
+            }
+           ],
+           "text": "Lidmaatschap en inschrijvingen:",
+           "type": "text"
+          },
+          {
+           "text": " naam, contactgegevens en gezinssamenstelling die je zelf invult om lid te worden of in te schrijven voor een activiteit.",
+           "type": "text"
+          }
+         ],
+         "type": "paragraph"
+        }
+       ],
+       "type": "listItem"
+      },
+      {
+       "content": [
+        {
+         "content": [
+          {
+           "marks": [
+            {
+             "type": "bold"
+            }
+           ],
+           "text": "Betalingen:",
+           "type": "text"
+          },
+          {
+           "text": " online betalingen verlopen via onze betaalpartner Mollie. Wij bewaren geen kaart- of rekeninggegevens.",
+           "type": "text"
+          }
+         ],
+         "type": "paragraph"
+        }
+       ],
+       "type": "listItem"
+      }
+     ],
+     "type": "bulletList"
+    },
+    {
+     "attrs": {
+      "level": 3
+     },
+     "content": [
+      {
+       "text": "Waarvoor gebruiken we ze?",
+       "type": "text"
+      }
+     ],
+     "type": "heading"
+    },
+    {
+     "content": [
+      {
+       "text": "Uitsluitend voor onze ledenadministratie, de organisatie van activiteiten en de afhandeling van betalingen. We verkopen of delen je gegevens niet met derden voor commerciële doeleinden.",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    },
+    {
+     "attrs": {
+      "level": 3
+     },
+     "content": [
+      {
+       "text": "Bezoekersstatistieken",
+       "type": "text"
+      }
+     ],
+     "type": "heading"
+    },
+    {
+     "content": [
+      {
+       "text": "Deze website gebruikt Umami, een zelf-gehoste en cookieloze bezoekersstatistiek. Er worden geen persoonsgegevens verzameld en je IP-adres wordt geanonimiseerd. We respecteren de Do-Not-Track-instelling van je browser.",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    },
+    {
+     "attrs": {
+      "level": 3
+     },
+     "content": [
+      {
+       "text": "Jouw rechten",
+       "type": "text"
+      }
+     ],
+     "type": "heading"
+    },
+    {
+     "content": [
+      {
+       "text": "Je kan je gegevens altijd inkijken, laten verbeteren of laten verwijderen. Stuur daarvoor een e-mail naar ",
+       "type": "text"
+      },
+      {
+       "marks": [
+        {
+         "attrs": {
+          "href": "mailto:raakmillegem@gmail.com"
+         },
+         "type": "link"
+        }
+       ],
+       "text": "raakmillegem@gmail.com",
+       "type": "text"
+      },
+      {
+       "text": ".",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    },
+    {
+     "attrs": {
+      "level": 3
+     },
+     "content": [
+      {
+       "text": "Spraakinvoer (\"praten met Raakje\")",
+       "type": "text"
+      }
+     ],
+     "type": "heading"
+    },
+    {
+     "content": [
+      {
+       "text": "Je kunt vragen aan onze chatbot Raakje ook inspreken in plaats van typen. Spraakinvoer is volledig optioneel: je kunt elke vraag ook gewoon intypen, en je microfoon wordt pas gebruikt nadat je daar toestemming voor geeft.",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    },
+    {
+     "content": [
+      {
+       "text": "Hoe je spraak wordt verwerkt, hangt af van je browser:",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    },
+    {
+     "content": [
+      {
+       "content": [
+        {
+         "content": [
+          {
+           "marks": [
+            {
+             "type": "bold"
+            }
+           ],
+           "text": "Browsers met ingebouwde spraakherkenning",
+           "type": "text"
+          },
+          {
+           "text": " sturen je audio naar de servers van hun maker, die zich buiten de Europese Unie (in de Verenigde Staten) bevinden. Dit geldt onder meer voor Google Chrome (Google), Microsoft Edge (Microsoft) en Safari (Apple). Gebruik je zo'n browser, dan verlaat je gesproken bericht de EU en gelden mede de privacyvoorwaarden van die leverancier.",
+           "type": "text"
+          }
+         ],
+         "type": "paragraph"
+        }
+       ],
+       "type": "listItem"
+      },
+      {
+       "content": [
+        {
+         "content": [
+          {
+           "marks": [
+            {
+             "type": "bold"
+            }
+           ],
+           "text": "Browsers zonder ingebouwde cloud-spraakherkenning",
+           "type": "text"
+          },
+          {
+           "text": " — zoals Mozilla Firefox, Vivaldi en Opera — sturen je spraak niet naar zulke partijen. Voor die browsers zetten wij je spraak om via een Europese verwerker (Mistral AI, Frankrijk), zodat de audio binnen de EU verwerkt wordt.",
+           "type": "text"
+          }
+         ],
+         "type": "paragraph"
+        }
+       ],
+       "type": "listItem"
+      }
+     ],
+     "type": "bulletList"
+    },
+    {
+     "content": [
+      {
+       "text": "In beide gevallen gebruiken we je spraak uitsluitend om je vraag naar tekst om te zetten; de audio wordt enkel kortstondig verwerkt en wij bewaren geen opnames.",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    },
+    {
+     "content": [
+      {
+       "marks": [
+        {
+         "type": "bold"
+        }
+       ],
+       "text": "Wil je dat je gesproken berichten de EU niet verlaten?",
+       "type": "text"
+      },
+      {
+       "text": " Gebruik dan een browser zonder ingebouwde cloud-spraakherkenning (bijvoorbeeld Mozilla Firefox, Vivaldi of Opera), of typ je vraag gewoon in.",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    }
+   ],
+   "type": "doc"
+  }
+ ],
+ "site-footer": [
+  {
+   "content": [
+    {
+     "content": [
+      {
+       "text": "«Naam van de vereniging» · «straat en nummer», «postcode en gemeente»",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    }
+   ],
+   "type": "doc"
+  },
+  {
+   "content": [
+    {
+     "content": [
+      {
+       "text": "«Naam van de vereniging» · «straat en nummer», «postcode en gemeente»",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    }
+   ],
+   "type": "doc"
+  }
+ ],
+ "start": [
+  {
+   "content": [
+    {
+     "content": [
+      {
+       "text": "Eén platform voor verenigingen en organisaties: elk een eigen site met pagina's, formulieren en media, en waar nodig activiteiten, inschrijvingen, ledenbeheer en online betalen.",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    },
+    {
+     "attrs": {
+      "level": 3
+     },
+     "content": [
+      {
+       "text": "Ook op het platform?",
+       "type": "text"
+      }
+     ],
+     "type": "heading"
+    },
+    {
+     "content": [
+      {
+       "text": "Elke organisatie krijgt een eigen site, met de onderdelen die ze nodig heeft. Vraag het aan bij de platformbeheerder.",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    },
+    {
+     "content": [
+      {
+       "text": "{{tenants}}",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    }
+   ],
+   "type": "doc"
+  },
+  {
+   "content": [
+    {
+     "content": [
+      {
+       "text": "Eén platform voor verenigingen en organisaties: elk een eigen site met pagina's, formulieren en media, en waar nodig activiteiten, inschrijvingen, ledenbeheer en online betalen.",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    },
+    {
+     "attrs": {
+      "level": 3
+     },
+     "content": [
+      {
+       "text": "Ook op het platform?",
+       "type": "text"
+      }
+     ],
+     "type": "heading"
+    },
+    {
+     "content": [
+      {
+       "text": "Elke organisatie krijgt een eigen site, met de onderdelen die ze nodig heeft. Vraag het aan bij de platformbeheerder.",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    },
+    {
+     "content": [
+      {
+       "text": "{{tenants}}",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    }
+   ],
+   "type": "doc"
+  }
+ ]
+}
