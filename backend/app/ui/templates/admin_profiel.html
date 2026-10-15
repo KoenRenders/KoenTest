@@ -14,11 +14,11 @@
       <dd>{{ werkruimte_naam() }}</dd></div>
     {% if profiel_platform_rollen %}
     <div class="flex justify-between gap-4"><dt class="text-ink-soft">{{ _("Platformbreed") }}</dt>
-      <dd class="flex flex-wrap gap-1 justify-end">{% for rol in profiel_platform_rollen %}{{ ui.badge(rol, "blue") }}{% endfor %}</dd></div>
+      <dd class="flex flex-wrap gap-1 justify-end">{% for rol in profiel_platform_rollen %}{{ ui.badge(rol | code_label("role"), "blue") }}{% endfor %}</dd></div>
     {% endif %}
     {% for wr in profiel_werkruimtes %}
     <div class="flex justify-between gap-4"><dt class="text-ink-soft">{{ wr.naam }}</dt>
-      <dd class="flex flex-wrap gap-1 justify-end">{% for rol in wr.rollen %}{{ ui.badge(rol, "blue") }}{% endfor %}</dd></div>
+      <dd class="flex flex-wrap gap-1 justify-end">{% for rol in wr.rollen %}{{ ui.badge(rol | code_label("role"), "blue") }}{% endfor %}</dd></div>
     {% else %}
     {% if not profiel_platform_rollen %}
     <div class="flex justify-between gap-4"><dt class="text-ink-soft">{{ _("Rollen") }}</dt>
