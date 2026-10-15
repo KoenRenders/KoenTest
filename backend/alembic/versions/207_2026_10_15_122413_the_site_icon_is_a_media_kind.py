@@ -13,7 +13,7 @@ Idempotent: a row that stands is left alone.
 from alembic import op
 
 revision = "207_2026_10_15_122413"
-down_revision = "205_2026_10_15_082601"
+down_revision = "206_2026_10_15_101648"
 branch_labels = None
 depends_on = None
 
