@@ -13,7 +13,6 @@ already left.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -44,7 +43,7 @@ from app.domains.newsletter.viewmodels import (
     SubscriberImportView,
     SubscriberListView,
 )
-from app.i18n import _
+from app.i18n import _, local_moment, short_datetime
 from app.kernel.codes import code_label, code_labels, code_of, register_tones, tone
 from app.ui import admin_nav, is_fragment_request, templates
 
@@ -100,16 +99,6 @@ def _base_url(db: Session) -> str:
     return tenant_base_url(db).rstrip("/")
 
 
-def _moment(value: Optional[datetime]) -> str:
-    """A moment as a board member reads it: 'di 15 sep, 18:00' in Belgian time."""
-    if value is None:
-        return ""
-    from zoneinfo import ZoneInfo
-
-    local = value.astimezone(ZoneInfo("Europe/Brussels"))
-    return f"{nb.short_date(local.date())}, {local.strftime('%H:%M')}"
-
-
 def _go(request: Request, target: str) -> Response:
     """Navigate for real after a POST — the shell is boosted, so a plain 303
     would be swapped in without the address bar following."""
@@ -146,11 +135,15 @@ def _list_view(
     moments = {}
     for letter in letters:
         if letter.status == nb.LetterStatus.DRAFT:
-            moments[letter.id] = _("laatst bewaard %(m)s") % {"m": _moment(letter.updated_at)}
+            moments[letter.id] = _("laatst bewaard %(m)s") % {
+                "m": short_datetime(letter.updated_at)
+            }
         elif letter.status == nb.LetterStatus.SENDING:
-            moments[letter.id] = _("gestart %(m)s") % {"m": _moment(letter.send_started_at)}
+            moments[letter.id] = _("gestart %(m)s") % {"m": short_datetime(letter.send_started_at)}
         else:
-            moments[letter.id] = _("verstuurd %(m)s") % {"m": _moment(letter.send_finished_at)}
+            moments[letter.id] = _("verstuurd %(m)s") % {
+                "m": short_datetime(letter.send_finished_at)
+            }
     return NewsletterListView(
         letters=letters,
         q=q,
@@ -220,13 +213,13 @@ def _subscriber_view(
         unsubscribable={s.id: s.status is not nb.SubscriberStatus.UNSUBSCRIBED for s in rows},
         source_labels={
             s.id: (
-                _("import %(d)s") % {"d": nb.short_date(s.imported_at.date())}
+                _("import %(d)s") % {"d": nb.short_date(local_moment(s.imported_at).date())}
                 if s.source == nb.SubscriberSource.IMPORT and s.imported_at
                 else code_label(nb.SUBSCRIBER_SOURCE.name, s.source, db=db)
             )
             for s in rows
         },
-        moments={s.id: _moment(s.confirmed_at or s.created_at) for s in rows},
+        moments={s.id: short_datetime(s.confirmed_at or s.created_at) for s in rows},
         q=q,
         status=status,
         csrf_token=_csrf(request),
@@ -566,7 +559,7 @@ def _compose_view(
         audience_lines=lines,
         audience_overlap=overlap,
         audience=code_of(letter.audience) or "",
-        saved_at=_moment(letter.updated_at),
+        saved_at=short_datetime(letter.updated_at),
         raakje_enabled=_raakje_enabled(db),
         choices=_choices(db, letter),
         report_count=len(nb.reports_since_previous_letter(db)),
@@ -631,12 +624,12 @@ def _archive_view(
         status_tone=tone(nb.LETTER_STATUS.name, letter.status),
         audience_label=code_label(nb.AUDIENCE.name, letter.audience or "", db=db),
         progress=progress,
-        expected=_moment(progress.expected_finish) if progress.expected_finish else "",
-        started=_moment(letter.send_started_at),
-        finished=_moment(letter.send_finished_at),
+        expected=short_datetime(progress.expected_finish) if progress.expected_finish else "",
+        started=short_datetime(letter.send_started_at),
+        finished=short_datetime(letter.send_finished_at),
         deliveries=deliveries,
         delivery_options=code_labels(nb.DELIVERY_STATUS.name, db=db),
-        moments={d.id: _moment(d.sent_at) for d in deliveries},
+        moments={d.id: short_datetime(d.sent_at) for d in deliveries},
         status_filter=status,
         q=q,
         csrf_token=_csrf(request),

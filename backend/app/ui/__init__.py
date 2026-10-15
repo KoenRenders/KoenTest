@@ -111,6 +111,11 @@ from app.i18n import short_datetime as _short_datetime  # noqa: E402
 templates.env.filters["kortedatum"] = _short_date
 templates.env.filters["short_datetime"] = _short_datetime
 
+# #1976: the time of a moment, in the association's time like every filter above.
+from app.i18n import clock_time as _clock_time  # noqa: E402
+
+templates.env.filters["clock_time"] = _clock_time
+
 
 def _maandkort(d) -> str:
     """Korte Nederlandse maand voor het datumblok op activiteitenkaarten

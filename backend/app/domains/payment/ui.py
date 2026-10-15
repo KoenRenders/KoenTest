@@ -36,7 +36,7 @@ from app.domains.payment.service import (
     zet_betaalstatus,
 )
 from app.domains.payment.viewmodels import BetalingenView, BookingView, RefundScreenView
-from app.i18n import _
+from app.i18n import _, moment_text
 from app.kernel.codes import code_labels
 from app.kernel.geld import bedrag as geld
 from app.ui import (
@@ -1200,7 +1200,7 @@ def _booking_view(
                 )
                 or "—",
             },
-            {"label": _("Aangemaakt"), "value": rec.created_at.strftime("%d/%m/%Y")},
+            {"label": _("Aangemaakt"), "value": moment_text(rec.created_at, "%d/%m/%Y")},
         ],
     }
     return BookingView(

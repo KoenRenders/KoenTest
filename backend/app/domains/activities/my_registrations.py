@@ -22,6 +22,7 @@ from typing import Any, Optional
 from sqlalchemy.orm import Session, selectinload
 
 from app.domains.activities.models import Registration, RegistrationItem
+from app.i18n import local_moment
 
 
 @dataclass(frozen=True)
@@ -119,7 +120,7 @@ def my_registrations(
                 registered_by=(reg.person.first_name or "").strip() or None
                 if household and reg.person is not None
                 else None,
-                registered_on=reg.registered_at.date() if reg.registered_at else None,
+                registered_on=local_moment(reg.registered_at).date() if reg.registered_at else None,
                 transfer=_transfer(db, state) if state else None,
             )
         )

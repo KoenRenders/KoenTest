@@ -23,6 +23,15 @@ from zoneinfo import ZoneInfo
 BELGIUM = ZoneInfo("Europe/Brussels")
 
 
+def belgian_now(now: datetime | None = None) -> datetime:
+    """This moment in Brussels, timezone-aware (#1976): what a screen that says
+    "as of" shows, and whose `.date()` is today in Brussels."""
+    moment = now or datetime.now(timezone.utc)
+    if moment.tzinfo is None:
+        raise ValueError("belgian_now() needs a timezone-aware datetime")
+    return moment.astimezone(BELGIUM)
+
+
 def belgian_today(now: datetime | None = None) -> date:
     """Today's date in Brussels.
 
