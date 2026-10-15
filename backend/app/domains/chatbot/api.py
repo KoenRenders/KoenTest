@@ -18,6 +18,7 @@ from app.domains.chatbot.costs import (  # noqa: F401
     list_calls,
     month_period,
 )
+from app.domains.chatbot.fields import FIELDS_MARK, Field, FieldRefused  # noqa: F401
 from app.domains.chatbot.info_service import (  # noqa: F401
     InfoRefused,
     add_note,
@@ -98,6 +99,9 @@ __all__ = [
     "ChatTimeout",
     "QuestionRefused",
     "asked",
+    "FIELDS_MARK",
+    "Field",
+    "FieldRefused",
     "GuardedProvider",
     "Part",
     "SeamBlocked",

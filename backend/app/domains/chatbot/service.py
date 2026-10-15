@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 from sqlalchemy.orm import Session
 
@@ -142,6 +142,7 @@ def run_chat(
     force_first: bool = False,
     fallback: str = _FALLBACK,
     deadline: float | None = None,
+    fields: Sequence[Any] = (),
 ) -> str:
     """Loop het gesprek af tot een eindantwoord en geef de antwoordtekst terug.
 
@@ -153,6 +154,9 @@ def run_chat(
     rondes. Tussen rondes en niet middenin, want een halve HTTP-post afbreken
     levert geen antwoord en wél een half beeld in het logboek.
     """
+    # `fields` (CR-33 F6) go to the guarded provider as they are: the classification and
+    # the rendering are its, and a provider without that seam is not offered them.
+    extra = {"fields": fields} if fields else {}
     for i in range(max_rounds):
         if deadline is not None and time.monotonic() > deadline:
             raise ChatTimeout(
@@ -160,7 +164,7 @@ def run_chat(
                 "vraag bijvoorbeeld eerst één getal en dan de opsplitsing."
             )
         tool_choice = "any" if (i == 0 and force_first) else None
-        reply = provider.complete(messages, tools=tools, tool_choice=tool_choice)
+        reply = provider.complete(messages, tools=tools, tool_choice=tool_choice, **extra)
         if not reply.tool_calls:
             return (reply.content or "").strip() or fallback
 
@@ -178,7 +182,7 @@ def run_chat(
 
     # Rondes op: forceer één eindantwoord zonder tools.
     try:
-        final = provider.complete(messages, tools=None)
+        final = provider.complete(messages, tools=None, **extra)
         return (final.content or "").strip() or fallback
     except SeamBlocked:
         # De naadwachter hoort de gebruiker te bereiken, niet in een vangnet te
@@ -190,7 +194,11 @@ def run_chat(
 
 
 def run_public_chat(
-    db: Session, messages: list[dict[str, Any]], provider: LLMProvider, max_rounds: int = 4
+    db: Session,
+    messages: list[dict[str, Any]],
+    provider: LLMProvider,
+    max_rounds: int = 4,
+    fields: Sequence[Any] = (),
 ) -> str:
     """De publieke bot: de gedeelde lus met zijn eigen kist en zijn eigen zet.
 
@@ -208,6 +216,7 @@ def run_public_chat(
         tools=TOOL_SPECS,
         dispatch=execute_tool,
         force_first=_wants_activity_data(messages),
+        fields=fields,
     )
 
 
