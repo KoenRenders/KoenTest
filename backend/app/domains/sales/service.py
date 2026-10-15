@@ -592,10 +592,18 @@ def list_orders(db: Session) -> list[dict[str, Any]]:
 
 def deliver_line(db: Session, order_id: int, line_id: int, *, actor: str | None) -> None:
     """Deliver one line (F6, R21): `stock.api.issue` writes the GOODS_ISSUE and
-    closes the reservation, and the line's `delivered_at` is set — one transaction."""
+    closes the reservation, and the line's `delivered_at` is set — one transaction.
+
+    The line is read under a row lock, so two deliveries of one line cannot both
+    pass the `delivered_at` check. A line can be delivered only while it holds an
+    open reservation the stock covers; otherwise the service refuses in words: a
+    delivered line again, a line that waits for the supplier, or a line whose
+    reservation is gone — the stock and the state never disagree.
+    """
     from datetime import datetime, timezone
 
     from app.domains.sales.models import SalesOrder, SalesOrderLine
+    from app.domains.stock.api import NotEnoughStock, open_reservation_lines, waiting
     from app.i18n import _
     from app.kernel.contracts.stock import IssueStock
     from app.kernel.ports import call
@@ -606,13 +614,21 @@ def deliver_line(db: Session, order_id: int, line_id: int, *, actor: str | None)
     line = (
         db.query(SalesOrderLine)
         .filter(SalesOrderLine.id == line_id, SalesOrderLine.order_id == order_id)
+        .with_for_update()
         .one_or_none()
     )
     if line is None:
         raise SalesError(_("Deze regel hoort niet bij deze bestelling."))
     if line.delivered_at is not None:
         raise SalesError(_("Deze regel is al geleverd."))
-    call(IssueStock(order_line_id=line.id, actor=actor), db)
+    if line.id not in open_reservation_lines(db, [line.id]):
+        raise SalesError(_("Deze regel is al geleverd."))
+    if waiting(db, [line.id]):
+        raise SalesError(_("Deze regel wacht nog op de leverancier."))
+    try:
+        call(IssueStock(order_line_id=line.id, actor=actor), db)
+    except NotEnoughStock as exc:
+        raise SalesError(_("Deze regel wacht nog op de leverancier.")) from exc
     line.delivered_at = datetime.now(timezone.utc)
     db.commit()
 
@@ -655,6 +671,12 @@ def order_view(db: Session, order) -> dict[str, Any]:
         if person is not None:
             contact_name = f"{person.first_name} {person.last_name}".strip()
 
+    from app.domains.stock.api import open_reservation_lines, waiting
+
+    line_ids = [line.id for line in order.lines]
+    open_lines = open_reservation_lines(db, line_ids)
+    waiting_lines = set(waiting(db, line_ids))
+
     lines = []
     for line in order.lines:
         variant = get_variant(db, line.variant_id)
@@ -666,6 +688,7 @@ def order_view(db: Session, order) -> dict[str, Any]:
                 "quantity": line.quantity,
                 "unit_price": line.unit_price,
                 "delivered": line.delivered_at is not None,
+                "deliverable": line.id in open_lines and line.id not in waiting_lines,
             }
         )
 

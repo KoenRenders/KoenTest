@@ -793,3 +793,140 @@ def test_a_delivered_order_cannot_be_cancelled(db_session, every_module_on):
 
     with pytest.raises(SalesError):
         cancel_order(db_session, order.id, actor="beheerder@example.com")
+
+
+def test_a_line_that_waits_for_the_supplier_is_refused_not_a_500(
+    client, db_session, every_module_on
+):
+    """A1: delivering a line that waits for the supplier (an uncovered "Op
+    bestelling" reservation) is a refusal through the route — a 422, never a 500."""
+    from app.domains.mdm.api import PaymentMethod
+    from app.domains.product.api import add_variant, create_product, set_status
+    from app.domains.sales.api import place_order
+    from tests.conftest import board_session
+
+    product = create_product(db_session, "T-shirt")
+    set_status(db_session, product.id, ProductStatus.ON_SALE)
+    product.pre_order = True
+    variant = add_variant(db_session, product.id, "M")
+    add_prices(
+        db_session,
+        product_id=product.id,
+        variant_id=variant.id,
+        valid_from=date(2026, 1, 1),
+        amount=Decimal("15.00"),
+        member_amount=None,
+    )
+    db_session.commit()
+
+    order = place_order(
+        db_session,
+        person_id=None,
+        guest_name="An",
+        guest_email="an@example.com",
+        guest_mobile="0470000000",
+        method=PaymentMethod.TRANSFER,
+        items=[(variant.id, 1)],
+        member=False,
+    )
+    db_session.commit()
+    line_id = order.lines[0].id
+
+    headers = board_session(client)
+    response = client.post(f"/admin/verkoop/{order.id}/lijn/{line_id}/leveren", headers=headers)
+    assert response.status_code == 422
+    assert "leverancier" in response.text
+
+
+def test_a_line_without_an_open_reservation_is_not_delivered(db_session, every_module_on):
+    """A line whose reservation is gone is refused, never marked delivered, and the
+    stock does not move — the stock and the state never disagree (B2)."""
+    from app.domains.mdm.api import PaymentMethod
+    from app.domains.sales.api import SalesError, deliver_line, place_order
+    from app.domains.sales.models import SalesOrderLine
+    from app.domains.stock.api import available, release
+
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    order = place_order(
+        db_session,
+        person_id=None,
+        guest_name="An",
+        guest_email="an@example.com",
+        guest_mobile="0470000000",
+        method=PaymentMethod.TRANSFER,
+        items=[(m.id, 1)],
+        member=False,
+    )
+    db_session.commit()
+    line_id = order.lines[0].id
+    release(db_session, line_id)
+    db_session.commit()
+
+    with pytest.raises(SalesError):
+        deliver_line(db_session, order.id, line_id, actor="beheerder@example.com")
+
+    db_session.expire_all()
+    line = db_session.query(SalesOrderLine).filter(SalesOrderLine.id == line_id).one()
+    assert line.delivered_at is None
+    assert available(db_session, m.id) == 5
+
+
+def test_a_second_delivery_is_refused(db_session, every_module_on):
+    """B1: a second delivery of one line is a refusal, not a silent no-op."""
+    from app.domains.mdm.api import PaymentMethod
+    from app.domains.sales.api import SalesError, deliver_line, place_order
+
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    order = place_order(
+        db_session,
+        person_id=None,
+        guest_name="An",
+        guest_email="an@example.com",
+        guest_mobile="0470000000",
+        method=PaymentMethod.TRANSFER,
+        items=[(m.id, 1)],
+        member=False,
+    )
+    db_session.commit()
+    deliver_line(db_session, order.id, order.lines[0].id, actor="beheerder@example.com")
+
+    with pytest.raises(SalesError) as refused:
+        deliver_line(db_session, order.id, order.lines[0].id, actor="beheerder@example.com")
+    assert "al geleverd" in str(refused.value)
+
+
+def test_cancelling_a_paid_order_leaves_the_full_refund_due(db_session, every_module_on):
+    """B3: cancelling a paid order names a refund in the confirm text and leaves the
+    full amount due, pending — the charge stays paid and a refund of the whole
+    amount waits to be confirmed."""
+    from app.domains.mdm.api import PaymentMethod
+    from app.domains.payment.api import PayableType, open_refund_amount
+    from app.domains.payment.models import PaymentRecord
+    from app.domains.payment.service import confirm_manual_payment
+    from app.domains.sales.api import cancel_order, submit_order
+
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    _checkout, order_id = submit_order(
+        db_session,
+        person_id=None,
+        member=False,
+        contact_name="An",
+        contact_email="an@example.com",
+        phone="0470000000",
+        method=PaymentMethod.TRANSFER,
+        items=[(m.id, 1)],
+    )
+    record = (
+        db_session.query(PaymentRecord)
+        .filter(
+            PaymentRecord.payable_type == PayableType.ORDER,
+            PaymentRecord.payable_id == order_id,
+        )
+        .one()
+    )
+    confirm_manual_payment(db_session, record.id, amount_paid=Decimal("15.00"), actor="test")
+    db_session.commit()
+
+    cancel_order(db_session, order_id, actor="beheerder@example.com")
+
+    assert open_refund_amount(db_session, PayableType.ORDER, order_id) == Decimal("15.00")

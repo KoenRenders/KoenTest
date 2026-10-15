@@ -29,6 +29,12 @@ each line carrying the price fixed at the order (D3); `ShopSettings` and
   `order.total`).
 - `get_order`, `orders_of_person`, `owned_order` — the reads of the order pages;
   `owned_order` admits the buyer and his household, another id is None (C5).
+- `order_payment_state(db, order_id)`, `order_delivery_state(db, order)` and
+  `order_view(db, order)` — the payment and delivery state and the page's data
+  (Verkoop, F5/F6).
+- `list_orders(db)`, `deliver_line(db, order_id, line_id, actor)` and
+  `cancel_order(db, order_id, actor)` — Verkoop's list and its two actions
+  (F6/F8).
 - `order_describer()` — the describer `app.main.py` registers for
   `PayableType.ORDER`.
 - The ORM classes `SalesOrder`, `SalesOrderLine`, `ShopSettings`, `ShopContact`
@@ -51,8 +57,8 @@ each line carrying the price fixed at the order (D3); `ShopSettings` and
 (`price_for`), `product` (`get_product_in_tenant`, `get_variant`, `variants_of`,
 `size_of`, `list_products`, `pre_order_window`, `ProductStatus`), `membership`
 (`has_valid_membership`) and `mdm` (`PaymentMethod`, `MemberPerson`); subscribes
-to `ProductDeleted`; calls the ports `ReserveStock` (of `stock`) and
-`CreatePayment` (of `payment`), both through CR-13 phase 4c.
+to `ProductDeleted`; calls the ports `ReserveStock`, `ReleaseStock`, `IssueStock`
+(of `stock`) and `CreatePayment` (of `payment`), all through CR-13 phase 4c.
 
 ## Owns
 

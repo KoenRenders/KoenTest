@@ -22,6 +22,7 @@ from app.domains.sales.api import (
     list_orders,
     order_view,
 )
+from app.domains.sales.viewmodels import OrderPageView, VerkoopView
 from app.i18n import _
 from app.kernel.refusals import FieldError
 from app.ui import admin_nav, refusal_response, templates
@@ -57,14 +58,42 @@ def _segment(request: Request) -> str:
 @router.get("/admin/verkoop", response_class=HTMLResponse)
 def verkoop(
     request: Request,
+    q: str = "",
     db: Session = Depends(get_db),
     _email: str = Depends(require_right(Right.SALES_VIEW)),
 ):
     """Verkoop's list of orders, one segment at a time (Q81)."""
-    from app.domains.sales.viewmodels import VerkoopView
+    return templates.TemplateResponse(
+        request,
+        "verkoop.html",
+        _verkoop_view(db, _segment(request), q, nav_items=admin_nav(NAV, request)).as_context(),
+    )
 
-    segment = _segment(request)
+
+@router.get("/admin/verkoop/lijst", response_class=HTMLResponse)
+def verkoop_fragment(
+    request: Request,
+    q: str = "",
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.SALES_VIEW)),
+):
+    """The list alone: the segment filter swaps this fragment, so the segment
+    control is not replaced under the fingers."""
+    return templates.TemplateResponse(
+        request, "_verkoop_lijst.html", _verkoop_view(db, _segment(request), q).as_context()
+    )
+
+
+def _verkoop_view(db: Session, segment: str, q: str = "", *, nav_items=None) -> VerkoopView:
+    """The list's view-model, shared by the page and the fragment (Q81)."""
     orders = list_orders(db)
+    if q.strip():
+        needle = q.strip().casefold()
+        orders = [
+            o
+            for o in orders
+            if needle in str(o["id"]) or needle in (o["contact_name"] or "").casefold()
+        ]
     if segment == "te-betalen":
         orders = [o for o in orders if o["payment"] == "open"]
     elif segment == "te-leveren":
@@ -91,8 +120,15 @@ def verkoop(
         }
         for o in orders
     ]
-    vm = VerkoopView(columns=columns, rows=rows, segment=segment, nav_items=admin_nav(NAV, request))
-    return templates.TemplateResponse(request, "verkoop.html", vm.as_context())
+    return VerkoopView(
+        columns=columns,
+        rows=rows,
+        segment=segment,
+        q=q,
+        total=len(rows),
+        segments=SEGMENTS,
+        nav_items=nav_items or [],
+    )
 
 
 @router.get("/admin/verkoop/{order_id}", response_class=HTMLResponse)
@@ -103,8 +139,6 @@ def verkoop_order(
     _email: str = Depends(require_right(Right.SALES_VIEW)),
 ):
     """The order page in the admin shell (D6): the same view the buyer reads."""
-    from app.domains.sales.viewmodels import OrderPageView
-
     order = get_order(db, order_id)
     if order is None:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))

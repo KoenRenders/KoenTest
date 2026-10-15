@@ -112,6 +112,9 @@ class VerkoopView(ViewModel):
     columns: list[dict[str, Any]]
     rows: list[dict[str, Any]]
     segment: str
+    q: str = ""
+    total: int = 0
+    segments: list[dict[str, Any]] = field(default_factory=list)
     nav_items: list[Any] = field(default_factory=list)
 
     def as_context(self) -> dict[str, Any]:

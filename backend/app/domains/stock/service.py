@@ -339,6 +339,24 @@ def issue(db: Session, order_line_id: int, *, actor: str | None = None) -> None:
     db.flush()
 
 
+def open_reservation_lines(db: Session, order_line_ids: list[int]) -> set[int]:
+    """The order lines among `order_line_ids` that still hold an open reservation
+    (F6). A line without one — delivered, cancelled, or never reserved — cannot be
+    handed over, so `sales` refuses before it asks `issue` to move anything."""
+    if not order_line_ids:
+        return set()
+    wanted = set(order_line_ids)
+    rows = (
+        db.query(StockReservation.order_line_id)
+        .filter(
+            StockReservation.order_line_id.in_(wanted),
+            StockReservation.status == ReservationStatus.OPEN,
+        )
+        .all()
+    )
+    return {row[0] for row in rows}
+
+
 def waiting(db: Session, order_line_ids: list[int]) -> list[int]:
     """The order lines whose reservation the stock on hand does not cover yet —
     the oldest reservations covered first, by reservation id ascending (F5, Q87).

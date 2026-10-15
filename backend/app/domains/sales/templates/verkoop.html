@@ -1,24 +1,14 @@
 {% extends "list_page.html" %}
 {% import "_macros.html" as ui %}
 {% block list_title %}{{ _("Verkoop") }}{% endblock %}
+{% block list_toolbar %}
+{{ ui.toolbar("/admin/verkoop/lijst", "#verkoop-lijst", "verkoop-filter",
+              segments=segments, status_name="segment", status_current=segment, status_legend=_("Status"),
+              q=q, search_placeholder=_("Zoek op bestelling of koper…"),
+              total=total, per_page=total) }}
+{% endblock %}
 {% block list_body %}
-<div class="mb-4 flex gap-2">
-  <a href="/admin/verkoop?segment=te-betalen" class="text-sm font-medium {% if segment == 'te-betalen' %}text-blue-700 underline{% else %}text-ink-soft hover:underline{% endif %}">{{ _("Te betalen") }}</a>
-  <a href="/admin/verkoop?segment=te-leveren" class="text-sm font-medium {% if segment == 'te-leveren' %}text-blue-700 underline{% else %}text-ink-soft hover:underline{% endif %}">{{ _("Te leveren") }}</a>
-  <a href="/admin/verkoop?segment=alles" class="text-sm font-medium {% if segment == 'alles' %}text-blue-700 underline{% else %}text-ink-soft hover:underline{% endif %}">{{ _("Alles") }}</a>
+<div id="verkoop-lijst" hx-include="#verkoop-filter">
+  {% include "_verkoop_lijst.html" %}
 </div>
-{% if not rows %}
-{{ ui.empty_state(_("Nog geen bestellingen.")) }}
-{% else %}
-{% call ui.data_table(columns, caption=_("Bestellingen")) %}
-  <tbody>
-    {% for r in rows %}
-    <tr data-row data-order="{{ r.id }}" class="align-middle">
-      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">{{ ui.row_link(r.name, "/admin/verkoop/" ~ r.id, sub=r.contact) }}</td>
-      <td data-cell="status" class="border-b border-line px-3 py-2">{{ ui.badge(r.badge[0], r.badge[1]) }} <span class="ml-2 text-ink-soft">{{ r.delivery }}</span></td>
-    </tr>
-    {% endfor %}
-  </tbody>
-{% endcall %}
-{% endif %}
 {% endblock %}

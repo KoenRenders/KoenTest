@@ -518,6 +518,10 @@
    "platform": "OPERATOR",
    "tenant": "OPERATOR"
   },
+  "GET /admin/verkoop/lijst": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
   "GET /admin/verkoop/{order_id}": {
    "platform": "OPERATOR",
    "tenant": "OPERATOR"

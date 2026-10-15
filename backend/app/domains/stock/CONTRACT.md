@@ -19,7 +19,7 @@ issues it.* Aggregate: `StockMovement` (the ledger); `StockReservation` and
   `movement_reason` and `reservation_status` code lists, and `StockError` /
   `NotEnoughStock`.
 - `on_hand`, `available`, `reserved`, `receive`, `correct` (phase 1) and
-  `reserve`, `release`, `issue`, `waiting` (phase 2).
+  `reserve`, `release`, `issue`, `waiting`, `open_reservation_lines` (phase 2).
 
 ### Events (kernel)
 
@@ -31,6 +31,12 @@ through the `ProductDeleted` event it subscribes to.
 - Offers `ReserveStock(order_line_id, variant_id, quantity, allow_short)` — the
   reservation `sales` asks when an order is placed (CR-21 Q64), handled in
   `stock/handlers.py`. Refused with `NotEnoughStock`.
+- Offers `ReleaseStock(order_line_id)` — free the reservation of a cancelled
+  order line (F8); handled in `stock/handlers.py`.
+- Offers `IssueStock(order_line_id, actor)` — deliver a line: a GOODS_ISSUE
+  movement and the reservation DELIVERED (F6, R21); handled in
+  `stock/handlers.py`. Refused with `NotEnoughStock` while the on hand does not
+  cover the line; the caller refuses earlier for a line with no open reservation.
 
 ## Consumes
 

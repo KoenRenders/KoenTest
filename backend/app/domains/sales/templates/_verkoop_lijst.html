@@ -1,0 +1,15 @@
+{% import "_macros.html" as ui %}
+{% if not rows %}
+{{ ui.empty_state(_("Geen bestelling gevonden voor deze zoekopdracht.") if q else _("Nog geen bestellingen.")) }}
+{% else %}
+{% call ui.data_table(columns, caption=_("Bestellingen")) %}
+  <tbody>
+    {% for r in rows %}
+    <tr data-row data-order="{{ r.id }}" class="align-middle">
+      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">{{ ui.row_link(r.name, "/admin/verkoop/" ~ r.id, sub=r.contact) }}</td>
+      <td data-cell="status" class="border-b border-line px-3 py-2">{{ ui.badge(r.badge[0], r.badge[1]) }} <span class="ml-2 text-ink-soft">{{ r.delivery }}</span></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+{% endcall %}
+{% endif %}

@@ -15,7 +15,7 @@
       </div>
       {% if l.delivered %}
       <span class="text-sm text-ink-soft">{{ _("Afgeleverd") }}</span>
-      {% elif is_admin %}
+      {% elif is_admin and l.deliverable %}
       <form hx-post="/admin/verkoop/{{ order.id }}/lijn/{{ l.id }}/leveren">
         {{ ui.btn_primary(_("Afleveren"), size="sm") }}
       </form>
@@ -27,7 +27,7 @@
     <span class="text-sm font-semibold text-ink">{{ _("Totaal") }}: € {{ order.total|geld }}</span>
     {% if is_admin and order.cancellable %}
     <form hx-post="/admin/verkoop/{{ order.id }}/annuleren">
-      {{ ui.btn_danger(_("Annuleren"), size="sm", confirm=_("De bestelling wordt geannuleerd.")) }}
+      {{ ui.btn_danger(_("Annuleren"), size="sm", confirm=(_("De betaalde € %(bedrag)s wordt terugbetaald.", bedrag=order.total|geld) if order.payment == "settled" else _("De bestelling wordt geannuleerd."))) }}
     </form>
     {% endif %}
   </div>
