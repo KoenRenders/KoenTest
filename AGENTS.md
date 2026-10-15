@@ -2,7 +2,7 @@
 
 This file holds the conventions of the Raak Millegem project for every AI coding agent that works in this repository (Claude Code, Mistral Vibe, Codex, …) and for humans. Tool-specific instructions live in the tool's own file (`CLAUDE.md` for Claude Code), which points here.
 
-**Who may change this file:** Koen, or the master CLI at Koen's explicit request. Any other agent or session proposes a change (in its chat with Koen or as an issue comment) and does not edit this file, `CLAUDE.md`, `.github/`, or any process document itself. An agent that is asked to write a change request writes only that change request document, on its own branch. (Koen, 2 October 2026.)
+**Who may change this file:** Koen, or the master CLI at Koen's explicit request. Any other agent or session proposes a change (in its chat with Koen or as an issue comment) and does not edit this file, `CLAUDE.md`, `.github/`, or any process document itself. An agent that is asked to write a change request writes only that change request document, on the shared documents branch `architecture-design-documentation`. (Koen, 2 October 2026.)
 
 ## Project: Raak Millegem web portal
 
@@ -671,11 +671,18 @@ the Claude series* below.
 
 Shaping agents: the header of this file (*Who may change this file*) already
 says that an agent asked to write a change request writes only that one
-document, on its own branch, edits no process document, and proposes a lesson
-to Koen instead of writing it in. Three agreements add to it: the branch is
-created from master; the agent never works on another agent's branch; and it
-never pushes to master -- the merge to master happens only by the master CLI.
-(Koen, 2 October 2026.)
+document, on the shared documents branch, edits no process document, and
+proposes a lesson to Koen instead of writing it in. Three agreements add to
+it: the architecture CLI and the design-documentation CLI both write on that
+one branch, `architecture-design-documentation`, each in a working copy of its
+own, fetching the branch before every edit and pushing after every commit (who
+pushes second resolves a clash); no branch per change request; and neither
+pushes to master -- the master CLI merges the branch to master when a change
+request is ready for its build read or build, and otherwise once a day; a
+document still being shaped may travel along, its status line says where it
+stands. (Koen, 2 October 2026; one shared branch since 15 October 2026, to the
+master CLI's proposal: "Prima voorstel. Ik zou als naam graag hebben
+architectuur, design, documentation in het Engels.")
 
 ## A builder outside the Claude series
 
