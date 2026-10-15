@@ -57,15 +57,17 @@ def _set_code(email: str) -> None:
         db.close()
 
 
-def _mails_queued_for(email: str) -> int:
+def _tokens_for(email: str) -> int:
+    """The living code tokens of this address. The guard refuses BEFORE the token is
+    stored, so a refused person has none; the job runner of CI may have taken the mail
+    already, which is why the token and not the queue is counted."""
     import app.models  # noqa: F401
     from app.database import SessionLocal
-    from app.kernel.jobs import KernelJob
+    from app.domains.auth.api import LoginToken
 
     db = SessionLocal()
     try:
-        jobs = db.query(KernelJob).filter(KernelJob.name == "mail.send").all()
-        return sum(1 for job in jobs if job.payload.get("to_email") == email)
+        return db.query(LoginToken).filter_by(email=email, used=False).count()
     finally:
         db.close()
 
@@ -150,8 +152,8 @@ def test_from_the_sign_in_screen_to_an_account(browser, width, height, send):
         )
         expect(page.locator("[data-sign-in-step] button")).to_have_text("Bevestigen")
         expect(page.locator("[data-create-account-form]")).to_have_count(0)
-        # The step says so for a refused request too: the proof is the mail itself.
-        assert _mails_queued_for(email) == 1, "the code step came, but no mail was queued"
+        # The step says so for a refused request too: the proof is the stored token.
+        assert _tokens_for(email) == 1, "the code step came, but nothing was stored: refused"
 
         _set_code(email)
         page.locator('input[name="code"]').fill(CODE)
