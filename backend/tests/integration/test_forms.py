@@ -247,7 +247,7 @@ def test_results_aggregation(client):
     res = forms_door.results(client, form["id"])
     assert res["submission_count"] == 2
     rating = next(f for f in res["fields"] if f["label"] == "Tevredenheid")
-    assert rating["average"] == 4.0
+    assert rating["average"] == "4"  # #2014: shown as a plain number
     assert sum(d["count"] for d in rating["distribution"]) == 2
     checkbox = next(f for f in res["fields"] if f["label"] == "Zaterdag namiddag")
     counts = {o["label"]: o["count"] for o in checkbox["options"]}
