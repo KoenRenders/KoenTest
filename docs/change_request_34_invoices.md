@@ -1,8 +1,8 @@
 # Change Request 34 — Invoices for the webshop
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 15 October 2026 by the design-documentation CLI, on Koen's dictation (his request to this session, the same day) · the number 34 is taken provisionally, the master CLI confirms it · build read not yet asked · not assigned to a release · **prerequisites:** CR-21 (webshop) built, and the part of CR-26 (party model) that B8 Q2 names
-**Tracking issue:** to be created by the master CLI; until then this document is the only record
+**Status:** shaped on 15 October 2026 by the design-documentation CLI, on Koen's dictation (his request to this session, the same day) · build read not yet asked · not assigned to a release · **prerequisites:** CR-21 (webshop) built, and the part of CR-26 (party model) that B8 Q2 names
+**Tracking issue:** #2009 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** `payment` (the invoice, its number, its VAT, its document; the module "invoices"), `product` and `pricing` of CR-21 (the VAT rate of an article), `sales` (the buyer's details, cancelling and changing an order that has an invoice), `mdm` (the issuing organisation, the buyer as a party; read, not changed), `mail` (the invoice mail), `kernel` (the module registry), `reporting` (a view)
 **Reading:** A 1 492 words · B 2 292 · C 1 839 — measured on 15 October 2026, drawings excluded, tables included; budgets A ≤ 1 500, B ≤ 2 500
 
@@ -522,4 +522,4 @@ A VAT return and any bookkeeping or general ledger (R16); selling outside Belgiu
 
 ## Relationship to existing work — issues and change requests
 
-CR-21 (webshop): builds on it, and revises its Q31 (invoices "later, for delivered lines") by Q1; CR-26 (party model): prerequisite in the cut of Q2; CR-19 (tenant types) and CR-20 (a tenant apart from its organisation): the tenant under Renko; CR-24 (back-office rights): the roles Boekhouding and Verkoop; CR-33 (attribute register): every new column of this change gets its entry when the register is built; CR-35 (invoices through Peppol): hands off to it, and has this one as prerequisite.
+CR-21 (webshop): builds on it, and revises its Q31 (invoices "later, for delivered lines") by Q1; CR-26 (party model): prerequisite in the cut of Q2; CR-19 (tenant types) and CR-20 (a tenant apart from its organisation): the tenant under Renko; CR-24 (back-office rights): the roles Boekhouding and Verkoop; CR-33 (attribute register): every new column of this change gets its entry when the register is built; CR-35 (invoices through Peppol, #2010): hands off to it, and has this one as prerequisite.
