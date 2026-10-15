@@ -212,13 +212,31 @@ def _money(value: Any) -> str:
     return f"€ {value:.2f}".replace(".", ",")
 
 
-def record_text(activity: Standing) -> str:
-    """The fiche as the model reads it. The internal note is not in it: it
-    is the board's own and never reaches a text for visitors."""
-    lines = [
-        f"Naam: {activity.name}",
-        f"Locatie: {activity.location or '(leeg)'}",
-        f"Omschrijving: {activity.description or '(leeg)'}",
+#: The attributes of the fiche, in the order the model reads them. The register is the one
+#: source of their words and of what may go to a model (CR-33 F7).
+RECORD_KEYS = (
+    "activities.activity.name",
+    "activities.activity.location",
+    "activities.activity.description",
+    "activities.activity.dates",
+    "activities.activity_sub_registration.name",
+    "activities.activity_sub_registration.description",
+    "activities.activity_sub_registration.price",
+    "activities.activity_product.name",
+)
+
+
+def record_fields(activity: Standing) -> list[Any]:
+    """The fiche as the model reads it, as fields of the register (CR-33 F7): the port
+    renders them (`label: value`), classifies them for the surface and scrubs the names.
+    The internal note is not in it: it is the board's own and never reaches a text for
+    visitors."""
+    from app.domains.chatbot.api import Field
+
+    fields = [
+        Field("activities.activity.name", activity.name),
+        Field("activities.activity.location", activity.location),
+        Field("activities.activity.description", activity.description),
     ]
     dates = []
     for d in activity.dates:
@@ -238,21 +256,30 @@ def record_text(activity: Standing) -> str:
             if d.end_time:
                 text += f"–{_hhmm(d.end_time)}"
         dates.append(text)
-    lines.append("Datums: " + ("; ".join(dates) if dates else "(geen)"))
+    fields.append(Field("activities.activity.dates", "; ".join(dates) if dates else "(geen)"))
     for component in activity.sub_registrations:
-        text = f"Onderdeel: {component.name}"
+        fields.append(Field("activities.activity_sub_registration.name", component.name))
         if component.description:
-            text += f" — {component.description}"
+            fields.append(
+                Field("activities.activity_sub_registration.description", component.description)
+            )
         if component.price:
-            text += f" ({_money(component.price)})"
-        products = [
-            p.name + ("" if p.is_free or p.pay_on_site or not p.price else f" {_money(p.price)}")
-            for p in component.products
-        ]
-        if products:
-            text += ": " + ", ".join(products)
-        lines.append(text)
-    return "\n".join(lines)
+            fields.append(
+                Field("activities.activity_sub_registration.price", _money(component.price))
+            )
+        for p in component.products:
+            price = "" if p.is_free or p.pay_on_site or not p.price else f" {_money(p.price)}"
+            fields.append(Field("activities.activity_product.name", p.name + price))
+    return fields
+
+
+def _label_pattern() -> re.Pattern[str]:
+    """The labels of the fiche as the port wrote them — the register's words — at the start
+    of a line, for `given_facts`: the labels are ours and give no fact."""
+    from app.kernel.attributes import attribute
+
+    words = sorted({attribute(key).text for key in RECORD_KEYS}, key=len, reverse=True)
+    return re.compile(r"^(?:" + "|".join(re.escape(w) for w in words) + r"): ?", re.M)
 
 
 # ── What a source holds ──────────────────────────────────────────────────────
@@ -274,14 +301,14 @@ def _every_word_stands_in(value: str, sources: str) -> bool:
     return bool(words) and all(word in known for word in words)
 
 
-def _json_answer(provider: Any, messages: list[dict[str, Any]]) -> dict[str, Any]:
+def _json_answer(provider: Any, messages: list[dict[str, Any]], fields: Any = ()) -> dict[str, Any]:
     """Raakje's answer as a JSON object, by the kernel's one rule (#1968): asked
     for as JSON, retried once, logged without content. The second failure is
     this screen's sentence."""
     from app.domains.chatbot.api import UnusableAnswer, json_answer
 
     try:
-        return json_answer(provider, messages)
+        return json_answer(provider, messages, fields=fields)
     except UnusableAnswer as exc:
         raise ProposerError(_("Raakje gaf geen bruikbaar voorstel. Probeer het opnieuw.")) from exc
 
@@ -603,7 +630,6 @@ _INSTRUCTION = frozenset(
 )
 #: Where one part of the request ends and the next begins.
 _CLAUSE = re.compile(r"[.!?;:,\n]+|\s+(?:en|maar|dus|want)\s+")
-_LABEL = re.compile(r"^(?:Naam|Locatie|Omschrijving|Datums|Onderdeel): ?", re.M)
 
 
 def _stem(word: str) -> str:
@@ -624,7 +650,7 @@ def given_facts(record: str, asked: str, accepted: str) -> str:
     rest of the same request stays."""
     clauses = [c for c in _CLAUSE.split(asked or "") if c and c.strip()]
     facts = [c for c in clauses if not (set(_TOKEN.findall(_plain(c))) & _INSTRUCTION)]
-    values = _LABEL.sub("", record or "").replace("(leeg)", " ").replace("(geen)", " ")
+    values = _label_pattern().sub("", record or "").replace("(leeg)", " ").replace("(geen)", " ")
     return " ".join([values, *facts, accepted or ""])
 
 
@@ -703,7 +729,7 @@ def _verify(
     return found
 
 
-def _provider(db: Session, actor: str, record: str = "") -> Any:
+def _provider(db: Session, actor: str) -> Any:
     from app.config import settings
     from app.domains.chatbot.api import (
         AiCapability,
@@ -718,7 +744,25 @@ def _provider(db: Session, actor: str, record: str = "") -> Any:
     # A code of its own (migration 197), so the cost screen shows what the
     # proposer costs and not a larger newsletter. Imported here: the chatbot's
     # tools import this domain's facade, so the module level would be a circle.
-    return GuardedProvider(
+    box: list[Any] = []
+
+    def fiche_part() -> list[Any]:
+        # The text of the fiche as the port rendered it (`fields_text`), read only when
+        # a call is refused, so a refusal can say whether the hit stands in the fiche.
+        text = box[0].fields_text if box else ""
+        return (
+            [
+                Part(
+                    where="de fiche van de activiteit",
+                    text=text,
+                    advice="Haal dat gegeven even uit de fiche.",
+                )
+            ]
+            if text
+            else []
+        )
+
+    provider = GuardedProvider(
         get_provider(settings.admin_chat_model),
         admin_rules(
             lambda: person_name_parts(db),
@@ -726,20 +770,12 @@ def _provider(db: Session, actor: str, record: str = "") -> Any:
             scan_prompt_names=SCAN_PROMPT_NAMES,
             # #1969: a refusal says whether the hit stands in the fiche or in
             # the question; what is not the fiche is placed by its role.
-            parts=lambda: (
-                [
-                    Part(
-                        where="de fiche van de activiteit",
-                        text=record,
-                        advice="Haal dat gegeven even uit de fiche.",
-                    )
-                ]
-                if record
-                else []
-            ),
+            parts=fiche_part,
         ),
         sink_for(actor),
     )
+    box.append(provider)
+    return provider
 
 
 def propose(
@@ -768,19 +804,28 @@ def propose(
     today = today or date.today()
     asked = scrub(request, names)
     activity = standing or standing_of(stored)
-    record = scrub(record_text(activity), names)
-    sources = f"FICHE\n{record}\n\nVRAAG\n{asked}"
-    provider = _provider(db, actor, record)
+    from app.domains.chatbot.api import FIELDS_MARK
+
+    provider = _provider(db, actor)
+    # The fiche goes as fields of the register (CR-33 F7): the port classifies them for
+    # this surface, renders them in place of the mark and scrubs the names.
     data = _json_answer(
         provider,
         [
             {"role": "system", "content": SYSTEM_PROMPT},
             {
                 "role": "user",
-                "content": f"VANDAAG: {today.isoformat()} ({long_date(today)})\n\n{sources}",
+                "content": (
+                    f"VANDAAG: {today.isoformat()} ({long_date(today)})\n\n"
+                    f"FICHE\n{FIELDS_MARK}\n\nVRAAG\n{asked}"
+                ),
             },
         ],
+        fields=record_fields(activity),
     )
+    # What the port rendered is what the checks below read as the record.
+    record = provider.fields_text
+    sources = f"FICHE\n{record}\n\nVRAAG\n{asked}"
     proposal = Proposal(reply=_text(data, "reply", REPLY_MAX))
 
     name = _text(data, "name", NAME_MAX)
