@@ -115,3 +115,79 @@ def test_the_downgrade_writes_the_codes_back_as_text():
     assert words.startswith(
         "Het lidgeld is {{membership_price_full}} per gezin, tot {{half_price_end}}."
     )
+
+
+def _links(node) -> list:
+    found: list = []
+    if isinstance(node, dict):
+        for mark in node.get("marks") or []:
+            if isinstance(mark, dict) and mark.get("type") == "link":
+                found.append((node.get("text"), mark["attrs"]["href"]))
+        for value in node.values():
+            found += _links(value)
+    elif isinstance(node, list):
+        for item in node:
+            found += _links(item)
+    return found
+
+
+LINKED = {
+    "type": "doc",
+    "content": [
+        {
+            "type": "paragraph",
+            "content": [
+                _text("Zie "),
+                _text(
+                    "{{membership_price_full}}",
+                    [{"type": "link", "attrs": {"href": "https://example.test/tarief"}}],
+                ),
+                _text(" en "),
+                _text(
+                    "{{half_price_end}} met link",
+                    [{"type": "link", "attrs": {"href": "/lid-worden"}}],
+                ),
+                _text(" en {{membership_price_half}} los."),
+            ],
+        }
+    ],
+}
+
+
+def test_a_code_in_words_that_carry_a_link_stays_text_and_no_link_goes_missing():
+    migration = _load()
+    stats = {"made": 0, "left": 0, "unmarked": 0}
+    converted = migration.codes_to_nodes(LINKED, stats)
+    assert _links(converted) == _links(LINKED) and len(_links(LINKED)) == 2, "a link disappeared"
+    inline = _inline(converted)
+    assert _text("{{membership_price_full}}", LINKED["content"][0]["content"][1]["marks"]) in inline
+    values = [n for n in inline if n.get("type") == "value"]
+    assert values == [{"type": "value", "attrs": {"code": "membership_price_half"}}]
+    assert stats["made"] == 1 and stats["left"] == 2, stats
+
+
+def test_a_code_split_over_two_text_nodes_by_a_mark_stays_text_and_is_counted():
+    migration = _load()
+    split = {
+        "type": "doc",
+        "content": [
+            {
+                "type": "paragraph",
+                "content": [
+                    _text("Lidgeld {{membership_", [{"type": "bold"}]),
+                    _text("price_full}} per gezin"),
+                    {"type": "hardBreak"},
+                    _text("{{half_price_end}} gewoon"),
+                ],
+            }
+        ],
+    }
+    stats = {"made": 0, "left": 0, "unmarked": 0}
+    converted = migration.codes_to_nodes(split, stats)
+    words = "".join(n.get("text", "") for n in _inline(converted))
+    assert words.startswith("Lidgeld {{membership_price_full}} per gezin"), words
+    assert stats["made"] == 1, "the whole code in its own run converts"
+    assert stats["left"] == 1, "the split code is counted as staying text"
+    assert _inline(converted)[0] == split["content"][0]["content"][0], (
+        "the split halves are untouched"
+    )
