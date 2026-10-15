@@ -197,7 +197,7 @@ NODES: dict[str, dict[str, Any]] = {
     # `count` of them; the data is the activities module's.
     # In no group, like `section`: a data block stands at the root and nowhere else
     # (the page template gives it a container of its own, outside the prose).
-    "activities": {"attrs": {"count": tuple(range(1, 13))}},
+    "activities": {"attrs": {"count": tuple(range(1, 51))}},
     "value": {"group": "inline", "inline": True, "atom": True, "attrs": {"code": VALUE_CODES}},
     "hardBreak": {"group": "inline", "inline": True},
     "text": {"group": "inline", "text": True, "marks": ("bold", "italic", "strike", "link")},

@@ -19,8 +19,9 @@ from __future__ import annotations
 from typing import Any
 
 #: How many upcoming activities the seeded block shows at most (the block's own
-#: maximum): the old home showed every upcoming activity.
-ACTIVITIES_SHOWN = 12
+#: maximum, 50): the old home showed every upcoming activity, and a home that
+#: stops at twelve loses the rest for a tenant with more.
+ACTIVITIES_SHOWN = 50
 
 
 def _text(text: str) -> dict[str, Any]:

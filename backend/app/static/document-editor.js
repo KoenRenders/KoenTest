@@ -201,7 +201,7 @@
 
   /* The activities of CR-32 (R15): a data block — the upcoming activities as the
      home shows them, at most `count`. The module supplies the data at render time;
-     the editor holds the count and draws a labelled box with a select of 1 to 12,
+     the editor holds the count and draws a labelled box with a select of 1 to 50,
      like the section's bar. */
   function activitiesNode(RaakTiptap, config) {
     var label = (config.toolbar.insert.filter(function (i) { return i.id === "activities"; })[0] || {}).label || "";
@@ -226,7 +226,7 @@
           text.textContent = label + " — ";
           var select = document.createElement("select");
           select.setAttribute("aria-label", label);
-          for (var n = 1; n <= 12; n++) {
+          for (var n = 1; n <= 50; n++) {
             var option = document.createElement("option");
             option.value = String(n);
             option.textContent = String(n);
@@ -903,7 +903,7 @@
           } else if (item.id === "activities") {
             /* A data block of the activities module (only offered where it is on);
                it stands at the root, so it goes at the document's end; the count
-               is chosen in the block itself, twelve to begin with. */
+               is chosen in the block itself (1 to 50), twelve to begin with. */
             editor
               .chain()
               .focus()
