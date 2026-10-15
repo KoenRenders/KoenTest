@@ -300,6 +300,9 @@ A link in a letter that leaves through the portal goes through one function; a t
 | 15 Oct 2026 | Q2: opens and clicks are shown as *indicatie* | Koen, to question 6: "ja" |
 | 15 Oct 2026 | Q3: the results are kept | Koen, to question 7 (keep or remove after twelve months): "akkoord" |
 | 15 Oct 2026 | Q4: everyone who may send a newsletter sees the result | Koen, to question 8: "ja" |
+| 15 Oct 2026 | The rows per code stay as they are; they are folded into counts only when performance asks for it | Koen, to my question whether the rows may stay until there are performance problems: "ja" |
+| 15 Oct 2026 | No floor on the number of recipients: the result shows its figures for every letter | Koen, to the review's proposal of a floor of ten addresses: "ondergrens doen we niet" |
+| 15 Oct 2026 | The opened figure stays, so the pixel stays; a letter counts once however often it is opened | Koen: "ik wil weten hoeveel keer de mail geopend werd, niet de persoon kennen"; to "één keer per brief, of elke opening afzonderlijk?": "één keer per brief" (my reading: he wants the open figure, so the review's option of counting clicks only is not taken) |
 | 15 Oct 2026 | The signing helper is built in `kernel`, shared with CR-36 | Koen, to "Wil je dat het hulpje in `newsletter` blijft staan tot CR-34 het echt nodig heeft?" (after the explanation that CR-34's call-back route is a third user in another domain): "we gaan dan voor kernel" |
 | 15 Oct 2026 | Q5: a migration adds the newsletter section to the privacy page of every tenant that lacks it | Koen, to question 9 (a migration or he writes it himself): "a" |
 
@@ -403,7 +406,7 @@ Status line, as-built notes folded in, tracking issue closed (`CLAUDE.md` step 1
 | Q&A | Date | Question | Status |
 |---|---|---|---|
 | 08 | 15 Oct 2026 | Q1–Q5 of B8 asked as questions 5 to 9 of Q&A nr. 08; the build read of dev2 (#2027, 15 Oct 2026) was on the per-person version and is taken in where it still applies | answered 15 Oct 2026, in B9; a second build read is due |
-| — | 15 Oct 2026 | The architecture review on #2027 (15 Oct 2026): A1 (the e-mail log tied a code to a person: the logged body carries a placeholder), A4 (`UNIQUE NULLS NOT DISTINCT`), B1 (one signing helper in `kernel`), B2, B3, B4 (order with CR-17), B5 (CR-33 entries) and C1 are taken in; A2 (fold the rows into counts), A3 (a floor of ten addresses) and A5 (pixel or clicks only) are Koen's and are put to him by the architecture CLI | taken in; three points open for Koen |
+| — | 15 Oct 2026 | The architecture review on #2027 (15 Oct 2026): A1 (the e-mail log tied a code to a person: the logged body carries a placeholder), A4 (`UNIQUE NULLS NOT DISTINCT`), B1 (one signing helper in `kernel`), B2, B3, B4 (order with CR-17), B5 (CR-33 entries) and C1 are taken in; A2 (fold the rows into counts), A3 (a floor of ten addresses) and A5 (pixel or clicks only) are decided by Koen (B9) | taken in; nothing open for Koen |
 | — | 15 Oct 2026 | The second build read of dev1 on #2027 (against 7b of #2023): the privacy migration writes through the CMS's document, the rewrite handles the new kinds of link, order after 7b, a rotation note and a forwarded-mail sentence are taken in | taken in |
 
 ## Non-goals — deliberately outside this change
