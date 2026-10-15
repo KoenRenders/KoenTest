@@ -27,6 +27,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests_e2e.schermen import BASE, htmx_afgerond, pagina_klaar  # noqa: E402
 
 CODE = "135790"
+#: A quick typist's pace, as `tests_e2e/forms/test_a_person_can_send_a_public_form.py`.
+KEY_DELAY_MS = 100
 
 
 @pytest.fixture(scope="module")
@@ -55,6 +57,19 @@ def _set_code(email: str) -> None:
         db.close()
 
 
+def _mails_queued_for(email: str) -> int:
+    import app.models  # noqa: F401
+    from app.database import SessionLocal
+    from app.kernel.jobs import KernelJob
+
+    db = SessionLocal()
+    try:
+        jobs = db.query(KernelJob).filter(KernelJob.name == "mail.send").all()
+        return sum(1 for job in jobs if job.payload.get("to_email") == email)
+    finally:
+        db.close()
+
+
 def _remove(email: str) -> None:
     import app.models  # noqa: F401
     from app.database import SessionLocal
@@ -76,7 +91,7 @@ def _remove(email: str) -> None:
 
 SHAPE = """() => { const q = s => document.querySelector(s), all = s => [...document.querySelectorAll(s)];
   const card = q('[data-sign-in-step]').parentElement.getBoundingClientRect();
-  const inputs = all('[data-sign-in-step] input:not([type=hidden])');
+  const inputs = all('[data-sign-in-step] input:not([type=hidden]):not([name=website])');
   return {title: q('#main h1').innerText.trim(), names: inputs.map(i => i.name),
           heights: [...new Set(inputs.map(i => Math.round(i.getBoundingClientRect().height)))],
           inside: inputs.every(i => { const b = i.getBoundingClientRect(); return b.left >= card.left && b.right <= card.right; }),
@@ -122,9 +137,12 @@ def test_from_the_sign_in_screen_to_an_account(browser, width, height, send):
         assert refused["page"][0] == refused["page"][1]
 
         form = page.locator("[data-create-account-form]")
-        form.locator('input[name="first_name"]').fill("Petra")
-        form.locator('input[name="email"]').fill(email)
-        form.locator('input[name="mobile"]').fill("0470 00 17 08")
+        # At a person's pace (#2033): the form's guard drops what comes in less than two
+        # seconds after it was shown, so a test that fills it instantly is a bot to it.
+        # A quick typist, 100 ms a key, every key a real input event.
+        form.locator('input[name="first_name"]').press_sequentially("Petra", delay=KEY_DELAY_MS)
+        form.locator('input[name="email"]').press_sequentially(email, delay=KEY_DELAY_MS)
+        form.locator('input[name="mobile"]').press_sequentially("0470 00 17 08", delay=KEY_DELAY_MS)
         with htmx_afgerond(page):
             form.locator("button").click()
         expect(page.locator("[data-code-sent]")).to_have_text(
@@ -132,6 +150,8 @@ def test_from_the_sign_in_screen_to_an_account(browser, width, height, send):
         )
         expect(page.locator("[data-sign-in-step] button")).to_have_text("Bevestigen")
         expect(page.locator("[data-create-account-form]")).to_have_count(0)
+        # The step says so for a refused request too: the proof is the mail itself.
+        assert _mails_queued_for(email) == 1, "the code step came, but no mail was queued"
 
         _set_code(email)
         page.locator('input[name="code"]').fill(CODE)
@@ -149,7 +169,7 @@ def test_from_the_sign_in_screen_to_an_account(browser, width, height, send):
 
 CARD = """() => { const q = s => document.querySelector(s);
   const box = e => { const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.width)]; };
-  const input = q('[data-sign-in-step] input:not([type=hidden])');
+  const input = q('[data-sign-in-step] input:not([type=hidden]):not([name=website])');
   return {card: box(q('[data-sign-in-card]')), field: box(input), main: box(q('[data-main]')),
           page: [document.documentElement.scrollWidth, innerWidth]}; }"""
 

@@ -339,10 +339,12 @@ def test_door_account_from_an_activity_to_mijn_inschrijvingen(page, seeded_activ
         door.goto(create)
 
         form = door.locator("[data-create-account-form]")
-        form.locator('input[name="first_name"]').fill("Dora")
-        form.locator('input[name="last_name"]').fill("Deurproef")
-        form.locator('input[name="email"]').fill(email)
-        form.locator('input[name="mobile"]').fill("0470 00 17 14")
+        # At a person's pace (#2033): the form's guard drops a send that comes less than two
+        # seconds after the form was shown, and this flow needs the mail of "Bevestig je account".
+        form.locator('input[name="first_name"]').press_sequentially("Dora", delay=100)
+        form.locator('input[name="last_name"]').press_sequentially("Deurproef", delay=100)
+        form.locator('input[name="email"]').press_sequentially(email, delay=100)
+        form.locator('input[name="mobile"]').press_sequentially("0470 00 17 14", delay=100)
         form.locator("button").click()
         expect(door.locator("[data-code-sent]")).to_be_visible()
 

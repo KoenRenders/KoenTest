@@ -34,6 +34,7 @@ from app.config import settings
 from app.domains.auth.member_identity import ACCOUNT, HOUSEHOLD, MULTIPLE, sign_in_identity
 from app.domains.auth.models import LoginPurpose, LoginToken, User
 from app.i18n import _
+from app.kernel import form_guard
 from app.kernel.contracts.auth import (
     ACCOUNT_CONFIRMATION,
     ADDRESS_CONFIRMATION,
@@ -213,7 +214,7 @@ def start_login(db: Session, email: str, return_to: str = "") -> None:
         db.commit()
 
 
-def start_account(db: Session, request: AccountRequest, return_to: str = "") -> None:
+def start_account(db: Session, request: AccountRequest, return_to: str = "", *, proof) -> None:
     """The step behind "Account aanmaken" (CR-22 R3, R4, F4; #1707).
 
     **The caller answers the same in every case** — "We stuurden een code naar
@@ -227,7 +228,15 @@ def start_account(db: Session, request: AccountRequest, return_to: str = "") -> 
       een account" — to the owner, the only one who may learn it;
     - the address does not say who signs in → the board notice, as a sign-in
       does.
+
+    `proof` (#2033): what the visitor's form brings to show a person sent it
+    (`form_guard.Proof`: the honeypot and the signed render time), the guard of every
+    public form that mails a typed address. A refused request answers like any other
+    — the same code step — and stores and sends nothing. It stands here and not in the
+    route, so no way in can skip it.
     """
+    if form_guard.refused(proof, "account"):
+        return
     problems = request.problems()
     if problems:
         raise AccountRequestInvalid(problems)

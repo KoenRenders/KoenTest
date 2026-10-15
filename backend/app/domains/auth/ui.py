@@ -172,6 +172,8 @@ def create_account_submit(
     email: str = Form(""),
     mobile: str = Form(""),
     return_to: str = Form("", alias="terug"),
+    website: str = Form(""),
+    form_ts: str = Form(""),
 ):
     """The four fields, each refused under itself; a good request always gets
     the same code step — the screen never says whether the address is known
@@ -196,7 +198,10 @@ def create_account_submit(
             terug=return_to,
         )
         return templates.TemplateResponse(request, "_create_account_form.html", view.as_context())
-    start_account(db, asked, return_to=return_to)
+    from app.kernel.form_guard import HONEYPOT_FIELD, TOKEN_FIELD, Proof
+
+    proof = Proof.from_request(request, {HONEYPOT_FIELD: website, TOKEN_FIELD: form_ts})
+    start_account(db, asked, return_to=return_to, proof=proof)
     return templates.TemplateResponse(
         request,
         "_sign_in_code.html",

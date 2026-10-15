@@ -70,7 +70,7 @@ from app.domains.mdm.api import (
 )
 from app.kernel.jobs import run_due_jobs
 from app.kernel.tenancy import TENANT_VOORBEELD_ID, current_tenant_id
-from tests.conftest import register_at_the_door, seed_activity_with_product
+from tests.conftest import form_guard_fields, register_at_the_door, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -123,6 +123,13 @@ def _household(db):
     db.add(household)
     db.flush()
     return household
+
+
+def _proof():
+    """What a person's form brings (#2033): the guard's two fields, rendered five seconds ago."""
+    from app.kernel.form_guard import Proof
+
+    return Proof.from_values(form_guard_fields())
 
 
 def _request(email="nieuw@example.com", **more) -> AccountRequest:
@@ -230,7 +237,7 @@ def test_the_four_fields_are_required_each_with_its_own_refusal(db_session):
     assert set(empty.problems()) == {"first_name", "last_name", "email", "mobile"}
     assert _request().problems() == {}
     with pytest.raises(AccountRequestInvalid) as refused:
-        start_account(db_session, _request(mobile=" "))
+        start_account(db_session, _request(mobile=" "), proof=_proof())
     assert set(refused.value.problems) == {"mobile"}
     assert db_session.query(LoginToken).count() == 0
 
@@ -241,7 +248,7 @@ def test_no_person_before_the_code_and_one_confirmed_person_after_it(db_session,
     import app.main  # noqa: F401 - the handlers of mdm and mail
 
     before = _persons(db_session)
-    start_account(db_session, _request())
+    start_account(db_session, _request(), proof=_proof())
     assert _persons(db_session) == before, "a person exists before the code was entered"
     token = db_session.query(LoginToken).filter_by(email="nieuw@example.com").one()
     assert token.purpose is LoginPurpose.CREATE_ACCOUNT and not token.used
@@ -269,7 +276,7 @@ def test_no_person_before_the_code_and_one_confirmed_person_after_it(db_session,
 
 def test_the_link_of_the_mail_makes_the_account_too(client, db_session, sent):
     """Q36: the link and the code are the same token. Missing in C6."""
-    start_account(db_session, _request())
+    start_account(db_session, _request(), proof=_proof())
     token = db_session.query(LoginToken).filter_by(email="nieuw@example.com").one().token
     answer = client.get(f"/login/verify?token={token}", follow_redirects=False)
     assert answer.status_code == 302 and answer.headers["location"] == "/mijn"
@@ -288,7 +295,7 @@ def test_an_existing_address_gets_the_owner_a_sign_in_code_and_no_second_person(
     owner = _person(db_session, "Eigenaar", email="nieuw@example.com")
     db_session.commit()
     before = _persons(db_session)
-    start_account(db_session, _request(first_name="Indringer"))
+    start_account(db_session, _request(first_name="Indringer"), proof=_proof())
     [mail] = _mails(db_session, sent)
     assert mail["subject"].startswith("Je hebt al een account")
     token = db_session.query(LoginToken).filter_by(email="nieuw@example.com", used=False).one()
@@ -306,7 +313,7 @@ def test_an_existing_address_gets_the_owner_a_sign_in_code_and_no_second_person(
 
 def test_five_wrong_codes_end_the_code_of_a_new_account(db_session, sent):
     """The lockout of #268 holds for every purpose. Missing in C6."""
-    start_account(db_session, _request())
+    start_account(db_session, _request(), proof=_proof())
     for _attempt in range(auth_login.MAX_OTP_ATTEMPTS):
         assert consume_code(db_session, "nieuw@example.com", "000000") is None
     assert consume_code(db_session, "nieuw@example.com", CODE) is None
@@ -317,7 +324,7 @@ def test_an_address_taken_between_the_form_and_the_code_is_refused_at_the_code(
     client, db_session, sent
 ):
     """C5: one owner, not two. Red without the re-check at the code."""
-    start_account(db_session, _request())
+    start_account(db_session, _request(), proof=_proof())
     somebody = _person(db_session, "Sneller", household=_household(db_session))
     db_session.add(
         new_contact_detail(db_session, somebody, "EMAIL", "nieuw@example.com", is_primary=True)
@@ -337,7 +344,7 @@ def test_an_address_taken_between_the_form_and_the_code_is_refused_at_the_code(
 
 def test_a_code_asked_at_one_tenant_makes_no_account_at_another(db_session, sent):
     """R10: accounts are per tenant, and the token itself has none."""
-    start_account(db_session, _request())
+    start_account(db_session, _request(), proof=_proof())
     token = current_tenant_id.set(TENANT_VOORBEELD_ID)
     try:
         consumed = consume_code(db_session, "nieuw@example.com", CODE)
