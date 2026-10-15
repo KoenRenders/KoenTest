@@ -244,7 +244,7 @@ def test_the_concept_screen_says_who_each_audience_is_before_a_choice(client, db
         ("non_members", "Abonnees", "2"),
         ("both", "Allebei", "4"),
         # CR-36: the tenant has the activities module; no activity chosen yet.
-        ("participants", "Eerdere deelnemers", "0"),
+        ("participants", "Eerdere deelnemers", ""),
     ]
     assert lines == [
         (f"Leden van werkjaar {YEAR} · 3 adressen", MEMBERS_SENTENCE),

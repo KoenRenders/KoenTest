@@ -562,7 +562,7 @@ def _compose_view(
     notice: Optional[str] = None,
     choices_error: Optional[str] = None,
 ) -> NewsletterComposeView:
-    counts = nb.audience_counts(db, letter)
+    counts = nb.audience_counts(db)
     # Who each audience is, in words: what the send screen says of "both" names
     # the two lists and what they share, so it is said here once for all three
     # choices — one function, one wording (#1834). Without the membership module
@@ -594,7 +594,9 @@ def _compose_view(
             (
                 nb.Audience.PARTICIPANTS.value,
                 code_label(nb.AUDIENCE.name, nb.Audience.PARTICIPANTS, db=db),
-                str(counts.participants),
+                # No number on the pill: it depends on the ticks below it, which change
+                # without a page load; the sentence under the list says it.
+                "",
             )
         )
     participant_offered, participant_lines, participant_notes = _participant_panel(db, letter)

@@ -517,8 +517,6 @@ class AudienceCounts:
     members: int
     non_members: int
     both: int
-    #: Of the letter's chosen earlier activities; 0 until it has chosen any.
-    participants: int = 0
 
     @property
     def overlap(self) -> int:
@@ -572,15 +570,11 @@ def audience_summary(
     )
 
 
-def audience_counts(db: Session, letter: Optional[Newsletter] = None) -> AudienceCounts:
+def audience_counts(db: Session) -> AudienceCounts:
     members = set(member_addresses(db))
     subscribers = {s.email for s in confirmed_subscribers(db)}
-    participants = participant_recipients(db, letter)[1].recipients if letter is not None else 0
     return AudienceCounts(
-        members=len(members),
-        non_members=len(subscribers),
-        both=len(members | subscribers),
-        participants=participants,
+        members=len(members), non_members=len(subscribers), both=len(members | subscribers)
     )
 
 
