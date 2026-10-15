@@ -194,6 +194,9 @@ class RegistrationCreate(BaseModel):
     #: A list — even an empty one — means "now": validated by the form's rules,
     #: refused as a whole. None means "later": the registration gets an answer link.
     answers: Optional[List[AnswerIn]] = None
+    #: #1987: the key of the shown form it came from (`form_guard.submission_key`);
+    #: a second post of that form creates nothing. None from a way in without one.
+    submission_key: Optional[str] = None
 
 
 class RegistrationItemResponse(BaseModel):
