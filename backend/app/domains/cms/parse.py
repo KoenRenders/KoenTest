@@ -214,6 +214,20 @@ class _Builder:
             return items[-1]["content"]
         return self.blocks
 
+    def _end_item_words(self) -> None:
+        """A list nested in an item: the break that ends the item's own words
+        (`<li>twee<br><ul>`) is not a line the author typed — the nested list
+        starts on its own line anyway — so it goes. Without this the break stood
+        as an empty line before the sub-list, and the renderer's own line between
+        an item's blocks added one more on every round trip (#2038 review A2)."""
+        if not self.open or self.open[-1][0] == "blockquote" or not self.open[-1][1]:
+            return
+        content = self.open[-1][1][-1]["content"]
+        if content and content[-1].get("type") == "paragraph":
+            words = content[-1]["content"]
+            while words and words[-1].get("type") == "hardBreak":
+                words.pop()
+
     def _open_paragraph(self) -> None:
         self.flush_inline()
         paragraph: dict[str, Any] = {"type": "paragraph", "content": []}
@@ -259,6 +273,8 @@ class _Builder:
             # loose words here, closed off as her paragraph where she ends.
             self.inline = []
             self.in_text_block = False
+            if tag != "blockquote":
+                self._end_item_words()
             self.open.append((tag, []))
         elif tag == "li":
             if not self.open or self.open[-1][0] == "blockquote":
@@ -498,3 +514,24 @@ def _word_count(document: Optional[dict]) -> int:
 
     walk(document or {})
     return count
+
+
+def document_from_trix(content: Optional[str]) -> dict:
+    """A text a Trix editor stored (a letter, a point's notes) as a document, for
+    the migration that moves them onto the page editor (CR-17 phase 7, #2023).
+
+    Never refuses: these texts have no "keep the old HTML" side — the old column
+    goes in the same change — so the conversion is the lenient one of a page's
+    draft (an unknown tag degrades to its words) and, where even that does not
+    validate against the schema, the words as plain paragraphs. Formatting may
+    soften; no word is lost. The result is a document the schema accepts, which
+    is what a save of the new editor would store.
+    """
+    from app.domains.cms.schema import validate_document
+
+    try:
+        document = parse_html(content, lenient=True) or {"type": "doc", "content": []}
+        validate_document(document)
+        return document
+    except Exception:
+        return plain_text_document(content)

@@ -45,6 +45,7 @@ GEEN_DEMO = {
     "htmx_ux": "script, geen component",
     "toolbar_oob": "an out-of-band fragment for the toolbar; the toolbar itself is in section 8e",
     "env_banner": "de schil toont hem al bovenaan elke omgeving behalve PROD",
+    "document_editor_assets": "the editor's own files, for a screen with many editors; the editor's demo loads them",
     "form_guard_fields": "onzichtbaar bedoeld: een honingpot en een verborgen tijdstip (#1297)",
 }
 

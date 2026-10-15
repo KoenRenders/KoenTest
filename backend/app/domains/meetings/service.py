@@ -315,7 +315,7 @@ def _add_activities(
                 activity_id=span.activity.id,
                 activity_date_id=span.row.id,
                 sort_key=span.start,
-                notes=source.notes if source is not None else None,
+                notes_document=source.notes_document if source is not None else None,
                 carried_over_from=source.id if source is not None else None,
             )
         )
@@ -341,7 +341,7 @@ def _upcoming_notes_of(db: Session, previous: Optional[Meeting]) -> dict[int, Me
     return {
         item.activity_date_id: item
         for item in items_of(db, upcoming)
-        if item.activity_date_id and (item.notes or "").strip()
+        if item.activity_date_id and has_notes(item)
     }
 
 
@@ -406,7 +406,7 @@ def _replace_generated(db: Session, section: MeetingSection) -> None:
     """
     for item in items_of(db, section):
         referenced = item.activity_id is not None or item.member_id is not None
-        if referenced and not (item.notes or "").strip():
+        if referenced and not has_notes(item):
             db.delete(item)
     db.flush()
 
@@ -438,7 +438,7 @@ def _carry_over(
                     section_id=target.id,
                     position=item.position,
                     title=item.title,
-                    notes=item.notes,
+                    notes_document=item.notes_document,
                     carried_over_from=item.id,
                 )
             )
@@ -465,7 +465,7 @@ def add_item(
     title: Optional[str] = None,
     activity_id: Optional[int] = None,
     activity_date_id: Optional[int] = None,
-    notes: Optional[str] = None,
+    notes: "Optional[str | dict]" = None,
 ) -> MeetingItem:
     """Add a point — linked to a date of an activity, to an activity, or free.
 
@@ -518,7 +518,7 @@ def add_item(
         section_id=section.id,
         position=last + 1,
         title=title,
-        notes=notes,
+        notes_document=notes_document_of(notes) if notes is not None else None,
         activity_id=activity_id,
         activity_date_id=activity_date_id,
         sort_key=sort_key,
@@ -538,15 +538,70 @@ def _al_op_de_agenda(db: Session, meeting: Meeting, activity_id: int) -> bool:
     )
 
 
+def notes_document_of(sent: "str | dict") -> Optional[dict]:
+    """What the editor sent for a point's minutes, as the document to store — or
+    `None` when it says nothing (a blank editor stores no document, like a blank
+    page). The border is the schema's (C4, "validation, not cleaning"): a
+    document it refuses is refused by name, and nothing is stored."""
+    import json
+
+    from app.domains.cms.api import document_from_editor, schema
+
+    try:
+        document = json.loads(sent) if isinstance(sent, str) else sent
+        document = document_from_editor(document)
+        schema.validate_document(document, "notes")
+    except (ValueError, TypeError) as exc:
+        # `UnknownBlock`, `UnknownAttribute` and `InvalidShape` are ValueErrors
+        # whose message is the author's own copy; bad JSON is one too.
+        raise MeetingError(str(exc) or _("De notities konden niet worden opgeslagen.")) from exc
+    return document if _has_words(document) else None
+
+
+def _has_words(document: Optional[dict]) -> bool:
+    if not document:
+        return False
+    from app.domains.cms.api import render_document
+
+    return bool(render_document(document, target="text").strip())
+
+
+def has_notes(item: MeetingItem) -> bool:
+    """Somebody wrote something on this point."""
+    return _has_words(item.notes_document)
+
+
+def notes_json(item: MeetingItem) -> str:
+    """The minutes as the editor's document, as JSON text; empty when there are none."""
+    import json
+
+    return json.dumps(item.notes_document) if has_notes(item) else ""
+
+
+def notes_html(item: MeetingItem) -> str:
+    """The minutes of a point as the HTML the screen and the PDF show: rendered
+    from the stored document, at read time, by the one renderer of the editor's
+    documents. Empty when there are none."""
+    if not has_notes(item):
+        return ""
+    from app.domains.cms.api import render_document
+
+    return render_document(item.notes_document)
+
+
 def update_item(
     db: Session,
     meeting: Meeting,
     item_id: int,
     *,
-    notes: Optional[str] = None,
+    notes: "Optional[str | dict]" = None,
     title: Optional[str] = None,
 ) -> MeetingItem:
     """Write the minutes on one point. `None` means "left alone", not "cleared".
+
+    The minutes are a document of the page editor's `notes` set, as the editor
+    sends it (JSON text or the parsed document); a refusal of the schema comes
+    back as a `MeetingError` before anything changes.
 
     The title is a free point's own (#1359): a point linked to an activity or a
     household takes its name from that source, so it has no title to change. A
@@ -562,13 +617,7 @@ def update_item(
         if not title:
             raise MeetingError(_("Een vrij punt heeft een titel nodig."))
     if notes is not None:
-        # De notities komen uit een WYSIWYG-editor en gaan als HTML naar het
-        # scherm én de PDF. Ontsmetten bij het OPSLAAN en niet bij het tonen: dan
-        # is er één plek, en staat er nooit iets in de databank dat we bij het
-        # renderen nog moeten wantrouwen. Dezelfde filter als de CMS-inhoud.
-        from app.domains.cms.api import sanitize_cms_html
-
-        item.notes = sanitize_cms_html(notes) or ""
+        item.notes_document = notes_document_of(notes)
     if title is not None:
         item.title = title
     _touch(db, meeting)
@@ -1148,8 +1197,11 @@ class DocumentItem:
     id: int
     label: str
     meta: str
-    # De notities als (ontsmette) HTML uit de WYSIWYG-editor.
+    # The minutes as HTML, rendered from the point's document (`notes_html`).
     notes: str
+    # The same minutes as the editor's document (JSON text), for the editor; empty
+    # when there are none.
+    notes_json: str
     # Which kind of point this is, decided where the point is built — from
     # which source it has (an activity, a member, or neither: a free point).
     # Stored nowhere; there is no column to put a code in, so it is two
@@ -1348,7 +1400,8 @@ def _present(
             id=item.id,
             label=activity.name,
             meta=" · ".join(parts),
-            notes=item.notes or "",
+            notes=notes_html(item),
+            notes_json=notes_json(item),
             is_activity=True,
             is_member=False,
             source_url=f"/admin/activiteiten/{activity.id}",
@@ -1364,7 +1417,8 @@ def _present(
             id=item.id,
             label=label,
             meta=address,
-            notes=item.notes or "",
+            notes=notes_html(item),
+            notes_json=notes_json(item),
             is_activity=False,
             is_member=True,
             source_url=f"/admin/leden/gezin/{item.member_id}",
@@ -1377,7 +1431,8 @@ def _present(
         id=item.id,
         label=item.title or _("Punt"),
         meta="",
-        notes=item.notes or "",
+        notes=notes_html(item),
+        notes_json=notes_json(item),
         is_activity=False,
         is_member=False,
         source_url=None,

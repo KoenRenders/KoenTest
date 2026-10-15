@@ -104,11 +104,12 @@ def test_words_after_an_inner_list_stay_in_their_item():
     assert _shape(draft["content"][-1]) == [["Eén", [["Onder één"]], "en verder"], ["Twee"]]
 
 
-def test_a_page_with_only_a_nested_list_keeps_her_html_and_nests_in_the_draft():
-    """Such a page does not convert: rendered back, an item's words and its
-    inner list stand with a line break between them, which today's page does
-    not have — the measurement decides, not the parser. Her draft nests."""
-    assert parse_html(NESTED) is None
+def test_a_page_with_only_a_nested_list_converts_and_nests():
+    """Such a page used to keep her HTML: rendered back, an item's words and its
+    inner list stood with a line break between them, which today's page does not
+    have. The renderer no longer puts one before a nested list (#2038 review A2),
+    so the measurement now says it is lossless — and her draft nests as before."""
+    assert parse_html(NESTED) is not None
     draft = parse_html(NESTED, lenient=True)
     validate_document(draft)
     assert _shape(draft["content"][0]) == [

@@ -33,8 +33,9 @@ from app.domains.meetings.api import (
     update_meeting,
 )
 from app.domains.meetings.models import MeetingItem
+from tests._meeting_notes import note
 
-NOTE = "<p>Jan zorgt voor de tent</p>"
+NOTE = "Jan zorgt voor de tent"
 
 
 def _activity(db, name: str, *days: date) -> Activity:
@@ -52,9 +53,9 @@ def _points(db, meeting, kind: SectionKind, name: str) -> list:
     return [i for i in section.items if i.label == name]
 
 
-def _note_upcoming(db, meeting, name: str, note: str = NOTE) -> None:
+def _note_upcoming(db, meeting, name: str, text: str = NOTE) -> None:
     point = _points(db, meeting, SectionKind.UPCOMING, name)[0]
-    update_item(db, meeting, point.id, notes=note)
+    update_item(db, meeting, point.id, notes=note(text))
 
 
 def _send(db, meeting) -> None:
@@ -80,7 +81,9 @@ def test_the_note_of_the_same_date_is_copied(db_session):
     second = _second(db_session, first, date(2026, 11, 5))
 
     points = _points(db_session, second, SectionKind.UPCOMING, "Tentenkamp")
-    assert [p.notes for p in points] == [NOTE], "the note comes along as a starting value"
+    assert [p.notes for p in points] == [f"<p>{NOTE}</p>"], (
+        "the note comes along as a starting value"
+    )
     stored = db_session.get(MeetingItem, points[0].id)
     assert stored.carried_over_from is not None, "and says where it came from"
 
@@ -118,7 +121,7 @@ def test_rebuilding_neither_doubles_nor_overwrites(db_session):
     first = create_meeting(db_session, meeting_date=date(2026, 10, 1))
     _note_upcoming(db_session, first, "Tentenkamp")
     second = _second(db_session, first, date(2026, 11, 5))
-    _note_upcoming(db_session, second, "Tentenkamp", "<p>Aangepast</p>")
+    _note_upcoming(db_session, second, "Tentenkamp", "Aangepast")
 
     update_meeting(db_session, second, meeting_date=date(2026, 11, 6))
 
@@ -139,7 +142,7 @@ def test_a_point_without_a_date_takes_no_part(db_session):
             section_id=upcoming.id,
             activity_id=activity.id,
             sort_key=date(2026, 11, 14),
-            notes=NOTE,
+            notes_document=note(NOTE),
         )
     )
     db_session.flush()

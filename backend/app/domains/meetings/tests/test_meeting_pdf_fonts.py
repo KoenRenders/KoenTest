@@ -41,10 +41,28 @@ APP = Path(__file__).resolve().parents[3]
 TEMPLATE = APP / "domains" / "meetings" / "templates" / "meeting_pdf.html"
 FONTS = APP / "static"
 
-NOTES = (
-    "<p>Gewone tekst, <strong>vette tekst</strong>, <em>schuine tekst</em> en "
-    "<strong><em>vet en schuin</em></strong>.</p>"
-)
+
+def _mark(text: str, *kinds: str) -> dict:
+    return {"type": "text", "text": text, "marks": [{"type": k} for k in kinds]}
+
+
+NOTES = {
+    "type": "doc",
+    "content": [
+        {
+            "type": "paragraph",
+            "content": [
+                {"type": "text", "text": "Gewone tekst, "},
+                _mark("vette tekst", "bold"),
+                {"type": "text", "text": ", "},
+                _mark("schuine tekst", "italic"),
+                {"type": "text", "text": " en "},
+                _mark("vet en schuin", "bold", "italic"),
+                {"type": "text", "text": "."},
+            ],
+        }
+    ],
+}
 SOURCE = "Gewone tekst, vette tekst, schuine tekst en vet en schuin."
 
 

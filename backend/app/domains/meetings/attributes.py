@@ -177,11 +177,11 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K9
     ),
     Attribute(
-        key="meetings.meeting_item.notes",
-        columns=("meetings.meeting_items.notes",),
+        key="meetings.meeting_item.notes_document",
+        columns=("meetings.meeting_items.notes_document",),
         label=None,
         name_en="Notes",
-        help="The notes of the meeting item.",
+        help="The notes of the meeting item, as a document of the page editor.",
         ai_exposure=AiExposure.NONE,  # K3
     ),
     Attribute(

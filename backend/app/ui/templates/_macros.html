@@ -1725,12 +1725,19 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    the caption and the placement; the editor hears the choice as
    `raak-figure-chosen`. The link dialog replaces the browser's `prompt`
    (B5, review of #1699): the UI norm has no browser dialogs. #}
-{% macro document_editor(name, blocks, value_json, id=None, cls="", button_pages=None, button_forms=None, button_lid_worden=True, codes=None) -%}
-{%- set editor_id = id or (name ~ "-editor") -%}
+{#- The editor's own files. A screen with many editors (the notes of a meeting: one
+    per point) puts them on the page ONCE and passes `assets=False` to every
+    `document_editor`; a screen with one editor leaves the default. -#}
+{% macro document_editor_assets() -%}
 <link rel="stylesheet" href="{{ statisch('vendor/tiptap-3.31.4.css') }}">
 <link rel="stylesheet" href="{{ statisch('prose-figures.css') }}">
 <script src="{{ statisch('vendor/tiptap-3.31.4.min.js') }}" defer></script>
 <script src="{{ statisch('document-editor.js') }}" defer></script>
+{%- endmacro %}
+
+{% macro document_editor(name, blocks, value_json, id=None, cls="", button_pages=None, button_forms=None, button_lid_worden=True, codes=None, assets=True) -%}
+{%- set editor_id = id or (name ~ "-editor") -%}
+{% if assets %}{{ document_editor_assets() }}{% endif %}
 <input type="hidden" id="{{ editor_id }}-input" name="{{ name }}" value="{{ value_json }}">
 <div class="document-editor{% if cls %} {{ cls }}{% endif %}" id="{{ editor_id }}"
      data-document-editor data-input="{{ editor_id }}-input"{% if codes %} data-codes-label="{{ _('Code') }}"{% endif %}

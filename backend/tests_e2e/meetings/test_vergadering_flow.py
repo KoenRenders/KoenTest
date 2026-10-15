@@ -144,14 +144,14 @@ def test_een_notitie_overleeft_de_swap(admin_page):
     """Typen in de editor en wegklikken bewaart de notitie.
 
     Drie schakels achter elkaar: de editor schrijft naar een verborgen veld,
-    `trix-blur` post het formulier, en de rij vervangt zichzelf. Breekt er één,
+    `raak-editor-blur` post het formulier, en de rij vervangt zichzelf. Breekt er één,
     dan is het verslag na de vergadering leeg — en dat merkt niemand tot het te
     laat is.
     """
     page = admin_page
     url = _nieuwe_vergadering(page, "2026-11-05")
 
-    editors = page.locator("#vg-document trix-editor")
+    editors = page.locator("#vg-document [data-document-editor] .ProseMirror")
     assert editors.count() > 0, (
         "geen enkel punt met een notitie-editor op een verse agenda — de seed "
         "hoort minstens één activiteit te leveren"
@@ -160,13 +160,13 @@ def test_een_notitie_overleeft_de_swap(admin_page):
     editor = editors.first
     editor.click()
     editor.type("Uitverkocht — 300 tickets.")
-    # Focus weghalen: dát vuurt `trix-blur` af en start dus het opslaan. #997:
+    # Focus weghalen: dát vuurt `raak-editor-blur` af en start dus het opslaan. #997:
     # wachten tot dat opslaan beantwoord is — zonder trigger komt er geen verzoek
     # en faalt dit wachten, wat de tegenproef hieronder net zo goed dekt.
     with htmx_afgerond(page):
         page.locator("#vg-document h2").first.click()
 
-    # HERLADEN, en niet kijken naar het veld dat er al staat. Trix schrijft zijn
+    # HERLADEN, en niet kijken naar het veld dat er al staat. De editor schrijft zijn
     # inhoud bij élke toetsaanslag naar dat verborgen veld — puur in de browser.
     # Een assertie daarop slaagt dus ook wanneer er niets verstuurd is; gemeten
     # met de trigger kapotgemaakt bleef de test groen. Na een herlaad kan de tekst

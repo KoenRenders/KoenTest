@@ -230,7 +230,7 @@ def paragraphs(body_html: str) -> list[str]:
 
 def plain(html: str) -> str:
     text = re.sub(r"<br\s*/?>", "\n", html or "", flags=re.I)
-    text = re.sub(r"</(li|div|p|h\d)>", "\n", text, flags=re.I)
+    text = re.sub(r"</(li|div|p|h\d|td|th|tr)>", "\n", text, flags=re.I)
     text = re.sub(r"<[^>]+>", "", text)
     return re.sub(r"[ \t]+", " ", html_lib.unescape(text)).strip()
 
