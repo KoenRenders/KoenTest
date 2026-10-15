@@ -40,7 +40,12 @@ from app.domains.auth.api import (
 )
 from app.domains.mdm.api import ContactDetail, Member, MemberPerson
 from app.kernel.jobs import run_due_jobs
-from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, create_test_person
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    create_test_family,
+    create_test_person,
+    form_guard_fields,
+)
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -84,7 +89,7 @@ def _board(db, email: str, *roles: str) -> None:
 
 def _sign_in(client, email: str, back: str = "") -> str:
     data = {"email": email} | ({"terug": back} if back else {})
-    client.post("/aanmelden", data=data)
+    client.post("/aanmelden", data={**data, **form_guard_fields()})
     done = client.post("/aanmelden/code", data={**data, "code": CODE})
     assert SESSION_COOKIE in done.cookies, done.text[:200]
     return done.headers["HX-Redirect"]
@@ -216,7 +221,9 @@ def _double(db, email: str, *, same_household: bool = False, mixed: bool = False
 
 def test_the_notice_has_one_text_for_every_address_that_says_nobody(client, db_session, sent):
     _double(db_session, "gemengd-1740@example.org", mixed=True)
-    step = client.post("/aanmelden", data={"email": "gemengd-1740@example.org"})
+    step = client.post(
+        "/aanmelden", data={**form_guard_fields(), "email": "gemengd-1740@example.org"}
+    )
     assert "We stuurden een code naar dit adres." in step.text
     assert sent == [], "the request itself sends nothing; the notice waits in the queue"
     run_due_jobs(db_session)

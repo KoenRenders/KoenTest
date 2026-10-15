@@ -1836,7 +1836,12 @@ async def inschrijving_nieuw_opslaan(
                 request, db, activiteit, onderdeel_id, values=values, error=str(refusal)
             ),
         )
-    outcome = submit(db, channel, activiteit, component, form, background_tasks, actor=email)
+    from app.kernel.form_guard import TRUSTED
+
+    # The board's own channel: a signed-in board member, not a visitor's form (#2039).
+    outcome = submit(
+        db, channel, activiteit, component, form, background_tasks, proof=TRUSTED, actor=email
+    )
     if outcome.kind is OutcomeKind.REFUSED:
         # #1589: the same answer as the public page — the banner, into the
         # form's message line.

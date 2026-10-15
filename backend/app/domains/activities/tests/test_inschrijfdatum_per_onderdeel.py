@@ -47,6 +47,7 @@ from app.domains.activities.api import (
     ActivitySubRegistration,
     Registration,
 )
+from tests.conftest import form_guard_fields
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -95,6 +96,7 @@ def _inschrijven(client, a, comp, product, naam="Fee"):
     return client.post(
         f"/activiteiten/{a.id}/inschrijven/{comp.id}",
         data={
+            **form_guard_fields(),
             "contact_name": naam,
             "contact_email": f"{naam.lower()}@example.org",
             "phone": "0470000000",

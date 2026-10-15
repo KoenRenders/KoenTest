@@ -59,7 +59,7 @@ Broken on purpose to check that these tests can go red:
 import pytest
 
 from tests._queued_mail import newest_queued_mail
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -89,7 +89,9 @@ def test_the_login_link_points_at_the_host_you_arrived_on(
 ):
     """Koen's case, and the test closest to the complaint."""
     resp = client.post(
-        "/aanmelden", data={"email": SEEDED_ADMIN_EMAIL}, headers={"host": platform_host}
+        "/aanmelden",
+        data={**form_guard_fields(), "email": SEEDED_ADMIN_EMAIL},
+        headers={"host": platform_host},
     )
 
     assert resp.status_code == 200
@@ -121,7 +123,11 @@ def test_a_base_url_from_another_environment_is_still_ignored(
     )
     db_session.flush()
 
-    client.post("/aanmelden", data={"email": SEEDED_ADMIN_EMAIL}, headers={"host": platform_host})
+    client.post(
+        "/aanmelden",
+        data={**form_guard_fields(), "email": SEEDED_ADMIN_EMAIL},
+        headers={"host": platform_host},
+    )
 
     assert "raakmillegem.be" not in captured_mail()["body_html"], (
         "a production address from the database leaked into a login link on a test "
@@ -147,7 +153,9 @@ def test_a_base_url_this_environment_serves_is_accepted(
     db_session.flush()
 
     client.post(
-        "/aanmelden", data={"email": SEEDED_ADMIN_EMAIL}, headers={"host": "eigen.example.test"}
+        "/aanmelden",
+        data={**form_guard_fields(), "email": SEEDED_ADMIN_EMAIL},
+        headers={"host": "eigen.example.test"},
     )
 
     assert "//eigen.example.test/login/verify" in captured_mail()["body_html"], (
@@ -265,7 +273,9 @@ def test_the_return_url_follows_the_incoming_host_even_with_an_own_domain(
     invalidate_tenant_codes()
     try:
         client.post(
-            "/aanmelden", data={"email": SEEDED_ADMIN_EMAIL}, headers={"host": platform_host}
+            "/aanmelden",
+            data={**form_guard_fields(), "email": SEEDED_ADMIN_EMAIL},
+            headers={"host": platform_host},
         )
     finally:
         invalidate_tenant_codes()

@@ -176,7 +176,9 @@ def _link(db: Session, token: str, return_to: str) -> str:
     return link
 
 
-def start_login(db: Session, email: str, return_to: str = "") -> None:
+def start_login(
+    db: Session, email: str, return_to: str = "", *, proof: form_guard.AnyProof
+) -> None:
     """De volledige request-login-stap (ook gebruikt door het aanmeldscherm,
     fase 1 #399): gekend adres → magic-link + OTP; meerdere gezinnen → uitleg-
     mail; onbekend → stil. De aanroeper toont ALTIJD dezelfde generieke respons.
@@ -184,7 +186,13 @@ def start_login(db: Session, email: str, return_to: str = "") -> None:
     `return_to` (#1437): the page that asked for the sign-in. It rides along in
     the mail link as `terug`, and `/login/verify` checks it again with
     `veilige_terug` when the link is used — a link can be edited, so the check
-    belongs where it is used, not here."""
+    belongs where it is used, not here.
+
+    `proof` (#2039): what the visitor's form brings to show a person sent it
+    (`form_guard.Proof`), the guard of every public form that mails a typed address.
+    A refused request gets the same answer as any other and sends and stores nothing."""
+    if form_guard.refused(proof, "sign-in"):
+        return
     # Twee onafhankelijke checks: heeft dit adres een account, en/of hangt het
     # aan een persoon (en is dat gezin eenduidig)?
     user = (
@@ -214,7 +222,9 @@ def start_login(db: Session, email: str, return_to: str = "") -> None:
         db.commit()
 
 
-def start_account(db: Session, request: AccountRequest, return_to: str = "", *, proof) -> None:
+def start_account(
+    db: Session, request: AccountRequest, return_to: str = "", *, proof: form_guard.AnyProof
+) -> None:
     """The step behind "Account aanmaken" (CR-22 R3, R4, F4; #1707).
 
     **The caller answers the same in every case** — "We stuurden een code naar

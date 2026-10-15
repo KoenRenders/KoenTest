@@ -115,7 +115,10 @@ def test_the_page_shows_the_own_block_and_nothing_of_the_household(client, membe
         assert word not in read and word not in edit, word
     # The menu marks this page.
     menu = edit[edit.index("data-account-page-menu") : edit.index("</nav>")]
-    assert re.search(r'href="/mijn/gegevens" class="site-drawer-row" aria-current="page"', menu)
+    assert re.search(
+        r'href="/mijn/gegevens" data-account-item="member" class="site-drawer-row" aria-current="page"',
+        menu,
+    )
 
 
 def test_a_name_changed_here_shows_in_mijn_gezin_and_back(client, db_session, member):

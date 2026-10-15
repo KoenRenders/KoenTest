@@ -38,7 +38,7 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from app.domains.mdm.api import OrganizationType
 from tests._queued_mail import newest_queued_mail
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -131,7 +131,9 @@ def test_the_login_mail_from_a_platform_host_carries_the_platform_name(
     # A KNOWN address: `start_login` stays silent for an unknown one — deliberately,
     # so the screen never reveals who has an account.
     resp = client.post(
-        "/aanmelden", data={"email": SEEDED_ADMIN_EMAIL}, headers={"host": platform_host}
+        "/aanmelden",
+        data={**form_guard_fields(), "email": SEEDED_ADMIN_EMAIL},
+        headers={"host": platform_host},
     )
 
     assert resp.status_code == 200

@@ -42,7 +42,8 @@ pytestmark = pytest.mark.ui_serverrendered
 
 LINK = re.compile(
     r'<a href="/admin/werkbank" hx-boost="false" data-account-item="admin"[^>]*>'
-    r"(?:<svg\b.*?</svg>)?Admin</a>",
+    # #1886: the label stands in a span, as in the account page's menu.
+    r"(?:<svg\b.*?</svg>)?(?:<span[^>]*>)?Admin(?:</span>)?</a>",
     re.S,
 )
 

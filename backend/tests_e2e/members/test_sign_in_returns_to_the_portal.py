@@ -19,7 +19,7 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import BASE, laat_de_wacht_passeren, pagina_klaar  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -74,6 +74,7 @@ def test_the_portal_link_signs_in_and_comes_back_to_the_portal(board_member):
         assert page.url == BASE + "/aanmelden?terug=/leden/gezin", page.url
 
         page.fill("input[name=email]", board_member)
+        laat_de_wacht_passeren(page)
         page.get_by_role("button", name="Stuur inloginfo").click()
         page.wait_for_selector("input[name=code]")
         _set_code(board_member, "424242")

@@ -38,7 +38,12 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.auth.models import User, UserRole
 from app.domains.payment.api import PaymentRecord
-from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, seed_activity_with_product
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    create_test_family,
+    form_guard_fields,
+    seed_activity_with_product,
+)
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -59,6 +64,7 @@ def _register(client, activity, component, product, name, email):
     client.post(
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
         data={
+            **form_guard_fields(),
             "contact_name": name,
             "contact_email": email,
             "phone": "047",

@@ -20,7 +20,7 @@ from playwright.sync_api import sync_playwright
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.members.test_sign_in_returns_to_the_portal import _set_code  # noqa: E402
-from tests_e2e.schermen import BASE, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import BASE, laat_de_wacht_passeren, pagina_klaar  # noqa: E402
 
 PAGE = "/admin/leden?q=Peeters&status=actief"
 
@@ -55,6 +55,7 @@ def test_an_admin_link_signs_in_and_comes_back_to_the_page(board_member):
         assert "Niet aangemeld" not in page.content(), "the bare 401 body, not the sign-in page"
 
         page.fill("input[name=email]", board_member)
+        laat_de_wacht_passeren(page)
         page.get_by_role("button", name="Stuur inloginfo").click()
         page.wait_for_selector("input[name=code]")
         _set_code(board_member, "585858")

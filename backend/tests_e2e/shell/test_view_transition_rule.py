@@ -46,10 +46,11 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import (  # noqa: E402
+from tests_e2e.schermen import (
     BASE,
     htmx_afgerond,
     htmx_stil,
+    laat_de_wacht_passeren,  # noqa: E402
     login_met_sessie,
     pagina_klaar,
     transition_frames,
@@ -122,6 +123,7 @@ def _open_form(page, path):
 @pytest.mark.parametrize("which", ["register", "form"])
 def test_a_refusal_arrives_without_a_transition(page, setup, which):
     _open_form(page, setup[which])
+    laat_de_wacht_passeren(page)
     page.click("[data-form-save]")
     expect(page.locator("[data-save-refusal]")).to_be_visible()
     expect(page.locator("[data-refused]").first).to_be_visible()
@@ -145,6 +147,7 @@ def test_a_confirmation_takes_the_page_without_a_transition(page, setup):
     page.fill("#contact_email", "zonder-overgang@example.org")
     page.fill("#phone", "0470000000")
     page.locator('input[name="payment_method"][value="transfer"]').check()
+    laat_de_wacht_passeren(page)
     page.click("[data-form-save]")
     expect(page.locator("[data-public-form-page][data-result] h1")).to_have_text(
         "Je inschrijving is ontvangen"

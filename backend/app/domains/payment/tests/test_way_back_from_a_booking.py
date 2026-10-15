@@ -11,7 +11,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.payment.models import PaymentRecord
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
+from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -21,6 +21,7 @@ def _booked_activity(client, db):
     client.post(
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
         data={
+            **form_guard_fields(),
             "contact_name": "An Voorbeeld",
             "contact_email": "an@example.com",
             "phone": "047",

@@ -26,7 +26,12 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.payment.api import PaymentRecord, transfer_due
-from tests.conftest import create_test_family, register_at_the_door, seed_activity_with_product
+from tests.conftest import (
+    create_test_family,
+    form_guard_proof,
+    register_at_the_door,
+    seed_activity_with_product,
+)
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -142,7 +147,7 @@ def test_a_membership_reads_the_same_in_the_welcome_mail_and_on_the_card(client,
             ],
         }
     )
-    register_family(db_session, form, BackgroundTasks(), signed_in=None)
+    register_family(db_session, form, BackgroundTasks(), signed_in=None, proof=form_guard_proof())
     _run_queue(db_session)
     mail = _mail_lines(next(m["body"] for m in sent if m["type"] == "membership_confirmation"))
 

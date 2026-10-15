@@ -8,30 +8,23 @@
 {% call ui.page_header(_("Toegang over alle werkruimtes"), _("Elk account, elke werkruimte, elke rol. Alleen-lezen: rollen wijzig je in Gebruikers van de werkruimte.")) %}
   {{ ui.btn_secondary(_("Terug naar Gebruikers"), href="/admin/gebruikers") }}
 {% endcall %}
-{% call ui.card() %}
+{# #2015: on the kit's list table (CR-11 roll-out, #1927), so on a phone it is
+   the stacked list every other list is: the account, its workspace, the
+   status, and the role on a line of its own. No scroll wrapper of its own. #}
 {% if rows %}
-<table class="w-full text-sm">
-  <thead>
-    <tr class="text-left text-gray-500 border-b border-line">
-      <th class="py-2 pr-4 font-medium">{{ _("Account") }}</th>
-      <th class="py-2 pr-4 font-medium">{{ _("Werkruimte") }}</th>
-      <th class="py-2 pr-4 font-medium">{{ _("Rol") }}</th>
-      <th class="py-2 font-medium">{{ _("Status") }}</th>
-    </tr>
-  </thead>
+{% call ui.data_table(columns, caption=_("Toegang over alle werkruimtes")) %}
   <tbody>
     {% for r in rows %}
-    <tr class="border-b border-line last:border-0" data-access-row>
-      <td class="py-2 pr-4">{{ r.email }}</td>
-      <td class="py-2 pr-4">{% if r.workspace is none %}<em>{{ _("Alle werkruimtes") }}</em>{% else %}{{ r.workspace }}{% endif %}</td>
-      <td class="py-2 pr-4">{{ r.role | code_label("role") }}</td>
-      <td class="py-2">{{ ui.badge(_("Actief") if r.active else _("Inactief"), "green" if r.active else "gray") }}</td>
+    <tr data-row class="align-middle" data-access-row>
+      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2 text-ink">{{ r.email }}</td>
+      <td data-cell="context" class="border-b border-line px-3 py-2 text-ink-soft">{% if r.workspace is none %}<em>{{ _("Alle werkruimtes") }}</em>{% else %}{{ r.workspace }}{% endif %}</td>
+      <td data-cell="more" class="border-b border-line px-3 py-2">{{ r.role | code_label("role") }}</td>
+      <td data-cell="status" class="border-b border-line px-3 py-2">{{ ui.badge(_("Actief") if r.active else _("Inactief"), "green" if r.active else "gray") }}</td>
     </tr>
     {% endfor %}
   </tbody>
-</table>
-{% else %}
-{{ ui.empty_state(_("Nog geen rollen toegekend.")) }}
-{% endif %}
 {% endcall %}
+{% else %}
+{% call ui.card() %}{{ ui.empty_state(_("Nog geen rollen toegekend.")) }}{% endcall %}
+{% endif %}
 {% endblock %}

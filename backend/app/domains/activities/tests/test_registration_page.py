@@ -30,7 +30,7 @@ from decimal import Decimal
 import pytest
 
 from app.domains.activities.api import ActivityProduct, ActivitySubRegistration
-from tests.conftest import seed_activity_with_product
+from tests.conftest import form_guard_fields, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -99,6 +99,7 @@ def test_a_refusal_keeps_the_page_the_values_and_the_reason(client, two_componen
     response = client.post(
         f"/activiteiten/{activity.id}/inschrijven/{open_one.id}",
         data={
+            **form_guard_fields(),
             "contact_name": "Zonder Gsm",
             "contact_email": "zonder@example.com",
             "phone": "",
@@ -136,6 +137,7 @@ def test_the_thank_you_page_leads_back_to_an_open_list(client, two_components):
     response = client.post(
         f"/activiteiten/{activity.id}/inschrijven/{open_one.id}",
         data={
+            **form_guard_fields(),
             "contact_name": "Terug Tine",
             "contact_email": "terug@example.com",
             "phone": "0470000000",
