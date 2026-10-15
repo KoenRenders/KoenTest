@@ -1660,7 +1660,7 @@ rejected choices.
 | E19 | Codes and enums | — | CR-12; #779 and the tracker of v2.7.0 (#1184) closed; the status line still says "not assigned to a release" | built in v2.7.0; close-out of the document due |
 | E20 | The OO foundation | — | CR-13; #236 (open, the pointer), trackers #1235 and #1252 closed; #1502 (the registration history through a counter or an event) open, not planned | built in v2.8.0 and v2.16.0; one follow-up open |
 | E21 | The command port | re-measure before planning: CR-13 phase 4c built the mechanism | CR-16, #1411 (open), on hold | planned |
-| E22 | Web content: the CMS carries a company tenant's whole public site | — | CR-17, #1427 (open); phases 1 and 2 (#1671, #1679) on the tracker of v2.17 (#1902), while the status line of the document still says "not assigned" | in build |
+| E22 | Web content: the CMS carries a company tenant's whole public site | — | CR-17, #1427 (open); phases 1 and 2 (#1671, #1679) built on v2.17 (#1902); its phase 5 moved to CR-32 (→ E51) on 15 October 2026; phases 3 and 4 remain | in build |
 | E23 | Code review by another AI tool | — | CR-18, on hold; its tracking issue #1455 is closed | planned |
 | E24 | The tenant apart from the organisation: `mdm.tenants`, `org_type` becomes a role | a tenant is a site, an organisation is a party; the list of organisations shows both today | CR-20, #1578 (open), decided 4 October 2026, one release, not on a release | planned; goes first when the party model (E28) is planned |
 | E25 | The webshop | — | CR-21, #1743 (open); phase 0 on v2.16 (#1738, #1748); the webshop on v2.18 (#1947) | in build |
@@ -1696,6 +1696,7 @@ rejected choices.
 | E48 | A mechanical line beside the public-repository agent: GitHub's secret scanning with push protection, and a secret scan in CI as a blocking job | found on 14 October 2026 while answering Koen's question: both GitHub settings were off and CI scanned nothing, so the agent was the only wall, and it runs only when a session calls it (C4) | GitHub's scanning and push protection on since 14 October 2026; the CI scan is #1996 on v2.18 (Koen, 14 October 2026, to "Mag ik secret scanning en push protection aanzetten op de repo?" and the CI scan: "ja op 1, ja op 2 en in v2.18") | half built, half planned |
 | E49 | BPMN 2.0 as the *execution* model of the workbench and of the end-to-end processes, not only their drawing standard: a process definition is a BPMN document that an engine runs, and the figure of A2 is that definition | today a `WorkflowDefinition` is a flat JSON list of steps (kind, title, role), one definition exists (*Bericht behartigen*), and the end-to-end processes live in code and in people's heads; with BPMN as the definition, the drawing and the running process are one fact, editable in a modeller | to examine, then a change request (Koen, 14 October 2026: "Kan je ook de standaard zoals BPMN voor procesflows/taken/... gebruiken? Ik bedoel echt voor de executie, flow van de werkbank en e2e processen in het systeem.") | open |
 | E50 | DMN as the target for decisions: a decision table (who gets which task, which price applies, when a refund is due) as data an engine evaluates, instead of a query in code | not used today; every such rule is a function in the owning domain (CR-13, *a rule has one home*); DMN would make the table that home for rules of this kind, readable by the board | to examine with E49 (Koen, 14 October 2026: "en DMN voor decisions als target, momenteel nog niet gebruikt, te bekijken of we introduceren") | open |
+| E51 | Sections with a tone and full-bleed bands, a hero as a property of the page, text cards, the value and gallery blocks (CR-17's former phase 5), the activity and album data blocks, the association's home page from blocks, a tenant's favicon and typeface pair; the page stores the heading levels it shows | the concept site of the company tenant iX hosted and edited on the platform, and a home page the board composes | CR-32 (sections, cards, data blocks and a tenant's own look), #2003, v2.17 (Koen, 15 October 2026: "v2.17") | in build, phases 1–3 first |
 
 The *non-goals* of every change request — 141 items in 23 documents on 13
 October 2026 — stay in the document that decided them, one place per fact;
@@ -1716,6 +1717,7 @@ request, the sections touched.
 
 | Release | Change request | Sections touched |
 |---|---|---|
+| — (15 October 2026) | E51: CR-32 on v2.17; E22 follows the move of CR-17's phase 5 | E |
 | — (14 October 2026) | E49 and E50: BPMN as execution model and DMN for decisions, to examine; E40 re-opened | E |
 | — (14 October 2026) | D0: every standard of part D in one sentence, on Koen's question | D |
 | — (14 October 2026) | The public-repository agent in C4: its norm, what it cannot do, and that no mechanical scan stands in front of it; E48 | C4, E |
