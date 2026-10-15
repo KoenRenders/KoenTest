@@ -394,7 +394,7 @@ A gate that every `userTask` of a seeded process names a role that exists and a 
 
 ## C8. Prototype findings — what was measured before the build
 
-Not yet taken: draw the two first processes with bpmn.io's viewer and as Mermaid, and look at both on a phone; check the viewer's licence text.
+Taken on 15 October 2026: eight form definitions (the two intake forms and six step forms) and three process definitions (complaint, opportunity, message) were written in the formats of this document and are kept with Koen's material outside the repository; the eight forms read through the form engine's own import schema, the processes have no importer yet. Not yet taken: draw the two first processes with bpmn.io's viewer and as Mermaid, and look at both on a phone; check the viewer's licence text.
 
 ## C9. Screens before the build — the concepts the approver saw
 
