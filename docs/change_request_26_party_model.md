@@ -407,7 +407,7 @@ None open (15 October 2026): every question of the shaping stands answered in th
 | 15 October 2026 | The household once per account too, memberships per department: "Ik denk dat ik fout ben. Je bent inderdaad maar één persoon. … We maken die maar één keer, ook als gezin maar één keer. En je kan, ja, van twee raken lid worden. … Stel nu dat je twee keer lid bent, zal je ook wel twee ID's krijgen van Raak Nationaal. … dan gaan we dat zo oplossen." — to the restatement (one person and one household per account, membership as the fact per department, *Word lid* for an existing household): "akkoord" | Koen |
 | 15 October 2026 | The guest buyer's address: a buyer copy on the order for every buyer (CR-34 Q&A nr. 06, question 1, option b, and the architecture CLI's reading of it for F8) | Koen; the architecture CLI |
 | 15 October 2026 | Q13 the *acts for* relation without a confirmation step: "akkoord zonder bevestiging" | Koen |
-| 15 October 2026 | Q12 the duplicates: "ja, laten staan"; a purchase-order reference and a separate delivery address for a company order: out of scope, a new change request | Koen |
+| 15 October 2026 | Q12 the duplicates: "ja, laten staan" and, to the report: "we doen niets"; a purchase-order reference and a separate delivery address for a company order: out of scope, a new change request | Koen |
 | 15 October 2026 | Context, out of scope: member pricing between departments is not fixed; Raak Nationaal's system keeps persons per department and moves a member by deactivating and activating | Koen |
 
 ---
@@ -514,7 +514,7 @@ A party row is readable only within its account (the loader criterion); a tenant
 
 - **T1** kernel: a table with `AccountMixin` is filtered by the current account; a query from another tenant of the same account sees it; a query from another account does not (proven on a test model).
 - **T2** kernel: the tenancy gate lists the party tables as account-scoped and refuses a party table with `TenantMixin` or a fact table with `AccountMixin`.
-- **T3** mdm: the phase-1 migration on a snapshot with two tenants of one account: every person and organisation has one party with the account's id; counts equal before and after; a person present at both tenants (by member number) becomes one party (Q12: or stays two with the report, per Koen's answer).
+- **T3** mdm: the phase-1 migration on a snapshot with two tenants of one account: every person and organisation has one party with the account's id; counts equal before and after; a person present at both tenants stays two parties (Q12: "we doen niets"); the import's recognition prevents new ones.
 - **T4** mdm, membership: a second active household for one person is refused with the household named; *Word lid* on a second department creates a membership of the existing household, no second person; ending the first membership leaves one active; the history shows both.
 - **T5** auth: an e-mail of a member of A signs in at B and resolves to the same person; at a tenant of another account it resolves to that account's person or none.
 - **T6** mdm: *Mijn organisatie* with a VAT number creates party, organisation, identification, address and relation in one transaction; the same number from a second person links; a malformed number is refused before anything exists.
@@ -539,7 +539,7 @@ The one-household rule is a constraint, not a gate.
 
 ## C8. Prototype findings — what was measured before the build
 
-Not run yet. Before the handover: the phase-1 migration on a snapshot of PROD's and HDEV's `mdm` schema, counting persons per tenant before and parties per account after, and listing the probable duplicates (same last name, first name, birth date) across departments of one account for Q12; the tests that mention `tenant_id` on a person (the import, the household service, the sign-in) read for the behaviour they guard.
+Not run yet. Before the handover: the phase-1 migration on a snapshot of PROD's and HDEV's `mdm` schema, counting persons per tenant before and parties per account after (the duplicates across departments stay as they are, Q12); the tests that mention `tenant_id` on a person (the import, the household service, the sign-in) read for the behaviour they guard.
 
 ## C9. Screens before the build — the concepts the approver saw
 
@@ -556,7 +556,7 @@ Not built.
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
 | Q11 | 15 October 2026 | Which release: v2.17 between CR-20 and CR-34, or later? (architecture CLI) | v2.18, with CR-20 (tenant apart from organisation) before it and CR-34 (invoices for the webshop) after it, as one chain. Koen: "ik was sowieso van plan dit pas in v2.18 te stoppen", and on CR-34: "deze moet ook in v2.18". Nothing in v2.17 needs the party: the webshop's private buyers and guests work without it, and moving the order's `person_id` to `buyer_party_id` later is one small migration |
-| Q12 | 15 October 2026 | Today's duplicates across departments of one account: merged by the administration with the merge tool from a report of probable duplicates, or left as two parties? (architecture CLI) | "ja, laten staan" (Koen): left, with a report (same last name, first name, birth date, postal code) for the administration; no automatic merge |
+| Q12 | 15 October 2026 | Today's duplicates across departments of one account: merged by the administration with the merge tool from a report of probable duplicates, or left as two parties? (architecture CLI) | "ja, laten staan", then "we doen niets" (Koen): left as they are; no report, no automatic merge; the existing merge tool serves the administration when it recognises one |
 | Q13 | 15 October 2026 | The *acts for* relation: made by the person alone under *Mijn organisatie*, or confirmed by the department before an order on behalf counts? (architecture CLI) | "akkoord zonder bevestiging" (Koen): the person alone; the VAT number is checked in form, the invoice carries it, a wrongly addressed invoice is credited (CR-34); a confirmation task on the workbench is a row later if abuse appears |
 | Q14 | 15 October 2026 | Does a company order need more than the buyer: a purchase-order reference on the invoice, a delivery address apart from the organisation's? (architecture CLI) | "die twee zaken zijn out-of-scope, dus onderdeel van een nieuwe CR" (Koen); Non-goals |
 | Q1–Q10 | 15 October 2026 | The ten questions of Q&A nr. 05 (architecture CLI) | Koen's answers in B9; questions 4, 5, 6, 9 and 10 settled in the chat the same day, 6 revised from *per tenant* to *per account* on his reading, and once more the same afternoon: the household per account too, memberships per department ("Ik denk dat ik fout ben. Je bent inderdaad maar één persoon.") |
@@ -565,7 +565,7 @@ Not built.
 ## Non-goals — deliberately outside this change
 
 - Member pricing for members of another department (R11).
-- Automatic merging of duplicates across departments (R12); the merge tool and Q12's report serve the administration.
+- Merging today's duplicates across departments (R12): nothing is done, no report (Koen: "we doen niets"); the merge tool exists when the administration recognises one; the import prevents new duplicates.
 - The account workspace (CR-19 B9): the screens where the account sees and moves its members; this change gives the data and the one-household rule, not the screens.
 - A role table (R9): comes with the first role without a fact.
 - VIES validation of VAT numbers; CR-34 or CR-35 may add it.
