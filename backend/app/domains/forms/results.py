@@ -4,6 +4,8 @@ Berekent per veld de tellingen die de admin-resultaten-tab toont, zodat niet all
 ruwe inzendingen naar de browser hoeven (schaalt beter, minder PII in de client).
 """
 
+from decimal import Decimal
+
 from sqlalchemy import func
 
 from app.domains.forms.models import (
@@ -106,7 +108,8 @@ def compute_results(db, form: Form) -> dict:
                 for n in range(1, top + 1)
             ]
             entry["response_count"] = total
-            entry["average"] = round(weighted / total, 2) if total else None
+            # #2014: a Decimal to the end, shown as a plain number ("4,33").
+            entry["average"] = plain_number(Decimal(weighted) / Decimal(total)) if total else None
 
         elif ftype is FieldType.NUMBER:
             agg = (

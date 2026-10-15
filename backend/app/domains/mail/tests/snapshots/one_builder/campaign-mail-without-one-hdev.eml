@@ -1,0 +1,13 @@
+Content-Type: multipart/alternative; boundary="<B1>"
+MIME-Version: 1.0
+Subject: [HDEV] Onderwerp
+From: Raak Millegem <sender@example.com>
+To: to@example.com
+
+--<B1>
+Content-Type: text/html; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+
+<p style="margin:0 0 16px;padding:8px 12px;background:#fff3cd;color:#664d03;font:14px/1.4 Arial,sans-serif;text-align:center">Dit bericht komt van de testomgeving HDEV.</p><p>Brief</p>
+--<B1>--

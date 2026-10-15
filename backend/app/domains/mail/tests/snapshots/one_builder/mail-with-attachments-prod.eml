@@ -1,0 +1,27 @@
+Content-Type: multipart/mixed; boundary="<B1>"
+MIME-Version: 1.0
+Subject: Onderwerp
+From: Raak Millegem <sender@example.com>
+To: a@example.com, b@example.com
+
+--<B1>
+Content-Type: multipart/alternative; boundary="<B2>"
+MIME-Version: 1.0
+
+--<B2>
+Content-Type: text/html; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+
+<p>Notulen</p>
+--<B2>--
+
+--<B1>
+Content-Type: text/plain
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="notulen.txt"
+
+YmlqbGFnZQ==
+
+--<B1>--
