@@ -30,7 +30,7 @@ class SlugBestaatAl(ValueError):
 #: own (#1510). A block is known by its slug and nothing else — measured: no
 #: kind exists, and `show_in_nav=False` also marks real pages such as
 #: `privacy`. `seed_site_blocks` seeds exactly these.
-SITE_BLOCK_SLUGS: tuple[str, ...] = ("home-intro", "site-footer")
+SITE_BLOCK_SLUGS: tuple[str, ...] = ("site-footer",)
 
 
 def is_page(slug: str) -> bool:
@@ -71,7 +71,9 @@ def published_slugs(db) -> list[str]:
         for p in (
             db.query(CmsPage).filter(CmsPage.is_published.is_(True)).order_by(CmsPage.slug).all()
         )
-        if is_page(p.slug)
+        # The home page stands at `/` (listed with the shell's own paths); its slug
+        # is a second address for the same page (CR-32 R17).
+        if is_page(p.slug) and not p.is_home
     ]
 
 
@@ -146,22 +148,20 @@ def create_page(db, data) -> CmsPage:
 
 
 def seed_site_blocks(db, tenant_id: int, name: str) -> None:
-    """The two blocks a new tenant's site starts with (CR-19 §C2 cms, #1478).
+    """What a new tenant's site starts with (CR-19 §C2 cms, #1478; CR-32 R17): the
+    footer block and the home page.
 
-    Without them a fresh site is an empty page: the home page renders
-    `home-intro` and the shell renders `site-footer`, and neither exists for a
-    tenant created through the editor. Placeholder text in Dutch, the language a
-    new tenant starts in; the address and contact come from the organisation
-    record through `site_context` already. Idempotent: a block that exists is
-    left as it is. Flushes; the caller's transaction commits.
+    Without them a fresh site is an empty page: the shell renders `site-footer`
+    and `/` renders the tenant's flagged home page (`seed_home_page`), and
+    neither exists for a tenant created through the editor. Placeholder text in
+    Dutch, the language a new tenant starts in; the address and contact come
+    from the organisation record through `site_context` already. Idempotent: a
+    block or a home page that exists is left as it is. Flushes; the caller's
+    transaction commits.
     """
     from html import escape
 
     seeded = {
-        "home-intro": (
-            "Welkom",
-            f"<p>Welkom bij {escape(name)}. Deze tekst past u aan onder Pagina's.</p>",
-        ),
         "site-footer": ("Voettekst", f"<p>{escape(name)}</p>"),
     }
     # #1510: the seed is the block list's — a block seeded and not listed would
@@ -198,6 +198,98 @@ def seed_site_blocks(db, tenant_id: int, name: str) -> None:
                 )
             )
     db.flush()
+    seed_home_page(db, tenant_id, name)
+
+
+def seed_home_page(db, tenant_id: int, name: str, *, intro_blocks=None) -> "CmsPage | None":
+    """The tenant's home page, when it has none (CR-32 R17; Koen, 15 October
+    2026: "a op 4 en 5"): a page of the CMS, flagged as home and published, built
+    by `home_document` from the intro the tenant already had (`intro_blocks`; a
+    welcome line for a tenant that never had one) and from the modules it has on.
+    A tenant that already flagged a page — published or not — is left alone: this
+    never touches an existing page. Titled with the site's name, which the board
+    changes under Pagina's; slug `start`, not in the menu (the shell's *Home*
+    is the way to it). Returns the page, or None when it left things as they were.
+    Flushes; the caller's transaction commits."""
+    from datetime import datetime, timezone
+
+    from app.domains.cms.home_page import home_document
+    from app.domains.cms.models import CmsPageHistory
+    from app.domains.forms.api import CONTACT_FORM_SLUG
+    from app.domains.mdm.api import enabled_modules
+
+    if (
+        db.query(CmsPage.id)
+        .filter(CmsPage.tenant_id == tenant_id, CmsPage.is_home.is_(True))
+        .execution_options(include_all_tenants=True)
+        .first()
+        is not None
+    ):
+        return None
+    taken = {
+        slug
+        for (slug,) in db.query(CmsPage.slug)
+        .filter(CmsPage.tenant_id == tenant_id)
+        .execution_options(include_all_tenants=True)
+        .all()
+    }
+    slug = "start" if "start" not in taken else "startpagina"
+    if slug in taken:
+        return None
+    modules = enabled_modules(tenant_id, db=db)
+    if intro_blocks is None:
+        intro_blocks = [
+            {
+                "type": "paragraph",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Welkom bij {name}. Deze tekst past u aan onder Pagina's.",
+                    }
+                ],
+            }
+        ]
+    document = home_document(
+        intro_blocks,
+        membership="membership" in modules,
+        activities="activities" in modules,
+        contact_slug=CONTACT_FORM_SLUG if "forms" in modules else None,
+    )
+    now = datetime.now(timezone.utc)
+    page = CmsPage(
+        tenant_id=tenant_id,
+        slug=slug,
+        title=name[:200],
+        content=None,
+        is_published=True,
+        show_in_nav=False,
+        is_home=True,
+    )
+    db.add(page)
+    db.flush()
+    db.add(
+        CmsPageTranslation(
+            page_id=page.id,
+            language=_language(db, page),
+            title=name[:200],
+            draft_json=document,
+            published_json=document,
+            published_at=now,
+            published_by="seed",
+        )
+    )
+    db.add(
+        CmsPageHistory(
+            page_id=page.id,
+            language=_language(db, page),
+            action="published",
+            document=document,
+            at=now,
+            by="seed",
+        )
+    )
+    db.flush()
+    return page
 
 
 def _check_opening(data) -> None:
