@@ -155,7 +155,7 @@ def _objects_section() -> list[str]:
         "nothing rolls groups together today.",
         "",
         "**AI** is how far the object may travel towards a language model "
-        "(CR-07 §5.1): `admin_plain` as it is, `admin_tokenised` only as a "
+        "(CR-07 §5.1): `internal` as it is, `tokenised` only as a "
         "token like `gezin-23`, `none` never. The field has no default in "
         "the declaration — adding an object without deciding this is an "
         "import error, not an oversight that ships.",

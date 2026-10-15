@@ -52,6 +52,8 @@ def bare_shell_env(*extra_dirs) -> Environment:
     from app.ui import templates
 
     env.filters["geld"] = templates.env.filters["geld"]
+    # CR-33: the kit's `field` reads its label through this global.
+    env.globals["attribute_label"] = templates.env.globals["attribute_label"]
     # `beheer_account(request)` staat achter `request is defined` in de schil en
     # hoeft hier dus niet.
     return env
