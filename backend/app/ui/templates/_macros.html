@@ -1784,6 +1784,33 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   {% endcall %}
 </div>
 {% endif %}
+{% if blocks.activity %}
+{# The letter's activity dialog (CR-17 phase 7): one of the activities the letter
+   features (`blocks.activity.activities`, the caller's own list). The block holds the
+   activity's id; the mail shows its picture, name, when and where and the sign-up
+   link, built when the letter is sent. Nothing featured: the dialog says where
+   to choose. #}
+<div x-data="{ activity: false, aId: {{ blocks.activity.activities[0].id if blocks.activity.activities else 'null' }} }"
+     @raak-activity-choose.window="if ($event.detail.editor === '{{ editor_id }}') activity = true"
+     @raak-activity-apply.window="if (activity && aId) { $dispatch('raak-activity-chosen', { editor: '{{ editor_id }}', activity_id: Number(aId) }); activity = false }">
+  {% call _editor_dialog("activity", _("Activiteit"), editor_id, max_w="max-w-lg") %}
+  {% if blocks.activity.activities %}
+  {{ label(blocks.activity.activityLabel, editor_id ~ "-activity-pick") }}
+  <select id="{{ editor_id }}-activity-pick" class="w-full border border-gray-300 rounded-lg px-3 py-2" x-model="aId" data-activity-pick>
+    {% for a in blocks.activity.activities %}
+    <option value="{{ a.id }}">{{ a.label }}</option>
+    {% endfor %}
+  </select>
+  {% else %}
+  <p class="text-sm text-gray-600">{{ blocks.activity.emptyLabel }}</p>
+  {% endif %}
+  <div class="mt-4 flex justify-end gap-2">
+    {{ btn_secondary(_("Annuleren"), attrs='@click="activity = false"') }}
+    {% if blocks.activity.activities %}{{ btn_primary(_("Invoegen"), type="button", attrs='@click="$dispatch(\'raak-activity-apply\')" data-activity-apply') }}{% endif %}
+  </div>
+  {% endcall %}
+</div>
+{% endif %}
 {% if blocks.figure %}
 {# The dialog opens empty for a new picture, and filled with what a placed
    picture holds when the choose event carries it (`attrs`, `url`): that

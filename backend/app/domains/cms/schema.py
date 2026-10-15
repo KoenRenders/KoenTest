@@ -193,6 +193,15 @@ NODES: dict[str, dict[str, Any]] = {
     # photos) is the media module's, supplied at render time; the service refuses
     # an activity that is not an album at the save (the validator knows no data).
     "gallery": {"group": "block", "attrs": {"activity_id": "int"}},
+    # CR-17 phase 7 (F9): the letter's three blocks, replacing the markers of the
+    # Trix era. One activity of the activities module — the mail shows its picture,
+    # name, when and where, and the sign-up link, built at the moment of sending;
+    # the calendar of the activities the letter's own choices name ("In de
+    # kalender"); and the closing every letter ends with. Leaves, built by the
+    # mail renderer (`newsletter`); a page renders them as nothing.
+    "activity": {"group": "block", "attrs": {"activity_id": "int"}},
+    "calendar": {"group": "block"},
+    "closing": {"group": "block"},
     # CR-32 R15 (F14): the upcoming activities as the home page shows them, at most
     # `count` of them; the data is the activities module's.
     # In no group, like `section`: a data block stands at the root and nowhere else
@@ -369,16 +378,15 @@ BLOCK_SETS: dict[str, dict[str, Any]] = {
             "value",
         ),
     },
-    # Phase 7; the shape stands here so the one schema is the whole design.
+    # The letter (phase 7, F9): text, a picture, a button, an activity, the
+    # calendar and the closing. Headings are the three levels like a page's; the
+    # mail renderer gives them the letter's look.
     "letter": {
         "marks": ("bold", "italic", "link"),
-        "headings": (),
+        "headings": HEADING_LEVELS,
         "lists": ("bulletList", "orderedList"),
         "blocks": (),
-        # Phase 7's activity, calendar and closing nodes do not exist yet; a set
-        # may not offer what the schema refuses (review B3, #1673) - they join
-        # when phase 7 adds their shapes.
-        "insert": ("figure", "button"),
+        "insert": ("figure", "button", "activity", "calendar", "closing"),
     },
     "notes": {
         "marks": ("bold", "italic", "strike"),
@@ -769,6 +777,9 @@ def _toolbar_label(command_id: str) -> str:
         "cards": _("Kaarten"),
         "section": _("Sectie"),
         "gallery": _("Galerij"),
+        "activity": _("Activiteit"),
+        "calendar": _("Kalender"),
+        "closing": _("Afsluiting"),
         "activities": _("Activiteiten"),
         "albums": _("Albumkaart"),
         "value": _("Code"),
@@ -779,6 +790,7 @@ def schema_for(
     set_name: str,
     *,
     albums: "list[tuple[int, str]] | None" = None,
+    letter_activities: "list[tuple[int, str]] | None" = None,
     data_blocks: "Iterable[str] | None" = None,
 ) -> dict[str, Any]:
     """The editor's configuration for one set, as data for the macro.
@@ -921,6 +933,17 @@ def schema_for(
                 "albumLabel": _("Album"),
             }
             if albums and "gallery" in BLOCK_SETS[set_name]["insert"]
+            else None
+        ),
+        # The letter's activity dialog (CR-17 phase 7): the activities the letter
+        # features — `(activity id, label)` from the caller, who owns the data.
+        "activity": (
+            {
+                "activities": [{"id": i, "label": label} for i, label in (letter_activities or [])],
+                "activityLabel": _("Activiteit"),
+                "emptyLabel": _("Kies eerst uitgelichte activiteiten bovenaan de brief."),
+            }
+            if "activity" in BLOCK_SETS[set_name]["insert"]
             else None
         ),
         # The section's tone choice, in words (CR-32): the same names the
