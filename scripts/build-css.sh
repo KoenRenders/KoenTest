@@ -741,6 +741,12 @@ body[data-shell="site"]>main{padding-bottom:24px}
 .prose-raak h2{font-size:1.25rem;font-weight:700;color:var(--brand-ocean);margin:1rem 0 .5rem}
 .prose-raak h3{font-size:1.1rem;font-weight:600;margin:.75rem 0 .25rem}
 .prose-raak h4{font-weight:600;margin:.5rem 0 .25rem}
+/* The editor's surface shows the three heading levels at the sizes it showed
+   when they were stored as h1–h3 (CR-32 R21: Kop, Subkop and Kleine kop are
+   h2–h4 now), so what the author sees does not shrink a step. */
+.prose-raak.de-surface h2{font-size:1.5rem;font-weight:700;margin:1rem 0 .5rem}
+.prose-raak.de-surface h3{font-size:1.25rem;font-weight:700;color:var(--brand-ocean);margin:1rem 0 .5rem}
+.prose-raak.de-surface h4{font-size:1.1rem;font-weight:600;margin:.75rem 0 .25rem}
 .prose-raak p{margin:.5rem 0;line-height:1.6}
 .prose-raak ul{list-style:disc;padding-left:1.5rem;margin:.5rem 0}
 .prose-raak ol{list-style:decimal;padding-left:1.5rem;margin:.5rem 0}
@@ -864,8 +870,38 @@ body[data-shell="site"]>main{padding-bottom:24px}
    remembering her. On a phone the viewport minus her gutters (the shell's
    <main> gives them). */
 .doc-page{width:100%;max-width:1024px;margin-left:auto;margin-right:auto}
-.doc-page>:not(.prose-raak){max-width:768px}
-.doc-page .prose-raak>*:not(table):not(.prose-figure--full):not(.prose-columns):not(.prose-cards){max-width:768px}
+.doc-page>:not(.prose-raak):not(.prose-hero){max-width:768px}
+.doc-page .prose-raak>*:not(table):not(.prose-figure--full):not(.prose-columns):not(.prose-cards):not(.prose-section){max-width:768px}
+/* ── CR-32 (F1–F3, F5): a band that spans the page, with the container put back
+   inside it. The band breaks out of `.doc-page` by the width the container
+   leaves on each side (margin) and takes the same width back as padding, so
+   its content stands exactly where the text above it stands — one left line,
+   at every width — and no wrapper is needed. `.prose-section` is a section of
+   the document, `.prose-hero` the opening of a page (the template's); the
+   tone is a name, the pixels come from the tenant's brand tokens (#1622). The
+   body clips sideways: 100vw counts a scrollbar the page does not have. */
+body[data-shell="site"]{overflow-x:clip}
+.prose-section,.prose-hero{margin-inline:calc(50% - 50vw);padding-inline:calc(50vw - 50%)}
+.prose-section{padding-block:2.5rem}
+.prose-section>:first-child{margin-top:0}
+.prose-section>:last-child{margin-bottom:0}
+.doc-page .prose-section>*:not(table):not(.prose-figure--full):not(.prose-columns):not(.prose-cards){max-width:768px}
+.prose-section--tint,.prose-hero--tint{background:rgb(var(--c-blue-50))}
+.prose-section--accent,.prose-hero--accent{background:rgb(var(--c-accent));color:rgb(var(--c-on-accent))}
+.prose-raak .prose-section--accent :is(h2,h3,h4){color:inherit}
+.prose-section-eyebrow,.prose-hero-eyebrow{margin:0 0 .5rem;font-size:.8125rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgb(var(--c-brand))}
+.prose-section--accent .prose-section-eyebrow,.prose-hero--accent .prose-hero-eyebrow{color:inherit}
+.prose-hero{padding-block:3rem;margin-bottom:2rem}
+/* In the editor a section is a framed band, not a full-bleed one: the surface
+   is already the page's width, and her bar (tone, eyebrow) sits above her blocks. */
+.de-surface .prose-section{margin-inline:0;padding:1rem;border:1px dashed rgb(var(--c-line))}
+.de-section-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:.75rem;font-size:.875rem}
+.de-section-bar select,.de-section-bar input{min-height:36px;padding:0 .5rem;border:1px solid rgb(var(--c-line));border-radius:6px;background:rgb(var(--c-surface));color:rgb(var(--c-ink))}
+.de-section-eyebrow{flex:1 1 12rem;min-width:0}
+.prose-hero-lead{margin:1rem 0 0;max-width:768px;font-size:1.25rem;line-height:1.5}
+.prose-hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:1.5rem}
+body[data-shell="site"] #main .prose-hero-title{margin:0;font-size:2.25rem;line-height:1.1}
+@media (min-width:768px){body[data-shell="site"] #main .prose-hero-title{font-size:3.5rem}}
 /* ── The Assistent panel (CR-11 pilot A, K8 — #1562; end state §3.15) ──────────
    One component, `_raakje_panel.html`, in two modes.
 

@@ -24,7 +24,15 @@ def test_schema_for_names_exactly_the_page_set():
     # Phase 2 (#1679, C4.13's menu order): Tabel · Afbeelding · Kolommen ·
     # Knop · Kader — Linkkaart · Kaarten · Formulier join as their commits
     # build them.
-    assert config["insert"] == ["table", "figure", "columns", "button", "callout", "cards"]
+    assert config["insert"] == [
+        "table",
+        "figure",
+        "columns",
+        "button",
+        "callout",
+        "cards",
+        "section",
+    ]
     assert [h["level"] for h in config["headings"]] == [2, 3, 4]
     assert set(config["marks"]) == {"bold", "italic", "strike", "link"}
     assert config["nodes"] == sorted(schema.NODES)

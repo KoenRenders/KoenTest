@@ -63,6 +63,11 @@ class CmsPage(TenantMixin, Base):
     # `privacy_url`.
     show_in_footer = Column(Boolean, default=False, server_default=false(), nullable=False)
     sort_order = Column(Integer, default=0, nullable=False)
+    # CR-32 F4 (B8.11): how the page opens — the title line or a hero — and
+    # the hero's own words and buttons (`schema.validate_hero`); the hero is
+    # kept when the page goes back to the title line.
+    opening = Column(String(16), default="title_line", server_default="title_line", nullable=False)
+    hero = Column(JSONB, nullable=True)
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )

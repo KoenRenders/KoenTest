@@ -10,6 +10,7 @@ from app.domains.cms.models import (  # noqa: F401
 from app.domains.cms.render import (  # noqa: F401
     _format_md,
     _format_price,
+    hero_view,
     render_cms_content,
     render_document,
     sanitize_cms_html,

@@ -480,6 +480,11 @@ class TestEveryNodeRenders:
             {"type": "callout", "content": [{"type": "text", "text": "Let op."}]},
             {"type": "blockquote", "content": [_par("Een citaat.")]},
             {
+                "type": "section",
+                "attrs": {"tone": "tint", "eyebrow": "Bovenkopje"},
+                "content": [_par("In een sectie.")],
+            },
+            {
                 "type": "cards",
                 "content": [
                     {
@@ -514,6 +519,7 @@ class TestEveryNodeRenders:
             "Lees meer",
             "Let op.",
             "Een kaart",
+            "In een sectie.",
         ):
             assert word in html, word
 
