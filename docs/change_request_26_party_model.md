@@ -1,7 +1,7 @@
 # CR-26 — The party model: one person and one organisation per account, the facts per tenant
 
 **Status:** shaped on 15 October 2026 by the architecture CLI with Koen (Q&A nr. 05 of 15 October 2026, nine questions and a tenth answered the same day) · depends on CR-20 (tenant apart from organisation, #1578), decided and not built · not assigned to a release · build read not yet asked
-**Tracking issue:** to be created by the master CLI; until then the Q&A of 13 and 15 October 2026 and E28 of the architecture document are the status
+**Tracking issue:** #2020 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** `mdm` (persons, organisations, households, addresses, contacts, identifications, bank accounts: the party and what hangs on it), the kernel's tenancy (an account scope beside the tenant scope), `auth` (who a sign-in is), `membership` (one household at a time), `sales` (the buyer of an order, CR-21), the public account pages (*Mijn organisatie*), reporting (the views on persons and addresses)
 **Reading:** A 1 894 words · B 3 641 · C 3 482 — measured on 15 October 2026, drawings excluded, tables included; prose alone A 826 · B 1 545 · C 2 454. The budget is A ≤ 1 500, B ≤ 2 500: over budget in the tables (the requirements, the traceability matrix, the standards table, the decisions log), the prose within it; Koen accepted the same for CR-32 and CR-33
 
@@ -564,7 +564,7 @@ Not built.
 
 ## Relationship to existing work — issues and change requests
 
-- Tracking issue: to be created; E28 of the architecture document is the row; Q&A nr. 03 (13 October 2026) and nr. 05 (15 October 2026) hold Koen's words.
+- Tracking issue #2020; E28 of the architecture document is the row; Q&A nr. 03 (13 October 2026) and nr. 05 (15 October 2026) hold Koen's words.
 - CR-20 (tenant apart from organisation, #1578): phase 0; its F3 `role` column goes (B4).
 - CR-19 (tenant types): B9's account direction, kept.
 - CR-21 (webshop): `sales_orders` gets the buyer; the checkout choice.
