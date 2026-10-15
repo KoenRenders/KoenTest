@@ -2,7 +2,7 @@
 
 **Project:** Web Portal "Raak Millegem"
 **Status:** shaped with Koen on 15 October 2026 · not assigned to a release; open decisions in B8, and nothing is built before Q1 is answered
-**Tracking issue:** to be opened by the master CLI
+**Tracking issue:** #2027 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (rendering of a letter, a public pixel and redirect route, the archive screen of a sent letter), the tenant settings
 **Reading:** A 625 words · B 691 · C 837 — measured per part; A ≤ 1 500, B ≤ 2 500
 
