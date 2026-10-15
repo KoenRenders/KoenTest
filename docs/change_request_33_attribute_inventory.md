@@ -1,35 +1,34 @@
 # CR-33 appendix — the inventory of the data model, per module
 
-Generated from the ORM metadata by `scripts/attribute-inventory.py`, measured on the build branch of CR-21 (webshop) on 15 October 2026; the schemas sales, product, stock and pricing are not on master yet and are marked. Re-generated on the handover commit of phase 1 (C1). The classification per row follows the rules K0–K10 below; every rule and every exception was decided by Koen on 15 October 2026 (the Q&A log of the change request, Q10 and Q12).
+Generated from the ORM metadata by `scripts/attribute-inventory.py`; re-generated on master at the handover of phase 1 of CR-33 (15 October 2026), which carries no webshop schema yet (sales, product, stock and pricing arrive with CR-21; their columns are registered by whichever of the two lands second, Q9). The classification per row follows the rules K0–K10 below; every rule and every exception was decided by Koen on 15 October 2026 (the Q&A log of the change request, Q10 and Q12).
 
-Business columns: **426**; technical columns by the metadata (primary key, foreign key to a table that is no code list, tenant_id, timestamps): 332, covered by one rule (never shown, to a model only as the token they already are).
+Business columns: **381**; technical columns by the metadata (primary key, foreign key to a table that is no code list, tenant_id, timestamps): 281, covered by one rule (never shown, to a model only as the token they already are).
 
 **Reading:** the label is a proposal where the column name has a fixed word, empty where the build chooses it with the screen that shows the datum. The classification comes from a RULE (K0–K10), named per row. Levels: public (the public assistant may say it) · plain = **intern** (the back-office assistant only) · tokenised (the back-office assistant sees persoon-90) · never. Every row is decided (Koen, 15 October 2026).
 
 | Classification (plain = intern) | Rows |
 |---|---|
-| plain | 287 |
-| never | 70 |
-| public | 63 |
-| tokenised | 6 |
+| plain | 261 |
+| never | 66 |
+| public | 49 |
+| tokenised | 5 |
 
 | Rule | Rows |
 |---|---|
-| K0 a code: the label is the code list's, the value is a code | 51 |
-| K1 identifies a person, names who did it, or is a secret or an opaque payload | 53 |
+| K0 a code: the label is the code list's, the value is a code | 49 |
+| K1 identifies a person, names who did it, or is a secret or an opaque payload | 50 |
 | K10 one column, several data: per key; the membership amounts and dates are public, the rest never (Koen, 15 October 2026) | 1 |
 | K10 one column, several data: the label comes from the code | 1 |
-| K2 the name of a person: the token stands for it | 6 |
+| K2 the name of a person: the token stands for it | 5 |
 | K3 a mail to a person: its text names the person | 4 |
-| K3 free text or an address beside a person's payment, mail or stock movement (Koen, 15 October 2026) | 4 |
+| K3 free text or an address beside a person's payment, mail or stock movement (Koen, 15 October 2026) | 3 |
 | K3 free text written about or by a person | 2 |
 | K3 the board's meeting: files, notes and the members discussed never go to a model (Koen, 15 October 2026) | 6 |
 | K4 public content (pages, media) | 30 |
 | K5 what the public activity page already shows | 19 |
-| K5 what the public shop page shows: articles, sizes, prices, availability (Koen, 15 October 2026) | 14 |
 | K7 free text of the organisation, not about a person: intern (Koen, 15 October 2026, Q&A nr. 03) | 13 |
-| K8 an amount, a date, a count, a flag or a code | 153 |
-| K9 a label of the organisation no other rule names: intern (Koen, 15 October 2026, Q&A nr. 03) | 53 |
+| K8 an amount, a date, a count, a flag or a code | 131 |
+| K9 a label of the organisation no other rule names: intern (Koen, 15 October 2026, Q&A nr. 03) | 51 |
 | K9 the tenant's own definitions and organisations: internal (Koen, 15 October 2026) | 16 |
 
 
@@ -443,60 +442,6 @@ Business columns: **426**; technical columns by the metadata (primary key, forei
 | export_log | filters | JSON |  |  |  | plain | K9 a label of the organisation no other rule names: intern (Koen, 15 October 2026, Q&A nr. 03) |
 | export_log | row_count | INTEGER | required |  |  | plain | K8 an amount, a date, a count, a flag or a code |
 
-## sales — **CR-21, in build, not on master** — 14 business columns, 19 technical
-
-| Table | Column | Type | | FK | Label (proposal) | Classification | Rule |
-|---|---|---|---|---|---|---|---|
-| sales_orders | person_id | INTEGER |  |  |  | plain | K8 an amount, a date, a count, a flag or a code |
-| sales_orders | guest_name | VARCHAR(200) |  |  |  | tokenised | K2 the name of a person: the token stands for it |
-| sales_orders | guest_email | VARCHAR(200) |  |  |  | never | K1 identifies a person, names who did it, or is a secret or an opaque payload |
-| sales_orders | guest_mobile | VARCHAR(200) |  |  |  | never | K1 identifies a person, names who did it, or is a secret or an opaque payload |
-| sales_orders | payment_method | VARCHAR(20) |  |  | Betaalwijze | plain | K9 a label of the organisation no other rule names: intern (Koen, 15 October 2026, Q&A nr. 03) |
-| sales_orders | placed_at | DATETIME | required |  |  | plain | K8 an amount, a date, a count, a flag or a code |
-| shop_contacts | person_id | INTEGER | required |  |  | plain | K8 an amount, a date, a count, a flag or a code |
-| shop_contacts | sort_order | INTEGER | required |  | Volgorde | plain | K8 an amount, a date, a count, a flag or a code |
-| shop_settings | intro | TEXT |  |  |  | public | K5 what the public shop page shows: articles, sizes, prices, availability (Koen, 15 October 2026) |
-| sales_order_lines | variant_id | INTEGER | required |  |  | plain | K8 an amount, a date, a count, a flag or a code |
-| sales_order_lines | quantity | INTEGER | required |  | Aantal | plain | K8 an amount, a date, a count, a flag or a code |
-| sales_order_lines | unit_code | VARCHAR(8) | required |  |  | plain | K8 an amount, a date, a count, a flag or a code |
-| sales_order_lines | unit_price | NUMERIC(10, 2) | required |  |  | plain | K8 an amount, a date, a count, a flag or a code |
-| sales_order_lines | delivered_at | DATETIME |  |  |  | plain | K8 an amount, a date, a count, a flag or a code |
-
-## stock — **CR-21, in build, not on master** — 13 business columns, 14 technical
-
-| Table | Column | Type | | FK | Label (proposal) | Classification | Rule |
-|---|---|---|---|---|---|---|---|
-| stock_locations | name | VARCHAR(255) | required |  | Naam | plain | K9 a label of the organisation no other rule names: intern (Koen, 15 October 2026, Q&A nr. 03) |
-| stock_locations | is_default | BOOLEAN | required |  |  | plain | K8 an amount, a date, a count, a flag or a code |
-| stock_movements | variant_id | INTEGER | required |  |  | plain | K8 an amount, a date, a count, a flag or a code |
-| stock_movements | quantity | INTEGER | required |  | Aantal | plain | K8 an amount, a date, a count, a flag or a code |
-| stock_movements | reason | VARCHAR(20) | required | → stock.movement_reason_codes | (label of the code list) | plain | K0 a code: the label is the code list's, the value is a code |
-| stock_movements | occurred_at | DATETIME | required |  |  | plain | K8 an amount, a date, a count, a flag or a code |
-| stock_movements | order_line_id | INTEGER |  |  |  | plain | K8 an amount, a date, a count, a flag or a code |
-| stock_movements | note | TEXT |  |  | Opmerking | never | K3 free text or an address beside a person's payment, mail or stock movement (Koen, 15 October 2026) |
-| stock_movements | actor | VARCHAR(255) |  |  |  | never | K1 identifies a person, names who did it, or is a secret or an opaque payload |
-| stock_reservations | order_line_id | INTEGER |  |  |  | plain | K8 an amount, a date, a count, a flag or a code |
-| stock_reservations | variant_id | INTEGER | required |  |  | plain | K8 an amount, a date, a count, a flag or a code |
-| stock_reservations | quantity | INTEGER | required |  | Aantal | plain | K8 an amount, a date, a count, a flag or a code |
-| stock_reservations | status | VARCHAR(20) | required | → stock.reservation_status_codes | (label of the code list) | plain | K0 a code: the label is the code list's, the value is a code |
-
-## product — **CR-21, in build, not on master** — 12 business columns, 14 technical
-
-| Table | Column | Type | | FK | Label (proposal) | Classification | Rule |
-|---|---|---|---|---|---|---|---|
-| products | name | VARCHAR(255) | required |  | Naam | public | K5 what the public shop page shows: articles, sizes, prices, availability (Koen, 15 October 2026) |
-| products | description | TEXT |  |  | Omschrijving | public | K5 what the public shop page shows: articles, sizes, prices, availability (Koen, 15 October 2026) |
-| products | status | VARCHAR(20) | required | → product.product_status_codes | Status | public | K5 what the public shop page shows: articles, sizes, prices, availability (Koen, 15 October 2026) |
-| products | pre_order | BOOLEAN | required |  |  | public | K5 what the public shop page shows: articles, sizes, prices, availability (Koen, 15 October 2026) |
-| products | pre_order_until | DATE |  |  |  | public | K5 what the public shop page shows: articles, sizes, prices, availability (Koen, 15 October 2026) |
-| product_attachments | media_asset_id | INTEGER | required |  |  | plain | K8 an amount, a date, a count, a flag or a code |
-| product_attachments | title | VARCHAR(255) |  |  | Titel | public | K5 what the public shop page shows: articles, sizes, prices, availability (Koen, 15 October 2026) |
-| product_attachments | description | VARCHAR(255) |  |  | Omschrijving | public | K5 what the public shop page shows: articles, sizes, prices, availability (Koen, 15 October 2026) |
-| product_attachments | sort_order | INTEGER | required |  | Volgorde | plain | K8 an amount, a date, a count, a flag or a code |
-| product_variants | sku | VARCHAR(64) |  |  |  | public | K5 what the public shop page shows: articles, sizes, prices, availability (Koen, 15 October 2026) |
-| product_variants | properties | JSON | required |  |  | public | K5 what the public shop page shows: articles, sizes, prices, availability (Koen, 15 October 2026) |
-| product_variants | sort_order | INTEGER | required |  | Volgorde | plain | K8 an amount, a date, a count, a flag or a code |
-
 ## auth — 11 business columns, 12 technical
 
 | Table | Column | Type | | FK | Label (proposal) | Classification | Rule |
@@ -538,17 +483,6 @@ Business columns: **426**; technical columns by the metadata (primary key, forei
 | email_log | body | TEXT |  |  | Tekst | never | K3 a mail to a person: its text names the person |
 | email_log | status | VARCHAR(20) | required | → mail.mail_status_codes | Status | never | K3 a mail to a person: its text names the person |
 | email_log | error_message | TEXT |  |  |  | never | K1 identifies a person, names who did it, or is a secret or an opaque payload |
-
-## pricing — **CR-21, in build, not on master** — 6 business columns, 4 technical
-
-| Table | Column | Type | | FK | Label (proposal) | Classification | Rule |
-|---|---|---|---|---|---|---|---|
-| prices | product_id | INTEGER | required |  |  | plain | K8 an amount, a date, a count, a flag or a code |
-| prices | variant_id | INTEGER |  |  |  | plain | K8 an amount, a date, a count, a flag or a code |
-| prices | price_type | VARCHAR(20) | required | → pricing.price_type_codes |  | public | K5 what the public shop page shows: articles, sizes, prices, availability (Koen, 15 October 2026) |
-| prices | amount | NUMERIC(10, 2) | required |  | Bedrag | public | K5 what the public shop page shows: articles, sizes, prices, availability (Koen, 15 October 2026) |
-| prices | currency | VARCHAR(3) | required |  |  | public | K5 what the public shop page shows: articles, sizes, prices, availability (Koen, 15 October 2026) |
-| prices | valid_from | DATE | required |  | Geldig van | public | K5 what the public shop page shows: articles, sizes, prices, availability (Koen, 15 October 2026) |
 
 ## membership — 4 business columns, 6 technical
 
