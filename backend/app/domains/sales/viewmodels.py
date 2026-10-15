@@ -114,6 +114,7 @@ class VerkoopView(ViewModel):
     segment: str
     q: str = ""
     total: int = 0
+    oob: bool = False
     segments: list[dict[str, Any]] = field(default_factory=list)
     nav_items: list[Any] = field(default_factory=list)
 

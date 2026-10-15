@@ -1,4 +1,5 @@
 {% import "_macros.html" as ui %}
+{% if oob %}{{ ui.toolbar_oob("verkoop-filter", segments=segments, page=1, per_page=total, total=total) }}{% endif %}
 {% if not rows %}
 {{ ui.empty_state(_("Geen bestelling gevonden voor deze zoekopdracht.") if q else _("Nog geen bestellingen.")) }}
 {% else %}

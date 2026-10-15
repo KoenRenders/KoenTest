@@ -930,3 +930,72 @@ def test_cancelling_a_paid_order_leaves_the_full_refund_due(db_session, every_mo
     cancel_order(db_session, order_id, actor="beheerder@example.com")
 
     assert open_refund_amount(db_session, PayableType.ORDER, order_id) == Decimal("15.00")
+
+
+def test_the_verkoop_list_segments_and_counter_follow_the_filter(
+    client, db_session, every_module_on
+):
+    """B1/B2 of the review: the fragment route's segments and its toolbar counter
+    follow the filter — the right rows per segment, and "x–y van n" matches."""
+    from app.domains.mdm.api import PaymentMethod
+    from app.domains.payment.api import PayableType
+    from app.domains.payment.models import PaymentRecord
+    from app.domains.payment.service import confirm_manual_payment
+    from app.domains.sales.api import submit_order
+    from tests.conftest import board_session
+
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+
+    _checkout, unpaid_id = submit_order(
+        db_session,
+        person_id=None,
+        member=False,
+        contact_name="An",
+        contact_email="an@example.com",
+        phone="0470000000",
+        method=PaymentMethod.TRANSFER,
+        items=[(m.id, 1)],
+    )
+    _checkout, paid_id = submit_order(
+        db_session,
+        person_id=None,
+        member=False,
+        contact_name="Bo",
+        contact_email="bo@example.com",
+        phone="0470000001",
+        method=PaymentMethod.TRANSFER,
+        items=[(m.id, 1)],
+    )
+    record = (
+        db_session.query(PaymentRecord)
+        .filter(
+            PaymentRecord.payable_type == PayableType.ORDER,
+            PaymentRecord.payable_id == paid_id,
+        )
+        .one()
+    )
+    confirm_manual_payment(db_session, record.id, amount_paid=Decimal("15.00"), actor="test")
+    db_session.commit()
+
+    board_session(client)
+
+    def _lijst(query: str) -> tuple[int, str]:
+        response = client.get(f"/admin/verkoop/lijst{query}")
+        assert response.status_code == 200
+        return response.text.count("<tr data-row"), response.text
+
+    alles, alles_html = _lijst("?segment=alles")
+    assert alles == 2
+    assert "1–2 van 2" in alles_html
+
+    te_betalen, _ = _lijst("?segment=te-betalen")
+    assert te_betalen == 1
+    te_leveren, _ = _lijst("?segment=te-leveren")
+    assert te_leveren == 1
+
+    op_id, _ = _lijst(f"?q={unpaid_id}")
+    assert op_id == 1
+    geen, geen_html = _lijst("?q=zzz")
+    assert geen == 0
+    assert "Geen bestelling gevonden" in geen_html
+    assert "0–0 van 0" in geen_html

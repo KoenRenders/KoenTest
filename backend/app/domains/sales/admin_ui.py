@@ -80,11 +80,15 @@ def verkoop_fragment(
     """The list alone: the segment filter swaps this fragment, so the segment
     control is not replaced under the fingers."""
     return templates.TemplateResponse(
-        request, "_verkoop_lijst.html", _verkoop_view(db, _segment(request), q).as_context()
+        request,
+        "_verkoop_lijst.html",
+        _verkoop_view(db, _segment(request), q, oob=True).as_context(),
     )
 
 
-def _verkoop_view(db: Session, segment: str, q: str = "", *, nav_items=None) -> VerkoopView:
+def _verkoop_view(
+    db: Session, segment: str, q: str = "", *, oob: bool = False, nav_items=None
+) -> VerkoopView:
     """The list's view-model, shared by the page and the fragment (Q81)."""
     orders = list_orders(db)
     if q.strip():
@@ -126,6 +130,7 @@ def _verkoop_view(db: Session, segment: str, q: str = "", *, nav_items=None) -> 
         segment=segment,
         q=q,
         total=len(rows),
+        oob=oob,
         segments=SEGMENTS,
         nav_items=nav_items or [],
     )
