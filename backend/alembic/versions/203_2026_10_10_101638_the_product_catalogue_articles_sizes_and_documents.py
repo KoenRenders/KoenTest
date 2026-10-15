@@ -23,7 +23,7 @@ from app.kernel.codes import create_code_list
 # readability only — alembic ignores it, and sorting on it does not give the
 # head: the head is what `alembic heads` says.
 revision = "203_2026_10_10_101638"
-down_revision = "200_2026_10_06_195129"
+down_revision = "205_2026_10_15_082601"
 branch_labels = None
 depends_on = None
 
