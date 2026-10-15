@@ -44,10 +44,11 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import (  # noqa: E402
+from tests_e2e.schermen import (
     BASE,
     Held,
     htmx_stil,
+    laat_de_wacht_passeren,  # noqa: E402
     login_met_sessie,
     pagina_klaar,
 )
@@ -140,6 +141,7 @@ def test_a_late_price_answer_leaves_the_typed_quantity(browser, setup):
     assert quantity.input_value() == "8", "the late answer put the typed quantity back"
     expect(page.locator("[data-total]")).to_contain_text("80,00")
     page.locator('input[name="payment_method"][value="transfer"]').check()
+    laat_de_wacht_passeren(page)
     page.click("[data-form-save]")
     page.wait_for_url("**/admin/inschrijvingen/*")
     assert _saved(setup["activity"], name) == {setup["first"]: 8}
@@ -208,6 +210,7 @@ def test_the_total_is_the_answer_to_the_fields_also_when_an_older_answer_is_last
     page.fill("#contact_email", "twee-wijzigingen@example.org")
     page.fill("#phone", "0470000000")
     page.locator('input[name="payment_method"][value="transfer"]').check()
+    laat_de_wacht_passeren(page)
     page.click("[data-form-save]")
     expect(page.locator("[data-payment-pending]")).to_contain_text("€ 40,00")
     assert _saved(setup["activity"], name) == {setup["first"]: 1, setup["second"]: 1}

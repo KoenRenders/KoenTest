@@ -14,16 +14,23 @@ send visitor data to a service outside the EU):
   signed with the app's secret. A submission without it did not come from our
   form; one inside `MIN_SECONDS` came faster than anyone can type.
 
-A refused submission gets the ordinary thanks and leaves nothing behind: no row, no
-task, no mail. So the bot learns nothing. It is logged with its reason and an IP
-prefix, never with its content, so the refusals can be counted.
+A refused submission leaves nothing behind: no row, no task, no mail. A filled honeypot
+gets the ordinary thanks, so the bot learns nothing. Every other reason — too fast, a token
+that is missing, unreadable or a week old — is a person's more often than a script's, and since
+#2039 (Koen, 15 October 2026) the person is told: the form comes back as it was typed, with a
+fresh token and one line, "Even geduld, probeer opnieuw." or "Deze pagina was verouderd en is
+niet verstuurd. Kijk je gegevens na en verstuur opnieuw." (`NotSent`); there is no thanks for
+something that does not exist. A script learns to wait two seconds, which it could be measured to
+do anyway. It is logged with its reason and an IP prefix, never with its content, so the
+refusals can be counted.
 
 The checks live in the services (`submit_message`, the public form's submit,
 `subscribe_public`), which take a `Proof`: a route cannot forget them, and the JSON
 way in falls under them too. A caller that is not a visitor's form — the chatbot,
 which has no form to load — says so with `TRUSTED`, visibly, in its own line.
 
-`MIN_SECONDS` is the trap to avoid: too strict and a person is refused in silence.
+`MIN_SECONDS` is the trap to avoid: too strict and a person is refused (now with a line, no
+longer in silence).
 The e2e of this issue sends like a quick person and must pass; it caught a first
 choice of three seconds as too strict.
 """
@@ -152,8 +159,40 @@ def ip_prefix(ip: str) -> str:
     return str(ipaddress.ip_network(f"{address}/{bits}", strict=False))
 
 
+#: What a person reads when the form was not taken (Koen, 15 October 2026, on #2039: "a" and
+#: "akkoord"): the form comes back as it was typed, with a fresh token and one line over it, and
+#: nothing is sent or stored — and no thanks for something that does not exist. Only a filled
+#: honeypot is silent: that is not a person. The Dutch is a message of ours, so it stands here once.
+HURRY_MESSAGE = "Even geduld, probeer opnieuw."
+STALE_MESSAGE = (
+    "Deze pagina was verouderd en is niet verstuurd. Kijk je gegevens na en verstuur opnieuw."
+)
+
+_MESSAGE = {
+    Refusal.TOO_FAST: HURRY_MESSAGE,
+    Refusal.NO_TOKEN: STALE_MESSAGE,
+    Refusal.BAD_TOKEN: STALE_MESSAGE,
+    Refusal.EXPIRED: STALE_MESSAGE,
+}
+
+
+class NotSent(Exception):
+    """The form was not taken: it came in too fast (`HURRY_MESSAGE`), or its token is missing,
+    unreadable or too old (`STALE_MESSAGE`). The door answers with the form again, as typed, a
+    fresh token and `str(exc)` as its one line. A filled honeypot raises nothing: `refused`
+    says it was dropped, and the answer stays the ordinary one."""
+
+    def __init__(self, reason: Refusal) -> None:
+        from app.i18n import _
+
+        super().__init__(_(_MESSAGE[reason]))
+        self.reason = reason
+
+
 def refused(proof: Proof | _Trusted, where: str, now: float | None = None) -> bool:
-    """True when the submission must be dropped; logs the reason, never the content."""
+    """True when the submission is dropped silently (a filled honeypot: not a person);
+    raises `NotSent` for every other reason, so the door can say so. Logs the reason either
+    way, never the content."""
     reason = refusal(proof, now)
     if reason is None:
         return False
@@ -164,4 +203,11 @@ def refused(proof: Proof | _Trusted, where: str, now: float | None = None) -> bo
         reason.value,
         ip_prefix(client_ip),
     )
-    return True
+    if reason is Refusal.HONEYPOT:
+        return True
+    raise NotSent(reason)
+
+
+#: What a service takes as the proof of its form: the visitor's, or `TRUSTED` for a caller
+#: that is not a visitor's form. One name, so mypy refuses anything else (review of #2043, B1).
+AnyProof = Proof | _Trusted

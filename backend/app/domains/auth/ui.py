@@ -71,6 +71,8 @@ def aanmelden_submit(
     db: Session = Depends(get_db),
     email: str = Form(""),
     return_to: str = Form("", alias="terug"),
+    website: str = Form(""),
+    form_ts: str = Form(""),
 ):
     email = email.strip()
     return_to = veilige_terug(return_to, "")
@@ -81,9 +83,20 @@ def aanmelden_submit(
             {"error": _("Vul een geldig e-mailadres in."), "email": email, "terug": return_to},
         )
     from app.domains.auth.api import start_login
+    from app.kernel.form_guard import HONEYPOT_FIELD, TOKEN_FIELD, NotSent, Proof
 
     # #1437: the mail link carries the page too, not only this code step.
-    start_login(db, email, return_to=return_to)
+    proof = Proof.from_request(request, {HONEYPOT_FIELD: website, TOKEN_FIELD: form_ts})
+    try:
+        start_login(db, email, return_to=return_to, proof=proof)
+    except NotSent as hurry:
+        # A person's pace (Koen, 15 October 2026): the form again, typed as it was, one line,
+        # nothing sent. The fresh form carries a fresh token.
+        return templates.TemplateResponse(
+            request,
+            "_sign_in_email.html",
+            {"error": str(hurry), "email": email, "terug": return_to},
+        )
     # Altijd hetzelfde vervolg — verklap niet of het adres gekend is.
     return templates.TemplateResponse(
         request,
@@ -149,6 +162,8 @@ class CreateAccountView(ViewModel):
     mobile: str = ""
     problems: dict[str, str] = field(default_factory=dict)
     terug: str = ""
+    #: The one line over the form when it came in at a person's pace (#2039).
+    error: str = ""
 
 
 @router.get("/account-aanmaken", response_class=HTMLResponse)
@@ -198,10 +213,21 @@ def create_account_submit(
             terug=return_to,
         )
         return templates.TemplateResponse(request, "_create_account_form.html", view.as_context())
-    from app.kernel.form_guard import HONEYPOT_FIELD, TOKEN_FIELD, Proof
+    from app.kernel.form_guard import HONEYPOT_FIELD, TOKEN_FIELD, NotSent, Proof
 
     proof = Proof.from_request(request, {HONEYPOT_FIELD: website, TOKEN_FIELD: form_ts})
-    start_account(db, asked, return_to=return_to, proof=proof)
+    try:
+        start_account(db, asked, return_to=return_to, proof=proof)
+    except NotSent as hurry:
+        view = CreateAccountView(
+            first_name=asked.first_name,
+            last_name=asked.last_name,
+            email=asked.email,
+            mobile=asked.mobile,
+            terug=return_to,
+            error=str(hurry),
+        )
+        return templates.TemplateResponse(request, "_create_account_form.html", view.as_context())
     return templates.TemplateResponse(
         request,
         "_sign_in_code.html",

@@ -152,8 +152,12 @@ def subscribe_public(
     from app.domains.mail.api import send_newsletter_confirmation
     from app.kernel import form_guard
 
-    if form_guard.refused(proof, "newsletter"):
-        return
+    try:
+        if form_guard.refused(proof, "newsletter"):
+            return
+    except form_guard.NotSent as hurry:
+        # A person's pace (Koen, 15 October 2026): the form says so, nothing is stored.
+        raise NewsletterError(str(hurry)) from hurry
 
     email = normalize_email(raw_email)
     if email is None:
