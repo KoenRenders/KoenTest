@@ -4,7 +4,7 @@
 **Status:** shaped with Koen on 15 October 2026 · not assigned to a release; open decisions in B8
 **Tracking issue:** #2026 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (audience choice, recipient list, send screen, Raakje's sources), the activities facade (a read of registration addresses), the unsubscribe page
-**Reading:** A 754 words · B 754 · C 932 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 762 words · B 761 · C 931 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -12,7 +12,7 @@
 
 ## A1. Reason to act — the trigger
 
-Koen, 15 October 2026: the newsletter should be able to address a *specific audience*: the people who were registered for one or two activities in the past years. His example: last year there was an activity; when it comes back, the people who came get a mail "we organise it again, nice that you were there last year on that date". More targeted communication, built on who registered for similar activities before. The audience is chosen by hand in the audience choice that exists today; an assistant may suggest which past activity fits the letter.
+Koen, 15 October 2026: the newsletter should be able to address a *specific audience*: the people who were registered for one or two activities in the past years. His example: last year there was an activity; when it comes back, the people who came get a mail "we organise it again, nice that you were there last year on that date". More targeted communication, built on who registered for similar activities before. The audience is chosen by hand in the audience choice that exists today; Raakje drafts the letter as it does today. A suggestion of a fitting past activity is outside this change (Koen, 15 October 2026).
 
 ## A2. As-is process — how it works today, and where it hurts
 
@@ -73,7 +73,6 @@ What it says on the screen (Dutch):
 
 - Targeted mail to people who showed interest in the same kind of activity: higher turnout for a returning activity (no figure; to be seen after the first use).
 - The by-hand route disappears: the minutes of copying addresses per mail, and the mails without unsubscribe link.
-- Raakje can suggest the fitting past activity, so choosing is one click.
 
 ## A5. Supplied material — and what it taught us
 
@@ -87,7 +86,7 @@ Koen's dictation of 15 October 2026 only. Reporting need: the archive of a sent 
 | R2 | The choice sits in the audience choice that exists | Must | Koen, 15 Oct 2026 | a drop-down by hand |
 | R3 | Anyone can unsubscribe from such a letter, and is not mailed again | Must | my reading of CR-05 §3.4; Q1 | |
 | R4 | The letter can name the activity and its date | Should | Koen, 15 Oct 2026 | "tof dat je vorig jaar er was op die datum" |
-| R5 | Raakje suggests a past activity that fits the letter | Could | Koen, 15 Oct 2026 | the author decides |
+| R5 | Raakje suggests a past activity that fits the letter | Won't | Koen, 15 Oct 2026 | taken out of the scope: a later change if wanted |
 | R6 | The archive shows which activities a letter went to | Should | my proposal | |
 | R7 | Choosing people by presence, payment or age | Won't | — | not asked |
 
@@ -122,11 +121,11 @@ A fourth audience, *Ingeschreven op eerdere activiteiten*, next to Leden, Niet-l
 2. **An address that unsubscribed is never mailed through this audience** (CR-05 §3.6: an import never resubscribes). A participant's unsubscribe link writes that opt-out; it does not make the person a subscriber.
 3. **"Attended" means registered.** The portal does not record presence. A registration that was deleted, or an activity that was cancelled, counts for nobody.
 
-*Raakje* gets the chosen activities as the source "voorbije activiteiten" of the letter, with name and date, so the letter can say it. A suggestion of a fitting past activity (R5) is a second phase: Raakje proposes from the activity names and dates only, the author ticks.
+*Raakje* gets the chosen activities as the source "voorbije activiteiten" of the letter, with name and date, so the letter can say it. Raakje does not suggest an activity (R5): the author ticks it.
 
 ## B2. Fit with the process and the requirements — for the business
 
-Covers R1–R4 and R6 in phase 1, R5 in phase 2. An example of use: *Nieuwsbrief*, step *Doelgroep* → *Ingeschreven op eerdere activiteiten* → tick last year's activity → *Naar versturen* → "212 adressen van mensen die waren ingeschreven op …, waarvan 140 al als lid de brief krijgen"; send.
+Covers R1–R4 and R6. An example of use: *Nieuwsbrief*, step *Doelgroep* → *Ingeschreven op eerdere activiteiten* → tick last year's activity → *Naar versturen* → "212 adressen van mensen die waren ingeschreven op …, waarvan 140 al als lid de brief krijgen"; send.
 
 ## B3. The whole across the modules — for the architect
 
@@ -140,14 +139,13 @@ None. (A participant's opt-out is a subscriber row with status *unsubscribed*, w
 
 ## B5. Cost — investment and running cost, and what operations must know
 
-Phase 1 about 5 days, phase 2 about 2 days (my estimates, to be set by the build read). No running cost. Operations: letters to this audience count against the same daily cap; one letter to a large past activity can take days, as *Allebei* does.
+About 5 days (my estimate, to be set by the build read). No running cost. Operations: letters to this audience count against the same daily cap; one letter to a large past activity can take days, as *Allebei* does.
 
 ## B6. Phasing — shippable phases, and what changes on the failure paths
 
-| Phase | Content | Days |
+| Phase (the only one) | Content | Days |
 |---|---|---|
 | 1 | audience, list of activities, recipient rule, participant unsubscribe, send screen words, archive | 5 |
-| 2 | Raakje suggests a past activity | 2 |
 
 Failure paths: an activity chosen and then deleted before sending is dropped from the list and the screen says so; a letter whose audience becomes empty cannot be sent.
 
@@ -168,7 +166,8 @@ A letter's recipients are always a derived list with one precedence rule and one
 
 | Date | Decision | By |
 |---|---|---|
-| 15 Oct 2026 | Requirement R1, R2, R4, R5 as written in A6 (dictation, not an answer to a question) | Koen |
+| 15 Oct 2026 | Requirement R1, R2, R4 as written in A6 (dictation, not an answer to a question) | Koen |
+| 15 Oct 2026 | R5 (Raakje suggests a past activity) leaves the scope: one phase | Koen: "haal die fase 2 op basis van een activiteit voorstellen, haal dat maar uit de scope, zodanig dat het een eenfasige change request wordt" |
 
 ---
 
@@ -195,7 +194,7 @@ Measured on master @ `ef4b130c` on 15 October 2026; to be re-measured at the han
 - **activities**: `registration_addresses(db, activity_ids)` in `api.py`, returning per activity the distinct addresses; and `past_activities(db, since_year)` with name, last date, address count. Tenant-scoped.
 - **newsletter**: `Audience.PARTICIPANTS = "participants"`, code and label rows; table `newsletter.newsletter_audience_activities (newsletter_id, activity_id)`; `DeliveryKind.PARTICIPANT`; `deliveries.unsubscribe_token` (nullable, unique); `recipients_for` gets the third branch; the participant unsubscribe route records an unsubscribed `Subscriber` (source new code `participant`); `audience_summary` and `_audience_said` gain the sentence; `render_mail` and the one-click header use the delivery's token for a participant; the archive shows the activities.
 - **templates**: audience choice with the drop-down (htmx fragment, kit macros), send screen line, archive line.
-- **chatbot / drafting**: phase 1 hands the chosen activities to `set_draft_sources`; phase 2 a read-only proposal tool over activity names and dates.
+- **chatbot / drafting**: the chosen activities go to `set_draft_sources`; no proposal tool.
 
 ## C3. Cross-cutting impact — the checklist of what gets forgotten
 
@@ -258,7 +257,7 @@ Status line, as-built notes folded in, tracking issue closed (`CLAUDE.md` step 1
 
 ## Non-goals — deliberately outside this change
 
-Segments by age, payment or presence; a saved audience; mail to the registrants of an activity about that activity (CR-05 §3.14, a separate change).
+A suggestion by Raakje of a fitting past activity; segments by age, payment or presence; a saved audience; mail to the registrants of an activity about that activity (CR-05 §3.14, a separate change).
 
 ## Relationship to existing work — issues and change requests
 
