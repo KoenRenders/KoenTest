@@ -138,3 +138,43 @@ def test_one_moment_reads_the_same_brussels_time_on_four_screens(world):
     assert not wrong, f"not {brussels} (Brussels) on: {wrong}"
     in_utc = [screen for screen, text in shown.items() if utc in text]
     assert not in_utc, f"{utc} (UTC) still shown on: {in_utc}"
+
+
+#: The screens whose moment changed form or source, as a phone and a desktop see
+#: them. Not the newsletter's subscribers: its table is 623 px wide at 390 px on
+#: master already (measured 15 October 2026), with or without this change.
+SCREENS = {
+    "dashboard": "/admin",
+    "newsletter-letters": "/admin/nieuwsbrieven",
+    "workbench": f"/admin/werkbank?q={MARK}",
+    "e-mail-log": f"/admin/e-maillog?recipient={ADDRESS}",
+}
+
+
+@pytest.mark.parametrize("width", [390, 1280])
+def test_the_screens_with_a_moment_do_not_scroll_sideways(world, width):
+    """The newsletter's moments changed form ("di 15 sep, 18:00" became
+    "15-09-2026 18:00") and the dashboard's line its source: neither may push a
+    screen wider than a phone. Set `E2E_PRINTS` to a folder to keep a print of
+    each (outside the repository)."""
+    page = world["browser"].new_page(
+        base_url=BASE, viewport={"width": width, "height": 844 if width < 768 else 900}
+    )
+    login_met_sessie(page, world["admin"])
+    wider = {}
+    try:
+        for name, path in SCREENS.items():
+            page.goto(path)
+            pagina_klaar(page)
+            scroll, inner = page.evaluate(
+                "[document.documentElement.scrollWidth, window.innerWidth]"
+            )
+            if scroll > inner:
+                wider[name] = scroll
+            folder = os.environ.get("E2E_PRINTS")
+            if folder:
+                os.makedirs(folder, exist_ok=True)
+                page.screenshot(path=os.path.join(folder, f"1976-{name}-{width}.png"))
+    finally:
+        page.close()
+    assert not wider, f"wider than {width} px: {wider}"
