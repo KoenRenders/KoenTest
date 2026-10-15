@@ -481,6 +481,7 @@ class TestEveryNodeRenders:
             {"type": "blockquote", "content": [_par("Een citaat.")]},
             {"type": "gallery", "attrs": {"activity_id": 1}},
             {"type": "activities", "attrs": {"count": 6}},
+            {"type": "albums", "attrs": {"albums": 3, "photos": 4, "interval": 3}},
             {
                 "type": "section",
                 "attrs": {"tone": "tint", "eyebrow": "Bovenkopje"},

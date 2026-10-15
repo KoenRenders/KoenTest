@@ -257,6 +257,78 @@
     });
   }
 
+  /* The album card of CR-32 (R13): a data block — ONE card on the site that moves
+     through the latest albums. The editor holds the three numbers, each a select in
+     the block, and draws a labelled box; the media module supplies the albums and
+     the photos at render time. */
+  function albumsNode(RaakTiptap, config) {
+    var label = (config.toolbar.insert.filter(function (i) { return i.id === "albums"; })[0] || {}).label || "";
+    var words = config.albumCard || {};
+    var fields = [
+      { name: "albums", label: words.albums || "", values: [1, 2, 3, 4, 5, 6] },
+      { name: "photos", label: words.photos || "", values: [1, 2, 3, 4, 5, 6, 7, 8] },
+      { name: "interval", label: words.interval || "", values: [0, 2, 3, 4, 5, 6, 7, 8, 9, 10] },
+    ];
+    return RaakTiptap.Node.create({
+      name: "albums",
+      atom: true,
+      addAttributes: function () {
+        /* Koen's example (15 October 2026): three albums, four photos, every three seconds. */
+        return { albums: { default: 3 }, photos: { default: 4 }, interval: { default: 3 } };
+      },
+      parseHTML: function () {
+        return [{ tag: "div[data-albums]", getAttrs: function (el) { return JSON.parse(el.getAttribute("data-albums") || "{}"); } }];
+      },
+      renderHTML: function (props) {
+        return ["div", { "data-albums": JSON.stringify(props.node.attrs), class: "de-gallery" }, label];
+      },
+      addNodeView: function () {
+        return function (props) {
+          var dom = document.createElement("div");
+          dom.className = "de-gallery";
+          dom.contentEditable = "false";
+          var title = document.createElement("strong");
+          title.textContent = label;
+          dom.appendChild(title);
+          var selects = {};
+          fields.forEach(function (field) {
+            var wrap = document.createElement("label");
+            wrap.style.marginLeft = "1rem";
+            wrap.appendChild(document.createTextNode(field.label + " "));
+            var select = document.createElement("select");
+            field.values.forEach(function (v) {
+              var option = document.createElement("option");
+              option.value = String(v);
+              option.textContent = String(v);
+              select.appendChild(option);
+            });
+            select.value = String(props.node.attrs[field.name]);
+            select.addEventListener("change", function () {
+              var pos = props.getPos();
+              if (typeof pos !== "number") return;
+              var attrs = Object.assign({}, props.node.attrs);
+              attrs[field.name] = Number(select.value);
+              props.editor.view.dispatch(props.editor.state.tr.setNodeMarkup(pos, undefined, attrs));
+            });
+            selects[field.name] = select;
+            wrap.appendChild(select);
+            dom.appendChild(wrap);
+          });
+          return {
+            dom: dom,
+            update: function (updated) {
+              if (updated.type.name !== "albums") return false;
+              fields.forEach(function (field) { selects[field.name].value = String(updated.attrs[field.name]); });
+              return true;
+            },
+            stopEvent: function (event) { return dom.contains(event.target); },
+            ignoreMutation: function () { return true; },
+          };
+        };
+      },
+    });
+  }
+
   /* The value of CR-32 (R19): an inline atom holding a code of the closed list.
      The editor shows a chip with the value it has now (read at edit time, the
      configuration carries it) and the page renders it from the settings. */
@@ -862,7 +934,8 @@
         item.id === "cards" ||
         item.id === "section" ||
         (item.id === "gallery" && !!config.gallery) ||
-        item.id === "activities"
+        item.id === "activities" ||
+        item.id === "albums"
       );
     });
     if (insertable.length) {
@@ -908,6 +981,17 @@
               .chain()
               .focus()
               .insertContentAt(editor.state.doc.content.size, { type: "activities", attrs: { count: 12 } })
+              .run();
+          } else if (item.id === "albums") {
+            /* Another data block at the root: the document's end; the three numbers are
+               chosen in the block itself, Koen's example to begin with. */
+            editor
+              .chain()
+              .focus()
+              .insertContentAt(editor.state.doc.content.size, {
+                type: "albums",
+                attrs: { albums: 3, photos: 4, interval: 3 },
+              })
               .run();
           } else if (item.id === "gallery") {
             /* The album is chosen in the dialog of the macro; the block lands
@@ -1451,6 +1535,9 @@
     }
     if ((config.insert || []).indexOf("activities") !== -1) {
       extensions.push(activitiesNode(RaakTiptap, config));
+    }
+    if ((config.insert || []).indexOf("albums") !== -1) {
+      extensions.push(albumsNode(RaakTiptap, config));
     }
     if ((config.insert || []).indexOf("gallery") !== -1 && config.gallery) {
       extensions.push(galleryNode(RaakTiptap, config));

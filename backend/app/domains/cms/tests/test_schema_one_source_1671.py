@@ -34,6 +34,7 @@ def test_schema_for_names_exactly_the_page_set():
         "section",
         "gallery",
         "activities",
+        "albums",
         "value",
     ]
     assert [h["level"] for h in config["headings"]] == [2, 3, 4]
