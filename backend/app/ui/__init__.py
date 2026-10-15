@@ -184,6 +184,13 @@ templates.env.filters["phone"] = readable_phone
 templates.env.globals["geld"] = _bedrag
 
 
+# A global, like `geld` above: looked up when the macro runs, so a hand-built
+# environment that loads the kit needs it too (tests/_shell_env.py).
+from app.kernel.attributes import field_label as _field_label  # noqa: E402
+
+templates.env.globals["attribute_label"] = _field_label
+
+
 # Een meetwaarde per opmaaksoort (#875): `{{ waarde|meetwaarde(c.format) }}`. Eén
 # plek voor alle vijf de soorten die de universe declareert — het paneel kende er
 # één en drukte de rest rauw af, met `0E-20` als resultaat.

@@ -38,6 +38,7 @@ from app.domains.meetings.api import (
 )
 from app.domains.meetings.models import MeetingItem
 from app.domains.meetings.pdf import moment
+from tests._meeting_notes import note
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 #: The meeting of these tests. Without a previous meeting the evaluation window is
@@ -166,7 +167,7 @@ def test_a_point_with_notes_survives_a_new_build_and_is_not_doubled(db_session, 
     its date does not get a second, empty point next to it."""
     meeting = create_meeting(db_session, meeting_date=MEETING_DAY)
     first = _points(db_session, meeting, SectionKind.UPCOMING, monthly_ride.name)[0]
-    update_item(db_session, meeting, first.id, notes="<p>Gids: de voorzitter</p>")
+    update_item(db_session, meeting, first.id, notes=note("Gids: de voorzitter"))
 
     update_meeting(db_session, meeting, meeting_date=date(2026, 10, 2))
 
@@ -175,7 +176,7 @@ def test_a_point_with_notes_survives_a_new_build_and_is_not_doubled(db_session, 
         meeting_id=meeting.id, activity_date_id=ride.id
     )
     assert points.count() == 1, "the ride of 3 October must stay on the agenda once"
-    assert "Gids" in points.one().notes
+    assert points.one().notes_document == note("Gids: de voorzitter")
 
 
 def test_the_picker_offers_every_date_that_is_not_on_the_agenda(db_session, monthly_ride):

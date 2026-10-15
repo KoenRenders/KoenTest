@@ -543,6 +543,14 @@ def circle_end(
 # ── The document ─────────────────────────────────────────────────────────────
 
 
+def notes_editor_config() -> dict:
+    """The page editor's configuration for the minutes of a point: the `notes` set
+    (text, lists, a table), generated from the schema like every editor's."""
+    from app.domains.cms.api import schema
+
+    return schema.schema_for("notes")
+
+
 def _document_view(
     request: Request,
     db: Session,
@@ -578,6 +586,7 @@ def _document_view(
         sent_pdfs=files_of(db, meeting, purpose=FilePurpose.SENT_PDF),
         editable=meeting.status != MeetingStatus.SENT,
         csrf_token=_csrf(request),
+        notes_editor=notes_editor_config(),
         error=error,
         nav_items=admin_nav(NAV, request),
     )
@@ -604,6 +613,7 @@ def _item_response(
             editable=meeting.status != MeetingStatus.SENT,
             circle=organization_circle(db, on_day=meeting.meeting_date),
             csrf_token=_csrf(request),
+            notes_editor=notes_editor_config(),
             item_error=error,
         ).as_context(),
     )

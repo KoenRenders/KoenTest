@@ -58,6 +58,7 @@ CONVERTING = {
     "quotation",
     "quotation with a soft break",
     "quotation, Enter inside",
+    "list in a list",
     "bullet list",
     "numbered list",
     "list inside a quotation",

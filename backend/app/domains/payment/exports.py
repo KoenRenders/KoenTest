@@ -18,6 +18,7 @@ from decimal import Decimal
 
 from app.domains.payment.api import PayableType, PaymentRecord
 from app.domains.payment.describers import describe_many, describer, in_filter_context
+from app.kernel.attributes import attribute
 from app.kernel.codes import code_label
 from app.kernel.ods import build_ods
 
@@ -58,18 +59,21 @@ def build_payments_export_ods(
     if payables is not None:
         records = [r for r in records if (r.payable_type, r.payable_id) in payables]
 
+    # CR-33 F3: a column that is a datum of a payment reads its word from the register
+    # (Koen, 15 October 2026: Te betalen, Betaald, Betaald op). "Waarvoor" and "Saldo" are
+    # composed by the screen.
     headers = [
         "Waarvoor",
-        "Soort",
-        "Type",
-        "Betaalwijze",
-        "Status",
-        "Mededeling (OGM)",
-        "Te betalen",
-        "Betaald",
+        attribute("payment.payment_record.payable_type").text,
+        attribute("payment.payment_record.type").text,
+        attribute("payment.payment_record.method").text,
+        attribute("payment.payment_record.status").text,
+        attribute("payment.payment_record.structured_communication").text,
+        attribute("payment.payment_record.amount").text,
+        attribute("payment.payment_record.amount_paid").text,
         "Saldo",
-        "Betaald op",
-        "Notitie",
+        attribute("payment.payment_record.paid_at").text,
+        attribute("payment.payment_record.note").text,
     ]
     rows = []
     tot_due = Decimal("0")

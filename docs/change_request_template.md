@@ -21,6 +21,12 @@
 > A or B**: the two process drawings (A2, A3), the usage drawing (B2), the
 > structure drawing and the data model (B3). They are what the approver
 > reads first and understands best; Part C has tables, no drawings.
+> **The drawings come before the word budget** (Koen, 15 October 2026: "De
+> aanwezigheid van diagrammen primeert op het woord-budget"): the budget
+> counts the prose; the drawings, the traceability matrix and the
+> walkthrough are required whatever the count, and a writer over budget cuts
+> prose, never a drawing or a table. Each of them has a skeleton under its
+> note in B2 and B3, to be filled in, not remembered.
 >
 > Every section opens with a `[!NOTE]` block that says what belongs in it.
 > The note is deleted as soon as the section is written; a note left
@@ -256,6 +262,31 @@ and deliberately not done — recorded so it is not asked again).
 > *each criterion; every criterion has at least one step. The closing*
 > *comment of each issue points at the walkthrough instead of rewriting it.*
 
+**Application usage drawing**
+
+```mermaid
+flowchart LR
+    %% the lanes and activities of A3; every box: activity<br/>screen or module
+    classDef moduleA fill:#e8f1fb,stroke:#0051a4
+```
+
+*Legend: one line, one colour per module.*
+
+**Traceability matrix**
+
+| R | How the solution meets it (in the words of the role) | Derived (F, or the B1 decision when B1 has no F table) | Module (C2) | Test (C6) | Criterion (A8) |
+|---|---|---|---|---|---|
+| R1 | … | … | … | … | … |
+
+**Walkthrough**
+
+*Role: …*
+
+1. *What to do — what to see.*
+2. *…*
+
+*(A blank line stands between the role's line and its numbered list, or only the first step renders as a list item.)*
+
 ## B3. The whole across the modules — for the architect
 
 > [!NOTE]
@@ -277,6 +308,27 @@ and deliberately not done — recorded so it is not asked again).
 > *are touched, and how the layer rules (`docs/code-style.md`, the import*
 > *gate) hold. This is where a reviewer checks that the change does not*
 > *bend the architecture; the per-module detail is C2.*
+
+**Application structure drawing**
+
+```mermaid
+flowchart TB
+    %% one subgraph per module touched; a box per layer, new and changed apart
+    classDef new fill:#e6f4ea,stroke:#1e7a34
+    classDef changed fill:#fff1e0,stroke:#b35c00
+    classDef unchanged fill:#f1f1f1,stroke:#888
+```
+
+*Legend: green new, orange changed, grey unchanged.*
+
+**Data model at a glance**
+
+```mermaid
+erDiagram
+    %% the entities involved, key columns, cardinality; new or changed in the label
+```
+
+*Who calls whom, the direction of every new dependency, the transaction boundary, the impact on the existing architecture — at most two hundred words.*
 
 ## B3a. Standards the model follows — and where it deviates, on purpose
 

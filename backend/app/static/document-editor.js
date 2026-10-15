@@ -1627,8 +1627,18 @@
          document, already in the input — writing her again would mark the
          screen changed before the author touched a key (slice 3, the
          review's "hidden input" note on #1699). */
+      var changed = false;
       editor.on("update", function () {
         input.value = JSON.stringify(editor.getJSON());
+        changed = true;
+      });
+      /* A screen that saves as the author leaves the editor (the notes of a
+         meeting point, as they did on Trix) listens for this event (it bubbles from the editor's element
+         to the form around it): it is told only when something was typed since the last time. */
+      editor.on("blur", function () {
+        if (!changed) return;
+        changed = false;
+        mount.dispatchEvent(new CustomEvent("raak-editor-blur", { bubbles: true }));
       });
     }
     mount.insertBefore(toolbar(editor, config, mount.id), surface);

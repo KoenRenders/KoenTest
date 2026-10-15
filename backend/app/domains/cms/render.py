@@ -497,8 +497,17 @@ def _blocks_html(
     # A cell or a list item holds bare paragraphs (no <p>); Enter in a cell
     # is the author's own line break — blocks joined with nothing ran her
     # lines together on the site (review B1, #1770). Outside a cell the
-    # blocks carry their own margins; nothing joins them.
-    return "<br>".join(parts) if cell else "".join(parts)
+    # blocks carry their own margins; nothing joins them. A nested list starts
+    # on its own line: no break before it (#2038 review A2: it showed as an empty
+    # line before every sub-list).
+    if not cell:
+        return "".join(parts)
+    joined = ""
+    for index, (node, part) in enumerate(zip(blocks or [], parts, strict=True)):
+        if index and node["type"] not in ("bulletList", "orderedList"):
+            joined += "<br>"
+        joined += part
+    return joined
 
 
 def _block_html(

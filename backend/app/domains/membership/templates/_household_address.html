@@ -18,11 +18,11 @@
 {% else %}
 {% call ui.section(_("Adres"), id="gezin-adres",
                    intro=(None if _asked or not _edit else _("Je gezin heeft nog geen adres. Vul straat, huisnummer en postcode samen in, of laat ze leeg."))) %}
-  {{ ui.field("address.street", _("Straat"), value=_a.street, edit=_edit, required=_asked, id="address-street",
+  {{ ui.field("address.street", attribute="mdm.address.street", value=_a.street, edit=_edit, required=_asked, id="address-street",
               attrs="autocomplete=address-line1") }}
-  {{ ui.field("address.house_number", _("Huisnummer"), value=_a.house_number, edit=_edit, required=_asked,
+  {{ ui.field("address.house_number", attribute="mdm.address.house_number", value=_a.house_number, edit=_edit, required=_asked,
               span="quarter", id="address-house_number") }}
-  {{ ui.field("address.bus_number", _("Bus"), value=_a.bus_number, edit=_edit, span="quarter",
+  {{ ui.field("address.bus_number", attribute="mdm.address.bus_number", value=_a.bus_number, edit=_edit, span="quarter",
               id="address-bus_number") }}
   {{ ui.field("address.postal_code", _("Postcode en gemeente"), kind="select", value=_a.postal_code, edit=_edit,
               required=_asked, span="full", id="address-postal_code",

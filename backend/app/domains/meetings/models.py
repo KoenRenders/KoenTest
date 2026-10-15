@@ -30,9 +30,9 @@ from sqlalchemy import (
     Integer,
     LargeBinary,
     String,
-    Text,
     Time,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -334,7 +334,10 @@ class MeetingItem(TenantMixin, SoftDeleteMixin, Base):
     )
     position = Column(Integer, nullable=False, default=0)
     title = Column(String(255), nullable=True)
-    notes = Column(Text, nullable=True)
+    # The minutes of the point: a document of the page editor's `notes` set
+    # (CR-17 phase 7, #2023), validated against `cms/schema.py` on every save. The
+    # screen and the PDF render it; nothing stores the HTML any more.
+    notes_document = Column(JSONB, nullable=True)
 
     # The three references, as **soft-refs**: a foreign key across schemas would
     # tie two domains' deploys together, which `test_schema_boundaries` forbids.

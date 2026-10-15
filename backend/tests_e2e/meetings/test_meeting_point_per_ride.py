@@ -218,7 +218,15 @@ def _make_it_an_old_meeting(meeting_id: int, activity_name: str) -> None:
                 section_id=evaluation.id,
                 activity_id=activity.id,
                 sort_key=min(d.start_date for d in activity.dates),
-                notes="<p>Besproken vóór #1335</p>",
+                notes_document={
+                    "type": "doc",
+                    "content": [
+                        {
+                            "type": "paragraph",
+                            "content": [{"type": "text", "text": "Besproken vóór #1335"}],
+                        }
+                    ],
+                },
             )
         )
         db.commit()

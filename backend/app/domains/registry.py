@@ -48,3 +48,9 @@ def load_all_models() -> None:
     from app.kernel.codes import load_all_code_lists
 
     load_all_code_lists()
+
+    # CR-33: the attribute register loads with the models too, for the same reason
+    # (the coverage gate iterates over it).
+    from app.kernel.attributes import load_all_attributes
+
+    load_all_attributes()

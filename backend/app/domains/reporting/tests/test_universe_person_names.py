@@ -22,7 +22,7 @@ opdracht die de kolom maakt.
 
 ## Rood gemaakt om te bewijzen dat ze meet
 
-* `ai_exposure=AiExposure.PLAIN` op `board_member` (leest `board_member_name`) →
+* `ai_exposure=AiExposure.INTERNAL` op `board_member` (leest `board_member_name`) →
   `test_geen_enkel_object_leest_plain_uit_een_naamkolom` viel om mét `board_member`
   en de kolomnaam in de melding. Teruggezet → groen.
 * `d_member.head_name` uit `PERSOONSNAAM_KOLOMMEN` van migratie 148 gehaald →
@@ -142,7 +142,7 @@ def test_geen_enkel_object_leest_plain_uit_een_naamkolom(db_session):
 
     fout = []
     for obj in OBJECTS:
-        if obj.ai_exposure is not AiExposure.PLAIN:
+        if obj.ai_exposure is not AiExposure.INTERNAL:
             continue
         weergave = _bronweergave(obj)
         raak = sorted(
@@ -161,5 +161,5 @@ def test_geen_enkel_object_leest_plain_uit_een_naamkolom(db_session):
 def test_de_poort_kijkt_naar_echte_objecten(db_session):
     """Zonder objecten om te toetsen zou de test hierboven altijd slagen."""
     assert len(OBJECTS) > 100, f"maar {len(OBJECTS)} objecten — leest deze poort de universe?"
-    plain = [o for o in OBJECTS if o.ai_exposure is AiExposure.PLAIN]
+    plain = [o for o in OBJECTS if o.ai_exposure is AiExposure.INTERNAL]
     assert plain, "geen enkel PLAIN-object — dan toetst de regel hierboven niets"

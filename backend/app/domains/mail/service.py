@@ -10,6 +10,7 @@ from app.config import settings
 from app.domains.activities.api import compute_registration_total
 from app.domains.mail.models import MailStatus
 from app.i18n import _
+from app.kernel.attributes import attribute
 from app.kernel.codes import code_label, code_of
 from app.kernel.phone import readable_phone
 from app.kernel.rules import own_transaction
@@ -752,7 +753,10 @@ def membership_renewal_message(
         (_("Lidmaatschap"), str(year)),
         (_("Geldig tot en met"), valid_to.strftime("%d/%m/%Y")),
         (_("Bedrag"), f"€ {bedrag(amount)}"),
-        (_("Betaalwijze"), method_labels.get(payment_method, payment_method)),
+        (
+            attribute("payment.payment_record.method").text,
+            method_labels.get(payment_method, payment_method),
+        ),
     ]
     rows = "".join(
         f"<li><strong>{escape(label)}:</strong> {escape(value)}</li>" for label, value in facts
@@ -820,7 +824,11 @@ def activity_confirmation_message(
     time_str = relevant.start_time.strftime("%H:%M") if (relevant and relevant.start_time) else ""
     location = escape(activity.location) if activity.location else ""
 
-    loc_li = f"<li><strong>Locatie:</strong> {location}</li>" if location else ""
+    loc_li = (
+        f"<li><strong>{attribute('activities.activity.location').text}:</strong> {location}</li>"
+        if location
+        else ""
+    )
     time_li = f"<li><strong>Tijdstip:</strong> {time_str}</li>" if time_str else ""
     message = (
         f"<p>Je inschrijving voor <strong>{activity_name}</strong> is bevestigd.</p>"
@@ -831,11 +839,13 @@ def activity_confirmation_message(
         details = []
         if registration.contact_email:
             details.append(
-                f"<li><strong>E-mail:</strong> {escape(registration.contact_email)}</li>"
+                f"<li><strong>{attribute('activities.registration.contact_email').text}:</strong> "
+                f"{escape(registration.contact_email)}</li>"
             )
         if registration.phone:
             details.append(
-                f"<li><strong>Mobiel:</strong> {escape(readable_phone(registration.phone))}</li>"
+                f"<li><strong>{attribute('activities.registration.phone').text}:</strong> "
+                f"{escape(readable_phone(registration.phone))}</li>"
             )
         if registration.team_name:
             details.append(f"<li><strong>Ploeg:</strong> {escape(registration.team_name)}</li>")
@@ -876,7 +886,7 @@ def activity_confirmation_message(
             # is no request and the locale falls back to nl_BE without anything
             # complaining.
             details.append(
-                f"<li><strong>Betaalmethode:</strong> "
+                f"<li><strong>{attribute('activities.registration.payment_method').text}:</strong> "
                 f"{code_label('payment_method', registration.payment_method)}</li>"
             )
 

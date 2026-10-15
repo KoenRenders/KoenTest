@@ -90,6 +90,8 @@ class MeetingDocumentView(ViewModel):
     sent_pdfs: list[Any]
     editable: bool
     csrf_token: str
+    # The page editor's configuration for the notes set (the same for every point).
+    notes_editor: Any
     error: Optional[str] = None
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 
@@ -108,6 +110,7 @@ class MeetingItemView(ViewModel):
     circle: list[Any]
     editable: bool
     csrf_token: str
+    notes_editor: Any
     # Why an edit of this point was refused (#1359), shown in the point itself. Not
     # `error`: inside the document loop that name is the document's own banner.
     item_error: Optional[str] = None
