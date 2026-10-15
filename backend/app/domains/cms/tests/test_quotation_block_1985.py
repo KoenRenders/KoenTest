@@ -84,7 +84,7 @@ def test_a_document_with_a_quotation_validates():
         ],
     }
     validate_document(_doc(quotation))
-    shown = render_document(_doc(quotation), None, on_page=True)
+    shown = render_document(_doc(quotation), None)
     assert shown.count("<blockquote>") == 1 and "Een citaat." in shown, shown
 
 
@@ -102,9 +102,7 @@ def test_a_quotation_refuses_an_attribute_and_an_empty_body():
 
 
 def test_the_trix_pieces_that_convert():
-    converting = {
-        name for name, html in TRIX_PIECES.items() if parse_html(html, on_page=True) is not None
-    }
+    converting = {name for name, html in TRIX_PIECES.items() if parse_html(html) is not None}
     assert converting == CONVERTING, (
         f"converts now and did not: {sorted(converting - CONVERTING)}; "
         f"no longer converts: {sorted(CONVERTING - converting)}"
@@ -115,12 +113,12 @@ def test_the_trix_pieces_that_convert():
     "name", ["quotation", "quotation with a soft break", "quotation, Enter inside"]
 )
 def test_a_trix_quotation_is_one_quotation_block_with_its_words_whole(name):
-    document = parse_html(TRIX_PIECES[name], on_page=True)
+    document = parse_html(TRIX_PIECES[name])
     assert document is not None, f"{name} does not convert"
     validate_document(document)
     [block] = document["content"]
     assert block["type"] == "blockquote", document
-    shown = render_document(document, None, on_page=True)
+    shown = render_document(document, None)
     assert shown.count("<blockquote>") == 1, shown
     words = render_document(document, None, target="text")
     for word in ("Een citaat.", "Regel een", "Regel twee", "Eerste regel.", "Tweede regel."):
@@ -129,7 +127,7 @@ def test_a_trix_quotation_is_one_quotation_block_with_its_words_whole(name):
 
 
 def test_a_list_inside_a_quotation_nests():
-    document = parse_html(TRIX_PIECES["list inside a quotation"], on_page=True)
+    document = parse_html(TRIX_PIECES["list inside a quotation"])
     assert document is not None
     [quotation] = document["content"]
     assert quotation["type"] == "blockquote"
@@ -141,7 +139,7 @@ def test_the_draft_keeps_a_quotation_inside_a_list_and_beside_paragraphs():
     quotation, which the editor's list item cannot hold first), so the page
     keeps her HTML — and her draft keeps the quotation as a block."""
     for name in ("quotation inside a list", "paragraph, quotation, paragraph"):
-        draft = parse_html(TRIX_PIECES[name], on_page=True, lenient=True)
+        draft = parse_html(TRIX_PIECES[name], lenient=True)
         validate_document(draft)
-        shown = render_document(draft, None, on_page=True)
+        shown = render_document(draft, None)
         assert shown.count("<blockquote>") == 1, f"{name}: {shown}"

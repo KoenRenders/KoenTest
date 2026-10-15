@@ -42,6 +42,7 @@ from tests_e2e.schermen import (  # noqa: E402
     fill_person,
     login_met_sessie,
     pagina_klaar,
+    refusal_shown,
 )
 
 PHONE = {"width": 390, "height": 844}
@@ -324,8 +325,7 @@ def test_word_lid_on_a_phone_from_the_first_field_to_the_stored_household(browse
         page.fill("#address-house_number", "1")
         page.posts.clear()
         save.click()
-        banner = page.locator("[data-save-refusal]")
-        expect(banner).to_be_visible()
+        banner = refusal_shown(page)
         expect(banner).to_contain_text("Verzenden kan nog niet: controleer 2 velden.")
         refused = partner.locator('input[name$=".first_name"]')
         expect(refused).to_be_visible()
@@ -726,7 +726,7 @@ def test_a_household_without_an_address_can_give_itself_one(browser):
         page.wait_for_function("window.raakRecordForm && window.raakRecordForm.ready()")
         page.fill("#address-street", "Kerkstraat")
         page.locator("[data-form-save]").click()
-        expect(page.locator("[data-save-refusal]")).to_contain_text(
+        expect(refusal_shown(page)).to_contain_text(
             "Een adres heeft een straat, een huisnummer en een postcode nodig."
         )
         expect(page.locator("#address-house_number")).to_be_focused()

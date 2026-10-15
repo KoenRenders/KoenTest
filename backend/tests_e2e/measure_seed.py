@@ -81,6 +81,47 @@ def _person_without_household(db) -> None:
         )
 
 
+def _sections_page(db) -> None:
+    """A page that opens with a hero and holds a tinted section (CR-32), for
+    the measurement of the bands: made through cms's own door."""
+    from app.domains.cms.api import publish, save_document
+    from app.domains.cms.service import create_page
+    from app.schemas.cms import CmsPageCreate
+
+    def par(text: str) -> dict:
+        return {"type": "paragraph", "content": [{"type": "text", "text": text}]}
+
+    page = create_page(
+        db,
+        CmsPageCreate(title="Meetbasis sectiepagina", slug="meetbasis-sectie", show_in_nav=False),
+    )
+    save_document(
+        db,
+        page.id,
+        {
+            "type": "doc",
+            "content": [
+                par("Een alinea boven de band."),
+                {
+                    "type": "section",
+                    "attrs": {"tone": "tint", "eyebrow": "De uitdaging"},
+                    "content": [par("Een alinea in de band, op de linkerlijn van de pagina.")],
+                },
+                par("Een alinea onder de band."),
+            ],
+        },
+    )
+    publish(db, page.id)
+    page.opening = "hero"
+    page.hero = {
+        "tone": "plain",
+        "eyebrow": "Over ons",
+        "lead": "Wat wij doen, in een zin.",
+        "buttons": [{"label": "Contact", "href": "https://example.test/contact"}],
+    }
+    db.flush()
+
+
 def main() -> None:
     if os.environ.get("E2E_SEED") != "1":
         sys.exit("measure_seed: refused, set E2E_SEED=1 to make this data")
@@ -118,6 +159,8 @@ def main() -> None:
                     is_active=True,
                 )
             )
+
+        _sections_page(db)
 
         ahead = Activity(
             name=AHEAD,

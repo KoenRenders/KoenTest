@@ -50,13 +50,16 @@ VALUE_CODES: tuple[str, ...] = (
 #: set her beside the text, then the small one.
 FIGURE_PLACEMENTS: tuple[str, ...] = ("full", "left", "right", "small")
 
-#: The heading levels an author can choose: Kop, Subkop, Kleine kop — the same
-#: three as today (#1656), stored as levels 1–3. The renderer picks the TAG
-#: from where the document stands (h2–h4 under a page's title, h1–h3 in a
-#: fragment such as the home intro), exactly as `render_cms_content(on_page=…)`
-#: has done since #1656 (C4.2). An h4 typed through the old HTML door does not
-#: convert losslessly and keeps its HTML (F11).
-HEADING_LEVELS: tuple[int, ...] = (1, 2, 3)
+#: The heading levels an author can choose: Kop, Subkop, Kleine kop — stored
+#: as the levels they SHOW, h2–h4 (CR-32 R21/F19, Koen, 15 October 2026: "Akkoord
+#: om de pagina te laten opslaan wat ze renderen"). The page's title is the only
+#: h1 (#1656); the renderer shifts nothing. A fourth level typed through the old
+#: HTML door does not convert losslessly and keeps its HTML (F11).
+HEADING_LEVELS: tuple[int, ...] = (2, 3, 4)
+
+#: The tones of a section and of a page's hero (CR-32 R8, F1): a name, never a
+#: colour. The pixels come from the tenant's brand tokens at render time.
+TONES: tuple[str, ...] = ("plain", "tint", "accent")
 
 #: Where a button and a card may lead: the four destinations, of which a
 #: node carries exactly one (`_one_destination`).
@@ -76,8 +79,17 @@ NODES: dict[str, dict[str, Any]] = {
         # A page that shows nothing is an honest document — the migration's
         # net produces her (review 4, #1673) — so the root may hold no block
         # at all; every other node keeps its minimum.
-        "content": "block*"
+        #
+        # A `section` stands at the root and nowhere else (CR-32 F2a): it is
+        # not in the group `block`, so no `block+` container (a column, a list
+        # item, a cell, a quotation, a section) can hold one — the grammar
+        # refuses it with the container's name, and the root names it here.
+        "content": "(block | section)*",
     },
+    # A band of the page (CR-32): blocks on a tone, with an optional small line
+    # above them. A div on the site (the sanitiser knows no `section`), root
+    # only (see "doc").
+    "section": {"content": "block+", "attrs": {"tone": TONES, "eyebrow": "str?"}},
     "paragraph": {"group": "block", "content": "inline*"},
     "heading": {"group": "block", "content": "inline*", "attrs": {"level": HEADING_LEVELS}},
     "bulletList": {"group": "block", "content": "listItem+"},
@@ -170,6 +182,122 @@ NODES: dict[str, dict[str, Any]] = {
     "text": {"group": "inline", "text": True, "marks": ("bold", "italic", "strike", "link")},
 }
 
+#: How a page opens (CR-32 F4, B8.11): the title line, or a hero — the title
+#: large on a band, with an eyebrow, a lead and up to two buttons.
+OPENINGS: tuple[str, ...] = ("title_line", "hero")
+
+#: What a hero carries besides its tone, and how long its words may be.
+HERO_BUTTONS_MAX = 2
+_HERO_LIMITS = {"eyebrow": 80, "lead": 400, "label": 60}
+
+
+def validate_hero(hero: Any) -> dict:
+    """The hero of a page (CR-32 F4): `{tone, eyebrow?, lead?, buttons?}`, a
+    button being a label and exactly one of the button block's four
+    destinations. A property of the page, so it is validated at the page's
+    save, not as part of a document; refused with the name of what is wrong,
+    like every attribute of the schema. Returns the hero unchanged."""
+    if not isinstance(hero, dict):
+        raise InvalidShape("Onjuiste vorm: de hero")
+    for key in hero:
+        if key not in ("tone", "eyebrow", "lead", "buttons"):
+            raise UnknownAttribute(f"hero.{key}")
+    if hero.get("tone") not in TONES:
+        raise UnknownAttribute(f"hero.tone={hero.get('tone')!r}")
+    for key in ("eyebrow", "lead"):
+        value = hero.get(key)
+        if value is not None and (not isinstance(value, str) or len(value) > _HERO_LIMITS[key]):
+            raise UnknownAttribute(f"hero.{key}")
+    buttons = hero.get("buttons") or []
+    if not isinstance(buttons, list):
+        raise InvalidShape("Onjuiste vorm: de knoppen van de hero")
+    if len(buttons) > HERO_BUTTONS_MAX:
+        raise InvalidShape("Te veel onderdelen in hero: hooguit twee knoppen")
+    for button in buttons:
+        if not isinstance(button, dict):
+            raise InvalidShape("Onjuiste vorm: een knop van de hero")
+        for key in button:
+            if key != "label" and key not in _DESTINATION_ATTRS:
+                raise UnknownAttribute(f"hero.button.{key}")
+        label = button.get("label")
+        if not isinstance(label, str) or not label.strip() or len(label) > _HERO_LIMITS["label"]:
+            raise UnknownAttribute("hero.button.label")
+        _one_destination("hero.button", "een knop van de hero", button)
+        if button.get("page_id") is not None and (
+            isinstance(button["page_id"], bool)
+            or not isinstance(button["page_id"], int)
+            or button["page_id"] <= 0
+        ):
+            raise UnknownAttribute(f"hero.button.page_id={button['page_id']!r}")
+        for key in ("href", "form_slug"):
+            if button.get(key) is not None and not isinstance(button[key], str):
+                raise UnknownAttribute(f"hero.button.{key}")
+        if button.get("screen") is not None and button["screen"] not in ("lid-worden",):
+            raise UnknownAttribute(f"hero.button.screen={button['screen']!r}")
+    return hero
+
+
+def hero_from_form(tone: str, eyebrow: str, lead: str, buttons: list[tuple[str, str, str]]) -> dict:
+    """The hero the page screen's fields describe: `buttons` are `(label,
+    destination, address)` per button, the destination one of `page:<id>`,
+    `form:<slug>`, `screen:lid-worden` or `href` (the address then holds the
+    outside address). A button with no label and no destination is no button;
+    anything else half-filled reaches `validate_hero` as it is and is refused
+    there by name."""
+    hero: dict[str, Any] = {"tone": tone}
+    if eyebrow.strip():
+        hero["eyebrow"] = eyebrow.strip()
+    if lead.strip():
+        hero["lead"] = lead.strip()
+    made = []
+    for label, destination, address in buttons:
+        if not label.strip() and not destination:
+            continue
+        button: dict[str, Any] = {"label": label.strip()}
+        kind, _, value = destination.partition(":")
+        if kind == "page" and value.isdigit():
+            button["page_id"] = int(value)
+        elif kind == "form" and value:
+            button["form_slug"] = value
+        elif kind == "screen" and value:
+            button["screen"] = value
+        elif destination == "href":
+            button["href"] = address.strip()
+        made.append(button)
+    if made:
+        hero["buttons"] = made
+    return hero
+
+
+def hero_form_values(hero: dict | None) -> dict[str, Any]:
+    """What `hero_from_form` was given, read back from a stored hero: the
+    values the page screen's fields show."""
+    hero = hero or {}
+    values: dict[str, Any] = {
+        "tone": hero.get("tone") or "plain",
+        "eyebrow": hero.get("eyebrow") or "",
+        "lead": hero.get("lead") or "",
+        "buttons": [],
+    }
+    buttons = hero.get("buttons") or []
+    for index in range(HERO_BUTTONS_MAX):
+        button = buttons[index] if index < len(buttons) else {}
+        if button.get("page_id") is not None:
+            destination, address = f"page:{button['page_id']}", ""
+        elif button.get("form_slug"):
+            destination, address = f"form:{button['form_slug']}", ""
+        elif button.get("screen"):
+            destination, address = f"screen:{button['screen']}", ""
+        elif button.get("href") is not None:
+            destination, address = "href", button["href"]
+        else:
+            destination, address = "", ""
+        values["buttons"].append(
+            {"label": button.get("label") or "", "destination": destination, "address": address}
+        )
+    return values
+
+
 #: The attributes a mark may carry. ``link`` has five: her target address
 #: (required, text — an ``<a href="">`` renders nothing) and the
 #: ``target``, ``rel``, ``class`` and ``title`` TipTap's link writes with
@@ -196,7 +324,7 @@ BLOCK_SETS: dict[str, dict[str, Any]] = {
         "blocks": ("blockquote",),
         # C4.13's menu order: Tabel · Afbeelding · Kolommen · Knop · Kader ·
         # Kaarten.
-        "insert": ("table", "figure", "columns", "button", "callout", "cards", "value"),
+        "insert": ("table", "figure", "columns", "button", "callout", "cards", "section", "value"),
     },
     # Phase 7; the shape stands here so the one schema is the whole design.
     "letter": {
@@ -329,7 +457,12 @@ def _content_rule(node_type: str) -> tuple[set[str], int, int | None] | None:
         raise ValueError(f"Unsupported content expression: {node_type}: {expression}")
     selector, quantifier = match.group(1), match.group(2)
     if selector.startswith("("):
-        allowed = {part.strip() for part in selector[1:-1].split("|")}
+        allowed = set()
+        for part in (p.strip() for p in selector[1:-1].split("|")):
+            if part in ("block", "inline"):
+                allowed |= {t for t, spec in NODES.items() if spec.get("group") == part}
+            else:
+                allowed.add(part)
     elif selector in ("block", "inline"):
         allowed = {t for t, spec in NODES.items() if spec.get("group") == selector}
     else:
@@ -577,6 +710,7 @@ def _toolbar_label(command_id: str) -> str:
         "button": _("Knop"),
         "callout": _("Kader"),
         "cards": _("Kaarten"),
+        "section": _("Sectie"),
         "value": _("Code"),
     }.get(command_id, command_id)
 
@@ -691,6 +825,22 @@ def schema_for(set_name: str) -> dict[str, Any]:
         # the kit (`app.ui.kit.icons`) — the same list the validation asks.
         "cards": (
             {"icons": list(_icon_names())} if "cards" in BLOCK_SETS[set_name]["insert"] else None
+        ),
+        # The section's tone choice, in words (CR-32): the same names the
+        # validation accepts.
+        "section": (
+            {
+                "tones": [
+                    {"id": tone, "label": label}
+                    for tone, label in zip(
+                        TONES, (_("Neutraal"), _("Tint"), _("Accent")), strict=True
+                    )
+                ],
+                "toneLabel": _("Tint van de sectie"),
+                "eyebrowLabel": _("Bovenkopje"),
+            }
+            if "section" in BLOCK_SETS[set_name]["insert"]
+            else None
         ),
         "nodes": sorted(NODES),
     }

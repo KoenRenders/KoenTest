@@ -54,8 +54,8 @@ def _shape(node: dict):
 
 
 def test_a_block_the_document_cannot_carry_is_a_paragraph_of_its_own():
-    assert parse_html(TRIX_PAGE, on_page=True) is None, "a div page converts — the test's premise"
-    draft = parse_html(TRIX_PAGE, on_page=True, lenient=True)
+    assert parse_html(TRIX_PAGE) is None, "a div page converts — the test's premise"
+    draft = parse_html(TRIX_PAGE, lenient=True)
     validate_document(draft)
     blocks = draft["content"]
     assert [block["type"] for block in blocks] == [
@@ -71,12 +71,12 @@ def test_a_block_the_document_cannot_carry_is_a_paragraph_of_its_own():
         "code in een blok",
         "Nog een citaat.",
     ], "two blocks' words are glued"
-    shown = render_document(draft, None, on_page=True)
+    shown = render_document(draft, None)
     assert "citaat.code" not in shown and "blokNog" not in shown, shown
 
 
 def test_a_list_inside_a_list_stays_nested_in_the_draft():
-    draft = parse_html(TRIX_PAGE, on_page=True, lenient=True)
+    draft = parse_html(TRIX_PAGE, lenient=True)
     nested = draft["content"][-1]
     assert _shape(nested) == [
         ["Eén", [["Onder één"], ["Ook onder één"]]],
@@ -86,7 +86,7 @@ def test_a_list_inside_a_list_stays_nested_in_the_draft():
 
 def test_loose_words_before_a_quotation_are_not_glued_to_it():
     content = "<div>Alinea.</div>Losse woorden<blockquote>Een citaat.</blockquote>"
-    draft = parse_html(content, on_page=True, lenient=True)
+    draft = parse_html(content, lenient=True)
     validate_document(draft)
     assert [_words(block) for block in draft["content"]] == [
         "Alinea.",
@@ -99,7 +99,7 @@ def test_words_after_an_inner_list_stay_in_their_item():
     content = (
         "<div>Alinea.</div><ul><li>Eén<ul><li>Onder één</li></ul>en verder</li><li>Twee</li></ul>"
     )
-    draft = parse_html(content, on_page=True, lenient=True)
+    draft = parse_html(content, lenient=True)
     validate_document(draft)
     assert _shape(draft["content"][-1]) == [["Eén", [["Onder één"]], "en verder"], ["Twee"]]
 
@@ -108,8 +108,8 @@ def test_a_page_with_only_a_nested_list_keeps_her_html_and_nests_in_the_draft():
     """Such a page does not convert: rendered back, an item's words and its
     inner list stand with a line break between them, which today's page does
     not have — the measurement decides, not the parser. Her draft nests."""
-    assert parse_html(NESTED, on_page=True) is None
-    draft = parse_html(NESTED, on_page=True, lenient=True)
+    assert parse_html(NESTED) is None
+    draft = parse_html(NESTED, lenient=True)
     validate_document(draft)
     assert _shape(draft["content"][0]) == [
         ["Eén", [["Onder één"], ["Ook onder één"]]],
