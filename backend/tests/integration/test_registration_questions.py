@@ -87,7 +87,8 @@ def _post_page(client, s, channel: str, data: dict):
     client.cookies.set(SESSION_COOKIE, value)
     return client.post(
         f"/admin/activiteiten/{s.activity.id}/inschrijvingen/nieuw",
-        data={"onderdeel": str(s.component.id), **data},
+        # #1987: the board's form carries the token too — its key, accepted once.
+        data={"onderdeel": str(s.component.id), **form_guard_fields(), **data},
         headers={"HX-Request": "true", "X-CSRF-Token": csrf_token_for(value)},
     )
 

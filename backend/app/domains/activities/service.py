@@ -1751,6 +1751,7 @@ def register(
         payment_method=data.payment_method,
         remarks=data.remarks,
         person_id=person_id,
+        submission_key=data.submission_key,
     )
     require_phone(data.phone)
     registration.component = component
@@ -1804,6 +1805,12 @@ def register(
     db.flush()
     db.refresh(registration)
     return registration
+
+
+def registration_for_submission(db: Session, key: str) -> Optional[Registration]:
+    """The registration a shown form already made, or None (#1987): the form is
+    accepted once, and a second post of it answers with this one."""
+    return db.query(Registration).filter(Registration.submission_key == key).first()
 
 
 def question_form(db: Session, component: Optional[ActivitySubRegistration]) -> Optional[Any]:
