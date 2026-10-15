@@ -2,7 +2,7 @@
 
 **Project:** Web Portal "Raak Millegem"
 **Status:** shaped with Koen on 15 October 2026 · not assigned to a release; open decisions in B8
-**Tracking issue:** to be opened by the master CLI
+**Tracking issue:** #2026 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (audience choice, recipient list, send screen, Raakje's sources), the activities facade (a read of registration addresses), the unsubscribe page
 **Reading:** A 754 words · B 754 · C 932 — measured per part; A ≤ 1 500, B ≤ 2 500
 
