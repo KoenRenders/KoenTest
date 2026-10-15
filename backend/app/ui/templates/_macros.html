@@ -1908,6 +1908,9 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    other destinations and the other kind of top (the script sends every
    attribute, the unchosen ones null). `cMode` says what Invoegen does: a new
    block with this card, this card changed, or a card after this one. #}
+{# "Nergens heen" is read from the card by the schema's one rule — an empty
+   address is no destination (`destinations_set`, CR-32 Z1): the chain below
+   falls to 'none' for an empty `href` just as the renderer makes a text card. #}
 <div data-card-dialog="{{ editor_id }}"
      x-data="{ card: false, cTitle: '', cNumber: '', cText: '', cLine: '', cTop: 'none', cIcon: '', cMedia: null, cLabels: '',
               cKind: '{{ _eerste_soort }}', cPage: {{ (button_pages[0][0] if button_pages else "null") }},

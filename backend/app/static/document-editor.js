@@ -324,10 +324,14 @@
      kit's drawings. */
   var CARD_ATTRS = ["title", "number", "text", "line", "icon", "media_id", "labels", "page_id", "href", "form_slug", "screen"];
 
-  function cardView(node, mediaUrl, mountId) {
+  function cardView(node, mediaUrl, mountId, destinations) {
     var a = node.attrs;
     var dom = document.createElement("div");
-    var hasDestination = !!(a.page_id || a.href || a.form_slug || a.screen);
+    /* The kinds come from the schema (`config.cards.destinations`) and an empty
+       value is no destination — the server's one rule (`destinations_set`). */
+    var hasDestination = destinations.some(function (k) {
+      return a[k] !== null && a[k] !== undefined && a[k] !== "";
+    });
     dom.className = hasDestination ? "prose-card" : "prose-card prose-card--text";
     dom.setAttribute("data-card", "");
     if (a.number) {
@@ -383,6 +387,7 @@
 
   function cardsNodes(RaakTiptap, config, mountId) {
     var mediaUrl = (config.figure && config.figure.mediaUrl) || "";
+    var destinations = (config.cards && config.cards.destinations) || [];
     var cards = RaakTiptap.Node.create({
       name: "cards",
       group: "block",
@@ -449,7 +454,7 @@
       },
       addNodeView: function () {
         return function (props) {
-          return { dom: cardView(props.node, mediaUrl, mountId) };
+          return { dom: cardView(props.node, mediaUrl, mountId, destinations) };
         };
       },
     });

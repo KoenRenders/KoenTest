@@ -84,3 +84,25 @@ def test_the_chatbot_reads_a_cards_number_title_and_text():
         target="text",
     )
     assert text == "01 Tijd Elke week."
+
+
+def test_an_empty_address_is_no_destination_for_every_reader():
+    """CR-32 Z1: one rule for "has a destination". A card with `href: ""` is a
+    text card to the validator, the renderer and the editor's configuration
+    alike; it was a link that vanished from the site (`is not None`) while the
+    editor read it as "Nergens heen"."""
+    from app.domains.cms.schema import destinations_set, schema_for
+
+    card = {"title": "Tijd", "text": "Elke week.", "href": ""}
+    assert destinations_set(card) == []
+    assert destinations_set({"href": "https://example.test"}) == ["href"]
+    assert destinations_set({"form_slug": "", "page_id": 4}) == ["page_id"]
+    html = render_document(validate_document(_cards(card)))
+    assert "prose-card--text" in html and "<a " not in html
+    assert schema_for("page")["cards"]["destinations"] == ["page_id", "href", "form_slug", "screen"]
+
+
+def test_a_button_with_an_empty_address_is_still_refused():
+    button = {"type": "button", "attrs": {"label": "Ga", "variant": "primary", "href": ""}}
+    with pytest.raises(InvalidShape, match="precies één bestemming"):
+        validate_document({"type": "doc", "content": [button]})

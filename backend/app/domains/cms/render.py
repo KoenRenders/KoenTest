@@ -844,9 +844,6 @@ def _cards_html(node: dict, preview: bool = False, db=None) -> str:
     return f'<div class="prose-cards">{"".join(cards)}</div>'
 
 
-_DESTINATION_KEYS = ("page_id", "href", "form_slug", "screen")
-
-
 def _card_html(node: dict, preview: bool = False, db=None) -> str:
     """One card: the whole card is the link (the title's link is stretched
     over it by the look's rules), so there is one link and no nested one."""
@@ -857,7 +854,9 @@ def _card_html(node: dict, preview: bool = False, db=None) -> str:
     # A card with no destination at all is a text card (CR-32 R4): no link and
     # nothing to resolve. One with a destination that cannot be reached stays
     # left out, as before.
-    text_card = not any(attrs.get(k) is not None for k in _DESTINATION_KEYS)
+    from app.domains.cms.schema import destinations_set
+
+    text_card = not destinations_set(attrs)
     address, reason, outside = (None, None, False) if text_card else _resolved(attrs, db)
     if address is None and not text_card:
         return _unreachable_html("card", reason or "page") if preview else ""

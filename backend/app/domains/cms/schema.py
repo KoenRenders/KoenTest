@@ -482,6 +482,16 @@ def _content_rule(node_type: str) -> tuple[set[str], int, int | None] | None:
 MAX_DEPTH = 64
 
 
+def destinations_set(attrs: dict) -> list[str]:
+    """The destinations a button or a card carries: the kinds of
+    `_DESTINATION_ATTRS` that hold a value. ONE rule for "has a destination"
+    (CR-32 Z1): an empty address is no destination — the validator counts
+    with it, the renderer decides *text card or link* with it, and the editor
+    is handed the kinds (`schema_for`) and reads its cards by the same rule,
+    so a card cannot be a text card to one and a link to another."""
+    return [k for k in _DESTINATION_ATTRS if attrs.get(k) not in (None, "")]
+
+
 def _one_destination(node_type: str, word: str, attrs: dict, *, optional: bool = False) -> None:
     """Koen's four destinations (11 October 2026) are a shape rule of the
     button and of the card alike: exactly one of them is set — two is a
@@ -491,7 +501,7 @@ def _one_destination(node_type: str, word: str, attrs: dict, *, optional: bool =
     stripped at render; review of 12 October 2026: `https://a b` passed both
     ends, which agreed on the start only). `word` is the block's name in the
     refusal ("een knop", "een kaart")."""
-    targets = [k for k in _DESTINATION_ATTRS if attrs.get(k) is not None]
+    targets = destinations_set(attrs)
     if optional and not targets:
         return
     if len(targets) != 1:
@@ -827,7 +837,9 @@ def schema_for(set_name: str) -> dict[str, Any]:
         # The card dialog's choice of icons: the kit's own names, asked of
         # the kit (`app.ui.kit.icons`) — the same list the validation asks.
         "cards": (
-            {"icons": list(_icon_names())} if "cards" in BLOCK_SETS[set_name]["insert"] else None
+            {"icons": list(_icon_names()), "destinations": list(_DESTINATION_ATTRS)}
+            if "cards" in BLOCK_SETS[set_name]["insert"]
+            else None
         ),
         # The section's tone choice, in words (CR-32): the same names the
         # validation accepts.
