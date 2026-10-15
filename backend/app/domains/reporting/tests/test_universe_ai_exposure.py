@@ -67,8 +67,11 @@ def test_the_three_values_are_all_in_use():
     """
     in_gebruik = {o.ai_exposure for o in OBJECTS}
 
-    assert in_gebruik == set(AiExposure), (
-        f"niet elke waarde wordt gebruikt: {sorted(w.value for w in set(AiExposure) - in_gebruik)} "
+    # PUBLIC is a level of the register (CR-33): what the public assistant may say. A
+    # report is back-office only, so no object stands on it.
+    verwacht = set(AiExposure) - {AiExposure.PUBLIC}
+    assert in_gebruik == verwacht, (
+        f"niet elke waarde wordt gebruikt: {sorted(w.value for w in verwacht - in_gebruik)} "
         f"ontbreekt — is de classificatie nog een afweging of een invuloefening?"
     )
 
@@ -94,7 +97,7 @@ def test_the_objects_that_name_a_person_are_not_plain():
 
     for key in persoonsnamen:
         assert key in per_key, f"{key} bestaat niet meer — is deze lijst nog actueel?"
-        assert per_key[key].ai_exposure is not AiExposure.PLAIN, (
+        assert per_key[key].ai_exposure is not AiExposure.INTERNAL, (
             f"{key} wijst een persoon aan en staat op admin_plain; dan gaat een naam "
             f"ongemaskeerd naar Mistral"
         )

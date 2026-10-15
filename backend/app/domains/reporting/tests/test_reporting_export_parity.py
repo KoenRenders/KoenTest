@@ -104,8 +104,8 @@ NIEUWE_KOP = [
     "Betaalwijze",
     "Status",
     "Mededeling (OGM)",
-    "Bedrag",
-    "Betaald bedrag",
+    "Te betalen (regel)",
+    "Betaald (regel)",
     "Saldo",
     "Betaald op",
     "Notitie",
@@ -121,13 +121,15 @@ def test_the_saved_report_and_the_button_produce_the_same_sheet(client, db_sessi
     # same quantity in one class, and the universe gate forbids two objects with
     # the same name inside a class — rightly, because a picker that offers "Te
     # betalen" twice is not saved by a symbol. So the row-level columns are
-    # "Bedrag" and "Betaald bedrag" here; the payments screen's own export is
-    # untouched and still says "Te betalen" and "Betaald".
+    # "Te betalen (regel)" and "Betaald (regel)" here (CR-33: the register's words with
+    # the role word, Koen, 15 October 2026; they were "Bedrag" and "Betaald bedrag"
+    # before); the payments screen's own export says "Te betalen" and "Betaald".
     assert len(nieuw[0]) == len(oud[0])
     verschillen = {(a, b) for a, b in zip(nieuw[0], oud[0]) if a != b}
-    assert verschillen == {("Bedrag", "Te betalen"), ("Betaald bedrag", "Betaald")}, (
-        f"onverwacht verschil in de kopregel: {verschillen}"
-    )
+    assert verschillen == {
+        ("Te betalen (regel)", "Te betalen"),
+        ("Betaald (regel)", "Betaald"),
+    }, f"onverwacht verschil in de kopregel: {verschillen}"
 
     assert len(nieuw) == len(oud), (
         f"de nieuwe lijst heeft {len(nieuw)} regels, de bestaande {len(oud)}"

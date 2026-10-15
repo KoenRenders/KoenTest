@@ -1586,6 +1586,11 @@ Fixed words, everywhere: **Opslaan** (create and edit; never "Bewaar",
 **"Bezig…"** · **"(Nog) geen <items>."** · **"Geen resultaten gevonden."**
 "Toevoegen" only for adding a sub-item or line to a collection inside a form.
 
+- **A field's label comes from the attribute register** (CR-33): a kit field of a
+  datum says `attribute="<domain>.<entity>.<field>"` and the word is the
+  register's, the same on the screen, in the changes list, in an export, in a mail
+  and in a report. A typed `label=` is for a field that is no datum, a search box
+  or a filter, and a new one fails `test_field_labels_ratchet.py`.
 - Button order in the action cluster at the top of an edit surface:
   **[Verwijderen] (far left, red, edit mode only) [Annuleren] [Opslaan]** —
   Opslaan rightmost, on the opener's spot — via `ui.action_bar` (wave 6,

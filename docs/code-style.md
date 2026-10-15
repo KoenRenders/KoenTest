@@ -7,7 +7,7 @@ repeating what is already written down.
 > code-list rule; CR-13 phase 0a (#755) added the rule of a rule's home. Ruff —
 > formatter and linter, blocking in CI — came with #781, so what ruff decides is
 > not repeated here. #1464 added the rule for copied models; CR-24 (#1722) the
-> rule that a gate names a right.
+> rule that a gate names a right; CR-33 (#2007) the rule of the attribute register.
 
 ## A fixed vocabulary is a code table
 
@@ -31,6 +31,23 @@ row, (3) a foreign key from each storing column, (4) a `CodeList` declaration in
 the domain's `codes.py`, (5) an `Enum` when the code branches, (6)
 `code_label()` on every screen and export. The entry points are covered from
 both sides, so whichever of the six you start with, the other five are demanded.
+
+## A datum has one entry in the attribute register
+
+> A stored business datum has one entry in the attribute register
+> (`kernel/attributes.py`), declared in its owning domain's `attributes.py`
+> beside its `codes.py`. Its label, its English name, its one-line help and its
+> AI classification are read from there: a kit field says `attribute=` and
+> never types a word a datum already has, and nothing reaches a language model
+> without an entry that allows it. A code list stays the source for the
+> *values*; the register is the source for how the *field* reads.
+
+Two gates hold it (CR-33, `docs/change_request_33_attribute_register.md`): the
+coverage gate (`backend/tests/test_attribute_coverage_gate.py`) refuses a
+business column no entry names, and the label ratchet
+(`backend/tests/integration/test_field_labels_ratchet.py`) refuses a new typed
+label in a kit field and a key that does not resolve. A field that is no datum —
+a search box — keeps its typed label and stays on the ratchet's list.
 
 Three things that are deliberately *not* code lists: an external party's
 vocabulary (Mollie's statuses), design and brand data with a payload (icons,

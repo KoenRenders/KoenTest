@@ -256,8 +256,8 @@ for t in Base.metadata.sorted_tables:
 total = sum(len(v) for v in rows_by_schema.values())
 print("# CR-33 appendix — the inventory of the data model, per module\n")
 print(
-    "Generated from the ORM metadata by `scripts/attribute-inventory.py`, measured on the build branch of CR-21 (webshop) on 15 October 2026; "
-    "the schemas sales, product, stock and pricing are not on master yet and are marked. Re-generated on the handover commit of phase 1 (C1). The classification per row follows the rules K0–K10 below; every rule and every exception was decided by Koen on 15 October 2026 (the Q&A log of the change request, Q10 and Q12).\n"
+    "Generated from the ORM metadata by `scripts/attribute-inventory.py`; re-generated on master at the handover of phase 1 of CR-33 (15 October 2026), "
+    "which carries no webshop schema yet (sales, product, stock and pricing arrive with CR-21; their columns are registered by whichever of the two lands second, Q9). The classification per row follows the rules K0–K10 below; every rule and every exception was decided by Koen on 15 October 2026 (the Q&A log of the change request, Q10 and Q12).\n"
 )
 print(
     f"Business columns: **{total}**; "

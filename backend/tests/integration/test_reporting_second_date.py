@@ -13,7 +13,7 @@ activity's first and last date were in the views and unreachable as a roll-up. S
 second copy of the calendar logic, and the day/month/quarter/year of #894 work on
 it unchanged.
 
-**The role is in the name — "Betaaldatum › Maand" and not a second bare "Maand".**
+**The role is in the name — "Betaald op › Maand" and not a second bare "Maand".**
 Two dates on one fact means two objects that could both be called Maand; as soon as
 the same concept appears twice, the difference belongs on the screen and not in
 something you have to remember (#894, #871).
@@ -150,7 +150,7 @@ def test_a_task_rolls_up_on_the_day_it_was_closed(db_session, situation):
 def test_the_role_is_visible_in_the_name(db_session, situation):
     """Two dates on one fact means two objects that could both be "Maand"."""
     namen = {o.key: o.name for o in OBJECTS}
-    assert namen["paid_date_month"] == "Betaaldatum › Maand"
+    assert namen["paid_date_month"] == "Betaald op › Maand"
     assert namen["done_date_year"] == "Afhandeldatum › Jaar"
     # En sinds #901 draagt óók de sleuteldatum de naam van haar onderwerp: er is
     # geen kale "Maand" meer die per feit iets anders betekent.

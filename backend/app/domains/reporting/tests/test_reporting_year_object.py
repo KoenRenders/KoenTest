@@ -143,12 +143,18 @@ def test_the_bolt_still_refuses_a_finer_level_if_one_appears(db_session, situati
     """
     from dataclasses import replace
 
-    from app.domains.reporting.universe import BY_KEY, DATE_OBJECT_GRAIN, Format, ObjectKind
+    from app.domains.reporting.universe import (
+        BY_KEY,
+        DATE_OBJECT_GRAIN,
+        Format,
+        Grain,
+        ObjectKind,
+    )
 
     maand = replace(
         BY_KEY["membership_year"],
         key="membership_month_tijdelijk",
-        name="Lidmaatschapsjaar › Maand",
+        grain=Grain.MONTH,  # the name composes: `Lidmaatschapsjaar › Maand`
         sql="{view}.year_month",
         format=Format.LABEL,
         kind=ObjectKind.DIMENSION,
@@ -175,12 +181,18 @@ def test_the_bolt_also_covers_a_filter(db_session, situation):
     from dataclasses import replace
 
     from app.domains.reporting.engine import Filter, Operator
-    from app.domains.reporting.universe import BY_KEY, DATE_OBJECT_GRAIN, Format, ObjectKind
+    from app.domains.reporting.universe import (
+        BY_KEY,
+        DATE_OBJECT_GRAIN,
+        Format,
+        Grain,
+        ObjectKind,
+    )
 
     dag = replace(
         BY_KEY["membership_year"],
         key="membership_day_tijdelijk",
-        name="Lidmaatschapsjaar › Datum",
+        grain=Grain.DAY,
         sql="{view}.date_key",
         format=Format.DATE,
         kind=ObjectKind.DIMENSION,
