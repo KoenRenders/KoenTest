@@ -4,7 +4,7 @@
 **Status:** shaped with Koen on 15 October 2026 · not assigned to a release; B8 answered
 **Tracking issue:** #2026 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (audience choice, recipient list, send screen, Raakje's sources), the activities facade (a read of registration addresses), the unsubscribe page
-**Reading:** A 758 words · B 1 431 · C 1 547 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 759 words · B 1 786 · C 1 562 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -103,11 +103,12 @@ Koen's dictation of 15 October 2026 only. Reporting need: the archive of a sent 
 
 | # | Criterion | Requirement | Walkthrough steps |
 |---|---|---|---|
-| AC1 | Choosing *Eerdere deelnemers* shows the list of past activities with their counts | R1, R2 | open a draft, choose it |
-| AC2 | The send screen says in words who gets the letter and how many | R1 | tick two activities, read the sentence |
-| AC3 | A person registered twice, or for both activities, gets one mail | R1 | check the recipient count |
-| AC4 | The mail has an unsubscribe link; after using it the person gets nothing from a later letter of this kind | R3 | unsubscribe, send a second letter |
-| AC5 | The archive shows the activities chosen | R6 | open the sent letter |
+| AC1 | Choosing *Eerdere deelnemers* shows the list of past activities with their counts | R1, R2 | step 1 |
+| AC2 | The send screen says in words who gets the letter and how many | R1 | step 2 |
+| AC3 | A person registered twice, or for both activities, gets one mail | R1 | step 2 |
+| AC4 | The mail has an unsubscribe link; after using it the person gets nothing from a later letter of this kind | R3 | steps 6, 7 |
+| AC5 | The archive shows the activities chosen | R6 | step 8 |
+| AC6 | Raakje's draft can name the chosen activity and its date | R4 | step 3 |
 
 ---
 
@@ -126,7 +127,61 @@ A fourth audience, *Eerdere deelnemers*, next to Leden, Abonnees and Allebei. Wi
 
 ## B2. Fit with the process and the requirements — for the business
 
-Covers R1–R4 and R6. An example of use: *Nieuwsbrief*, step *Doelgroep* → the new option → tick last year's activity → *Naar versturen* → "212 adressen van mensen die waren ingeschreven op …, waarvan 140 al als lid de brief krijgen"; send.
+<!-- figure: name=cr36-usage caption=Every_step_has_a_home_in_a_module_or_is_marked_outside_the_portal -->
+```mermaid
+flowchart LR
+  subgraph author["Board member (author)"]
+    b1["Write the letter with Raakje<br/>Schrijven (drafting)"]:::dra
+    b2["Choose the audience<br/>Doelgroep (newsletter)"]:::nl
+    b3["Tick past activities<br/>Doelgroep list (newsletter, activities)"]:::act
+    b4["Check who it goes to and send<br/>Versturen (newsletter)"]:::nl
+    s(["Letter queued<br/>newsletter"]):::nl
+  end
+  subgraph reg["Person registered earlier"]
+    r1["Receives the letter<br/>outside the portal"]:::out
+    r2(["Unsubscribes<br/>unsubscribe page (newsletter)"]):::nl
+  end
+  b1 --> b2 --> b3 --> b4 --> s
+  b4 -.-> r1 --> r2
+  classDef nl fill:#e8f0ff,stroke:#0051a4
+  classDef act fill:#eef7ee,stroke:#005d29
+  classDef dra fill:#fff7ed,stroke:#f16532
+  classDef out fill:#ffffff,stroke:#52607a
+```
+
+*Colour is the module: blue newsletter, green activities (the list and its counts), orange drafting; white is outside the portal. The author stays in the newsletter screens; the person registered earlier meets the portal only in the mail and on the unsubscribe page.*
+
+**Traceability**
+
+| R | How the solution meets it | F | Module (C2) | Test (C6) | AC |
+|---|---|---|---|---|---|
+| R1 | The author ticks one or more past activities; the letter goes to the people registered on them, once each | B1 | newsletter, activities | T1, T2, T7, T9 | AC1, AC2, AC3 |
+| R2 | The choice is the fourth audience *Eerdere deelnemers* in the audience choice | B1 | newsletter | T17 | AC1 |
+| R3 | The mail has an unsubscribe link; whoever uses it is not mailed again | B1 | newsletter | T5, T6, T11, T12, T15 | AC4 |
+| R4 | The chosen activities go to Raakje as a source, so the draft can name them with the date | B1 | drafting | T19 | AC6 |
+| R5 | Won't: the author chooses the activity; Raakje does not suggest | B1 | — | — | — |
+| R6 | The archive line shows the activities the letter went to | B1 | newsletter | T8, T18 | AC5 |
+| R7 | Won't: not asked | — | — | — | — |
+
+**Walkthrough** — on HDEV, with made-up registrations on the reserved example domain.
+
+*The author (Nieuwsbrief)*
+1. Open a draft and choose *Eerdere deelnemers*. See: the list of past activities of the last three working years, each with its number of addresses.
+2. Tick two activities that have one person in common. See: a sentence such as "212 adressen van mensen die waren ingeschreven op …, waarvan 140 al als lid de brief krijgen", and the person on both counted once.
+3. Ask Raakje for a draft. See: the draft can name the chosen activities and their date.
+4. Send a test mail. See: the unsubscribe line is in it.
+5. Send the letter. See: it is queued.
+
+*The person registered earlier (made-up address)*
+6. Open the mail and use the unsubscribe link. See: the page confirms.
+
+*The author again*
+7. Write a second letter to the same activities. See: the sentence skips that address.
+8. Open the sent letter in the archive. See: the chosen activities are named.
+
+*Where it must refuse or fall back*
+9. As the person of step 6, press *Toch opnieuw*. See: a later letter reaches the address again.
+10. In a tenant without the activities module, open the audience choice. See: the option is not offered.
 
 ## B3. The whole across the modules — for the architect
 
@@ -303,6 +358,7 @@ The registration address is used for a second purpose; Q1 decides the basis and 
 | T16 | the *Uitgeschreven* count grows by one when a participant unsubscribes (a deliberate effect) |
 | T17 | a tenant without the `activities` module is not offered the option |
 | T18 | the archive keeps the activity's name after the activity is soft-deleted |
+| T19 | the chosen activities reach the draft's sources with name and date, and no address |
 
 ## C7. The gate — what refuses a deviation from now on
 
