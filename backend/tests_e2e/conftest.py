@@ -17,6 +17,13 @@ The tests share one seeded database and one backend, and no order is kept
 between files: a test makes or measures its own subject and does not lean on
 what another file left behind or has not yet done.
 
+**After a refusal, wait with `refusal_shown` (#1910).** The kit shows a refused
+save in two steps: the banner, and one htmx settle later the reason at the refused
+field with the focus moved to it. A test that waits for the banner and types at
+once can type into the wrong field; `schermen.refusal_shown(page)` waits for both
+steps, and `tests/test_browser_refusal_gate.py` refuses a test that looks at the
+banner and then types without it.
+
 **A visitor of its own (#1787).** The backend counts some things per visitor
 address: five sends of the sign-in forms a minute (`login_limiter`), the other
 limiters, the public chat's budget. Every browser test reached it from one

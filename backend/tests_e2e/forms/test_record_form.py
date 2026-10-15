@@ -35,6 +35,7 @@ from tests_e2e.schermen import (  # noqa: E402
     htmx_afgerond,
     login_met_sessie,
     pagina_klaar,
+    refusal_shown,
     transition_frames,
     watch_transitions,
 )
@@ -249,8 +250,7 @@ def test_a_refusal_names_two_fields_focuses_the_first_and_keeps_everything(setup
     maximum.fill("0")
     with htmx_afgerond(page):
         page.click(f"{BAR} [data-form-save]")
-    banner = page.locator("#aa-fiche-message [data-save-refusal]")
-    banner.wait_for()
+    banner = refusal_shown(page, "#aa-fiche-message [data-save-refusal]")
     text = banner.inner_text()
     assert "Opslaan kan nog niet: controleer 2 velden." in text
     assert "Je andere wijzigingen zijn behouden." in text

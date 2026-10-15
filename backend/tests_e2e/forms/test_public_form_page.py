@@ -34,7 +34,7 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import BASE, pagina_klaar, refusal_shown  # noqa: E402
 
 #: The guard drops a submission sent within two seconds of the page's load —
 #: silently, with the ordinary thanks (#1297). A person takes longer, because a
@@ -194,7 +194,7 @@ def test_an_empty_required_question_is_named_and_marked(browser, forms):
 
     page.click("[data-form-save]")
 
-    banner = page.locator("[data-save-refusal]")
+    banner = refusal_shown(page)
     expect(banner).to_contain_text("Verzenden kan nog niet: controleer 1 veld.")
     refused = _field(page, "Vraag B")
     expect(refused.locator("[data-refused-message]")).to_contain_text("verplicht")
