@@ -8,6 +8,7 @@ cel is daar `valuetype="string"`, wat meteen de bescherming is tegen formule-inj
 
 from app.domains.forms.models import FieldType, Form, FormSubmission
 from app.i18n import _
+from app.kernel.meetwaarden import plain_number
 from app.kernel.ods import build_ods
 
 _MULTI_SEP = "; "
@@ -29,7 +30,7 @@ def values_per_field(sub: FormSubmission, fields, option_label: dict) -> dict:
         elif ans.value_text is not None:
             per_field[ans.field_id].append(ans.value_text)
         elif ans.value_number is not None:
-            per_field[ans.field_id].append(f"{ans.value_number}")
+            per_field[ans.field_id].append(plain_number(ans.value_number))
         elif ans.value_rating is not None:
             per_field[ans.field_id].append(str(ans.value_rating))
     return per_field
@@ -87,7 +88,7 @@ def build_submissions_view(db, form: Form) -> dict:
             if ans.value_text is not None:
                 per_field[ans.field_id].append(ans.value_text)
             elif ans.value_number is not None:
-                per_field[ans.field_id].append(f"{ans.value_number}")
+                per_field[ans.field_id].append(plain_number(ans.value_number))
             elif ans.value_option_id is not None:
                 per_field[ans.field_id].append(option_label.get(ans.value_option_id, ""))
             elif ans.value_rating is not None:

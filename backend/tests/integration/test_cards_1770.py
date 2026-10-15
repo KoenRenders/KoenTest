@@ -51,11 +51,15 @@ def test_a_card_is_one_link_to_its_resolved_destination(db_session):
             {"title": "Naar de pagina", "line": "Lees verder", "page_id": page.id},
             {"title": "Buiten", "href": "https://voorbeeld.test/x"},
             {"title": "Word lid", "screen": "lid-worden"},
+            # CR-32 R4: a card without a destination is a text card, not a link.
+            {"title": "Alleen tekst", "number": "01", "text": "Zegt iets."},
         ),
         db_session,
     )
-    cards = re.findall(r'<div class="prose-card">.*?</div>', html, re.S)
-    assert len(cards) == 3
+    cards = re.findall(r'<div class="prose-card[^"]*">.*?</div>', html, re.S)
+    assert len(cards) == 4
+    text_card = cards.pop()
+    assert "<a " not in text_card and "prose-card--text" in text_card
     assert html.startswith('<div class="prose-cards">') and html.endswith("</div></div>")
     for card in cards:
         assert card.count("<a ") == 1, "a card holds exactly one link"
