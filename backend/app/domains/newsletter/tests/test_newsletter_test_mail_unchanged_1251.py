@@ -24,6 +24,7 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.newsletter.api import Audience
 from app.domains.newsletter.models import Newsletter
+from tests._letter import letter_doc
 from tests._snapshot import compare
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
@@ -48,7 +49,9 @@ def _letter(db, audience: Audience) -> Newsletter:
     letter = Newsletter(
         subject="Het najaar bij Raak",
         audience=audience,
-        body_html="<div>Beste,</div><div>Tot <strong>zaterdag</strong> in de zaal.</div>",
+        body_document=letter_doc(
+            "<div>Beste,</div><div>Tot <strong>zaterdag</strong> in de zaal.</div>"
+        ),
     )
     db.add(letter)
     db.flush()

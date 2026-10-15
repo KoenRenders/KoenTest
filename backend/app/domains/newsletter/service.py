@@ -715,7 +715,6 @@ def create_newsletter(db: Session, *, created_by: str) -> Newsletter:
     letter = Newsletter(
         created_by=created_by,
         subject="",
-        body_html="",
         draft_activity_ids=default_choices(db).as_stored(),
         draft_meeting_ids=[],
     )
@@ -731,10 +730,42 @@ def _refuse_unless_draft(letter: Newsletter) -> None:
         )
 
 
-def _clean_body(body_html: str) -> str:
-    from app.domains.cms.api import sanitize_cms_html
+def letter_document(sent: "str | dict") -> dict:
+    """What the editor sent for a letter's text, as the document to store. The
+    border is the schema's: a document it refuses is refused by name (the same
+    words as a page's), and nothing is stored. A letter that says nothing is the
+    empty document."""
+    import json
 
-    return sanitize_cms_html(body_html or "") or ""
+    from app.domains.cms.api import document_from_editor, schema
+
+    try:
+        document = json.loads(sent) if isinstance(sent, str) else sent
+        document = document_from_editor(document)
+        schema.validate_document(document, "letter")
+    except (ValueError, TypeError) as exc:
+        # `UnknownBlock`, `UnknownAttribute` and `InvalidShape` are ValueErrors whose
+        # message is the author's own copy; bad JSON is one too.
+        raise NewsletterError(str(exc) or _("De tekst kon niet worden bewaard.")) from exc
+    return document
+
+
+def markup_of(letter: Newsletter) -> str:
+    """The letter's text as the HTML with markers Raakje reads (`letter_markup.py`):
+    derived from the document, stored nowhere."""
+    from app.domains.newsletter.letter_markup import document_to_markup
+
+    return document_to_markup(letter.body_document)
+
+
+def letter_is_blank(letter: Newsletter) -> bool:
+    """Nothing to send: no block at all, and no paragraph with a word in it."""
+    from app.domains.cms.api import render_document
+
+    blocks = (letter.body_document or {}).get("content") or []
+    if any(block["type"] != "paragraph" for block in blocks):
+        return False
+    return not render_document(letter.body_document, target="text").strip()
 
 
 def update_draft(
@@ -742,10 +773,18 @@ def update_draft(
     letter: Newsletter,
     *,
     subject: str,
-    body_html: str,
     audience: Optional[str],
+    body: "Optional[str | dict]" = None,
+    body_html: Optional[str] = None,
     preview_text: Optional[str] = None,
 ) -> None:
+    """Save the letter's subject, audience and text.
+
+    The text is `body`, the editor's document (JSON text or the parsed document), or
+    `body_html`, the text with markers Raakje writes (`letter_markup.py`): a caller
+    gives one of them, or neither to leave the text as it is."""
+    from app.domains.newsletter.letter_markup import markup_to_document
+
     _refuse_unless_draft(letter)
     # Convert on the boundary: the form sends a code, the column carries the
     # member. `Audience(...)` rejects what is not in it, with the name of the
@@ -756,8 +795,16 @@ def update_draft(
             chosen = Audience(audience)
         except ValueError:
             raise NewsletterError(_("Onbekende doelgroep.")) from None
+    if body is not None and body_html is not None:
+        raise ValueError("a letter's text is `body` or `body_html`, not both")
+    document = (
+        letter_document(body)
+        if body is not None
+        else (letter_document(markup_to_document(body_html)) if body_html is not None else None)
+    )
     letter.subject = (subject or "").strip()[:500]
-    letter.body_html = _clean_body(body_html)
+    if document is not None:
+        letter.body_document = document
     letter.audience = chosen
     # None means "not part of this save" (Raakje applying a proposal); an empty
     # string means the author cleared it, and then the letter derives one again.
@@ -771,7 +818,7 @@ NEWSLETTER_COPY = CopyPlan(
     model=Newsletter,
     copied=(
         "subject",
-        "body_html",
+        "body_document",
         "preview_text",
         "draft_activity_ids",
         "draft_meeting_ids",
@@ -1140,6 +1187,9 @@ BLOCK_STYLES: dict[str, str] = {
 #: the minimum, and no colour picker anywhere.
 HEADING_STYLE = "font-size:20px;font-weight:700;line-height:1.3;color:#0051a4;margin:18px 0 6px"
 HEADING_TAGS = ("h1", "h2", "h3", "h4", "h5", "h6")
+#: The space between two paragraphs, said in the mail itself (the editor of the
+#: letter writes `<p>`, where Trix wrote a `<div>` and left the space to the client).
+PARAGRAPH_STYLE = "margin:0 0 12px"
 #: On a phone the two columns become two rows. A media query is the only way to
 #: say that in a mail, and it needs a `<style>`; the inline styles above keep the
 #: block readable in a client that drops one (Outlook does).
@@ -1151,45 +1201,88 @@ BLOCK_MEDIA_CSS = (
 )
 
 
-def activity_card_html(facts: ActivityFacts) -> str:
-    """What the LETTER carries for an activity: a marker, not the block.
+def mail_blocks(db: Session, letter: Newsletter, *, base_url: str) -> dict:
+    """The blocks of a letter the mail builds itself (`render_document(blocks=...)`),
+    each as the HTML a mail client shows — built from the data at the moment of
+    sending, so a letter written weeks ago still leaves with today's hour, place and
+    registration link.
 
-    Measured on 19 September 2026, after Koen saw a picture spill out of a
-    letter: Trix keeps neither a table, nor a class, nor a data attribute. It
-    turns an inserted ``<img>`` into a full-width attachment of its own and
-    glues the text lines together. The only things that survive its document
-    model are text and links — so the reference is TEXT.
+    An activity that no longer exists leaves nothing behind: better a letter without
+    a block than a letter with an empty frame. A picture and a button are built for a
+    mail (absolute addresses, inline styles, a table for the button): the site's own
+    rendering needs a stylesheet a mail client does not have."""
+    from app.domains.cms.api import button_address
+    from app.domains.media.api import media_url
 
-    It reads as what it is, and it carries the name so the author can see which
-    activity it is: ``[[activiteit:12|Zo vader zo zoon]]``. The number decides;
-    the name after the bar is there for the eye. ``expand_blocks`` builds the
-    block from the data at the moment of sending, so a letter written weeks ago
-    still leaves with today's hour, place and registration link.
-    """
-    return f"[[activiteit:{facts.id}|{facts.name}]]"
+    esc = html_lib.escape
 
+    def absolute(address: str) -> str:
+        return f"{base_url}{address}" if address.startswith("/") else address
 
-#: The marker in a letter. The name behind the bar is decoration: it may hold
-#: anything but a closing bracket, and nothing reads it.
-ACTIVITY_MARKER = re.compile(r"\[\[activiteit:(\d+)(?:\|[^\]]*)?\]\]")
-
-
-def expand_blocks(db: Session, html: str, *, base_url: str) -> str:
-    """Replace every activity marker by its block — the step before sending.
-
-    An activity that no longer exists leaves nothing behind: better a letter
-    without a block than a letter with an empty frame or a raw marker.
-    """
-    ids = [int(m.group(1)) for m in ACTIVITY_MARKER.finditer(html or "")]
-    if not ids:
-        return html or ""
-    facts = activity_facts(db, ids, base_url=base_url)
-
-    def build(match: "re.Match[str]") -> str:
-        fact = facts.get(int(match.group(1)))
+    def activity(node: dict) -> str:
+        facts = activity_facts(db, [node["attrs"]["activity_id"]], base_url=base_url)
+        fact = facts.get(node["attrs"]["activity_id"])
         return activity_block_html(fact) if fact else ""
 
-    return ACTIVITY_MARKER.sub(build, html or "")
+    def calendar(node: dict) -> str:
+        return calendar_html(
+            db, base_url=base_url, activity_ids=list(choices_of(db, letter).calendar)
+        )
+
+    def closing(node: dict) -> str:
+        return closing_html(db)
+
+    def figure(node: dict) -> str:
+        attrs = node.get("attrs") or {}
+        src = media_url(attrs.get("media_id"), base_url=base_url)
+        caption = (
+            f'<div style="font-size:13px;color:#52607a;padding-top:4px">{esc(attrs["caption"])}</div>'
+            if attrs.get("caption")
+            else ""
+        )
+        return (
+            f'<div style="margin:14px 0"><img src="{esc(src)}" alt="{esc(attrs.get("alt") or "")}" '
+            'style="display:block;max-width:100%;height:auto;border-radius:10px">'
+            f"{caption}</div>"
+        )
+
+    def button(node: dict) -> str:
+        attrs = node.get("attrs") or {}
+        address, _outside = button_address(node, db)
+        if address is None:
+            return ""
+        primary = (attrs.get("variant") or "secondary") == "primary"
+        cell = (
+            "background:#0051a4;border-radius:8px"
+            if primary
+            else "border:2px solid #0051a4;border-radius:8px"
+        )
+        link = "display:inline-block;padding:10px 18px;font-weight:700;text-decoration:none;" + (
+            "color:#ffffff" if primary else "color:#0051a4"
+        )
+        return (
+            '<table role="presentation" style="margin:14px 0;border-collapse:separate"><tr>'
+            f'<td style="{cell}"><a href="{esc(absolute(address))}" style="{link}">'
+            f"{esc(attrs.get('label') or '')}</a></td></tr></table>"
+        )
+
+    return {
+        "activity": activity,
+        "calendar": calendar,
+        "closing": closing,
+        "figure": figure,
+        "button": button,
+    }
+
+
+def render_body(db: Session, letter: Newsletter, *, base_url: str) -> str:
+    """The letter's text as the HTML of the mail, before the frame and the inline
+    styles: the document through the page renderer, its blocks built for a mail."""
+    from app.domains.cms.api import render_document
+
+    return render_document(
+        letter.body_document, db, blocks=mail_blocks(db, letter, base_url=base_url)
+    )
 
 
 def activity_block_html(facts: ActivityFacts) -> str:
@@ -1257,7 +1350,9 @@ def with_inline_styles(html: str) -> str:
             return match.group(0)
         return f'<{match.group(1)}{attrs} style="{HEADING_STYLE}">'
 
-    return re.sub(rf"<({'|'.join(HEADING_TAGS)})([^>]*)>", heading, out, flags=re.I)
+    out = re.sub(rf"<({'|'.join(HEADING_TAGS)})([^>]*)>", heading, out, flags=re.I)
+    # A paragraph is a bare <p>: the client's own margin is a guess, so it gets one.
+    return out.replace("<p>", f'<p style="{PARAGRAPH_STYLE}">')
 
 
 def photos_line_html(facts: ActivityFacts) -> str:
@@ -1433,9 +1528,11 @@ def preview_text_of(letter: Newsletter) -> str:
     if typed:
         return typed[:PREVIEW_MAX]
     greeting = plain_text(greeting_html()).strip().rstrip(",").lower()
-    for line in plain_text(letter.body_html or "").splitlines():
+    from app.domains.newsletter.letter_markup import MARKER
+
+    for line in plain_text(markup_of(letter)).splitlines():
         line = line.strip()
-        if not line or ACTIVITY_MARKER.fullmatch(line):
+        if not line or MARKER.fullmatch(line):
             continue
         if line.rstrip(",").lower() == greeting:
             continue
@@ -1476,7 +1573,7 @@ def render_text(
     """The letter as plain text, with the same footer as the HTML version."""
     base = (base_url or letter.link_base or "").rstrip("/")
     name, address = _organisation_footer(db)
-    body = plain_text(expand_blocks(db, letter.body_html or "", base_url=base))
+    body = plain_text(render_body(db, letter, base_url=base))
     footer = [f"{name} · {address}" if address else name]
     if unsubscribe_url:
         footer.append(
@@ -1555,7 +1652,7 @@ def render_mail(
         '<div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:10px;'
         'padding:22px 26px;font-size:15px;line-height:1.6;color:#14171c">'
         f'<div style="border-bottom:3px solid #ffce00;padding-bottom:10px;margin-bottom:16px">{header}</div>'
-        f"{with_inline_styles(expand_blocks(db, letter.body_html or '', base_url=base))}"
+        f"{with_inline_styles(render_body(db, letter, base_url=base))}"
         "</div>"
         '<div style="max-width:640px;margin:0 auto;text-align:center;font-size:12px;'
         f'color:#52607a;padding:14px 10px 0;line-height:1.6">{"<br>".join(footer)}</div>'
@@ -1688,9 +1785,9 @@ def start_sending(
         raise NewsletterError(_("Kies eerst voor wie deze nieuwsbrief is."))
     if not (letter.subject or "").strip():
         raise NewsletterError(_("Geef de nieuwsbrief eerst een onderwerp."))
-    if not re.sub(r"<[^>]+>|\s|&nbsp;", "", letter.body_html or ""):
+    if letter_is_blank(letter):
         raise NewsletterError(_("De nieuwsbrief heeft nog geen inhoud."))
-    refusal = placeholder_refusal(letter.body_html)
+    refusal = placeholder_refusal(markup_of(letter))
     if refusal:
         raise NewsletterError(refusal)
     try:

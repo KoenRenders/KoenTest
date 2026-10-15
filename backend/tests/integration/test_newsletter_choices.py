@@ -86,9 +86,7 @@ def test_an_older_letter_with_one_list_is_read_and_not_rewritten(db_session, wor
     """The one reader takes the single list of a letter from before #1562 — and
     leaves the row as it is: reading is no reason to change a stored form."""
     ids = [world["coming"][3].id, world["past"].id, world["coming"][0].id, world["coming"][1].id]
-    letter = Newsletter(
-        created_by="s@example.org", subject="", body_html="", draft_activity_ids=ids
-    )
+    letter = Newsletter(created_by="s@example.org", subject="", draft_activity_ids=ids)
     db_session.add(letter)
     db_session.commit()
 

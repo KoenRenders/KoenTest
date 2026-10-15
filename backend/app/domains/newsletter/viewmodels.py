@@ -41,6 +41,11 @@ class NewsletterComposeView(ViewModel):
     """`admin_nieuwsbrief.html` for a draft, with its fragments."""
 
     letter: Any
+    #: The letter's text as the page editor's document, JSON text.
+    body_json: str
+    #: The page editor's configuration for the letter set, with the letter's featured
+    #: activities for its activity dialog.
+    editor_config: Any
     counts: Any
     #: `(code, label, count)` — the code is the radio value, so the
     #: template never renders an enum member into an attribute.
@@ -58,6 +63,8 @@ class NewsletterComposeView(ViewModel):
     # What the letter is about, in three groups (#1562): per group its key, its
     # title, a hint, the chosen activities' facts and whether one more may join.
     choices: list[dict[str, Any]]
+    #: `{id, label}` per FEATURED activity: the editor's activity dialog offers them.
+    featured_options: list[dict[str, Any]]
     # How many whole meeting reports go along (CR-11 W13).
     report_count: int
     csrf_token: str
@@ -73,6 +80,8 @@ class NewsletterChoicesView(ViewModel):
 
     letter: Any
     choices: list[dict[str, Any]]
+    #: `{id, label}` per FEATURED activity: the editor's activity dialog offers them.
+    featured_options: list[dict[str, Any]]
     report_count: int
     raakje_enabled: bool
     csrf_token: str
@@ -81,8 +90,7 @@ class NewsletterChoicesView(ViewModel):
 
 @dataclass(frozen=True, kw_only=True)
 class NewsletterPickerView(ViewModel):
-    """`_nb_kiezer.html` — the activity picker: for one of the three groups, or
-    (`insert`) the featured activities to put a block of at the cursor."""
+    """`_nb_kiezer.html` — the activity picker, for one of the letter's three groups."""
 
     letter: Any
     #: `{id, name, date}` per activity offered.
@@ -117,6 +125,8 @@ class NewsletterArchiveView(ViewModel):
     """`admin_nieuwsbrief_archief.html` — a letter that is being or was sent."""
 
     letter: Any
+    #: The letter's text as the mail shows it (the blocks built from today's data).
+    body_html: str
     status_label: str
     status_tone: str
     audience_label: str

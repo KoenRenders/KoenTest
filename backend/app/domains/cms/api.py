@@ -7,9 +7,11 @@ from app.domains.cms.models import (  # noqa: F401
     CmsPageTranslation,
     PageIncomplete,
 )
+from app.domains.cms.parse import document_from_trix as document_from_html  # noqa: F401
 from app.domains.cms.render import (  # noqa: F401
     _format_md,
     _format_price,
+    button_address,
     hero_view,
     render_cms_content,
     render_document,
@@ -100,6 +102,8 @@ __all__ = [
     "published_text",
     "draft_html",
     "document_from_editor",
+    "document_from_html",
+    "button_address",
     "editable_document",
     "get_translation",
     "_format_md",

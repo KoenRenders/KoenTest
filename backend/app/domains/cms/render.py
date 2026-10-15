@@ -860,6 +860,15 @@ def _button_html(node: dict, preview: bool = False, db=None) -> str:
     )
 
 
+def button_address(node: dict, db=None) -> "tuple[str | None, bool]":
+    """Where a button block leads — the address as the site's button resolves it
+    (a path of the site, or an address outside it) — and whether it is outside; none
+    when it cannot be reached. For a renderer of another place than the site (the
+    letter, as a mail), which builds its own button and needs the one resolver."""
+    address, _reason, outside = _resolved(node.get("attrs") or {}, db)
+    return address, outside
+
+
 def hero_view(page, db=None, *, preview: bool = False, viewer=None) -> "dict | None":
     """The hero a page opens with (CR-32 F5), as the template draws it — or
     None when the page opens with its title line. The hero is a property of

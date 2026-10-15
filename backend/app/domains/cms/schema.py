@@ -379,11 +379,12 @@ BLOCK_SETS: dict[str, dict[str, Any]] = {
         ),
     },
     # The letter (phase 7, F9): text, a picture, a button, an activity, the
-    # calendar and the closing. Headings are the three levels like a page's; the
-    # mail renderer gives them the letter's look.
+    # calendar and the closing; the mail renderer gives it the letter's look.
     "letter": {
         "marks": ("bold", "italic", "link"),
-        "headings": HEADING_LEVELS,
+        # One heading: a mail has one look for every level (`HEADING_STYLE`), so a
+        # second and a third button would promise a difference the reader never sees.
+        "headings": (2,),
         "lists": ("bulletList", "orderedList"),
         "blocks": (),
         "insert": ("figure", "button", "activity", "calendar", "closing"),

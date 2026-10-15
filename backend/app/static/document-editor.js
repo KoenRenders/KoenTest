@@ -1707,6 +1707,9 @@
       editor.on("update", function () {
         input.value = JSON.stringify(editor.getJSON());
         changed = true;
+        /* A screen that saves while the author types (the letter) listens for
+           this one, with its own delay (it bubbles to the form around the editor). */
+        mount.dispatchEvent(new CustomEvent("raak-editor-change", { bubbles: true }));
       });
       /* A screen that saves as the author leaves the editor (the notes of a
          meeting point, as they did on Trix) listens for this event (it bubbles from the editor's element
@@ -1736,6 +1739,13 @@
       }
     });
   }
+
+  /* The editor of an element, for a script of the screen that works with it: the
+     Assistent's proposal for the letter writes into it and reads the selection. */
+  window.raakDocumentEditor = function (mountId) {
+    var editor = editors[mountId];
+    return editor && !editor.isDestroyed ? editor : null;
+  };
 
   function scan() {
     if (!window.RaakTiptap) watchScripts();

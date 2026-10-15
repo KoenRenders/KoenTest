@@ -36,6 +36,7 @@ from app.domains.newsletter.models import (
     LetterStatus,
     Newsletter,
 )
+from tests._letter import letter_doc
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -70,7 +71,10 @@ def mailbox(monkeypatch):
 
 def _letter(db, *addresses, status=LetterStatus.SENDING, done=()):
     letter = Newsletter(
-        subject="Proef", body_html="<div>Beste</div>", audience=Audience.MEMBERS, status=status
+        subject="Proef",
+        body_document=letter_doc("<div>Beste</div>"),
+        audience=Audience.MEMBERS,
+        status=status,
     )
     db.add(letter)
     db.flush()
