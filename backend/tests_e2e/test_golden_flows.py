@@ -297,9 +297,10 @@ def _forget(email: str) -> None:
 
 
 def _menu(page) -> list[str]:
-    """Where the account menu leads, in its order (hidden on a phone, where
-    the drawer carries it — the links are the same)."""
-    return page.locator("[data-account-page-menu] a").evaluate_all(
+    """Which pages the account menu leads to, in its order (hidden on a
+    phone, where the drawer carries it — the links are the same). The pages
+    only: Admin and Uitloggen stand in it too since #1886."""
+    return page.locator('[data-account-page-menu] a[data-account-item="member"]').evaluate_all(
         "links => links.map(a => a.getAttribute('href'))"
     )
 

@@ -5,7 +5,7 @@
 {% block content %}
 {# Mijn inschrijvingen (CR-22 S5, #1709; R8): one card per registration, newest
    first, in the account layout. #}
-{% call pub.account_page(title, nav, active) %}
+{% call pub.account_page(title, nav, active, gebruiker) %}
   {% if registrations %}
   <div data-my-registrations class="mt-4 space-y-4">
     {% for reg in registrations %}{% include "_my_registration.html" %}{% endfor %}
