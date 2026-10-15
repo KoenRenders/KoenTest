@@ -462,14 +462,6 @@ UNIVERSE_ENTRIES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,
     ),
     Attribute(
-        key="reporting.payments.payment_paid_on",
-        columns=(),
-        label="Betaald op",
-        name_en="Payment paid on",
-        help="De dag waarop deze ene betaling binnenkwam. Leeg zolang er niets ontvangen is.",
-        ai_exposure=AiExposure.INTERNAL,
-    ),
-    Attribute(
         key="reporting.members.board_member",
         columns=(),
         label="Verantwoordelijk bestuurslid",

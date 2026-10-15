@@ -12,11 +12,11 @@ import pytest
 from app.kernel import attributes as reg
 from app.ui import templates
 
-FIELD = '{% import "_macros.html" as ui %}{{ ui.field("x", ' + "%s" + ") }}"
+FIELD = '{% import "_macros.html" as ui %}{{ ui.field("x", __ARGS__) }}'
 
 
 def _render(arguments: str) -> str:
-    return templates.env.from_string(FIELD % arguments).render()
+    return templates.env.from_string(FIELD.replace("__ARGS__", arguments)).render()
 
 
 def test_a_field_with_an_attribute_shows_the_registers_label():
@@ -34,11 +34,11 @@ def test_a_label_and_an_attribute_together_are_refused():
         _render('_("Voornaam"), attribute="mdm.person.first_name"')
 
 
-def test_an_attribute_without_a_label_is_refused():
+def test_an_attribute_without_a_label_or_without_an_entry_is_refused():
     with pytest.raises(ValueError, match="no label"):
-        _render('attribute="mdm.person.nothing"')  # fails first on the key itself
-    with pytest.raises((ValueError, LookupError)):
         _render('attribute="activities.activity.slug"')  # an entry no screen has a label for
+    with pytest.raises(LookupError, match="known keys"):
+        _render('attribute="mdm.person.nothing"')
 
 
 def test_a_renamed_entry_moves_every_reader(monkeypatch):

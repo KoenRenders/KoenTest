@@ -147,7 +147,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="payment.payment_record.paid_at",
         columns=("payment.payment_records.paid_at",),
-        label="Betaaldatum",
+        label="Betaald op",
         name_en="Paid at",
         help="Wanneer er betaald is — iets anders dan wanneer de vordering gemaakt werd.",
         ai_exposure=AiExposure.INTERNAL,  # K8

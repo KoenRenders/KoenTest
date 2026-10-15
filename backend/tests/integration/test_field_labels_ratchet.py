@@ -1,4 +1,4 @@
-"""A kit field names its datum, not its words: a ratchet on typed labels, and a hard gate on the keys · since CR-33 phase 1.
+"""Refuses a kit field that types a label a datum already has, a field without a label, and an attribute key that does not resolve · ratchet · since #2007.
 
 Every `ui.field(…)` call of the templates is read. Four checks:
 
@@ -30,7 +30,7 @@ import pytest
 
 from tests.field_labels_baseline import TYPED_LABELS
 
-APP = pathlib.Path(__file__).resolve().parents[1] / "app"
+APP = pathlib.Path(__file__).resolve().parents[2] / "app"
 CALL = re.compile(r"\bui\.field\(")
 TYPED = re.compile(r"""^_\(\s*(["'])(.*)\1\s*\)$""", re.DOTALL)
 

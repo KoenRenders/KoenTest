@@ -1,4 +1,4 @@
-"""Refuses a stored business column that no attribute names, and an attribute that names a column that does not exist · hard · since CR-33 phase 1.
+"""Refuses a stored business column that no attribute names, and an attribute that names a column that does not exist · hard · since #2007.
 
 The register starts from the data model (CR-33 C4.0): a classification can only be
 complete against a closed set, and the stored columns are one (the ORM metadata).

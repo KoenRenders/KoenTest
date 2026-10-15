@@ -174,6 +174,24 @@ def attribute(key: str) -> Attribute:
         ) from None
 
 
+def field_label(key: str | None, label: str | None) -> str | None:
+    """The label of a kit field (CR-33 F2): `attribute=` reads it from the register, a
+    typed `label` stays for a field that is no datum (a search box). Both at once is
+    refused, and so is an entry no screen has a label for. Raised everywhere, PROD
+    included: the template gate resolves every key before it can reach a screen
+    (`tests/integration/test_field_labels_ratchet.py`)."""
+    if key is None:
+        return label
+    if label is not None:
+        raise ValueError(
+            f"a kit field gets its label from `attribute={key!r}` or from `label=`, not both"
+        )
+    entry = attribute(key)
+    if entry.label is None:
+        raise ValueError(f"attribute {key!r} has no label: add one in its attributes.py")
+    return entry.text
+
+
 def covered_columns() -> set[str]:
     """Every `schema.table.column` some entry names."""
     return {column for attr in _REGISTRY.values() for column in attr.columns}

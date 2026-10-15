@@ -2256,7 +2256,8 @@ OBJECTS: tuple[UniverseObject, ...] = (
     ),
     UniverseObject(
         key="payment_paid_on",
-        attribute="reporting.payments.payment_paid_on",
+        attribute="payment.payment_record.paid_at",
+        note="De dag waarop deze ene betaling binnenkwam. Leeg zolang er niets ontvangen is.",
         klass="Betalingen",
         kind=ObjectKind.DETAIL,
         view="f_payments",
