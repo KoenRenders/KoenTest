@@ -182,23 +182,28 @@ flowchart LR
 **Walkthrough** — on HDEV, with made-up addresses on the reserved example domain.
 
 *The author (Nieuwsbrief)*
+
 1. Write a letter with one ordinary link and one activity block. Send it to a made-up subscriber. See: the letter reaches *Verzonden*.
 2. Read the source of the received mail. See: the pixel, every link going through the portal (the activity block's *Schrijf je in!* too), the unsubscribe link unchanged, the footer line *Wij tellen anoniem hoeveel brieven geopend en hoeveel links aangeklikt worden.*
 3. Send a test mail and open the preview. See: no pixel and no rewritten link.
 
 *The reader (the made-up address)*
+
 4. Open the mail twice. See: nothing special.
 5. Click the ordinary link twice. See: the destination opens both times.
 6. Click the unsubscribe link. See: it works as before.
 
 *The author again (Archief)*
+
 7. Open the letter. See: *Resultaat* says opened 1 (indicatie), clicked 1 (indicatie), and the link list shows 1 for the link clicked twice. In the list: columns for the number of links, opened % and clicked %.
 8. Read the result. See: no name, address or time anywhere.
 
 *The administrator*
+
 9. Open the privacy page. See: the newsletter section.
 
 *Where it must refuse*
+
 10. Change a character in the code of the pixel address. See: the picture still loads and no count changes.
 11. Call a click address with the link number of another letter. See: not found, no count.
 
