@@ -79,6 +79,7 @@ LOSSLESS_KINDS = frozenset(
         MediaKind.DESIGN_RENDER,
         MediaKind.SPONSOR,
         MediaKind.TENANT_LOGO,
+        MediaKind.SITE_ICON,
         MediaKind.PAGE_IMAGE,
         MediaKind.PRODUCT_DOCUMENT,
     }

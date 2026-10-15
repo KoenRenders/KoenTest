@@ -49,7 +49,15 @@ from app.kernel.codes import code_of
 # The name follows the other kinds: owner + thing. "page_media" would not say what
 # it is, and the others do.
 PAGE_IMAGE_KIND = MediaKind.PAGE_IMAGE
-VALID_KINDS = {MediaKind.SPONSOR, MediaKind.ACTIVITY_PHOTO, MediaKind.TENANT_LOGO, PAGE_IMAGE_KIND}
+# `site_icon` (CR-32 R6): the favicon of the site, kept like the logo — one per
+# tenant, the newest wins (`tenant_site_icon`); an SVG is allowed for it too.
+VALID_KINDS = {
+    MediaKind.SPONSOR,
+    MediaKind.ACTIVITY_PHOTO,
+    MediaKind.TENANT_LOGO,
+    MediaKind.SITE_ICON,
+    PAGE_IMAGE_KIND,
+}
 # Files that another component links to from a text — not part of the media
 # library screen, which is why they are not in VALID_KINDS (#984).
 DOCUMENT_KINDS = {MediaKind.NEWSLETTER_FILE, MediaKind.PRODUCT_DOCUMENT}
@@ -166,6 +174,17 @@ def activity_photo_covers(db) -> list[dict]:
     return [
         {"activity_id": a.activity_id, "thumb_url": f"/api/v1/media/{a.id}/thumb"} for a in rijen
     ]
+
+
+def list_albums(db) -> list:
+    """The albums of the photo page: the ARCHIVED activities that have at least
+    one active photo, as the activities themselves. The one definition — the
+    photo page lists them, a page's gallery block (CR-32 R20) offers them and
+    refuses what is not one."""
+    from app.domains.activities.api import list_activities
+
+    covered = {row["activity_id"] for row in activity_photo_covers(db)}
+    return [a for a in list_activities(db, scope="archived") if a.id in covered]
 
 
 def list_activity_photos(db, activity_id: int) -> list[dict]:
@@ -646,9 +665,10 @@ def _image_asset(
     # #989: SVG only for the association logo, and then cleaned rather than
     # re-encoded (see `media/svg.py`). Every other kind stays raster.
     is_svg = content_type == SVG_CONTENT_TYPE
-    if is_svg and media_kind is not MediaKind.TENANT_LOGO:
+    if is_svg and media_kind not in (MediaKind.TENANT_LOGO, MediaKind.SITE_ICON):
         raise MediaFout(
-            _("%(bestand)s: een SVG kan alleen als logo van de vereniging.") % {"bestand": filename}
+            _("%(bestand)s: een SVG kan alleen als logo of favicon van de vereniging.")
+            % {"bestand": filename}
         )
     if not is_svg and content_type not in ALLOWED_CONTENT_TYPES:
         raise MediaFout(f"Niet-ondersteund bestandstype: {filename}")
@@ -913,6 +933,18 @@ def activity_image_path(db, activity_id: int) -> Optional[str]:
         .first()
     )
     return f"/api/v1/media/{cover.id}/thumb" if cover is not None else None
+
+
+def tenant_site_icon(db):
+    """The favicon of this site, or None (CR-32 R6): the newest picture of the
+    kind `site_icon` of the tenant, as the logo is — a new upload replaces the old
+    one without anything to tidy. The asset itself, as `tenant_logo` gives it."""
+    return (
+        db.query(MediaAsset)
+        .filter(MediaAsset.kind == MediaKind.SITE_ICON, MediaAsset.is_active.is_(True))
+        .order_by(MediaAsset.id.desc())
+        .first()
+    )
 
 
 def tenant_logo(db):
@@ -1209,7 +1241,7 @@ PICKABLE_KINDS = (
 #: branches never reach them (#1473, #1527): per branch a key and its kinds. ONE
 #: source for the library and the picker — both trees read it, through `_tree`.
 KIND_GROUPS: tuple[tuple[str, tuple[MediaKind, ...]], ...] = (
-    ("logos", (MediaKind.SPONSOR, MediaKind.TENANT_LOGO)),
+    ("logos", (MediaKind.SPONSOR, MediaKind.TENANT_LOGO, MediaKind.SITE_ICON)),
     ("pages", (MediaKind.PAGE_IMAGE,)),
 )
 #: Design pictures are a branch per activity, like posters (Koen, #1527):

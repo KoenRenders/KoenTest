@@ -1,0 +1,22 @@
+Content-Type: multipart/alternative; boundary="<B1>"
+MIME-Version: 1.0
+Subject: Onderwerp
+From: Raak Millegem <sender@example.com>
+To: to@example.com
+Reply-To: antwoord@example.com
+List-Unsubscribe: <https://example.com/uitschrijven/abc>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+
+--<B1>
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+
+Brief in tekst
+--<B1>
+Content-Type: text/html; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+
+<html><body><p>Brief</p></body></html>
+--<B1>--

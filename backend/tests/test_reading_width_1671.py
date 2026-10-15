@@ -66,7 +66,7 @@ def test_the_kit_knows_the_container_the_text_line_and_the_holders_scroll():
     build = BUILD.read_text()
     assert (
         ".doc-page .prose-raak>*:not(table):not(.prose-figure--full):not(.prose-columns):not(.prose-cards)"
-        ":not(.prose-section){max-width:768px}" in build
+        ":not(.prose-section):not(.prose-gallery){max-width:768px}" in build
     ), "the text line is gone or names element types"
     assert ".prose-raak{overflow-x:auto}" in build, "a table's holder cannot scroll"
     assert "width:max-content" not in build.split(".prose-raak table")[1].split("}")[0], (

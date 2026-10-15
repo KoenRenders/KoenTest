@@ -133,11 +133,15 @@ def test_de_uitzonderingslijst_blijft_een_uitzondering():
     (cijfers en streepjes), net als een schermafdruk. Een PDF gaat sowieso
     ongewijzigd door de documentdeur; deze vermelding geldt voor de
     afbeeldingsvorm van zo'n document.
+
+    `site_icon` (CR-32 R6) volgt het logo: een favicon is een klein merkteken,
+    lijnwerk bij uitstek, en er is er één per tenant.
     """
     assert {k.value for k in LOSSLESS_KINDS} == {
         "design_render",
         "sponsor",
         "tenant_logo",
+        "site_icon",
         "page_image",
         "product_document",
     }, LOSSLESS_KINDS

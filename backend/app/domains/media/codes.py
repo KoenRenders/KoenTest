@@ -17,6 +17,7 @@ MEDIA_KIND_CODES = (
     CodeSeed(code="sponsor", nl="Sponsorlogo", en="Sponsor logo", sort_order=10),
     CodeSeed(code="activity_photo", nl="Activiteitenfoto", en="Activity photo", sort_order=20),
     CodeSeed(code="tenant_logo", nl="Logo van de vereniging", en="Association logo", sort_order=30),
+    CodeSeed(code="site_icon", nl="Favicon van de site", en="Site icon", sort_order=35),
     CodeSeed(code="page_image", nl="Pagina-afbeelding", en="Page image", sort_order=40),
     CodeSeed(
         code="activity_poster", nl="Affiche van een activiteit", en="Activity poster", sort_order=50
