@@ -4,7 +4,7 @@
 **Status:** shaped with Koen on 15 October 2026 · not assigned to a release · the data model and the domain boundaries of B3 are a proposal for the architecture CLI to confirm
 **Tracking issue:** #2030
 **Applies to:** the workbench (`workflow`), the form engine (`forms`), a new domain `cases`, the party model (CR-26), the shop (CR-21) and activities for the sale step; the back-office menu and the public site
-**Reading:** A 1 492 words · B 2 500 · C 2 259 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1 507 words · B 2 789 · C 2 620 — measured per part; A ≤ 1 500, B ≤ 2 500 (B holds the drawings' companions, matrix and walkthrough of the template)
 
 ---
 
@@ -164,19 +164,21 @@ Koen's dictation of 15 October 2026. It taught us that the blocks exist: the wor
 
 | # | Criterion | Requirement | Walkthrough steps |
 |---|---|---|---|
-| AC1 | Filling in the public complaint form starts a case with a first task | R1, R2 | fill it in signed out, then signed in |
-| AC2 | A member signed in sees the person in *Wie*, not editable; the case is about that person | R3 | fill in the complaint as a member |
-| AC2a | A person can choose an organisation tied to them; the case is about both | R3 | fill it in for it |
-| AC3 | *Niet ontvankelijk* closes the case at once, with that reason | R6, R7 | fill the first step, pick no |
-| AC4 | *Ontvankelijk* gives the handling task; closing it closes the case as *Behandeld* | R4–R7 | pick yes, handle, close |
-| AC5 | A finished step shows its answers and cannot be changed | R8 | open a done step |
-| AC6 | The opportunity runs to *Gewonnen* by registering a sale, to *Verloren* by a lost answer | R6, R9 | walk both |
-| AC7 | A case can be started from the workbench for a chosen party | R2 | *Nieuwe zaak* |
-| AC11 | *Instellingen* opens the case types, each with form and process | R1, R15 | open it |
-| AC8a | *Zaken* lists cases with status; a search finds one by number, name or a word of the intake | R13 | search |
-| AC8 | The case screen draws the process with the current step | R10 | open a running case |
-| AC9 | A process exported from one environment imports into another with its forms | R11 | export, import |
-| AC10 | A process made in the screen runs, and the drawing matches | R15 | build the complaint process and run it |
+| AC1 | Filling in the public complaint form starts a case with a first task | R1, R2 | steps 3, 6 |
+| AC2 | A member signed in sees the person in *Wie*, not editable; the case is about that person | R3 | step 4 |
+| AC2a | A person can choose an organisation tied to them; the case is about both | R3 | step 5 |
+| AC3 | *Niet ontvankelijk* closes the case at once, with that reason | R6, R7 | step 8 |
+| AC4 | *Ontvankelijk* gives the handling task; closing it closes the case as *Behandeld* | R4–R7 | step 9 |
+| AC5 | A finished step shows its answers and cannot be changed | R8 | step 9 |
+| AC6 | The opportunity runs to *Gewonnen* by registering a sale, to *Verloren* by a lost answer | R6, R9 | steps 11, 12 |
+| AC7 | A case can be started from the workbench for a chosen party | R2 | step 10 |
+| AC11 | *Instellingen* opens the case types, each with form and process | R1, R15 | steps 1, 2 |
+| AC8a | *Zaken* lists cases with status; a search finds one by number, name or a word of the intake | R13 | step 6 |
+| AC8 | The case screen draws the process with the current step | R10 | step 7 |
+| AC9 | A process exported from one environment imports into another with its forms | R11 | step 13 |
+| AC10 | A process made in the screen runs, and the drawing matches | R15 | steps 2, 15 |
+| AC12 | A contact message becomes a case of the type *Bericht* that closes as *Afgehandeld* or *Niet afgehandeld* | R24 | step 14 |
+| AC13 | A tenant that does not work with organisations shows no organisation choice in *Wie* | R23 | step 5 |
 
 ---
 
@@ -196,35 +198,173 @@ Five decisions:
 - **A step with a form is filled in, closed, then fixed**, as an attached submission of the form engine.
 - **A decision is a rule on one field**: a choice question equals an option.
 - **The sale step is a task with a button** that opens the existing screen for an activity registration or a shop order with the party filled in; registering the sale closes the step and the case, as *won*. I read "triggert een systeemactie" this way (Q2).
-- **A process screen, as a list** (R15): steps in order, each with a type; the screen writes the BPMN, so the stored process is always standard BPMN, its layout generated. The first two types ship ready-made. B1a analyses the options.
-
-### B1a. The process screen — the options
-
-| Option | How it works | For | Against |
-|---|---|---|---|
-| A. A list of steps (recommended) | as in the form engine: add a step, pick its type and where it goes next; a decision has a list of rules | same way of working as the forms; fits a phone; no library | no free drawing |
-| B. A canvas (bpmn.io modeler) | drag shapes | the real BPMN modeller | a large library, a logo licence (unverified), poor on a phone, shapes the engine does not run |
-| C. Text (BPMN XML or Mermaid) | the author types it | cheapest; exact | not for a board member |
-
-**Step types in option A**, each a row in the list:
-- **Taak met formulier**: a title, a role, an optional form (the answers are fixed when the task is done), and *next step*.
-- **Beslissing** (automatic, no person): rules *if the field F of form X is option O, then go to step N and optionally set the status to S*, and one *otherwise* route. This is what Koen calls the automatic step. It is a BPMN exclusive gateway.
-- **Verkoop registreren**: a task with a button to register an activity registration or a shop order for the party; when the sale is registered the step is done by itself.
-- **Einde**: the status *closed* and a reason from the list (*Behandeld*, *Niet ontvankelijk*, *Gewonnen*, *Verloren*, or the tenant's own).
-
-The screen refuses a process with no start step, a step that nothing leads to, a step with no way on, or no end. A loop back (rework) is allowed. A status set on a route comes from the status list; if none is set, the status follows the rule of C4.2.
+- **A process screen, as a list** (R15): steps in order, each with a type; the screen writes the BPMN, so the stored process is always standard BPMN, its layout generated. The first two types ship ready-made. C4.11 analyses the options.
 
 ### B1b. The applicant block — a pattern of its own
 
-Koen: the block is "reusable tussen die drie" (activity registration, shop order, form), "los van deze change request". It is one value, **who it is for**: the person, optionally an organisation the person acts for, and the contact details copied at that moment. The party model (`mdm`) owns it; registration, order (CR-34's buyer copy is this shape plus an address) and case store the same shape. One kit macro shows it in three modes: signed in (from the session, not editable, a choice of the person's organisations), signed out (name, e-mail, phone), back office (any person or organisation). Detail: C4.8; who builds it when: Q7. The organisation choice shows only where the tenant works with organisations (R23; proposed default off).
+Koen: the block is "reusable tussen die drie" (activity registration, shop order, form), "los van deze change request". It is one value, **who it is for**: the person and optionally an organisation, with the contact details copied at that moment; one kit macro shows it in three modes. The detail is C4.8; who builds it when is Q7.
 
 *Not the final form:* B3 puts cases in a new domain; the architecture CLI may place them in `workflow`.
 
 ## B2. Fit with the process and the requirements — for the business
 
-Covers R1–R13. Use, the complaint: *Klacht indienen* → intake form → case *Open*, task *Beoordeel ontvankelijkheid* (*ja/nee*, a motivation) → *ja*: task *Behandel de klacht* → closed *Behandeld*; *nee*: closed *Niet ontvankelijk*. The opportunity: *Interesse tonen* (a dropdown, remarks) → *Beoordeel* → *Maak een offerte* (by hand) → *Wacht op antwoord klant* (*Gewonnen? ja/nee*) → *ja*: *Registreer verkoop* → closed *Gewonnen* once the sale is registered; *nee*: closed *Verloren*.
+Two audiences, two drawings: the administrator who sets a case type up, and the people who use it.
+
+<!-- figure: name=cr38-usage-setup caption=Setting_up_stays_in_the_cases_module_and_the_form_engine -->
+```mermaid
+flowchart LR
+  subgraph adm["Administrator"]
+    a1["Open Zaken, Instellingen<br/>Soorten zaken (cases)"]:::cas
+    a2["Make a case type with its intake form<br/>Soorten zaken, form builder (cases, forms)"]:::frm
+    a3["Build the process as a list of steps<br/>Proces (cases)"]:::cas
+    a4["Move it to another environment<br/>export and import (cases, forms)"]:::cas
+  end
+  a1 --> a2 --> a3 --> a4
+  classDef cas fill:#e8f0ff,stroke:#0051a4
+  classDef frm fill:#eef7ee,stroke:#005d29
+```
+
+<!-- figure: name=cr38-usage-run caption=Every_step_has_a_home_in_a_module_or_is_marked_outside_the_portal -->
+```mermaid
+flowchart TB
+  subgraph client["Client"]
+    c1["Register an interest<br/>public intake form (forms, Wie block)"]:::frm
+    c2["Answer the offer<br/>outside the portal"]:::out
+  end
+  subgraph sales["Sales"]
+    s1["Judge: admissible?<br/>task on the workbench (workflow)"]:::wf
+    g1{"Admissible?<br/>decision (cases)"}:::cas
+    s2["Make the offer<br/>outside the portal, task kept on the workbench (workflow)"]:::wf
+    s3["Wait for the answer<br/>task on the workbench (workflow)"]:::wf
+    g2{"Won?<br/>decision (cases)"}:::cas
+    s4["Register the sale<br/>button to the registration or order screen (activities, sales)"]:::sal
+    e1(["Closed: won<br/>case screen (cases)"]):::cas
+    e2(["Closed: lost<br/>case screen (cases)"]):::cas
+    e3(["Closed: not admissible<br/>case screen (cases)"]):::cas
+  end
+  c1 -.-> s1
+  s1 --> g1
+  g1 -->|yes| s2 --> s3
+  g1 -->|no| e3
+  s3 -.-> c2
+  c2 -.-> g2
+  g2 -->|yes| s4 --> e1
+  g2 -->|no| e2
+  classDef cas fill:#e8f0ff,stroke:#0051a4
+  classDef frm fill:#eef7ee,stroke:#005d29
+  classDef wf fill:#fff7ed,stroke:#f16532
+  classDef sal fill:#f3e8ff,stroke:#6b21a8
+  classDef out fill:#ffffff,stroke:#52607a
+```
+
+*Colour is the module: blue cases, green forms, orange workflow, purple activities and sales; white is outside the portal. The complaint is the same drawing without the offer and the sale.*
+
+**Traceability**
+
+| R | How the solution meets it | F | Module (C2) | Test (C6) | AC |
+|---|---|---|---|---|---|
+| R1 | A tenant makes case types, each with an intake form | B1 | cases, forms | T1 | AC1, AC11 |
+| R2 | The intake form starts the case, public or back office | B1 | forms, cases | T1 | AC1, AC7 |
+| R3 | A case is about a person and optionally an organisation | B1b | cases, mdm | T18, T19 | AC2, AC2a |
+| R4 | Each step is a workbench task for a role | B1 | cases, workflow | T24 | AC4 |
+| R5 | A step may carry a form; its answers stay with the step | B1 | forms, workflow | T3 | AC4 |
+| R6 | A decision on a field sends the case on | B1 | cases | T2, T16 | AC3, AC6 |
+| R7 | Status and reason from two code lists | B1 | cases | T5 | AC3, AC4 |
+| R8 | A finished step cannot be changed | B1 | forms | T4 | AC5 |
+| R9 | The sale step registers a sale and closes the case as won | B1 | cases, activities, sales | T6, T7 | AC6 |
+| R10 | The case screen shows the request, the steps and the drawing | B1 | cases | T25 | AC8 |
+| R11 | A process and its forms export and import | B1 | cases, forms | T8 | AC9 |
+| R12 | The process is stored as BPMN 2.0 | B1 | cases | T10, T13 | AC10 |
+| R13 | *Zaken* lists, filters and searches | B1 | cases | T17 | AC8a |
+| R15 | The process screen is a list of steps | B1 | cases | T13, T14 | AC10 |
+| R21 | One applicant block in three modes | B1b | mdm, kit | T18, T20, T21 | AC2, AC2a |
+| R22 | The applicant is editable in the back office | B1b | mdm | T20 | — (open: no criterion yet) |
+| R23 | A tenant setting hides the organisation choice | B1b | mdm | T22 | AC13 |
+| R24 | A contact message is a case of the type *Bericht* | C4.10 | cases, workflow | T11, T23 | AC12 |
+| R14, R16–R20 | Won't: said so in A6 | — | — | — | — |
+
+**Walkthrough** — on HDEV, with made-up people and organisations on the reserved example domain.
+
+*The administrator*
+
+1. Open *Zaken*, then *Instellingen*. See: the case types *Klacht*, *Opportuniteit* and *Bericht*, each with its form and *Proces*.
+2. Open *Proces* of *Klacht*, remove the last end and save. See: refused, with the step named.
+
+*The client*
+
+3. Fill in the public complaint form signed out. See: *Wie* asks name, e-mail and phone; a confirmation follows.
+4. Fill it in signed in as a member. See: *Wie* shows the person and cannot be edited.
+5. Choose an organisation of the person. See: the case is about both. In a tenant that does not work with organisations: no such choice.
+
+*The board member*
+
+6. Open *Zaken*; search by the case number and by a word of the text. See: the case, status *Open*.
+7. Open the case. See: the request, a tab per step, the process drawn with the current step.
+8. Complete the first task with *Niet ontvankelijk*. See: *Gesloten*, reason *Niet ontvankelijk*.
+9. Take a second complaint: *Ontvankelijk*, handle it, close it. See: *Gesloten*, *Behandeld*; the first step's answers cannot be changed.
+10. On the workbench press *Nieuwe zaak* for a chosen party. See: a case started for that party.
+
+*Sales*
+
+11. Run an opportunity to the answer *ja*, press *Registreer verkoop* and register a sale for the party. See: the case closes at once as *Gewonnen*.
+12. A second opportunity with the answer *nee*. See: *Verloren*.
+
+*The administrator again*
+
+13. Export a process and import it into another environment. See: the same process with its forms.
+14. Send a contact message (after phase 5). See: a case of the type *Bericht*; it closes as *Afgehandeld* or *Niet afgehandeld*.
+15. Change a process so that a running case's route is gone. See: the case stops with a task for ADMIN.
 
 ## B3. The whole across the modules — for the architect
+
+<!-- figure: name=cr38-structure caption=Green_is_new_orange_is_changed_grey_is_only_used -->
+```mermaid
+flowchart LR
+  subgraph CAS["cases (new domain, a proposal)"]
+    cn["new: case types, cases, steps, processes, status and reason lists<br/>engine for the BPMN subset<br/>screens: Zaken, Instellingen, Proces, case screen<br/>facade: start, close, results"]:::new
+  end
+  subgraph WF["workflow"]
+    wc["changed: a form on a task; hand a finished task to cases; SubjectType.CASE"]:::chg
+  end
+  subgraph FRM["forms"]
+    fc["changed: link form to case type; refuse updates of a fixed step"]:::chg
+  end
+  subgraph ACT["activities and sales"]
+    ac["changed: an event when a registration or order is made from a case"]:::chg
+  end
+  subgraph MDM["mdm"]
+    mu["used: the party; the Wie block (CR-26)"]:::use
+  end
+  cn -->|api| wc
+  cn -->|api| fc
+  cn -->|api| mu
+  ac -->|event| cn
+  classDef new fill:#eef7ee,stroke:#005d29
+  classDef chg fill:#fff7ed,stroke:#f16532
+  classDef use fill:#eeeeee,stroke:#52607a
+```
+
+*Green new, orange changed, grey used.*
+
+```mermaid
+erDiagram
+  CASE_TYPE ||--|| PROCESS : "has"
+  CASE_TYPE ||--o{ CASE : "is of"
+  CASE ||--o{ CASE_STEP : "has"
+  CASE }o--|| CASE_STATUS : "has"
+  CASE }o--o| CASE_CLOSE_REASON : "ends with"
+  CASE_STEP }o..|| TASK : "soft reference"
+  CASE_STEP }o..o| SUBMISSION : "soft reference"
+  CASE }o..|| PARTY : "soft reference"
+  CASE_TYPE { int id int tenant_id string name string intake_form_slug }
+  PROCESS { int case_type_id text bpmn }
+  CASE { int id int tenant_id int case_type_id string status string reason int person_party_id int organisation_party_id string copy_name string copy_email string copy_phone }
+  CASE_STEP { int case_id string step_key int task_id int submission_id }
+  CASE_STATUS { string code }
+  CASE_CLOSE_REASON { string code }
+```
+
+*New: all of it except the three soft references (task of `workflow`, submission of `forms`, party of `mdm`), which cross a schema line and are drawn as relationships.*
 
 A proposal for the architecture CLI to confirm.
 - **`cases` (new domain)** owns the case type, the case (party, type, status, reason, started, closed), the case's steps (a link to the workbench task and to the attached submission) and the process (BPMN text, per tenant). It consumes `workflow.api` (tasks), `forms` (intake submission, attached answers), `mdm` (the party, CR-26) and publishes `CaseClosed`.
@@ -349,13 +489,29 @@ Measured on master @ `ef4b130c` on 15 October 2026 (CR-21 and CR-26 are not on m
 
 **C4.5 Fixing.** A step's submission is updatable until its task is done; after that `UpdateAttached` is refused.
 
-**C4.6 The process screen.** One page per case type, `/admin/zaken/instellingen/<type>/proces`, a list of steps like the form builder's (htmx, kit macros). The screen holds a small model (steps, type, role, form, routes with rules and status) and writes BPMN with generated layout; opening it reads the stored BPMN back into the same model, and a BPMN that the screen cannot read (an import with elements outside the subset) is refused at import, so the two never disagree. Saving runs the checks of B1a and is refused with the step named. A process may be changed while cases run: a case keeps its status and its done steps, and goes on from the last done step in the changed process; if that step or its route is gone, the failure path of B6 applies. No version is kept.
+**C4.6 The process screen.** One page per case type, `/admin/zaken/instellingen/<type>/proces`, a list of steps like the form builder's (htmx, kit macros). The screen holds a small model (steps, type, role, form, routes with rules and status) and writes BPMN with generated layout; opening it reads the stored BPMN back into the same model, and a BPMN that the screen cannot read (an import with elements outside the subset) is refused at import, so the two never disagree. Saving runs the checks of C4.11 and is refused with the step named. A process may be changed while cases run: a case keeps its status and its done steps, and goes on from the last done step in the changed process; if that step or its route is gone, the failure path of B6 applies. No version is kept.
 
 **C4.8 The applicant block.** Value: `person_party_id` (set whenever the person is signed in or chosen), `organisation_party_id` (nullable), and the copy taken at that moment: name, e-mail, phone (a guest has the copy only and no party; an order adds its address and VAT number as in CR-34). Owner: `mdm.api` returns the view-model for a mode (`session`, `guest`, `staff`) and checks a posted value: the person of a signed-in mode is the session's and cannot be posted otherwise; an organisation must be tied to the person (CR-26); `staff` may choose any, under the back-office right of the screen. Consumers: `activities.registrations` (has `person_id` and `contact_*` today; gains the organisation), `sales` orders (CR-21, CR-34's buyer copy) and `cases`. Each stores its own columns; none imports another. One kit macro `applicant_block` renders the three modes, and leaves out the organisation when the tenant does not work with organisations (R23); a gate counts that the three entrances use it.
 
 **C4.9 Standards, in full.** **BPMN 2.0 (OMG)** for the process: start and end events, user and service tasks, exclusive gateways, sequence flows. Our additions (role, form, action, closing reason, status) are extension attributes in our own namespace, as the standard allows. It fits: the two first processes are sequences with decisions. **CMMN (OMG Case Management Model and Notation)** is the standard for cases, but for flexible knowledge work: plan items that become available, enabled and active under *sentries*, discretionary tasks a person adds while working, *milestones*, a case file. Its case lifecycle ends in *completed* and *closed*. We **borrow its words, not its model**: the status list (*open*, *in progress*, *closed*) and the closing reason are CMMN's idea of a case with an outcome, and a milestone is what *in progress* marks. Its flexibility (a person adds tasks as the case unfolds) is not asked for; the Camunda 7 and CIB seven documentation support a subset and no planning. A later need for ad-hoc tasks is a reason to look at CMMN again. **DMN (OMG decision tables)** is the standard for the rules of a decision. Our rule is one field equal to one option; if rules grow, DMN is the shape, plugged into *Beslissing*. **UBL 2.1 / EN 16931** describe documents (invoice, order), not cases or processes: nothing in them applies here. The party is CR-26's.
 
 **C4.10 The contact message as a case.** It fits without a new concept: intake form `berichten`; one user task (role ADMIN, the form *Afhandeling* with a choice *Afhandelen* / *Niet afhandelen*); a decision on that choice; two ends, *Afgehandeld* and *Niet afgehandeld*. What changes: `SubmissionCreated` starts the case through the generic form → case type link, not the `bericht` definition; `seed_message_workflow` and `can_handle_messages` become the seeded type *Bericht* and its check; a deleted submission closes its case with an end reason *Verwijderd* (the old `SubmissionDeleted` closing). The sender is mostly signed out: the contact form's own name and e-mail questions give way to the applicant block (R21), which is a change to the form. Messages already received stay as they are (forms results and finished tasks); only new ones become cases (Q8).
+
+**C4.11 The process screen — the options.**
+
+| Option | How it works | For | Against |
+|---|---|---|---|
+| A. A list of steps (recommended) | as in the form engine: add a step, pick its type and where it goes next; a decision has a list of rules | same way of working as the forms; fits a phone; no library | no free drawing |
+| B. A canvas (bpmn.io modeler) | drag shapes | the real BPMN modeller | a large library, a logo licence (unverified), poor on a phone, shapes the engine does not run |
+| C. Text (BPMN XML or Mermaid) | the author types it | cheapest; exact | not for a board member |
+
+**Step types in option A**, each a row in the list:
+- **Taak met formulier**: a title, a role, an optional form (the answers are fixed when the task is done), and *next step*.
+- **Beslissing** (automatic, no person): rules *if the field F of form X is option O, then go to step N and optionally set the status to S*, and one *otherwise* route. This is what Koen calls the automatic step. It is a BPMN exclusive gateway.
+- **Verkoop registreren**: a task with a button to register an activity registration or a shop order for the party; when the sale is registered the step is done by itself.
+- **Einde**: the status *closed* and a reason from the list (*Behandeld*, *Niet ontvankelijk*, *Gewonnen*, *Verloren*, or the tenant's own).
+
+The screen refuses a process with no start step, a step that nothing leads to, a step with no way on, or no end. A loop back (rework) is allowed. A status set on a route comes from the status list; if none is set, the status follows the rule of C4.2.
 
 ## C5. Privacy and security — the mechanics behind A7
 
@@ -381,6 +537,8 @@ A public intake form takes free text from outside: the form engine's validation 
 | T19 | signed in, choosing an organisation of the person gives a case about both; an organisation of someone else is refused |
 | T20 | in the back office any person and organisation can be chosen |
 | T22 | a tenant that does not work with organisations shows no organisation choice, in any of the three modes, and refuses a posted organisation |
+| T24 | a task of a case gets the role of its step |
+| T25 | the case screen draws the process with the current step marked |
 | T21 | the three entrances (activity registration, shop order, form) render the one `applicant_block` macro (a gate; an additive violation, a fourth entrance with its own fields, fails it) |
 | T17 | *Zaken* filters by status, type and reason, and finds a case by number, party name, e-mail and a word of the intake answers |
 | T13 | a process made in the screen is written as BPMN and read back to the same list (round trip) |
