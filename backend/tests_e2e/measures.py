@@ -177,6 +177,13 @@ PUBLIC_HOOKS: dict[str, str] = {
     "action bar": "[data-action-bar]",
     "footer row": "[data-footer-row]",
     "legal line": "[data-footer-line]",
+    # CR-32: the hero is drawn by the page template, which names it; a section
+    # is drawn by the renderer, whose output carries no data attributes (the
+    # sanitiser's allow-list), so the page body is the hook and the sections'
+    # own positions are measured by `pages/test_sections_and_hero_cr32.py`.
+    "hero": "[data-hero]",
+    "hero title": "[data-hero-title]",
+    "page body": "[data-page-body]",
     "bell": "[data-raakje-bell]",
 }
 
@@ -469,6 +476,14 @@ SCREENS: tuple[Screen, ...] = (
         (*_CARD, "year heading", "legal line"),
     ),
     Screen("public-archief", "/archief", (*_CARD, "legal line")),
+    # CR-32: a page that opens with a hero and holds a tinted section (the band
+    # spans the page, the text keeps the container's left line); `measure_seed`
+    # makes the page.
+    Screen(
+        "public-sectie-pagina",
+        "/meetbasis-sectie",
+        ("brand", "content", "hero", "hero title", "page body", "legal line"),
+    ),
     # Without a poster: the page is not centred, one component.
     Screen(
         "public-activiteit",

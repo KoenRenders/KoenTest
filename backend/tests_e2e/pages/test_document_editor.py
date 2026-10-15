@@ -97,8 +97,8 @@ def test_the_editor_opens_with_the_page_sets_toolbar(setup, width):
             {"text": "Citaat", "aria": None},
         ], m["labels"]
         assert m["menu"] == "Blok invoegen ▾"
-        assert m["items"] == 7, (
-            "the insert menu offers Tabel, Afbeelding, Kolommen, Knop, Kader, Kaarten and Code"
+        assert m["items"] == 8, (
+            "the insert menu offers Tabel, Afbeelding, Kolommen, Knop, Kader, Kaarten, Sectie and Code"
         )
         # Phase 2 (#1679): the table menu stands beside the insert menu —
         # her own commands, hidden while the cursor is outside a table.
@@ -107,7 +107,7 @@ def test_the_editor_opens_with_the_page_sets_toolbar(setup, width):
         assert m["tableMenu"]["hidden"] is True, "the table menu shows outside a table"
         e = page.evaluate(_EDITOR)
         print("MEASURE document editor blocks", width, e)
-        assert e["headings"] == ["H1"], "the demo's Kop stands as a heading"
+        assert e["headings"] == ["H2"], "the demo's Kop stands as a heading"
         # The demo carries no figure since the review of 10 October 2026
         # (#1770): a figure node names a media id, and id 1 is a real row on
         # every environment. Her LOOK stands in section 13h as static markup;

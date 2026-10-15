@@ -318,7 +318,7 @@ def _document_demo() -> tuple[dict, str]:
         "content": [
             {
                 "type": "heading",
-                "attrs": {"level": 1},
+                "attrs": {"level": 2},
                 "content": [{"type": "text", "text": "Een pagina als document"}],
             },
             {

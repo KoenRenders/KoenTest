@@ -155,7 +155,7 @@ def _home_with(db, platform, content: str):
     page = (
         _all(db, CmsPage).filter(CmsPage.tenant_id == platform.id, CmsPage.is_home.is_(True)).one()
     )
-    document = parse_html(content, on_page=True)
+    document = parse_html(content)
     assert document is not None, f"the test's content does not convert: {content!r}"
     save_document(db, page.id, document)
     publish(db, page.id)
