@@ -167,7 +167,9 @@ def test_the_fake_clock_does_move_the_card(setup):
 
 def test_with_reduced_motion_the_card_stands_still(setup):
     b, _id, slug, _ids, _session = setup
-    context = b.new_context(base_url=BASE, reduced_motion="reduce", viewport={"width": 390, "height": 844})
+    context = b.new_context(
+        base_url=BASE, reduced_motion="reduce", viewport={"width": 390, "height": 844}
+    )
     page = context.new_page()
     try:
         first, later = _after_five_seconds(page, f"/{slug}")

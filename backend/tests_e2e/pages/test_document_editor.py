@@ -97,9 +97,9 @@ def test_the_editor_opens_with_the_page_sets_toolbar(setup, width):
             {"text": "Citaat", "aria": None},
         ], m["labels"]
         assert m["menu"] == "Blok invoegen ▾"
-        assert m["items"] == 9, (
+        assert m["items"] == 10, (
             "the insert menu offers Tabel, Afbeelding, Kolommen, Knop, Kader, Kaarten, Sectie, "
-            "Activiteiten and Code"
+            "Activiteiten, Albumkaart and Code"
         )
         # Phase 2 (#1679): the table menu stands beside the insert menu —
         # her own commands, hidden while the cursor is outside a table.
