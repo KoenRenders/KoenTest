@@ -37,14 +37,21 @@ def test_a_value_of_the_list_validates_and_an_unknown_code_is_refused_by_name():
         validate_document(_paragraph_with(_value("gratis")))
 
 
-def test_the_value_is_rendered_from_the_settings_and_follows_them(db_session):
-    from app.kernel.tenant_config import set_setting
+def test_the_value_is_rendered_from_the_settings_and_follows_them(monkeypatch):
+    """AC4: the document holds the code, not the amount — the setting changes,
+    the page changes, no edit. The settings are read through the one door the
+    renderer uses (`tenant_membership_config`), here a dict the test changes."""
+    from decimal import Decimal
 
+    from app.kernel import tenant_config
+
+    config = dict(tenant_config.tenant_membership_config())
+    monkeypatch.setattr(tenant_config, "tenant_membership_config", lambda *a, **k: config)
     document = _paragraph_with(_text("Lidgeld: "), _value("membership_price_full"))
-    set_setting(db_session, "membership_price_full", "35.00")
-    assert render_document(document, db_session) == "<p>Lidgeld: €35,00</p>"
-    set_setting(db_session, "membership_price_full", "40.00")
-    assert render_document(document, db_session) == "<p>Lidgeld: €40,00</p>"
+    config["price_full"] = Decimal("35.00")
+    assert render_document(document) == "<p>Lidgeld: €35,00</p>"
+    config["price_full"] = Decimal("40.00")
+    assert render_document(document) == "<p>Lidgeld: €40,00</p>"
 
 
 def test_the_valid_until_year_is_the_end_of_a_new_memberships_period():
