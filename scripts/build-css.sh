@@ -849,6 +849,9 @@ body[data-shell="site"]>main{padding-bottom:24px}
 .prose-raak a.prose-card-title::after{content:"";position:absolute;inset:0}
 .prose-raak a.prose-card-title:focus-visible{outline:none}
 .prose-card-line{font-size:16px;line-height:1.5;color:rgb(var(--c-ink-soft))}
+/* A value in the page editor (CR-32 R19): a chip with the value it has now; on the
+   site the value is plain text, so there is no public rule. */
+.de-surface .prose-value{display:inline-block;max-width:100%;padding:0 .4rem;border:1px solid rgb(var(--c-blue-200));border-radius:6px;background:rgb(var(--c-blue-50));color:rgb(var(--c-blue-700));vertical-align:bottom;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prose-card-labels{font-size:12px;line-height:1.5;color:rgb(var(--c-ink-soft))}
 @media (max-width:639.98px){
   .prose-raak a.prose-button{display:flex;width:100%;min-height:44px}

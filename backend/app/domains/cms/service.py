@@ -950,11 +950,11 @@ def insertable_codes(codes: list[dict]) -> list[dict]:
     """The codes the editor's insert menu offers, out of `placeholders()` — the
     one list, so the menu and the Codes card cannot name different codes.
 
-    Every code but the form codes: the button block is the way to a form now;
-    a form code stays in the card and keeps working as typed text. A code with
-    a part of its own (`{{tenants:raak}}`) goes in with its example, for the
-    author to change. That is the master CLI's description of the step on the
-    pull request (12 October 2026); what Koen decided that day is that the
-    step joins CR-17 ("a, stap 1 erbij in CR-17 voor mistral").
+    The values of the closed list (`schema.VALUE_CODES`, CR-32 R19): the menu
+    inserts a value node, which only those can be. The form codes and the codes
+    with a part of their own (`{{tenants:raak}}`) stay in the card and keep
+    working as typed text.
     """
-    return [code for code in codes if not code["code"].startswith("{{form:")]
+    from app.domains.cms.schema import VALUE_CODES
+
+    return [code for code in codes if code["code"].strip("{}") in VALUE_CODES]

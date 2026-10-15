@@ -166,6 +166,41 @@
     return [columns, column];
   }
 
+  /* The value of CR-32 (R19): an inline atom holding a code of the closed list.
+     The editor shows a chip with the value it has now (read at edit time, the
+     configuration carries it) and the page renders it from the settings. */
+  function valueNode(RaakTiptap, config) {
+    var known = {};
+    (config.values || []).forEach(function (v) { known[v.code] = v; });
+    return RaakTiptap.Node.create({
+      name: "value",
+      group: "inline",
+      inline: true,
+      atom: true,
+      addAttributes: function () {
+        return { code: { default: "" } };
+      },
+      parseHTML: function () {
+        return [{ tag: "span[data-value]", getAttrs: function (el) { return { code: el.getAttribute("data-value") }; } }];
+      },
+      renderHTML: function (props) {
+        var v = known[props.node.attrs.code] || {};
+        return ["span", { "data-value": props.node.attrs.code, class: "prose-value" }, v.value || props.node.attrs.code];
+      },
+      addNodeView: function () {
+        return function (props) {
+          var v = known[props.node.attrs.code] || {};
+          var dom = document.createElement("span");
+          dom.className = "prose-value";
+          dom.setAttribute("data-value", props.node.attrs.code);
+          dom.title = v.label || "";
+          dom.textContent = v.value || props.node.attrs.code;
+          return { dom: dom };
+        };
+      },
+    });
+  }
+
   /* The button of #1679: her label and her variant, and the ONE
      destination she leads to — chosen in the dialog of the macro, which
      carries the pages and forms of the tenant (Koen, 11 October 2026:
@@ -1064,12 +1099,15 @@
     return /\s/.test(address) ? "space" : "";
   };
 
-  /* A code is text: it lands at the cursor as the characters an author
-     would type, and nothing in the document says it was chosen. */
+  /* A code is a VALUE node (CR-32 R19): the closed list's value, shown as a
+     chip with what it is now and rendered from the settings. The menu hands
+     the code with its braces, as the card shows it; the node holds the bare
+     code. */
   document.addEventListener("raak-code-chosen", function (event) {
     var editor = editors[event.detail.editor];
     if (!editor || editor.isDestroyed || !event.detail.code) return;
-    editor.chain().focus().insertContent({ type: "text", text: event.detail.code }).run();
+    var code = String(event.detail.code).replace(/[{}]/g, "");
+    editor.chain().focus().insertContent({ type: "value", attrs: { code: code } }).run();
   });
 
   document.addEventListener("raak-link-save", function (event) {
@@ -1149,6 +1187,9 @@
     }
     if ((config.insert || []).indexOf("cards") !== -1) {
       extensions = extensions.concat(cardsNodes(RaakTiptap, config, mount.id));
+    }
+    if ((config.insert || []).indexOf("value") !== -1) {
+      extensions.push(valueNode(RaakTiptap, config));
     }
 
     var editor = new RaakTiptap.Editor({

@@ -24,15 +24,20 @@ from typing import Any
 
 from app.i18n import _
 
-#: The five configuration codes a value block can carry (C4.4). The labels and
-#: the current values come from the renderer/service — this is the one place
-#: that says WHICH codes exist, because the parser maps exactly these.
+#: The codes a value block can carry (CR-32 R19, from CR-17 C4.4): the two
+#: membership amounts, the three dates, the year the membership runs to, and
+#: the platform's list of sites — the one value that renders a list. The labels
+#: and the current values come from the renderer/service; this is the one place
+#: that says WHICH codes exist, because the migration of `{{code}}` maps exactly
+#: these (`{{tenants:<account>}}` and `{{form:…}}` stay typed text).
 VALUE_CODES: tuple[str, ...] = (
     "membership_price_full",
     "membership_price_half",
     "half_price_start",
     "half_price_end",
     "next_year_from",
+    "membership_valid_until",
+    "tenants",
 )
 
 #: The figures a page can place (C4.2): a figure placed through the editor
@@ -180,10 +185,9 @@ MARK_ATTRS: dict[str, dict[str, Any]] = {
 #: editor's configuration is generated from this, never hand-written in a
 #: template (gate 14).
 BLOCK_SETS: dict[str, dict[str, Any]] = {
-    # `value` is NOT in any phase-1 set: a placeholder code stays text in the
-    # document and the renderer replaces it as it does today; the value BLOCK
-    # is phase 5 (revised assignment, #1671). The node's shape stands in NODES
-    # so the schema is the whole design from the start.
+    # `value` is in the page set since CR-32 phase 4: the editor's Code item
+    # inserts the node (a chip with the current value) and the migration turned
+    # the typed `{{code}}` of every stored document into one.
     "page": {
         "marks": ("bold", "italic", "strike", "link"),
         "headings": HEADING_LEVELS,
@@ -192,7 +196,7 @@ BLOCK_SETS: dict[str, dict[str, Any]] = {
         "blocks": ("blockquote",),
         # C4.13's menu order: Tabel · Afbeelding · Kolommen · Knop · Kader ·
         # Kaarten.
-        "insert": ("table", "figure", "columns", "button", "callout", "cards"),
+        "insert": ("table", "figure", "columns", "button", "callout", "cards", "value"),
     },
     # Phase 7; the shape stands here so the one schema is the whole design.
     "letter": {
@@ -573,6 +577,7 @@ def _toolbar_label(command_id: str) -> str:
         "button": _("Knop"),
         "callout": _("Kader"),
         "cards": _("Kaarten"),
+        "value": _("Code"),
     }.get(command_id, command_id)
 
 
@@ -708,6 +713,8 @@ def _media_url_prefix() -> str:
 def _value_of(code: str) -> str:
     """The current value of one code, for the editor's chip (no db: the
     configuration values are app settings, like the public renderer's)."""
-    from app.domains.cms.render import _values
+    from app.domains.cms.render import _values, sites_in_words
 
+    if code == "tenants":
+        return sites_in_words(None)
     return _values().get(code, "")

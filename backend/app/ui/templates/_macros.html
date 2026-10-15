@@ -1725,15 +1725,16 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
      data-document-editor data-input="{{ editor_id }}-input"{% if codes %} data-codes-label="{{ _('Code') }}"{% endif %}
      data-config='{{ blocks|tojson }}'></div>
 {% if codes %}
-{# The codes (CR-17; Koen, 12 October 2026): the insert menu's item "Code"
-   opens this list — the caller's own, `[{code, label}]`. A choice puts the
-   code at the cursor as plain text, exactly what an author types; the
-   renderer replaces it as it always did. No node, no chip: the value shown
-   in the editor is a later change request's. #}
+{# The codes (CR-17; Koen, 12 October 2026; CR-32 R19): the insert menu's item
+   "Code" opens this list — the caller's own, `[{code, label}]`, the closed list
+   of values. A choice puts a VALUE NODE at the cursor, shown in the editor as a
+   chip with the value it has now; the page shows that value. The one way in:
+   the text path is gone (a code typed by hand still works, the renderer
+   replaces it). #}
 <div x-data="{ codes: false }"
      @raak-code-choose.window="if ($event.detail.editor === '{{ editor_id }}') codes = true">
   {% call _editor_dialog("codes", _("Code"), editor_id, max_w="max-w-lg") %}
-  <p class="text-sm text-gray-600 mb-3">{{ _("Kies een code. Ze komt als tekst in het document; op de pagina staat op die plaats de waarde.") }}</p>
+  <p class="text-sm text-gray-600 mb-3">{{ _("Kies een waarde. Ze staat als blok in de tekst, met de waarde van nu; wijzig je de instelling, dan verandert de pagina mee.") }}</p>
   <ul class="space-y-1" data-code-choices>
     {% for c in codes %}
     <li><button type="button" data-code="{{ c.code }}"

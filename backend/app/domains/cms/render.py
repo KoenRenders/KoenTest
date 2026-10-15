@@ -196,6 +196,7 @@ PLACEHOLDER_LABELS = {
     "half_price_start": "Startdatum halftarief (bv. 16 april)",
     "half_price_end": "Einddatum halftarief (bv. 16 september)",
     "next_year_from": "Vanaf deze datum lid voor volgend jaar (bv. 17 september)",
+    "membership_valid_until": "Het jaar waarin een nieuw lidmaatschap eindigt (bv. 2027)",
     # #1543: a list, not a value — see `_sites_html`. The second takes an account's
     # code after the colon; the colon is the only parameter form there is.
     "tenants": "De accounts met hun sites, met links (zonder account: onder Overige)",
@@ -241,6 +242,7 @@ def _format_md(md: str) -> str:
 
 
 def _values() -> Dict[str, str]:
+    from app.domains.payment.api import membership_valid_period
     from app.kernel.tenant_config import tenant_membership_config
 
     conf = tenant_membership_config()
@@ -250,6 +252,7 @@ def _values() -> Dict[str, str]:
         "half_price_start": _format_md(conf["half_start_md"]),
         "half_price_end": _format_md(conf["half_end_md"]),
         "next_year_from": _format_md(conf["next_year_from_md"]),
+        "membership_valid_until": str(membership_valid_period()[1].year),
     }
 
 
@@ -467,7 +470,13 @@ def _inline_html(nodes: "list[dict] | None") -> str:
             parts.append("<br>")
         elif kind == "value":
             code = node.get("attrs", {}).get("code", "")
-            parts.append(escape(_values().get(code, ""), quote=False))
+            if code == "tenants":
+                # The one value that renders a list: the placeholder stays text
+                # here and `_SITES` replaces it after the sanitiser, as for a
+                # typed `{{tenants}}` (the cards are built in code, #1543).
+                parts.append("{{tenants}}")
+            else:
+                parts.append(escape(_values().get(code, ""), quote=False))
         else:
             raise ValueError(f"unknown inline node: {kind}")
     return "".join(parts)
@@ -958,7 +967,10 @@ def _document_text(document, db=None) -> str:
             elif kind == "hardBreak":
                 words.append(" ")
             elif kind == "value":
-                words.append(unescape(_values().get(node.get("attrs", {}).get("code", ""), "")))
+                code = node.get("attrs", {}).get("code", "")
+                words.append(
+                    "{{tenants}}" if code == "tenants" else unescape(_values().get(code, ""))
+                )
         # A word split over two marks ("wo" + "rd", each bold) is one word:
         # joining with a space made "wo rd" of her (review B2, #1770). The
         # spaces the author typed sit IN her text nodes; a hardBreak is the
