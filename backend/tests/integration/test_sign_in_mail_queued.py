@@ -28,6 +28,7 @@ from app.domains.auth.api import LoginToken, start_login
 from app.domains.mdm.api import ContactDetail, Member, MemberPerson, Person, new_contact_detail
 from app.kernel.jobs import run_due_jobs
 from tests._queued_mail import queued_link, queued_mails
+from tests.conftest import form_guard_proof
 
 CODE = "313131"
 KNOWN = "bekend@example.com"
@@ -73,7 +74,7 @@ def test_the_sign_in_mail_waits_in_the_queue_and_is_sent_by_the_job(db_session, 
     db_session.add(new_contact_detail(db_session, person, "EMAIL", KNOWN, is_primary=True))
     db_session.commit()
 
-    start_login(db_session, KNOWN, return_to="/leden/gezin")
+    start_login(db_session, KNOWN, return_to="/leden/gezin", proof=form_guard_proof())
 
     assert sent == [], "the request itself reaches no mail server"
     (mail,) = queued_mails(db_session, KNOWN)
@@ -98,7 +99,7 @@ def test_an_address_of_two_households_gets_the_board_notice_through_the_queue(db
         db_session.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=SHARED))
     db_session.commit()
 
-    start_login(db_session, SHARED)
+    start_login(db_session, SHARED, proof=form_guard_proof())
 
     assert sent == []
     (mail,) = queued_mails(db_session, SHARED)
@@ -108,7 +109,7 @@ def test_an_address_of_two_households_gets_the_board_notice_through_the_queue(db
 
 
 def test_an_unknown_address_queues_nothing(db_session, sent):
-    start_login(db_session, "niemand@example.com")
+    start_login(db_session, "niemand@example.com", proof=form_guard_proof())
 
     assert queued_mails(db_session, "niemand@example.com") == []
     assert db_session.query(LoginToken).filter_by(email="niemand@example.com").count() == 0
@@ -130,7 +131,7 @@ def test_a_mail_that_cannot_be_built_stores_no_code(db_session, monkeypatch):
 
     monkeypatch.setattr(service, "sign_in_message", _broken)
     with pytest.raises(RuntimeError, match="cannot be built"):
-        start_login(db_session, KNOWN)
+        start_login(db_session, KNOWN, proof=form_guard_proof())
     db_session.rollback()
 
     assert db_session.query(LoginToken).filter_by(email=KNOWN).count() == 0

@@ -1,7 +1,7 @@
 """Fase 4a-3 (#402): publieke activiteiten server-rendered — lijst, archief,
 registratieflow met server-side totaal en Mollie-redirect."""
 
-from tests.conftest import seed_activity_with_product
+from tests.conftest import form_guard_fields, seed_activity_with_product
 
 
 def test_activiteiten_lijst_toont_activiteit(client, db_session):
@@ -36,6 +36,7 @@ def test_inschrijven_gratis_zonder_checkout(client, db_session):
     resp = client.post(
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
         data={
+            **form_guard_fields(),
             "contact_name": "Fee",
             "contact_email": "fee@example.com",
             "phone": "0470000000",
@@ -58,6 +59,7 @@ def test_inschrijven_online_redirect_naar_mollie(client, db_session, mock_mollie
     resp = client.post(
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
         data={
+            **form_guard_fields(),
             "contact_name": "Roos",
             "contact_email": "roos@example.com",
             "phone": "0470000001",
@@ -75,7 +77,7 @@ def test_inschrijven_validatiefouten(client, db_session):
     )
     resp = client.post(
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
-        data={"contact_name": "", "contact_email": "x", "phone": ""},
+        data={**form_guard_fields(), "contact_name": "", "contact_email": "x", "phone": ""},
     )
     # #1589: one reason per field, in the banner (422).
     assert resp.status_code == 422
@@ -92,6 +94,7 @@ def test_inschrijven_validatiefouten(client, db_session):
     resp2 = client.post(
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
         data={
+            **form_guard_fields(),
             "contact_name": "A",
             "contact_email": "a@example.com",
             "phone": "047",

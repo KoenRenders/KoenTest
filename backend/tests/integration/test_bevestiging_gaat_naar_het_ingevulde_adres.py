@@ -47,7 +47,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.mdm.api import ContactDetail
-from tests.conftest import create_test_family, seed_activity_with_product
+from tests.conftest import create_test_family, form_guard_fields, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -94,6 +94,7 @@ def _schrijf_in(client, activity, component, product, *, email, aangemeld_met=No
     return client.post(
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
         data={
+            **form_guard_fields(),
             "contact_name": "Deelnemer",
             "contact_email": email,
             "phone": "0470000000",

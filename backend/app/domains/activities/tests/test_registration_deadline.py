@@ -31,7 +31,7 @@ from app.domains.activities.api import (
     ActivitySubRegistration,
     Registration,
 )
-from tests.conftest import SEEDED_ADMIN_EMAIL, register_at_the_door
+from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields, register_at_the_door
 
 DEADLINE = date(2027, 7, 15)  # zomer: Brussel = UTC+2
 
@@ -93,6 +93,7 @@ def _inschrijven(client, a, comp, product, naam="Fee"):
     return client.post(
         f"/activiteiten/{a.id}/inschrijven/{comp.id}",
         data={
+            **form_guard_fields(),
             "contact_name": naam,
             "contact_email": f"{naam.lower()}@example.org",
             "phone": "0470000000",

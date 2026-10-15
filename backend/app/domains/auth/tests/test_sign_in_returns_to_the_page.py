@@ -17,7 +17,7 @@ import pytest
 
 from app.domains.auth.api import User, UserRole
 from tests._queued_mail import queued_link
-from tests.conftest import create_test_family
+from tests.conftest import create_test_family, form_guard_fields
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -56,7 +56,7 @@ def test_the_code_brings_a_board_member_back_to_the_portal(
     client, board_member_who_is_a_member, mail_link
 ):
     client.get("/aanmelden", params={"terug": "/leden/gezin"})
-    client.post("/aanmelden", data={"email": EMAIL, "terug": "/leden/gezin"})
+    client.post("/aanmelden", data={**form_guard_fields(), "email": EMAIL, "terug": "/leden/gezin"})
     done = client.post(
         "/aanmelden/code", data={"email": EMAIL, "code": "424242", "terug": "/leden/gezin"}
     )
@@ -68,7 +68,7 @@ def test_the_mail_link_brings_a_board_member_back_to_the_portal(
 ):
     """The sign-in started from the portal; the link in the mail carries the
     page, and following it lands in the portal — not on the workbench."""
-    client.post("/aanmelden", data={"email": EMAIL, "terug": "/leden/gezin"})
+    client.post("/aanmelden", data={**form_guard_fields(), "email": EMAIL, "terug": "/leden/gezin"})
     link = urlparse(mail_link())
     assert parse_qs(link.query)["terug"] == ["/leden/gezin"]
 
@@ -80,7 +80,7 @@ def test_the_mail_link_brings_a_board_member_back_to_the_portal(
 def test_without_a_page_the_mail_link_lands_on_the_account_page(
     client, board_member_who_is_a_member, mail_link
 ):
-    client.post("/aanmelden", data={"email": EMAIL})
+    client.post("/aanmelden", data={**form_guard_fields(), "email": EMAIL})
     link = urlparse(mail_link())
     assert "terug" not in parse_qs(link.query)
     landed = client.get(f"{link.path}?{link.query}", follow_redirects=False)
@@ -95,7 +95,7 @@ def test_a_foreign_way_back_in_the_mail_link_is_ignored(
     """A link can be edited: `terug` is checked where it is used, by the one
     `veilige_terug`, and anything that is not a path on this site falls back to
     the landing by role."""
-    client.post("/aanmelden", data={"email": EMAIL})
+    client.post("/aanmelden", data={**form_guard_fields(), "email": EMAIL})
     link = urlparse(mail_link())
     landed = client.get(
         link.path,

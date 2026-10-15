@@ -3,3 +3,4 @@
    message line — the form stays as it was typed and `record-form.js` marks the
    fields the banner names. Answered by `app.ui.refusal_response`. #}
 {{ ui.save_refusal(errors, send=send) }}
+{% if guard_form %}<input type="hidden" name="form_ts" value="{{ form_guard_token() }}" hx-swap-oob="outerHTML:{{ guard_form }} input[name=form_ts]">{% endif %}

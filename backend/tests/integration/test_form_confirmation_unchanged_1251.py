@@ -105,10 +105,11 @@ def test_the_contact_page_stores_and_mails_as_it_did(client, db_session, mails, 
 
 
 def test_the_contact_page_dropped_by_the_guard_leaves_nothing_as_before(client, db_session, mails):
-    """Without the guard's fields the page thanks and stores nothing."""
+    """A message with the honeypot filled — the one silent case since #2039 — thanks and
+    stores nothing. (Without the guard's fields the page now says it was stale.)"""
     form = _contact_form(db_session, confirmation=True)
 
-    answer = client.post("/berichten", data=MESSAGE)
+    answer = client.post("/berichten", data={**MESSAGE, "website": "https://spam.example.org"})
 
     said = f"{answer.status_code} HX-Redirect={answer.headers.get('HX-Redirect')}"
     _record("contact_page_dropped", said, db_session, mails, form)

@@ -2,7 +2,7 @@
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mail.models import EmailLog
-from tests.conftest import SEEDED_ADMIN_EMAIL, sent_to_sign_in
+from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields, sent_to_sign_in
 
 
 def _login(client):
@@ -26,7 +26,7 @@ def test_aanmelden_flow_sets_session_cookie(client, monkeypatch):
 
     monkeypatch.setattr(auth_login, "_generate_otp", lambda: "424242")
 
-    step1 = client.post("/aanmelden", data={"email": SEEDED_ADMIN_EMAIL})
+    step1 = client.post("/aanmelden", data={**form_guard_fields(), "email": SEEDED_ADMIN_EMAIL})
     assert step1.status_code == 200 and "code" in step1.text.lower()
 
     step2 = client.post("/aanmelden/code", data={"email": SEEDED_ADMIN_EMAIL, "code": "424242"})
@@ -43,7 +43,7 @@ def test_aanmelden_wrong_code_shows_error_without_cookie(client, monkeypatch):
     from app.domains.auth import login as auth_login
 
     monkeypatch.setattr(auth_login, "_generate_otp", lambda: "424242")
-    client.post("/aanmelden", data={"email": SEEDED_ADMIN_EMAIL})
+    client.post("/aanmelden", data={**form_guard_fields(), "email": SEEDED_ADMIN_EMAIL})
 
     resp = client.post("/aanmelden/code", data={"email": SEEDED_ADMIN_EMAIL, "code": "000000"})
     assert resp.status_code == 200
@@ -52,7 +52,7 @@ def test_aanmelden_wrong_code_shows_error_without_cookie(client, monkeypatch):
 
 
 def test_aanmelden_unknown_email_shows_same_generic_step(client):
-    resp = client.post("/aanmelden", data={"email": "onbekend@example.com"})
+    resp = client.post("/aanmelden", data={**form_guard_fields(), "email": "onbekend@example.com"})
     assert resp.status_code == 200
     # Zelfde vervolgstap als voor een gekend adres — geen verklapping.
     # CR-22 (#1708): the one sentence of the code step, in every case.
