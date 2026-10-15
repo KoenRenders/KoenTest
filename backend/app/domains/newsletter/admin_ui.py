@@ -570,6 +570,7 @@ def _compose_view(
         body_json=json.dumps(letter.body_document),
         editor_config=editor_config,
         featured_options=featured_options,
+        button_pages=_button_pages(db),
         counts=counts,
         audience_options=options,
         audience_lines=lines,
@@ -585,6 +586,14 @@ def _compose_view(
         choices_error=choices_error,
         nav_items=admin_nav(NAV, request),
     )
+
+
+def _button_pages(db: Session) -> list[tuple[int, str]]:
+    """The pages of the site a button of the letter may lead to: the ones the site
+    serves at an address (the same rule the page editor's button uses)."""
+    from app.domains.cms.api import button_page_choices
+
+    return button_page_choices(db)
 
 
 def _featured_options(db: Session, letter) -> list[dict]:

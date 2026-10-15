@@ -65,6 +65,8 @@ class NewsletterComposeView(ViewModel):
     choices: list[dict[str, Any]]
     #: `{id, label}` per FEATURED activity: the editor's activity dialog offers them.
     featured_options: list[dict[str, Any]]
+    #: `(id, title)` of the site's pages a button of the letter may lead to.
+    button_pages: list[tuple[int, str]]
     # How many whole meeting reports go along (CR-11 W13).
     report_count: int
     csrf_token: str

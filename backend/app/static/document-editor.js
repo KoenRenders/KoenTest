@@ -199,6 +199,14 @@
     });
   }
 
+  /* A block put in at the author's place. The selection after an inserted block is
+     the block itself, and `insertContent` over a selected block REPLACES it — so a
+     second block would take the first one's place. At the END of the selection the
+     new block lands after the old one (and at the cursor, when it is a cursor). */
+  function insertBlock(editor, node) {
+    editor.chain().focus().insertContentAt(editor.state.selection.to, node).run();
+  }
+
   /* The letter's three blocks (CR-17 phase 7, F9): an activity (its id; the mail
      shows its picture, name, when, where and the sign-up link, built when the letter
      is sent), the calendar (the activities the letter's own choices name) and the
@@ -1055,7 +1063,7 @@
                letter features. */
             announce("raak-activity-choose", { editor: editorId });
           } else if (item.id === "calendar" || item.id === "closing") {
-            editor.chain().focus().insertContent({ type: item.id }).run();
+            insertBlock(editor, { type: item.id });
           } else if (item.id === "gallery") {
             /* The album is chosen in the dialog of the macro; the block lands
                with it (the server refuses an activity that is no album). */
@@ -1492,11 +1500,7 @@
   document.addEventListener("raak-activity-chosen", function (event) {
     var editor = editors[event.detail.editor];
     if (!editor || editor.isDestroyed || !event.detail.activity_id) return;
-    editor
-      .chain()
-      .focus()
-      .insertContent({ type: "activity", attrs: { activity_id: event.detail.activity_id } })
-      .run();
+    insertBlock(editor, { type: "activity", attrs: { activity_id: event.detail.activity_id } });
   });
 
   document.addEventListener("raak-gallery-chosen", function (event) {

@@ -20,6 +20,7 @@ from app.domains.cms.render import (  # noqa: F401
 from app.domains.cms.service import (  # noqa: F401
     SITE_BLOCK_SLUGS,
     SlugBestaatAl,
+    button_page_choices,
     create_page,
     delete_page,
     document_from_editor,
@@ -76,6 +77,7 @@ __all__ = [
     "published_page",
     "is_page",
     "SITE_BLOCK_SLUGS",
+    "button_page_choices",
     "update_page",
     "CmsPage",
     "CmsPageHistory",

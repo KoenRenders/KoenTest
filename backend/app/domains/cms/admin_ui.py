@@ -89,16 +89,15 @@ def _record_ctx(
     import json as _json
 
     from app.domains.cms.api import (
+        button_page_choices,
         draft_differs,
         editable_document,
         get_translation,
         insertable_codes,
-        list_pages,
         placeholders,
         schema,
         versions,
     )
-    from app.domains.cms.service import serves_at_address
 
     # The button's dialog needs the tenant's pages and her button-eligible
     # forms (Koen, 11 October 2026: a button may lead to a page, a form,
@@ -131,7 +130,7 @@ def _record_ctx(
         )
         for album in list_albums(db)
     ]
-    button_pages = [(p.id, p.title) for p in list_pages(db) if serves_at_address(p)]
+    button_pages = button_page_choices(db)
     button_forms = form_button_choices(db)
     button_lid_worden = module_enabled(ModuleCode.MEMBERSHIP)
 

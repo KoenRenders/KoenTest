@@ -95,6 +95,14 @@ def test_een_activiteit_invoegen_en_bewaren(admin_page):
     page.keyboard.press("Enter")
 
     page.locator("#nb-editor summary").click()
+    # The letter set: a picture, a button and the three blocks of the letter.
+    assert page.locator("#nb-editor .de-menu-item").all_inner_texts() == [
+        "Afbeelding",
+        "Knop",
+        "Activiteit",
+        "Kalender",
+        "Afsluiting",
+    ]
     page.locator("#nb-editor .de-menu-item", has_text="Activiteit").click()
     keuze = page.locator("[data-activity-pick] option").first
     assert keuze.count() == 1, "de seed hoort minstens één komende activiteit te leveren"
@@ -106,6 +114,16 @@ def test_een_activiteit_invoegen_en_bewaren(admin_page):
         arg=naam,
         timeout=5_000,
     )
+
+    # A second and a third block stand AFTER the first: the selection after an inserted
+    # block is the block itself, and an insert over it would have taken its place.
+    for label in ("Kalender", "Afsluiting"):
+        page.locator("#nb-editor summary").click()
+        page.locator("#nb-editor .de-menu-item", has_text=label).click()
+    soorten = page.evaluate(
+        "[...document.querySelectorAll('#nb-editor [data-letter-block]')].map(b => b.dataset.letterBlock)"
+    )
+    assert soorten == ["activity", "calendar", "closing"], soorten
 
     # Autosave waits 1.5 s after the last change; leaving the editor saves at once
     # (`raak-editor-blur`). #997: wait for that save to be answered, not for 2.5 s.
@@ -120,7 +138,9 @@ def test_een_activiteit_invoegen_en_bewaren(admin_page):
     # picture and registration link when it is sent (#984, #2023).
     assert '"type":"activity"' in bewaard.replace(" ", ""), "het blok van de activiteit ontbreekt"
     assert "<table" not in bewaard
-    assert page.locator("#nb-editor [data-letter-block=activity]").count() == 1
+    assert page.evaluate(
+        "[...document.querySelectorAll('#nb-editor [data-letter-block]')].map(b => b.dataset.letterBlock)"
+    ) == ["activity", "calendar", "closing"]
     assert page.locator("input[name=audience][value=members]").is_checked()
 
 

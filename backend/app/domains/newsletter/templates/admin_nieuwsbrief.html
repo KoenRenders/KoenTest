@@ -168,7 +168,8 @@
       </div>
       <p class="text-sm text-ink-soft mt-0.5">{{ _("Opgemaakte tekst, zoals je hem in een mailprogramma schrijft. Een activiteit, de kalender en de afsluiting zet je met “Blok invoegen”: ze worden bij het versturen een blok met affiche, omschrijving en inschrijflink.") }}</p>
       <div class="mt-3" data-field="body">
-        {{ ui.document_editor("body", editor_config, body_json, id="nb-editor", cls="min-h-[22rem]") }}
+        {{ ui.document_editor("body", editor_config, body_json, id="nb-editor", cls="min-h-[22rem]",
+                              button_pages=button_pages, button_forms=[], button_lid_worden=False) }}
       </div>
     </div>
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
