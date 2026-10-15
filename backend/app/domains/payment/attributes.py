@@ -91,7 +91,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="payment.payment_record.amount",
         columns=("payment.payment_records.amount",),
-        label="Bedrag",
+        label="Te betalen",
         name_en="Amount",
         help="Het bedrag van deze ene regel. Een terugbetaling is negatief.",
         ai_exposure=AiExposure.INTERNAL,  # K8
@@ -123,7 +123,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="payment.payment_record.amount_paid",
         columns=("payment.payment_records.amount_paid",),
-        label="Betaald bedrag",
+        label="Betaald",
         name_en="Amount paid",
         help="Wat er op deze regel ontvangen is.",
         ai_exposure=AiExposure.INTERNAL,  # K8

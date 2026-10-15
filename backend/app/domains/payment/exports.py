@@ -59,8 +59,9 @@ def build_payments_export_ods(
     if payables is not None:
         records = [r for r in records if (r.payable_type, r.payable_id) in payables]
 
-    # CR-33 F3: a column that is a datum of a payment reads its word from the register.
-    # "Waarvoor" and "Saldo" are composed by the screen, and "Te betalen" and "Betaald" are words the register gives other names (a question to Koen, CR-33).
+    # CR-33 F3: a column that is a datum of a payment reads its word from the register
+    # (Koen, 15 October 2026: Te betalen, Betaald, Betaald op). "Waarvoor" and "Saldo" are
+    # composed by the screen.
     headers = [
         "Waarvoor",
         attribute("payment.payment_record.payable_type").text,
@@ -68,8 +69,8 @@ def build_payments_export_ods(
         attribute("payment.payment_record.method").text,
         attribute("payment.payment_record.status").text,
         attribute("payment.payment_record.structured_communication").text,
-        "Te betalen",
-        "Betaald",
+        attribute("payment.payment_record.amount").text,
+        attribute("payment.payment_record.amount_paid").text,
         "Saldo",
         attribute("payment.payment_record.paid_at").text,
         attribute("payment.payment_record.note").text,

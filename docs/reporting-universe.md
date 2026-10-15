@@ -249,8 +249,8 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | `payment_record` | Betaling | dimension | label | `finance` | internal | `f_payments.payment_id` | Het betaalrecord zelf. Klik door naar de betalingenpagina. |
 | `payment_payable_label` | Waarvoor | detail | label | `member_details` | none | `f_payments.payable_label` | Voor wie en waarvoor deze betaling is — de inschrijver en de activiteit, of het hoofdlid en het lidmaatschapsjaar. |
 | `payment_ogm` | Mededeling (OGM) | detail | label | `finance` | none | `f_payments.structured_communication` | De gestructureerde mededeling op een overschrijving. |
-| `payment_due` | Bedrag | detail | money | `finance` | internal | `f_payments.amount` | Het bedrag van deze ene regel. Een terugbetaling is negatief. |
-| `payment_received` | Betaald bedrag | detail | money | `finance` | internal | `f_payments.amount_paid` | Wat er op deze regel ontvangen is. |
+| `payment_due` | Te betalen (regel) | detail | money | `finance` | internal | `f_payments.amount` | Het bedrag van deze ene regel. Een terugbetaling is negatief. |
+| `payment_received` | Betaald (regel) | detail | money | `finance` | internal | `f_payments.amount_paid` | Wat er op deze regel ontvangen is. |
 | `payment_balance` | Saldo | detail | money | `finance` | internal | `f_payments.open_amount` | Te betalen min betaald, op deze regel. |
 | `payment_paid_on` | Betaald op | detail | date | `finance` | internal | `f_payments.paid_date` | Wanneer er betaald is — iets anders dan wanneer de vordering gemaakt werd. De dag waarop deze ene betaling binnenkwam. Leeg zolang er niets ontvangen is. |
 | `payment_note` | Notitie | detail | label | `finance` | none | `f_payments.note` | Wat de penningmeester erbij schreef. |

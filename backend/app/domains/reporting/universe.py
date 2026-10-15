@@ -2221,6 +2221,7 @@ OBJECTS: tuple[UniverseObject, ...] = (
     UniverseObject(
         key="payment_due",
         attribute="payment.payment_record.amount",
+        qualifier="regel",
         klass="Betalingen",
         kind=ObjectKind.DETAIL,
         view="f_payments",
@@ -2233,6 +2234,7 @@ OBJECTS: tuple[UniverseObject, ...] = (
     UniverseObject(
         key="payment_received",
         attribute="payment.payment_record.amount_paid",
+        qualifier="regel",
         klass="Betalingen",
         kind=ObjectKind.DETAIL,
         view="f_payments",
