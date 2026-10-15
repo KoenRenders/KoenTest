@@ -4,7 +4,7 @@
 **Status:** shaped with Koen on 15 October 2026, reshaped the same day from per-person to anonymous · not assigned to a release; B8 answered, a second build read is due
 **Tracking issue:** #2027 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (rendering of a letter, a public pixel and redirect route, the send screen, the archive of sent letters)
-**Reading:** A 907 words · B 1 404 · C 1 522 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 887 words · B 1 820 · C 1 522 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -113,14 +113,14 @@ Proposed text for the privacy statement, to be approved by Koen: *Bij de nieuwsb
 
 | # | Criterion | Requirement | Walkthrough steps |
 |---|---|---|---|
-| AC1 | After opening a real mail sent to a made-up address, the letter counts one opening | R1 | send to a made-up address, open it twice: still one |
-| AC2 | After a click, that link counts one clicker | R2 | click a link twice: still one |
-| AC3 | The unsubscribe link still works and is not listed | R6 | use it |
-| AC4 | A letter sent after the change carries the pixel and the rewritten links, members' letters included | R4 | read the mail source |
-| AC5 | The footer line is in every letter | R5 | read the mail |
-| AC6 | The archive list shows opened and clicked percentages per letter | R3 | open the archive |
-| AC7 | Nothing in the result names or identifies a person | R7 | read the result and the stored events |
-| AC8 | The privacy statement has the newsletter section | R5 | open the privacy page |
+| AC1 | After opening a real mail sent to a made-up address, the letter counts one opening | R1 | steps 4, 7 |
+| AC2 | After a click, that link counts one clicker | R2 | steps 5, 7 |
+| AC3 | The unsubscribe link still works and is not listed | R6 | step 6 |
+| AC4 | A letter sent after the change carries the pixel and the rewritten links, members' letters included | R4 | steps 1, 2 |
+| AC5 | The footer line is in every letter | R5 | step 2 |
+| AC6 | The archive list shows opened and clicked percentages per letter | R3 | step 7 |
+| AC7 | Nothing in the result names or identifies a person | R7 | step 8 |
+| AC8 | The privacy statement has the newsletter section | R5 | step 9 |
 
 ---
 
@@ -136,7 +136,71 @@ The rewriting works on the **letter as it is rendered**, after the activity bloc
 
 ## B2. Fit with the process and the requirements — for the business
 
-Covers R1–R6. Use: *Nieuwsbrief* → *Versturen* → send; later *Archief* → a sent letter → *Resultaat*, and the archive list to compare.
+<!-- figure: name=cr37-usage caption=Every_step_has_a_home_in_the_newsletter_module_or_is_marked_outside_the_portal -->
+```mermaid
+flowchart LR
+  subgraph author["Board member (author)"]
+    b1["Send the letter<br/>Versturen (newsletter)"]:::nl
+    b2["Open the result<br/>Archief (newsletter)"]:::nl
+    b3["Compare the letters<br/>Archief list (newsletter)"]:::nl
+    s(["Next letter<br/>outside the portal"]):::out
+  end
+  subgraph reader["Reader"]
+    r1["Opens the letter<br/>outside the portal"]:::out
+    r2["Clicks a link<br/>outside the portal"]:::out
+  end
+  subgraph plat["Platform, uit zichzelf"]
+    p1["Counts, not knowing who<br/>pixel, redirect (newsletter)"]:::nl
+    p2["Says it in the statement<br/>privacy page (cms)"]:::cms
+  end
+  b1 --> r1 --> r2
+  r1 -.-> p1
+  r2 -.-> p1
+  p1 -.-> b2
+  b2 --> b3 --> s
+  classDef nl fill:#e8f0ff,stroke:#0051a4
+  classDef cms fill:#fff7ed,stroke:#f16532
+  classDef out fill:#ffffff,stroke:#52607a
+```
+
+*Colour is the module: blue newsletter, orange cms; white is outside the portal. Everything the author does stays in one module; the reader works in a mail program and meets the portal only through the pixel and the redirect.*
+
+**Traceability**
+
+| R | How the solution meets it | F | Module (C2) | Test (C6) | AC |
+|---|---|---|---|---|---|
+| R1 | The *Resultaat* block shows how many people opened the letter, as an indication | B1 | newsletter | T6 | AC1 |
+| R2 | The block lists every link with how many people clicked it | B1 | newsletter | T3, T4, T6 | AC2 |
+| R3 | The archive list gets columns for the number of links, opened % and clicked % | B1 | newsletter | T16 | AC6 |
+| R4 | Every letter carries the pixel and the rewritten links; there is no switch | B1 | newsletter | T1, T13 | AC4 |
+| R5 | A footer line in every letter, and a section in the privacy statement | B1 | newsletter, cms | T10, T11, T13 | AC5, AC8 |
+| R6 | The unsubscribe link is left as it is | B1 | newsletter | T2 | AC3 |
+| R7 | Won't: nothing is stored that names a person; a gate on the table's columns keeps it so | B1 | newsletter | T7 | AC7 |
+| R8 | Won't: no switch and no button; counting is anonymous | B1 | newsletter | — | — |
+| R9 | Won't: not asked | — | — | — | — |
+
+**Walkthrough** — on HDEV, with made-up addresses on the reserved example domain.
+
+*The author (Nieuwsbrief)*
+1. Write a letter with one ordinary link and one activity block. Send it to a made-up subscriber. See: the letter reaches *Verzonden*.
+2. Read the source of the received mail. See: the pixel, every link going through the portal (the activity block's *Schrijf je in!* too), the unsubscribe link unchanged, the footer line *Wij tellen anoniem hoeveel brieven geopend en hoeveel links aangeklikt worden.*
+3. Send a test mail and open the preview. See: no pixel and no rewritten link.
+
+*The reader (the made-up address)*
+4. Open the mail twice. See: nothing special.
+5. Click the ordinary link twice. See: the destination opens both times.
+6. Click the unsubscribe link. See: it works as before.
+
+*The author again (Archief)*
+7. Open the letter. See: *Resultaat* says opened 1 (indicatie), clicked 1 (indicatie), and the link list shows 1 for the link clicked twice. In the list: columns for the number of links, opened % and clicked %.
+8. Read the result. See: no name, address or time anywhere.
+
+*The administrator*
+9. Open the privacy page. See: the newsletter section.
+
+*Where it must refuse*
+10. Change a character in the code of the pixel address. See: the picture still loads and no count changes.
+11. Call a click address with the link number of another letter. See: not found, no count.
 
 ## B3. The whole across the modules — for the architect
 
