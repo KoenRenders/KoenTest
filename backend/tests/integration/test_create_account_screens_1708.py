@@ -35,7 +35,8 @@ from app.domains.auth import login as auth_login
 from app.domains.auth.api import SESSION_COOKIE, LoginToken
 from app.domains.mdm.api import ContactDetail, Person
 from app.limiter import login_limiter
-from tests.conftest import create_test_person
+from tests._queued_mail import queued_mails
+from tests.conftest import create_test_person, form_guard_fields
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -43,6 +44,7 @@ PAGE = "/account-aanmaken"
 CODE = "424242"
 SENTENCE = "We stuurden een code naar dit adres."
 GOOD = {
+    **form_guard_fields(),
     "first_name": "Nora",
     "last_name": "Nieuw",
     "email": "nora-1708@example.org",
@@ -219,3 +221,62 @@ def test_the_route_is_limited_per_ip_like_the_sign_in(client, db_session):
     assert codes[:5] == [200] * 5 and codes[5:] == [429, 429], codes
     # The page itself stays open: only sending is counted.
     assert client.get(PAGE).status_code == 200
+
+
+# ── the guard of the public forms (#2033) ────────────────────────────────────
+
+
+def _bare(**over):
+    """The four fields of a person, without the guard's two."""
+    return {
+        key: value for key, value in {**GOOD, **over}.items() if key not in ("website", "form_ts")
+    }
+
+
+def _refused_leaves_nothing(client, db_session, data):
+    """The answer is the ordinary code step; no token, no mail, no person."""
+    tokens = db_session.query(LoginToken).count()
+    persons = _persons(db_session)
+    step = client.post(PAGE, data=data)
+    assert step.status_code == 200 and SENTENCE in step.text, (
+        "the bot must not learn it was refused"
+    )
+    assert db_session.query(LoginToken).count() == tokens, "a refused request stored a token"
+    assert queued_mails(db_session, data["email"]) == [], "a refused request sent a mail"
+    assert _persons(db_session) == persons
+
+
+def test_the_page_carries_the_guards_two_fields(client):
+    html = client.get(PAGE).text
+    assert 'name="website"' in html and 'name="form_ts"' in html
+
+
+def test_a_post_without_the_guards_fields_sends_nothing(client, db_session):
+    _refused_leaves_nothing(client, db_session, _bare(email="zonder-2033@example.org"))
+
+
+def test_a_post_that_came_too_fast_sends_nothing(client, db_session):
+    import time
+
+    from app.kernel.form_guard import issue_token
+
+    fast = {
+        **_bare(email="snel-2033@example.org"),
+        "form_ts": issue_token(now=time.time()),
+        "website": "",
+    }
+    _refused_leaves_nothing(client, db_session, fast)
+
+
+def test_a_filled_honeypot_sends_nothing(client, db_session):
+    data = {**GOOD, "email": "pot-2033@example.org", "website": "https://spam.example.org"}
+    _refused_leaves_nothing(client, db_session, data)
+
+
+def test_a_person_at_a_normal_pace_gets_the_mail(client, db_session):
+    """The control of the four above: the same post with the guard's fields from a form
+    rendered five seconds ago is not refused, so "no mail" means something."""
+    email = "mens-2033@example.org"
+    step = client.post(PAGE, data={**GOOD, "email": email})
+    assert SENTENCE in step.text
+    assert len(queued_mails(db_session, email)) == 1

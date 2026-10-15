@@ -5,6 +5,9 @@
    `novalidate`: the server says what is wrong, under the field, in our words. #}
 <form data-create-account-form hx-post="{{ path_for('/account-aanmaken') }}" hx-target="#aanmelden-stap" hx-swap="innerHTML" novalidate>
   {% if terug %}<input type="hidden" name="terug" value="{{ terug }}">{% endif %}
+  {# #2033: the guard of every public form that mails a typed address — a honeypot and a
+     signed render time (`kernel/form_guard.py`), through the kit's one helper. #}
+  {{ ui.form_guard_fields() }}
   {% call ui.form_grid() %}
     {{ ui.field("first_name", attribute="mdm.person.first_name", required=True, span="full", value=first_name, error=problems.get("first_name"), attrs='autocomplete="given-name"') }}
     {{ ui.field("last_name", attribute="mdm.person.last_name", required=True, span="full", value=last_name, error=problems.get("last_name"), attrs='autocomplete="family-name"') }}
