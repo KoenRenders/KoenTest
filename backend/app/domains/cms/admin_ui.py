@@ -112,6 +112,12 @@ def _record_ctx(
     from app.domains.forms.api import form_button_choices
     from app.domains.mdm.api import module_enabled
 
+    # The data blocks this tenant's modules offer (CR-32 F16): the registry's
+    # `home_blocks` of every module that is on.
+    from app.domains.mdm.api import module_enabled as _on
+    from app.kernel.modules import MODULES
+
+    data_blocks = [block for module in MODULES if _on(module.code) for block in module.home_blocks]
     # The albums a gallery block may show (CR-32 R20): the photo page's own list.
     from app.domains.media.api import list_albums
     from app.kernel.modules import ModuleCode
@@ -152,7 +158,7 @@ def _record_ctx(
         "document_json": (
             document if document is not None else _json.dumps(editable_document(db, page))
         ),
-        "editor_config": schema.schema_for("page", albums=gallery_albums),
+        "editor_config": schema.schema_for("page", albums=gallery_albums, data_blocks=data_blocks),
         "button_pages": button_pages,
         "button_forms": button_forms,
         "button_lid_worden": button_lid_worden,

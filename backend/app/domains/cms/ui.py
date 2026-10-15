@@ -68,7 +68,6 @@ def homepage(request: Request, db: Session = Depends(get_db)):
             "activities": list_activities(db, scope="upcoming") if toon_activiteiten else [],
             "scope": "upcoming",
             "lidgeld": {"prijs": membership_price_for_date(), "tot": tot},
-            "bericht_verzonden": request.query_params.get("bericht") == "verzonden",
         },
     )
 
@@ -201,14 +200,18 @@ def _render_page(request: Request, db: Session, page):
     """One published page in the site shell — at its own address, or at `/`
     when it is the tenant's home page (#1477)."""
     slug = page.slug
+    context = site_context(db, request)
+    # The signed-in visitor (CR-32 F14): the page renders a button to "Word lid"
+    # as "Mijn gezin" for a member with a household.
+    viewer = context.get("gebruiker")
     return templates.TemplateResponse(
         request,
         "cms_pagina.html",
         {
-            **site_context(db, request),
+            **context,
             "page": page,
-            "content_html": published_html(db, page),
-            "hero": hero_view(page, db),
+            "content_html": published_html(db, page, viewer=viewer),
+            "hero": hero_view(page, db, viewer=viewer),
             # #924: één vaste slug krijgt het contactblok uit de organisatie, zoals de
             # footer er een krijgt. Geen shortcode en geen nieuwe pagina: er ís geen
             # contactpagina, en een blok dat van een paginanaam afhangt werkt niet voor

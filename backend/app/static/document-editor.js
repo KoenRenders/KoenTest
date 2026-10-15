@@ -199,6 +199,65 @@
     });
   }
 
+  /* The activities of CR-32 (R15): a data block — the upcoming activities as the
+     home shows them, at most `count`. The module supplies the data at render time;
+     the editor holds the count and draws a labelled box with a select of 1 to 12,
+     like the section's bar. */
+  function activitiesNode(RaakTiptap, config) {
+    var label = (config.toolbar.insert.filter(function (i) { return i.id === "activities"; })[0] || {}).label || "";
+    return RaakTiptap.Node.create({
+      name: "activities",
+      group: "block",
+      atom: true,
+      addAttributes: function () {
+        return { count: { default: 12 } };
+      },
+      parseHTML: function () {
+        return [{ tag: "div[data-activities]", getAttrs: function (el) { return { count: Number(el.getAttribute("data-activities")) }; } }];
+      },
+      renderHTML: function (props) {
+        return ["div", { "data-activities": props.node.attrs.count, class: "de-gallery" }, label];
+      },
+      addNodeView: function () {
+        return function (props) {
+          var dom = document.createElement("div");
+          dom.className = "de-gallery";
+          dom.contentEditable = "false";
+          var text = document.createElement("span");
+          text.textContent = label + " — ";
+          var select = document.createElement("select");
+          select.setAttribute("aria-label", label);
+          for (var n = 1; n <= 12; n++) {
+            var option = document.createElement("option");
+            option.value = String(n);
+            option.textContent = String(n);
+            select.appendChild(option);
+          }
+          select.value = String(props.node.attrs.count);
+          select.addEventListener("change", function () {
+            var pos = props.getPos();
+            if (typeof pos !== "number") return;
+            props.editor.view.dispatch(
+              props.editor.state.tr.setNodeMarkup(pos, undefined, { count: Number(select.value) })
+            );
+          });
+          dom.appendChild(text);
+          dom.appendChild(select);
+          return {
+            dom: dom,
+            update: function (updated) {
+              if (updated.type.name !== "activities") return false;
+              select.value = String(updated.attrs.count);
+              return true;
+            },
+            stopEvent: function (event) { return dom.contains(event.target); },
+            ignoreMutation: function () { return true; },
+          };
+        };
+      },
+    });
+  }
+
   /* The value of CR-32 (R19): an inline atom holding a code of the closed list.
      The editor shows a chip with the value it has now (read at edit time, the
      configuration carries it) and the page renders it from the settings. */
@@ -801,7 +860,8 @@
         item.id === "callout" ||
         item.id === "cards" ||
         item.id === "section" ||
-        (item.id === "gallery" && !!config.gallery)
+        (item.id === "gallery" && !!config.gallery) ||
+        item.id === "activities"
       );
     });
     if (insertable.length) {
@@ -839,6 +899,10 @@
             }).run();
           } else if (item.id === "callout") {
             editor.chain().focus().insertContent({ type: "callout" }).run();
+          } else if (item.id === "activities") {
+            /* A data block of the activities module (only offered where it is on);
+               the count is chosen in the block itself, twelve to begin with. */
+            editor.chain().focus().insertContent({ type: "activities", attrs: { count: 12 } }).run();
           } else if (item.id === "gallery") {
             /* The album is chosen in the dialog of the macro; the block lands
                with it (the server refuses an activity that is no album). */
@@ -1378,6 +1442,9 @@
     }
     if ((config.insert || []).indexOf("value") !== -1) {
       extensions.push(valueNode(RaakTiptap, config));
+    }
+    if ((config.insert || []).indexOf("activities") !== -1) {
+      extensions.push(activitiesNode(RaakTiptap, config));
     }
     if ((config.insert || []).indexOf("gallery") !== -1 && config.gallery) {
       extensions.push(galleryNode(RaakTiptap, config));

@@ -20,6 +20,7 @@ A set names the nodes its toolbar and insert menu offer; an unknown set is a
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from typing import Any
 
 from app.i18n import _
@@ -60,6 +61,12 @@ HEADING_LEVELS: tuple[int, ...] = (2, 3, 4)
 #: The tones of a section and of a page's hero (CR-32 R8, F1): a name, never a
 #: colour. The pixels come from the tenant's brand tokens at render time.
 TONES: tuple[str, ...] = ("plain", "tint", "accent")
+
+#: The data blocks of the page set (CR-32 F13, F14): nodes whose data a module
+#: supplies at render time. Each is named in the registry (`home_blocks`) by the
+#: module that owns it, so the editor offers it, and the save accepts it, only
+#: where that module is on (`service._check_references`).
+DATA_BLOCKS: tuple[str, ...] = ("activities",)
 
 #: Where a button and a card may lead: the four destinations, of which a
 #: node carries exactly one (`_one_destination`).
@@ -186,6 +193,9 @@ NODES: dict[str, dict[str, Any]] = {
     # photos) is the media module's, supplied at render time; the service refuses
     # an activity that is not an album at the save (the validator knows no data).
     "gallery": {"group": "block", "attrs": {"activity_id": "int"}},
+    # CR-32 R15 (F14): the upcoming activities as the home page shows them, at most
+    # `count` of them; the data is the activities module's.
+    "activities": {"group": "block", "attrs": {"count": tuple(range(1, 13))}},
     "value": {"group": "inline", "inline": True, "atom": True, "attrs": {"code": VALUE_CODES}},
     "hardBreak": {"group": "inline", "inline": True},
     "text": {"group": "inline", "text": True, "marks": ("bold", "italic", "strike", "link")},
@@ -342,6 +352,7 @@ BLOCK_SETS: dict[str, dict[str, Any]] = {
             "cards",
             "section",
             "gallery",
+            "activities",
             "value",
         ),
     },
@@ -745,11 +756,17 @@ def _toolbar_label(command_id: str) -> str:
         "cards": _("Kaarten"),
         "section": _("Sectie"),
         "gallery": _("Galerij"),
+        "activities": _("Activiteiten"),
         "value": _("Code"),
     }.get(command_id, command_id)
 
 
-def schema_for(set_name: str, *, albums: "list[tuple[int, str]] | None" = None) -> dict[str, Any]:
+def schema_for(
+    set_name: str,
+    *,
+    albums: "list[tuple[int, str]] | None" = None,
+    data_blocks: "Iterable[str] | None" = None,
+) -> dict[str, Any]:
     """The editor's configuration for one set, as data for the macro.
 
     Everything the browser needs to build the toolbar and the insert menu:
@@ -761,6 +778,15 @@ def schema_for(set_name: str, *, albums: "list[tuple[int, str]] | None" = None) 
     if set_name not in BLOCK_SETS:
         raise ValueError(f"Unknown block set: {set_name}")
     from app.domains.cms.render import PLACEHOLDER_LABELS
+
+    # The data blocks the caller's tenant may use (its modules): the others are
+    # left out of the menu and of the nodes the editor registers.
+    offered = set(DATA_BLOCKS) if data_blocks is None else set(data_blocks)
+    insert = [
+        name
+        for name in BLOCK_SETS[set_name]["insert"]
+        if name not in DATA_BLOCKS or name in offered
+    ]
 
     return {
         "set": set_name,
@@ -777,7 +803,7 @@ def schema_for(set_name: str, *, albums: "list[tuple[int, str]] | None" = None) 
         ],
         "lists": list(BLOCK_SETS[set_name]["lists"]),
         "blocks": list(BLOCK_SETS[set_name]["blocks"]),
-        "insert": list(BLOCK_SETS[set_name]["insert"]),
+        "insert": insert,
         # The toolbar, as the browser builds her from this configuration
         # (slice 2): the words are UI copy behind `_()` and live HERE, not
         # in the JS.
@@ -795,10 +821,7 @@ def schema_for(set_name: str, *, albums: "list[tuple[int, str]] | None" = None) 
                 for name in BLOCK_SETS[set_name]["blocks"]
             ],
             "insertMenu": _("Blok invoegen"),
-            "insert": [
-                {"id": name, "label": _toolbar_label(name)}
-                for name in BLOCK_SETS[set_name]["insert"]
-            ],
+            "insert": [{"id": name, "label": _toolbar_label(name)} for name in insert],
             # The table menu (phase 2, #1679): the commands the author gets
             # on a table, generated here like the rest of the toolbar. The
             # menu appears in the editor when the cursor stands in a table;

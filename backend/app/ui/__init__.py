@@ -1439,6 +1439,12 @@ def site_context(db, request=None) -> dict:
         # `maxlength`, from the setting its route refuses above.
         "chat_max_input_chars": settings.chat_max_input_chars,
         "gebruiker": user,
+        # CR-32 C6 15a: the thank-you after a contact message belongs to the shell,
+        # for the redirect `/?bericht=verzonden` of the contact form lands on
+        # whichever page is the home — it stood in `home.html` alone.
+        "bericht_verzonden": bool(
+            request is not None and request.query_params.get("bericht") == "verzonden"
+        ),
         # Branding per tenant (#407/#519): naam/tagline/Facebook uit de
         # tenant-config. GEEN Millegem-specifieke defaults meer — die lekten
         # naar andere tenants (multi-tenancy-fout). Leeg = niet tonen, net als

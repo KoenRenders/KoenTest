@@ -447,7 +447,7 @@ def serves_at_address(page: CmsPage) -> bool:
     return not is_site_block(page.slug)
 
 
-def published_html(db, page: CmsPage, language: Optional[str] = None) -> str:
+def published_html(db, page: CmsPage, language: Optional[str] = None, *, viewer=None) -> str:
     """What a visitor sees: the page's published document, rendered; her
     pre-CR-17 HTML as long as nothing is published (snede 3, #1671 — the
     readers' ONE source: every screen that shows a page asks here, so the
@@ -456,7 +456,7 @@ def published_html(db, page: CmsPage, language: Optional[str] = None) -> str:
 
     document = published_document(db, page, language)
     if document is not None:
-        return render_document(document, db)
+        return render_document(document, db, viewer=viewer)
     return render_cms_content(page.content or "", db, on_page=not is_site_block(page.slug)) or ""
 
 
@@ -672,11 +672,45 @@ def _check_references(db, doc: dict) -> None:
     for media_id in sorted(_figure_media_ids(doc)):
         if not offered_by_picker(db, media_id):
             raise _schema.InvalidShape(f"Onbekende afbeelding: {media_id}")
+    _check_data_blocks(doc)
     wanted = _gallery_activity_ids(doc)
     if wanted:
         known = {album.id for album in list_albums(db)}
         for activity_id in sorted(wanted - known):
             raise _schema.InvalidShape(f"Onbekend album: {activity_id}")
+
+
+def _data_blocks_of(document: Optional[dict]) -> set[str]:
+    """The data blocks (`schema.DATA_BLOCKS`) a document holds."""
+    from app.domains.cms.schema import DATA_BLOCKS
+
+    found: set[str] = set()
+
+    def walk(node):
+        if not isinstance(node, dict):
+            return
+        if node.get("type") in DATA_BLOCKS:
+            found.add(node["type"])
+        for child in node.get("content") or []:
+            walk(child)
+
+    walk(document)
+    return found
+
+
+def _check_data_blocks(document: dict) -> None:
+    """A data block belongs to a module (the registry's `home_blocks`) and is
+    accepted only where that module is on for the tenant (CR-32 R18, F16). The
+    validator decides by shape alone and does not know the tenant, so the rule
+    stands here, before the first write, and refuses by the block's name."""
+    from app.domains.cms import schema as _schema
+    from app.domains.mdm.api import module_enabled
+    from app.kernel.modules import owner_of
+
+    for block in sorted(_data_blocks_of(document)):
+        owner = owner_of("home_blocks", block)
+        if owner is not None and not module_enabled(owner):
+            raise _schema.InvalidShape(f"Het blok {block} hoort bij een module die uit staat")
 
 
 def _gallery_activity_ids(document: Optional[dict]) -> set[int]:
