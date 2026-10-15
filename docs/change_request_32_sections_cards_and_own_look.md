@@ -1,6 +1,6 @@
 # CR-32 — Sections, text cards, data blocks and a tenant's own look: the page editor hosts a company site and the association's home page
 
-**Status:** shaped on 15 October 2026 by the architecture CLI, on Koen's question through the master CLI · B8 answered the same day · **build read by dev1 taken in** (15 October 2026, #2003: A1–A11, B1–B2, C1–C4, D) · B8.10 (the home's band) open with Koen · not assigned to a release
+**Status:** shaped on 15 October 2026 by the architecture CLI, on Koen's question through the master CLI · B8 answered the same day · **build read by dev1 taken in** (15 October 2026, #2003: A1–A11, B1–B2, C1–C4, D) · B8.10–B8.12 decided the same day · not assigned to a release
 **Tracking issue:** #2003 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the `cms` domain (the page schema, the renderer, the editor's node set), the kit (`scripts/build-css.sh`, the public shell `site_base.html`), the tenant settings of the kernel (`tenant_config`), the media library (one picture kind); a follow-up of CR-17 (web content) and CR-19 (tenant kinds)
 **Reading:** A 2 126 words · B 2 550 · C 1 752 — measured on 15 October 2026, drawings excluded; the budget is A ≤ 1 500, B ≤ 2 500: **over budget**, because three questions of one day stand in one change request (the concept site, the album card, the home page); accepted as one document by Koen (B8.8)
@@ -90,7 +90,7 @@ The concept site in Koen's project folder (a one-page site: `index.html`, `style
 |---|---|---|
 | R1 | A section of a page can stand on a tinted band that spans the page; the content keeps the container and the left line of C4.13 | Must |
 | R2 | A section can carry a small line above its heading (the *eyebrow*: "DE UITDAGING") | Should |
-| R3 | A page can open with a hero: the page's title large, a lead, up to two buttons, on a band | Must |
+| R3 | A page can open with a hero: the page's title large, a lead, an eyebrow, up to two buttons, on a band — a property of the page, set beside its title, not a block of the document | Must |
 | R4 | A card can be a text card: a number, a heading and a paragraph, no link | Must |
 | R5 | Cards stand two or three in a row on a wide screen, under each other on a phone; the kit decides from the count, as it does for link cards today | Must |
 | R6 | A tenant chooses a favicon | Must |
@@ -143,7 +143,7 @@ The concept site in Koen's project folder (a one-page site: `index.html`, `style
 Three additions to the page set of the schema, one addition to the brand file, no new concept:
 
 1. **`section`** — a block node holding blocks, with a `tone` (plain · tint · accent) and an optional `eyebrow`. The renderer draws it as a band that spans the shell's width; inside the band stands the page's container (1 024 px, the left line) exactly as C4.13 draws the rest of the page. A `plain` section is a band without colour — a way to say "this belongs together" and to carry the eyebrow.
-2. **`hero`** — a block node that may stand only first in a page, with `tone`, an optional `eyebrow`, a `lead` and up to two `button` children. Its title is the **page's title**: the page has one h1 (#1656), the hero draws it large instead of the title line. A page without a hero keeps the title line.
+2. **The hero** — not a node but **a property of the page** (B8.11): beside its title the page carries an *opening* — the title line (today) or a hero with `tone`, an optional `eyebrow`, a `lead` and up to two buttons with the button block's destinations. The template draws it with the page's title as the one h1 (#1656), in the place of the title line, after the concept banner; the renderer and the document know nothing of it. One place for the title, no position rule.
 3. **A text card** — not a new node: the `card` gets two optional attributes, `number` and `text`, and its destination becomes optional. A card without a destination is a text card; the kit draws it without the stretched link and without the arrow. The `cards` block keeps its one rule for the count per row (R5), the kit's own.
 4. **The value block and the gallery** — CR-17's phase 5, moved here whole: the `value` inline node already in the schema (`VALUE_CODES`), now in the toolbar and the editor as a chip, with the migration of `{{code}}` to it; the platform's list of sites as the one value that renders a list (CR-17 Q22); and a `gallery` block node with the album's `activity_id`, drawn as a grid of the album's photos with the kit's photo look (CR-17 F5). Nothing of CR-17's design changes by the move; only where it is built and closed.
 5. **Two data blocks** — `activities`, `albums` — nodes with settings and no content, whose data the owning module supplies at render time, the pattern CR-17 C4.5 chose for the newsletter's activity blocks. `activities` (attr `count`, 1–12) draws the upcoming activities with the kit's activity cards (`_activiteiten_cards.html`, as the home does today); `albums` (attrs `albums` 1–6, `photos` 1–8, `interval` 0 or 2–10 seconds) draws the photo page's card (`pub.photo_card`) cycling with Alpine, no library, and respects `prefers-reduced-motion`. Each is offered in the insert menu only when its module is on for the tenant (R18): the registry's `home_blocks` becomes that list, so a module names the data blocks it offers to the page set, and the home page's own template retires. The **membership band** needs no data block: it is a section in the accent tone with the fee as a value placeholder (`membership_price_full`, phase 4 of this change; the renderer already replaces the placeholder written as text, so a band shows the fee even before phase 4) and two buttons; the switch of today's band — *Mijn gezin* instead of *Word lid* for a signed-in member with a household — is B8.9.
@@ -157,10 +157,10 @@ What shapes it: **C4.7 of CR-17 holds** — not a site builder; a tone is a name
 |---|---|---|
 | F1 | R1, R8 | `section.tone ∈ {plain, tint, accent}`; the band's colours are read from the tenant's brand tokens at render time, never stored in the document |
 | F2 | R1 | the page's HTML stands inside the 1 024 px container `.doc-page` (the prose class inside it is `.cms-page`), so a band cannot span the page by itself: the kit gets **one full-bleed rule** for `.prose-section` and `.prose-hero` — the band breaks out of the container (`margin-inline: calc(50% - 50vw)`) and re-applies the container's width and padding to its own content — and both classes join the `:not()` list of the 768 px prose rule in `build-css.sh`, or they would be held at 768 px; a section inside a section, a column, a cell or a quotation is refused by the validator (F2a) |
-| F2a | R1, R3 | `hero` and `section` are **not** in the group `block` (which would make them legal in every `block+` container: a column, a list item, a table cell, a quotation); the root's content stays `block+` in the grammar and **one positional rule in `validate_document`** says: `hero` and `section` stand at the root only, `hero` only as the first node, at most once — a new validator rule, proven red (C6.2, C6.3), and the first mechanism of its kind in the schema (`_CONTENT_EXPR` reads one selector and one quantifier, no sequence, no exclusion) |
+| F2a | R1 | `section` is **not** in the group `block` (which would make it legal in every `block+` container: a column, a list item, a table cell, a quotation, a section); the root's content stays `block+` in the grammar and **one rule in `validate_document`** says: `section` stands at the root only — a new validator rule, proven red (C6.3), and the first mechanism of its kind in the schema (`_CONTENT_EXPR` reads one selector and one quantifier, no sequence, no exclusion) |
 | F3 | R2 | `section.eyebrow` renders as a small capitalised line above the first block; empty renders nothing |
-| F4 | R3 | `hero` is allowed only as the first node of a document (the validator refuses it elsewhere, by name); content `button{0,2}`; `lead: str?`, `eyebrow: str?`, `tone` |
-| F5 | R3, #1656 | `render_document(on_page=True)` shifts every heading one level down (`headings_one_level_down`), so a hero drawn by the renderer would carry an h2; therefore **the template draws the hero**: the renderer returns, beside the HTML of the rest, the hero's parts (tone, eyebrow, lead, the rendered buttons) when the document opens with one, and `cms_pagina.html` draws the band with the page's title as its h1 — after the concept banner (`{% if concept %}`), in the place of the title line |
+| F4 | R3 | the page gets an `opening` (`title_line` · `hero`) with `hero_tone`, `hero_eyebrow`, `hero_lead` and two optional buttons (label and the four destination attributes of the button block, exclusive, resolved by the one resolver) — columns of `cms.pages` and fields of the page's settings form; no node in the document |
+| F5 | R3, #1656 | `cms_pagina.html` draws the hero from the page's properties with the page's title as its h1, after the concept banner (`{% if concept %}`), in the place of the title line; a page whose opening is `title_line` renders as today; the kit's `.prose-hero` band uses the full-bleed rule of F2 |
 | F6 | R4 | `card.number: str?`, `card.text: str?`; the four destination attributes stay exclusive and become optional **in three places**: `_one_destination("card", …)` in `validate_document` (refuses none today), `_card_html` (returns nothing for an unresolved card today) and the card dialog in `_macros.html` (gets the choice *geen*); two tests guard the old rule and are rewritten, not kept: `test_document_shape_1671.py::test_a_card_without_a_destination_or_with_two_is_refused` and `tests/integration/test_cards_1770.py::test_a_card_is_one_link_to_its_resolved_destination` |
 | F7 | R5 | the count per row stays the look's rule in `build-css.sh` (`.prose-cards`) **as it is today**: two columns, three from the third card (`:has(>:nth-child(3))`), one column under the phone breakpoint and inside a column — so a lone card stands half wide, as a lone link card does; no change to the rule, nothing moves on the existing sites |
 | F8 | R6 | `SITE_ICON_MEDIA_KEY`; the shell writes `<link rel="icon">` to the media URL when set, else the platform's icon; the picture kind is `site_icon` (one row in media's kind list, CR-12) |
@@ -202,7 +202,8 @@ The step of A3 that is new — the brand file in the settings — is the tenant'
 flowchart TB
   subgraph CMS["cms"]
     direction LR
-    SCH["schema.py: section, hero, card.number, card.text"]
+    SCH["schema.py: section, card.number, card.text"]
+    PG["pages: the opening (hero) columns and settings"]
     REN["render.py: band, hero, text card"]
     ED["the editor's node set, generated from the schema"]
   end
@@ -223,7 +224,7 @@ flowchart TB
     ACTAPI["api: upcoming activities (exists)"]
   end
   REG["kernel/modules.py: home_blocks = the data blocks a module offers"]
-  TPL["cms_pagina.html: the title inside the hero"]
+  TPL["cms_pagina.html: the hero from the page properties"]
   HOME["home.html and its route branch: retired"]
   ED --> SCH --> REN --> CSS
   SHELL --> TC
@@ -237,15 +238,15 @@ flowchart TB
   classDef changed fill:#fff7ed,stroke:#f16532,color:#14171c;
   classDef unchanged fill:#eef3f9,stroke:#d7e0ec,color:#14171c;
   class TC,KIND,ALB new
-  class SCH,REN,ED,CSS,SHELL,TPL,REG,HOME changed
+  class SCH,REN,ED,CSS,SHELL,TPL,REG,HOME,PG changed
   class ACTAPI unchanged
 ```
 
 *What to see:* no new table, no new domain; two settings and one code-list row are the only new data; the data blocks read through the facades that exist (one query of media's is new), and the home page's own template retires.
 
-**Data.** Two keys in `kernel_tenant_settings` (F8, F9), one row in media's kind list. No migration for the page documents: a node that is not in a document is not there; old documents validate unchanged.
+**Data.** Two keys in `kernel_tenant_settings` (F8, F9), one row in media's kind list, the opening columns on `cms.pages` (F4: one migration, additive, default `title_line`), and the one-off rewrite of the heading levels (F19). Otherwise nothing: a node that is not in a document is not there; old documents validate unchanged.
 
-**The editor.** Every node of the schema has its TipTap node extension in the vendored editor (`static/document-editor.js`, TipTap 3.31.4; `columns` registers as `columnsNode(RaakTiptap)`, one `Node.create` per node). `section` and `hero` need theirs: a wrapping node with a tone selector in its bubble menu; the data blocks a settings dialog each; the card's two attributes are two fields in the card's form and its destination choice gets *geen*. The insert menu's items come from the schema, but the script filters them by a hard-coded list (A4 of the build read): that list grows per node, in the same commit as the node.
+**The editor.** Every node of the schema has its TipTap node extension in the vendored editor (`static/document-editor.js`, TipTap 3.31.4; `columns` registers as `columnsNode(RaakTiptap)`, one `Node.create` per node). `section` needs its own: a wrapping node with a tone selector in its bubble menu; the hero needs none (a property of the page); the data blocks a settings dialog each; the card's two attributes are two fields in the card's form and its destination choice gets *geen*. The insert menu's items come from the schema, but the script filters them by a hard-coded list (A4 of the build read): that list grows per node, in the same commit as the node.
 
 **The renderer.** `_block_html` gains the section kind: the band is `<div class="prose-section prose-section--tint">` — a `div`, because the sanitiser's allow-list (`_ALLOWED_TAGS`) has no `section` and a security allow-list does not grow for a tag name — with its blocks inside and the full-bleed rule of F2 around it. The hero is not the renderer's (F5): the renderer returns its parts, the template draws it. The text card is a branch in `_card_html`: no destination → no `_resolved`, no link. A data block is rendered through `templates.env` with the context it needs (F14, F15, F13), as `_tenant_sites.html` is rendered today.
 
@@ -259,7 +260,7 @@ C4.7 (not a site builder), C4.13 (one container, one left line) and #1656 (one h
 
 ## B5. Cost — investment and running cost, and what operations must know
 
-Investment: three phases, each a few days for a dev CLI; the editor extensions are the larger half. Running cost: none — two settings, no service, no job. Operations: nothing after the merge; no env var, no one-off script. One migration: the `site_icon` row of media's kind list (C1).
+Investment: three phases, each a few days for a dev CLI; the editor extensions are the larger half. Running cost: none — two settings, no service, no job. Operations: nothing after the merge; no env var, no one-off script. Three migrations, all additive or one-off: the `site_icon` row of media's kind list, the opening columns on `cms.pages`, the rewrite of the heading levels in the stored documents (F19).
 
 ## B6. Phasing — shippable phases, and what changes on the failure paths
 
@@ -288,8 +289,8 @@ A rule, for the schema: **a visual choice in a document is a name from a short l
 5. ~~The association's home as a CMS page~~ **Decided**: `home.html` retires once the home page with these blocks exists for both association tenants, Raak Millegem and the example division (Koen, 15 October 2026: "als we voor Raak Millegem en Raak Voorbeeld die pagina met die blokken kunnen maken, dan mag die initiële weg, want dan vervangt die haar"). Phase 4 builds both pages on HDEV, A8.9 signs them off, and the template goes in the same change.
 6. **The album card's defaults**: three albums, four photos, every three seconds (Koen's example); the card shows the shown album's name and date as the photo page's card does — the same macro, one picture slot, the photos cycling in it (B2 of the build read).
 9. ~~The switching button~~ **Decided: a** — every button to the screen *lid-worden* shows *Mijn gezin* to a signed-in member with a household, one rule of the button resolver, no block (Koen, 15 October 2026, to the three open questions of B8.9, B8.2 and B8.8: "a op 1, ja op 2, één document op 3").
-11. **The hero: a property of the page or a block?** With R21 the h1 is no obstacle any more. (a) a property of the page — tone, eyebrow, lead, up to two buttons beside the title in the page's settings, drawn by the template with the title as h1: one place for the title, no position rule, no title parameter for the renderer, the smaller editor change; the author edits it in the settings and sees it in the preview. (b) a block in the document, first and once (the positional rule of F2a), drawing the page's title through a title parameter of the renderer: the author sees it in the editor itself. My proposal: a. Open with Koen.
-12. **Bands edge to edge, or a coloured box in the container?** Edge to edge needs the full-bleed rule of F2 (one rule in the kit); a box in the container needs nothing. The concept site's bands run edge to edge. My proposal: edge to edge. Open with Koen.
+11. ~~The hero: a property of the page or a block?~~ **Decided: a property of the page** (Koen, 15 October 2026: "ok, full-bleed, en de hero als eigenschap van de pagina"): tone, eyebrow, lead and up to two buttons beside the title in the page's settings, drawn by the template with the title as h1; no node, no position rule, no title parameter for the renderer.
+12. ~~Bands edge to edge, or a coloured box in the container?~~ **Decided: edge to edge** (Koen, 15 October 2026: "ok, full-bleed, en de hero als eigenschap van de pagina"): the full-bleed rule of F2 stays.
 10. ~~The home's band in the kit's layout~~ **Decided: a** — the same content in the kit's section-with-columns; the walk on HDEV judges the look (Koen, 15 October 2026, to the choice between the kit's layout and a dedicated band block: "a").
 8. ~~One change request or two~~ **Decided: one** document, phased as B6, over the reading budget by his word (Koen, 15 October 2026, to the three open questions of B8.9, B8.2 and B8.8: "a op 1, ja op 2, één document op 3").
 7. **Where the data blocks stand on the concept site**: the company tenant has no activities and no members, so it sees neither block (R18); the album card it may use if it has albums — the concept's 24 screenshots are figures, not an album.
@@ -300,6 +301,7 @@ A rule, for the schema: **a visual choice in a document is a name from a short l
 |---|---|---|
 | 15 Oct 2026 | The question: host and edit the concept site on the platform; points 2, 3 and 5 to the architecture CLI ("Geef je 2, 3 en 5 door aan brainstorm?") | Koen, through the master CLI |
 | 15 Oct 2026 | The site is a tenant, iX, a company with its own domain (B8.1, his words there) | Koen, in the chat with the architecture CLI |
+| 15 Oct 2026 | B8.11 the hero as a property of the page, B8.12 the bands edge to edge: "ok, full-bleed, en de hero als eigenschap van de pagina" | Koen, in the chat with the architecture CLI |
 | 15 Oct 2026 | R21: the page stores the heading levels it shows (h2–h4), the renderer's shift goes — to the question why an h1 is shown as an h2 and whether that can be fixed at the root: "Akkoord om de pagina te laten opslaan wat ze renderen" | Koen, in the chat with the architecture CLI |
 | 15 Oct 2026 | B8.10 a: the home's band in the kit's layout, judged on HDEV ("a") | Koen, in the chat with the architecture CLI |
 | 15 Oct 2026 | The build read by dev1 (#2003, read on 5a5f773c against master ac04db79) taken in whole: the full-bleed rule and the `:not()` list (A1), the template draws the hero (A2), a positional validator rule instead of a group change (A3), the editor's filter list named (A4), the card's destination in three places with two tests rewritten (A5), the count per row as today (A6), the band a `div` (A7), the Code item repointed to the value node (A8), a sixth value and the band in the kit's layout — B8.10 (A9), the module check in the service (A10), the viewer as an input of the renderer and the chatbot's text target (A11), the thank-you banner to the shell (B1), one picture slot cycling (B2), the four text corrections (C1–C4), the measurements into C1 (D) | the architecture CLI |
@@ -339,7 +341,7 @@ Measured at the build read (dev1, 15 October 2026): the tenant settings table se
 
 | Module | What |
 |---|---|
-| `cms` | schema: `section`, `hero`, the card's two attributes, destination optional, the validator's first-node rule for `hero`; renderer: two kinds and the text-card branch; the editor's two node extensions and the card form's two fields; `cms_pagina.html`: the title inside the hero |
+| `cms` | schema: `section`, the card's two attributes, destination optional, the validator's root rule for `section`; the page's opening columns and the settings form (migration); renderer: the section kind and the text-card branch; the editor's section node and the card form's two fields; `cms_pagina.html`: the hero from the page's properties |
 | the kit | `build-css.sh`: `.prose-section`, its three tones from the brand tokens, `.prose-hero`, the text card; `site_base.html`: the favicon link and the typeface token per tenant; the design-system page: the three new macros with a demo |
 | kernel | `tenant_config.py`: the two keys, their validation (a media id of kind `site_icon`; a code of `typeface_pairs`) |
 | media | one row in the kind list, `site_icon`; the picker offers it where the settings ask |
@@ -352,15 +354,15 @@ Measured at the build read (dev1, 15 October 2026): the tenant settings table se
 
 ## C3. Cross-cutting impact — the checklist of what gets forgotten
 
-The CSS must be rebuilt and committed (`build-css.sh`, the `css` job); the measurement baseline (#1605) gets the hero and a tinted section on a pilot page at 390 px; the design-system page gets the three macros or the completeness gate goes red; the i18n of the three block names in the editor's menu (`Sectie`, `Hero`, the card's `Nummer` and `Tekst`); the sanitiser's allow-list does not change (the band is a `div`, A7 of the build read); the public ratchets (`public_baseline.py`) count cards drawn by templates and do not see the renderer's cards (C4 of the build read).
+The CSS must be rebuilt and committed (`build-css.sh`, the `css` job); the measurement baseline (#1605) gets the hero and a tinted section on a pilot page at 390 px; the design-system page gets the three macros or the completeness gate goes red; the i18n of the block names in the editor's menu (`Sectie`, the data blocks, the card's `Nummer` and `Tekst`) and of the page's opening fields; the sanitiser's allow-list does not change (the band is a `div`, A7 of the build read); the public ratchets (`public_baseline.py`) count cards drawn by templates and do not see the renderer's cards (C4 of the build read).
 
 ## C4. Detailed decisions — one subsection each, with the reasons
 
 ### C4.1 A tone is a name; the brand file gives the pixels
 Three tones, because the concept uses three (plain, two tints that differ only in hue, an accent band at the end) and because a fourth is a row in the kit, not a choice for the author. The tint is derived from the brand colour as the blue scale is (the lightest step); the accent band is the accent colour with the contrast-chosen text. A tenant with no colours set gets the platform's. No colour per block: C4.7.
 
-### C4.2 The hero carries the page's title
-One h1 per page (#1656) and one place per fact: the title is typed once, in the page's title field; the hero draws it. A hero not first in the document is refused: a band with a title in the middle of a page is a section with a heading.
+### C4.2 The hero is a property of the page
+One h1 per page (#1656) and one place per fact: the title is typed once, in the page's title field, and the hero is the large form of the title line, set beside it (tone, eyebrow, lead, two buttons) and drawn by the template. So there is no hero node, no rule "first and once", and the renderer knows no title; a band with a heading in the middle of a page is a section with a heading. The author sees the hero in the preview, not in the editor's text — the price of one place for the title (B8.11).
 
 ### C4.3 A text card is a card without a destination
 The concept's cards and the link cards share everything but the link and the paragraph; a second node would double the renderer, the editor form and the CSS. The one difference the kit shows: no stretched link, no arrow, no hover.
@@ -378,15 +380,15 @@ The favicon is served by media's own door (`GET /media/{id}`), which checks no k
 ## C6. Tests — what the build must prove
 
 1. Schema: a `section` with tone `tint` validates; with tone `pink` is refused with `InvalidShape` naming the attribute (red first: the tuple without `tint`).
-2. Schema: a `hero` as the first node validates; as the second node is refused by name.
+2. Page settings: a page with opening `hero` and a lead validates and saves; a button with two destinations or an unknown tone is refused at the save by name; a page with opening `title_line` ignores the hero fields.
 3. Schema: a `section` inside a `section` is refused.
 4. Renderer: a tinted section renders `prose-section--tint` with the container inside; the plain tone renders no colour class.
 5. Renderer: a card with `text` and no destination renders the number, the heading and the paragraph and no `<a>`; a card with a destination renders as before; the two tests of F6 are rewritten to the new rule (a card with two destinations is still refused; a card with none is a text card).
-6. Template: a document opening with a hero renders the title once, inside the hero; without a hero, once, as the title line (count the `<h1>`).
+6. Template: a page with opening `hero` renders the title once, inside the hero band, after the concept banner; with `title_line`, once, as the title line (count the `<h1>`).
 7. Shell: a tenant with `site_icon_media_id` renders `<link rel="icon">` to the media URL; without it, the platform's; a media id of another kind is refused at the setting.
 8. Shell: the `neutral` pair sets `--font-brand` to Inter; `default` to Radio Canada Big; an unknown code is refused by the code list.
 9. Rendering parity: the documents of the existing tests render byte-identically before and after phase 1 (snapshot on the old code, as the testing convention asks).
-10. Browser: the author inserts a section, sets its tone, inserts a hero with two buttons, saves, publishes; the site shows the band at 390 px and 1 280 px; the measurement baseline holds the hero's and the band's positions.
+10. Browser: the author inserts a section and sets its tone in the editor, sets the page's opening to hero with a lead and two buttons in the settings, saves, publishes; the site shows the band at 390 px and 1 280 px; the measurement baseline holds the hero's and the band's positions.
 11. The text card's markup carries the kit's card classes and no link: measured once on the rendered HTML (the public ratchet counts cards drawn by templates, not the renderer's output, so it cannot see this — no test on it).
 12. Data blocks: a document with `activities` on a tenant whose activities module is off is refused at the save with the block's name (the service's rule, F16); on a tenant with it on, the renderer draws the upcoming activities through `activities.api` and never touches the session (the layer gate holds); `test_golf11_home.py` is rewritten for the CMS home.
 13. Membership band from blocks: a section in the accent tone with the value `membership_price_full`, a button to *lid-worden* and a button to the contact form renders the fee and the two buttons; without a contact form the button is left out; a signed-in member with a household sees *Mijn gezin* on every button to *lid-worden*, a visitor *Word lid* (one test on the resolver, B8.9).
@@ -399,7 +401,7 @@ The favicon is served by media's own door (`GET /media/{id}`), which checks no k
 
 ## C7. The gate — what refuses a deviation from now on
 
-The schema's shapes (existing `InvalidShape`), extended by the new nodes; **two new rules in `validate_document`**, each proven red: the positional rule of F2a (hero and section at the root only, hero first and once) and the module rule of F16 (a data block of a module that is off, checked in the service before the save with the tenant's module set — the validator decides by shape alone and does not know the tenant). No new gate file. The design-system completeness gate requires the new macros' demos; the rule of B7 goes into `docs/code-style.md`.
+The schema's shapes (existing `InvalidShape`), extended by the new node; the page's opening validated at the save as the page's other fields are; **two new rules**, each proven red: the root rule of F2a in `validate_document` (a section at the root only) and the module rule of F16 (a data block of a module that is off, checked in the service before the save with the tenant's module set — the validator decides by shape alone and does not know the tenant). No new gate file. The design-system completeness gate requires the new macros' demos; the rule of B7 goes into `docs/code-style.md`.
 
 ## C8. Prototype findings — what was measured before the build
 
@@ -417,9 +419,9 @@ The status line says "built in vX.Y.Z"; as-built deviations in B9; the contract 
 
 | # | Question | Answer |
 |---|---|---|
-| Q1 | Does the hero carry its own title? | No — the page's title (C4.2); proposal, not answered |
-| Q2 | May the author pick a colour for a section? | No — a tone from three (C4.1); proposal, not answered |
-| Q3 | Is a text card a new node? | No — a card without a destination (C4.3); proposal, not answered |
+| Q1 | Does the hero carry its own title? | No — the page's title; the hero is a property of the page (C4.2, B8.11) |
+| Q2 | May the author pick a colour for a section? | No — a tone from three (C4.1) |
+| Q3 | Is a text card a new node? | No — a card without a destination (C4.3) |
 
 ## Non-goals — deliberately outside this change
 
