@@ -4,7 +4,7 @@
 **Status:** shaped with Koen on 15 October 2026 · not assigned to a release; B8 answered
 **Tracking issue:** #2026 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (audience choice, recipient list, send screen, Raakje's sources), the activities facade (a read of registration addresses), the unsubscribe page
-**Reading:** A 759 words · B 1 822 · C 1 813 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 759 words · B 1 822 · C 1 898 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
