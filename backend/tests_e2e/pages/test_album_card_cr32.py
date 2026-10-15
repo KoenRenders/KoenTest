@@ -187,3 +187,42 @@ def test_in_the_preview_the_card_stands_still(setup):
         assert later == first
     finally:
         page.close()
+
+
+def test_the_pause_button_stops_and_resumes_the_card(setup):
+    """WCAG 2.2.2: a moving card has a pause button. Paused, five seconds change
+    nothing; resumed, they do. Broken on purpose: the `paused` check taken out of
+    the interval → the card moves while paused."""
+    b, _id, slug, _ids, _session = setup
+    page = b.new_page(base_url=BASE, viewport={"width": 390, "height": 844})
+    try:
+        page.clock.install()
+        page.goto(f"/{slug}")
+        pagina_klaar(page)
+        button = page.get_by_role("button", name="Beweging van de albumkaart pauzeren of hervatten")
+        assert button.is_visible() and button.inner_text() == "Pauzeer"
+        button.click()
+        assert button.inner_text() == "Hervat"
+        held = page.evaluate(_STATE)
+        page.clock.run_for(5000)
+        assert page.evaluate(_STATE) == held, "the card moved while paused"
+        button.click()
+        page.clock.run_for(5000)
+        assert page.evaluate(_STATE)["src"] != held["src"], "the card did not resume"
+    finally:
+        page.close()
+
+
+def test_with_reduced_motion_there_is_nothing_to_pause(setup):
+    b, _id, slug, _ids, _session = setup
+    context = b.new_context(
+        base_url=BASE, reduced_motion="reduce", viewport={"width": 390, "height": 844}
+    )
+    page = context.new_page()
+    try:
+        page.goto(f"/{slug}")
+        pagina_klaar(page)
+        assert page.locator("[data-photo-moving] button").count() == 1
+        assert not page.locator("[data-photo-moving] button").is_visible()
+    finally:
+        context.close()

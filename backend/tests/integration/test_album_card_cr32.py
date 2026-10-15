@@ -29,14 +29,15 @@ def _doc(**attrs) -> dict:
     }
 
 
-def _album(db, name: str, year: int, photos: int):
+def _album(db, name: str, year: int | None, photos: int):
     from app.domains.activities.models import Activity, ActivityDate
     from app.domains.media.models import MediaAsset
 
     activity = Activity(name=name, location="Voorbeeldplein 1")
     db.add(activity)
     db.flush()
-    db.add(ActivityDate(activity_id=activity.id, start_date=date(year, 6, 1)))
+    if year is not None:
+        db.add(ActivityDate(activity_id=activity.id, start_date=date(year, 6, 1)))
     png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
     for order in range(photos):
         db.add(
@@ -140,3 +141,62 @@ def test_the_macro_is_the_photo_pages_own(db_session):
     for marker in ("data-photo-card", "aspect-video", "object-cover", "font-semibold"):
         assert marker in plain and marker in moving
     assert ":src=" in moving and ":src=" not in plain
+
+
+def _moving(dates: list[str]) -> str:
+    from app.ui import templates
+
+    macro = templates.env.get_template("_public_macros.html").module.photo_card
+    frames = [
+        {"src": f"/{n}", "name": f"Album {n}", "date": d, "href": f"/a/{n}"}
+        for n, d in enumerate(dates)
+    ]
+    return str(macro("Album 0", "/a/0", "/0", None, frames=frames, interval=3, date_text=dates[0]))
+
+
+def test_the_date_line_is_there_for_every_frame_when_any_album_has_a_date():
+    """A date line is drawn whenever ANY frame has a date, never only when the first
+    does (the albums of the photo page all have one — an archived activity has a
+    passed date — so this is the macro's own rule). The undated frame shows a
+    non-breaking space, so the card keeps its height. Broken on purpose: the line
+    drawn only when the first frame has a date → the second case fails."""
+    for dates in (["1 jun 2020", ""], ["", "1 jun 2020"]):
+        html = _moving(dates)
+        assert html.count("text-ink-soft mt-1") == 1, dates
+        assert 'x-text="f.date ||' in html, dates
+    assert "text-ink-soft mt-1" not in _moving(["", ""]), "no dates at all: no line"
+
+
+def test_a_moving_card_can_be_paused_and_clears_its_timer(db_session):
+    """WCAG 2.2.2: a pause button, in the kit's button, with a label, only on a card
+    that moves; and `destroy()` clears the interval. Broken on purpose: the button
+    drawn for interval 0 or one frame → the still tests fail; `destroy` removed →
+    the last assertion fails."""
+    _album(db_session, "Beweging", 2020, 3)
+    html = render_document(_doc(albums=1, photos=3, interval=3), db_session)
+    assert "aria-label=" in html and "paused = !paused" in html and "if (!this.paused)" in html
+    assert "destroy() { clearInterval(this.t) }" in html
+    still = render_document(_doc(albums=1, photos=3, interval=0), db_session)
+    assert "paused" not in still and "<button" not in still
+    preview = render_document(_doc(albums=1, photos=3, interval=3), db_session, preview=True)
+    assert "<button" not in preview
+
+
+def test_the_photo_page_card_is_unchanged():
+    """Snapshot of the plain card, as the photo page draws it before this phase:
+    no state, no pause, the date line from `date` (R14: the same macro, the same
+    card). Broken on purpose: a default of the new parameters changed (frames or
+    interval truthy) → the markup grows an attribute and this fails."""
+    from app.ui import templates
+
+    macro = templates.env.get_template("_public_macros.html").module.photo_card
+    html = str(macro("Zomerfeest", "/activiteiten/7/fotos", "/media/9/thumb", date(2020, 6, 1)))
+    assert re.sub(r">\s+<", "><", " ".join(html.split())) == (
+        '<a href="/activiteiten/7/fotos" data-photo-card '
+        'class="block bg-white border border-line rounded-2xl overflow-hidden hover:shadow-md transition-shadow">'
+        '<div class="aspect-video bg-surface-2 overflow-hidden">'
+        '<img src="/media/9/thumb" alt="Zomerfeest" class="w-full h-full object-cover" loading="lazy">'
+        "</div>"
+        '<div class="p-4"><div class="font-semibold text-ink">Zomerfeest</div>'
+        '<div class="text-sm text-ink-soft mt-1">01-06-2020</div></div></a>'
+    )
