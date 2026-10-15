@@ -781,7 +781,7 @@ class Activiteitdetail:
         return self.page.locator("#toasts [data-fout]")
 
 
-def laat_de_wacht_passeren(page, *, timeout: int = 5000) -> None:
+def laat_de_wacht_passeren(page, *, timeout: int = 5000, server_clock: bool = False) -> None:
     """Wait until the public form on this page is old enough for the guard (#2039).
 
     Every public form that mails an address carries a signed render time and is silently
@@ -792,6 +792,22 @@ def laat_de_wacht_passeren(page, *, timeout: int = 5000) -> None:
     """
     from app.kernel.form_guard import MIN_SECONDS
 
+    if server_clock:
+        # A page whose own clock is frozen (the measurement run) has frozen timers too, so
+        # `wait_for_function` never polls: ask the server's `Date` header from here, in a loop.
+        import time
+
+        asked = """async (minimum) => {
+            const field = document.querySelector('input[name=form_ts]');
+            if (!field) return true;
+            const now = new Date((await fetch('/', {method: 'HEAD', cache: 'no-store'})).headers.get('date'));
+            return now.getTime() / 1000 - Number(field.value.split('.')[0]) > minimum + 0.3;
+        }"""
+        deadline = time.monotonic() + timeout / 1000
+        while not page.evaluate(asked, MIN_SECONDS):
+            assert time.monotonic() < deadline, "the page never became old enough for the guard"
+            time.sleep(0.3)
+        return
     page.wait_for_function(
         """(minimum) => {
             const field = document.querySelector('input[name=form_ts]');

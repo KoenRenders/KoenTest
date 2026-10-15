@@ -318,9 +318,9 @@ def _account_code_step(page) -> None:
     form.locator('input[name="last_name"]').fill("Codestap")
     form.locator('input[name="email"]').fill("meting.codestap@example.com")
     form.locator('input[name="mobile"]').fill("0470 00 00 08")
-    # The guard's two seconds (#2039), by the SERVER's clock: the browser's own clock is
-    # frozen here, so the age of the page's token cannot be read from it.
-    page.wait_for_timeout(2500)
+    from tests_e2e.schermen import laat_de_wacht_passeren
+
+    laat_de_wacht_passeren(page, server_clock=True)  # the guard's two seconds (#2039)
     form.locator("button").click()
     page.locator("[data-code-sent]").wait_for(state="visible", timeout=5000)
 
