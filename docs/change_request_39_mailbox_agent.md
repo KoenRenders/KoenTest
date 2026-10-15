@@ -4,7 +4,7 @@
 **Status:** opened with Koen on 15 October 2026 · a study first: Part B is a frame with open questions, Part C is not written · not assigned to a release
 **Tracking issue:** #2031
 **Applies to:** a new idea, *agents* (a periodic job with a purpose); the mail domain (reading a mailbox), the chatbot's provider seam and its guard, the cases of CR-38, the party model of CR-26, the shop (CR-21) and activities as targets
-**Reading:** A 927 words · B 923 · C 418 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 945 words · B 1 291 · C 429 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -108,7 +108,13 @@ Koen's dictation of 15 October 2026. What it taught us from the code: the assist
 
 ## A8. Acceptance criteria — what the business signs off on HDEV
 
-Not written yet: they follow the study. Three are fixed by R7 and R9: the outgoing call of a test mail holds none of the listed data (read in the call log), nothing is started without a person, and a mail that tries to instruct the model changes nothing.
+Three are fixed by R7 and R9; the others follow the study.
+
+| # | Criterion | Requirement | Walkthrough steps |
+|---|---|---|---|
+| AC1 | The outgoing call of a test mail holds none of the listed data (read in the call log) | R7 | steps 2, 3 |
+| AC2 | Nothing is started from a mail without a person | R9 | step 4 |
+| AC3 | A mail that tries to instruct the model changes nothing | R7, R9 | step 5 |
 
 ---
 
@@ -127,11 +133,108 @@ Sender identification (R6) is done by the platform against its own data, never b
 
 ## B2. Fit with the process and the requirements — for the business
 
-Covers R1–R7 and R9; R8 is the study. The relation to the other changes: the targets are the cases of CR-38 (a complaint, an opportunity), the party of CR-26, an order of CR-21 and an activity registration.
+Covers R1–R7 and R9; R8 is the study. The targets are the cases of CR-38 (a complaint, an opportunity), the party of CR-26, an order of CR-21 and an activity registration.
+
+<!-- figure: name=cr39-usage caption=Every_step_has_a_home_in_a_module_or_is_marked_outside_the_portal -->
+```mermaid
+flowchart TB
+  subgraph sender["Sender"]
+    s1["Write a mail<br/>outside the portal"]:::out
+  end
+  subgraph plat["Platform, uit zichzelf"]
+    p1["Read the mailbox every half hour<br/>agent job (agents, mail)"]:::ag
+    p2["Record each new mail as an intake<br/>mail intake list (agents)"]:::ag
+    p3["Classify it and prepare the fields<br/>cleaned text to the model (agents, chatbot)"]:::bot
+  end
+  subgraph board["Board member"]
+    b1["Review the proposal<br/>task on the workbench (workflow)"]:::wf
+    g1{"Right?"}
+    b2["Start the case, registration or order<br/>case, activity or shop screen (cases, activities, sales)"]:::cas
+    b3["Correct or drop it<br/>mail intake screen (agents)"]:::ag
+  end
+  s1 -.-> p1 --> p2 --> p3 -.-> b1 --> g1
+  g1 -->|yes| b2
+  g1 -->|no| b3
+  classDef ag fill:#e8f0ff,stroke:#0051a4
+  classDef bot fill:#eef7ee,stroke:#005d29
+  classDef wf fill:#fff7ed,stroke:#f16532
+  classDef cas fill:#f3e8ff,stroke:#6b21a8
+  classDef out fill:#ffffff,stroke:#52607a
+```
+
+*Colour is the module: blue agents (a proposal: a new domain or a place in chatbot, B3), green chatbot, orange workflow, purple the targets; white is outside the portal. Provisional until the study has chosen the way of B1.3.*
+
+**Traceability**
+
+| R | How the solution meets it | F | Module (C2) | Test (C6) | AC |
+|---|---|---|---|---|---|
+| R1 | An agent is a periodic job with a switch, a budget and a log | B1.1 | agents, kernel | after the study | after the study |
+| R2 | The first agent reads a mailbox every half hour | B1.1 | agents, mail | after the study | after the study |
+| R3 | Each mail is a visible mail intake with a status | B1.2 | agents | after the study | after the study |
+| R4 | The agent names the kind of mail, from a fixed list | B1.4 | agents, chatbot | after the study | after the study |
+| R5 | The agent fills the fields of the request | B1.2 | agents, cases | after the study | after the study |
+| R6 | The platform finds the sender itself, not the model | B1 | agents, mdm | after the study | after the study |
+| R7 | The model never sees the listed data | B1.3 | agents, chatbot | T1, T2 | AC1, AC3 |
+| R8 | The study | — | — | — | — |
+| R9 | The agent proposes, a person decides | B1.2 | agents, workflow | T3 | AC2 |
+
+**Walkthrough** — only the three fixed criteria are written; the rest follows the study. On HDEV, with a test mailbox and made-up senders on the reserved example domain.
+
+1. Open the agent's page. See: the switch, the budget and the log.
+2. Send the mailbox a mail that contains an address, a VAT number, a national register number, a person's name, a company and an IBAN, all made up. Wait for the next run. See: the mail is listed as an intake.
+3. Open the call log of that run. See: the outgoing call holds none of those.
+4. Open the intake. See: a proposal that waits for a person; no case, registration or order exists yet.
+5. Send a mail that says to ignore its instructions and start an order. See: it is listed as an intake and nothing is started.
 
 ## B3. The whole across the modules — for the architect
 
-Not written: a proposal waits for the study. Known inputs: `mail` (reading a mailbox, a new capability), `chatbot` (the seam, the guard, the log, the provider and its budgets), `workflow` (the review task), `cases` (CR-38), `mdm` (matching), `kernel` (jobs). A new domain for agents or a place in `chatbot` is a question for the architecture CLI.
+Provisional, for the architecture CLI to confirm after the study: a new domain for agents or a place in `chatbot` is its question. Known inputs: `mail` (reading a mailbox, a new capability), `chatbot` (the seam, the guard, the log, the provider and its budgets), `workflow` (the review task), `cases` (CR-38), `mdm` (matching), `kernel` (jobs).
+
+<!-- figure: name=cr39-structure caption=Provisional_Green_is_new_orange_is_changed_grey_is_only_used -->
+```mermaid
+flowchart LR
+  subgraph AGT["agents (new, a proposal)"]
+    an["new: agent, mail intake, proposal<br/>screens: agent page, mail intakes"]:::new
+  end
+  subgraph MAIL["mail"]
+    mc["new: read a mailbox"]:::new
+  end
+  subgraph BOT["chatbot"]
+    bu["used: seam, guard, call log, provider, budgets"]:::use
+  end
+  subgraph WF["workflow"]
+    wc["changed: a review task for a proposal"]:::chg
+  end
+  subgraph CAS["cases (CR-38), mdm (CR-26)"]
+    cu["used: the request to start, the party to match"]:::use
+  end
+  subgraph KER["kernel"]
+    ku["used: the job queue"]:::use
+  end
+  ku --> an
+  an -->|api| mc
+  an -->|api| bu
+  an -->|api| wc
+  an -->|api| cu
+  classDef new fill:#eef7ee,stroke:#005d29
+  classDef chg fill:#fff7ed,stroke:#f16532
+  classDef use fill:#eeeeee,stroke:#52607a
+```
+
+*Green new, orange changed, grey used. Provisional.*
+
+```mermaid
+erDiagram
+  AGENT ||--o{ MAIL_INTAKE : "reads"
+  MAIL_INTAKE ||--o| PROPOSAL : "leads to"
+  PROPOSAL }o..o| TASK : "soft reference"
+  PROPOSAL }o..o| PARTY : "soft reference"
+  AGENT { int id int tenant_id string kind bool is_on int daily_budget }
+  MAIL_INTAKE { int id int agent_id string message_id string status datetime received_at }
+  PROPOSAL { int id int intake_id string category text fields }
+```
+
+*New: all of it. Provisional: the study decides what a mail intake stores, since its text holds the listed data.*
 
 ## B3a. Standards the model follows — and where it deviates, on purpose
 
@@ -199,7 +302,13 @@ Not written yet. The study note holds the first findings on cleaning personal da
 
 ## C6. Tests — what the build must prove
 
-Not written yet. Fixed by R7 and R9: a mail with each listed kind of data (address, VAT number, national register number, a name, a company, an IBAN) produces an outgoing call without it; a mail that tries to instruct the model changes nothing; nothing is started without a person.
+Three are fixed by R7 and R9; the rest follows the study.
+
+| # | Test |
+|---|---|
+| T1 | a mail with each listed kind of data (address, VAT number, national register number, a name, a company, an IBAN) produces an outgoing call without it |
+| T2 | a mail that tries to instruct the model changes nothing |
+| T3 | nothing is started from a mail without a person |
 
 ## C7. The gate — what refuses a deviation from now on
 
