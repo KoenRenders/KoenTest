@@ -108,6 +108,10 @@ def test_the_seeded_pages_render_the_same_from_the_document(db_session):
     assert pages, "no seeded pages found to measure the migration against"
     measured, equal, kept = 0, 0, 0
     for page in pages:
+        if not page.content:
+            # A page the CMS made itself (CR-32 R17: the tenants' home pages) has no
+            # old HTML to compare with.
+            continue
         measured += 1
         translation = get_translation(db_session, page)
         today = normalise_html(render_cms_content(page.content or "", db_session, on_page=True))

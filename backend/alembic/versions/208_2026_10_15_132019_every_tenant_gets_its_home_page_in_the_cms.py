@@ -22,7 +22,7 @@ from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB
 
 revision = "208_2026_10_15_132019"
-down_revision = "206_2026_10_15_101648"
+down_revision = "207_2026_10_15_122413"
 branch_labels = None
 depends_on = None
 
@@ -30,9 +30,23 @@ log = logging.getLogger("alembic.runtime.migration")
 
 
 def upgrade() -> None:
+    made, skipped = make_home_pages(op.get_bind())
+    log.info(
+        "CR-32 R17: %s tenants got a home page (%s); %s kept the one they had or could not take a slug",
+        len(made),
+        ", ".join(str(t) for t in made) or "none",
+        len(skipped),
+    )
+
+
+def make_home_pages(bind) -> tuple[list[int], list[int]]:
+    """The home page of every tenant that has none, by plain SQL on `bind` (an ORM
+    call would break the day `cms_pages` gains a column this migration runs
+    before). The document is the one the seed of a new tenant builds
+    (`cms.home_page.home_document`); a test holds the two equal. Returns the
+    tenants it made a page for and the ones it left alone."""
     from app.domains.cms.home_page import home_document
 
-    bind = op.get_bind()
     tenants = [
         row[0]
         for row in bind.execute(sa.text("SELECT DISTINCT tenant_id FROM cms.cms_pages")).fetchall()
@@ -119,12 +133,7 @@ def upgrade() -> None:
             {"t": tenant_id},
         )
         made.append(tenant_id)
-    log.info(
-        "CR-32 R17: %s tenants got a home page (%s); %s kept the one they had or could not take a slug",
-        len(made),
-        ", ".join(str(t) for t in made) or "none",
-        len(skipped),
-    )
+    return made, skipped
 
 
 def downgrade() -> None:

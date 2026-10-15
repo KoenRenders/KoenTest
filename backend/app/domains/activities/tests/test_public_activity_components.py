@@ -339,7 +339,14 @@ def test_no_public_page_names_an_association_in_its_browser_title():
     assert not literal, f"a public title names an association: {literal}"
     with_site = {name: t for name, t in titles.items() if "site_name" in t}
     assert len(with_site) >= 15, sorted(with_site)
+    # One page says it otherwise on purpose (CR-32 R17): the CMS page template, whose
+    # title is "<page> · <site>" except on the tenant's home page, where the tab is
+    # the site's name alone — the page's title is the organisation's name, which
+    # the header already says. It still ends in the site's name and names no literal.
     wrong = {
-        name: t for name, t in with_site.items() if not t.rstrip().endswith(" · {{ site_name }}")
+        name: t
+        for name, t in with_site.items()
+        if not t.rstrip().endswith(" · {{ site_name }}")
+        and not (name == "cms_pagina.html" and "page.is_home" in t and "{{ site_name }}" in t)
     }
     assert not wrong, f"not '<page> · <site name>': {wrong}"

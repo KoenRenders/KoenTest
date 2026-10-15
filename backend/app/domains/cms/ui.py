@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.domains.cms.api import (
     hero_view,
-    published_html,
     published_page,
+    published_parts,
     published_slugs,
 )
 from app.i18n import _
@@ -177,7 +177,7 @@ def _render_page(request: Request, db: Session, page):
         {
             **context,
             "page": page,
-            "content_html": published_html(db, page, viewer=viewer),
+            "content_parts": published_parts(db, page, viewer=viewer),
             "hero": hero_view(page, db, viewer=viewer),
             # #924: één vaste slug krijgt het contactblok uit de organisatie, zoals de
             # footer er een krijgt. Geen shortcode en geen nieuwe pagina: er ís geen

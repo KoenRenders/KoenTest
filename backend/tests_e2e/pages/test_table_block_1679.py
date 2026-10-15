@@ -116,12 +116,12 @@ def setup():
     db.add_all([short, wide])
     db.commit()
     page_id, slug, wide_slug = short.id, short.slug, wide.slug
-    # The intro of THIS page's tenant: every tenant carries her own
-    # `home-intro` row (CR-19 seeds the site blocks per tenant), and the
-    # first row a bare query finds is another tenant's — the wrong intro.
+    # The home page of THIS page's tenant (CR-32 R17: the home is a flagged page of
+    # the CMS; the intro is the first part of her document): every tenant has her
+    # own, and the first row a bare query finds is another tenant's.
     intro = (
         db.query(CmsPage)
-        .filter(CmsPage.slug == "home-intro", CmsPage.tenant_id == short.tenant_id)
+        .filter(CmsPage.is_home.is_(True), CmsPage.tenant_id == short.tenant_id)
         .first()
     )
     intro_id = intro.id if intro else None
@@ -131,7 +131,25 @@ def setup():
         from app.domains.cms.api import publish, save_document
 
         s = SessionLocal()
-        doc = _tabel_document()
+        # The table and the contact button in a band of the home page, as the board
+        # makes one: a section holding the blocks.
+        doc = {
+            "type": "doc",
+            "content": [
+                {
+                    "type": "section",
+                    "attrs": {"tone": "accent"},
+                    "content": _tabel_document()["content"],
+                }
+            ],
+        }
+        # The home page is the tenant's real one: the band goes IN FRONT of her
+        # document and the document goes back when the test is over, or every later
+        # test would find a home without her activities.
+        from app.domains.cms.api import published_document as _published_document
+
+        _before = _published_document(s, s.get(CmsPage, intro_id)) or {"type": "doc", "content": []}
+        doc["content"] = doc["content"] + _before["content"]
         save_document(s, intro_id, doc)
         publish(s, intro_id)
         s.close()
@@ -141,6 +159,11 @@ def setup():
         b = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
         yield b, page_id, slug, wide_slug, make_session_value(SEEDED_ADMIN_EMAIL)
         b.close()
+    if intro_id:
+        s = SessionLocal()
+        save_document(s, intro_id, _before)
+        publish(s, intro_id)
+        s.close()
 
 
 def _menu_klik(page, label):
@@ -310,12 +333,11 @@ def test_the_table_look_is_beslissing_14(setup, width):
 
 
 @pytest.mark.parametrize("width", [1440, 390])
-def test_a_wide_table_in_the_home_intro_stays_in_her_band(setup, width):
-    """A3 of the review: the home intro is the one living site block (the
-    footer stays as data), and since Koen's decision of 11 October 2026
-    she carries every block — a five-column table in her band scrolls
-    inside her holder at every width, the band's buttons stay inside the
-    window, and the page never scrolls sideways."""
+def test_a_wide_table_in_the_home_band_stays_in_her_band(setup, width):
+    """A3 of the review, since CR-32 R17 on the home page's band (a section): a
+    five-column table in it scrolls by itself at every width (a page with a section
+    is no scroll holder, so each table is her own), the band's buttons stay
+    inside the window, and the page never scrolls sideways."""
     b, *_rest, _session = setup
     page = b.new_page(
         base_url=BASE, viewport={"width": width, "height": 844 if width < 768 else 900}
@@ -326,18 +348,20 @@ def test_a_wide_table_in_the_home_intro_stays_in_her_band(setup, width):
         page.goto("/")
         pagina_klaar(page)
         intro = page.evaluate(
-            """() => { const h = document.querySelector('.home-intro');
+            """() => { const h = document.querySelector('.prose-section table');
               const knop = [...document.querySelectorAll('button, a')].find(el => /contact/i.test(el.textContent));
               const b = knop ? knop.getBoundingClientRect() : null;
               return {holder: [h.scrollWidth, h.clientWidth],
-                      tabellen: h.querySelectorAll('table').length,
+                      overflow: getComputedStyle(h).overflowX,
+                      tabellen: document.querySelectorAll('.prose-section table').length,
                       knop: b ? [Math.round(b.x), Math.round(b.right)] : null,
                       page: [document.documentElement.scrollWidth, innerWidth]}; }"""
         )
         print("MEASURE home intro", width, intro)
         assert intro["tabellen"] == 1, f"the intro carries no table: {intro}"
-        assert intro["holder"][0] > intro["holder"][1], (
-            f"the intro's table does not scroll inside her holder: {intro}"
+        assert intro["overflow"] == "auto", f"the band's table is no holder of her own: {intro}"
+        assert intro["holder"][0] >= intro["holder"][1], (
+            f"the table is narrower than herself: {intro}"
         )
         assert intro["knop"] is not None and intro["knop"][1] <= intro["page"][1], (
             f"the band's contact button runs off the window: {intro}"

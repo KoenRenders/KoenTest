@@ -91,7 +91,7 @@ NODES: dict[str, dict[str, Any]] = {
         # not in the group `block`, so no `block+` container (a column, a list
         # item, a cell, a quotation, a section) can hold one — the grammar
         # refuses it with the container's name, and the root names it here.
-        "content": "(block | section)*",
+        "content": "(block | section | " + " | ".join(DATA_BLOCKS) + ")*",
     },
     # A band of the page (CR-32): blocks on a tone, with an optional small line
     # above them. A div on the site (the sanitiser knows no `section`), root
@@ -195,7 +195,9 @@ NODES: dict[str, dict[str, Any]] = {
     "gallery": {"group": "block", "attrs": {"activity_id": "int"}},
     # CR-32 R15 (F14): the upcoming activities as the home page shows them, at most
     # `count` of them; the data is the activities module's.
-    "activities": {"group": "block", "attrs": {"count": tuple(range(1, 13))}},
+    # In no group, like `section`: a data block stands at the root and nowhere else
+    # (the page template gives it a container of its own, outside the prose).
+    "activities": {"attrs": {"count": tuple(range(1, 13))}},
     "value": {"group": "inline", "inline": True, "atom": True, "attrs": {"code": VALUE_CODES}},
     "hardBreak": {"group": "inline", "inline": True},
     "text": {"group": "inline", "text": True, "marks": ("bold", "italic", "strike", "link")},
@@ -804,6 +806,9 @@ def schema_for(
         "lists": list(BLOCK_SETS[set_name]["lists"]),
         "blocks": list(BLOCK_SETS[set_name]["blocks"]),
         "insert": insert,
+        # The data blocks of this set the caller's tenant may use: the editor's
+        # document node lets exactly these stand at the root, beside the sections.
+        "dataBlocks": [name for name in DATA_BLOCKS if name in insert],
         # The toolbar, as the browser builds her from this configuration
         # (slice 2): the words are UI copy behind `_()` and live HERE, not
         # in the JS.

@@ -552,6 +552,31 @@ def published_html(db, page: CmsPage, language: Optional[str] = None, *, viewer=
     return render_cms_content(page.content or "", db, on_page=not is_site_block(page.slug)) or ""
 
 
+def published_parts(db, page: CmsPage, language: Optional[str] = None, *, viewer=None):
+    """`published_html` as `(kind, html)` parts — prose and data blocks apart (see
+    `render_document_parts`); a page on her stored HTML is one prose part."""
+    from app.domains.cms.render import render_cms_content, render_document_parts
+
+    document = published_document(db, page, language)
+    if document is not None:
+        return render_document_parts(document, db, viewer=viewer)
+    html = render_cms_content(page.content or "", db, on_page=not is_site_block(page.slug)) or ""
+    return [("prose", html)]
+
+
+def draft_parts(db, page: CmsPage, language: Optional[str] = None, *, viewer=None):
+    """`draft_html` as parts: the preview's counterpart of `published_parts`."""
+    from app.domains.cms.render import render_cms_content, render_document_parts
+
+    document = draft_document(db, page, language)
+    if document is None:
+        document = published_document(db, page, language)
+    if document is not None:
+        return render_document_parts(document, db, preview=True, viewer=viewer)
+    html = render_cms_content(page.content or "", db, on_page=not is_site_block(page.slug)) or ""
+    return [("prose", html)]
+
+
 def draft_html(db, page: CmsPage, language: Optional[str] = None) -> str:
     """What the preview shows: the DRAFT (C6 5), the published document when
     no draft exists, the stored HTML as the last fallback."""

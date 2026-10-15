@@ -77,7 +77,7 @@ def test_the_sitemap_keeps_every_real_page(client, db_session, site):
         for p in db_session.query(CmsPage)
         .filter(CmsPage.is_published.is_(True), CmsPage.tenant_id == TENANT_MILLEGEM_ID)
         .all()
-        if p.slug not in SITE_BLOCK_SLUGS
+        if p.slug not in SITE_BLOCK_SLUGS and not p.is_home  # the home stands at `/`
     }
     assert {"/over-ons", "/voorwaarden", "/privacy"} <= published
 

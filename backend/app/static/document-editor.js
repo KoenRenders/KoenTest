@@ -207,7 +207,6 @@
     var label = (config.toolbar.insert.filter(function (i) { return i.id === "activities"; })[0] || {}).label || "";
     return RaakTiptap.Node.create({
       name: "activities",
-      group: "block",
       atom: true,
       addAttributes: function () {
         return { count: { default: 12 } };
@@ -305,7 +304,9 @@
     var doc = RaakTiptap.Node.create({
       name: "doc",
       topNode: true,
-      content: "(block | section)+",
+      /* The data blocks the tenant may use stand at the root too, beside the
+         sections: the server's grammar, `(block | section | <data blocks>)*`. */
+      content: "(block | section" + (config.dataBlocks || []).map(function (n) { return " | " + n; }).join("") + ")+",
     });
     var tones = words.tones.map(function (t) { return t.id; });
     function toneClass(tone) {
@@ -901,8 +902,13 @@
             editor.chain().focus().insertContent({ type: "callout" }).run();
           } else if (item.id === "activities") {
             /* A data block of the activities module (only offered where it is on);
-               the count is chosen in the block itself, twelve to begin with. */
-            editor.chain().focus().insertContent({ type: "activities", attrs: { count: 12 } }).run();
+               it stands at the root, so it goes at the document's end; the count
+               is chosen in the block itself, twelve to begin with. */
+            editor
+              .chain()
+              .focus()
+              .insertContentAt(editor.state.doc.content.size, { type: "activities", attrs: { count: 12 } })
+              .run();
           } else if (item.id === "gallery") {
             /* The album is chosen in the dialog of the macro; the block lands
                with it (the server refuses an activity that is no album). */

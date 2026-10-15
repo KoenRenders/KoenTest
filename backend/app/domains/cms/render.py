@@ -607,18 +607,6 @@ def _block_html(
     if kind == "gallery":
         return _gallery_html(node, preview=preview, db=db)
 
-    if kind == "activities":
-        # The activity cards are the module's own partial, with icons and buttons
-        # the sanitiser would strip: built whole in code, placed after it, like
-        # the cards and the sites list.
-        block = _activities_html(node, preview=preview, db=db)
-        if not block:
-            return ""
-        if late is None:
-            return block
-        late.append(block)
-        return f"<div>{_LATE}{len(late) - 1}{_LATE}</div>"
-
     if kind == "section":
         # CR-32 F1–F3: a band of the page. A div, because the sanitiser's
         # allow-list has no `section` and a security allow-list does not grow
@@ -907,7 +895,7 @@ def _activities_html(node: dict, preview: bool = False, db=None) -> str:
             return _unreachable_html("activities", "empty") if preview else ""
         return (
             templates.env.get_template("_activiteiten_cards.html")
-            .render(activities=activities, current_year=date.today().year)
+            .render(activities=activities, current_year=date.today().year, scope="upcoming")
             .strip()
         )
     finally:
@@ -1034,24 +1022,68 @@ def render_document(
     and carries the same substitutions, reduced to their words.
     """
     if isinstance(document, str):
-        import json
-
         document = json.loads(document)
     if target == "text":
         return _document_text(document, db)
-    late: list[str] = []
-    # The visitor the page is rendered for (`viewer`, CR-32 F14) is an input of
-    # this call: held for its length, so a button to "Word lid" can send a member
-    # with a household to the household instead.
+    return "".join(
+        html for _kind, html in render_document_parts(document, db, preview=preview, viewer=viewer)
+    )
+
+
+#: What renders each data block of `schema.DATA_BLOCKS`: one function per block.
+_DATA_BLOCKS = {
+    "activities": lambda node, preview, db: _activities_html(node, preview=preview, db=db)
+}
+
+
+def render_document_parts(
+    document, db=None, *, preview: bool = False, viewer=None
+) -> "list[tuple[str, str]]":
+    """The page as `(kind, html)` parts, in order (CR-32 phase 5): `"prose"` for
+    what the author wrote — the stretch of blocks between two data blocks — and
+    `"data"` for a data block of a module (the activity list). A data block is the
+    module's own markup, with its own classes, and it does not stand inside the
+    prose styling: the page template puts each part in its own container, the
+    prose in `prose-raak`, a data block beside it. Data blocks stand at the root
+    only (the grammar, `schema.DATA_BLOCKS`), so the split is the root's.
+
+    The visitor the page is rendered for (`viewer`, F14) is an input: held for the
+    length of the call, so a button to "Word lid" can send a member with a household
+    to the household instead."""
+    from app.domains.cms.schema import DATA_BLOCKS
+
+    if isinstance(document, str):
+        document = json.loads(document)
+    parts: list[tuple[str, str]] = []
+    run: list[dict] = []
+
+    def close_run() -> None:
+        if run:
+            parts.append(("prose", _finish_prose(list(run), preview, db)))
+            run.clear()
+
     token = _VIEWER.set(viewer)
     try:
-        html = (
-            _blocks_html(document.get("content") or [], preview=preview, db=db, late=late)
-            if document
-            else ""
-        )
+        for node in (document or {}).get("content") or []:
+            if node.get("type") in DATA_BLOCKS:
+                close_run()
+                block = _DATA_BLOCKS[node["type"]](node, preview=preview, db=db)
+                if block:
+                    parts.append(("data", block))
+            else:
+                run.append(node)
+        close_run()
     finally:
         _VIEWER.reset(token)
+    return parts
+
+
+def _finish_prose(blocks: list[dict], preview: bool, db) -> str:
+    """One stretch of the author's blocks as safe HTML: built, sanitised, the
+    blocks built in code placed after the sanitiser, then the substitutions the
+    text may carry — the codes first, then the sites cards and a form button."""
+    late: list[str] = []
+    html = _blocks_html(blocks, preview=preview, db=db, late=late)
     html = sanitize_cms_html(html) or ""
     for index, block in enumerate(late):
         html = html.replace(f"<div>{_LATE}{index}{_LATE}</div>", block)

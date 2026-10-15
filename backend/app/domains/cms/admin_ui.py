@@ -532,7 +532,7 @@ def pagina_voorbeeld(
     """Admin-voorbeeld van een pagina — óók een concept (ongepubliceerd), #554. De
     publieke /{slug}-route blijft enkel gepubliceerde pagina's tonen (404 op concept),
     dus 'Bekijk' linkt hierheen zodat je een concept kan bekijken vóór publicatie."""
-    from app.domains.cms.api import draft_html, get_page_by_id, hero_view
+    from app.domains.cms.api import draft_parts, get_page_by_id, hero_view
     from app.ui import site_context
 
     page = get_page_by_id(db, page_id)
@@ -544,7 +544,7 @@ def pagina_voorbeeld(
         {
             **site_context(db, request),
             "page": page,
-            "content_html": draft_html(db, page),
+            "content_parts": draft_parts(db, page),
             "hero": hero_view(page, db, preview=True),
             # #924: het voorbeeld toont wat de bezoeker ziet, dus ook het contactblok
             # op de privacypagina. Expliciet meegeven en niet aan de sjabloon

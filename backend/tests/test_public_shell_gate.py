@@ -85,7 +85,7 @@ def test_the_gate_reads_the_public_pages():
     templates = _templates()
     pages = _public_pages(templates)
     assert len(pages) >= 10, sorted(pages)
-    assert "home.html" in pages
+    assert "cms_pagina.html" in pages  # `home.html` retired with CR-32 R17: the home is a page
     # The shell is what the rules would refuse anywhere else.
     assert second_shell(templates[SHELL]) and newsletter_call(templates[SHELL])
 

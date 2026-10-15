@@ -157,7 +157,7 @@ def test_the_gate_reads_the_public_pages_and_their_partials():
     public = public_templates()
     assert len(public) >= 30, sorted(public)
     for expected in (
-        "domains/cms/templates/home.html",
+        "domains/cms/templates/cms_pagina.html",  # the home is a page of the CMS (CR-32 R17)
         "domains/activities/templates/inschrijven.html",
         # reached only through an include of an include
         "domains/activities/templates/_inschrijf_velden.html",

@@ -882,7 +882,11 @@ body[data-shell="site"]>main{padding-bottom:24px}
    remembering her. On a phone the viewport minus her gutters (the shell's
    <main> gives them). */
 .doc-page{width:100%;max-width:1024px;margin-left:auto;margin-right:auto}
-.doc-page>:not(.prose-raak):not(.prose-hero){max-width:768px}
+.doc-page>:not(.prose-raak):not(.prose-hero):not(.page-data){max-width:768px}
+/* A data block of a module (the activity list) stands beside the prose, in the
+   container's full width, outside the prose rules (CR-32 phase 5). */
+.page-data{margin:1rem 0}
+.page-data:last-child{margin-bottom:0}
 .doc-page .prose-raak>*:not(table):not(.prose-figure--full):not(.prose-columns):not(.prose-cards):not(.prose-section):not(.prose-gallery){max-width:768px}
 /* ── CR-32 (F1–F3, F5): a band that spans the page, with the container put back
    inside it. The band breaks out of `.doc-page` by the width the container

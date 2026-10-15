@@ -106,12 +106,13 @@ def setup():
     save_document(db, page.id, doc)
     publish(db, page.id)
     page_id, slug = page.id, page.slug
-    # The intro of THIS page's tenant: every tenant carries her own
-    # home-intro row (CR-19), and a bare query finds another tenant's —
-    # the wrong intro (the lesson of the table fixture, commit 1).
+    # The home page of THIS page's tenant (CR-32 R17: the home is a flagged page of
+    # the CMS, her intro the first blocks of her document): every tenant has her
+    # own, and a bare query finds another tenant's (the lesson of the table
+    # fixture, commit 1).
     intro = (
         db.query(CmsPage)
-        .filter(CmsPage.slug == "home-intro", CmsPage.tenant_id == page.tenant_id)
+        .filter(CmsPage.is_home.is_(True), CmsPage.tenant_id == page.tenant_id)
         .first()
     )
     intro_id = intro.id if intro is not None else None
@@ -123,20 +124,39 @@ def setup():
             "type": "doc",
             "content": [
                 {
-                    "type": "paragraph",
-                    "content": [{"type": "text", "text": "De intro met de nieuwe blokken."}],
-                },
-                {
-                    "type": "callout",
-                    "content": [{"type": "text", "text": "Een kader in de intro."}],
-                },
-                {
-                    "type": "button",
-                    "attrs": {"label": "Word lid", "variant": "primary", "screen": "lid-worden"},
-                },
+                    "type": "section",
+                    "attrs": {"tone": "accent"},
+                    "content": [
+                        {
+                            "type": "paragraph",
+                            "content": [
+                                {"type": "text", "text": "De intro met de nieuwe blokken."}
+                            ],
+                        },
+                        {
+                            "type": "callout",
+                            "content": [{"type": "text", "text": "Een kader in de intro."}],
+                        },
+                        {
+                            "type": "button",
+                            "attrs": {
+                                "label": "Word lid",
+                                "variant": "primary",
+                                "screen": "lid-worden",
+                            },
+                        },
+                    ],
+                }
             ],
         }
         s = SessionLocal()
+        # The home page is the tenant's real one: the band goes IN FRONT of her
+        # document and the document goes back when the test is over, or every later
+        # test would find a home without her activities.
+        from app.domains.cms.api import published_document as _published_document
+
+        _before = _published_document(s, s.get(CmsPage, intro_id)) or {"type": "doc", "content": []}
+        intro_doc["content"] = intro_doc["content"] + _before["content"]
         save_document(s, intro_id, intro_doc)
         publish(s, intro_id)
         s.close()
@@ -146,6 +166,11 @@ def setup():
         b = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
         yield b, page_id, slug, make_session_value(SEEDED_ADMIN_EMAIL)
         b.close()
+    if intro_id is not None:
+        s = SessionLocal()
+        save_document(s, intro_id, _before)
+        publish(s, intro_id)
+        s.close()
 
 
 def test_the_three_blocks_through_the_screen(setup):
@@ -190,7 +215,9 @@ def test_the_three_blocks_through_the_screen(setup):
         # siteblokken niet aan — de keuzes zijn wat de resolver oplost.
         page.locator("div[x-show='button'] button", has_text="Een pagina van de site").click()
         opties = page.locator("div[x-show='button'] select option").all_inner_texts()
-        assert "Home intro" not in opties and "Site footer" not in opties, opties
+        assert "Site footer" not in opties, (
+            opties
+        )  # `home-intro` is a page of its own (unpublished) since CR-32 R17
         page.fill("#cp-document-btn-label", "Word lid via het scherm")
         page.locator("div[x-show='button'] button", has_text="Primair").click()
         page.locator("div[x-show='button'] button", has_text="Word lid").last.click()
@@ -364,10 +391,10 @@ def test_the_look_of_the_three_blocks(setup, width):
 
 
 @pytest.mark.parametrize("width", [1440, 390])
-def test_the_blocks_in_the_home_intro_stay_in_her_band(setup, width):
-    """Koen's decision of 11 October 2026: the site blocks carry every
-    block — a callout and a button in the intro's band stay inside her
-    column, and the page never scrolls sideways."""
+def test_the_blocks_in_the_home_band_stay_in_her_band(setup, width):
+    """Koen's decision of 11 October 2026, on the home page's band since CR-32
+    R17 (a section of the CMS page): a callout and a button in the band stay
+    inside her column, and the page never scrolls sideways."""
     b, *_rest = setup
     page = b.new_page(
         base_url=BASE, viewport={"width": width, "height": 844 if width < 768 else 900}
@@ -378,7 +405,7 @@ def test_the_blocks_in_the_home_intro_stay_in_her_band(setup, width):
         page.goto("/")
         pagina_klaar(page)
         intro = page.evaluate(
-            """() => { const h = document.querySelector('.home-intro');
+            """() => { const h = document.querySelector('.prose-section');
               const r = h.getBoundingClientRect();
               const knop = h.querySelector('a.prose-button');
               const kb = knop ? knop.getBoundingClientRect() : null;
