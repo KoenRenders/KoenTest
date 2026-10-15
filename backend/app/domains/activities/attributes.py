@@ -70,7 +70,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         label="Notities bestuur",
         name_en="Board notes",
         help="De interne nota bij de activiteit: afspraken, contacten, wat iemand zichzelf wilde herinneren.",
-        ai_exposure=AiExposure.INTERNAL,  # K7
+        ai_exposure=AiExposure.NONE,  # the board's own notes: never to a model (Koen, 15 October 2026: "akkoord")
     ),
     Attribute(
         key="activities.activity.status",
