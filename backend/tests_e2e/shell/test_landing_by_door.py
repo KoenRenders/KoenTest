@@ -21,7 +21,12 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, htmx_afgerond, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    htmx_afgerond,
+    laat_de_wacht_passeren,
+    pagina_klaar,
+)
 
 
 @pytest.fixture(scope="module")
@@ -114,6 +119,7 @@ def test_a_board_member_who_signs_in_on_the_site_stays_on_the_site(browser, boar
         page.wait_for_url(lambda url: "/aanmelden" in url)
         pagina_klaar(page)
         page.locator('#aanmelden-stap input[name="email"]').fill(board_member["email"])
+        laat_de_wacht_passeren(page)
         with htmx_afgerond(page):
             page.locator("#aanmelden-stap button").click()
         expect(page.locator("[data-code-sent]")).to_be_visible()
