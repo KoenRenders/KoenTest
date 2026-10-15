@@ -1,10 +1,10 @@
 # Change Request 34 — Invoices for the webshop
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 15 October 2026 by the design-documentation CLI, on Koen's dictation (his request to this session, the same day) · build read not yet asked · not assigned to a release · **prerequisites:** CR-21 (webshop) built, and CR-26 (party model) phase 1, "the buyer" (B8 Q2)
+**Status:** shaped on 15 October 2026 by the design-documentation CLI, on Koen's dictation · build read not yet asked · not assigned to a release · **prerequisites:** CR-21 (webshop) built, and CR-26 (party model) phase 2, "the buyer" (C4.10)
 **Tracking issue:** #2009 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** `payment` (the invoice, its number, its VAT, its document; the module "invoices"), `tax` (new: tax classes, categories, rates and the one rule that picks the rate), `product` and `pricing` of CR-21 (the tax class of an article), `sales` (the buyer's details, cancelling and changing an order that has an invoice), `mdm` (the issuing organisation, the buyer as a party; read, not changed), `mail` (the invoice mail), `kernel` (the module registry), `reporting` (a view)
-**Reading:** A 1 499 words · B 2 498 · C 2 775 — measured on 15 October 2026, drawings excluded, tables included; budgets A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1 500 words · B 2 483 · C 2 774 — measured on 15 October 2026, drawings excluded, tables included; budgets A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -57,7 +57,7 @@ flowchart LR
 
 | Step | Who | Pain |
 |---|---|---|
-| Order and choose payment | Buyer | A company cannot say it buys as a company: no VAT number, no company address |
+| Order and choose payment | Buyer | A company cannot say it buys as a company: no VAT number |
 | Record the charge | Platform | The charge has an amount, no VAT, no number, no seller |
 | Confirm the transfer | Boekhouding | Works, but there is nothing to match against except the OGM |
 | End: "Paid" | — | No invoice: a company buyer has nothing for its own bookkeeping, and Renko has nothing for its accountant |
@@ -117,7 +117,7 @@ flowchart LR
 - **"Issue the invoice" is new:** the portal numbers the invoice, calculates the VAT and writes the payment text. Online and paid: "voldaan". Transfer: the OGM and a due date.
 - **"Hand the invoices to the bookkeeper" is new:** the portal produces the set, so nobody retypes it.
 
-**What it says on the screen** (Dutch): the menu **Facturen**; the document title **Factuur** and, for a correction, **Creditnota**; the switch **Ik koop als bedrijf** with the field **Btw-nummer**; the payment lines **Voldaan** and **Te betalen vóór <datum> met gestructureerde mededeling <OGM>**; the setting **Betaaltermijn (dagen)**; the list columns **Nummer, Datum, Koper, Totaal, Betaald**.
+**What it says on the screen** (Dutch): the menu **Facturen**; the document title **Factuur** and, for a correction, **Creditnota**; the checkout choice **Wie bestelt: voor mezelf / namens <organisatie>**; the page **Mijn organisatie** (CR-26); the payment lines **Voldaan** and **Te betalen vóór <datum> met gestructureerde mededeling <OGM>**; the setting **Betaaltermijn (dagen)**; the list columns **Nummer, Datum, Koper, Totaal, Betaald**.
 
 ## A4. Benefits — what the change earns
 
@@ -264,7 +264,7 @@ flowchart LR
 **Walkthrough** (HDEV, the shop tenant with the module on, Mollie in test mode)
 
 *Private buyer.* W1 Order a helmet and pay online; see the shop's thank-you page. W2 Open the mail; see an invoice with number, date, seller, 21 % VAT worked out, "Voldaan". W3 Under *Mijn aankopen* open the same invoice.
-*Company buyer.* W4 Order again, tick *Ik koop als bedrijf*, give a VAT number, choose a transfer. W5 Open the mail; see the VAT number, the OGM and a due date seven days on. W6 In the tenant settings set *Betaaltermijn (dagen)* to 14; the next invoice says 14.
+*Company buyer.* W4 Register an organisation under *Mijn organisatie* with a VAT number, order again *namens* it, choose a transfer. W5 Open the mail; see the VAT number, the OGM and a due date seven days on. W6 In the tenant settings set *Betaaltermijn (dagen)* to 14; the next invoice says 14.
 *Boekhouding.* W7 Under *Facturen* find the open invoice. W8 Confirm the transfer on the payments screen; the invoice reads paid.
 *Rates.* W9 Give one article 6 % and order it with another; the lines carry their rates and the totals per rate add up to the payment.
 *Correction.* W10 Cancel the first order; a credit note appears, the invoice stays.
@@ -383,7 +383,7 @@ No purchase.
 | Phase | Delivers | Depends on | Migration | Env vars | Failure paths that change | Manual validation |
 |---|---|---|---|---|---|---|
 | 0 | `tax` and the article's tax class, the module of invoices, the settings | CR-21 built | additive | none | none | W6 |
-| 1 | The invoice, number, VAT, payment text, PDF, mail, screens, export; Belgian buyers | 0, CR-26 phase 1 | additive | none | an issue that fails rolls the sale back or, for a mail, leaves the invoice and no mail | W1–W8, W11, W12 |
+| 1 | The invoice, number, VAT, payment text, PDF, mail, screens, export; Belgian buyers | 0, CR-26 phase 2 | additive | none | an issue that fails rolls the sale back or, for a mail, leaves the invoice and no mail | W1–W8, W11, W12 |
 | 2 | Credit notes; change and cancel | 1 | additive | none | a cancel issues its credit note in the same transaction | W10 |
 | 3 | The Netherlands | 1 | additive | none | a Dutch buyer with an invalid VAT number is refused at checkout | W13, W14 |
 
@@ -397,18 +397,17 @@ Credit notes ship with invoices: phases 1 and 2 go live together (B9).
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
-| Q2 | How much of CR-26 (party model) stands before phase 1? The architecture CLI's **reading**, not Koen's decision: only **CR-26 phase 1, "the buyer"**, the four points of C4.10 | Take the cut | whether phase 1 waits for all of CR-26 |
-| Q12 | Questions 2, 3 and 4 of the architecture Q&A of 13 October 2026 (nr. 03) still wait for Koen's answer (recommendation: "a"), and whether CR-26 is written out now | Answer them in the architecture chat | the start of phase 1 |
+| — | None open: Q2 and Q12 are answered by CR-26's decisions (B9) | | |
 
 ## B9. Decisions log — dated answers
 
 | Date | Decision | By |
 |---|---|---|
 | 15 Oct 2026 | Six answers, each "a" (Q&A file of 15 October, nr. 03): Q1 the invoice is issued at the sale (online when the payment is confirmed, transfer when the order is placed); Q3 until CR-35 is live the portal exports the invoices to Belgian companies and Koen sends them through his other Peppol route; Q5 prices stay VAT-inclusive for everybody; Q7 credit notes go live with the invoices; Q8 one sequence for both; Q11 the platform maintains the tax rates by migration, no screen | Koen |
-| 15 Oct 2026 | Q2: handed to the architecture CLI. Koen: "geef maar door aan brainstorm, ik ga sowieso een stuk van die CR laten realiseren voor facturatie komt, dus over jouw vraag gaan we niet te diep nadenken". Its reading, **not** Koen's decision (he did not answer its questions): phase 1 waits for CR-26 phase 1 only (C4.10) | Koen; architecture CLI |
+| 15 Oct 2026 | Q2: handed to the architecture CLI. Koen: "geef maar door aan brainstorm, … over jouw vraag gaan we niet te diep nadenken". Then, shaping CR-26 with that CLI, Koen decided the cut (CR-26 B9, same day): the party is per account, a company buys through a signed-in person who registers the organisation once ("ja, akkoord"), order CR-20, CR-26 phases 1–3 in one release, then this change ("ja op 1, ja op 2"). Phase 1 of this change waits for CR-26 phase 2 (C4.10) | Koen |
 | 15 Oct 2026 | Q6: **no limit check in the shop** for Dutch private buyers; the accountant watches the EU limit. Koen: "c" | Koen |
 | 15 Oct 2026 | Q9: the booking is the receivable against the payments, no general ledger; the accountant keeps the books in his own system. Koen: "a, … mijn boekhouder doet de boekhouding in zijn systeem met zijn grootboek"; his question about three objects is answered in C4.5 | Koen |
-| 15 Oct 2026 | Q10: the content list of C4.1 is built on as it stands, without the accountant's check first. Koen: "b, maar vertel me misschien even wat je erop wil zetten" | Koen |
+| 15 Oct 2026 | Q10: the content list of C4.1 is built on as it stands, without the accountant's check first. Koen: "b, maar vertel me misschien even wat je erop wil zetten". Then, on reading it: the date of supply, a printed table per rate and the late-payment text are dropped; the exemption statement is open until explained (C4.1) | Koen |
 | 15 Oct 2026 | Q4: the issuing organisation is Renko BV with its address and VAT number; the tenant is a brand, shown clearly with its name and logo. Koen: "De verkoper is inderdaad Renko BV met zijn adres en btw-nummer."; the brand and its logo must stand on the invoice | Koen |
 
 ---
@@ -439,8 +438,8 @@ Measured on master @ `ff5eeb3a` and on the build branch of CR-21 @ `508ee052` on
 **payment.** *Screens:* Facturen (list, filters open and paid; one invoice; settings); judged at 390 px. *Code:* `issue_invoice`, `issue_credit_note`, `export_period`, `invoice_for_order` in `api.py`; a subscriber for `SalesOrderPlaced`, `SalesOrderChanged` and the payment event; the single owner of every writer to the invoice tables is `payment/invoice_service.py`. *Database:* schema `payment`; `invoices`, `invoice_lines`, `tax_subtotals`, `invoice_sequences`, `invoice_settings`; each invoice line also carries the frozen scheme, category, percent and reason; `invoices(issuing_organization_id, number)` unique; every FK `ON DELETE RESTRICT`; no `SoftDeleteMixin` on an invoice; additive. Copy action: none of these tables has one. *Templates and mail:* the invoice HTML for the PDF. *Tests:* T1–T11, T13–T16.
 **tax** (new domain, no module switch: reference data like `mdm`). *Code:* `tax/api.py` with `determine(context)` → scheme, category, percent, reason, where the context object carries today the tax class, seller and buyer country, whether the buyer (an organisation party with a VAT number in a country) has a valid tax number, and the date, and can grow without changing a caller (C4.9); the rule holds the three cases of today (Belgian rate; Dutch consumer under the EU limit, Belgian rate; Dutch taxable buyer with a valid number, intra-Community) and nothing else. *Database:* schema `tax`; code lists `tax_scheme_codes` (VAT), `tax_category_codes` (S, Z, E, AE, K), `tax_class_codes` (standard, reduced, super-reduced, zero; labels per language) and `tax_rates(scheme, class_code, jurisdiction, category, percent, valid_from, valid_to)`, seeded for Belgium; additive. No screen. *Tests:* T17.
 **product** (CR-21). Article form gains a *Btw-klasse* (default standard); a copy of an article takes the class along. The article stores no percentage. Tests T5.
-**sales** (CR-21). Checkout gains *Ik koop als bedrijf* with the VAT number and company address (the company becomes an organisation party, CR-26 phase 1); cancel and change call `payment.api` for a credit note; the purchases page links the invoice. Tests T4, T14, T15.
-**mdm.** Read-only through the facade: the issuing organisation's name, address, identifications and account; a company buyer is an organisation party of the tenant (CR-26 phase 1, Q2) and the order's `buyer_party_id` names it; the invoice copies name, address and VAT number and keeps the party id as a soft reference, empty for a private guest.
+**sales** (CR-21). Checkout gains the choice *voor mezelf / namens <organisatie>* (the organisation is registered once under *Mijn organisatie*, CR-26), and no company fields; cancel and change call `payment.api` for a credit note; the purchases page links the invoice. Tests T4, T14, T15.
+**mdm.** Read-only through the facade: the issuing organisation's name, address, identifications and account; an organisation that buys is a party of the account (C4.10) and the order's `buyer_party_id` names it; the invoice copies name, address and VAT number and keeps the party id as a soft reference, empty for a private guest.
 **mail.** The invoice mail with the PDF as attachment, after the outer commit. T12.
 **kernel.** `ModuleCode.INVOICES`, its registry entry, the CHECK migration, the tenant default off. T18.
 **reporting.** A view `f_invoices` for the accountant's list; no existing view reads the new columns. Phase 1.
@@ -466,7 +465,7 @@ Measured on master @ `ff5eeb3a` and on the build branch of CR-21 @ `508ee052` on
 
 ## C4. Detailed decisions — one subsection each, with the reasons
 
-**C4.1 The content of a Belgian invoice.** Built on as it stands (B9); from secondary sources, not yet from the royal decree: the word *Factuur*; a unique sequential number; the issue date and, when different, the date of supply; the seller's name, address, VAT number; the buyer's name and address, and its VAT number when it is liable; the description and quantity of every item; the unit price excluding VAT; the rate; the taxable amount, the VAT and the total per rate; the total; the due date and payment terms, with the late-payment interest and fixed compensation text for a business buyer; an exemption or reverse-charge statement where it applies; for a credit note the reference to the invoice. The issuing organisation's bank account is not required but is shown (the payment text).
+**C4.1 The content of a Belgian invoice.** Built on as it stands (B9); from secondary sources, not yet from the royal decree: the word *Factuur* (*Creditnota* on a credit note); a unique sequential number; the issue date (no separate date of supply); the seller's name, address, VAT number; the buyer's name and address, and its VAT number when it is liable; the description and quantity of every item; the unit price excluding VAT; the rate; the total excluding VAT, the VAT and the total (the split per rate is stored, for the accountant's export and CR-35, but not printed as a table); the due date and payment terms (the late-payment interest and compensation text for a business buyer is left out of this version); an exemption or reverse-charge statement where it applies; for a credit note the reference to the invoice. The issuing organisation's bank account is not required but is shown (the payment text).
 **C4.2 Number.** `invoice_sequences.last_number` is incremented with `SELECT … FOR UPDATE` inside the issuing transaction; a rollback releases it. The invoice has no draft state, so there is nothing to number early. A credit note takes the next number of the same sequence (B9).
 **C4.3 VAT and rounding.** Lines keep the gross unit price the buyer saw. Per rate: gross = Σ lines; net = round(gross ÷ (1 + rate)); VAT = gross − net. The total equals the payment by construction. This deviates from EN 16931's net-first calculation by working back from gross; the result is a valid set of totals because VAT is derived as a difference.
 **C4.4 Issuing moment and payment text.** Online: the payment event of the ledger triggers the issue, text "Voldaan op <date>". Transfer: the order's placement triggers it, text OGM and due date. A transfer confirmed later shows "Voldaan" on the document **as displayed**, from the ledger; the mailed PDF is the document as sent. Rejected: re-sending.
@@ -474,7 +473,7 @@ Measured on master @ `ff5eeb3a` and on the build branch of CR-21 @ `508ee052` on
 **C4.6 Cancel and change.** A change after issue: a credit note for the whole invoice and a new invoice for the changed order, in one transaction; both mailed. Reservations and refunds behave as CR-21 specifies.
 **C4.9 Tax determination: simple today, perhaps rules later.** The idea, as a perspective and not as part of this change: a rule module, perhaps with decision tables in DMN (the OMG's Decision Model and Notation), that decides how a transaction is taxed, so that these rules are **not programmed in**. A rule module could later decide from which tax number we invoice, whether we invoice at all when several entities take part, and which regime applies, with HS codes and product ids mapped in it; the kind of input it could take is the addresses, the route of the goods, the parties in the flow and the type of product. Not built now. Today the calculation is straight: gross price, the percent of the class, the tax as the difference (C4.3). What this change does so that the road stays open: (1) `determine` takes one context object and returns one result object; the fields of the context are the inputs a decision table would have, the result the outputs; (2) callers never compute or look up a percentage themselves; (3) the invoice stores the result of the decision, with the reason, never the rule. Whether it then is an engine of a standard such as DMN, an open-source one, or a small one of our own is **not decided**: it is looked at when the first rule outgrows a table of rates, in a change request of its own. This change is phase 1 of tax, and little more than a code list of tax codes with their rates.
 
-**C4.10 What CR-26 phase 1, "the buyer", builds first** (the architecture CLI's reading of 15 October 2026, not Koen's decision; it writes CR-26 phase 1 when Koen says so). (1) One table `mdm.parties` with kind person or organisation; person and organisation hang one-to-one on it, backfilled in one migration; the order gets one `buyer_party_id`. (2) An organisation as a tenant's customer: tenant-bound rows in the organisation table with a role *klant* next to Account, Afdeling and Platform; address and VAT number through the existing address and identification tables. Today that table has no tenant and a mandatory unique code, so both change, and every reader of it as the tenant tree filters on role or tenant (CR-26 measures that in its C1). (3) The checkout asks private or company; a company becomes an organisation party of that tenant; the private guest stays as CR-21 built it, without a party. Outside phase 1, so not before this change: addresses and contacts on the party, the household, relations between parties, CR-20. One builder after another on `mdm` and `sales`; the same release is possible.
+**C4.10 What CR-26 gives this change** (its decisions of 15 October 2026, CR-26 B9). The party is per **account**: one natural person and one organisation per account, the facts (order, membership, relation) per tenant, so an organisation that buys at two tenants of one account is one row. There are no company fields in the checkout: a person signs in, registers the organisation once under *Mijn organisatie* (name, legal form, VAT number with its country, address; the VAT number is the key within the account, the enterprise number is not asked) and chooses *voor mezelf* or *namens <organisatie>* at the checkout; several people can act for one organisation. The order carries `buyer_party_id`, empty for a private guest, whose guest columns stay as CR-21 built them; the invoice copies name, address and VAT number. There are no roles: the customer is whoever ordered. Order: CR-20, then CR-26 phases 1–3 in one release, then phase 1 of this change.
 
 **C4.7 The Netherlands (phase 3).** Private buyer: Belgian rate; the shop does not check the EU limit, the accountant does (B9). Company with a valid VAT number (VIES check at checkout, the answer stored on the invoice): category K, VAT 0, the exemption text. Other countries: the shop refuses the address.
 
@@ -489,7 +488,7 @@ An invoice route reads the signed-in user's tenant and role (`invoices.view`, `i
 | T1 | One settled sale gives one invoice; the second event gives none | F1 breaks |
 | T2 | Two connections issue concurrently: consecutive numbers, none lost on a rollback | the lock is missing |
 | T3 | Changing the organisation's name afterwards leaves the invoice | the snapshot is a live read |
-| T4 | A company buyer's VAT number is on the invoice and the checkout refuses a malformed one | R4 |
+| T4 | An organisation's VAT number is on the invoice, and *Mijn organisatie* refuses a malformed one | R4 |
 | T5 | An article's tax class reaches its line as the rate `determine` gives; copying the article copies the class | F4 |
 | T6 | Mixed rates: net + VAT = gross per rate, the total equals the payment, to the cent | C4.3 |
 | T7 | Paid online reads "Voldaan"; transfer has OGM and due date = date + term; the term setting moves it | F6, F7 |
@@ -517,7 +516,7 @@ None made. A rendered invoice is the first thing to prototype at the build read;
 
 ## C9. Screens before the build — the concepts the approver saw
 
-Not made yet. Required before assignment, at 390 px with invented data: the Facturen list, one invoice (screen and PDF), the invoice settings, and the checkout question *Ik koop als bedrijf*.
+Not made yet. Required before assignment, at 390 px with invented data: the Facturen list, one invoice (screen and PDF), the invoice settings, and the checkout choice *Wie bestelt*; the screens *Mijn organisatie* and *Personen* belong to CR-26.
 
 ## C10. Close-out at the release
 
@@ -539,4 +538,4 @@ A VAT return and any bookkeeping or general ledger (R16); selling outside Belgiu
 
 ## Relationship to existing work — issues and change requests
 
-CR-21 (webshop): builds on it, and revises its Q31 (invoices "later, for delivered lines") by Q1; CR-26 (party model): prerequisite in its phase 1, "the buyer" (Q2); CR-19 (tenant types) and CR-20 (a tenant apart from its organisation): the tenant under Renko; CR-24 (back-office rights): the roles Boekhouding and Verkoop; CR-33 (attribute register): every new column of this change gets its entry when the register is built; CR-35 (invoices through Peppol, #2010): hands off to it, and has this one as prerequisite.
+CR-21 (webshop): builds on it, and revises its Q31 (invoices "later, for delivered lines") by Q1; CR-26 (party model): prerequisite in its phase 2, "the buyer" (C4.10); CR-19 (tenant types) and CR-20 (a tenant apart from its organisation): the tenant under Renko; CR-24 (back-office rights): the roles Boekhouding and Verkoop; CR-33 (attribute register): every new column of this change gets its entry when the register is built; CR-35 (invoices through Peppol, #2010): hands off to it, and has this one as prerequisite.
