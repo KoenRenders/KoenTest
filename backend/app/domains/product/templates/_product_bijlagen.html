@@ -1,14 +1,27 @@
 {% import "_macros.html" as ui %}
 
 {% macro _bijlage(a) %}
-<div class="flex items-center gap-2">
-  {% if a.is_photo %}
-  <img src="{{ a.url }}" alt="" class="h-20 w-20 object-cover rounded-md border border-line">
-  {% else %}
-  <a href="{{ a.url }}" target="_blank" rel="noopener" class="text-blue-500 underline">{{ a.title or _("Document") }}</a>
-  {% endif %}
+<div class="flex flex-col gap-1">
+  <div class="flex items-center gap-2">
+    {% if a.is_photo %}
+    <img src="{{ a.url }}" alt="{{ a.description or '' }}" class="h-20 w-20 object-cover rounded-md border border-line">
+    {% else %}
+    <a href="{{ a.url }}" target="_blank" rel="noopener" class="text-blue-500 underline">{{ a.title or a.filename or _("Document") }}</a>
+    {% endif %}
+    {% if editing %}
+    {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="/admin/producten/' ~ product.id ~ '/bijlage/' ~ a.id ~ '/verwijderen"', confirm=_('De bijlage wordt verwijderd.')) }}
+    {% endif %}
+  </div>
   {% if editing %}
-  {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="/admin/producten/' ~ product.id ~ '/bijlage/' ~ a.id ~ '/verwijderen"', confirm=_('De bijlage wordt verwijderd.')) }}
+  <form id="bijlage-{{ a.id }}" method="post" action="/admin/producten/{{ product.id }}/bijlage/{{ a.id }}"
+        hx-post="/admin/producten/{{ product.id }}/bijlage/{{ a.id }}">
+    {% if a.is_photo %}
+    {{ ui.field("description", _("Beschrijving"), value=a.description, label_hidden=True, span="full") }}
+    {% else %}
+    {{ ui.field("title", _("Titel"), value=a.title, label_hidden=True, span="full") }}
+    {% endif %}
+  </form>
+  {{ ui.action_bar(save_label=_("Opslaan"), form="bijlage-" ~ a.id, cancel_href="/admin/producten/" ~ product.id ~ "?bewerken=1") }}
   {% endif %}
 </div>
 {% endmacro %}

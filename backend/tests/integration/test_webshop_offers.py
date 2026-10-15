@@ -210,7 +210,7 @@ def test_no_vanaf_when_the_sizes_cost_the_same(client, db_session, every_module_
 
 
 def test_the_article_page_shows_its_pictures_and_documents(client, db_session, every_module_on):
-    """R1/R3: the article page shows its pictures (with the asset's alt) and its
+    """R1/R3: the article page shows its pictures (alt from the description) and its
     documents as links that open; the list shows the first picture's thumbnail."""
     from app.domains.media.api import MediaAsset, MediaKind
     from app.domains.product.api import ProductAttachment
@@ -218,14 +218,68 @@ def test_the_article_page_shows_its_pictures_and_documents(client, db_session, e
     product = _on_sale_with_price(db_session, "T-shirt Raak", amount="15.00")
 
     photo = MediaAsset(
-        kind=MediaKind.PRODUCT_PHOTO, title="Een foto", data=b"x", content_type="image/png"
+        kind=MediaKind.PRODUCT_PHOTO, title="foto.png", data=b"x", content_type="image/png"
+    )
+    db_session.add(photo)
+    db_session.flush()
+    db_session.add(
+        ProductAttachment(product_id=product.id, media_asset_id=photo.id, description="De voorkant")
+    )
+    document = MediaAsset(
+        kind=MediaKind.PRODUCT_DOCUMENT,
+        title="maattabel.pdf",
+        data=b"%PDF-1.4",
+        content_type="application/pdf",
+    )
+    db_session.add(document)
+    db_session.flush()
+    db_session.add(
+        ProductAttachment(product_id=product.id, media_asset_id=document.id, title="Maattabel")
+    )
+    db_session.commit()
+
+    page = client.get(f"/webshop/{product.id}")
+    assert page.status_code == 200
+    assert f"/api/v1/media/{photo.id}" in page.text
+    assert 'alt="De voorkant"' in page.text
+    assert f'href="/api/v1/media/{document.id}"' in page.text
+    assert "Maattabel" in page.text
+
+    listing = client.get("/webshop")
+    assert f"/api/v1/media/{photo.id}/thumb" in listing.text
+
+
+def test_a_picture_without_a_description_has_an_empty_alt(client, db_session, every_module_on):
+    """S1: a picture without a description renders `alt=""`, never the file name."""
+    from app.domains.media.api import MediaAsset, MediaKind
+    from app.domains.product.api import ProductAttachment
+
+    product = _on_sale_with_price(db_session, "T-shirt Raak", amount="15.00")
+    photo = MediaAsset(
+        kind=MediaKind.PRODUCT_PHOTO,
+        title="foto-voorkant.png",
+        data=b"x",
+        content_type="image/png",
     )
     db_session.add(photo)
     db_session.flush()
     db_session.add(ProductAttachment(product_id=product.id, media_asset_id=photo.id))
+    db_session.commit()
+
+    page = client.get(f"/webshop/{product.id}")
+    assert 'alt=""' in page.text
+    assert "foto-voorkant.png" not in page.text
+
+
+def test_a_document_without_a_title_shows_the_file_name(client, db_session, every_module_on):
+    """S1: a document without a title shows its file name as the link text."""
+    from app.domains.media.api import MediaAsset, MediaKind
+    from app.domains.product.api import ProductAttachment
+
+    product = _on_sale_with_price(db_session, "T-shirt Raak", amount="15.00")
     document = MediaAsset(
         kind=MediaKind.PRODUCT_DOCUMENT,
-        title="Maattabel",
+        title="maattabel.pdf",
         data=b"%PDF-1.4",
         content_type="application/pdf",
     )
@@ -235,14 +289,7 @@ def test_the_article_page_shows_its_pictures_and_documents(client, db_session, e
     db_session.commit()
 
     page = client.get(f"/webshop/{product.id}")
-    assert page.status_code == 200
-    assert f"/api/v1/media/{photo.id}" in page.text
-    assert 'alt="Een foto"' in page.text
-    assert f'href="/api/v1/media/{document.id}"' in page.text
-    assert "Maattabel" in page.text
-
-    listing = client.get("/webshop")
-    assert f"/api/v1/media/{photo.id}/thumb" in listing.text
+    assert "maattabel.pdf" in page.text
 
 
 def test_a_pre_order_size_without_stock_says_op_bestelling(client, db_session, every_module_on):

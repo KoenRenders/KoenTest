@@ -403,6 +403,28 @@ def product_attachment_remove(
     return _redirect(request, f"/admin/producten/{product_id}?bewerken=1")
 
 
+@router.post("/admin/producten/{product_id}/bijlage/{attachment_id}")
+def product_attachment_text(
+    request: Request,
+    product_id: int,
+    attachment_id: int,
+    title: str = Form(""),
+    description: str = Form(""),
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.PRODUCT_MASTERDATA)),
+    _csrf: None = Depends(require_csrf),
+):
+    """The article's own words for a file (S1): a document's title, a picture's
+    description. Stored on the article's link, never on the shared media file."""
+    from app.domains.product.api import set_attachment_text
+
+    try:
+        set_attachment_text(db, product_id, attachment_id, title=title, description=description)
+    except LookupError:
+        raise HTTPException(status_code=404, detail=_("Niet gevonden")) from None
+    return _redirect(request, f"/admin/producten/{product_id}?bewerken=1")
+
+
 def _parse_date(value: str) -> Optional[date]:
     from datetime import date as Date
 

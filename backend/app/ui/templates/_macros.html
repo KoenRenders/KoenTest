@@ -904,11 +904,9 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
       <span id="{{ _id }}-{{ loop.index }}-why" data-tile-reason class="max-w-full truncate text-[11px] leading-[14px]">{{ _why }}</span>
     </label>
     {% else %}
-    {%- set _nota = o[2] if o|length > 2 else "" -%}
-    <label data-tile class="relative flex min-w-0 min-h-11 items-center justify-center gap-1{% if _nota %} flex-wrap{% endif %} rounded-md border border-control-line bg-surface px-1 text-center text-sm font-medium text-ink cursor-pointer hover:bg-surface-2 has-[:checked]:border-2 has-[:checked]:border-blue-700 has-[:checked]:bg-blue-50 has-[:checked]:font-semibold has-[:checked]:text-blue-700 has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-focus">
+    <label data-tile class="relative flex min-w-0 min-h-11 items-center justify-center gap-1{% if o|length > 2 and o[2] %} flex-wrap{% endif %} rounded-md border border-control-line bg-surface px-1 text-center text-sm font-medium text-ink cursor-pointer hover:bg-surface-2 has-[:checked]:border-2 has-[:checked]:border-blue-700 has-[:checked]:bg-blue-50 has-[:checked]:font-semibold has-[:checked]:text-blue-700 has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-focus">
       <input type="radio" name="{{ name }}" value="{{ o[0] }}"{% if form %} form="{{ form }}"{% endif %} class="peer sr-only"{% if required %} required{% endif %}{% if disabled %} disabled{% endif %}{% if o[0] == value %} checked{% endif %}>
-      <span data-tile-check aria-hidden="true" class="hidden shrink-0 peer-checked:inline-flex">{{ icon("check", 14) }}</span><span class="min-w-0 truncate">{{ o[1] }}</span>
-      {% if _nota %}<span class="basis-full max-w-full truncate text-[11px] leading-[14px] text-ink-soft">{{ _nota }}</span>{% endif %}
+      <span data-tile-check aria-hidden="true" class="hidden shrink-0 peer-checked:inline-flex">{{ icon("check", 14) }}</span><span class="min-w-0 truncate">{{ o[1] }}</span>{% if o|length > 2 and o[2] %}<span class="basis-full max-w-full truncate text-[11px] leading-[14px] text-ink-soft">{{ o[2] }}</span>{% endif %}
     </label>
     {% endif %}
     {% endfor %}

@@ -219,6 +219,7 @@ class ProductAttachment(TenantMixin, Base):
     )
     media_asset_id = Column(Integer, nullable=False, index=True)
     title = Column(String(255), nullable=True)
+    description = Column(String(255), nullable=True)
     sort_order = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
     updated_at = Column(

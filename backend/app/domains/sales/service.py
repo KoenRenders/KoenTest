@@ -77,12 +77,15 @@ def article_media(
                 {
                     "url": card["url"],
                     "thumb": media_url(card["media_asset_id"], thumb=True),
-                    "alt": card["alt"],
+                    "alt": card["description"],
                 }
             )
         else:
             documents.append(
-                {"url": card["url"], "title": card["title"] or card["alt"] or _("Document")}
+                {
+                    "url": card["url"],
+                    "title": card["title"] or card["filename"] or _("Document"),
+                }
             )
     return photos, documents
 

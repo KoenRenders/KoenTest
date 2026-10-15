@@ -134,6 +134,34 @@ def test_tiles_show_the_kits_field_error_and_read_as_the_chosen_label():
     assert _value_of(_tiles(edit=False)).strip().endswith("—")
 
 
+def test_a_tile_without_a_note_renders_exactly_as_before_the_note():
+    """The note must only add (U1): a `tiles` call without a note renders the label
+    byte-for-byte as it did before the note existed — no `flex-wrap`, no note span."""
+    html = _tiles()
+    labels = re.findall(r'<label data-tile class="([^"]*)"', html)
+    assert (
+        labels
+        == [
+            "relative flex min-w-0 min-h-11 items-center justify-center gap-1 rounded-md border border-control-line bg-surface px-1 text-center text-sm font-medium text-ink cursor-pointer hover:bg-surface-2 has-[:checked]:border-2 has-[:checked]:border-blue-700 has-[:checked]:bg-blue-50 has-[:checked]:font-semibold has-[:checked]:text-blue-700 has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-focus"
+        ]
+        * 3
+    )
+    assert "basis-full" not in html
+
+
+def test_a_tile_with_a_note_wraps_and_shows_the_note():
+    """A third option element is the tile's note, shown under the name; the label
+    wraps so the note stays inside the tile."""
+    html = _field(
+        kind="tiles",
+        name="maat",
+        label="Maat",
+        options=[("m", "M", "op bestelling")],
+    )
+    assert "flex-wrap" in html and "op bestelling" in html
+    assert "basis-full" in html
+
+
 def _value_of(html: str) -> str:
     return re.search(r"<p data-value[^>]*>(.*?)</p>", html, re.S).group(1)
 

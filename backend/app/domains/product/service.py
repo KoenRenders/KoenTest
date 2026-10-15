@@ -366,9 +366,9 @@ def attachments_of(db: Session, product_id: int) -> list[ProductAttachment]:
 
 
 def attachment_cards(db: Session, product_id: int) -> list[dict]:
-    """What the record shows: each attachment with `is_photo`, its media id and the
-    asset's alt text, so the screen tells a picture from a document without
-    comparing a code, and a picture carries its alt from the asset (CR-21, R1)."""
+    """What the record shows: each attachment with `is_photo`, its media id, the
+    title a document shows, the description a picture carries as its alt, and the
+    file name as the fallback while either is empty (CR-21, S1)."""
     from app.domains.media.api import MediaAsset, MediaKind, media_url
 
     attachments = attachments_of(db, product_id)
@@ -383,8 +383,9 @@ def attachment_cards(db: Session, product_id: int) -> list[dict]:
             "id": attachment.id,
             "media_asset_id": attachment.media_asset_id,
             "url": media_url(attachment.media_asset_id),
-            "title": attachment.title,
-            "alt": (assets[attachment.media_asset_id].title or "")
+            "title": attachment.title or "",
+            "description": attachment.description or "",
+            "filename": (assets[attachment.media_asset_id].title or "")
             if attachment.media_asset_id in assets
             else "",
             "is_photo": assets[attachment.media_asset_id].kind == MediaKind.PRODUCT_PHOTO
@@ -421,7 +422,6 @@ def add_attachment(
     attachment = ProductAttachment(
         product_id=product_id,
         media_asset_id=stored.asset_id,
-        title=stored.title,
         sort_order=len(attachments_of(db, product_id)),
     )
     db.add(attachment)
@@ -442,6 +442,27 @@ def remove_attachment(db: Session, product_id: int, attachment_id: int) -> None:
         raise LookupError("attachment")
     call(RemoveAsset(asset_id=attachment.media_asset_id), db)
     db.delete(attachment)
+    db.flush()
+    db.commit()
+
+
+def set_attachment_text(
+    db: Session,
+    product_id: int,
+    attachment_id: int,
+    *,
+    title: str,
+    description: str,
+) -> None:
+    """The article's own words for a file (S1): a document's `title` (the link's
+    text) and a picture's `description` (its `alt`). Both live here, on the
+    article's link, not on the shared media file. An attachment that is not this
+    article's, or is not there, raises `LookupError` and changes nothing."""
+    attachment = db.get(ProductAttachment, attachment_id)
+    if attachment is None or attachment.product_id != product_id:
+        raise LookupError("attachment")
+    attachment.title = title or None
+    attachment.description = description or None
     db.flush()
     db.commit()
 
