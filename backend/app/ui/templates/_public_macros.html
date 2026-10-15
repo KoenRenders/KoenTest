@@ -59,16 +59,46 @@
 
 {# An album on the photo overview: the kit's card as a link, the cover in
    16 : 9 to its edges, the name and the date under it. #}
-{% macro photo_card(name, href, cover, date=None) -%}
-{% call ui.card(href=href, attrs="data-photo-card") %}
+{# CR-32 R14 (F13): the SAME card, optionally MOVING — `frames` is a list of
+   `{src, name, date, href}`, `interval` the seconds between two (0: it stands
+   still). The server draws the first frame; with more than one frame and an
+   interval, Alpine swaps the one picture slot, the name, the date and the link
+   to the next frame, photo by photo, and stops under `prefers-reduced-motion`.
+   `date_text` is the first frame's date, already written (a frame carries its
+   own). No second card macro. #}
+{% macro photo_card(name, href, cover, date=None, frames=None, interval=0, date_text=None) -%}
+{%- set cycling = frames and frames|length > 1 and interval -%}
+{#- The date line of a moving card is drawn whenever ANY frame has a date (an album
+    without one shows a non-breaking space), so the line never comes and goes with the
+    first frame and the card keeps its height. -#}
+{%- set dated = date_text or (cycling and frames|selectattr("date")|list|length > 0) -%}
+{#- A moving card is not boosted: htmx reads a boosted link's address once, when it
+    processes the element, so after Alpine swapped the href a click still opened the
+    FIRST album (seen in the e2e). A plain link follows the href it has now. -#}
+{%- set _attrs -%}data-photo-card{% if cycling %} hx-boost="false" :href="f.href"{% endif %}{%- endset -%}
+{%- if cycling -%}
+{#- The wrapper owns the state, so the pause button (a button may not sit inside the
+    card's link) shares it. WCAG 2.2.2: movement that starts by itself and lasts over
+    five seconds can be paused. `moving` is false under prefers-reduced-motion: then
+    nothing moves and the button is not shown. -#}
+<div data-photo-moving x-data='{ frames: {{ frames|tojson }}, i: 0, paused: false, moving: false, t: null, get f() { return this.frames[this.i] }, init() { if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return; this.moving = true; this.t = setInterval(() => { if (!this.paused) this.i = (this.i + 1) % this.frames.length }, {{ interval * 1000 }}) }, destroy() { clearInterval(this.t) } }'>
+{%- endif %}
+{% call ui.card(href=href, attrs=_attrs) %}
   <div class="aspect-video bg-surface-2 overflow-hidden">
-    <img src="{{ cover }}" alt="{{ name }}" class="w-full h-full object-cover" loading="lazy">
+    <img src="{{ cover }}" alt="{{ name }}" class="w-full h-full object-cover" loading="lazy"{% if cycling %} :src="f.src" :alt="f.name"{% endif %}>
   </div>
   <div class="p-4">
-    <div class="font-semibold text-ink">{{ name }}</div>
-    {% if date %}<div class="text-sm text-ink-soft mt-1">{{ date|kortedatum }}</div>{% endif %}
+    <div class="font-semibold text-ink"{% if cycling %} x-text="f.name"{% endif %}>{{ name }}</div>
+    {% if dated %}<div class="text-sm text-ink-soft mt-1"{% if cycling %} x-text="f.date || '\u00a0'"{% endif %}>{{ date_text or "&nbsp;"|safe }}</div>
+    {% elif date %}<div class="text-sm text-ink-soft mt-1">{{ date|kortedatum }}</div>{% endif %}
   </div>
 {% endcall %}
+{%- if cycling %}
+  <div class="mt-2" x-show="moving" x-cloak>
+    {{ ui.btn_outline(_("Pauzeer"), size="sm", aria_label=_("Beweging van de albumkaart pauzeren of hervatten"), attrs='@click="paused = !paused" :aria-pressed="paused" x-text="paused ? \'Hervat\' : \'Pauzeer\'"') }}
+  </div>
+</div>
+{%- endif %}
 {%- endmacro %}
 
 {# ── The lightbox and the photo grid (CR-11 pilot C, C3 — #1665; end state §2.7).
