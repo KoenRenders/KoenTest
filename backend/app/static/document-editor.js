@@ -322,13 +322,20 @@
      draws her, so the author sees the row she is making; her icon is taken
      from the dialog's own choice of icons, the one place the page carries the
      kit's drawings. */
-  var CARD_ATTRS = ["title", "line", "icon", "media_id", "labels", "page_id", "href", "form_slug", "screen"];
+  var CARD_ATTRS = ["title", "number", "text", "line", "icon", "media_id", "labels", "page_id", "href", "form_slug", "screen"];
 
   function cardView(node, mediaUrl, mountId) {
     var a = node.attrs;
     var dom = document.createElement("div");
-    dom.className = "prose-card";
+    var hasDestination = !!(a.page_id || a.href || a.form_slug || a.screen);
+    dom.className = hasDestination ? "prose-card" : "prose-card prose-card--text";
     dom.setAttribute("data-card", "");
+    if (a.number) {
+      var number = document.createElement("span");
+      number.className = "prose-card-number";
+      number.textContent = a.number;
+      dom.appendChild(number);
+    }
     if (a.media_id) {
       var img = document.createElement("img");
       img.className = "prose-card-picture";
@@ -358,6 +365,12 @@
       line.className = "prose-card-line";
       line.textContent = a.line;
       dom.appendChild(line);
+    }
+    if (a.text) {
+      var text = document.createElement("p");
+      text.className = "prose-card-text";
+      text.textContent = a.text;
+      dom.appendChild(text);
     }
     if (a.labels && a.labels.length) {
       var labels = document.createElement("span");
@@ -1124,6 +1137,8 @@
        carried only the new destination kept the old one on the node. */
     var attrs = {
       title: choice.title || "",
+      number: choice.number || null,
+      text: choice.text || null,
       line: choice.line || null,
       icon: choice.top === "icon" ? choice.icon || null : null,
       media_id: choice.top === "picture" ? choice.media_id || null : null,
@@ -1136,7 +1151,8 @@
     if (choice.kind === "page") attrs.page_id = choice.page_id;
     else if (choice.kind === "form") attrs.form_slug = choice.form_slug;
     else if (choice.kind === "screen") attrs.screen = "lid-worden";
-    else attrs.href = choice.href || "";
+    else if (choice.kind === "href") attrs.href = choice.href || "";
+    /* "none": a text card — every destination stays null (CR-32 R4). */
     var pos = choice.pos;
     if (choice.mode === "new" || pos === null || pos === undefined) {
       editor

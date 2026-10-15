@@ -854,6 +854,9 @@ body[data-shell="site"]>main{padding-bottom:24px}
 .prose-raak .prose-card-title{font-size:18px;line-height:1.35;font-weight:600;color:var(--ink);text-decoration:none}
 .prose-raak a.prose-card-title::after{content:"";position:absolute;inset:0}
 .prose-raak a.prose-card-title:focus-visible{outline:none}
+.prose-card-number{font-size:14px;font-weight:700;letter-spacing:.06em;color:rgb(var(--c-brand))}
+.prose-card--text{gap:6px}
+.prose-card-text{margin:0;font-size:16px;line-height:1.5;color:rgb(var(--c-ink-soft))}
 .prose-card-line{font-size:16px;line-height:1.5;color:rgb(var(--c-ink-soft))}
 .prose-card-labels{font-size:12px;line-height:1.5;color:rgb(var(--c-ink-soft))}
 @media (max-width:639.98px){

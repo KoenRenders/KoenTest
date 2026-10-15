@@ -165,6 +165,10 @@ NODES: dict[str, dict[str, Any]] = {
     "card": {
         "attrs": {
             "title": "str",
+            # CR-32 R4: a card with no destination is a text card — a number, a
+            # heading and a paragraph that only say something. Not a second node.
+            "number": "str?",
+            "text": "str?",
             "line": "str?",
             "icon": "str?",
             "media_id": "int?",
@@ -478,7 +482,7 @@ def _content_rule(node_type: str) -> tuple[set[str], int, int | None] | None:
 MAX_DEPTH = 64
 
 
-def _one_destination(node_type: str, word: str, attrs: dict) -> None:
+def _one_destination(node_type: str, word: str, attrs: dict, *, optional: bool = False) -> None:
     """Koen's four destinations (11 October 2026) are a shape rule of the
     button and of the card alike: exactly one of them is set — two is a
     document the resolver cannot resolve, none a link that leads nowhere. An
@@ -488,6 +492,8 @@ def _one_destination(node_type: str, word: str, attrs: dict) -> None:
     ends, which agreed on the start only). `word` is the block's name in the
     refusal ("een knop", "een kaart")."""
     targets = [k for k in _DESTINATION_ATTRS if attrs.get(k) is not None]
+    if optional and not targets:
+        return
     if len(targets) != 1:
         raise InvalidShape(
             f"Onjuiste vorm: {word} wijst naar precies één bestemming"
@@ -588,7 +594,9 @@ def _validate_node(node: Any, path: str) -> None:
     if node_type == "button":
         _one_destination("button", "een knop", attrs)
     if node_type == "card":
-        _one_destination("card", "een kaart", attrs)
+        # A card without a destination is a text card (CR-32 R4); two are
+        # still refused — the resolver could not choose.
+        _one_destination("card", "een kaart", attrs, optional=True)
         # A title is words, not an empty string: the whole card is the link
         # and the title is what it is called.
         if not attrs["title"].strip():
