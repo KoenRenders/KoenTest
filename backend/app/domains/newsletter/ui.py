@@ -40,11 +40,19 @@ def _page(
     *,
     email: str = "",
     token: str = "",
+    action: str = "",
+    resubscribed: bool = False,
     error: str | None = None,
     template: str = "nieuwsbrief.html",
 ) -> HTMLResponse:
     view = PublicNewsletterView(
-        state=state, email=email, token=token, error=error, site=site_context(db, request)
+        state=state,
+        email=email,
+        token=token,
+        action=action,
+        resubscribed=resubscribed,
+        error=error,
+        site=site_context(db, request),
     )
     return templates.TemplateResponse(request, template, view.as_context())
 
@@ -147,6 +155,41 @@ async def unsubscribe(token: str, request: Request, db: Session = Depends(get_db
     return _page(request, db, "unsubscribed", email=subscriber.email, token=token)
 
 
+@router.get("/nieuwsbrief/uitschrijven/d/{link}", response_class=HTMLResponse)
+def unsubscribe_participant_page(link: str, request: Request, db: Session = Depends(get_db)):
+    """The page behind the unsubscribe link of a letter to earlier participants (CR-36):
+    signed per delivery, nothing stored. A link that does not check out answers like any
+    link that no longer works."""
+    delivery = nb.participant_delivery_by_link(db, link)
+    if delivery is None:
+        return _page(request, db, "invalid")
+    return _page(
+        request,
+        db,
+        "unsubscribe",
+        email=delivery.email,
+        action=f"/nieuwsbrief/uitschrijven/d/{link}",
+    )
+
+
+@router.post("/nieuwsbrief/uitschrijven/d/{link}", response_class=HTMLResponse)
+async def unsubscribe_participant(link: str, request: Request, db: Session = Depends(get_db)):
+    """The button on that page, and the mail client's one-click POST (RFC 8058). Not
+    rate-limited, as the other unsubscribe route: it can only ever remove the address the
+    link belongs to. The address becomes a row of the subscriber list, unsubscribed; the
+    page then offers the existing "Toch opnieuw" with that row's own token."""
+    form = await request.form()
+    one_click = form.get("List-Unsubscribe") == "One-Click"
+    subscriber = nb.unsubscribe_participant(db, link)
+    if one_click:
+        return PlainTextResponse("ok" if subscriber is not None else "unknown")
+    if subscriber is None:
+        return _page(request, db, "invalid")
+    return _page(
+        request, db, "unsubscribed", email=subscriber.email, token=subscriber.unsubscribe_token
+    )
+
+
 @router.post(
     "/nieuwsbrief/opnieuw/{token}",
     response_class=HTMLResponse,
@@ -157,4 +200,4 @@ def resubscribe(token: str, request: Request, db: Session = Depends(get_db)):
     subscriber = nb.resubscribe(db, token)
     if subscriber is None:
         return _page(request, db, "invalid")
-    return _page(request, db, "confirmed", email=subscriber.email)
+    return _page(request, db, "confirmed", email=subscriber.email, resubscribed=True)

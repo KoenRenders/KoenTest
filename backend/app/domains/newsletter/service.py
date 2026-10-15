@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from app.domains.newsletter.models import (
     ERASED_ADDRESS,
     Audience,
+    AudienceActivity,
     Delivery,
     DeliveryKind,
     DeliveryStatus,
@@ -245,6 +246,53 @@ def unsubscribe(db: Session, token: str) -> Optional[Subscriber]:
     return subscriber
 
 
+def participant_delivery_by_link(db: Session, link: str) -> Optional[Delivery]:
+    """The delivery a participant's signed unsubscribe link names, or None: a bad
+    signature, a link of another shape and a delivery that does not exist answer
+    alike (no oracle)."""
+    from app.kernel.signing import verify
+
+    number, _dot, signature = (link or "").partition(".")
+    if not number.isdigit() or not signature:
+        return None
+    if not verify(UNSUBSCRIBE_CONTEXT, int(number), signature=signature):
+        return None
+    delivery = db.get(Delivery, int(number))
+    if delivery is None or delivery.kind != DeliveryKind.PARTICIPANT:
+        return None
+    return delivery
+
+
+def unsubscribe_participant(db: Session, link: str) -> Optional[Subscriber]:
+    """The unsubscribe link of a participant, without a login. The address becomes a
+    row of the subscriber list with the status *unsubscribed* and the source
+    *participant* (Koen, 15 October 2026: "dan wordt hij als abonnee direct toegevoegd
+    met de status dat hem uitgeschreven is"), so one rule holds for everybody; a row
+    the address already has is set to unsubscribed instead. Idempotent."""
+    delivery = participant_delivery_by_link(db, link)
+    if delivery is None:
+        return None
+    address = normalize_email(delivery.email)
+    if address is None:
+        return None
+    subscriber = subscriber_by_email(db, address)
+    if subscriber is None:
+        subscriber = Subscriber(
+            email=address,
+            source=SubscriberSource.PARTICIPANT,
+            status=SubscriberStatus.UNSUBSCRIBED,
+            unsubscribed_at=_now(),
+            unsubscribe_token=_token(),
+        )
+        db.add(subscriber)
+    elif subscriber.status != SubscriberStatus.UNSUBSCRIBED:
+        subscriber.status = SubscriberStatus.UNSUBSCRIBED
+        subscriber.unsubscribed_at = _now()
+        subscriber.confirm_token = None
+    db.commit()
+    return subscriber
+
+
 def resubscribe(db: Session, token: str) -> Optional[Subscriber]:
     """ "Toch opnieuw inschrijven" on the unsubscribe page.
 
@@ -318,6 +366,18 @@ def erase(db: Session, subscriber_id: int) -> None:
     for delivery in db.query(Delivery).filter(Delivery.subscriber_id == subscriber.id).all():
         delivery.email = f"{ERASED_ADDRESS} {delivery.id}"
         delivery.subscriber_id = None
+    if subscriber.status == SubscriberStatus.UNSUBSCRIBED:
+        # The opt-out is the one thing an erasure request may keep (CR-36, C4.4): the
+        # registration is still there, and a row that is gone would let the next letter
+        # to earlier participants reach the address again. The row keeps the
+        # (normalised) address and the status; the name and the tokens go, and the old
+        # link of the unsubscribe page stops working.
+        subscriber.first_name = None
+        subscriber.confirm_token = None
+        subscriber.unsubscribe_token = _token()
+        subscriber.person_id = None
+        db.commit()
+        return
     db.delete(subscriber)
     db.commit()
 
@@ -457,6 +517,8 @@ class AudienceCounts:
     members: int
     non_members: int
     both: int
+    #: Of the letter's chosen earlier activities; 0 until it has chosen any.
+    participants: int = 0
 
     @property
     def overlap(self) -> int:
@@ -510,12 +572,253 @@ def audience_summary(
     )
 
 
-def audience_counts(db: Session) -> AudienceCounts:
+def audience_counts(db: Session, letter: Optional[Newsletter] = None) -> AudienceCounts:
     members = set(member_addresses(db))
     subscribers = {s.email for s in confirmed_subscribers(db)}
+    participants = participant_recipients(db, letter)[1].recipients if letter is not None else 0
     return AudienceCounts(
-        members=len(members), non_members=len(subscribers), both=len(members | subscribers)
+        members=len(members),
+        non_members=len(subscribers),
+        both=len(members | subscribers),
+        participants=participants,
     )
+
+
+# ── Earlier participants (CR-36, #2026) ──────────────────────────────────────
+#
+# A fourth audience: the people registered for the earlier activities the letter
+# names. The portal records no presence, so "attended" means registered (a deleted
+# registration or a cancelled activity counts for nobody; a registration whose payment
+# never completed counts). One rule for everybody (C4.1): somebody on a list already is
+# not mailed twice — a member as a member, a confirmed subscriber as a subscriber, the
+# rest as a participant — and an address that unsubscribed is never mailed through this
+# audience.
+
+#: The working years of activities offered as an audience: this one and the two before
+#: it (Koen, 15 October 2026, Q3: "ja").
+PARTICIPANT_YEARS = 3
+
+#: The signing context of a participant's unsubscribe link (`kernel/signing.py`).
+UNSUBSCRIBE_CONTEXT = "newsletter-unsubscribe"
+
+
+def unsubscribe_link_of(delivery: Delivery, base: str) -> str:
+    """The unsubscribe link of a participant's delivery: signed per delivery, nothing
+    stored — the delivery row gives the address and the letter (C4.2)."""
+    from app.kernel.signing import sign
+
+    return (
+        f"{base.rstrip('/')}/nieuwsbrief/uitschrijven/d/"
+        f"{delivery.id}.{sign(UNSUBSCRIBE_CONTEXT, delivery.id)}"
+    )
+
+
+@dataclass(frozen=True)
+class OfferedActivity:
+    """One earlier activity the author may choose, for the list under the audience."""
+
+    id: int
+    name: str
+    last_date: date
+    addresses: int
+    chosen: bool
+
+
+def chosen_activities(db: Session, letter: Newsletter) -> list[AudienceActivity]:
+    return (
+        db.query(AudienceActivity)
+        .filter(AudienceActivity.newsletter_id == letter.id)
+        .order_by(AudienceActivity.id)
+        .all()
+    )
+
+
+def _offered_spans(db: Session, today: Optional[date] = None) -> dict[int, "object"]:
+    from app.domains.activities.api import past_activities
+
+    today = today or date.today()
+    spans = past_activities(db, since_year=today.year - (PARTICIPANT_YEARS - 1), today=today)
+    return {span.activity.id: span for span in spans}
+
+
+def participant_addresses(
+    db: Session, activity_ids: "list[int] | set[int]"
+) -> tuple[set[str], int]:
+    """The normalised addresses of the people registered for these activities, once
+    each, and how many addresses were skipped because they do not pass the check
+    (C4.3: older registrations may predate the validator)."""
+    from app.domains.activities.api import registration_addresses
+
+    found: set[str] = set()
+    skipped = 0
+    for raw in (
+        set().union(*registration_addresses(db, activity_ids).values()) if activity_ids else ()
+    ):
+        address = normalize_email(raw)
+        if address is None:
+            skipped += 1
+        else:
+            found.add(address)
+    return found, skipped
+
+
+def offered_activities(
+    db: Session, letter: Newsletter, today: Optional[date] = None
+) -> list[OfferedActivity]:
+    """The list under *Eerdere deelnemers*: the past activities of the last three
+    working years, newest first, each with its last date and the number of addresses
+    registered for it, and whether this letter has it."""
+    from app.domains.activities.api import registration_addresses
+
+    spans = _offered_spans(db, today)
+    chosen = {row.activity_id for row in chosen_activities(db, letter)}
+    raw = registration_addresses(db, spans)
+    out = []
+    for activity_id, span in spans.items():
+        addresses = {a for a in (normalize_email(r) for r in raw.get(activity_id, ())) if a}
+        out.append(
+            OfferedActivity(
+                id=activity_id,
+                name=span.activity.name,
+                last_date=span.end,
+                addresses=len(addresses),
+                chosen=activity_id in chosen,
+            )
+        )
+    return out
+
+
+def set_participant_activity(
+    db: Session, letter: Newsletter, activity_id: int, *, chosen: bool, today: Optional[date] = None
+) -> None:
+    """Put an earlier activity in the letter's audience, or take it out. Only an
+    activity of the list can be chosen (the rest is no earlier activity of this
+    tenant), and only on a draft."""
+    _refuse_unless_draft(letter)
+    existing = (
+        db.query(AudienceActivity)
+        .filter(
+            AudienceActivity.newsletter_id == letter.id, AudienceActivity.activity_id == activity_id
+        )
+        .first()
+    )
+    if not chosen:
+        if existing is not None:
+            db.delete(existing)
+            db.commit()
+        return
+    if existing is not None:
+        return
+    span = _offered_spans(db, today).get(activity_id)
+    if span is None:
+        raise NewsletterError(_("Dit is geen eerdere activiteit die je kunt kiezen."))
+    db.add(
+        AudienceActivity(
+            newsletter_id=letter.id,
+            activity_id=activity_id,
+            name=span.activity.name,
+            last_date=span.end,
+        )
+    )
+    db.commit()
+
+
+@dataclass(frozen=True)
+class ParticipantSummary:
+    """Who a letter to *Eerdere deelnemers* goes to, for the sentence on the screens:
+    the numbers, and nothing a template has to work out (cf. `AudienceSummary`)."""
+
+    #: The chosen activities as they stand now: `(name, last date)`, oldest last.
+    activities: list[tuple[str, date]]
+    #: Chosen, then deleted or cancelled before the send: dropped, and said so.
+    dropped: list[str]
+    #: What the letter goes to: each address once.
+    recipients: int
+    #: Of those, the ones that get it as a member, as a subscriber, as a participant.
+    as_member: int
+    as_subscriber: int
+    as_participant: int
+    #: Addresses that unsubscribed earlier and are left out.
+    unsubscribed: int
+    #: Addresses that do not pass the check and are left out.
+    skipped: int
+
+
+def _unsubscribed_addresses(db: Session) -> set[str]:
+    return {
+        email
+        for (email,) in db.query(Subscriber.email)
+        .filter(Subscriber.status == SubscriberStatus.UNSUBSCRIBED)
+        .all()
+    }
+
+
+def participant_recipients(
+    db: Session, letter: Newsletter, today: Optional[date] = None
+) -> tuple[list[Recipient], ParticipantSummary]:
+    """The recipient list of a letter to earlier participants and what is said of it,
+    from one computation: the screen's numbers and the send's list cannot differ.
+
+    Order of precedence (C4.1): a member (the household has a membership this year),
+    then a confirmed subscriber, then a participant; an address with an unsubscribed
+    row is never a participant — a member is never dropped (CR-05 §3.4)."""
+    spans = _offered_spans(db, today)
+    rows = chosen_activities(db, letter)
+    live = [row for row in rows if row.activity_id in spans]
+    dropped = [row.name or str(row.activity_id) for row in rows if row.activity_id not in spans]
+    addresses, skipped = participant_addresses(db, {row.activity_id for row in live})
+    members = set(member_addresses(db, today))
+    subscribers = {s.email: s for s in confirmed_subscribers(db)}
+    unsubscribed = _unsubscribed_addresses(db)
+    out: list[Recipient] = []
+    left_out = 0
+    for email in sorted(addresses):
+        if email in members:
+            out.append(Recipient(email, DeliveryKind.MEMBER, None))
+        elif email in subscribers:
+            out.append(Recipient(email, DeliveryKind.SUBSCRIBER, subscribers[email].id))
+        elif email in unsubscribed:
+            left_out += 1
+        else:
+            out.append(Recipient(email, DeliveryKind.PARTICIPANT, None))
+    summary = ParticipantSummary(
+        activities=sorted(
+            ((spans[row.activity_id].activity.name, spans[row.activity_id].end) for row in live),
+            key=lambda item: item[1],
+            reverse=True,
+        ),
+        dropped=dropped,
+        recipients=len(out),
+        as_member=sum(r.kind == DeliveryKind.MEMBER for r in out),
+        as_subscriber=sum(r.kind == DeliveryKind.SUBSCRIBER for r in out),
+        as_participant=sum(r.kind == DeliveryKind.PARTICIPANT for r in out),
+        unsubscribed=left_out,
+        skipped=skipped,
+    )
+    return out, summary
+
+
+def recipients_of(db: Session, letter: Newsletter) -> list[Recipient]:
+    """The recipient list of this letter — the one place where an audience becomes
+    addresses. Three audiences are lists (`recipients_for`), the fourth is derived
+    from the activities the letter names. A new audience is one more entry here and in
+    `sample_kind_of` (C7)."""
+    if letter.audience == Audience.PARTICIPANTS:
+        return participant_recipients(db, letter)[0]
+    if letter.audience is None:
+        raise NewsletterError(_("Kies eerst voor wie deze nieuwsbrief is."))
+    return recipients_for(db, letter.audience)
+
+
+def sample_kind_of(audience: Optional[Audience]) -> DeliveryKind:
+    """The kind of the sample mail (the test mail and the preview) for an audience:
+    the unsubscribe line shows when the audience can contain somebody who may
+    unsubscribe — everybody but the members (C4.5)."""
+    if audience in (Audience.NON_MEMBERS, Audience.BOTH):
+        return DeliveryKind.SUBSCRIBER
+    if audience == Audience.PARTICIPANTS:
+        return DeliveryKind.PARTICIPANT
+    return DeliveryKind.MEMBER
 
 
 # ── Letters ──────────────────────────────────────────────────────────────────
@@ -872,6 +1175,8 @@ def delete_draft(db: Session, letter: Newsletter) -> None:
     from app.soft_delete import soft_delete
 
     _refuse_unless_draft(letter)
+    for row in chosen_activities(db, letter):
+        db.delete(row)
     soft_delete(letter)
     db.commit()
 
@@ -1633,7 +1938,7 @@ def render_mail(
     footer = [esc(name)]
     if address:
         footer[0] = f"{esc(name)} · {esc(address)}"
-    if kind == DeliveryKind.SUBSCRIBER and unsubscribe_url:
+    if kind != DeliveryKind.MEMBER and unsubscribe_url:
         footer.append(
             esc(
                 _("Je krijgt deze mail omdat je op de mailinglijst van %(naam)s staat.")
@@ -1724,13 +2029,9 @@ def render_test(db: Session, letter: Newsletter, *, base_url: str) -> RenderedLe
     """
     if not (letter.subject or "").strip():
         raise NewsletterError(_("Geef de nieuwsbrief eerst een onderwerp."))
-    kind = (
-        DeliveryKind.SUBSCRIBER
-        if letter.audience in (Audience.NON_MEMBERS, Audience.BOTH)
-        else DeliveryKind.MEMBER
-    )
+    kind = sample_kind_of(letter.audience)
     unsubscribe_url = (
-        f"{base_url}/nieuwsbrief/uitschrijven/test" if kind == DeliveryKind.SUBSCRIBER else None
+        f"{base_url}/nieuwsbrief/uitschrijven/test" if kind != DeliveryKind.MEMBER else None
     )
     body = render_mail(
         db,
@@ -1805,9 +2106,11 @@ def start_sending(
         mode = ReplyToMode(reply_to_mode)
     except ValueError:
         raise NewsletterError(_("Kies waar antwoorden naartoe gaan.")) from None
-    recipients = recipients_for(db, letter.audience)
+    recipients = recipients_of(db, letter)
     if not recipients:
         raise NewsletterError(_("Er is niemand om deze nieuwsbrief naar te sturen."))
+    if letter.audience == Audience.PARTICIPANTS:
+        _fix_audience_activities(db, letter)
 
     for recipient in recipients:
         db.add(
@@ -1832,6 +2135,33 @@ def start_sending(
     enqueue(db, SEND_JOB, {"newsletter_id": letter.id, "tenant_id": current_tenant_id.get()})
     db.commit()
     return len(recipients)
+
+
+def _has_unsubscribed(db: Session, email: str) -> bool:
+    """Whether the (normalised) address has a row that says it unsubscribed."""
+    address = normalize_email(email)
+    if address is None:
+        return False
+    return (
+        db.query(Subscriber.id)
+        .filter(Subscriber.email == address, Subscriber.status == SubscriberStatus.UNSUBSCRIBED)
+        .first()
+        is not None
+    )
+
+
+def _fix_audience_activities(db: Session, letter: Newsletter) -> None:
+    """When the send starts: the chosen activities that are still on the list keep
+    their name and last date as they are now (the archive survives a later deletion),
+    the ones that are not are dropped — the screen said so (C2)."""
+    spans = _offered_spans(db)
+    for row in chosen_activities(db, letter):
+        span = spans.get(row.activity_id)
+        if span is None:
+            db.delete(row)
+        else:
+            row.name = span.activity.name
+            row.last_date = span.end
 
 
 #: How long the send waits before its one retry of a temporary fault (#1783).
@@ -1959,6 +2289,14 @@ def send_batch(db: Session, newsletter_id: int, *, batch_size: int = BATCH_SIZE)
     logo_url = _logo_url(db, letter.link_base or "")
     for delivery in queued:
         unsubscribe_url = None
+        # One re-check for every delivery that is not a member's (C4.2, T11): a send
+        # takes days, and somebody may have unsubscribed through this letter's link or
+        # another letter's — an `unsubscribed` row for the address stops the mail.
+        if delivery.kind != DeliveryKind.MEMBER and _has_unsubscribed(db, delivery.email):
+            delivery.status = DeliveryStatus.SKIPPED
+            delivery.error = _("uitgeschreven tijdens het versturen")
+            db.commit()
+            continue
         if delivery.kind == DeliveryKind.SUBSCRIBER:
             subscriber = (
                 db.get(Subscriber, delivery.subscriber_id) if delivery.subscriber_id else None
@@ -1971,6 +2309,8 @@ def send_batch(db: Session, newsletter_id: int, *, batch_size: int = BATCH_SIZE)
             unsubscribe_url = (
                 f"{letter.link_base}/nieuwsbrief/uitschrijven/{subscriber.unsubscribe_token}"
             )
+        elif delivery.kind == DeliveryKind.PARTICIPANT:
+            unsubscribe_url = unsubscribe_link_of(delivery, letter.link_base or "")
         body = render_mail(
             db, letter, kind=delivery.kind, unsubscribe_url=unsubscribe_url, logo_url=logo_url
         )

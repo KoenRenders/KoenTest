@@ -44,11 +44,13 @@
 {% elif state == "confirmed" %}
   <h1 class="text-3xl font-bold text-kop">{{ _("Je bent ingeschreven") }}</h1>
   <p class="text-base mt-3">{{ _("De volgende nieuwsbrief komt naar %(adres)s. Uitschrijven kan onderaan elke mail.", adres=email) }}</p>
+  {# CR-36: after "Toch opnieuw" the person gets every letter of the list from now on. #}
+  {% if resubscribed %}<p class="text-base mt-3" data-resubscribed>{{ _("Je ontvangt vanaf nu onze nieuwsbrief.") }}</p>{% endif %}
 {% elif state == "unsubscribe" %}
   <h1 class="text-3xl font-bold text-kop">{{ _("Uitschrijven") }}</h1>
   <p class="text-base mt-3">{{ _("Geen nieuwsbrief meer ontvangen op %(adres)s?", adres=email) }}</p>
   <p class="text-sm text-gray-600 mt-1">{{ _("Geen wachtwoord of login nodig.") }}</p>
-  <form class="mt-5" method="post" action="{{ path_for('/nieuwsbrief/uitschrijven/' ~ token) }}" hx-boost="false">
+  <form class="mt-5" method="post" action="{{ path_for(action or ('/nieuwsbrief/uitschrijven/' ~ token)) }}" hx-boost="false">
     {{ ui.btn_primary(_("Uitschrijven"), type="submit", cls="w-full justify-center") }}
   </form>
 {% elif state == "unsubscribed" %}

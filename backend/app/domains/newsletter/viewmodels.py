@@ -234,6 +234,11 @@ class PublicNewsletterView(ViewModel):
     state: str
     email: str = ""
     token: str = ""
+    #: Where the unsubscribe button posts, when it is not the page of a token (a
+    #: participant's signed link, CR-36).
+    action: str = ""
+    #: The page after "Toch opnieuw": it says what that means from now on.
+    resubscribed: bool = False
     error: Optional[str] = None
     site: dict[str, Any] = field(default_factory=dict)
 
