@@ -1,10 +1,10 @@
 # Change Request 36 — Newsletter to the people registered for earlier activities
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped with Koen on 15 October 2026 · not assigned to a release; open decisions in B8
+**Status:** shaped with Koen on 15 October 2026 · not assigned to a release; B8 answered, one point left in B9 (Q4)
 **Tracking issue:** #2026 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (audience choice, recipient list, send screen, Raakje's sources), the activities facade (a read of registration addresses), the unsubscribe page
-**Reading:** A 758 words · B 1 155 · C 1 460 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 758 words · B 1 316 · C 1 466 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -158,10 +158,10 @@ A letter's recipients are always a derived list with one precedence rule and one
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
-| Q1 | May the association mail people who registered for an activity, without their consent, if the letter carries an unsubscribe link? (a) yes, on the existing relationship as for the imported list; (b) only people who ticked agreement on the registration form | a, after the accountant or a privacy adviser agrees; legal facts here are unverified | b needs an answer on both ways in (the public form and the board's registration for someone, where nobody ticks: those count as not agreed) and leaves last year's people out |
-| Q2 | May two chosen activities be combined, so a person of either gets the letter? | yes: union, one mail | a letter naming "last year" must then speak generally |
-| Q3 | Which activities are offered: those of the last three working years? | yes | the list length |
-| Q4 | "Je moet ook een nieuwsbriefje kunnen maken om dat te versnellen": does that mean Raakje drafts the letter for this audience (as it does now)? | yes, it does with R4's sources | nothing to build beyond B1 |
+| Q1 (answered, B9) | May the association mail people who registered for an activity, without their consent, if the letter carries an unsubscribe link? (a) yes, on the existing relationship as for the imported list; (b) only people who ticked agreement on the registration form | a (Koen answered a; the legal check by an accountant or privacy adviser is not done, and the facts here are unverified) | b needs an answer on both ways in (the public form and the board's registration for someone, where nobody ticks: those count as not agreed) and leaves last year's people out |
+| Q2 (answered, B9) | May two chosen activities be combined, so a person of either gets the letter? | yes: union, one mail | a letter naming "last year" must then speak generally |
+| Q3 (answered, B9) | Which activities are offered: those of the last three working years? | yes | the list length |
+| Q4 (answered, B9) | "Je moet ook een nieuwsbriefje kunnen maken om dat te versnellen": does that mean Raakje drafts the letter for this audience (as it does now)? | yes, it does with R4's sources | nothing to build beyond B1 |
 
 ## B9. Decisions log — dated answers
 
@@ -172,6 +172,10 @@ A letter's recipients are always a derived list with one precedence rule and one
 | 15 Oct 2026 | People already registered for the activity the letter advertises stay on the recipient list; no exclusion | Koen, to "moeten mensen die al voor de nieuwe activiteit ingeschreven zijn uit de ontvangerslijst vallen?": "Nee, dat is geen probleem. Als die mensen die nog een mail krijgen, ook al zijn ze al ingeschreven, dat is geen probleem." |
 | 15 Oct 2026 | The portal makes no link between the old activities of the audience and the activity the letter advertises; the author does that in the letter, with the insert helper that exists | Koen, to my explanation of the two kinds of activity: "Ik ben het ook met die redenering eens. [...] Het feit dat er geen link is tussen oud en nieuw, dat is helemaal aan de gebruiker om dat te doen." |
 | 15 Oct 2026 | The new audience is called *Eerdere deelnemers* on the screen | Koen, to the question which word the audience carries (a *Eerdere deelnemers*, b *Ingeschreven op eerdere activiteiten*, c *Aangemeld voor eerdere activiteiten*): "eerdere deelnemers op vraag 1 is een goed voorstel" (my reading: he meant that question) |
+| 15 Oct 2026 | Q1: people registered for an activity are mailed on the existing relationship, with an unsubscribe link (a); the legal check is not done | Koen, to Q1 of Q&A nr. 08 (a or b): "a" (my recommendation carried the condition that an accountant or privacy adviser agrees; he did not say whether that happens) |
+| 15 Oct 2026 | Q2: two chosen activities combine into one audience, one mail | Koen, to Q2: "ja" |
+| 15 Oct 2026 | Q3: the activities offered are those of the last three working years | Koen, to Q3: "ja" |
+| 15 Oct 2026 | Q4: Raakje drafting the letter is a mechanism that exists | Koen, to Q4: "ja, dat is een mechanisme dat nu al bestaat, moet dus niets voor gebeuren" (my reading: nothing new to build for drafting; whether the chosen activities as source of the draft stay in B1 is asked back) |
 | 15 Oct 2026 | Erasure of an address from the archives (the right to be forgotten) is not built in this change; see the known gap under Non-goals | Koen, to my question whether erasure by address should be part of this change: "Het recht om vergeten te worden gaan we voorlopig even laten liggen." |
 
 ---
@@ -276,7 +280,7 @@ Status line, as-built notes folded in, tracking issue closed (`CLAUDE.md` step 1
 
 | Q&A | Date | Question | Status |
 |---|---|---|---|
-| — | 15 Oct 2026 | Q1–Q4 of B8 go into a Q&A file for Koen; the build read of dev2 (#2026, 15 Oct 2026) is taken in | open |
+| 08 | 15 Oct 2026 | Q1–Q4 and 4b of B8 asked in Q&A nr. 08; the build read of dev2 (#2026, 15 Oct 2026) is taken in | answered 15 Oct 2026, in B9 |
 
 ## Non-goals — deliberately outside this change
 
