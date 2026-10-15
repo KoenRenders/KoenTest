@@ -4,7 +4,7 @@
 **Status:** shaped with Koen on 15 October 2026, reshaped the same day from per-person to anonymous · not assigned to a release; B8 answered, a second build read is due
 **Tracking issue:** #2027 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (rendering of a letter, a public pixel and redirect route, the send screen, the archive of sent letters)
-**Reading:** A 887 words · B 1 820 · C 1 522 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 887 words · B 1 917 · C 1 912 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -128,7 +128,7 @@ Proposed text for the privacy statement, to be approved by Koen: *Bij de nieuwsb
 
 ## B1. Solution outline — the solution and the decisions that shape it
 
-The portal counts itself, and does not know who. Each mail carries one **code** that the portal makes while it renders that mail and **does not store with the recipient**: it is a random number plus a signature made with a secret of the portal, so the portal can recognise its own codes later without a list. A pixel (a one-pixel image from the portal's own address) counts an open; a redirect counts a click. An event is a row: letter, code, kind, link, **day**. No address, no delivery, no IP, no device, no time of day. Counting different codes gives *how many people*, counting rows of one code never counts twice.
+The portal counts itself, and does not know who. Each mail carries one **code** that the portal makes while it renders that mail and **does not store with the recipient**: it is a random number plus a signature made with a secret of the portal, so the portal can recognise its own codes later without a list. A pixel (a one-pixel image from the portal's own address) counts an open; a redirect counts a click. An event is a row: letter, code, kind, link, **day**. No address, no delivery, no IP, no device, no time of day. The portal's own e-mail log would tie a code to its recipient, so the body written to that log has every code replaced by a fixed placeholder; the mail that leaves is unchanged. Counting different codes gives *how many people*, counting rows of one code never counts twice.
 
 Facts that shape the screen: an open is an **indication** (mail programs that load images in advance show an open that never happened, programs that block images hide a real one), and so is a click (a mail filter that tests links in advance clicks every link). The screen says *indicatie* on both.
 
@@ -175,7 +175,7 @@ flowchart LR
 | R4 | Every letter carries the pixel and the rewritten links; there is no switch | B1 | newsletter | T1, T13 | AC4 |
 | R5 | A footer line in every letter, and a section in the privacy statement | B1 | newsletter, cms | T10, T11, T13 | AC5, AC8 |
 | R6 | The unsubscribe link is left as it is | B1 | newsletter | T2 | AC3 |
-| R7 | Won't: nothing is stored that names a person; a gate on the table's columns keeps it so | B1 | newsletter | T7 | AC7 |
+| R7 | Won't: nothing is stored that names a person; a gate on the table's columns and on the e-mail log keeps it so | B1 | newsletter, mail | T7, T17 | AC7 |
 | R8 | Won't: no switch and no button; counting is anonymous | B1 | newsletter | — | — |
 | R9 | Won't: not asked | — | — | — | — |
 
@@ -196,7 +196,7 @@ flowchart LR
 *The author again (Archief)*
 
 7. Open the letter. See: *Resultaat* says opened 1 (indicatie), clicked 1 (indicatie), and the link list shows 1 for the link clicked twice. In the list: columns for the number of links, opened % and clicked %.
-8. Read the result. See: no name, address or time anywhere.
+8. Read the result and the e-mail log of the letter. See: no name, address or time in the result, and no code in the logged mail.
 
 *The administrator*
 
@@ -220,11 +220,15 @@ flowchart LR
   subgraph CMS["cms"]
     cc["changed: the privacy page gets a newsletter section (migration)"]:::chg
   end
+  subgraph MAIL["mail"]
+    mg["changed: the logged body carries no code"]:::chg
+  end
   subgraph KER["kernel"]
-    ku["used: the portal's signing secret"]:::use
+    ku["new: signing helper, shared with CR-36"]:::new
   end
   nc -->|code per mail| nn
   nn -->|signature| ku
+  nc -->|api| mg
   classDef new fill:#eef7ee,stroke:#005d29
   classDef chg fill:#fff7ed,stroke:#f16532
   classDef use fill:#eeeeee,stroke:#52607a
@@ -244,7 +248,7 @@ erDiagram
 
 *New: `LETTER_LINK` and `LETTER_EVENT`. The event holds no address, delivery, IP or time of day; the code is random and stored nowhere else.*
 
-Everything inside `newsletter`: the rendering (`render_mail`, `render_text`) rewrites links and adds the pixel in every letter; two public routes, `/nieuwsbrief/o/<code>.gif` (the pixel) and `/nieuwsbrief/k/<code>/<link>` (the click); table `newsletter.letter_links` (per letter: id, url, filled the first time a link is rendered) and `newsletter.letter_events` (letter, code, kind, link, day; unique on letter, code, kind and link). Four entries in `newsletter.api` (record an open, record a click, look a link up, the results) because the screens may call only the facade. No other domain changes, and **no token on the delivery**: CR-36 (#2026) keeps its own.
+Everything inside `newsletter`: the rendering (`render_mail`, `render_text`) rewrites links and adds the pixel in every letter; two public routes, `/nieuwsbrief/o/<code>.gif` (the pixel) and `/nieuwsbrief/k/<code>/<link>` (the click); table `newsletter.letter_links` (per letter: id, url, filled the first time a link is rendered) and `newsletter.letter_events` (letter, code, kind, link, day; unique on letter, code, kind and link). Four entries in `newsletter.api` (record an open, record a click, look a link up, the results) because the screens may call only the facade. The mail facade gains one function (the body for the log, without the codes), and `kernel` gets the signing helper CR-36 shares. No token on the delivery: CR-36's unsubscribe link is signed with the same helper.
 
 ## B3a. Standards the model follows — and where it deviates, on purpose
 
@@ -256,7 +260,7 @@ None. The two public routes name their callers in the CONTRACT (a mail client; a
 
 ## B5. Cost — investment and running cost, and what operations must know
 
-About 5 days (my estimate, to be set by the build read). Running cost: one small row per different code per open and per click, kept. Operations: a link in a letter points at the portal's address; if the portal is down, links of a sent letter fail until it is back — said in the CONTRACT. The signing secret is derived from the portal's existing secret; rotating that secret makes the codes of letters sent earlier unrecognisable, so their late opens and clicks are not counted.
+About 5 days (my estimate, to be set by the build read). Running cost: one small row per different code per open and per click, kept. Operations: a link in a letter points at the portal's address; if the portal is down, links of a sent letter fail until it is back — said in the CONTRACT. The signing secret is derived from the portal's existing secret; rotating that secret makes the codes of letters sent earlier unrecognisable, so their late opens and clicks are not counted. The sending mailbox keeps the sent mails with their codes: the portal keeps no link, the mailbox is the association's.
 
 ## B6. Phasing — shippable phases, and what changes on the failure paths
 
@@ -307,6 +311,7 @@ Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2
 | Concept or claim | Kind | Measurement | Verdict | Consequence |
 |---|---|---|---|---|
 | One mail per recipient | relies on | `send_batch`, `newsletter/service.py:1817` | holds | a code per rendered mail |
+| `send_campaign_mail` logs every campaign mail with its recipient and full body for 365 days, and a campaign mail has no retry job | relies on / changes | `mail/service.py:220–250`, `:481–487`; `config.py:37` | measured by the architecture review of 15 October: today a code joins to a recipient through the log | the body is logged with the codes replaced (C4.2, T17) |
 | `render_mail` and `render_text` know the unsubscribe URL, not a code | changes | `service.py:1501, 1473`; call site `1868` | must change | both gain an optional `code`, default none |
 | The links of an activity block are made when the letter is rendered, not in the stored body | changes | `expand_blocks`, `service.py:1195–1230` | must change | rewrite on the rendered HTML; the link store fills on first use (C4.1) |
 | The letter's origin is `link_base` | relies on | `service.py:1515` | holds | pixel and redirect use it |
@@ -320,13 +325,14 @@ Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2
 
 ## C2. Per module: what must happen
 
-- **newsletter**: `letter_links` (tenant, letter, url, unique on letter and url); `letter_events` (tenant, letter, code, kind, link, day, unique on letter, code, kind, link); a function that makes a code (random number, signature over letter id and number, derived from the portal's secret with its own context) and one that verifies it; `render_mail` and `render_text` take an optional `code`; one rewrite function for the HTML and the text; the pixel at the end of the HTML only; the footer line in HTML and text; the two routes; `api.py`: `record_open`, `record_click`, `link_target`, `results_of`; the archive block and the list columns (subject, number of links, opened %, clicked %).
+- **newsletter**: `letter_links` (tenant, letter, url, unique on letter and url); `letter_events` (tenant, letter, code, kind, link, day; unique on letter, code, kind, link as `UNIQUE NULLS NOT DISTINCT`, because the link is empty for an open and a plain unique key lets one code open twice); the code made and verified with the shared helper `kernel/signing.py` (`sign(context, *parts)`, `verify(...)`; random number and signature over letter id and number, derived from the portal's secret with its own context), also used by CR-36's unsubscribe link, whichever of the two lands first builds it; one function in the mail facade that replaces every code by a placeholder in the body before it is logged; `render_mail` and `render_text` take an optional `code`; one rewrite function for the HTML and the text; the pixel at the end of the HTML only; the footer line in HTML and text; the two routes; `api.py`: `record_open`, `record_click`, `link_target`, `results_of`; the archive block and the list columns (subject, number of links, opened %, clicked %).
 - **cms**: the section of the privacy statement (Q5).
 - **templates**: the result block, the links list and the list columns in the archive.
 
 ## C3. Cross-cutting impact — the checklist of what gets forgotten
 
-- CR-33 attribute register: the events are about no person (*intern*, no personal attribute); the signing secret is a secret, not an attribute.
+- CR-33 attribute register: an entry per column, classification *intern*: `letter_links.url`, `letter_events.code`, `kind`, `link_id`, `day`; the signing secret is a secret, not an attribute. `email_log.body` is already *nooit* in the inventory, which is why the placeholder matters.
+- The migration of the privacy section runs after CR-17's conversion of page bodies (#2023, the page editor, also v2.17), or detects the format of the body first; the second to land cannot know the first, so the build names the order.
 - CONTRACT.md of `newsletter`: two public routes with their callers, the rewritten links, and that a link of a sent letter fails while the portal is down.
 - The privacy statement (the `privacy` CMS page, tested by `cms/tests/test_cms_privacy.py`) and the footer line (Q1, Q5).
 - Alembic: one migration; head counted before the push.
@@ -334,9 +340,9 @@ Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2
 
 ## C4. Detailed decisions — one subsection each, with the reasons
 
-**C4.1 Rewriting.** After `expand_blocks` and `with_inline_styles`, on the rendered HTML, and on the URLs of the text part. Every `http` and `https` link is rewritten except the unsubscribe link; `mailto:`, `tel:` and in-page anchors stay. The destination is read from `letter_links`, never from the request, so the route cannot be an open redirect; the store row is created the first time a link is rendered, under the unique key (letter, url). Known limit, measured in C8: when the visible text of a link is a URL, the href differs from the text and some filters weigh that.
+**C4.1 Rewriting.** After `expand_blocks` and `with_inline_styles`, on the rendered HTML, and on the URLs of the text part. Every `http` and `https` link is rewritten except the unsubscribe link; `mailto:`, `tel:` and in-page anchors stay. The destination is read from `letter_links`, never from the request, so the route cannot be an open redirect; the store row is created the first time a link is rendered, as an insert that does nothing on a conflict on the unique key (letter, url). The rewrite skips a link that already points under `/nieuwsbrief/k/` and the pixel itself, so rendering the same HTML twice does not wrap a link twice. Known limit, measured in C8: when the visible text of a link is a URL, the href differs from the text and some filters weigh that.
 
-**C4.2 The code and the pixel.** The code is `<letter id>.<12 random bytes>.<signature>`; it is made in `render_mail` for each mail and stored nowhere. `GET /nieuwsbrief/o/<code>.gif` verifies the signature without a query, answers the same 43-byte GIF with `no-store` for a good and a bad code, and writes (letter, code, open, day) once. No per-IP limit, for the reason in C1.
+**C4.2 The code and the pixel.** The code is `<letter id>.<12 random bytes>.<signature>`; it is made in `render_mail` for each mail and stored nowhere, not in the e-mail log either (the logged body carries a placeholder). `GET /nieuwsbrief/o/<code>.gif` verifies the signature without a query, answers the same 43-byte GIF with `no-store` for a good and a bad code, and writes (letter, code, open, day) once. No per-IP limit, for the reason in C1.
 
 **C4.3 Click.** `GET /nieuwsbrief/k/<code>/<link_id>`: the signature must verify and the link must belong to the letter in the code, else 404; the event is written once per (letter, code, link), a failing write is swallowed, the answer is a 302.
 
@@ -350,7 +356,7 @@ Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2
 
 ## C5. Privacy and security — the mechanics behind A7
 
-No IP, no user agent, no address, no delivery, no time of day. The signature uses a key derived from the portal's secret with its own context string, so a code cannot be forged without the secret and a forged code costs no query. The click route forwards only to a stored address. A scanner that follows a link counts a click; the screen says *indicatie*.
+No IP, no user agent, no address, no delivery, no time of day. The signature uses a key derived from the portal's secret with its own context string, so a code cannot be forged without the secret and a forged code costs no query. The click route forwards only to a stored address. A scanner that follows a link counts a click; the screen says *indicatie*. What stays outside the portal: the sending mailbox keeps every sent mail with its code. The portal keeps nothing that links a code to a person; the mailbox is the association's own practice and Koen's.
 
 ## C6. Tests — what the build must prove
 
@@ -360,8 +366,8 @@ No IP, no user agent, no address, no delivery, no time of day. The signature use
 | T2 | every external link of the rendered letter, an activity block's links included, goes through the portal; the unsubscribe link does not |
 | T3 | a click forwards to the stored address and writes one event; a second click of the same code writes none |
 | T4 | a link id of another letter, or a code of another letter, gives 404 and writes nothing |
-| T5 | a code with a wrong signature gives the GIF and writes nothing, and runs no query |
-| T6 | two different codes opening count as two openings; one code opening twice counts one |
+| T5 | a code with a wrong signature gives the GIF and writes nothing (that it runs no query is a design sentence, not asserted) |
+| T6 | two different codes opening count as two openings; one code opening twice counts one, proved with a direct second insert that the constraint refuses, not by the service's own check |
 | T7 | the table `letter_events` has no column for an address, a delivery, an IP or a time of day (a gate that lists its columns) |
 | T8 | the test mail and the preview carry no pixel and no rewritten link |
 | T9 | a failing event write still redirects |
@@ -369,6 +375,7 @@ No IP, no user agent, no address, no delivery, no time of day. The signature use
 | T11 | after the privacy migration the `privacy` page has the newsletter section, and a second run adds nothing |
 | T13 | a member's letter carries the footer line |
 | T14 | fifty pixel fetches of different codes from one address are all recorded |
+| T17 | after one letter is sent in a test, no row of `email_log.body` contains `/nieuwsbrief/o/` or `/nieuwsbrief/k/` (proved by an additive violation: log the unreplaced body) |
 | T15 | a link that appears for the first time in the third batch gets a store row |
 | T16 | the archive list percentages equal the counts of the events |
 
@@ -393,6 +400,7 @@ Status line, as-built notes folded in, tracking issue closed (`CLAUDE.md` step 1
 | Q&A | Date | Question | Status |
 |---|---|---|---|
 | 08 | 15 Oct 2026 | Q1–Q5 of B8 asked as questions 5 to 9 of Q&A nr. 08; the build read of dev2 (#2027, 15 Oct 2026) was on the per-person version and is taken in where it still applies | answered 15 Oct 2026, in B9; a second build read is due |
+| — | 15 Oct 2026 | The architecture review on #2027 (15 Oct 2026): A1 (the e-mail log tied a code to a person: the logged body carries a placeholder), A4 (`UNIQUE NULLS NOT DISTINCT`), B1 (one signing helper in `kernel`), B2, B3, B4 (order with CR-17), B5 (CR-33 entries) and C1 are taken in; A2 (fold the rows into counts), A3 (a floor of ten addresses) and A5 (pixel or clicks only) are Koen's and are put to him by the architecture CLI | taken in; three points open for Koen |
 
 ## Non-goals — deliberately outside this change
 
