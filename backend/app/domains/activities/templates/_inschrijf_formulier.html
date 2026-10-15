@@ -22,6 +22,9 @@
   <form id="inschrijf-form" class="contents" data-record-form data-message="#inschrijf-melding" novalidate
         hx-post="{{ form_url }}" hx-target="{{ reg_target }}" hx-select="{{ reg_target }}"
         hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap">
+    {# #2039: the guard of every public form that mails a typed address; the board's own
+       channel passes `TRUSTED` and does not read it. #}
+    {{ ui.form_guard_fields() }}
     {% if reg_board %}
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input type="hidden" name="onderdeel" value="{{ onderdeel_id }}">

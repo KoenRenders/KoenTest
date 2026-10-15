@@ -11,7 +11,7 @@ from app.domains.auth import login as auth_login
 from app.domains.auth.api import SESSION_COOKIE, LoginToken
 from app.domains.auth.login import MAX_OTP_ATTEMPTS
 from app.limiter import login_limiter
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields
 
 FIXED_OTP = "424242"
 
@@ -27,7 +27,7 @@ def _latest_token(db_session, email):
 
 def test_otp_locks_out_after_max_attempts(client, db_session, monkeypatch):
     monkeypatch.setattr(auth_login, "_generate_otp", lambda: FIXED_OTP)
-    client.post("/aanmelden", data={"email": SEEDED_ADMIN_EMAIL})
+    client.post("/aanmelden", data={**form_guard_fields(), "email": SEEDED_ADMIN_EMAIL})
     code = FIXED_OTP
     wrong = "000000"
 
@@ -47,10 +47,10 @@ def test_otp_locks_out_after_max_attempts(client, db_session, monkeypatch):
 
 
 def test_new_request_login_invalidates_previous_otp(client, db_session):
-    client.post("/aanmelden", data={"email": SEEDED_ADMIN_EMAIL})
+    client.post("/aanmelden", data={**form_guard_fields(), "email": SEEDED_ADMIN_EMAIL})
     token1_id = _latest_token(db_session, SEEDED_ADMIN_EMAIL).id
 
-    client.post("/aanmelden", data={"email": SEEDED_ADMIN_EMAIL})
+    client.post("/aanmelden", data={**form_guard_fields(), "email": SEEDED_ADMIN_EMAIL})
     db_session.expire_all()
 
     token1 = db_session.query(LoginToken).filter(LoginToken.id == token1_id).first()

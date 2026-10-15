@@ -13,7 +13,12 @@ verplichte zijn verplicht.
 
 import pytest
 
-from tests.conftest import form_fields, seed_activity_with_product, seed_postal_code
+from tests.conftest import (
+    form_fields,
+    form_guard_fields,
+    seed_activity_with_product,
+    seed_postal_code,
+)
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -74,6 +79,10 @@ def test_the_word_lid_page_sends_what_the_reader_reads(client, db_session):
     # and the browser sends it empty.
     assert fields["h.n0.gender_code"] == ""
 
+    # The page carries the guard's two fields (#2039); a person takes more than two seconds to
+    # type, so the token the test posts is one from a form shown five seconds ago.
+    assert {"website", "form_ts"} <= set(fields)
+    typed.update(form_guard_fields())
     resp = client.post("/lid-worden", data={**fields, **typed, "h.n0.gender_code": "F"})
     assert resp.status_code == 200, resp.text[:400]
     # Read back the way the new member would: signed in, on Mijn gezin.

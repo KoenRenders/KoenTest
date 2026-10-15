@@ -18,7 +18,7 @@ from __future__ import annotations
 import pytest
 
 from app.domains.activities.api import Registration
-from tests.conftest import seed_activity_with_product
+from tests.conftest import form_guard_fields, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -39,6 +39,7 @@ def _register_online(client, db_session) -> int:
     response = client.post(
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
         data={
+            **form_guard_fields(),
             "contact_name": "Betaler Bea",
             "contact_email": "betaler@example.com",
             "phone": "0470000000",

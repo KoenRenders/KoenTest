@@ -1,7 +1,12 @@
 """Fase 4a-4 (#402): admin-activiteitenbeheer server-rendered (htmx)."""
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product, sent_to_sign_in
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    form_guard_fields,
+    seed_activity_with_product,
+    sent_to_sign_in,
+)
 
 
 def _login(client):
@@ -83,6 +88,7 @@ def test_admin_inschrijvingen_en_export(client, db_session):
     client.post(
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
         data={
+            **form_guard_fields(),
             "contact_name": "Jef",
             "contact_email": "jef@example.com",
             "phone": "047",

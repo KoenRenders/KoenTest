@@ -24,7 +24,7 @@ Koen would have hit.
 import pytest
 
 from app.domains.auth.api import User, UserRole
-from tests.conftest import sent_to_sign_in
+from tests.conftest import form_guard_fields, sent_to_sign_in
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -43,7 +43,7 @@ def _login_through_the_screen(client, db, email, monkeypatch):
     from app.domains.auth import login as auth_login
 
     monkeypatch.setattr(auth_login, "_generate_otp", lambda: "424242")
-    client.post("/aanmelden", data={"email": email})
+    client.post("/aanmelden", data={**form_guard_fields(), "email": email})
     return client.post("/aanmelden/code", data={"email": email, "code": "424242"})
 
 
@@ -110,7 +110,7 @@ def test_you_land_on_the_site_whatever_your_role(client, db_session, monkeypatch
 
 def test_an_invalid_e_mail_address_is_refused_before_anything_is_sent(client, db_session):
     """De derde ongedekte regel (`auth/ui.py:40`): geen `@` betekent geen poging."""
-    resp = client.post("/aanmelden", data={"email": "geen-adres"})
+    resp = client.post("/aanmelden", data={**form_guard_fields(), "email": "geen-adres"})
 
     assert resp.status_code == 200
     assert "geldig e-mailadres" in resp.text

@@ -189,7 +189,7 @@ def test_signed_out_the_page_asks_to_sign_in_and_comes_back(client, sint, member
     assert parse_qs(location.query)["terug"] == [page]
 
     client.get("/aanmelden", params={"terug": page})
-    client.post("/aanmelden", data={"email": MEMBER, "terug": page})
+    client.post("/aanmelden", data={**form_guard_fields(), "email": MEMBER, "terug": page})
     done = client.post("/aanmelden/code", data={"email": MEMBER, "code": "424242", "terug": page})
     assert done.headers.get("HX-Redirect") == page, "back on the registration page"
     form = client.get(page)
@@ -217,6 +217,7 @@ def _post(client, activity, component, product):
     return client.post(
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
         data={
+            **form_guard_fields(),
             "contact_name": "An Janssens",
             "contact_email": "an@example.com",
             "phone": "0470000000",

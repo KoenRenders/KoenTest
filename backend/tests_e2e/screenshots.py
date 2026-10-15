@@ -30,7 +30,13 @@ from urllib.parse import urljoin
 
 from playwright.sync_api import sync_playwright
 
-from tests_e2e.schermen import BASE, PLATFORM, login_met_sessie, pagina_klaar
+from tests_e2e.schermen import (
+    BASE,
+    PLATFORM,
+    laat_de_wacht_passeren,
+    login_met_sessie,
+    pagina_klaar,
+)
 
 # The audience decides the primary width (CR-08): public screens are judged on
 # a phone, admin screens on a desktop. Both widths are captured for every
@@ -199,6 +205,7 @@ def _vraag_de_code(page) -> None:
     from seed_e2e import MARKER_EMAIL
 
     page.fill("#email", MARKER_EMAIL)
+    laat_de_wacht_passeren(page)
     page.get_by_role("button", name="Stuur inloginfo").click()
     page.wait_for_selector("#code", timeout=5000)
 

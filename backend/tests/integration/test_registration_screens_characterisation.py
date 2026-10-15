@@ -57,7 +57,7 @@ from app.domains.payment.api import (
     PaymentType,
 )
 from tests._snapshot import compare, main_region, normalise
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -332,6 +332,7 @@ def test_a_refused_form_keeps_its_values_and_says_why(client, world):
     response = client.post(
         f"/activiteiten/{ACTIVITY_ID}/inschrijven/{PLAIN_COMPONENT_ID}",
         data={
+            **form_guard_fields(),
             "contact_name": "Half Ingevuld",
             "contact_email": "half@example.org",
             "phone": "",
@@ -353,6 +354,7 @@ def test_the_thank_you_text_is_what_it_was(client, world):
     response = client.post(
         f"/activiteiten/{ACTIVITY_ID}/inschrijven/{PLAIN_COMPONENT_ID}",
         data={
+            **form_guard_fields(),
             "contact_name": "Bedankt Bram",
             "contact_email": "bedankt@example.org",
             "phone": "0470 00 00 09",

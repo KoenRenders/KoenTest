@@ -25,6 +25,10 @@
 <form id="inschrijf-form" class="contents" data-record-form data-message="#inschrijf-melding" novalidate
  hx-post="/admin/activiteiten/<ACTIVITY>/inschrijvingen/nieuw" hx-target="#inschrijving-nieuw" hx-select="#inschrijving-nieuw"
  hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap">
+<div class="hidden" aria-hidden="true">
+<label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
+</div>
+<input type="hidden" name="form_ts" value="<TOKEN>">
 <input type="hidden" name="csrf_token" value="<CSRF>">
 <input type="hidden" name="onderdeel" value="<C:team>">
 <section data-form-section class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">

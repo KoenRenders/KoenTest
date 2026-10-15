@@ -24,7 +24,7 @@ import re
 
 import pytest
 
-from tests.conftest import seed_activity_with_product
+from tests.conftest import form_guard_fields, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -255,7 +255,13 @@ def test_what_the_visitor_typed_survives_a_validation_error(client, db_session):
 
     respons = client.post(
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
-        data={"contact_name": "", "contact_email": "x", "phone": "", f"product_{product.id}": "0"},
+        data={
+            **form_guard_fields(),
+            "contact_name": "",
+            "contact_email": "x",
+            "phone": "",
+            f"product_{product.id}": "0",
+        },
     )
     # #1589: een weigering tekent het formulier niet opnieuw — het antwoord is de
     # banner alleen (422), dus er IS geen herrendering die opnieuw kan voorvullen.
