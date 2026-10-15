@@ -209,8 +209,10 @@ def test_mijn_profiel_toont_rollen_per_werkruimte(client, db_session):
     html = client.get("/admin/profiel").text
     assert SEEDED_ADMIN_EMAIL in html
     assert "Raak Millegem" in html  # de werkruimte-rij (migratie 126)
-    assert "ADMIN" in html and "FINANCE" in html
-    assert "Platformbreed" in html and "OPERATOR" in html
+    # #1873: a role by its label, never by its stored code.
+    assert "Beheerder" in html and "Boekhouding" in html
+    assert "Platformbreed" in html and "Platformbeheerder" in html
+    assert ">ADMIN<" not in html and ">OPERATOR<" not in html
     assert "#963" in html
 
 

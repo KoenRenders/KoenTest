@@ -123,6 +123,42 @@ def test_a_dependency_is_refused_before_anything_changes(db_session, codes, mess
     assert enabled_modules(org.id, db=db_session) == COMPANY, "nothing changed"
 
 
+@pytest.mark.parametrize(
+    "alternatives,message",
+    [
+        ((ModuleCode.ACTIVITIES,), "Betalingen heeft Activiteiten nodig."),
+        (
+            (ModuleCode.ACTIVITIES, ModuleCode.MEMBERSHIP),
+            "Betalingen heeft Activiteiten of Leden nodig.",
+        ),
+        (
+            (ModuleCode.ACTIVITIES, ModuleCode.MEMBERSHIP, ModuleCode.MEETINGS),
+            "Betalingen heeft Activiteiten, Leden of Vergaderingen nodig.",
+        ),
+    ],
+)
+def test_the_alternatives_of_a_refused_module_read_as_a_dutch_list(
+    db_session, monkeypatch, alternatives, message
+):
+    """#1888: one, two and three alternatives, on the sentence the operator reads.
+    The registry gets the alternatives of the case (a copy, put back by monkeypatch):
+    with a third alternative payments needs, the sentence must not read "of … of".
+
+    Broken on purpose (14 October 2026, put back): `_dutch_enumeration` returning
+    `" of ".join(labels)` -> the three-alternative case reads "Activiteiten of Leden
+    of Vergaderingen"."""
+    from dataclasses import replace
+
+    from app.kernel import modules
+
+    payment = replace(modules.REGISTRY[ModuleCode.PAYMENT], depends_on=(alternatives,))
+    monkeypatch.setitem(modules.REGISTRY, ModuleCode.PAYMENT, payment)
+    org = create_tenant(db_session, name="Proef", code="proef-1888", kind=TenantKind.COMPANY)
+    with pytest.raises(TenantFout) as refused:
+        set_modules(db_session, org.id, {"cms", "payment"})
+    assert str(refused.value) == message
+
+
 def test_a_valid_set_is_saved_and_the_cache_cleared(db_session, monkeypatch):
     org = create_tenant(db_session, name="Proef", code="proef2-1478", kind=TenantKind.COMPANY)
     monkeypatch.setattr(tenant_lookup, "_modules_cache", {org.id: frozenset({"cms"})})

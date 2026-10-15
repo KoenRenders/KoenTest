@@ -14,6 +14,7 @@ from app.domains.forms.models import (
     FormSubmissionAnswer,
 )
 from app.kernel.codes import code_of
+from app.kernel.meetwaarden import plain_number
 
 
 def compute_results(db, form: Form) -> dict:
@@ -121,9 +122,10 @@ def compute_results(db, form: Form) -> dict:
             )
             cnt, avg, mn, mx = agg
             entry["response_count"] = int(cnt or 0)
-            entry["average"] = round(float(avg), 2) if avg is not None else None
-            entry["min"] = float(mn) if mn is not None else None
-            entry["max"] = float(mx) if mx is not None else None
+            # #1977: Decimals to the end, shown as a plain number; no float on the way.
+            entry["average"] = plain_number(avg) if avg is not None else None
+            entry["min"] = plain_number(mn) if mn is not None else None
+            entry["max"] = plain_number(mx) if mx is not None else None
 
         else:  # text, textarea, email
             texts = (

@@ -23,6 +23,7 @@ from app.domains.forms.models import (  # noqa: F401
 # its examples through the same adapter as the public form.
 from app.domains.forms.screenfields import screen_fields  # noqa: F401
 from app.i18n import short_datetime
+from app.kernel.meetwaarden import plain_number
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,7 @@ def submission_view(db: Session, submission_id: int) -> list[tuple[str, str]]:
         if ans.value_text is not None:
             waarde = ans.value_text
         elif ans.value_number is not None:
-            waarde = f"{ans.value_number}"
+            waarde = plain_number(ans.value_number)
         elif ans.value_option_id is not None:
             optie = next(
                 (

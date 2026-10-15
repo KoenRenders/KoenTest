@@ -544,9 +544,12 @@ class TestTheCard:
         ):
             validate_document(self._cards(title="Kaart", **target))
 
-    def test_a_card_without_a_destination_or_with_two_is_refused(self):
-        with pytest.raises(InvalidShape, match="een kaart wijst naar precies één bestemming"):
-            validate_document(self._cards(title="Kaart"))
+    def test_a_card_with_two_destinations_is_refused_and_one_with_none_is_a_text_card(self):
+        """CR-32 R4 rewrote this test: a card without a destination is a text
+        card and validates; two destinations are still refused — the resolver
+        could not choose."""
+        validate_document(self._cards(title="Kaart"))
+        validate_document(self._cards(title="Kaart", number="01", text="Een alinea."))
         with pytest.raises(InvalidShape, match=r"nu page_id, href"):
             validate_document(self._cards(title="Kaart", page_id=3, href="https://voorbeeld.test"))
 
