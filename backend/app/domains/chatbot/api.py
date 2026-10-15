@@ -21,6 +21,8 @@ from app.domains.chatbot.costs import (  # noqa: F401
 from app.domains.chatbot.fields import (  # noqa: F401
     FIELDS_MARK,
     NAMED_EXCEPTIONS,
+    OUTSIDE_THE_REGISTER,
+    SURFACE_LEVELS,
     Field,
     FieldRefused,
     use_named_exception,
@@ -68,6 +70,7 @@ from app.domains.chatbot.seam import (  # noqa: F401
     admin_rules,
     public_rules,
     redact,
+    refusal,
     scrub_names,
 )
 from app.domains.chatbot.service import (  # noqa: F401
@@ -107,12 +110,15 @@ __all__ = [
     "asked",
     "FIELDS_MARK",
     "NAMED_EXCEPTIONS",
+    "OUTSIDE_THE_REGISTER",
+    "SURFACE_LEVELS",
     "use_named_exception",
     "Field",
     "FieldRefused",
     "GuardedProvider",
     "Part",
     "SeamBlocked",
+    "refusal",
     "UnusableAnswer",
     "json_answer",
     "admin_rules",

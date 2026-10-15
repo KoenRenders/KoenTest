@@ -15,6 +15,8 @@ total. Three rules, read from the source:
 3. **A module that talks to an AI vendor directly is known.** Any file that
    names a vendor host or SDK is listed in `DIRECT`, with the rule that covers
    it. A new one fails here until someone has decided how it is logged.
+4. (The OCR function writes its own row: `test_the_ocr_function_writes_the_log_itself`.)
+5. **The image job writes its own row** for every outcome of a call to the image vendor.
 
 The behaviour itself — that the row really appears — is tested per path in
 `test_ai_call_log_cost.py`; this gate makes sure there is no path that test
@@ -33,12 +35,15 @@ from tests._bestanden import bestanden
 
 APP = Path(__file__).resolve().parents[1] / "app"
 
-VENDOR_MARKERS = ("api.mistral.ai", "mistralai", "api.bfl.ai")
+#: `bfl.ai` and not `api.bfl.ai`: the code calls `api.eu.bfl.ai`, which the narrower marker never
+#: matched (review of #2053).
+VENDOR_MARKERS = ("api.mistral.ai", "mistralai", "bfl.ai")
 
 # Files that reach a vendor themselves, and what makes their calls land in the log.
 DIRECT = {
     "domains/chatbot/providers/mistral.py": "rule 1 — only built by get_provider",
     "domains/chatbot/stt/providers/voxtral.py": "rule 2 — only built by get_stt_provider",
+    "domains/designstudio/imaging.py": "rule 5 — its job handler writes the row, for every outcome",
 }
 
 FACTORIES = {"domains/chatbot/providers/factory.py", "domains/chatbot/stt/providers/factory.py"}
@@ -137,3 +142,23 @@ def test_the_ocr_function_writes_the_log_itself():
         n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "_ocr_via_mistral"
     )
     assert _calls(ocr, "_log_ocr"), "_ocr_via_mistral no longer writes the AI log"
+
+
+def test_the_image_job_writes_the_log_for_every_outcome():
+    """Rule 5: the design studio's image generator is a vendor of its own (BFL); the handler that
+    runs it writes one AI-log row per outcome — refused by moderation, failed, and generated."""
+    tree = ast.parse((APP / "domains/designstudio/handlers.py").read_text(encoding="utf-8"))
+    logs = [
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "log"
+    ]
+    statuses = {
+        kw.value.attr
+        for n in logs
+        for kw in n.keywords
+        if kw.arg == "status" and isinstance(kw.value, ast.Attribute)
+    }
+    assert {"BLOCKED", "ERROR", "OK"} <= statuses, (
+        f"the image job no longer logs every outcome of a BFL call: {sorted(statuses)}"
+    )

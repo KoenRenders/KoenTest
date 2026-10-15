@@ -110,66 +110,97 @@ ALLOWED_TOOLS = {spec["function"]["name"] for spec in TOOL_SPECS}
 
 # --- Wat een tool-resultaat naar buiten mag dragen --------------------------
 
-# Het veldcontract van de publieke bot (CR-07 §5.1). De allowlist hierboven zegt
-# WELKE tools mogen draaien; dit zegt WELKE VELDEN hun antwoord mag bevatten —
-# want een tool-resultaat gaat integraal naar Mistral. Een veld dat aan een
-# serialiser wordt toegevoegd zonder dat het hier staat, is een nieuwe export naar
-# een derde partij; die mag geen stille wijziging zijn maar een rode build
-# (`test_public_tool_field_contract.py`).
+# Het veldcontract van de publieke bot (CR-07 §5.1, CR-33 phase 2). De allowlist hierboven zegt
+# WELKE tools mogen draaien; dit zegt WELKE VELDEN hun antwoord mag bevatten — want een
+# tool-resultaat gaat integraal naar Mistral. Een veld dat aan een serialiser wordt toegevoegd
+# zonder dat het hier staat, is een nieuwe export naar een derde partij; die mag geen stille
+# wijziging zijn maar een rode build (`test_public_tool_field_contract.py`).
 #
-# Waarom hier geen classificatie per veld zoals in het universum (`ai_exposure`)?
-# Daar is het object de eenheid en kiest een gebruiker wat hij meeneemt; hier ligt
-# de vorm van het antwoord vast in code en reist alles even ver — naar het model.
-# Het contract hoeft dus niet te zeggen hoe ver een veld mag, wel dát de lijst
-# volledig en bedoeld is. Sleutels zijn paden: "" is de wortel, "x[]" is één
-# element van lijst x.
-PUBLIC_FIELD_CONTRACT: dict[str, dict[str, set[str]]] = {
+# Dit is GEEN tweede lijst naast het register van gegevens: of een veld mag reizen, beslist het
+# register. Elk veld noemt hier de sleutel(s) van het register waaruit het komt, en de poort
+# `test_public_tool_field_contract.py` eist dat elke genoemde sleutel `publiek` is. Een veld
+# dat uit een niet-publiek gegeven komt, kan hier dus niet staan zonder dat het register eerst
+# anders beslist heeft. `STRUCTURE` is voor wat geen opgeslagen gegeven is: de vorm van het
+# antwoord (een lijst, een uitkomst, een foutmelding) en het nummer van de pagina zelf.
+# Sleutels van het contract zijn paden: "" is de wortel, "x[]" is één element van lijst x.
+STRUCTURE: tuple[str, ...] = ()
+
+_ACTIVITY = "activities.activity."
+_DATE = "activities.activity_date."
+_COMPONENT = "activities.activity_sub_registration."
+_PRODUCT = "activities.activity_product."
+#: The text read from a poster or a regulation (#206): what the person who uploaded it let the
+#: bot read — the text as read, the replacement and the addition (Koen's word: it may carry the
+#: contact details of the poster).
+_INFO_TEXT = (
+    "chatbot.chatbot_info.extracted_text",
+    "chatbot.chatbot_info.text_override",
+    "chatbot.chatbot_info.text_addition",
+)
+_DATE_FIELDS: dict[str, tuple[str, ...]] = {
+    "start_date": (_DATE + "start_date",),
+    "end_date": (_DATE + "end_date",),
+    "start_time": (_DATE + "start_time",),
+    "end_time": (_DATE + "end_time",),
+}
+_PRICE_FROM = (
+    _COMPONENT + "price",
+    _PRODUCT + "price",
+    _COMPONENT + "is_free",
+    _PRODUCT + "is_free",
+)
+
+PUBLIC_FIELD_CONTRACT: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
     "get_activities": {
-        "": {"when", "activities"},
+        "": {"when": STRUCTURE, "activities": STRUCTURE},
         "activities[]": {
-            "id",
-            "name",
-            "location",
-            "members_only",
-            "price_from",
-            "dates",
+            "id": STRUCTURE,
+            "name": (_ACTIVITY + "name",),
+            "location": (_ACTIVITY + "location",),
+            "members_only": (_ACTIVITY + "members_only",),
+            "price_from": _PRICE_FROM,
+            "dates": STRUCTURE,
         },
-        "activities[].dates[]": {
-            "start_date",
-            "end_date",
-            "start_time",
-            "end_time",
-        },
+        "activities[].dates[]": _DATE_FIELDS,
     },
     "get_activity_detail": {
         # Twee vormen: de gevonden activiteit, of de nette weigering.
         "": {
-            "id",
-            "name",
-            "location",
-            "members_only",
-            "description",
-            "flyer_text",
-            "price_from",
-            "dates",
-            "components",
-            "error",
+            "id": STRUCTURE,
+            "name": (_ACTIVITY + "name",),
+            "location": (_ACTIVITY + "location",),
+            "members_only": (_ACTIVITY + "members_only",),
+            "description": (_ACTIVITY + "description",),
+            "flyer_text": _INFO_TEXT,
+            "price_from": _PRICE_FROM,
+            "dates": STRUCTURE,
+            "components": STRUCTURE,
+            "error": STRUCTURE,
         },
-        "dates[]": {"start_date", "end_date", "start_time", "end_time"},
+        "dates[]": _DATE_FIELDS,
         "components[]": {
-            "name",
-            "description",
-            "price",
-            "member_price",
-            "info_text",
-            "products",
+            "name": (_COMPONENT + "name",),
+            "description": (_COMPONENT + "description",),
+            "price": (_COMPONENT + "price", _COMPONENT + "is_free"),
+            "member_price": (_COMPONENT + "member_price",),
+            "info_text": _INFO_TEXT,
+            "products": STRUCTURE,
         },
-        "components[].products[]": {"name", "price", "member_price"},
+        "components[].products[]": {
+            "name": (_PRODUCT + "name",),
+            "price": (_PRODUCT + "price", _PRODUCT + "is_free"),
+            "member_price": (_PRODUCT + "member_price",),
+        },
     },
     # Bewust geen bezoekersgegevens terug: wat de bezoeker instuurde komt niet in
     # het antwoord, dus het model krijgt naam en e-mail niet nog eens voorgeschoteld.
-    "submit_idea": {"": {"ok", "message", "error"}},
+    "submit_idea": {"": {"ok": STRUCTURE, "message": STRUCTURE, "error": STRUCTURE}},
 }
+
+
+def declared_fields(tool: str, path: str) -> set[str]:
+    """The names a tool's answer may carry at `path` (empty when the path is not declared)."""
+    return set(PUBLIC_FIELD_CONTRACT.get(tool, {}).get(path, {}))
 
 
 # --- Helpers -----------------------------------------------------------------

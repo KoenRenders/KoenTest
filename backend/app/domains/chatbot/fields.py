@@ -5,8 +5,9 @@ A module that composes a prompt from stored values used to format them itself
 It hands pairs now — `(attribute key, value)` — and the port renders them AFTER the
 classification of each key for the surface of the call:
 
-- **public** passes on both surfaces;
-- **internal** passes on the back-office surface and is refused on the public one;
+- **public** passes on every surface named in `SURFACE_LEVELS`;
+- **internal** passes on the surfaces that `SURFACE_LEVELS` names for it (the back office, the
+  design studio) and is refused everywhere else — a surface added later starts closed;
 - **tokenised** is never sent as its value: on the back-office surface the caller's
   entity token (`persoon-90`) is, and without one the key is refused; on the public
   surface it is refused;
@@ -40,6 +41,36 @@ from .seam import GuardRules, SeamBlocked, scrub_names
 FIELDS_MARK = "{{fields}}"
 
 NAME_PLACEHOLDER = "[naam]"
+
+#: What each surface may be shown, and nothing else (Koen's rule of the register: the default is
+#: closed). A surface that is not in this table is shown nothing at all, so a new surface is a
+#: line here, decided, and not a door that stands open until somebody thinks of it.
+SURFACE_LEVELS: dict[AiSurface, frozenset[AiExposure]] = {
+    AiSurface.PUBLIC: frozenset({AiExposure.PUBLIC}),
+    AiSurface.ADMIN: frozenset({AiExposure.PUBLIC, AiExposure.INTERNAL, AiExposure.TOKENISED}),
+    AiSurface.DESIGNSTUDIO: frozenset(
+        {AiExposure.PUBLIC, AiExposure.INTERNAL, AiExposure.TOKENISED}
+    ),
+}
+
+#: What goes to a model WITHOUT passing the port, and why the register has no say in it. Each
+#: entry is a place, not a datum: `tests/test_ai_callers_gate.py` keeps the list to the places
+#: that really are outside, and refuses a second one that is not named here.
+OUTSIDE_THE_REGISTER: dict[str, str] = {
+    "chatbot/stt/": (
+        "dictation: the live speech of the person at the microphone goes to the provider as audio "
+        "and comes back as the text they said. It carries no stored datum — nothing of the register "
+        "is read to produce it — so it has no key to classify; the AI log records the session "
+        "(size, rate, duration), never the audio, and the text that comes back is free text the "
+        "person dictated into a field of their own"
+    ),
+    "designstudio/imaging.py": (
+        "the image generator: the prompt is the scene text the administrator typed in the studio "
+        "(translated through the seam when it is Dutch, and scanned by the pattern guard whatever "
+        "its language) and the design's own earlier picture as reference; no attribute of the "
+        "register is read"
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -92,11 +123,13 @@ def render_fields(fields: Iterable[Any], rules: GuardRules) -> str:
                 level.value,
                 f"Dit is niet verstuurd: '{word}' gaat nooit naar het taalmodel.",
             )
-        if rules.surface is AiSurface.PUBLIC and level is not AiExposure.PUBLIC:
+        if level not in SURFACE_LEVELS.get(rules.surface, frozenset()):
             raise FieldRefused(
                 one.key,
                 level.value,
-                f"Dat is niet verstuurd: '{word}' is niet openbaar.",
+                f"Dat is niet verstuurd: '{word}' is niet openbaar."
+                if rules.surface is AiSurface.PUBLIC
+                else f"Dat is niet verstuurd: '{word}' mag hier niet naar het taalmodel.",
             )
         shown = one.value
         if level is AiExposure.TOKENISED:
@@ -159,9 +192,14 @@ NAMED_EXCEPTIONS: dict[str, NamedException] = {
 
 
 def use_named_exception(key: str, *, by: str) -> NamedException:
-    """The exception for `key` when `by` is the reader it names; `LookupError` otherwise."""
+    """The exception for `key` when `by` is the reader it names AND the module that calls this
+    really is that reader; `LookupError` otherwise. A reader cannot borrow another's name: the
+    caller is read from the call stack, not from the argument."""
+    import sys
+
+    caller = sys._getframe(1).f_globals.get("__name__", "")
     found = NAMED_EXCEPTIONS.get(key)
-    if found is None or found.by != by:
+    if found is None or found.by != by or not caller.endswith(f".{by}"):
         raise LookupError(
             f"{by} is no named exception for {key}: a datum of the register that is `none` goes to "
             f"a model through `fields` or through an exception named in chatbot/fields.py"

@@ -164,3 +164,38 @@ def test_known_name_parts_are_scrubbed_from_a_back_office_block():
     rules.match_names = True
     text = render_fields([("probe.thing.internal", "Gezin Broeck uitgenodigd")], rules)
     assert "Broeck" not in text and "[naam]" in text
+
+
+# ── the surfaces are a closed table (review of #2053) ────────────────────────
+
+
+def _on(surface):
+    from dataclasses import replace
+
+    return replace(
+        admin_rules(
+            lambda: set(), capability=AiCapability.ACTIVITY_DRAFTING, scan_prompt_names=False
+        ),
+        surface=surface,
+    )
+
+
+def test_a_surface_the_table_does_not_name_is_shown_nothing_at_all():
+    """Proven red by ADDING: `.get(rules.surface, frozenset())` replaced by the old test
+    `rules.surface is AiSurface.PUBLIC and …` → this goes green on an internal value."""
+    with pytest.raises(FieldRefused):
+        render_fields([("probe.thing.internal", "x")], _on("a-surface-nobody-decided"))
+    with pytest.raises(FieldRefused):
+        render_fields([("probe.thing.pub", "x")], _on("a-surface-nobody-decided"))
+
+
+def test_the_named_surfaces_show_what_the_table_says():
+    from app.domains.chatbot.models import AiSurface
+
+    assert "Intern: x" in render_fields(
+        [("probe.thing.internal", "x")], _on(AiSurface.DESIGNSTUDIO)
+    )
+    assert "Intern: x" in render_fields([("probe.thing.internal", "x")], _on(AiSurface.ADMIN))
+    with pytest.raises(FieldRefused):
+        render_fields([("probe.thing.internal", "x")], _on(AiSurface.PUBLIC))
+    assert "Openbaar: x" in render_fields([("probe.thing.pub", "x")], _on(AiSurface.PUBLIC))
