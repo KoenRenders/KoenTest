@@ -175,6 +175,12 @@ _MEASURE = """() => {
     tintBg: getComputedStyle(tint).backgroundColor, accentBg: getComputedStyle(accent).backgroundColor,
     plainBg: getComputedStyle(q('.doc-page')).backgroundColor,
     eyebrow: q('.prose-section-eyebrow').innerText,
+    // What is PAINTED, not what is measured: the element at both edges of a band
+    // is the band's own (a holder with overflow clips it back to the container).
+    paintLeft: (() => { const r = tint.getBoundingClientRect();
+      const e = document.elementFromPoint(1, r.top + r.height / 2); return !!e && !!e.closest('.prose-section--tint'); })(),
+    paintRight: (() => { const r = tint.getBoundingClientRect();
+      const e = document.elementFromPoint(innerWidth - 2, r.top + r.height / 2); return !!e && !!e.closest('.prose-section--tint'); })(),
   };
 }"""
 
@@ -200,6 +206,7 @@ def test_the_bands_span_the_page_and_the_text_keeps_its_left_line(setup, width):
         assert m["scroll"] == m["vw"], "the page scrolls sideways"
         assert m["tintBg"] != m["accentBg"] != m["plainBg"], (m["tintBg"], m["accentBg"])
         assert m["eyebrow"].lower() == "de uitdaging"
+        assert m["paintLeft"] and m["paintRight"], "the band is clipped back to the container"
     finally:
         page.close()
 

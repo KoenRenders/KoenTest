@@ -882,12 +882,22 @@ body[data-shell="site"]>main{padding-bottom:24px}
    body clips sideways: 100vw counts a scrollbar the page does not have. */
 body[data-shell="site"]{overflow-x:clip}
 .prose-section,.prose-hero{margin-inline:calc(50% - 50vw);padding-inline:calc(50vw - 50%)}
+/* `.prose-raak` is the holder a wide table scrolls in (`overflow-x:auto`), and a
+   holder clips whatever stands beyond her edge — a band that breaks out of the
+   container is cut back to it (seen on a print, not in a measurement: the boxes
+   are the right size, the paint is not). A page body that holds a section is
+   therefore no holder; her tables become their own (CR-32 F2). A page without a
+   section keeps the holder exactly as it was (R11). */
+.cms-page:has(>.prose-section){overflow-x:visible}
+.cms-page:has(>.prose-section) table{display:block;max-width:100%;overflow-x:auto}
 .prose-section{padding-block:2.5rem}
 .prose-section>:first-child{margin-top:0}
 .prose-section>:last-child{margin-bottom:0}
 .doc-page .prose-section>*:not(table):not(.prose-figure--full):not(.prose-columns):not(.prose-cards){max-width:768px}
 .prose-section--tint,.prose-hero--tint{background:rgb(var(--c-blue-50))}
-.prose-section--accent,.prose-hero--accent{background:rgb(var(--c-accent));color:rgb(var(--c-on-accent))}
+/* The accent tokens belong to the public shell; the page editor (admin shell)
+   shows the band in the platform's own accent, so the fallback is the same one. */
+.prose-section--accent,.prose-hero--accent{background:rgb(var(--c-accent,238 193 94));color:rgb(var(--c-on-accent,37 44 53))}
 .prose-raak .prose-section--accent :is(h2,h3,h4){color:inherit}
 .prose-section-eyebrow,.prose-hero-eyebrow{margin:0 0 .5rem;font-size:.8125rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgb(var(--c-brand))}
 .prose-section--accent .prose-section-eyebrow,.prose-hero--accent .prose-hero-eyebrow{color:inherit}
@@ -900,6 +910,10 @@ body[data-shell="site"]{overflow-x:clip}
 .de-section-eyebrow{flex:1 1 12rem;min-width:0}
 .prose-hero-lead{margin:1rem 0 0;max-width:768px;font-size:1.25rem;line-height:1.5}
 .prose-hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:1.5rem}
+/* The buttons are the button block's own (`.prose-raak a.prose-button`), so the
+   actions carry that class too; the row's gap is the spacing, not the margins. */
+.prose-hero-actions.prose-raak{margin-inline:0;padding-inline:0;overflow:visible}
+.prose-hero-actions.prose-raak a.prose-button,.prose-hero-actions.prose-raak a.prose-button+a.prose-button{margin:0}
 body[data-shell="site"] #main .prose-hero-title{margin:0;font-size:2.25rem;line-height:1.1}
 @media (min-width:768px){body[data-shell="site"] #main .prose-hero-title{font-size:3.5rem}}
 /* ── The Assistent panel (CR-11 pilot A, K8 — #1562; end state §3.15) ──────────
