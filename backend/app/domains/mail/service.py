@@ -66,6 +66,61 @@ def with_env_line_text(body_text: str) -> str:
     return f"{line}\n\n{body_text}" if line else body_text
 
 
+def build_message(
+    *,
+    subject: str,
+    from_header: str,
+    to: str,
+    body_html: str,
+    body_text: Optional[str] = None,
+    cc: Optional[str] = None,
+    reply_to: Optional[str] = None,
+    unsubscribe_url: Optional[str] = None,
+    attachments: Optional[list[tuple]] = None,
+) -> MIMEMultipart:
+    """The one way an outgoing message is built (#1924): the subject with the label of
+    a test environment, the environment's line at the top of the HTML part (and of the
+    plain part where there is one), the headers and the parts. Nothing else makes a
+    message, so none can leave without the label; `test_one_message_builder_gate_1924`
+    holds the rest of the code to that.
+
+    `attachments` is `(filename, content-type, bytes)` per piece. Given (also as an
+    empty list) the message is `multipart/mixed` around the `alternative` part; left
+    out it is `multipart/alternative` itself. The text part, when there is one, goes
+    FIRST: the last part of an `alternative` is the preferred one, and that stays the
+    HTML. The headers stand in the order Subject, From, To, Cc, Reply-To,
+    List-Unsubscribe: what every place wrote before the move, byte for byte.
+    """
+    msg = MIMEMultipart("alternative" if attachments is None else "mixed")
+    msg["Subject"] = f"{_env_prefix()}{subject}"
+    msg["From"] = from_header
+    msg["To"] = to
+    if cc:
+        msg["Cc"] = cc
+    if reply_to:
+        msg["Reply-To"] = reply_to
+    if unsubscribe_url:
+        msg["List-Unsubscribe"] = f"<{unsubscribe_url}>"
+        msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
+    body = msg if attachments is None else MIMEMultipart("alternative")
+    if body_text:
+        body.attach(MIMEText(with_env_line_text(body_text), "plain"))
+    body.attach(MIMEText(with_env_line_html(body_html), "html"))
+    if attachments is not None:
+        from email import encoders
+        from email.mime.base import MIMEBase
+
+        msg.attach(body)
+        for filename, content_type, data in attachments:
+            main, _, sub = (content_type or "application/octet-stream").partition("/")
+            part = MIMEBase(main or "application", sub or "octet-stream")
+            part.set_payload(data)
+            encoders.encode_base64(part)
+            part.add_header("Content-Disposition", "attachment", filename=filename)
+            msg.attach(part)
+    return msg
+
+
 def email_log_url(db, log_id) -> str | None:
     """Where can this log line be viewed? (#822)
 
@@ -298,14 +353,13 @@ def _send(
         )
         return
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"{_env_prefix()}{subject}"
-    from_address = gmail_from or gmail_user
-    msg["From"] = f"{_display_name()} <{from_address}>"
-    msg["To"] = to_email
-    if cc:
-        msg["Cc"] = cc
-    msg.attach(MIMEText(with_env_line_html(body_html), "html"))
+    msg = build_message(
+        subject=subject,
+        from_header=f"{_display_name()} <{gmail_from or gmail_user}>",
+        to=to_email,
+        cc=cc,
+        body_html=body_html,
+    )
 
     recipients = [to_email] + ([cc] if cc else [])
     try:
@@ -444,20 +498,15 @@ def send_campaign_mail(
         )
         return "skipped"
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"{_env_prefix()}{subject}"
-    msg["From"] = f"{_display_name()} <{gmail_from or gmail_user}>"
-    msg["To"] = to_email
-    if reply_to:
-        msg["Reply-To"] = reply_to
-    if unsubscribe_url:
-        msg["List-Unsubscribe"] = f"<{unsubscribe_url}>"
-        msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
-    # The text part goes FIRST: in `multipart/alternative` the LAST part is the
-    # preferred one, and that must stay the HTML.
-    if body_text:
-        msg.attach(MIMEText(with_env_line_text(body_text), "plain"))
-    msg.attach(MIMEText(with_env_line_html(body_html), "html"))
+    msg = build_message(
+        subject=subject,
+        from_header=f"{_display_name()} <{gmail_from or gmail_user}>",
+        to=to_email,
+        reply_to=reply_to,
+        unsubscribe_url=unsubscribe_url,
+        body_text=body_text,
+        body_html=body_html,
+    )
 
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
@@ -1040,9 +1089,6 @@ def send_with_attachments(
     de log beantwoordt "heeft deze persoon dit gekregen?", en dat antwoord mag
     niet afhangen van hoeveel mensen er in dezelfde mail zaten.
     """
-    from email import encoders
-    from email.mime.base import MIMEBase
-
     to_emails = [e for e in (to_emails or []) if e]
     if not to_emails:
         return
@@ -1076,24 +1122,14 @@ def send_with_attachments(
             )
         return
 
-    msg = MIMEMultipart("mixed")
-    msg["Subject"] = f"{_env_prefix()}{subject}"
-    from_address = gmail_from or gmail_user
-    msg["From"] = f"{_display_name()} <{from_address}>"
-    msg["To"] = joined
-    if reply_to:
-        msg["Reply-To"] = reply_to
-    body = MIMEMultipart("alternative")
-    body.attach(MIMEText(with_env_line_html(body_html), "html"))
-    msg.attach(body)
-
-    for filename, content_type, data in attachments or []:
-        main, _, sub = (content_type or "application/octet-stream").partition("/")
-        part = MIMEBase(main or "application", sub or "octet-stream")
-        part.set_payload(data)
-        encoders.encode_base64(part)
-        part.add_header("Content-Disposition", "attachment", filename=filename)
-        msg.attach(part)
+    msg = build_message(
+        subject=subject,
+        from_header=f"{_display_name()} <{gmail_from or gmail_user}>",
+        to=joined,
+        reply_to=reply_to,
+        body_html=body_html,
+        attachments=list(attachments or []),
+    )
 
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:

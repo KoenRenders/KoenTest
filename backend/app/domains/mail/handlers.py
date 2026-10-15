@@ -12,8 +12,6 @@ from __future__ import annotations
 
 import logging
 import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
@@ -22,12 +20,11 @@ from app.config import settings
 from app.domains.mail.models import EmailLog, MailStatus
 from app.domains.mail.service import (
     SEND_JOB,
-    _env_prefix,
     activity_confirmation_message,
+    build_message,
     family_welcome_message,
     membership_renewal_message,
     queue_mail,
-    with_env_line_html,
 )
 from app.i18n import _
 from app.kernel.contracts.activities import AnswerLinkSent, RegistrationConfirmed
@@ -52,12 +49,12 @@ def retry_mail(db: Session, payload: dict) -> None:
     if not settings.gmail_user or not settings.gmail_app_password:
         return  # zonder credentials heeft opnieuw proberen geen zin
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"{_env_prefix()}{log.subject}"
-    from_address = settings.gmail_from or settings.gmail_user
-    msg["From"] = f"Raak Millegem <{from_address}>"
-    msg["To"] = log.recipient
-    msg.attach(MIMEText(with_env_line_html(log.body or ""), "html"))
+    msg = build_message(
+        subject=log.subject,
+        from_header=f"Raak Millegem <{settings.gmail_from or settings.gmail_user}>",
+        to=log.recipient,
+        body_html=log.body or "",
+    )
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as server:
         server.login(settings.gmail_user, settings.gmail_app_password)

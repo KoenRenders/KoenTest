@@ -1,0 +1,36 @@
+Content-Type: multipart/mixed; boundary="<B1>"
+MIME-Version: 1.0
+Subject: [HDEV] Onderwerp
+From: Raak Millegem <sender@example.com>
+To: a@example.com
+Reply-To: beheer@example.com
+
+--<B1>
+Content-Type: multipart/alternative; boundary="<B2>"
+MIME-Version: 1.0
+
+--<B2>
+Content-Type: text/html; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+
+<p style="margin:0 0 16px;padding:8px 12px;background:#fff3cd;color:#664d03;font:14px/1.4 Arial,sans-serif;text-align:center">Dit bericht komt van de testomgeving HDEV.</p><p>Notulen</p>
+--<B2>--
+
+--<B1>
+Content-Type: application/pdf
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="a.pdf"
+
+JVBERi0x
+
+--<B1>
+Content-Type: application/octet-stream
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="b.bin"
+
+AAE=
+
+--<B1>--
