@@ -53,7 +53,7 @@ def _offered_sizes(db: Session, product: Product, *, member: bool) -> list[dict[
                     "name": size_of(variant),
                     "price": price,
                     "available": _stock_refusal(db, product, variant.id, 1, today) is None,
-                    "pre_order": open_window and in_stock == 0,
+                    "pre_order": open_window and in_stock <= 0,
                 }
             )
     return sizes

@@ -271,6 +271,55 @@ def test_a_pre_order_size_without_stock_says_op_bestelling(client, db_session, e
     assert "uitverkocht" not in page.text
 
 
+def test_op_bestelling_stays_after_the_first_pre_order(client, db_session, every_module_on):
+    """T1: one pre-order reserves below zero (`available` −1), and the tile still
+    says "op bestelling" — the size reads `in_stock <= 0`, not `== 0`."""
+    from app.domains.product.api import add_variant, create_product, set_status
+
+    product = create_product(db_session, "T-shirt")
+    set_status(db_session, product.id, ProductStatus.ON_SALE)
+    product.pre_order = True
+    variant = add_variant(db_session, product.id, "M")
+    add_prices(
+        db_session,
+        product_id=product.id,
+        variant_id=variant.id,
+        valid_from=date(2026, 1, 1),
+        amount=Decimal("15.00"),
+        member_amount=None,
+    )
+    db_session.commit()
+
+    placed = client.post(
+        "/webshop/bestellen",
+        data={
+            "variant_id": str(variant.id),
+            "quantity": "1",
+            "contact_name": "An",
+            "contact_email": "an@example.com",
+            "phone": "0470000000",
+            "payment_method": "transfer",
+        },
+        follow_redirects=False,
+    )
+    assert placed.status_code == 200
+
+    page = client.get(f"/webshop/{product.id}")
+    assert page.status_code == 200
+    assert "op bestelling" in page.text
+
+
+def test_a_sold_out_size_without_pre_order_stays_uitverkocht(client, db_session, every_module_on):
+    """R1's counter-case: a size with no stock and no pre-order says "uitverkocht",
+    not "op bestelling"."""
+    product = _on_sale_with_price(db_session, "T-shirt Raak", amount="15.00")
+
+    page = client.get(f"/webshop/{product.id}")
+    assert page.status_code == 200
+    assert "uitverkocht" in page.text
+    assert "op bestelling" not in page.text
+
+
 def test_the_page_of_another_tenants_article_is_not_found(client, db_session, every_module_on):
     """A visitor types the id: an article of another tenant is not this tenant's
     offer, so its page is a 404."""
