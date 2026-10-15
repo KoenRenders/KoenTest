@@ -4,7 +4,7 @@
 **Status:** shaped with Koen on 15 October 2026 · not assigned to a release · the data model and the domain boundaries of B3 are a proposal for the architecture CLI to confirm
 **Tracking issue:** #2030
 **Applies to:** the workbench (`workflow`), the form engine (`forms`), a new domain `cases`, the party model (CR-26), the shop (CR-21) and activities for the sale step; the back-office menu and the public site
-**Reading:** A 1 500 words · B 2 444 · C 1 526 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1 494 words · B 2 493 · C 1 569 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -142,7 +142,8 @@ Koen's dictation of 15 October 2026. It taught us that the blocks exist: the wor
 | R14 | Dropdowns in the intake form that point at articles or activities | Won't | Koen, 15 Oct 2026 | "op termijn", not now |
 | R16 | A process drawn on a canvas by dragging shapes | Won't | my proposal; B1 | the list screen is the editor; the diagram is a picture of the result |
 | R17 | A due date on a task | Won't | Koen, 15 Oct 2026 | "Due dates buiten de scope." |
-| R18 | A history of the status of a case, and of who completed which task when | Won't | Koen, 15 Oct 2026 | "Oké, dat gaat het misschien automatisch hebben, maar dat nemen we allemaal buiten scope." A task keeps its own done-by and done-at |
+| R19 | Cases in the reports | Won't | Koen, 15 Oct 2026 | "Dat is voor later." |
+| R18 | A history of the status of a case, and of who completed which task when | Won't | Koen, 15 Oct 2026 | "buiten scope" |
 | R15 | A screen to model a process from start to end, in the way of the form engine: choose steps, order them, choose a step type, say what a decision does with the status and which task follows | Must | Koen, 15 Oct 2026 | "een scherm om die processen van startpunt tot eindpunt te kunnen modelleren"; textual or visual |
 
 ## A7. Non-functional requirements — security, privacy, house style, tenants
@@ -253,7 +254,7 @@ About 28 days (my estimate, to be set by the build read), with the list screen f
 | 4 | the sale step for both kinds of sale, the opportunity runs end to end | 3 |
 | 5 | the contact message moves to the one engine | 3 |
 
-Failure paths: a gateway with no matching rule and no default stops the case and puts a task on the workbench for ADMIN ("cannot continue"); a sale made from a case's screen but never registered leaves the step open; an import that refers to a form the environment lacks is refused whole.
+Failure paths: a gateway with no matching rule and no default, or a changed process in which the case's last done step or its route is gone, stops the case and puts a task on the workbench for ADMIN ("cannot continue"); a sale made from a case's screen but never registered leaves the step open; an import that refers to a form the environment lacks is refused whole.
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
@@ -277,11 +278,13 @@ A matter the portal follows over several steps is a case of a type, not a new ta
 | 15 Oct 2026 | Requirements R1–R14 as written in A6 (dictation, not an answer to a question) | Koen |
 | 15 Oct 2026 | The statuses of a case are a code list: *open*, *in progress*, *closed* | Koen: "Misschien moeten we de statussen die een case heeft vastleggen, dat dat een codelijst is. Open, in progress, closed." |
 | 15 Oct 2026 | The workbench stays a view on tasks; the case is the umbrella above it | Koen: "Dus de werkbank blijft een visualisatie van de taken, maar daar zit dus een koepel boven en dat is de case." |
-| 15 Oct 2026 | A screen to model a process from start to end is part of this change, in the way of the form engine, with step types and decisions that set the status and say which task follows; the earlier proposal to deliver the first types ready-made without an editor is withdrawn | Koen: "Ik weet dus dat ja, de formulieren die al manueel kunnen gemaakt worden, dat er dus ook een scherm is om die processen van startpunt tot eindpunt te kunnen modelleren. Dat mag visueel gewoon in het scherm zijn, in een textueel scherm zoals de Form Engine […] Dus analyseer dan maar eens een keer dat die verschillende opties mogelijk zijn in een scherm" |
+| 15 Oct 2026 | A screen to model a process from start to end is part of this change, in the way of the form engine; the earlier proposal of ready-made types without an editor is withdrawn | Koen: "dat er dus ook een scherm is om die processen van startpunt tot eindpunt te kunnen modelleren. […] in een textueel scherm zoals de Form Engine" |
 | 15 Oct 2026 | Standards: look at CMMN and others before inventing; the analysis stands in B3a | Koen: "laten we dan het warm water niet opnieuw uitvinden" |
 | 15 Oct 2026 | Every task of a process is given a role; due dates are out of the scope | Koen: "Aan een taak moet je natuurlijk ook rollen kunnen toekennen. Dat ben ik juist vergeten te zeggen. [...] Due dates buiten de scope." |
 | 15 Oct 2026 | A history of the status and of who completed which task when is out of the scope | Koen: "Ook buiten scope is historiek op status meten van wie welke taak wanneer voltooid heeft. Oké, dat gaat het misschien automatisch hebben, maar dat nemen we allemaal buiten scope." |
 | 15 Oct 2026 | The case types are managed through a button *Instellingen* on the *Zaken* list, so there is one menu item, not two | Koen, who left the choice open ("kies maar"): "Ik denk bij cases is het voor mij goed dat we misschien de knop instellingen voorzien op de cases menulijn. Dat we daar de processen kunnen definiëren." |
+| 15 Oct 2026 | Processes and forms may be changed while cases run; no versions and no protection of running cases; a case keeps its status and last done step; the forms' own protection stays | Koen: "Zolang dat ze maar hun status en hun vorige stap nog weten, dan kunnen we verder. Dus we gaan daar geen oplossingen voor voorzien […] Dat is voor later." |
+| 15 Oct 2026 | Integration of cases in the reports is out of the scope | Koen: "ook integreren in de rapporten. Dat is voor later." |
 
 ---
 
@@ -333,13 +336,13 @@ Measured on master @ `ef4b130c` on 15 October 2026 (CR-21 and CR-26 are not on m
 
 **C4.4 Start from the workbench.** *Nieuwe zaak* lists the case types that have an intake form; it opens the form in the back office on behalf of a chosen party or contact details.
 
-**C4.6 The process screen.** One page per case type, `/admin/zaken/instellingen/<type>/proces`, a list of steps like the form builder's (htmx, kit macros). The screen holds a small model (steps, type, role, form, routes with rules and status) and writes BPMN with generated layout; opening it reads the stored BPMN back into the same model, and a BPMN that the screen cannot read (an import with elements outside the subset) is refused at import, so the two never disagree. Saving runs the checks of B1a and is refused with the step named. A process with running cases is saved as a new version; running cases keep theirs.
+**C4.6 The process screen.** One page per case type, `/admin/zaken/instellingen/<type>/proces`, a list of steps like the form builder's (htmx, kit macros). The screen holds a small model (steps, type, role, form, routes with rules and status) and writes BPMN with generated layout; opening it reads the stored BPMN back into the same model, and a BPMN that the screen cannot read (an import with elements outside the subset) is refused at import, so the two never disagree. Saving runs the checks of B1a and is refused with the step named. A process may be changed while cases run: a case keeps its status and its done steps, and goes on from the last done step in the changed process; if that step or its route is gone, the failure path of B6 applies. No version is kept.
 
 **C4.5 Fixing.** A step's submission is updatable until its task is done; after that `UpdateAttached` is refused.
 
 ## C5. Privacy and security — the mechanics behind A7
 
-A public intake form takes free text from outside: the form engine's validation and brake; the case is visible to the role of its tasks and to ADMIN of the tenant; the case's answers are never put in a mail beyond the confirmation. Import is allowed to ADMIN only and never overwrites a type with running cases.
+A public intake form takes free text from outside: the form engine's validation and brake; the case is visible to the role of its tasks and to ADMIN of the tenant; the case's answers are never put in a mail beyond the confirmation. Import is allowed to ADMIN only.
 
 ## C6. Tests — what the build must prove
 
@@ -353,14 +356,13 @@ A public intake form takes free text from outside: the form engine's validation 
 | T6 | registering a sale from a case's screen completes the step and closes the case as won |
 | T7 | a sale made elsewhere for the same party does not close the case |
 | T8 | export then import of a process and its forms into an empty tenant gives the same process; an import with a missing form is refused whole |
-| T9 | an import is refused for a type with running cases |
 | T10 | a BPMN element outside the subset is refused with its name |
 | T11 | the contact message still starts its task (before and after phase 5) |
 | T12 | a task of another tenant's case is not visible |
 | T17 | *Zaken* filters by status, type and reason, and finds a case by number, party name, e-mail and a word of the intake answers |
 | T13 | a process made in the screen is written as BPMN and read back to the same list (round trip) |
 | T14 | the screen refuses a process with no end, a step nothing leads to, or a step with no way on, naming the step |
-| T15 | saving a process with running cases makes a new version; the running case keeps its own |
+| T15 | a case whose process was changed keeps its status and done steps and goes on from its last done step; if the route is gone it stops with a task for ADMIN |
 | T16 | a route that sets a status moves the case to it; a route that sets none follows the derived rule |
 
 ## C7. The gate — what refuses a deviation from now on
@@ -387,7 +389,7 @@ Status line, as-built notes folded in, tracking issue closed (`CLAUDE.md` step 1
 
 ## Non-goals — deliberately outside this change
 
-Due dates on tasks; a history of statuses and of who did what when (beyond what a task already keeps); a canvas editor with dragging of shapes; dropdowns of articles or activities in an intake form; conditions other than a field equal to an option; parallel steps, timers, messages between cases and sub-processes; assigning a task to a person (a task goes to a role); a client portal showing the case to the client.
+Due dates on tasks; a history of statuses and of who did what when (beyond what a task already keeps); protection of running cases against a changed process (versions, refusals); cases in the reports; a canvas editor with dragging of shapes; dropdowns of articles or activities in an intake form; conditions other than a field equal to an option; parallel steps, timers, messages between cases and sub-processes; assigning a task to a person (a task goes to a role); a client portal showing the case to the client.
 
 ## Relationship to existing work — issues and change requests
 
