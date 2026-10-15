@@ -1,10 +1,10 @@
 # Change Request 35 — Invoices through Peppol
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 15 October 2026 by the design-documentation CLI, on Koen's dictation (his request to this session, the same day) · build read not yet asked · not assigned to a release · **prerequisites:** CR-34 (invoices for the webshop) built, and CR-26 (party model) phase 2, "the buyer", which lets a Belgian company with a VAT number buy in the shop (B8 Q7)
+**Status:** shaped on 15 October 2026 by the design-documentation CLI, on Koen's dictation (his request to this session, the same day) · build read not yet asked · for v2.18 on Koen's word (not assigned yet: the assignment follows the build read) · **prerequisites:** CR-34 (invoices for the webshop) built, and CR-26 (party model) phase 2, "the buyer", and phase 3, which gives the buyer's identifications (B8 Q7)
 **Tracking issue:** #2010 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** `payment` (the delivery of an invoice, its status, the sending, the screen), the kernel (a port for the Peppol network, with a stub for dev and tests), `mdm` (read: the organisation's identifications), `sales` (the checkout's checks on a company's details), the settings and one secret
-**Reading:** A 1 053 words · B 1 576 · C 1 479 — measured on 15 October 2026, drawings excluded, tables included; budgets A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1 053 words · B 1 666 · C 1 479 — measured on 15 October 2026, drawings excluded, tables included; budgets A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -291,6 +291,8 @@ Standards checked: **UBL 2.1** and **Peppol BIS Billing 3.0** (the file), **EN 1
 | 2 | Resend, credit and anew | 1, CR-34 phase 2 | none | none | none new | W3–W4 |
 | 3 | Real test network and buyer | 2 | none | none | none | W7 and a real test buyer |
 
+If the provider's contract is not there at the release, the change lands **dark** (B9): the writer, the check, the status table and the stub, with nothing sent.
+
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
 **The rule:** a document that must be machine-readable by the receiver is checked against the receiver's rules before it gets its number. It goes to `docs/code-style.md`. **Reach:** one document type today (the invoice), baseline zero. **Gate:** hard (C7).
@@ -299,10 +301,10 @@ Standards checked: **UBL 2.1** and **Peppol BIS Billing 3.0** (the file), **EN 1
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
-| Q1 | Which access point? Criteria: Belgian or EU, a REST interface, a test network, delivery status, and above all price at about 50 documents a year | A free plan if its API and status hold up in the prototype (Peppyrus or Recommand); else e-invoice.be at about 13 euro a year; a fixed monthly fee is not worth it at this volume | D1, B5, the adapter |
+| Q1 | Which access point? Criteria: Belgian or EU, a REST interface, a test network, delivery status, and above all price at about 50 documents a year | **Two to try (B9): Peppyrus** (Belgium; a free plan of 100 messages a month, a REST API, a separate test network; plans change on 1 November 2026) **and e-invoice.be** (Belgium, EU-hosted; 0.25 euro an invoice, about 13 euro a year; free sandbox, signed callbacks, validation). Recommand stays in reserve; a fixed monthly fee is not worth it at this volume | D1, B5, the adapter |
 | Q2 | A buyer that is not on the network: what then? The law wants an e-invoice; what is the accountant's answer — a PDF by mail, or no sale | Show it and let Boekhouding decide | R7, F9 |
 | Q3 | A rejection because of the buyer's data: credit and issue anew, or correct the numbered invoice? | Credit and issue anew; the invoice stays frozen | D4, B7 of CR-34 |
-| Q4 | The rules check: the provider's validation, or a validator inside the portal? | The provider's if it offers one, else a library; the prototype decides | F2, C2 |
+| Q4 | The rules check: the provider's validation, or a validator inside the portal? | A validator inside the portal before numbering, so the invoice's transaction holds no network call; the provider's validation at send. The build read checks this | F2, C2 |
 | Q5 | The accountant confirms which buyers fall under the mandate (VAT-liable in Belgium, the exemptions) and which penalties apply | Ask before the build read | R6, F8 |
 | Q6 | Is Koen's second route kept beside this one? | Yes, until this is live; R8 serves it | R8 |
 | Q7 | Which part of CR-26 lets a Belgian company with a VAT number buy in the shop? | CR-26 phase 2, "the buyer": answered with CR-26's decisions, see CR-34 C4.10 | the start of phase 1 |
@@ -312,7 +314,7 @@ Standards checked: **UBL 2.1** and **Peppol BIS Billing 3.0** (the file), **EN 1
 
 | Date | Decision | By |
 |---|---|---|
-| — | None yet. Koen's dictation of 15 October 2026 is the source of A6; it answered no question put to him | — |
+| 15 Oct 2026 | In the architecture CLI's chat, to its proposal that this CLI proposes two EU access-point providers with cost and sandbox, and that CR-35 may land dark (writer, check, status table, stub) if the provider's contract is not there at the release: "ja". CR-35 goes in v2.18 | Koen |
 
 ---
 

@@ -4,7 +4,7 @@
 **Status:** shaped on 15 October 2026 by the design-documentation CLI, on Koen's dictation · build read by Dev2 on 15 October 2026 (comment on #2009), findings taken in · for v2.18 on Koen's word (not assigned yet: the assignment follows the build read) · **prerequisites:** CR-21 (webshop) built, and CR-26 (party model) phase 2, "the buyer" (C4.10)
 **Tracking issue:** #2009 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** `payment` (the invoice, its number, its VAT, its document; the module "invoices"), `tax` (new: tax classes, categories, rates and the one rule that picks the rate), `product` and `pricing` of CR-21 (the tax class of an article), `sales` (the buyer's details, cancelling and changing an order that has an invoice), `mdm` (the issuing organisation, the buyer as a party; read, not changed), `mail` (the invoice mail), `kernel` (the module registry), `reporting` (a view)
-**Reading:** A 1 500 words · B 2 478 · C 3 774 — measured on 15 October 2026, drawings excluded, tables included; budgets A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1 500 words · B 2 478 · C 3 804 — measured on 15 October 2026, drawings excluded, tables included; budgets A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -547,7 +547,7 @@ Not yet; the document describes the design.
 
 ## Non-goals — deliberately outside this change
 
-A VAT return and any bookkeeping or general ledger (R16); selling outside Belgium and the Netherlands, other currencies (R17); subscriptions, recurring invoices and payment reminders; a rule engine for tax (C4.9) and everything it would decide — groups of companies, transport routes, HS codes, other taxes; an invoice for an activity or a membership (this change is the webshop's; the module is built so that it could follow, without promising it).
+A VAT return and any bookkeeping or general ledger (R16); the buyer's purchase reference on the invoice and a delivery address apart from the organisation's (Koen, 15 Oct 2026: "die twee zaken zijn out-of-scope, dus onderdeel van een nieuwe CR"); selling outside Belgium and the Netherlands, other currencies (R17); subscriptions, recurring invoices and payment reminders; a rule engine for tax (C4.9) and everything it would decide — groups of companies, transport routes, HS codes, other taxes; an invoice for an activity or a membership (this change is the webshop's; the module is built so that it could follow, without promising it).
 
 ## Relationship to existing work — issues and change requests
 
