@@ -4,7 +4,7 @@
 **Status:** shaped with Koen on 15 October 2026 · not assigned to a release; open decisions in B8
 **Tracking issue:** #2026 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (audience choice, recipient list, send screen, Raakje's sources), the activities facade (a read of registration addresses), the unsubscribe page
-**Reading:** A 758 words · B 1 233 · C 1 474 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 758 words · B 1 155 · C 1 460 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -132,7 +132,6 @@ Covers R1–R4 and R6. An example of use: *Nieuwsbrief*, step *Doelgroep* → th
 
 - `activities` gives two reads through its facade: the past activities that may be offered, and the raw addresses of the registrations on a set of activities, per tenant. `newsletter` never reads `Registration` itself and normalises the addresses itself.
 - `newsletter` owns the audience, the list of chosen activities (a soft reference across the schema line, with the activity's name and date copied when the send starts, so the archive survives a later deletion), the delivery kind `participant`, one `token` per delivery, and an address-only table of objections.
-- **Shared with CR-37 (#2027):** the delivery `token`, the objections table (one table with a *purpose*: `participant_mail` here, `measuring` there). Whichever of the two is assigned first builds them; the other reads them.
 - No new module and no new edge: `newsletter` already consumes `activities.api`.
 
 ## B4. Rules this change needs an exception from — decided once, here
@@ -141,7 +140,7 @@ None.
 
 ## B5. Cost — investment and running cost, and what operations must know
 
-About 6 days (my estimate; the build read of 15 October added a re-check at send, normalised addresses and the shared token). No running cost. Operations: letters to this audience count against the same daily cap; one letter to a large past activity can take days, as *Allebei* does.
+About 6 days (my estimate; the build read of 15 October added a re-check at send, normalised addresses and the delivery token). No running cost. Operations: letters to this audience count against the same daily cap; one letter to a large past activity can take days, as *Allebei* does.
 
 ## B6. Phasing — shippable phases, and what changes on the failure paths
 
@@ -159,7 +158,7 @@ A letter's recipients are always a derived list with one precedence rule and one
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
-| Q1 | May the association mail people who registered for an activity, without their consent, if the letter carries an unsubscribe link? (a) yes, on the existing relationship as for the imported list; (b) only people who ticked agreement on the registration form | a, after the accountant or a privacy adviser agrees; legal facts here are unverified; answer it together with Q1 of CR-37 (#2027), which stacks a second purpose on the same people | b needs an answer on both ways in (the public form and the board's registration for someone, where nobody ticks: those count as not agreed) and leaves last year's people out |
+| Q1 | May the association mail people who registered for an activity, without their consent, if the letter carries an unsubscribe link? (a) yes, on the existing relationship as for the imported list; (b) only people who ticked agreement on the registration form | a, after the accountant or a privacy adviser agrees; legal facts here are unverified | b needs an answer on both ways in (the public form and the board's registration for someone, where nobody ticks: those count as not agreed) and leaves last year's people out |
 | Q2 | May two chosen activities be combined, so a person of either gets the letter? | yes: union, one mail | a letter naming "last year" must then speak generally |
 | Q3 | Which activities are offered: those of the last three working years? | yes | the list length |
 | Q4 | "Je moet ook een nieuwsbriefje kunnen maken om dat te versnellen": does that mean Raakje drafts the letter for this audience (as it does now)? | yes, it does with R4's sources | nothing to build beyond B1 |
@@ -203,7 +202,7 @@ Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2
 
 - **activities**: `past_activities(db, since_year)` (id, name, last non-deleted date; published, not cancelled, a non-deleted date, all dates before today) and `registration_addresses(db, activity_ids)` (the raw distinct addresses of the non-deleted registrations). Tenant-scoped.
 - **newsletter**:
-  - models: `Audience.PARTICIPANTS`, `DeliveryKind.PARTICIPANT`, `deliveries.token` (nullable, unique, random), `newsletter_audience_activities` (tenant, letter, activity, name and date filled at `start_sending`), `address_objections` (tenant, normalised address, purpose, date; unique on the three first) with a purpose code list holding `participant_mail`;
+  - models: `Audience.PARTICIPANTS`, `DeliveryKind.PARTICIPANT`, `deliveries.token` (nullable, unique, random), `newsletter_audience_activities` (tenant, letter, activity, name and date filled at `start_sending`), `address_objections` (tenant, normalised address, date; unique on tenant and address);
   - service: `recipients_of(db, letter)` replaces the call at `service.py:1700`; the summary, the sentence and the counts take the letter; the sentence uses the union of the chosen activities, not a sum; `send_batch` re-checks a participant delivery (C4.2); `copy_newsletter` clears the chosen activities, `delete_draft` deletes them;
   - routes: the public unsubscribe page resolves a subscriber token, then a delivery token; for a delivery token POST writes the objection, and the resubscribe route deletes it (the person stays a participant, not a subscriber);
   - screens: the audience choice with the list (htmx fragment, kit macros), offered only when the `activities` module is on for the tenant; the send screen sentence with the count of skipped addresses; the archive line.
@@ -215,13 +214,13 @@ Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2
 - CR-33 attribute register: the purpose list of a registration's `contact_email` gains "newsletter, to earlier participants"; the token and the objection table get entries (the register's gate is not on master yet; the merge order decides who carries it).
 - CONTRACT.md of `newsletter` and `activities`; the architecture document where it names three audiences.
 - Privacy statement of the registration form (Q1).
-- Alembic: one migration; head counted before the push; two migrations touch `deliveries` once CR-37 lands, so the first one adds `token`.
+- Alembic: one migration; head counted before the push.
 
 ## C4. Detailed decisions — one subsection each, with the reasons
 
 **C4.1 Recipient rule.** `recipients_of` builds members, then subscribers, then participants (each `setdefault` on the normalised address), then drops every participant address that has an objection or an unsubscribed subscriber row. A member address is never dropped (CR-05 §3.4).
 
-**C4.2 The participant's link and the check at send.** A participant delivery gets a random `token`; the unsubscribe link is `/nieuwsbrief/uitschrijven/<token>`, GET shows, POST writes the objection (`participant_mail`), one-click POST likewise. *Toch opnieuw* deletes the objection and nothing more: no `consented_at`, no subscriber, so "source = proof of consent" stays true. `send_batch` checks, at the moment each participant mail leaves, the objection table and the subscriber rows, and skips with "uitgeschreven tijdens het versturen", as for a subscriber.
+**C4.2 The participant's link and the check at send.** A participant delivery gets a random `token`; the unsubscribe link is `/nieuwsbrief/uitschrijven/<token>`, GET shows, POST writes the objection , one-click POST likewise. *Toch opnieuw* deletes the objection and nothing more: no `consented_at`, no subscriber, so "source = proof of consent" stays true. `send_batch` checks, at the moment each participant mail leaves, the objection table and the subscriber rows, and skips with "uitgeschreven tijdens het versturen", as for a subscriber.
 
 **C4.3 One spelling.** `registration_addresses` returns raw addresses; `newsletter` runs each through `normalize_email`, an address it refuses is skipped and counted, and the delivery row stores the normalised form (so (letter, address) stays unique per person).
 
@@ -287,4 +286,4 @@ A suggestion by Raakje of a fitting past activity; segments by age, payment or p
 
 ## Relationship to existing work — issues and change requests
 
-CR-05 (newsletter) is the base; CR-37 (opens and clicks) is independent; CR-26 (party model) may later make "who registered" a party question, not needed now.
+CR-05 (newsletter) is the base; CR-37 (anonymous opens and clicks, #2027) is independent and takes nothing from this change; CR-26 (party model) may later make "who registered" a party question, not needed now.
