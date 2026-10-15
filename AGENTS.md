@@ -657,7 +657,12 @@ points where the document and the code disagreed — readers of a concept whose
 meaning changed, an existing test that guarded the old behaviour, a kind of
 visitor nobody had walked — each of which could have been found before the
 approval. What the build read looks for stands in
-`docs/change_request_template.md`.
+`docs/change_request_template.md`. The build read also reads the form: every
+required part of the template stands in the document — the drawings of A2, A3,
+B2 and B3, the traceability matrix and the walkthrough — and every requirement
+has a test and an acceptance criterion (Koen, 15 October 2026, after CR-36 to
+CR-39 had lost their B2 and B3 to the word budget: "De aanwezigheid van
+diagrammen primeert op het woord-budget").
 
 **A pull request of a builder outside the Claude series** (the Mistral CLI,
 OpenCode) is always read by a Claude dev CLI before a merge; that standing
