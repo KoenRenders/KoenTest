@@ -328,6 +328,19 @@ def test_a_description_over_255_characters_is_refused(client, db_session, every_
     assert "te lang" in answer.text
 
 
+def test_the_service_refuses_a_word_over_255_characters(client, db_session, every_module_on):
+    """V1, at the service: `set_attachment_text` refuses a word over 255 characters."""
+    import pytest
+
+    from app.domains.product.api import ProductError, set_attachment_text
+
+    _headers, product, _variant, attachment = _article_with_a_photo(
+        client, db_session, every_module_on
+    )
+    with pytest.raises(ProductError):
+        set_attachment_text(db_session, product.id, attachment.id, description="x" * 256)
+
+
 def test_another_articles_attachment_key_changes_nothing(client, db_session, every_module_on):
     """S1: the article's save reads only its own attachments, so a posted key of
     another article's attachment leaves that article unchanged."""

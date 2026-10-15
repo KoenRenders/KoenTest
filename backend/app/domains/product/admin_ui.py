@@ -27,18 +27,16 @@ from app.domains.product.api import (
     SizeNameRefusal,
     add_attachment,
     attachment_cards,
+    attachment_word_refusal,
     attachments_of,
     create_product,
     delete_product,
     get_product,
     list_products,
     remove_attachment,
-    set_attachment_text,
-    set_pre_order,
+    save_product,
     set_status,
     size_of,
-    sync_variants,
-    update_product,
     variants_of,
 )
 from app.domains.product.viewmodels import (
@@ -277,42 +275,25 @@ def product_update(
     # W1: every attachment's words first, so a too-long word refuses the whole save
     # before anything is written, and the refusal names that attachment's own field.
     for attachment_id, word_title, word_description in attachment_words:
-        if word_title is not None and len(word_title) > 255:
+        refusal = attachment_word_refusal(word_title, word_description)
+        if refusal is not None:
             return refusal_response(
                 request,
-                [
-                    FieldError(
-                        f"bijlage.{attachment_id}.title",
-                        _("De titel is te lang (hoogstens 255 tekens)."),
-                    )
-                ],
-                "#product-melding",
-            )
-        if word_description is not None and len(word_description) > 255:
-            return refusal_response(
-                request,
-                [
-                    FieldError(
-                        f"bijlage.{attachment_id}.description",
-                        _("De beschrijving is te lang (hoogstens 255 tekens)."),
-                    )
-                ],
+                [FieldError(f"bijlage.{attachment_id}.{refusal[0]}", refusal[1])],
                 "#product-melding",
             )
 
     try:
-        update_product(db, product_id, name=name, description=description)
-        set_pre_order(
+        save_product(
             db,
             product_id,
+            name=name,
+            description=description,
             pre_order=pre_order in ("on", "true", "1"),
             pre_order_until=_parse_date(pre_order_until),
+            ordered=ordered,
+            attachment_words=attachment_words,
         )
-        sync_variants(db, product_id, ordered)
-        for attachment_id, word_title, word_description in attachment_words:
-            set_attachment_text(
-                db, product_id, attachment_id, title=word_title, description=word_description
-            )
     except SizeNameRefusal as refusal:
         return refusal_response(
             request, [FieldError(refusal.field, str(refusal))], "#product-melding"

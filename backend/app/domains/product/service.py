@@ -307,8 +307,8 @@ def sync_variants(db: Session, product_id: int, ordered: list[tuple[str, str]]) 
     record's repeating group, whose order is the sizes' order. A key that is an
     existing variant's id renames it and takes that place (`sort_order`); a new key
     adds a size at its place; and an existing variant not in the list is deleted.
-    One transaction: a refusal in a delete (a size with movements, through `stock`'s
-    handler) rolls every change of this save back.
+    It flushes; the caller commits, so the whole save — record, sizes, attachments —
+    is one transaction (W1).
 
     The name rule runs once, against the names as they will stand after this save
     — a swap ("M" ↔ "L") is no duplicate. `add_variant` and `rename_variant` hold
@@ -352,7 +352,7 @@ def sync_variants(db: Session, product_id: int, ordered: list[tuple[str, str]]) 
                     f"v.{key}",
                     f"{_('Maat')} {size_of(existing[str(refusal.variant_id)])} {refusal.reason}",
                 ) from refusal
-    db.commit()
+    db.flush()
 
 
 def attachments_of(db: Session, product_id: int) -> list[ProductAttachment]:
@@ -446,6 +446,42 @@ def remove_attachment(db: Session, product_id: int, attachment_id: int) -> None:
     db.commit()
 
 
+def save_product(
+    db: Session,
+    product_id: int,
+    *,
+    name: str,
+    description: str,
+    pre_order: bool,
+    pre_order_until: date | None,
+    ordered: list[tuple[str, str]],
+    attachment_words: list[tuple[int, str | None, str | None]],
+) -> None:
+    """The article's one save (S1, W1): the record, its sizes and its attachments'
+    words, in one transaction and one commit — a refusal anywhere writes nothing."""
+    update_product(db, product_id, name=name, description=description)
+    set_pre_order(db, product_id, pre_order=pre_order, pre_order_until=pre_order_until)
+    sync_variants(db, product_id, ordered)
+    for attachment_id, word_title, word_description in attachment_words:
+        set_attachment_text(
+            db, product_id, attachment_id, title=word_title, description=word_description
+        )
+    db.commit()
+
+
+def attachment_word_refusal(title: str | None, description: str | None) -> tuple[str, str] | None:
+    """The first word over 255 characters, as `(field, sentence)` — `field` is
+    "title" or "description" — or `None` when both fit (V1). The one place the
+    length rule lives: the service raises it, the route refuses on it first."""
+    from app.i18n import _
+
+    if title is not None and len(title) > 255:
+        return "title", _("De titel is te lang (hoogstens 255 tekens).")
+    if description is not None and len(description) > 255:
+        return "description", _("De beschrijving is te lang (hoogstens 255 tekens).")
+    return None
+
+
 def set_attachment_text(
     db: Session,
     product_id: int,
@@ -457,8 +493,12 @@ def set_attachment_text(
     """The article's own words for a file (S1): a document's `title` (the link's
     text) and a picture's `description` (its `alt`). Both live here, on the
     article's link, not on the shared media file. A `None` leaves that word
-    unchanged; an empty string clears it. An attachment that is not this article's,
-    or is not there, raises `LookupError` and changes nothing."""
+    unchanged; an empty string clears it. A word over 255 characters raises
+    `ProductError` (V1); an attachment that is not this article's, or is not there,
+    raises `LookupError` and changes nothing. It flushes; the caller commits."""
+    refusal = attachment_word_refusal(title, description)
+    if refusal is not None:
+        raise ProductError(refusal[1])
     attachment = db.get(ProductAttachment, attachment_id)
     if attachment is None or attachment.product_id != product_id:
         raise LookupError("attachment")
@@ -467,7 +507,6 @@ def set_attachment_text(
     if description is not None:
         attachment.description = description or None
     db.flush()
-    db.commit()
 
 
 def _release_unshared_assets(db: Session, attachments: list[ProductAttachment]) -> None:
