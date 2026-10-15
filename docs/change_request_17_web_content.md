@@ -137,7 +137,7 @@ The words the user reads: "Blok invoegen ▾", "Voorbeeld", "Publiceren", "Gesch
 | AC1 | A table is added, published, edited and published again; still a table, also on a phone. | R1, R7 |
 | AC2 | A page with heading, text, a picture beside the text, two columns and a button; blocks move and go; the picture has the site's corners and shadow. | R2, R4 |
 | AC3 | An edit does not change the site until "Publiceren"; the preview shows the draft; the previous version is restorable. | R3 |
-| AC4 | The membership price is placed as a value and follows the setting. | R5 |
+| AC4 | The membership price is placed as a value and follows the setting. **Moved to CR-32 (A8.10) on 15 October 2026 with phase 5.** | R5 |
 | AC5 | (Could) The newsletter and the notes on the same editor; an activity block arrives as before. | R6 |
 | AC6 | On a phone the editor opens, adds a block and saves; nothing scrolls sideways. | R7 |
 | AC7 | The editor loads from the portal only; no CSP violation. | R9 |
@@ -178,8 +178,8 @@ Decisions, each with the rejected alternative (the reasoning in C4):
 | F2 | `cms.page_translations` (one row per language: title, draft, published, by, at); `cms_page_history` per published version; `content` read-only until dropped. | R3, R15 |
 | F3 | Rendering: schema → site HTML, mail HTML (print later); nh3 as the last net. | R1, R6, R7 |
 | F4 | `ui.rich_text(name, blocks=…)`: the vendored editor with the caller's set, one toolbar, one "Blok invoegen ▾", Opslaan (autosave later). | R2, R6 |
-| F5 | The figure block opens CR-15's picker; a gallery block takes an album (phase 5); the kit renders every figure with the public radius and shadow. | R4 |
-| F6 | The value block lists the placeholder codes and renders the current value (phase 5; the renderer replaces codes from phase 1). | R5 |
+| F5 | The figure block opens CR-15's picker; a gallery block takes an album (**moved to CR-32, phase 4, on 15 October 2026**); the kit renders every figure with the public radius and shadow. | R4 |
+| F6 | The value block lists the placeholder codes and renders the current value (**moved to CR-32, phase 4, on 15 October 2026**; the renderer replaces codes from phase 1). | R5 |
 | F7 | Voorbeeld renders the draft; Publiceren copies draft → published with a history row; Terugzetten restores into the draft. | R3 |
 | F8 | Public page at reading width; a table scrolls inside its block on a phone; columns stack, the form first. | R7 |
 | F9 | Newsletter set (text, figure, button, activity, calendar, closing) replacing the markers; the page's three choices decide the blocks — *Uitgelicht* an activity block each, *In de kalender* one calendar block (CR-11 Q55). Notes set: text, lists, table; autosave. (Could, phase 7.) | R6 |
@@ -364,13 +364,15 @@ Who calls whom: the admin screens call the cms service and render the editor thr
 
 ## B5. Cost — investment and running cost, and what operations must know
 
-| Module | Ph 0 spike | Ph 1 pages | Ph 2 blocks | Ph 3 languages | Ph 4 JSON door | Ph 5 value, gallery | Ph 6 menu (Could) | Ph 7 letter, notes (Could) | Total |
+| Module | Ph 0 spike | Ph 1 pages | Ph 2 blocks | Ph 3 languages | Ph 4 JSON door | Ph 5 value, gallery (moved to CR-32 on 15 Oct 2026) | Ph 6 menu (Could) | Ph 7 letter, notes (Could) | Total |
 |---|---|---|---|---|---|---|---|---|---|
 | ui (kit) | 1 | 1.5 | 1 | 0.5 | — | 0.5 | — | 0.5 | 5 |
 | cms | — | 3.5 | 3 | 2 | 2 | 1 | 1 | 0.5 | 13 |
 | forms; newsletter, meetings | — | — | 0.5 | — | — | — | — | 2.5 | 3 |
 | tests | 0.5 | 1 | 1 | 0.5 | 0.5 | 0.5 | 0.25 | 1 | 5.25 |
 | **Total** | **1.5** | **6** | **5.5** | **3** | **2.5** | **1.5** | **1.25** | **4.5** | **~26 CLI-days** (20 for phases 0–5) |
+
+Phase 5 (1.5 CLI-days: ui 0.5, cms 1, tests 0.5) moved to CR-32 on 15 October 2026: without it this change request is ~25 CLI-days (18.5 for phases 0–4). The totals above are as shaped and still count it.
 
 Purchases: none. **Running cost:** none. **Operations:** no env var; the bundle upgraded like htmx; one contract migration.
 
@@ -383,7 +385,7 @@ Purchases: none. **Running cost:** none. **Operations:** no env var; the bundle 
 | **2 — the blocks** | table (full), columns with alignment, button, callout, **cards** (a lone card is a cards block with one card), **form** | none | a deleted form renders nothing | AC2, AC8, AC9 |
 | **3 — a second language** (Should) | the language selector, a second translation row, `/en/`, the fallback, the switch | none | a page without a translation falls back | walkthrough |
 | **4 — the JSON door** | export and import on the page; the API: pages, draft, publish, the reference lists; the schema served | none | an unknown block refused by name | AC10 |
-| **5 — the value block and the gallery** | the value block in the toolbar (the renderer replaces codes meanwhile); the gallery block on an album | none | none | AC4 |
+| **5 — the value block and the gallery** | moved to CR-32 (phase 4) on 15 October 2026 (it was: the value block in the toolbar, the renderer replacing codes meanwhile, and the gallery block on an album) | none | none | AC4 (moved with it) |
 | **6 — sections in the menu** (Could since 5 Oct, R8; **out of this change request since 11 Oct 2026**, a follow-up change request) | a parent page with pages, app pages and outside addresses under it | additive | none | AC12 |
 | **7 — the letter and the notes** (a follow-up change request, confirmed 11 Oct 2026) | the newsletter on the editor, markers gone, the mail renderer from blocks; the notes | none | a letter the mail renderer refuses is refused at "Versturen…" | AC5 |
 | **later** | the print rendering, the preview's width switch, autosave of the draft; drop `content` two releases after phase 1 | contract for the drop | — | — |
