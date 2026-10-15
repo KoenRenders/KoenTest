@@ -24,15 +24,20 @@ from typing import Any
 
 from app.i18n import _
 
-#: The five configuration codes a value block can carry (C4.4). The labels and
-#: the current values come from the renderer/service — this is the one place
-#: that says WHICH codes exist, because the parser maps exactly these.
+#: The codes a value block can carry (CR-32 R19, from CR-17 C4.4): the two
+#: membership amounts, the three dates, the year the membership runs to, and
+#: the platform's list of sites — the one value that renders a list. The labels
+#: and the current values come from the renderer/service; this is the one place
+#: that says WHICH codes exist, because the migration of `{{code}}` maps exactly
+#: these (`{{tenants:<account>}}` and `{{form:…}}` stay typed text).
 VALUE_CODES: tuple[str, ...] = (
     "membership_price_full",
     "membership_price_half",
     "half_price_start",
     "half_price_end",
     "next_year_from",
+    "membership_valid_until",
+    "tenants",
 )
 
 #: The figures a page can place (C4.2): a figure placed through the editor
@@ -176,6 +181,11 @@ NODES: dict[str, dict[str, Any]] = {
             **_DESTINATION_ATTRS,
         }
     },
+    # CR-32 R20 (from CR-17 F5): one album of the photo page — an archived
+    # activity with photos — shown as a grid of its photos. A leaf: the data (the
+    # photos) is the media module's, supplied at render time; the service refuses
+    # an activity that is not an album at the save (the validator knows no data).
+    "gallery": {"group": "block", "attrs": {"activity_id": "int"}},
     "value": {"group": "inline", "inline": True, "atom": True, "attrs": {"code": VALUE_CODES}},
     "hardBreak": {"group": "inline", "inline": True},
     "text": {"group": "inline", "text": True, "marks": ("bold", "italic", "strike", "link")},
@@ -312,10 +322,9 @@ MARK_ATTRS: dict[str, dict[str, Any]] = {
 #: editor's configuration is generated from this, never hand-written in a
 #: template (gate 14).
 BLOCK_SETS: dict[str, dict[str, Any]] = {
-    # `value` is NOT in any phase-1 set: a placeholder code stays text in the
-    # document and the renderer replaces it as it does today; the value BLOCK
-    # is phase 5 (revised assignment, #1671). The node's shape stands in NODES
-    # so the schema is the whole design from the start.
+    # `value` is in the page set since CR-32 phase 4: the editor's Code item
+    # inserts the node (a chip with the current value) and the migration turned
+    # the typed `{{code}}` of every stored document into one.
     "page": {
         "marks": ("bold", "italic", "strike", "link"),
         "headings": HEADING_LEVELS,
@@ -324,7 +333,17 @@ BLOCK_SETS: dict[str, dict[str, Any]] = {
         "blocks": ("blockquote",),
         # C4.13's menu order: Tabel · Afbeelding · Kolommen · Knop · Kader ·
         # Kaarten.
-        "insert": ("table", "figure", "columns", "button", "callout", "cards", "section"),
+        "insert": (
+            "table",
+            "figure",
+            "columns",
+            "button",
+            "callout",
+            "cards",
+            "section",
+            "gallery",
+            "value",
+        ),
     },
     # Phase 7; the shape stands here so the one schema is the whole design.
     "letter": {
@@ -725,10 +744,12 @@ def _toolbar_label(command_id: str) -> str:
         "callout": _("Kader"),
         "cards": _("Kaarten"),
         "section": _("Sectie"),
+        "gallery": _("Galerij"),
+        "value": _("Code"),
     }.get(command_id, command_id)
 
 
-def schema_for(set_name: str) -> dict[str, Any]:
+def schema_for(set_name: str, *, albums: "list[tuple[int, str]] | None" = None) -> dict[str, Any]:
     """The editor's configuration for one set, as data for the macro.
 
     Everything the browser needs to build the toolbar and the insert menu:
@@ -841,6 +862,17 @@ def schema_for(set_name: str) -> dict[str, Any]:
             if "cards" in BLOCK_SETS[set_name]["insert"]
             else None
         ),
+        # The gallery's dialog (CR-32 R20): the albums the author may choose between
+        # — `(activity id, label)` from the caller, who owns the data; none when
+        # there is no album, and then the menu offers no gallery.
+        "gallery": (
+            {
+                "albums": [{"id": album_id, "label": label} for album_id, label in albums],
+                "albumLabel": _("Album"),
+            }
+            if albums and "gallery" in BLOCK_SETS[set_name]["insert"]
+            else None
+        ),
         # The section's tone choice, in words (CR-32): the same names the
         # validation accepts.
         "section": (
@@ -878,6 +910,8 @@ def _media_url_prefix() -> str:
 def _value_of(code: str) -> str:
     """The current value of one code, for the editor's chip (no db: the
     configuration values are app settings, like the public renderer's)."""
-    from app.domains.cms.render import _values
+    from app.domains.cms.render import _values, sites_in_words
 
+    if code == "tenants":
+        return sites_in_words(None)
     return _values().get(code, "")

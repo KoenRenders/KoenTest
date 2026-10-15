@@ -175,6 +175,17 @@ def activity_photo_covers(db) -> list[dict]:
     ]
 
 
+def list_albums(db) -> list:
+    """The albums of the photo page: the ARCHIVED activities that have at least
+    one active photo, as the activities themselves. The one definition — the
+    photo page lists them, a page's gallery block (CR-32 R20) offers them and
+    refuses what is not one."""
+    from app.domains.activities.api import list_activities
+
+    covered = {row["activity_id"] for row in activity_photo_covers(db)}
+    return [a for a in list_activities(db, scope="archived") if a.id in covered]
+
+
 def list_activity_photos(db, activity_id: int) -> list[dict]:
     rijen = (
         db.query(MediaAsset)

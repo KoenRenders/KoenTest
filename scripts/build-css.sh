@@ -841,6 +841,12 @@ body[data-shell="site"]>main{padding-bottom:24px}
    ink. The whole card is the link: the title's link is stretched over it, so
    there is one link, and its focus ring (3 px) stands around the card. No
    hover reveal — a phone has no hover. */
+/* A page's gallery (CR-32 R20): the photos of one album, two across on a phone and
+   as many as fit from 160 px on a wide screen; the pictures carry the prose
+   rules' radius and shadow like every picture of a page. */
+.prose-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:.5rem 0}
+@media (min-width:768px){.prose-gallery{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}}
+.prose-raak .prose-gallery img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;margin:0}
 .prose-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:.5rem 0}
 .prose-cards:has(>:nth-child(3)){grid-template-columns:repeat(3,minmax(0,1fr))}
 .prose-column .prose-cards,.prose-column .prose-cards:has(>:nth-child(3)){grid-template-columns:minmax(0,1fr)}
@@ -854,9 +860,13 @@ body[data-shell="site"]>main{padding-bottom:24px}
 .prose-raak .prose-card-title{font-size:18px;line-height:1.35;font-weight:600;color:var(--ink);text-decoration:none}
 .prose-raak a.prose-card-title::after{content:"";position:absolute;inset:0}
 .prose-raak a.prose-card-title:focus-visible{outline:none}
+.de-gallery{margin:.5rem 0;padding:.75rem 1rem;border:1px dashed rgb(var(--c-line));border-radius:8px;background:rgb(var(--c-surface-2));font-size:.875rem}
 .prose-card-number{font-size:14px;font-weight:700;letter-spacing:.06em;color:rgb(var(--c-brand))}
 .prose-card-text{margin:0;font-size:16px;line-height:1.5;color:rgb(var(--c-ink-soft))}
 .prose-card-line{font-size:16px;line-height:1.5;color:rgb(var(--c-ink-soft))}
+/* A value in the page editor (CR-32 R19): a chip with the value it has now; on the
+   site the value is plain text, so there is no public rule. */
+.de-surface .prose-value{display:inline-block;max-width:100%;padding:0 .4rem;border:1px solid rgb(var(--c-blue-200));border-radius:6px;background:rgb(var(--c-blue-50));color:rgb(var(--c-blue-700));vertical-align:bottom;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prose-card-labels{font-size:12px;line-height:1.5;color:rgb(var(--c-ink-soft))}
 @media (max-width:639.98px){
   .prose-raak a.prose-button{display:flex;width:100%;min-height:44px}
@@ -873,7 +883,7 @@ body[data-shell="site"]>main{padding-bottom:24px}
    <main> gives them). */
 .doc-page{width:100%;max-width:1024px;margin-left:auto;margin-right:auto}
 .doc-page>:not(.prose-raak):not(.prose-hero){max-width:768px}
-.doc-page .prose-raak>*:not(table):not(.prose-figure--full):not(.prose-columns):not(.prose-cards):not(.prose-section){max-width:768px}
+.doc-page .prose-raak>*:not(table):not(.prose-figure--full):not(.prose-columns):not(.prose-cards):not(.prose-section):not(.prose-gallery){max-width:768px}
 /* ── CR-32 (F1–F3, F5): a band that spans the page, with the container put back
    inside it. The band breaks out of `.doc-page` by the width the container
    leaves on each side (margin) and takes the same width back as padding, so
@@ -898,7 +908,7 @@ body[data-shell="site"]{overflow-x:clip}
 .prose-section{padding-block:2.5rem}
 .prose-section>:first-child{margin-top:0}
 .prose-section>:last-child{margin-bottom:0}
-.doc-page .prose-section>*:not(table):not(.prose-figure--full):not(.prose-columns):not(.prose-cards){max-width:768px}
+.doc-page .prose-section>*:not(table):not(.prose-figure--full):not(.prose-columns):not(.prose-cards):not(.prose-gallery){max-width:768px}
 .prose-section--tint,.prose-hero--tint{background:rgb(var(--c-blue-50))}
 /* The accent tokens belong to the public shell; the page editor (admin shell)
    shows the band in the platform's own accent, so the fallback is the same one. */
