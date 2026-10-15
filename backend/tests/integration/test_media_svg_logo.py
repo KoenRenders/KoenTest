@@ -171,7 +171,7 @@ def test_a_raster_posing_as_svg_is_refused(client, db_session):
 def test_an_svg_as_sponsor_logo_is_still_refused(client, db_session):
     resp = _upload(client, LOGO, kind="sponsor")
     assert resp.status_code == 200
-    assert "alleen als logo van de vereniging" in resp.text
+    assert "alleen als logo of favicon van de vereniging" in resp.text
     assert _stored(db_session) is None
 
 

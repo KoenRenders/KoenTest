@@ -127,11 +127,15 @@ def test_de_uitzonderingslijst_blijft_een_uitzondering():
     een schermafdruk op een uitlegpagina is letterwerk, net als een logo. De
     afweging is dezelfde als hierboven — bytes tegen leesbaarheid — en ze valt
     dezelfde kant op omdat het er een handvol zijn, geen album.
+
+    `site_icon` (CR-32 R6) volgt het logo: een favicon is een klein merkteken,
+    lijnwerk bij uitstek, en er is er één per tenant.
     """
     assert {k.value for k in LOSSLESS_KINDS} == {
         "design_render",
         "sponsor",
         "tenant_logo",
+        "site_icon",
         "page_image",
     }, LOSSLESS_KINDS
     assert MediaKind.ACTIVITY_PHOTO not in LOSSLESS_KINDS
