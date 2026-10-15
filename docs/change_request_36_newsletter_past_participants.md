@@ -4,7 +4,7 @@
 **Status:** shaped with Koen on 15 October 2026 · not assigned to a release; B8 answered
 **Tracking issue:** #2026 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (audience choice, recipient list, send screen, Raakje's sources), the activities facade (a read of registration addresses), the unsubscribe page
-**Reading:** A 758 words · B 1 502 · C 1 547 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 758 words · B 1 431 · C 1 547 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -129,6 +129,48 @@ A fourth audience, *Eerdere deelnemers*, next to Leden, Abonnees and Allebei. Wi
 Covers R1–R4 and R6. An example of use: *Nieuwsbrief*, step *Doelgroep* → the new option → tick last year's activity → *Naar versturen* → "212 adressen van mensen die waren ingeschreven op …, waarvan 140 al als lid de brief krijgen"; send.
 
 ## B3. The whole across the modules — for the architect
+
+<!-- figure: name=cr36-structure caption=Green_is_new_orange_is_changed_grey_is_only_used -->
+```mermaid
+flowchart LR
+  subgraph ACT["activities"]
+    an["new: facade reads past_activities and registration_addresses"]:::new
+    au["used: activities, registrations"]:::use
+  end
+  subgraph NL["newsletter"]
+    nn["new: audience Eerdere deelnemers, table of chosen activities, delivery kind participant, token per delivery, source participant"]:::new
+    nc["changed: recipients_of, send_batch re-check, unsubscribe page, send screen sentence, archive line"]:::chg
+    nu["used: subscribers, deliveries, letters"]:::use
+  end
+  subgraph DRA["drafting"]
+    dc["changed: the chosen activities go to Raakje as a source"]:::chg
+  end
+  nc -->|api| an
+  an --> au
+  nc --> nn
+  nc --> nu
+  nc -->|sources| dc
+  classDef new fill:#eef7ee,stroke:#005d29
+  classDef chg fill:#fff7ed,stroke:#f16532
+  classDef use fill:#eeeeee,stroke:#52607a
+```
+
+*Green new, orange changed, grey used.*
+
+```mermaid
+erDiagram
+  LETTER ||--o{ AUDIENCE_ACTIVITY : "audience"
+  AUDIENCE_ACTIVITY }o..|| ACTIVITY : "soft reference"
+  LETTER ||--o{ DELIVERY : "one per address"
+  SUBSCRIBER ||--o{ DELIVERY : "may receive"
+  ACTIVITY ||--o{ REGISTRATION : "has"
+  AUDIENCE_ACTIVITY { int tenant_id int letter_id int activity_id string name date last_date }
+  DELIVERY { int letter_id string address string kind string token }
+  SUBSCRIBER { string email string status string source }
+  REGISTRATION { int activity_id string contact_email }
+```
+
+*New: `AUDIENCE_ACTIVITY`, the `token` of a delivery, the kind `participant` and the source `participant`. The activity is a soft reference across the schema line; the name and date are copied when the send starts.*
 
 - `activities` gives two reads through its facade: the past activities that may be offered, and the raw addresses of the registrations on a set of activities, per tenant. `newsletter` never reads `Registration` itself and normalises the addresses itself.
 - `newsletter` owns the audience, the list of chosen activities (a soft reference across the schema line, with the activity's name and date copied when the send starts, so the archive survives a later deletion), the delivery kind `participant`, one `token` per delivery, and a new source *participant* on the subscriber list.
