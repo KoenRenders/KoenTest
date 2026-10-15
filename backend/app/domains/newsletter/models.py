@@ -23,6 +23,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    Date,
     DateTime,
     ForeignKey,
     Integer,
@@ -64,17 +65,23 @@ class SubscriberStatus(CodeEnum):
 
 
 class SubscriberSource(CodeEnum):
-    """Where a subscription comes from — proof of consent."""
+    """Where a row of the subscriber list comes from. Not proof of consent: a row of
+    source `participant` is somebody who used the unsubscribe link of a letter to the
+    people registered for earlier activities and never subscribed (CR-36, #2026) —
+    the row only keeps the opt-out."""
 
     PUBLIC_FORM = "public_form"
     IMPORT = "import"
     ADMIN = "admin"
+    PARTICIPANT = "participant"
 
 
 class Audience(CodeEnum):
     MEMBERS = "members"
     NON_MEMBERS = "non_members"
     BOTH = "both"
+    #: The people registered for the earlier activities the letter names (CR-36).
+    PARTICIPANTS = "participants"
 
 
 class LetterStatus(CodeEnum):
@@ -91,6 +98,9 @@ class ReplyToMode(CodeEnum):
 class DeliveryKind(CodeEnum):
     MEMBER = "member"
     SUBSCRIBER = "subscriber"
+    #: Registered for an earlier activity, on neither list (CR-36): the unsubscribe
+    #: link is signed per delivery and a use of it makes a subscriber row.
+    PARTICIPANT = "participant"
 
 
 class DeliveryStatus(CodeEnum):
@@ -499,6 +509,30 @@ class Delivery(TenantMixin, Base):
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
 
     newsletter = relationship("Newsletter", back_populates="deliveries")
+
+
+class AudienceActivity(TenantMixin, Base):
+    """An earlier activity a letter to *Eerdere deelnemers* is addressed to (CR-36,
+    #2026). The activity is a soft reference across the schema line; its name and its
+    last date are copied when the send starts, so the archive of a sent letter keeps
+    saying whom it went to after the activity is deleted."""
+
+    __tablename__ = "audience_activities"
+    __table_args__ = (
+        UniqueConstraint("newsletter_id", "activity_id", name="uq_audience_activity"),
+        {"schema": "newsletter"},
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    newsletter_id = Column(
+        Integer,
+        ForeignKey("newsletter.newsletters.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    activity_id = Column(Integer, nullable=False)
+    name = Column(String(255), nullable=True)
+    last_date = Column(Date, nullable=True)
 
 
 class DraftingMessage(TenantMixin, Base):

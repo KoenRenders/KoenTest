@@ -229,7 +229,11 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         columns=("newsletter.subscribers.source",),
         label=None,
         name_en="Source",
-        help="The source of the subscriber, a code of its code list.",
+        help=(
+            "Where the row of the subscriber list comes from, a code of its code list. "
+            "Not proof of consent: a row of source participant only keeps the opt-out of "
+            "someone who used the unsubscribe link of a letter to earlier participants."
+        ),
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
@@ -295,5 +299,29 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         name_en="Person id",
         help="The person id of the subscriber.",
         ai_exposure=AiExposure.INTERNAL,  # K8
+    ),
+    Attribute(
+        key="newsletter.audience_activity.activity_id",
+        columns=("newsletter.audience_activities.activity_id",),
+        label=None,
+        name_en="Activity",
+        help="The earlier activity a letter to earlier participants is addressed to.",
+        ai_exposure=AiExposure.INTERNAL,  # K8
+    ),
+    Attribute(
+        key="newsletter.audience_activity.name",
+        columns=("newsletter.audience_activities.name",),
+        label=None,
+        name_en="Name of the activity",
+        help="The name of that activity, copied when the send starts.",
+        ai_exposure=AiExposure.INTERNAL,  # K7
+    ),
+    Attribute(
+        key="newsletter.audience_activity.last_date",
+        columns=("newsletter.audience_activities.last_date",),
+        label=None,
+        name_en="Last date of the activity",
+        help="The last date of that activity, copied when the send starts.",
+        ai_exposure=AiExposure.INTERNAL,  # K7
     ),
 )
