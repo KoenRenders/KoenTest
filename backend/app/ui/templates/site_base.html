@@ -47,7 +47,10 @@
   {% if omgeving and omgeving != 'prod' %}<meta name="robots" content="noindex">{% endif %}
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"{{ site_name }}"{% if base_url %},"url":"{{ base_url }}"{% endif %}{% if sociale_links %},"sameAs":[{% for link in sociale_links %}{% if not loop.first %},{% endif %}"{{ link.url }}"{% endfor %}]{% endif %}}</script>
   {# #1245: the RaaK icon, cut from the house-style logo (see main.favicon). #}
-  <link rel="icon" href="{{ statisch('favicon.ico') }}" sizes="16x16 32x32 48x48">
+  {# CR-32 R6: a tenant that uploaded a site icon shows it in the tab; without one
+     the platform's icon (the RaaK mark) stands. #}
+  {% if site_icon_url %}<link rel="icon" href="{{ site_icon_url }}">
+  {% else %}<link rel="icon" href="{{ statisch('favicon.ico') }}" sizes="16x16 32x32 48x48">{% endif %}
   <link rel="apple-touch-icon" href="{{ statisch('apple-touch-icon.png') }}">
   <link rel="stylesheet" href="{{ statisch('app.css') }}">
   {# The figure rules of a page document (CR-17 #1671, slice 3) — ONE source
@@ -221,6 +224,7 @@
   </div>
   {# `data-main`: the content area, a hook of the measurement baseline (#1605). #}
   <main id="main" class="site-container py-8" :inert="menu" data-main>
+    {% if bericht_verzonden %}{{ ui.success_banner(_("Bedankt! We hebben je bericht goed ontvangen en behartigen het zo snel mogelijk.")) }}{% endif %}
     {% block content %}{% endblock %}
   </main>
   {# ── The footer (CR-11 pilot B, P1 — #1588; end state §2.5) ──────────────────

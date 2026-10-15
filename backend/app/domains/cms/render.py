@@ -12,6 +12,8 @@ editor-endpoints geven de ruwe codes terug, zodat ze bewerkbaar blijven.
 
 import json
 import re
+from collections.abc import Mapping
+from contextvars import ContextVar
 from html import escape, unescape
 from typing import Dict, Optional
 
@@ -715,6 +717,7 @@ _UNREACHABLE = {
     ("gallery", "empty"): _(
         "Deze galerij toont niets: het album bestaat niet meer of heeft geen foto's."
     ),
+    ("activities", "empty"): _("Dit blok toont niets: er zijn geen komende activiteiten."),
 }
 
 
@@ -793,6 +796,19 @@ def _unreachable_html(block: str, reason: str) -> str:
     return f'<span class="{REFUSED_CLS}">{_UNREACHABLE[(block, reason)]}</span>'
 
 
+#: The signed-in visitor a page is rendered for (CR-32 F14, B8.9): the shell's
+#: `gebruiker` — a mapping that says `has_household` — or None (a visitor, the
+#: preview, the chatbot, a mail). An input of `render_document`; held in a context
+#: variable for the length of one render so the many nested calls need no new
+#: parameter, and reset when it ends.
+_VIEWER: ContextVar["Mapping | None"] = ContextVar("cms_render_viewer", default=None)
+
+
+def _viewer_has_household() -> bool:
+    viewer = _VIEWER.get()
+    return bool(viewer and viewer.get("has_household"))
+
+
 def _button_html(node: dict, preview: bool = False, db=None) -> str:
     """The kit's button with the author's label and her ONE resolved
     destination (#1679). What cannot be reached renders NOTHING on the site —
@@ -804,6 +820,13 @@ def _button_html(node: dict, preview: bool = False, db=None) -> str:
     address, reason, outside = _resolved(attrs, db)
     if address is None:
         return _unreachable_html("button", reason or "page") if preview else ""
+    if attrs.get("screen") == "lid-worden" and _viewer_has_household():
+        # One rule for every button to that screen (B8.9): a signed-in member with
+        # a household is sent to the household, with the word for it. No block, no
+        # second button — the same rule the home's band had.
+        from app.ui import path_for
+
+        address, label = path_for("/leden/gezin"), escape(_("Mijn gezin"))
     rel = ' rel="noopener noreferrer"' if outside else ""
     return (
         f'<a class="prose-button prose-button--{variant}" '
@@ -811,7 +834,7 @@ def _button_html(node: dict, preview: bool = False, db=None) -> str:
     )
 
 
-def hero_view(page, db=None, *, preview: bool = False) -> "dict | None":
+def hero_view(page, db=None, *, preview: bool = False, viewer=None) -> "dict | None":
     """The hero a page opens with (CR-32 F5), as the template draws it — or
     None when the page opens with its title line. The hero is a property of
     the page, not of its document: the page's title is its h1 and stays the
@@ -821,26 +844,63 @@ def hero_view(page, db=None, *, preview: bool = False) -> "dict | None":
     hero = getattr(page, "hero", None)
     if getattr(page, "opening", "title_line") != "hero" or not hero:
         return None
-    actions = "".join(
-        _button_html(
-            {
-                "attrs": {
-                    **{k: v for k, v in button.items() if k != "label"},
-                    "label": button["label"],
-                    "variant": "primary" if index == 0 else "secondary",
-                }
-            },
-            preview=preview,
-            db=db,
+    token = _VIEWER.set(viewer)
+    try:
+        actions = "".join(
+            _button_html(
+                {
+                    "attrs": {
+                        **{k: v for k, v in button.items() if k != "label"},
+                        "label": button["label"],
+                        "variant": "primary" if index == 0 else "secondary",
+                    }
+                },
+                preview=preview,
+                db=db,
+            )
+            for index, button in enumerate(hero.get("buttons") or [])
         )
-        for index, button in enumerate(hero.get("buttons") or [])
-    )
+    finally:
+        _VIEWER.reset(token)
     return {
         "tone": hero["tone"],
         "eyebrow": hero.get("eyebrow") or "",
         "lead": hero.get("lead") or "",
         "actions_html": actions,
     }
+
+
+def _activities_html(node: dict, preview: bool = False, db=None) -> str:
+    """The upcoming activities as the home page showed them, at most `count`
+    (CR-32 R15, F14): the activities module's list and its own partial
+    (`_activiteiten_cards.html`), rendered through the template environment as the
+    sites list is. A tenant without the module, or with nothing to show, gets
+    nothing on the site and the reason in the preview."""
+    from datetime import date
+
+    from app.database import SessionLocal
+    from app.domains.activities.api import list_activities
+    from app.domains.mdm.api import module_enabled
+    from app.kernel.modules import ModuleCode
+    from app.ui import templates
+
+    count = (node.get("attrs") or {}).get("count")
+    if not module_enabled(ModuleCode.ACTIVITIES) or not isinstance(count, int):
+        return _unreachable_html("activities", "empty") if preview else ""
+    own_db = SessionLocal() if db is None else None
+    session = db if db is not None else own_db
+    try:
+        activities = list_activities(session, scope="upcoming")[:count]
+        if not activities:
+            return _unreachable_html("activities", "empty") if preview else ""
+        return (
+            templates.env.get_template("_activiteiten_cards.html")
+            .render(activities=activities, current_year=date.today().year, scope="upcoming")
+            .strip()
+        )
+    finally:
+        if own_db is not None:
+            own_db.close()
 
 
 def _gallery_html(node: dict, preview: bool = False, db=None) -> str:
@@ -945,7 +1005,9 @@ def _card_html(node: dict, preview: bool = False, db=None) -> str:
     return f'<div class="{cls}">{number}{top}{title}{line}{body}{marks}</div>'
 
 
-def render_document(document, db=None, *, target: str = "site", preview: bool = False) -> str:
+def render_document(
+    document, db=None, *, target: str = "site", preview: bool = False, viewer=None
+) -> str:
     """A validated document (dict or JSON string) to site HTML (CR-17, C4.2) —
     or to plain text (``target="text"``): the words the chatbot's context
     reads, no tags at all.
@@ -960,17 +1022,68 @@ def render_document(document, db=None, *, target: str = "site", preview: bool = 
     and carries the same substitutions, reduced to their words.
     """
     if isinstance(document, str):
-        import json
-
         document = json.loads(document)
     if target == "text":
         return _document_text(document, db)
-    late: list[str] = []
-    html = (
-        _blocks_html(document.get("content") or [], preview=preview, db=db, late=late)
-        if document
-        else ""
+    return "".join(
+        html for _kind, html in render_document_parts(document, db, preview=preview, viewer=viewer)
     )
+
+
+#: What renders each data block of `schema.DATA_BLOCKS`: one function per block.
+_DATA_BLOCKS = {
+    "activities": lambda node, preview, db: _activities_html(node, preview=preview, db=db)
+}
+
+
+def render_document_parts(
+    document, db=None, *, preview: bool = False, viewer=None
+) -> "list[tuple[str, str]]":
+    """The page as `(kind, html)` parts, in order (CR-32 phase 5): `"prose"` for
+    what the author wrote — the stretch of blocks between two data blocks — and
+    `"data"` for a data block of a module (the activity list). A data block is the
+    module's own markup, with its own classes, and it does not stand inside the
+    prose styling: the page template puts each part in its own container, the
+    prose in `prose-raak`, a data block beside it. Data blocks stand at the root
+    only (the grammar, `schema.DATA_BLOCKS`), so the split is the root's.
+
+    The visitor the page is rendered for (`viewer`, F14) is an input: held for the
+    length of the call, so a button to "Word lid" can send a member with a household
+    to the household instead."""
+    from app.domains.cms.schema import DATA_BLOCKS
+
+    if isinstance(document, str):
+        document = json.loads(document)
+    parts: list[tuple[str, str]] = []
+    run: list[dict] = []
+
+    def close_run() -> None:
+        if run:
+            parts.append(("prose", _finish_prose(list(run), preview, db)))
+            run.clear()
+
+    token = _VIEWER.set(viewer)
+    try:
+        for node in (document or {}).get("content") or []:
+            if node.get("type") in DATA_BLOCKS:
+                close_run()
+                block = _DATA_BLOCKS[node["type"]](node, preview=preview, db=db)
+                if block:
+                    parts.append(("data", block))
+            else:
+                run.append(node)
+        close_run()
+    finally:
+        _VIEWER.reset(token)
+    return parts
+
+
+def _finish_prose(blocks: list[dict], preview: bool, db) -> str:
+    """One stretch of the author's blocks as safe HTML: built, sanitised, the
+    blocks built in code placed after the sanitiser, then the substitutions the
+    text may carry — the codes first, then the sites cards and a form button."""
+    late: list[str] = []
+    html = _blocks_html(blocks, preview=preview, db=db, late=late)
     html = sanitize_cms_html(html) or ""
     for index, block in enumerate(late):
         html = html.replace(f"<div>{_LATE}{index}{_LATE}</div>", block)

@@ -88,33 +88,52 @@ def test_a_published_footer_block_is_not_rendered_either(client, db_session):
     assert len(kept) == len(rijen) and all(FOOTERTEKST in p.content for p in kept)
 
 
-# ── De home-intro ────────────────────────────────────────────────────────────
+# ── De startpagina (CR-32 R17: de home-intro is geen siteblok meer) ──────────
 
 
-def test_een_niet_gepubliceerde_intro_staat_niet_op_de_homepagina(client, db_session):
-    _blok(db_session, "home-intro", INTROTEKST, gepubliceerd=False)
+def _startpagina(db):
+    """De gemarkeerde startpagina van de standaardtenant, zoals de seed haar maakt."""
+    from app.kernel.tenancy import TENANT_MILLEGEM_ID
 
-    resp = client.get("/")
+    return (
+        db.query(CmsPage)
+        .filter(CmsPage.is_home.is_(True), CmsPage.tenant_id == TENANT_MILLEGEM_ID)
+        .one()
+    )
 
-    assert resp.status_code == 200
-    assert INTROTEKST not in resp.text
+
+def test_een_niet_gepubliceerde_startpagina_staat_niet_op_de_site(client, db_session):
+    """#727, nu voor de startpagina: niet gepubliceerd is niet getoond. Er is geen
+    tweede startpagina — het adres antwoordt als elk adres zonder pagina."""
+    _startpagina(db_session).is_published = False
+    db_session.flush()
+
+    assert client.get("/").status_code == 404
 
 
-def test_een_gepubliceerde_intro_staat_er_wel(client, db_session):
-    """Sinds de lezers naar het document verhuisden (snede 3, #1671) staat
-    "gepubliceerd" op het document, niet meer op de HTML alleen: wie achter
-    de dienst om schrijft, verandert de openbare pagina niet meer. De tekst
-    reist zoals bij een auteur: het document in, en dan publiceren."""
+def test_een_gepubliceerde_startpagina_toont_haar_gepubliceerde_document(client, db_session):
+    """Het document in, dan publiceren — de lezer kijkt naar het gepubliceerde
+    document (snede 3, #1671), niet naar wat er in de HTML staat."""
     from app.domains.cms.parse import parse_html
     from app.domains.cms.service import publish, save_draft
 
-    rijen = _blok(db_session, "home-intro", INTROTEKST, gepubliceerd=True)
-    for rij in rijen:
-        document = parse_html(f"<p>{INTROTEKST}</p>", lenient=True)
-        save_draft(db_session, rij.id, document, by="test")
-        publish(db_session, rij.id, by="test")
+    home = _startpagina(db_session)
+    document = parse_html(f"<p>{INTROTEKST}</p>", lenient=True)
+    save_draft(db_session, home.id, document, by="test")
+    publish(db_session, home.id, by="test")
 
     assert INTROTEKST in client.get("/").text
+
+
+def test_de_oude_intro_is_geen_siteblok_en_geen_pagina_meer(client, db_session):
+    """De migratie zette `home-intro` uit de siteblokken: de rij blijft staan,
+    niet gepubliceerd, en haar adres bestaat niet."""
+    from app.domains.cms.api import SITE_BLOCK_SLUGS
+
+    assert "home-intro" not in SITE_BLOCK_SLUGS
+    intro = db_session.query(CmsPage).filter(CmsPage.slug == "home-intro").all()
+    assert intro and not any(rij.is_published for rij in intro)
+    assert client.get("/home-intro").status_code == 404
 
 
 # ── De val: publiceren zonder de navigatievlag uit te zetten ─────────────────

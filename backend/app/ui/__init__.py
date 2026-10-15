@@ -1059,6 +1059,19 @@ def _site_logo_url(db) -> str | None:
         return None
 
 
+def _site_icon_url(db) -> str | None:
+    """The address of the tenant's favicon, or None for the platform's own
+    (CR-32 R6): the newest picture of the kind `site_icon`, as the logo is. Never
+    breaks the rendering."""
+    try:
+        from app.domains.media.api import media_url, tenant_site_icon
+
+        asset = tenant_site_icon(db)
+        return media_url(asset.id) if asset is not None else None
+    except Exception:
+        return None
+
+
 def _footer_organisatie(db, organisatie) -> dict | None:
     """Het organisatieblok in de footer (#924), of None als er niets te tonen is.
 
@@ -1439,6 +1452,12 @@ def site_context(db, request=None) -> dict:
         # `maxlength`, from the setting its route refuses above.
         "chat_max_input_chars": settings.chat_max_input_chars,
         "gebruiker": user,
+        # CR-32 C6 15a: the thank-you after a contact message belongs to the shell,
+        # for the redirect `/?bericht=verzonden` of the contact form lands on
+        # whichever page is the home — it stood in `home.html` alone.
+        "bericht_verzonden": bool(
+            request is not None and request.query_params.get("bericht") == "verzonden"
+        ),
         # Branding per tenant (#407/#519): naam/tagline/Facebook uit de
         # tenant-config. GEEN Millegem-specifieke defaults meer — die lekten
         # naar andere tenants (multi-tenancy-fout). Leeg = niet tonen, net als
@@ -1469,6 +1488,8 @@ def site_context(db, request=None) -> dict:
         # media en niet in de vergadermodule. Als URL en niet als bytes: de
         # browser haalt het gewoon op, en de mediaroute cachet het al.
         "site_logo_url": _site_logo_url(db),
+        # CR-32 R6: the tab icon of the tenant; None keeps the platform's.
+        "site_icon_url": _site_icon_url(db),
         # CR-19 (#1496): what the header shows without a logo. A company shows
         # its own name. #1588: an association shows its name too (the typed
         # RaaK wordmark left with decision 11), so None only says "no name of

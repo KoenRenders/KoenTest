@@ -323,8 +323,8 @@ def test_a_button_on_a_site_block_leads_nowhere(db_session):
 
     # The seed carries the home intro herself (one per tenant): the block
     # the button may not point at is the real one, not a copy of her.
-    intro = db_session.query(CmsPage).filter(CmsPage.slug == "home-intro").first()
-    assert intro is not None, "de zaaisel draagt geen home-intro"
+    intro = db_session.query(CmsPage).filter(CmsPage.slug == "site-footer").first()
+    assert intro is not None, "de zaaisel draagt geen site-footer"
     # Published, so the refusal below can only come from her being a site
     # block — not from her draft state.
     intro.is_published = True

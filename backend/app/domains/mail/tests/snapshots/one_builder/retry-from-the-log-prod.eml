@@ -1,0 +1,13 @@
+Content-Type: multipart/alternative; boundary="<B1>"
+MIME-Version: 1.0
+Subject: Onderwerp
+From: Raak Millegem <sender@example.com>
+To: to@example.com
+
+--<B1>
+Content-Type: text/html; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+
+<p>Eerder</p>
+--<B1>--
