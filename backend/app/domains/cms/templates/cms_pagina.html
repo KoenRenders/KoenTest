@@ -18,7 +18,7 @@
   {% if hero.eyebrow %}<p class="prose-hero-eyebrow">{{ hero.eyebrow }}</p>{% endif %}
   <h1 class="prose-hero-title font-brand font-bold" data-hero-title>{{ page.title }}</h1>
   {% if hero.lead %}<p class="prose-hero-lead">{{ hero.lead }}</p>{% endif %}
-  {% if hero.actions_html %}<div class="prose-hero-actions">{{ hero.actions_html | safe }}</div>{% endif %}
+  {% if hero.actions_html %}<div class="prose-hero-actions prose-raak">{{ hero.actions_html | safe }}</div>{% endif %}
 </div>
 {% else %}
 <h1 class="text-3xl font-bold text-kop mb-8">{{ page.title }}</h1>
