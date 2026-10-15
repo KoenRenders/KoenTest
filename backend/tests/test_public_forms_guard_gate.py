@@ -57,6 +57,8 @@ NOT_TYPED = {
     "POST /nieuwsbrief/opnieuw/{token}": "works on the token of a mail somebody holds",
     "POST /nieuwsbrief/uitschrijven/{token}": "works on the token of a mail somebody holds",
     "POST /raakje/vraag": "the public chat; what it passes on goes to the board, not to a typed address",
+    "POST /webshop/bestellen": "places an order; mails nothing yet (the confirmation mail is a later CR-21 commit)",
+    "POST /webshop/mandje": "recomputes the basket; mails nothing",
 }
 
 
