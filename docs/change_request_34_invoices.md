@@ -1,10 +1,10 @@
 # Change Request 34 — Invoices for the webshop
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 15 October 2026 by the design-documentation CLI, on Koen's dictation · build read not yet asked · for v2.18 on Koen's word (not assigned yet: the assignment follows the build read) · **prerequisites:** CR-21 (webshop) built, and CR-26 (party model) phase 2, "the buyer" (C4.10)
+**Status:** shaped on 15 October 2026 by the design-documentation CLI, on Koen's dictation · build read by Dev2 on 15 October 2026 (comment on #2009), findings taken in · for v2.18 on Koen's word (not assigned yet: the assignment follows the build read) · **prerequisites:** CR-21 (webshop) built, and CR-26 (party model) phase 2, "the buyer" (C4.10)
 **Tracking issue:** #2009 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** `payment` (the invoice, its number, its VAT, its document; the module "invoices"), `tax` (new: tax classes, categories, rates and the one rule that picks the rate), `product` and `pricing` of CR-21 (the tax class of an article), `sales` (the buyer's details, cancelling and changing an order that has an invoice), `mdm` (the issuing organisation, the buyer as a party; read, not changed), `mail` (the invoice mail), `kernel` (the module registry), `reporting` (a view)
-**Reading:** A 1 500 words · B 2 500 · C 2 782 — measured on 15 October 2026, drawings excluded, tables included; budgets A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1 499 words · B 2 496 · C 3 690 — measured on 15 October 2026, drawings excluded, tables included; budgets A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -70,7 +70,7 @@ flowchart LR
 ```mermaid
 flowchart LR
   subgraph B["Buyer"]
-    b0((Wants to buy)) --> b1[Order and say private or company]
+    b0((Wants to buy)) --> b1[Order for myself or for an organisation]
     b1 --> b2{Online or transfer?}
     b2 -- transfer --> b3[Pay by bank with the OGM]
     b2 -- online --> b4[Pay at the provider]
@@ -113,7 +113,7 @@ flowchart LR
 
 *What to see: the new blue steps are "Issue the invoice", "Mail the invoice", "Follow the open invoices" and "Hand the invoices over"; the buyer's first step gains one question.*
 
-- **"Order" gains a question:** private or company. A company gives its name, address and VAT number.
+- **"Order" gains a choice:** for myself, or on behalf of an organisation registered once (CR-26).
 - **"Issue the invoice" is new:** the portal numbers the invoice, calculates the VAT and writes the payment text. Online and paid: "voldaan". Transfer: the OGM and a due date.
 - **"Hand the invoices to the bookkeeper" is new:** the portal produces the set, so nobody retypes it.
 
@@ -183,27 +183,27 @@ Reporting need: the accountant gets the invoices of a period, a list and the doc
 
 The portal issues an **invoice** when a sale is settled in business terms. The invoice is a **frozen document**: a copy of the seller, the buyer and the lines as they were, with a number from a gapless sequence of the issuing organisation, the VAT per rate and a payment text. It is rendered as a PDF in the site's logo, mailed, kept, and exported. A mistake is corrected by a **credit note**. Payments stay where they are; the invoice is the receivable they settle.
 
-- **D1 — Invoices live in `payment`, as a module "invoices" a tenant switches on.** Koen decided on 7 October 2026 that invoices belong to the payment domain, called finance, with no domain of their own (CR-21 Q31). The switch is a module entry in the registry (CR-19), so a Raak department has none. Rejected: an `invoicing` domain, a second place for receivables.
-- **D2 — The invoice is a snapshot, never a live view.** Seller, buyer, lines and VAT are copied at issue; nothing edits them. Rejected: an invoice that reads the order when opened; it changes with it.
+- **D1 — Invoices live in `payment`, as a module "invoices" a tenant switches on.** Koen, 7 October 2026: invoices belong to the payment domain, called finance, with no domain of their own (CR-21 Q31). The switch is a module entry in the registry (CR-19), so a Raak department has none. Rejected: an `invoicing` domain, a second place for receivables.
+- **D2 — The invoice is a snapshot, never a live view.** Seller, buyer, lines and VAT are copied at issue; nothing edits them, and the PDF is rendered once at issue and stored (C4.4). Rejected: an invoice that reads the order or the tenant when opened.
 - **D3 — A correction is a credit note.** The same document type with a link to the invoice it corrects, issued when an order with an invoice is changed or cancelled. Rejected: editing.
 - **D4 — One gapless sequence per issuing organisation**, taken inside the issuing transaction under a lock. Rejected: a sequence per tenant; two tenants of a company would repeat a number.
-- **D5 — The tax is a class per article, a rate from a module of its own, in the shop's price.** The article carries a **tax class**; the new module `tax` holds the schemes, categories, classes and rates and the one function that says which applies (D9). Prices stay what the buyer pays; the invoice works net and tax out of them per rate, and its total equals the payment (B9).
+- **D5 — The tax is a class per article, a rate from a module of its own, in the shop's price.** The article carries a **tax class**; the new module `tax` holds the schemes, categories, classes and rates and the one function that says which applies (D9). Prices stay what the buyer pays; the invoice works net and tax out of them per rate, and its total equals the payment, a rounding amount of a few cents bridging the VAT (C4.3).
 - **D6 — The issuing organisation is a setting of the module**, defaulting to the account's organisation; the brand is the tenant's own name and logo, shown beside it. Renko BV is the seller, the brand is the shop (B9, Q4).
 - **D7 — The issuing moment**: online, when the payment is confirmed; transfer, when the order is placed (B9).
-- **D9 — Tax lives in a module of its own, small from the first day.** It holds the schemes, categories, classes and rates (with a validity period and a jurisdiction) and one rule, `determine(class, seller, buyer, date)`, that product, sales and invoices call; an invoice only freezes the answer. VAT is the one scheme today; another tax is a row and a rule later. Rules that outgrow a table of rates may later move behind this same function (C4.9). The platform maintains it by migration, without a screen (B9). Rejected: rates inside `payment`; three modules would read them.
+- **D9 — Tax lives in a module of its own, small from the first day.** It holds the schemes, categories, classes and rates (with a validity period and a jurisdiction) and one rule, `determine(class, seller, buyer, date)`, that product, sales and invoices call; an invoice only freezes the answer. VAT is the one scheme today; rules that outgrow a table of rates may later move behind this function (C4.9). The platform maintains it by migration, without a screen (B9). Rejected: rates inside `payment`.
 - **D8 — The invoice is modelled after EN 16931 and the Peppol profile, and rendered only as a PDF here.** Producing the UBL file and sending it is CR-35. Rejected: building the UBL writer here — it is half of CR-35 and cannot be judged without its validation and its sending.
 
 **Derived requirements**
 
 | # | Derived requirement | From |
 |---|---|---|
-| F1 | An invoice is issued once per settled sale, in the same transaction as the event that settles it; a second try is a no-op | R2 |
+| F1 | An invoice is issued once per settled sale: a transfer in the order's transaction, an online payment after it is booked, so a failing invoice never unbooks money (C4.4); a second try is a no-op | R2 |
 | F2 | The number is taken from the issuing organisation's sequence at issue; a rolled-back issue leaves no gap | R3 |
 | F3 | Seller and buyer are copied onto the invoice; a later change does not change it | R4 |
 | F4 | An article has a tax class from a short list; the default is the standard class, which is 21 % in Belgium | R5 |
 | F5 | `tax.api.determine` returns scheme, category, percent and reason; net, tax per rate and total are computed from the gross line amounts and equal the payment | R5, R6 |
 | F6 | The payment text is "Voldaan" for a paid charge, else the OGM of the charge and a due date = invoice date + term | R6 |
-| F7 | The due date is the invoice date plus the tenant's existing payment term, read once at issue and frozen; this change adds no second term | R6 |
+| F7 | The due date is the pay-before date the ledger already gives the buyer (date + the tenant's existing term, read once); no second term, no second date | R6 |
 | F8 | An invoice cannot be updated or deleted after issue | R12 |
 | F9 | A change or cancel of an invoiced order issues a credit note and, if the sale stands, a new invoice | R12 |
 | F10 | The invoice is shown on a screen and as a PDF with the site's logo | R1 |
@@ -217,7 +217,7 @@ The portal issues an **invoice** when a sale is settled in business terms. The i
 ```mermaid
 flowchart LR
   subgraph B["Buyer"]
-    b1["Order and say private or company<br/>Webshop checkout (sales)"]
+    b1["Order for myself or for an organisation<br/>Webshop checkout (sales)"]
     b5["Receive the invoice by mail<br/>outside the portal"]
   end
   subgraph P["Platform, uit zichzelf"]
@@ -282,7 +282,7 @@ flowchart LR
     pu["used: PaymentRecord, structured communication"]:::use
   end
   subgraph SAL["sales"]
-    sc["changed: checkout asks private or company; cancel and change call the credit note"]:::chg
+    sc["changed: checkout asks for mezelf or namens; a port gives the order lines; cancel and change call the credit note"]:::chg
   end
   subgraph PRO["product"]
     prc["changed: an article has a tax class"]:::chg
@@ -301,6 +301,7 @@ flowchart LR
   end
   sc -->|event SalesOrderPlaced, SalesOrderChanged| pn
   pn -->|api| mu
+  pn -->|port| sc
   pn -->|api| prc
   pn -->|api| tx
   prc -->|api| tx
@@ -330,11 +331,11 @@ erDiagram
 
 *New: all six. The order and the article are soft references across schemas; the seller and the buyer are copied columns, not keys, because the document is frozen.*
 
-`sales` publishes `SalesOrderPlaced` and `SalesOrderChanged` (CR-21); `payment` subscribes and issues in the publisher's transaction, never committing; `payment` publishes `InvoiceIssued` and `mail` sends after the outer commit. `payment` reads the article's rate and the organisation's identifications through the facades of `product` and `mdm`; nothing new calls `sales`. The impact on what exists: the module list and its CHECK, the payable delete gate (an invoiced order must not be soft-deleted without its credit note), `sales`' cancel (CR-21 Q61), the payments screen, and a reporting view. The import and layer gates hold.
+`sales` publishes `SalesOrderPlaced` and `SalesOrderChanged` (CR-21); `payment` subscribes and issues in the publisher's transaction, never committing; `payment` publishes `InvoiceIssued` and `mail` sends after the outer commit. `payment` reads the article's rate and the organisation's identifications through the facades of `product` and `mdm`, and asks `sales` for the order's lines and buyer through a port (C2), the one new edge. The impact on what exists: the module list and its CHECK, the payable delete gate (an invoiced order must not be soft-deleted without its credit note), `sales`' cancel (CR-21 Q61), the payments screen, and a reporting view. The import and layer gates hold.
 
 ## B3a. Standards the model follows — and where it deviates, on purpose
 
-Standards checked: **UBL 2.1** (`Invoice`, `CreditNote`) and **EN 16931 / PEPPOL BIS Billing 3.0** for the shape of the document (the file itself is CR-35), **UNCL 1001** (document type 380 invoice, 381 credit note), **UNCL 5305** (VAT category S, Z, E, AE, K), **UNCL 4461** (payment means), **ISO 4217, 3166 and 8601**, **ISO 20022** for the account, **ISO 6523** for the organisation identifiers, **UN/ECE Rec. 20** for units (as CR-21).
+Standards checked: **UBL 2.1** and **EN 16931 / PEPPOL BIS Billing 3.0** for the shape (the file is CR-35), **UNCL 1001** (380 invoice, 381 credit note), **UNCL 5305** (VAT category), **UNCL 4461**, **ISO 4217, 3166, 8601, 20022, 6523**, **UN/ECE Rec. 20** for units.
 
 | Concept | Standard and element | Ours | Follows / deviates — why |
 |---|---|---|---|
@@ -374,20 +375,20 @@ Standards checked: **UBL 2.1** (`Invoice`, `CreditNote`) and **EN 16931 / PEPPOL
 
 No purchase.
 
-**Running cost.** Storage of PDFs is negligible. Maintenance added: the tax rates when a rate changes (a dated migration); the EU limit on sales to private buyers abroad is watched by the accountant, not by the shop (B9).
+**Running cost.** Storage of PDFs is negligible. Maintenance added: the tax rates, by a dated migration when a rate changes.
 
-**Operations.** The module switch of the tenant; the setting of the issuing organisation, and the existing payment term; no env var is expected. Invoices and the sequence are in the backup as any table. A restore brings back the sequence with the invoices.
+**Operations.** The module switch of the tenant; the setting of the issuing organisation, and the existing payment term; no env var. Invoices and the sequence are in the backup as any table; a restore brings both back.
 
 ## B6. Phasing — shippable phases, and what changes on the failure paths
 
 | Phase | Delivers | Depends on | Migration | Env vars | Failure paths that change | Manual validation |
 |---|---|---|---|---|---|---|
 | 0 | `tax` and the article's tax class, the module of invoices, the settings | CR-21 built | additive | none | none | W6 |
-| 1 | The invoice, number, VAT, payment text, PDF, mail, screens, export; Belgian buyers | 0, CR-26 phase 2 | additive | none | an issue that fails rolls the sale back or, for a mail, leaves the invoice and no mail | W1–W8, W11, W12 |
+| 1 | The invoice, number, VAT, payment text, PDF, mail, screens, export; Belgian buyers | 0, CR-26 phase 2 | additive | none | a transfer order whose issue fails is refused; an online payment stays booked and a job retries the invoice (C4.4) | W1–W8, W11, W12 |
 | 2 | Credit notes; change and cancel | 1 | additive | none | a cancel issues its credit note in the same transaction | W10 |
 | 3 | The Netherlands | 1 | additive | none | a Dutch buyer with an invalid VAT number is refused at checkout | W13, W14 |
 
-Credit notes ship with invoices: phases 1 and 2 go live together (B9).
+Phases 1 and 2 go live together (B9).
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
@@ -397,7 +398,7 @@ Credit notes ship with invoices: phases 1 and 2 go live together (B9).
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
-| — | None open: Q2 and Q12 are answered by CR-26's decisions (B9) | | |
+| Q12–16 | Five choices (Q&A file nr. 06): the private buyer's address; the date of supply; the VAT per rate printed; the number format; a free order | a, a, b, b, a | C4.1, C4.2, C4.4 |
 
 ## B9. Decisions log — dated answers
 
@@ -424,25 +425,29 @@ Measured on master @ `ff5eeb3a` and on the build branch of CR-21 @ `508ee052` on
 | An organisation has repeatable bank accounts and identifications, with a country | relies on | `mdm/models.py`: `BankAccount`, `OrganizationIdentification` (scheme, value, country) | holds | seller IBAN and VAT number come from them |
 | An organisation can own an address | relies on | `mdm/models.py` `Address.organization_id` (nullable; the relationship is declared for `person` only) | holds, thin | the seller's address read through the facade; a relationship is a C2 item |
 | One structured communication per charge exists | relies on | `payment/structured_communication.py`, `PaymentRecord.structured_communication` | holds | the invoice copies it; no second generator |
-| PDF rendering exists | relies on | `meetings/pdf.py` renders HTML with WeasyPrint | holds | the invoice renders the same way |
+| PDF rendering exists | relies on | `meetings/pdf.py` renders HTML with WeasyPrint | holds, not shared | the invoice has its own render function with its own WeasyPrint import (C4.8); `meetings.api` exports none |
 | The tenant logo is read through one function | relies on | `media.api.tenant_logo`, used in `ui/__init__.py:1051` | holds | the document uses it |
-| A module is a registry entry plus a CHECK migration | relies on | `kernel/modules.py` docstring; `ModuleCode` has eleven members, none for invoices | holds | `INVOICES` is the twelfth |
+| A module is a registry entry plus a CHECK migration | relies on | `kernel/modules.py` docstring; `ModuleCode` has eleven members on master and twelve on the CR-21 branch (`SHOP`), none for invoices | holds | `INVOICES` is the thirteenth; its CHECK widens the list CR-21's migration widened |
 | `PayableType` has no invoice and needs none | relies on | `payment/models.py:78-88`: REGISTRATION, MEMBERSHIP (ORDER added by CR-21) | holds | the ledger keeps pointing at the order |
 | Articles carry no tax class | changes | `product/models.py` on the CR-21 branch: `Product`, `ProductVariant`, no such column | holds | phase 0 adds it |
 | No module holds tax | relies on | `ls backend/app/domains` on master: no `tax`; no `vat` column or table in `mdm` or `payment` (`mdm/models.py` dropped `vat_number` for identifications, #945) | holds | `tax` is new; the VAT number of a party stays in mdm identifications |
 | The payment term already exists, once | relies on | `kernel/tenant_config.py:641` `tenant_payment_term_days`; `config.py:145` default 7; `payment` lists it in its module's `tenant_settings` (`kernel/modules.py:196`); read by `payment/transfer_due.py:93` for the screens and both mails | holds | the invoice reads it; no `term_days` of its own (one place for one fact) |
+| `payment` reads no order today | changes | `kernel/contracts/sales.py`: events carry ids and a total; `payment` `CONTRACT.md` consumes no `sales`; `sales` offers no port (read, 15 Oct) | gap | a port (C2) |
+| An order carries no buyer address | changes | `SalesOrder`: `guest_name`, `guest_email`, `guest_mobile`, `person_id` (read) | gap | C4.1, Q&A 06 q1 |
+| The webhook books money under a lock | relies on | `refresh_payment_status` holds the record `FOR UPDATE` (read) | holds | an invoice that fails must not roll it back (C4.4) |
+| `queue_mail` carries strings only; there is no trigger in `backend/` | changes | `mail.queue_mail`; no `CREATE TRIGGER` (read) | gap | a job kind (C2 mail); the first trigger (C5) |
 | Readers of the article's price | changes | to be found by searching `unit_price` in `sales`, `pricing`, `payment` | open | listed at the build read |
 | The delete rule for a soft-deleted order | changes | CR-21 B9, 8 Oct 2026: cancel is a soft delete (`activities/service.py:2427-2466` as the model) | holds | B4 row |
 
 ## C2. Per module: what must happen
 
-**payment.** *Screens:* Facturen (list, filters open and paid; one invoice; settings); judged at 390 px. *Code:* `issue_invoice`, `issue_credit_note`, `export_period`, `invoice_for_order` in `api.py`; a subscriber for `SalesOrderPlaced`, `SalesOrderChanged` and the payment event; the single owner of every writer to the invoice tables is `payment/invoice_service.py`. *Database:* schema `payment`; `invoices`, `invoice_lines`, `tax_subtotals`, `invoice_sequences`, `invoice_settings`; each invoice line also carries the frozen scheme, category, percent and reason; `invoices(issuing_organization_id, number)` unique; every FK `ON DELETE RESTRICT`; no `SoftDeleteMixin` on an invoice; additive. Copy action: none of these tables has one. *Templates and mail:* the invoice HTML for the PDF. *Tests:* T1–T11, T13–T16.
+**payment.** *Screens:* Facturen (list, filters open and paid; one invoice; settings); judged at 390 px. *Code:* `issue_invoice`, `issue_credit_note`, `export_period`, `invoice_for_order` in `api.py`; a subscriber for `SalesOrderPlaced`, `SalesOrderChanged` and the payment event; the single owner of every writer to the invoice tables is `payment/invoice_service.py`. *Database:* schema `payment`; `invoices`, `invoice_lines`, `tax_subtotals`, `invoice_sequences`, `invoice_settings`; each invoice line also carries the frozen scheme, category, percent and reason; `invoices(issuing_organization_id, number)` unique; every FK `ON DELETE RESTRICT`; no `SoftDeleteMixin` on an invoice; additive. Copy action: none of these tables has one. *Templates and mail:* the invoice HTML for the PDF. *Edges:* a port of `sales`, `order_invoice_source(order_id)`, that returns the lines (article, quantity, gross unit price), the buyer's name and `buyer_party_id`; new import edges `payment→product`, `payment→tax`, `product→tax`, `payment→sales` (port only), named in the `CONTRACT.md` of each, with `tax` in the registry, the schema-boundary test and the layer gate. *One handler:* a single subscriber on `SalesOrderChanged` runs the existing reconcile first and then issues the credit note and the new invoice from the ledger as it then stands; a second handler would have no order. *Stored document:* `invoices.document_pdf` written at issue, never updated. *Default organisation:* the tenant's own organisation as `Organization.site_organization_id` resolves it (the row itself when empty); CR-20 changes that to the account's, in this one place. *Tests:* T1–T11, T13–T16, T19–T21.
 **tax** (new domain, no module switch: reference data like `mdm`). *Code:* `tax/api.py` with `determine(context)` → scheme, category, percent, reason, where the context object carries today the tax class, seller and buyer country, whether the buyer (an organisation party with a VAT number in a country) has a valid tax number, and the date, and can grow without changing a caller (C4.9); the rule holds the three cases of today (Belgian rate; Dutch consumer under the EU limit, Belgian rate; Dutch taxable buyer with a valid number, intra-Community) and nothing else. *Database:* schema `tax`; code lists `tax_scheme_codes` (VAT), `tax_category_codes` (S, Z, E, AE, K), `tax_class_codes` (standard, reduced, super-reduced, zero; labels per language) and `tax_rates(scheme, class_code, jurisdiction, category, percent, valid_from, valid_to)`, seeded for Belgium; additive. No screen. *Tests:* T17.
 **product** (CR-21). Article form gains a *Btw-klasse* (default standard); a copy of an article takes the class along. The article stores no percentage. Tests T5.
 **sales** (CR-21). Checkout gains the choice *voor mezelf / namens <organisatie>* (the organisation is registered once under *Mijn organisatie*, CR-26), and no company fields; cancel and change call `payment.api` for a credit note; the purchases page links the invoice. Tests T4, T14, T15.
 **mdm.** Read-only through the facade: the issuing organisation's name, address, identifications and account; an organisation that buys is a party of the account (C4.10) and the order's `buyer_party_id` names it; the invoice copies name, address and VAT number and keeps the party id as a soft reference, empty for a private guest.
-**mail.** The invoice mail with the PDF as attachment, after the outer commit. T12.
-**kernel.** `ModuleCode.INVOICES`, its registry entry, the CHECK migration, the tenant default off. T18.
+**mail.** A job kind `mail.send_invoice(invoice_id)` that attaches the stored PDF after the outer commit; `queue_mail` carries strings only. T12.
+**kernel.** `ModuleCode.INVOICES`, its registry entry, the CHECK migration, the tenant default off, `depends_on` the shop and payment modules (invoices on with the shop off is refused). T18.
 **reporting.** A view `f_invoices` for the accountant's list; no existing view reads the new columns. Phase 1.
 
 ## C3. Cross-cutting impact — the checklist of what gets forgotten
@@ -461,48 +466,53 @@ Measured on master @ `ff5eeb3a` and on the build branch of CR-21 @ `508ee052` on
 | JSON routes | none; the PDF is a screen's download behind the session |
 | External services | none in this change; the Peppol access point is CR-35 |
 | Copy actions | article copy takes the rate |
-| Visitors and tenants | anonymous and guest: nothing; account and member: own invoices only; board user: by role; other tenant: nothing; operator: switches the module; a tenant without the module: nothing at all |
-| Order inside a transaction | issuing is inside the publisher's transaction; the mail leaves after the outer commit (F12) |
+| Visitors and tenants | anonymous: nothing; guest: an invoice with a name and no address (Q&A 06 q1), mailed, no screen; account and member: own invoices only; board user: by role; other tenant: nothing; operator: switches the module; a tenant without the module: nothing at all |
+| Order inside a transaction | a transfer issues in the order's transaction; an online payment is booked first and the invoice follows; the mail leaves after the outer commit (F12) |
 
 ## C4. Detailed decisions — one subsection each, with the reasons
 
-**C4.1 The content of a Belgian invoice.** Built on as it stands (B9); from secondary sources, not yet from the royal decree: the word *Factuur* (*Creditnota* on a credit note); a unique sequential number; the issue date (no separate date of supply); the seller's name, address, VAT number; the buyer's name and address, and its VAT number when it is liable; the description and quantity of every item; the unit price excluding VAT; the rate; the total excluding VAT, the VAT and the total (the split per rate is stored, for the accountant's export and CR-35, but not printed as a table); the due date and payment terms (the late-payment interest and compensation text for a business buyer is left out of this version); the exemption or reverse-charge statement only with phase 3 (C4.7), not before (Koen, 15 Oct 2026); for a credit note the reference to the invoice. The issuing organisation's bank account is not required but is shown (the payment text).
-**C4.2 Number.** `invoice_sequences.last_number` is incremented with `SELECT … FOR UPDATE` inside the issuing transaction; a rollback releases it. The invoice has no draft state, so there is nothing to number early. A credit note takes the next number of the same sequence (B9).
-**C4.3 VAT and rounding.** Lines keep the gross unit price the buyer saw. Per rate: gross = Σ lines; net = round(gross ÷ (1 + rate)); VAT = gross − net. The total equals the payment by construction. This deviates from EN 16931's net-first calculation by working back from gross; the result is a valid set of totals because VAT is derived as a difference.
-**C4.4 Issuing moment and payment text.** Online: the payment event of the ledger triggers the issue, text "Voldaan op <date>". Transfer: the order's placement triggers it, text OGM and due date. A transfer confirmed later shows "Voldaan" on the document **as displayed**, from the ledger; the mailed PDF is the document as sent. Rejected: re-sending.
-**C4.5 Invoice and ledger.** The invoice carries `order_ref` and `payment_reference`; the ledger keeps `payable_type` ORDER. The receivable is `invoice.total_gross` against `net_paid(order)`. **Three things, not one** (Koen's question, 15 October 2026): the *document* (the invoice or the credit note), the *booking* (the charge record of the ledger for the invoice, the refund record for a credit note that gives money back, `PaymentRecord.type` CHARGE or REFUND with `refund_of_id`), and the *payment* (the money that came in: `amount_paid` and `paid_at` on the booking, and the provider's `GatewayPayment` for an online one). Today the booking and the payment sit in one record; the document is the new object, and it is not the ledger. The accountant's own ledger is outside the portal.
-**C4.6 Cancel and change.** A change after issue: a credit note for the whole invoice and a new invoice for the changed order, in one transaction; both mailed. Reservations and refunds behave as CR-21 specifies.
+**C4.1 The content of a Belgian invoice.** Built on as it stands (B9); from secondary sources, not yet from the royal decree: the word *Factuur* (*Creditnota* on a credit note); a unique sequential number; the issue date (no separate date of supply); the seller's name, legal form, registered office, enterprise number and VAT number; the buyer's name, its address when it has one (a private buyer has none unless Q&A 06 q1 says otherwise), and its VAT number when it is liable; the description and quantity of every item; the unit price excluding VAT; the rate; the total excluding VAT, the VAT and the total (the split per rate is stored, for the accountant's export and CR-35, but not printed as a table); the due date and payment terms (the late-payment interest and compensation text for a business buyer is left out of this version); the exemption or reverse-charge statement only with phase 3 (C4.7), not before (Koen, 15 Oct 2026); for a credit note the reference to the invoice. The issuing organisation's bank account is not required but is shown (the payment text). **For the accountant before go-live**, from the build read: the seller's details of a BV; the date of supply on a pre-order (Q&A 06 q2); the VAT per rate (q3); the buyer's address on a private invoice (q1) and whether a consumer sale needs an invoice unless asked; the late-payment text; the rounding by amount of C4.3; the wording of *Creditnota* and of the exemption text; and A5's claim that a PDF by mail no longer counts for domestic B2B since 1 January 2026.
+**C4.2 Number.** `invoice_sequences.last_number` is incremented with `SELECT … FOR UPDATE` inside the issuing transaction; a rollback releases it. The invoice has no draft state, so there is nothing to number early. A credit note takes the next number of the same sequence (B9). The number format is Q&A 06 q4: with the year, the sequence is keyed by organisation and year; it is decided at phase 0, because the first number cannot change.
+**C4.3 VAT and rounding.** Lines keep the gross unit price the buyer saw. Each line's net = round(line gross ÷ (1 + rate)); per rate the taxable amount is the sum of the line nets (so the printed lines add up, EN 16931 BR-CO-10); the VAT per rate = round(taxable amount × rate), which is the Peppol check BR-CO-17, a strict two-decimal rule in BIS Billing 3.0 as published on docs.peppol.eu (the tolerance of the 2026 revision is not in force; the prototype of C8 confirms against the validator). The total with VAT is the sum of those; the **payable rounding amount** (BT-114) is what is left to equal the payment, so the buyer pays what he saw. Example: a line of 10.00 at 21 % gives 8.26 and 1.73, total 9.99, rounding 0.01, amount due 10.00. The earlier rule (VAT as the difference) would give 1.74 and fail BR-CO-17.
+**C4.4 Issuing moment, payment text and failure.** *Transfer:* the order's placement issues the invoice in the order's transaction (a failure refuses the order), text OGM and due date, copied from the charge's pay-before date. *Online:* the ledger books the payment first, as today; the invoice is issued after it, in a job that retries (`kernel_jobs`); until it stands Boekhouding sees *Betaald, factuur volgt*. An invoice that fails never unbooks money. *Free order* (total 0): Q&A 06 q5. *Partial or repeated payment:* "Voldaan" follows `fully_paid`, not the event; a second event gives nothing. *A payment on a deleted order:* no invoice; the payment is refunded as the ledger already does. *Document:* the PDF is rendered once at issue with the brand's name, logo and colours of that moment, and stored; the mail attaches those bytes; a transfer confirmed later shows "Voldaan" on the screen from the ledger, and the stored document stays as sent. *Tax class:* read at issue; a class changed between order and issue changes the VAT of a sale already priced, accepted because a class changes only by correction and the gap is days.
+**C4.5 Invoice and ledger.** The invoice carries `order_ref` and `payment_reference`; the ledger keeps `payable_type` ORDER. The open amount of an order is the sum of its invoices minus the sum of its credit notes minus `net_paid(order)`; an invoice reads "Voldaan" when that amount is zero or less, and a credit note has no paid state (its refund record, if money goes back, is in the ledger). **Three things, not one** (Koen's question, 15 October 2026): the *document* (the invoice or the credit note), the *booking* (the charge record of the ledger for the invoice, the refund record for a credit note that gives money back, `PaymentRecord.type` CHARGE or REFUND with `refund_of_id`), and the *payment* (the money that came in: `amount_paid` and `paid_at` on the booking, and the provider's `GatewayPayment` for an online one). Today the booking and the payment sit in one record; the document is the new object, and it is not the ledger. The accountant's own ledger is outside the portal.
+**C4.6 Cancel and change.** A change after issue: the reconcile of the ledger first, then a credit note for the whole invoice and a new invoice for the changed order, in one transaction and one handler (C2); both mailed. A cancel is the same with a total of 0 and no new invoice. Reservations and refunds behave as CR-21 specifies.
 **C4.9 Tax determination: simple today, perhaps rules later.** The idea, as a perspective and not as part of this change: a rule module, perhaps with decision tables in DMN (the OMG's Decision Model and Notation), that decides how a transaction is taxed, so that these rules are **not programmed in**. A rule module could later decide from which tax number we invoice, whether we invoice at all when several entities take part, and which regime applies, with HS codes and product ids mapped in it; the kind of input it could take is the addresses, the route of the goods, the parties in the flow and the type of product. Not built now. Today the calculation is straight: gross price, the percent of the class, the tax as the difference (C4.3). What this change does so that the road stays open: (1) `determine` takes one context object and returns one result object; the fields of the context are the inputs a decision table would have, the result the outputs; (2) callers never compute or look up a percentage themselves; (3) the invoice stores the result of the decision, with the reason, never the rule. Whether it then is an engine of a standard such as DMN, an open-source one, or a small one of our own is **not decided**: it is looked at when the first rule outgrows a table of rates, in a change request of its own. This change is phase 1 of tax, and little more than a code list of tax codes with their rates.
 
 **C4.10 What CR-26 gives this change** (its decisions of 15 October 2026, CR-26 B9). The party is per **account**: one natural person and one organisation per account, the facts (order, membership, relation) per tenant, so an organisation that buys at two tenants of one account is one row. There are no company fields in the checkout: a person signs in, registers the organisation once under *Mijn organisatie* (name, legal form, VAT number with its country, address; the VAT number is the key within the account, the enterprise number is not asked) and chooses *voor mezelf* or *namens <organisatie>* at the checkout; several people can act for one organisation. The order carries `buyer_party_id`, empty for a private guest, whose guest columns stay as CR-21 built them; the invoice copies name, address and VAT number. There are no roles: the customer is whoever ordered. Order: CR-20, then CR-26 phases 1–3 in one release, then phase 1 of this change.
 
 **C4.7 The Netherlands (phase 3).** Private buyer: Belgian rate; the shop does not check the EU limit, the accountant does (B9). Company with a valid VAT number (VIES check at checkout, the answer stored on the invoice): category K, VAT 0, the exemption text. Other countries: the shop refuses the address.
 
+**C4.8 The PDF.** `payment/invoice_pdf.py` renders the invoice HTML with WeasyPrint, imported in that module as `meetings/pdf.py` does; no shared helper in `kernel`, because one caller does not make one. The stored bytes are the document (C4.4).
+
 ## C5. Privacy and security — the mechanics behind A7
 
-An invoice route reads the signed-in user's tenant and role (`invoices.view`, `invoices.manage`); a buyer's route filters on the buyer. No invoice has a public address; the mail carries the PDF. The tables have no update or delete path in the service, and a database trigger refuses both on an issued invoice. The log carries the number, never the name or address. Retention: invoices are kept for the statutory period; the erasure of a person leaves their invoices.
+An invoice route reads the signed-in user's tenant and role (`invoices.view`, `invoices.manage`); a buyer's route filters on the buyer. No invoice has a public address; the mail carries the PDF. The tables have no update or delete path in the service, and a database trigger refuses both on an issued invoice. The trigger is the first in the codebase: the migration creates it and its downgrade drops it. The log carries the number, never the name or address. Retention: invoices are kept for the statutory period; the erasure of a person leaves their invoices: `EntityMerged`, `HouseholdDeleted` and the erasure flows leave the invoice tables alone, a stated no-op with a test, and the payable delete gate learns the invoice, also for the soft delete of a guest order.
 
 ## C6. Tests — what the build must prove
 
 | # | Test | Red when |
 |---|---|---|
-| T1 | One settled sale gives one invoice; the second event gives none | F1 breaks |
-| T2 | Two connections issue concurrently: consecutive numbers, none lost on a rollback | the lock is missing |
+| T1 | One settled sale gives one invoice; a second event, a partial-payment event and a repeated webhook give none more | F1 breaks |
+| T2 | Two committed sessions issue concurrently (a fixture of its own with cleanup, not the savepoint session): consecutive numbers, none lost on a rollback | the lock is missing |
 | T3 | Changing the organisation's name afterwards leaves the invoice | the snapshot is a live read |
 | T4 | An organisation's VAT number is on the invoice, and *Mijn organisatie* refuses a malformed one | R4 |
 | T5 | An article's tax class reaches its line as the rate `determine` gives; copying the article copies the class | F4 |
 | T6 | Mixed rates: net + VAT = gross per rate, the total equals the payment, to the cent | C4.3 |
 | T7 | Paid online reads "Voldaan"; transfer has OGM and due date = date + term; the term setting moves it | F6, F7 |
-| T8 | Every item of C4.1 is on the document (a list assertion) | R7 |
-| T9 | The brand's name and logo of the tenant are on the PDF next to the issuing organisation, and a changed tenant name shows on the next invoice | R1 |
+| T8 | Every item of C4.1 is on the document (a list assertion); removing one item turns it red | R7 |
+| T9 | The brand's name and logo of the tenant are on the PDF next to the issuing organisation, and a changed tenant name shows on the next invoice only | R1 |
 | T10 | Confirming the transfer changes the paid state read for the invoice, not the invoice | R8 |
 | T11 | Roles: Verkoop sees its sales, Boekhouding all, a buyer only theirs, ADMIN without role nothing | R9 |
-| T12 | The mail leaves after the commit and not on a rollback | F12 |
+| T12 | The job row for the mail exists after the commit and not on a rollback; the mail carries the stored bytes | F12 |
 | T13 | The export gives the list and the documents of a period | R11 |
 | T14 | A cancel after issue gives a credit note referring to the invoice | F9 |
 | T15 | A change gives a credit note and a new invoice | F9 |
 | T16 | A Dutch company with a valid VAT number: category K; a Dutch consumer: 21 % | R13 |
 | T17 | `determine` per case: Belgian standard 21 %, a reduced class, a Dutch consumer under the limit, a Dutch taxable buyer with a valid number, a date before the rate's start gives no rate and refuses | F5 |
+| T19 | An invoice that raises on an online payment leaves the payment paid; the job issues it later | F1 |
+| T20 | A payment on a deleted order: no invoice, a refund | C4.4 |
+| T21 | The line of 10.00 at 21 %: 8.26, 1.73, rounding 0.01, and the printed lines add up | C4.3 |
 | T18 | A tenant without the module: no menu, 404 on the routes, no invoice on checkout | R15 |
 
 **Impact on the test landscape:** the CR-21 checkout e2e and its screenshots, the payments screen, the module-gate test and the payable delete gate; each changes by what B4 and C2 say, none is expected to break otherwise.
@@ -513,7 +523,7 @@ A hard gate, `test_issued_document_gate.py`: no model or service writes an updat
 
 ## C8. Prototype findings — what was measured before the build
 
-None made. A rendered invoice is the first thing to prototype at the build read; the rule against the existing suite has not been applied.
+None made. At the build read: render one invoice, and run the line of 10.00 at 21 % and a mixed basket through the Peppol validator (C4.3).
 
 ## C9. Screens before the build — the concepts the approver saw
 
@@ -530,6 +540,7 @@ Not yet; the document describes the design.
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
 | Q&A 03 | 15 Oct 2026 | Ten questions of this change request, put in the Q&A file of 15 October, number 03 (Claude) | answered by Koen the same day, row by row in B9 |
+| Q&A 06 | 15 Oct 2026 | Five choices after the build read: address, date of supply, VAT per rate, number format, free order (Claude) | open |
 | — | 15 Oct 2026 | Koen opens the request and dictates the scope (A6) | no question answered; Q4 is answered in B9 |
 | — | 15 Oct 2026 | Koen states the long-term intent for `tax`: rules as decision tables (DMN), not hardcoded; he called it "toekomstmuziek" | recorded in D9 and C4.9 as direction, not as a decision to build |
 
