@@ -54,12 +54,14 @@ def test_the_block_shows_the_upcoming_activities_as_the_home_did_at_most_count(d
     assert html.count("data-card-title") == 2
 
 
-def test_the_block_is_nothing_without_an_upcoming_activity_and_says_why_in_the_preview(db_session):
+def test_the_block_is_nothing_without_an_upcoming_activity_and_says_why_in_the_preview(
+    db_session, monkeypatch
+):
+    import app.domains.activities.api as activities
+
+    monkeypatch.setattr(activities, "list_activities", lambda *a, **k: [])
     document = _doc({"type": "activities", "attrs": {"count": 3}})
-    assert render_document(document, db_session) in (
-        "",
-        None,
-    ) or "data-card-title" not in render_document(document, db_session)
+    assert render_document(document, db_session) == ""
     assert "geen komende activiteiten" in render_document(document, db_session, preview=True)
 
 
