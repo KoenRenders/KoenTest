@@ -96,7 +96,7 @@ def test_verify_otp_sets_session_cookie(client, db_session, monkeypatch):
 
     monkeypatch.setattr(auth_login, "_generate_otp", lambda: "424242")
     # The sign-in screen's two steps (until CR-13 phase 4b, #1251, this asked a JSON route with a bearer token).
-    client.post("/aanmelden", data={"email": SEEDED_ADMIN_EMAIL})
+    client.post("/aanmelden", data={**form_guard_fields(), "email": SEEDED_ADMIN_EMAIL})
     resp = client.post("/aanmelden/code", data={"email": SEEDED_ADMIN_EMAIL, "code": "424242"})
     assert resp.status_code == 200
     assert SESSION_COOKIE in resp.cookies

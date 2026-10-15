@@ -34,6 +34,8 @@ from types import SimpleNamespace
 import pytest
 from playwright.sync_api import expect, sync_playwright
 
+from tests.conftest import form_guard_proof
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.schermen import (  # noqa: E402
@@ -219,7 +221,7 @@ def _sign_up(
     assert data is not None, errors
     db = _db()
     try:
-        register_family(db, data, BackgroundTasks())
+        register_family(db, data, BackgroundTasks(), proof=form_guard_proof())
     finally:
         db.close()
     assert _household(email) is not None, "the household was not stored"

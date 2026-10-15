@@ -33,6 +33,7 @@ from app.domains.activities.fiche import FieldError
 from app.domains.activities.service import publicly_bookable_products
 from app.domains.activities.totals import has_payable_products, quote_lines
 from app.i18n import _
+from app.kernel import form_guard
 from app.kernel.codes import TechnicalEnum
 
 if TYPE_CHECKING:  # #1305
@@ -302,12 +303,18 @@ def submit(
     form: Mapping[str, Any],
     background_tasks: BackgroundTasks,
     *,
+    proof: Any,
     actor: str = "",
 ) -> Outcome:
     """Process one submitted form — the same steps for both channels.
 
     `actor` is the board member's address, for the audit trail; the public way
     records the signed-in person as it always did (`register_for_activity`).
+
+    `proof` (#2039): what the visitor's form brings to show a person sent it
+    (`form_guard.Proof`), or `form_guard.TRUSTED` for the board's own channel. A refused
+    submission gets the ordinary thanks and registers nothing, mails nothing and stores
+    nothing: no way in can skip it.
     """
     from fastapi import HTTPException
     from pydantic import ValidationError
@@ -316,6 +323,12 @@ def submit(
     from app.schemas.activity import RegistrationCreate, RegistrationItemCreate
 
     values = form_values(form)
+    if form_guard.refused(proof, f"registration {component.id}"):
+        return Outcome(
+            kind=OutcomeKind.DONE,
+            name=(values.get("contact_name") or "").strip(),
+            transfer_amount=0,
+        )
     quantities = form_quantities(form)
     ctx = form_context(channel, activity, component, values=values, quantities=quantities)
 

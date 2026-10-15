@@ -80,7 +80,7 @@ def _post_page(client, s, channel: str, data: dict):
         client.cookies.clear()
         return client.post(
             f"/activiteiten/{s.activity.id}/inschrijven/{s.component.id}",
-            data=data,
+            data={**form_guard_fields(), **data},
             headers={"HX-Request": "true"},
         )
     value = make_session_value(SEEDED_ADMIN_EMAIL)

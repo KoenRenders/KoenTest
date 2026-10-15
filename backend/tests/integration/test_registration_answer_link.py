@@ -30,7 +30,12 @@ import pytest
 from app.domains.activities.api import Registration
 from app.domains.forms.models import FormSubmission
 from app.kernel.jobs import KernelJob
-from tests.conftest import ask_questions, seed_activity_with_product, seed_question_form
+from tests.conftest import (
+    ask_questions,
+    form_guard_fields,
+    seed_activity_with_product,
+    seed_question_form,
+)
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -44,6 +49,7 @@ def later(client, db_session):
     r = client.post(
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
         data={
+            **form_guard_fields(),
             "contact_name": "Lore Later",
             "contact_email": "lore@example.com",
             "phone": "0470000000",

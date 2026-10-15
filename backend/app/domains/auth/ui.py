@@ -71,6 +71,8 @@ def aanmelden_submit(
     db: Session = Depends(get_db),
     email: str = Form(""),
     return_to: str = Form("", alias="terug"),
+    website: str = Form(""),
+    form_ts: str = Form(""),
 ):
     email = email.strip()
     return_to = veilige_terug(return_to, "")
@@ -81,9 +83,11 @@ def aanmelden_submit(
             {"error": _("Vul een geldig e-mailadres in."), "email": email, "terug": return_to},
         )
     from app.domains.auth.api import start_login
+    from app.kernel.form_guard import HONEYPOT_FIELD, TOKEN_FIELD, Proof
 
     # #1437: the mail link carries the page too, not only this code step.
-    start_login(db, email, return_to=return_to)
+    proof = Proof.from_request(request, {HONEYPOT_FIELD: website, TOKEN_FIELD: form_ts})
+    start_login(db, email, return_to=return_to, proof=proof)
     # Altijd hetzelfde vervolg — verklap niet of het adres gekend is.
     return templates.TemplateResponse(
         request,

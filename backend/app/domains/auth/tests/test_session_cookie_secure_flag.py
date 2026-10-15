@@ -27,6 +27,7 @@ removing the `X-Forwarded-Proto` read → the proxy test falls over with a cooki
 import pytest
 
 from app.domains.auth.api import session_cookie_secure
+from tests.conftest import form_guard_fields
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -109,7 +110,7 @@ def test_the_login_screen_sets_the_flag_behind_a_proxy(client, db_session, monke
     monkeypatch.setattr(settings, "frontend_url", "http://localhost:8081")
     monkeypatch.setattr(settings, "app_env", "hdev")
     monkeypatch.setattr(auth_login, "_generate_otp", lambda: "424242")
-    client.post("/aanmelden", data={"email": SEEDED_ADMIN_EMAIL})
+    client.post("/aanmelden", data={**form_guard_fields(), "email": SEEDED_ADMIN_EMAIL})
 
     resp = client.post(
         "/aanmelden/code",

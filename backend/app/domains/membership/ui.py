@@ -88,9 +88,11 @@ async def sign_up_submit(
 ):
     from app.domains.membership.api import register_family
     from app.domains.membership.signup_form import signup_from_form
+    from app.kernel.form_guard import Proof
     from app.kernel.refusals import FieldError
 
-    data, errors = signup_from_form(await request.form())
+    form = await request.form()
+    data, errors = signup_from_form(form)
     if data is None:
         return refusal_response(request, errors, SIGNUP_MESSAGE, send=True)
     # CR-22 R9 (#1713): an account that signs up while signed in becomes the
@@ -100,7 +102,9 @@ async def sign_up_submit(
     session_email = read_session_value(request.cookies.get(SESSION_COOKIE))
     signed_in = login_person_for_email(db, session_email) if session_email else None
     try:
-        result = register_family(db, data, background_tasks, signed_in=signed_in)
+        result = register_family(
+            db, data, background_tasks, signed_in=signed_in, proof=Proof.from_request(request, form)
+        )
     except HTTPException as refusal:
         # What the service refuses has no field here (a known household, a rule on
         # the object): it stands in the banner, the form stays as typed.

@@ -268,8 +268,16 @@ async def inschrijf_submit(
 
     activity, component = _component_or_404(db, activity_id, component_id)
     form = await request.form()
+    from app.kernel.form_guard import Proof
+
     outcome = submit(
-        db, _channel(request, db, activity, component), activity, component, form, background_tasks
+        db,
+        _channel(request, db, activity, component),
+        activity,
+        component,
+        form,
+        background_tasks,
+        proof=Proof.from_request(request, form),
     )
     if outcome.kind is OutcomeKind.REFUSED:
         # #1589 (§3.18): the banner alone, into the form's message line — the

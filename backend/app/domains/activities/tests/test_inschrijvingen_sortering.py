@@ -12,7 +12,7 @@ import re
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
+from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -31,6 +31,7 @@ def _drie_inschrijvingen(client, db_session):
         client.post(
             f"/activiteiten/{activity.id}/inschrijven/{component.id}",
             data={
+                **form_guard_fields(),
                 "contact_name": naam,
                 "contact_email": "sort@example.com",
                 "phone": "047",

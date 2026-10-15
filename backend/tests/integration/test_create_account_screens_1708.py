@@ -97,7 +97,9 @@ def test_the_sign_in_screen_has_the_second_door(client):
 
 
 def test_the_sign_in_code_step_says_the_one_sentence(client):
-    step = client.post("/aanmelden", data={"email": "niemand-1708@example.org"}).text
+    step = client.post(
+        "/aanmelden", data={**form_guard_fields(), "email": "niemand-1708@example.org"}
+    ).text
     assert SENTENCE in step and "Als dit e-mailadres gekend is" not in step
     assert re.search(r"<button[^>]*>\s*(?:<[^>]+>\s*)*Inloggen", step), "the button is not Inloggen"
     assert 'name="nieuw"' not in step

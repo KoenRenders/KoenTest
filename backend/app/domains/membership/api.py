@@ -270,14 +270,16 @@ def household_renew_membership(db, person, payment_method: str = "online"):
     return _impl(person=person, db=db, payment_method=payment_method)
 
 
-def register_family(db, data, background_tasks, *, signed_in=None):
+def register_family(db, data, background_tasks, *, signed_in=None, proof):
     """Publieke gezinsregistratie — de flow staat in signup_service.
 
     `signed_in` (CR-22 R9, #1713): the person the visitor is signed in as, or
-    None. An account that signs up becomes the main member itself."""
+    None. An account that signs up becomes the main member itself.
+
+    `proof` (#2039): the guard's proof of the visitor's form; see `signup_service`."""
     from app.domains.membership.signup_service import register_family as _impl
 
-    return _impl(data, background_tasks, db=db, signed_in=signed_in)
+    return _impl(data, background_tasks, db=db, signed_in=signed_in, proof=proof)
 
 
 # ── Onderaan, en dat is opzet ────────────────────────────────────────────────

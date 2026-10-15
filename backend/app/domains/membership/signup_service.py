@@ -26,6 +26,7 @@ from app.domains.membership.schemas_member import (
 )
 from app.domains.payment.api import create_payment_record, membership_price_for_date
 from app.i18n import _
+from app.kernel import form_guard
 from app.kernel.contracts.membership import FamilyRegistered
 from app.kernel.events import publish
 
@@ -45,8 +46,14 @@ def register_family(
     *,
     db: Session,
     signed_in: Person | None,
-) -> FamilyRegisteredResponse:
+    proof,
+) -> FamilyRegisteredResponse | None:
     """The public door: register a new family (member household).
+
+    `proof` (#2039): what the visitor's form brings to show a person sent it
+    (`form_guard.Proof`). A refused submission registers nothing, mails nothing and
+    stores nothing, and returns `None`: the door answers it like a success without a
+    payment.
 
     Het schrijven zelf — gezin, personen, adres, contactgegevens, lidmaatschap —
     staat sinds #1110 in `household_service.create_family_with_members`, want de
@@ -56,6 +63,8 @@ def register_family(
     lidgegevensregels (#551/#681) gelden voor élke ingang en staan dus in die
     functie.
     """
+    if form_guard.refused(proof, "lid-worden"):
+        return None
     today = date.today()
 
     # Dedup: voorkom een dubbel lidmaatschap (en dus dubbele betaling) voor
