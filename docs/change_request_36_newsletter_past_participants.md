@@ -1,10 +1,10 @@
 # Change Request 36 — Newsletter to the people registered for earlier activities
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped with Koen on 15 October 2026 · not assigned to a release; B8 answered, one point left in B9 (Q4)
+**Status:** shaped with Koen on 15 October 2026 · not assigned to a release; B8 answered
 **Tracking issue:** #2026 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (audience choice, recipient list, send screen, Raakje's sources), the activities facade (a read of registration addresses), the unsubscribe page
-**Reading:** A 758 words · B 1 316 · C 1 466 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 758 words · B 1 351 · C 1 466 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -175,7 +175,8 @@ A letter's recipients are always a derived list with one precedence rule and one
 | 15 Oct 2026 | Q1: people registered for an activity are mailed on the existing relationship, with an unsubscribe link (a); the legal check is not done | Koen, to Q1 of Q&A nr. 08 (a or b): "a" (my recommendation carried the condition that an accountant or privacy adviser agrees; he did not say whether that happens) |
 | 15 Oct 2026 | Q2: two chosen activities combine into one audience, one mail | Koen, to Q2: "ja" |
 | 15 Oct 2026 | Q3: the activities offered are those of the last three working years | Koen, to Q3: "ja" |
-| 15 Oct 2026 | Q4: Raakje drafting the letter is a mechanism that exists | Koen, to Q4: "ja, dat is een mechanisme dat nu al bestaat, moet dus niets voor gebeuren" (my reading: nothing new to build for drafting; whether the chosen activities as source of the draft stay in B1 is asked back) |
+| 15 Oct 2026 | Q4: Raakje drafting the letter is a mechanism that exists | Koen, to Q4: "ja, dat is een mechanisme dat nu al bestaat, moet dus niets voor gebeuren" (my reading: the drafting itself needs nothing new) |
+| 15 Oct 2026 | The chosen past activities go to Raakje as a source of the draft, with name and date and never an address, so the letter can name them (R4) | Koen, to "Moeten de gekozen eerdere activiteiten als bron naar Raakje gaan, ja of nee?": "ja, geef ze mee" |
 | 15 Oct 2026 | Erasure of an address from the archives (the right to be forgotten) is not built in this change; see the known gap under Non-goals | Koen, to my question whether erasure by address should be part of this change: "Het recht om vergeten te worden gaan we voorlopig even laten liggen." |
 
 ---
