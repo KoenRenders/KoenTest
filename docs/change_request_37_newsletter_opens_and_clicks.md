@@ -1,10 +1,10 @@
 # Change Request 37 — Anonymous opens and clicks of a newsletter
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped with Koen on 15 October 2026, reshaped the same day from per-person to anonymous · not assigned to a release; open decisions in B8
+**Status:** shaped with Koen on 15 October 2026, reshaped the same day from per-person to anonymous · not assigned to a release; B8 answered, a second build read is due
 **Tracking issue:** #2027 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (rendering of a letter, a public pixel and redirect route, the send screen, the archive of sent letters)
-**Reading:** A 914 words · B 1 264 · C 1 515 — measured per part; A ≤ 1 500, B ≤ 2 500
+**Reading:** A 918 words · B 1 413 · C 1 522 — measured per part; A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -171,11 +171,11 @@ A link in a letter that leaves through the portal goes through one function; a t
 
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
-| Q1 | Is counting codes that are not linked to a person enough that no consent is needed, with the footer line and the privacy statement? The legal reading is unverified | yes, after the accountant or a privacy adviser agrees; the design cannot name a person, so the question is only about the footer line and the pixel | the wording of the footer line; at worst a tick at sign-up for later letters |
-| Q2 | Is *indicatie* on opens and on clicks acceptable? | yes | nothing; the alternative is no figure at all |
-| Q3 | Keep the results (they are anonymous) or remove them after twelve months? | keep: there is no personal data and the comparison over years is the point | a purge at start-up if removed |
-| Q4 | Who sees the result: everyone who may send a newsletter? | yes | the right on the screen |
-| Q5 | How does the privacy statement get its newsletter section: a data migration that appends it to the `privacy` page of every tenant that lacks it (as migration 061 did for the speech-input section), or Koen writes it in the page editor? | the migration, so every tenant has it from the release; the text of A5 once approved | the migration and its test, or nothing to build |
+| Q1 (answered, B9) | Is counting codes that are not linked to a person enough that no consent is needed, with the footer line and the privacy statement? The legal reading is unverified | yes (Koen answered yes; the check by an accountant or privacy adviser is not done); the design cannot name a person, so the question is only about the footer line and the pixel | the wording of the footer line; at worst a tick at sign-up for later letters |
+| Q2 (answered, B9) | Is *indicatie* on opens and on clicks acceptable? | yes | nothing; the alternative is no figure at all |
+| Q3 (answered, B9) | Keep the results (they are anonymous) or remove them after twelve months? | keep: there is no personal data and the comparison over years is the point | a purge at start-up if removed |
+| Q4 (answered, B9) | Who sees the result: everyone who may send a newsletter? | yes | the right on the screen |
+| Q5 (answered, B9) | How does the privacy statement get its newsletter section: a data migration that appends it to the `privacy` page of every tenant that lacks it (as migration 061 did for the speech-input section), or Koen writes it in the page editor? | the migration (Koen's choice), so every tenant has it from the release; the text of A5 | the migration and its test, or nothing to build |
 
 ## B9. Decisions log — dated answers
 
@@ -186,6 +186,11 @@ A link in a letter that leaves through the portal goes through one function; a t
 | 15 Oct 2026 | No *Niet meten* button for the reader; the sender decides per letter whether it is measured (superseded by the last row of this log) | Koen, to my explanation of the link *Niet meten*: "We gaan de nieuwsbrief naar leden niet uitbreiden met een knop \"niet meten\". De verzender kan wel beslissen niet te meten." |
 | 15 Oct 2026 | Anonymous counting; who read what and when is not a requirement | Koen, to my asking per person or counts: "Kunnen we anders niet gaan voor een oplossing dat we anoniem meten? [...] Maar ik vind persoonlijk ook dat puur trekken, welke persoon heeft gelezen, wanneer, wie heeft op welke knop geklikt, wanneer. Ik vind dat zelf ook een beetje creepy. Dus voor mij is dat geen requirement." |
 | 15 Oct 2026 | Every letter is measured, always: no switch for the sender, no button for the reader; the privacy statement is updated to say that who reads and who clicks is not tracked | Koen, to my asking whether *Meten* is ticked from the start: "Nu we toch anoniem meten, zou ik zelfs die optie om niet te meten verwijderen. Het is simpel. We meten altijd. Het is toch anoniem. Dan moeten we die verschillende scenario's ook niet testen. Die knop ook niet bouwen." and "herinneren we eraan dat we onze privacy clausule updaten. [...] dat we niet trekken wie leest, wie op wat klikt, dat dat duidelijk verwoord is." |
+| 15 Oct 2026 | Q1: anonymous counting with the footer line is enough, without consent; the legal check is not done | Koen, to question 5 of Q&A nr. 08: "ja" (my recommendation carried the condition that an accountant or privacy adviser agrees; he did not say whether that happens) |
+| 15 Oct 2026 | Q2: opens and clicks are shown as *indicatie* | Koen, to question 6: "ja" |
+| 15 Oct 2026 | Q3: the results are kept | Koen, to question 7 (keep or remove after twelve months): "akkoord" |
+| 15 Oct 2026 | Q4: everyone who may send a newsletter sees the result | Koen, to question 8: "ja" |
+| 15 Oct 2026 | Q5: a migration adds the newsletter section to the privacy page of every tenant that lacks it | Koen, to question 9 (a migration or he writes it himself): "a" |
 
 ---
 
@@ -257,7 +262,7 @@ No IP, no user agent, no address, no delivery, no time of day. The signature use
 | T8 | the test mail and the preview carry no pixel and no rewritten link |
 | T9 | a failing event write still redirects |
 | T10 | the plain-text part's URLs are rewritten, and carry the footer line |
-| T11 | after the privacy migration the `privacy` page has the newsletter section, and a second run adds nothing (if Q5 is the migration) |
+| T11 | after the privacy migration the `privacy` page has the newsletter section, and a second run adds nothing |
 | T13 | a member's letter carries the footer line |
 | T14 | fifty pixel fetches of different codes from one address are all recorded |
 | T15 | a link that appears for the first time in the third batch gets a store row |
@@ -283,7 +288,7 @@ Status line, as-built notes folded in, tracking issue closed (`CLAUDE.md` step 1
 
 | Q&A | Date | Question | Status |
 |---|---|---|---|
-| — | 15 Oct 2026 | Q1–Q5 of B8 go into a Q&A file for Koen; the build read of dev2 (#2027, 15 Oct 2026) was on the per-person version and is taken in where it still applies | open |
+| 08 | 15 Oct 2026 | Q1–Q5 of B8 asked as questions 5 to 9 of Q&A nr. 08; the build read of dev2 (#2027, 15 Oct 2026) was on the per-person version and is taken in where it still applies | answered 15 Oct 2026, in B9; a second build read is due |
 
 ## Non-goals — deliberately outside this change
 
