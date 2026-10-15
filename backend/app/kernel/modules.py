@@ -171,6 +171,7 @@ MODULES: tuple[Module, ...] = (
         admin_items=(("/admin/media", "Media"),),
         route_prefixes=("/api/v1/media", "/admin/media", "/fotos"),
         sitemap_paths=("/fotos",),
+        home_blocks=("albums",),
         record_tables=("media.media_assets",),
     ),
     Module(
