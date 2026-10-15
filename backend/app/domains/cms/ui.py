@@ -10,7 +10,13 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.cms.api import get_published_page, published_html, published_page, published_slugs
+from app.domains.cms.api import (
+    get_published_page,
+    hero_view,
+    published_html,
+    published_page,
+    published_slugs,
+)
 from app.i18n import _
 from app.ui import site_context, templates
 
@@ -202,6 +208,7 @@ def _render_page(request: Request, db: Session, page):
             **site_context(db, request),
             "page": page,
             "content_html": published_html(db, page),
+            "hero": hero_view(page, db),
             # #924: één vaste slug krijgt het contactblok uit de organisatie, zoals de
             # footer er een krijgt. Geen shortcode en geen nieuwe pagina: er ís geen
             # contactpagina, en een blok dat van een paginanaam afhangt werkt niet voor

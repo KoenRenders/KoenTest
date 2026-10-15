@@ -117,8 +117,26 @@ def _record_ctx(
     button_forms = form_button_choices(db)
     button_lid_worden = module_enabled(ModuleCode.MEMBERSHIP)
 
+    from app.domains.cms.schema import OPENINGS, TONES, hero_form_values
+
+    # The hero's two buttons lead where the document's buttons may: the same
+    # four kinds, as the choices of one select (CR-32 F4).
+    hero_destinations = [("", _("— kies —"))]
+    hero_destinations += [(f"page:{pid}", title) for pid, title in button_pages]
+    hero_destinations += [(f"form:{slug}", title) for slug, title in button_forms]
+    if button_lid_worden:
+        hero_destinations.append(("screen:lid-worden", _("Word lid")))
+    hero_destinations.append(("href", _("Een adres buiten de site")))
+
     return {
         "p": page,
+        "hero_form": hero_form_values(page.hero),
+        "hero_destinations": hero_destinations,
+        "opening_options": [
+            (OPENINGS[0], _("Titelregel")),
+            (OPENINGS[1], _("Hero — de titel groot op een band")),
+        ],
+        "tone_options": list(zip(TONES, (_("Neutraal"), _("Tint"), _("Accent")), strict=True)),
         "document_json": (
             document if document is not None else _json.dumps(editable_document(db, page))
         ),
@@ -272,6 +290,16 @@ def pagina_bijwerken(
     is_home: str = Form(""),
     show_in_footer: str = Form(""),
     sort_order: str | None = Form(None),
+    opening: str = Form("title_line"),
+    hero_tone: str = Form("plain"),
+    hero_eyebrow: str = Form(""),
+    hero_lead: str = Form(""),
+    hero_b1_label: str = Form(""),
+    hero_b1_destination: str = Form(""),
+    hero_b1_address: str = Form(""),
+    hero_b2_label: str = Form(""),
+    hero_b2_destination: str = Form(""),
+    hero_b2_address: str = Form(""),
 ):
     """Opslaan (snede 3, #1671): the record's fields and the document in ONE
     save (the review's A3, #1734) — a refusal saves NOTHING, not the fields
@@ -280,6 +308,7 @@ def pagina_bijwerken(
     C6 4: nothing published changes here.
     """
     from app.domains.cms.api import save_page_form
+    from app.domains.cms.schema import hero_from_form
     from app.schemas.cms import CmsPageUpdate
 
     volgorde = None
@@ -298,6 +327,16 @@ def pagina_bijwerken(
         is_home=bool(is_home),
         show_in_footer=bool(show_in_footer),
         sort_order=volgorde,
+        opening=opening,
+        hero=hero_from_form(
+            hero_tone,
+            hero_eyebrow,
+            hero_lead,
+            [
+                (hero_b1_label, hero_b1_destination, hero_b1_address),
+                (hero_b2_label, hero_b2_destination, hero_b2_address),
+            ],
+        ),
     )
     try:
         save_page_form(db, page_id, data, document, by=email)
@@ -475,7 +514,7 @@ def pagina_voorbeeld(
     """Admin-voorbeeld van een pagina — óók een concept (ongepubliceerd), #554. De
     publieke /{slug}-route blijft enkel gepubliceerde pagina's tonen (404 op concept),
     dus 'Bekijk' linkt hierheen zodat je een concept kan bekijken vóór publicatie."""
-    from app.domains.cms.api import draft_html, get_page_by_id
+    from app.domains.cms.api import draft_html, get_page_by_id, hero_view
     from app.ui import site_context
 
     page = get_page_by_id(db, page_id)
@@ -488,6 +527,7 @@ def pagina_voorbeeld(
             **site_context(db, request),
             "page": page,
             "content_html": draft_html(db, page),
+            "hero": hero_view(page, db, preview=True),
             # #924: het voorbeeld toont wat de bezoeker ziet, dus ook het contactblok
             # op de privacypagina. Expliciet meegeven en niet aan de sjabloon
             # overlaten: een sjabloon dat om iets vraagt wat zijn aanroeper niet

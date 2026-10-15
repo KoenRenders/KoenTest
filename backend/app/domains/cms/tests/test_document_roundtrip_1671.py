@@ -3,7 +3,7 @@
 
 The honesty of "lossless" is a measurement: `render_document(parse_html(
 content))` must equal what the page shows today (`render_cms_content` with
-`on_page=True`). These tests pin that for the shapes Trix-era pages carry —
+the page body shift). These tests pin that for the shapes Trix-era pages carry —
 and for the shapes that do not convert, with F11's gentle draft as the
 consequence. The comparison runs through `normalise_html` (ONE source, review
 B4e): it collapses whitespace that contains a newline — layout between
@@ -55,12 +55,10 @@ def _today(content):
 )
 def test_the_migration_is_honest(content):
     """render(parse(html)) equals what the page shows today (C6 12)."""
-    document = parse_html(content, on_page=True)
+    document = parse_html(content)
     assert document is not None, f"page does not convert: {content!r}"
     validate_document(document)
-    assert normalise_html(render_document(document, None, on_page=True)) == normalise_html(
-        _today(content)
-    )
+    assert normalise_html(render_document(document, None)) == normalise_html(_today(content))
 
 
 def test_a_lost_space_turns_the_measurement_red():
@@ -69,14 +67,11 @@ def test_a_lost_space_turns_the_measurement_red():
     proven by the very case that stayed green before, because the old
     `_normalise` collapsed it on both sides."""
     content = "<p><strong>vet</strong> <em>cursief</em></p>"
-    document = parse_html(content, on_page=True)
+    document = parse_html(content)
     # The document carries the space as a text node.
     texts = [n["text"] for n in document["content"][0]["content"]]
     assert " " in texts, "the space between the marks is gone from the document"
-    assert (
-        render_document(document, None, on_page=True)
-        == "<p><strong>vet</strong> <em>cursief</em></p>"
-    )
+    assert render_document(document, None) == "<p><strong>vet</strong> <em>cursief</em></p>"
 
 
 def test_the_table_survives_an_edit():
@@ -101,7 +96,7 @@ def test_a_page_that_does_not_convert_keeps_her_html():
     """A code block is not in the schema: the page does not convert
     losslessly — strict yields None, and the site keeps serving her HTML.
     (This was the quotation until #1985 gave the document one.)"""
-    assert parse_html("<pre>Een citaat van iemand.</pre>", on_page=True) is None
+    assert parse_html("<pre>Een citaat van iemand.</pre>") is None
 
 
 def test_the_gentle_draft_keeps_the_words_in_both_orders():
@@ -112,7 +107,7 @@ def test_the_gentle_draft_keeps_the_words_in_both_orders():
         "<pre>Een citaat van iemand.</pre><p>En een alinea.</p>",
         "<p>En een alinea.</p><pre>Een citaat van iemand.</pre>",
     ):
-        document = parse_html(content, on_page=True, lenient=True)
+        document = parse_html(content, lenient=True)
         assert document is not None
         validate_document(document)
         words = render_document(document, None, target="text")
@@ -123,7 +118,7 @@ def test_the_gentle_draft_keeps_the_words_in_both_orders():
 def test_the_gentle_draft_keeps_a_loose_tail():
     """A2 (#1673): text after the last closed block belongs in the draft —
     before the final flush it was lost."""
-    document = parse_html("<p>Een alinea.</p>Losse staart", on_page=True, lenient=True)
+    document = parse_html("<p>Een alinea.</p>Losse staart", lenient=True)
     words = render_document(document, None, target="text")
     assert "Losse staart" in words
 
@@ -131,23 +126,21 @@ def test_the_gentle_draft_keeps_a_loose_tail():
 def test_a_code_stays_text_and_is_replaced_anyway():
     """The document keeps the code as text (the value block is phase 5); the
     renderer replaces it with the current value, as today."""
-    document = parse_html("<p>Het lidgeld: {{membership_price_full}}</p>", on_page=True)
+    document = parse_html("<p>Het lidgeld: {{membership_price_full}}</p>")
     texts = [node["text"] for node in document["content"][0]["content"] if node["type"] == "text"]
     assert any("{{membership_price_full}}" in t for t in texts), "the code is not text"
-    html = render_document(document, None, on_page=True)
+    html = render_document(document, None)
     assert "{{membership_price_full}}" not in html
     assert "€" in html
 
 
-def test_a_fragment_without_the_heading_shift():
-    """The home-intro block renders without `on_page`: the heading keeps its
-    own level — the document stores the choice, the place picks the tag
-    (C4.2, one shift source: `headings_one_level_down`)."""
-    assert render_document(parse_html("<h1>Kop</h1>", on_page=False), None) == "<h1>Kop</h1>"
-    assert (
-        render_document(parse_html("<h1>Kop</h1>", on_page=True), None, on_page=True)
-        == "<h2>Kop</h2>"
-    )
+def test_a_heading_is_stored_at_the_level_it_shows():
+    """CR-32 R21: Trix' h1 becomes a level-2 heading and the renderer writes
+    it back as it is — no shift at render time, whatever the place."""
+    document = parse_html("<h1>Kop</h1><h3>Klein</h3>")
+    levels = [block["attrs"]["level"] for block in document["content"]]
+    assert levels == [2, 4]
+    assert render_document(document, None) == "<h2>Kop</h2><h4>Klein</h4>"
 
 
 def test_the_text_rendering_gives_words():
@@ -184,8 +177,8 @@ def test_a_div_page_keeps_her_html_and_her_words_in_the_draft():
     as a <p> in the document, so the page is not byte-equal - strict refuses
     and the site keeps serving her HTML; the gentle draft holds her words."""
     content = "<div>Eerste alinea.</div><div>Tweede alinea.</div>"
-    assert parse_html(content, on_page=True) is None
-    document = parse_html(content, on_page=True, lenient=True)
+    assert parse_html(content) is None
+    document = parse_html(content, lenient=True)
     words = render_document(document, None, target="text")
     assert "Eerste alinea." in words
     assert "Tweede alinea." in words
@@ -202,8 +195,8 @@ def test_a_picture_page_keeps_her_html_and_gets_a_draft():
         '&quot;size&quot;:&quot;half&quot;}"><img src="/api/v1/media/12" '
         'width="800" height="600"></figure>'
     )
-    assert parse_html(content, on_page=True) is None
-    document = parse_html(content, on_page=True, lenient=True)
+    assert parse_html(content) is None
+    document = parse_html(content, lenient=True)
     assert document is not None
     assert document["content"][0]["type"] == "figure"
     assert document["content"][0]["attrs"]["media_id"] == 12
@@ -217,7 +210,7 @@ def test_the_gentle_draft_loses_no_word_after_a_block_inside_a_div():
         "<div><h2>Kop</h2><ul><li>a</li></ul>tekst</div>",
         "<div>buiten<div>binnen</div>staart</div>",
     ):
-        document = parse_html(content, on_page=True, lenient=True)
+        document = parse_html(content, lenient=True)
         words = render_document(document, None, target="text")
         assert "tekst" in words or "staart" in words, f"words lost from: {content}"
         for word in ("Kop", "a", "buiten", "binnen"):

@@ -23,3 +23,5 @@ class CmsPageUpdate(BaseModel):
     is_home: Optional[bool] = None
     show_in_footer: Optional[bool] = None
     sort_order: Optional[int] = None
+    opening: Optional[str] = None
+    hero: Optional[dict] = None

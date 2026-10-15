@@ -193,8 +193,9 @@ def test_the_sections_contents_take_the_full_row(client, db_session):
     # The five the count means (the second read's finding 3, #1770): the
     # editor's wrapper, the status dl, the codes dl, and the history's list
     # or her empty paragraph — the fifth moves with the page's versions.
-    # Each could go red on its own.
-    assert html.count('data-span="full"') == 5, "a section's non-field contents lost the full span"
+    # Each could go red on its own. Three more since CR-32: the hero's lead and
+    # the two addresses of its buttons stand on the full row.
+    assert html.count('data-span="full"') == 8, "a section's non-field contents lost the full span"
     # The wrapper sits around the editor, the editor not on a quarter track.
     # The wrapper holds the macro's whole output (her input, her styles,
     # her script and the editor itself) — the editor div follows within it,

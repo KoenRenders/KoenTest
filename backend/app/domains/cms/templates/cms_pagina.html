@@ -10,11 +10,23 @@
    in ONE class, `prose-raak` (scripts/build-css.sh). #}
 <div class="doc-page">
 {% if concept %}<div class="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2 text-sm text-yellow-800">{{ _("Concept-voorbeeld — deze pagina is nog niet gepubliceerd en is publiek niet zichtbaar.") }}</div>{% endif %}
+{% if hero %}
+{# CR-32 F5 (B8.11): the hero is the page's opening — the title large on a band
+   that spans the page, with its eyebrow, lead and up to two buttons; still the
+   page's ONE h1 (#1656). The band is the kit's `prose-hero` (build-css.sh). #}
+<div class="prose-hero prose-hero--{{ hero.tone }}" data-hero>
+  {% if hero.eyebrow %}<p class="prose-hero-eyebrow">{{ hero.eyebrow }}</p>{% endif %}
+  <h1 class="prose-hero-title font-brand font-bold" data-hero-title>{{ page.title }}</h1>
+  {% if hero.lead %}<p class="prose-hero-lead">{{ hero.lead }}</p>{% endif %}
+  {% if hero.actions_html %}<div class="prose-hero-actions prose-raak">{{ hero.actions_html | safe }}</div>{% endif %}
+</div>
+{% else %}
 <h1 class="text-3xl font-bold text-kop mb-8">{{ page.title }}</h1>
+{% endif %}
 {# #1656 (CR-11 Q87): the title above is the page's only h1. `cms-page` gives the
    headings of a page BODY their sizes (24, 18 and 16 px, `scripts/build-css.sh`); the
    renderer shows them one level down (`render_cms_content(on_page=True)`). #}
-<div class="prose-raak cms-page">{{ content_html | safe }}</div>
+<div class="prose-raak cms-page" data-page-body>{{ content_html | safe }}</div>
 {# #924: de privacypagina toont de contactgegevens van de vereniging uit de
    ENTITEIT. Ze stonden er als vrije tekst in — naam, adres en het e-mailadres
    meermaals — en die regels zijn bij migratie 121 weggehaald.

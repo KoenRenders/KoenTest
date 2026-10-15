@@ -166,6 +166,107 @@
     return [columns, column];
   }
 
+  /* The section of CR-32 (F1–F3): a band of the page — blocks on a tone, with a
+     small line above them. It stands at the document's root and nowhere else
+     (the server's schema, F2a), so the document's own content expression is
+     set here to `(block | section)+` and the section is in no group. The
+     author chooses her tone (a name from the set, never a colour) and types
+     her eyebrow in a bar above her blocks; the bar is the editor's, not the
+     document's. */
+  function sectionNode(RaakTiptap, config) {
+    var words = config.section || { tones: [], toneLabel: "", eyebrowLabel: "" };
+    var doc = RaakTiptap.Node.create({
+      name: "doc",
+      topNode: true,
+      content: "(block | section)+",
+    });
+    var tones = words.tones.map(function (t) { return t.id; });
+    function toneClass(tone) {
+      return "prose-section" + (tone && tone !== "plain" ? " prose-section--" + tone : "");
+    }
+    var section = RaakTiptap.Node.create({
+      name: "section",
+      content: "block+",
+      defining: true,
+      isolating: true,
+      addAttributes: function () {
+        return { tone: { default: "plain" }, eyebrow: { default: null } };
+      },
+      parseHTML: function () {
+        return [
+          {
+            tag: "div.prose-section",
+            getAttrs: function (el) {
+              var tone = tones.filter(function (t) { return el.classList.contains("prose-section--" + t); })[0];
+              return { tone: tone || "plain" };
+            },
+          },
+        ];
+      },
+      renderHTML: function (props) {
+        return ["div", { class: toneClass(props.node.attrs.tone) }, 0];
+      },
+      addNodeView: function () {
+        return function (props) {
+          var node = props.node;
+          var dom = document.createElement("div");
+          dom.setAttribute("data-section", "");
+          var bar = document.createElement("div");
+          bar.className = "de-section-bar";
+          bar.contentEditable = "false";
+          var select = document.createElement("select");
+          select.setAttribute("aria-label", words.toneLabel);
+          select.className = "de-section-tone";
+          words.tones.forEach(function (t) {
+            var option = document.createElement("option");
+            option.value = t.id;
+            option.textContent = t.label;
+            select.appendChild(option);
+          });
+          var eyebrow = document.createElement("input");
+          eyebrow.type = "text";
+          eyebrow.maxLength = 80;
+          eyebrow.className = "de-section-eyebrow";
+          eyebrow.placeholder = words.eyebrowLabel;
+          eyebrow.setAttribute("aria-label", words.eyebrowLabel);
+          bar.appendChild(select);
+          bar.appendChild(eyebrow);
+          var content = document.createElement("div");
+          content.className = "de-section-content";
+          dom.appendChild(bar);
+          dom.appendChild(content);
+          function paint() {
+            dom.className = toneClass(node.attrs.tone);
+            select.value = node.attrs.tone;
+            if (document.activeElement !== eyebrow) eyebrow.value = node.attrs.eyebrow || "";
+          }
+          function set(change) {
+            var pos = props.getPos();
+            if (typeof pos !== "number") return;
+            var attrs = Object.assign({}, node.attrs, change);
+            props.editor.view.dispatch(props.editor.state.tr.setNodeMarkup(pos, undefined, attrs));
+          }
+          select.addEventListener("change", function () { set({ tone: select.value }); });
+          eyebrow.addEventListener("input", function () { set({ eyebrow: eyebrow.value.trim() ? eyebrow.value : null }); });
+          paint();
+          return {
+            dom: dom,
+            contentDOM: content,
+            update: function (updated) {
+              if (updated.type.name !== "section") return false;
+              node = updated;
+              paint();
+              return true;
+            },
+            stopEvent: function (event) { return bar.contains(event.target); },
+            ignoreMutation: function (mutation) { return bar.contains(mutation.target); },
+          };
+        };
+      },
+    });
+    return [doc, section];
+  }
+
   /* The button of #1679: her label and her variant, and the ONE
      destination she leads to — chosen in the dialog of the macro, which
      carries the pages and forms of the tenant (Koen, 11 October 2026:
@@ -612,7 +713,8 @@
         item.id === "columns" ||
         item.id === "button" ||
         item.id === "callout" ||
-        item.id === "cards"
+        item.id === "cards" ||
+        item.id === "section"
       );
     });
     if (insertable.length) {
@@ -650,6 +752,18 @@
             }).run();
           } else if (item.id === "callout") {
             editor.chain().focus().insertContent({ type: "callout" }).run();
+          } else if (item.id === "section") {
+            /* The blocks she has selected become the section; where that is
+               not possible (inside a column, a cell, another section) a new
+               one is put at the document's end — a section stands at the
+               root only. */
+            if (!editor.chain().focus().wrapIn("section", { tone: "plain" }).run()) {
+              editor.chain().focus().insertContentAt(editor.state.doc.content.size, {
+                type: "section",
+                attrs: { tone: "plain" },
+                content: [{ type: "paragraph" }],
+              }).run();
+            }
           } else if (item.id === "button") {
             /* The button never lands without her destination: the dialog
                of the macro carries the pages and forms of the tenant, and
@@ -1106,9 +1220,7 @@
     surface.className = "de-surface prose-raak";
     mount.appendChild(surface);
 
-    var extensions = [
-      holdWholeBlock(RaakTiptap),
-      RaakTiptap.StarterKit.configure({
+    var starterOptions = {
         heading: { levels: config.headings.map(function (h) { return h.level; }) },
         strike: (config.marks || []).indexOf("strike") !== -1,
         link: (config.marks || []).indexOf("link") !== -1,
@@ -1126,8 +1238,15 @@
         codeBlock: false,
         horizontalRule: false,
         underline: false,
-      }),
-    ];
+    };
+    /* A set with the section brings her own document node (`sectionNode`):
+       the starter kit's would refuse her at the root. */
+    var withSection = (config.insert || []).indexOf("section") !== -1;
+    if (withSection) starterOptions.document = false;
+    var extensions = [holdWholeBlock(RaakTiptap), RaakTiptap.StarterKit.configure(starterOptions)];
+    if (withSection) {
+      extensions = extensions.concat(sectionNode(RaakTiptap, config));
+    }
     if ((config.insert || []).indexOf("table") !== -1) {
       extensions.push(RaakTiptap.TableKit.configure({ table: { resizable: false } }));
     }
