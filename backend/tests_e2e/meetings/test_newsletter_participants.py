@@ -82,10 +82,10 @@ def test_the_list_follows_the_audience_and_a_tick_changes_the_sentence(admin_pag
     _klikbaar(page, "#nb-onderwerp")
     adres = page.url
 
-    assert page.locator("[data-participant-activity]").count() == 0, "not before the audience"
+    assert page.locator("#nb-deelnemers input[name=chosen]").count() == 0, "not before the audience"
     with htmx_afgerond(page):
         page.locator("input[name=audience][value=participants]").check()
-    page.wait_for_selector("[data-participant-activity]", timeout=5_000)
+    page.wait_for_selector("#nb-deelnemers input[name=chosen]", timeout=5_000)
     names = page.locator("#nb-deelnemers label").all_inner_texts()
     assert any("E2E Deelnemers-BBQ" in n for n in names) and any(
         "E2E Deelnemersquiz" in n for n in names
@@ -104,11 +104,13 @@ def test_the_list_follows_the_audience_and_a_tick_changes_the_sentence(admin_pag
 
     # The audience and the ticks stand after a reload.
     page.goto(adres)
-    page.wait_for_selector("[data-participant-activity]")
-    assert page.locator("[data-participant-activity]:checked").count() == 2
+    page.wait_for_selector("#nb-deelnemers input[name=chosen]")
+    assert page.locator("#nb-deelnemers input[name=chosen]:checked").count() == 2
     assert "4 adressen" in page.locator("#nb-deelnemers [data-audience-line]").first.inner_text()
 
     # Another audience takes the list away.
     with htmx_afgerond(page):
         page.locator("input[name=audience][value=members]").check()
-    page.wait_for_function("document.querySelectorAll('[data-participant-activity]').length === 0")
+    page.wait_for_function(
+        "document.querySelectorAll('#nb-deelnemers input[name=chosen]').length === 0"
+    )

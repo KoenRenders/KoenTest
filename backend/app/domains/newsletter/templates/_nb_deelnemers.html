@@ -13,21 +13,20 @@
     <p class="text-sm font-semibold">{{ _("Kies één of meer activiteiten") }}</p>
     <p class="text-xs text-ink-soft">{{ _("De mensen die waren ingeschreven op de activiteiten van de laatste drie werkjaren. Wie op meer dan één staat, krijgt de brief één keer.") }}</p>
     {% if choices_error %}<div class="mt-2">{{ ui.error_banner(choices_error) }}</div>{% endif %}
-    <ul class="mt-2 divide-y divide-line">
+    {% if participant_offered %}
+    <div class="mt-2" hx-post="/admin/nieuwsbrieven/{{ letter.id }}/deelnemers" hx-trigger="change"
+         hx-include="this" hx-target="#nb-deelnemers" hx-swap="outerHTML">
+      {% set labelled = [] %}
+      {% set current = [] %}
       {% for item in participant_offered %}
-      <li class="py-1.5">
-        <label class="flex items-center gap-3 min-h-11 md:min-h-0 cursor-pointer">
-          <input type="checkbox" name="chosen" value="1" data-participant-activity="{{ item.id }}"{% if item.chosen %} checked{% endif %}
-                 hx-post="/admin/nieuwsbrieven/{{ letter.id }}/deelnemers/{{ item.id }}" hx-trigger="change"
-                 hx-include="this" hx-target="#nb-deelnemers" hx-swap="outerHTML">
-          <span class="text-sm"><span class="font-medium">{{ item.name }}</span>
-            <span class="text-ink-soft"> · {{ item.last_date|kortedatum }} · {{ ngettext("%(num)s adres", "%(num)s adressen", item.addresses) }}</span></span>
-        </label>
-      </li>
-      {% else %}
-      <li class="py-2 text-sm text-ink-soft">{{ _("Er zijn geen eerdere activiteiten van de laatste drie werkjaren.") }}</li>
+        {% set _x = labelled.append((item.id|string, item.name ~ " · " ~ (item.last_date|kortedatum) ~ " · " ~ ngettext("%(num)s adres", "%(num)s adressen", item.addresses))) %}
+        {% if item.chosen %}{% set _x = current.append(item.id|string) %}{% endif %}
       {% endfor %}
-    </ul>
+      {{ ui.checkbox_group("chosen", labelled=labelled, current=current, aria_label=_("Eerdere activiteiten")) }}
+    </div>
+    {% else %}
+    <p class="mt-2 py-2 text-sm text-ink-soft">{{ _("Er zijn geen eerdere activiteiten van de laatste drie werkjaren.") }}</p>
+    {% endif %}
     <div class="mt-3 space-y-1" data-audience-said>
       {% for line in participant_lines %}
       <p class="text-base" data-audience-line><strong>{{ line.head }}</strong></p>

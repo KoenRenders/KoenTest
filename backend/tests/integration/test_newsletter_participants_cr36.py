@@ -446,7 +446,9 @@ def test_the_chosen_activities_reach_raakje_with_name_and_date_and_no_address(db
     register(db_session, quiz, "geheim@example.org")
     letter = _letter(db_session, quiz)
     sources = drafting.gather_sources(db_session, letter, instruction="Schrijf.", names=set())
-    day = (date.today() - timedelta(days=300)).strftime("%d-%m-%Y")
+    from app.domains.newsletter import service as nb
+
+    day = nb.short_date(date.today() - timedelta(days=300))
     assert sources.earlier == [f"Quiz van vorig jaar ({day})"]
     text = "\n".join(text for text, _place in drafting._sections(sources))
     assert "Quiz van vorig jaar" in text and "geheim@example.org" not in text
@@ -505,13 +507,12 @@ def test_the_list_appears_for_the_audience_ticks_follow_and_the_sentence_says_wh
     assert "Kies één of meer activiteiten" in shown.text
     assert "Quiz" in shown.text and "2 adressen" in shown.text and "1 adres" in shown.text
 
-    for activity in (quiz, bbq):
-        answer = client.post(
-            f"/admin/nieuwsbrieven/{letter.id}/deelnemers/{activity.id}",
-            headers=headers,
-            data={"chosen": "1"},
-        )
-        assert answer.status_code == 200
+    answer = client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/deelnemers",
+        headers=headers,
+        data={"chosen": [str(quiz.id), str(bbq.id)]},
+    )
+    assert answer.status_code == 200
     # Saved audience: the page itself holds the panel.
     nb.update_draft(
         db_session, letter, subject="x", body_html="<div>x</div>", audience=Audience.PARTICIPANTS
@@ -519,11 +520,13 @@ def test_the_list_appears_for_the_audience_ticks_follow_and_the_sentence_says_wh
     db_session.commit()
     page = client.get(f"/admin/nieuwsbrieven/{letter.id}").text
     assert "2 adressen van mensen die waren ingeschreven op" in page, "the union, not the sum"
-    assert page.count("data-participant-activity") == 2
+    assert page.count('name="chosen"') == 2
     assert 'value="participants"' in page
 
     off = client.post(
-        f"/admin/nieuwsbrieven/{letter.id}/deelnemers/{bbq.id}", headers=headers, data={}
+        f"/admin/nieuwsbrieven/{letter.id}/deelnemers",
+        headers=headers,
+        data={"chosen": [str(quiz.id)]},
     )
     sentence = [r for r in off.text.splitlines() if "van mensen die waren ingeschreven op" in r]
     assert sentence and "BBQ" not in sentence[0] and "Quiz" in sentence[0]

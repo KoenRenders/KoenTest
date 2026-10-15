@@ -685,6 +685,19 @@ def offered_activities(
     return out
 
 
+def set_participant_activities(
+    db: Session, letter: Newsletter, activity_ids: list[int], *, today: Optional[date] = None
+) -> None:
+    """Make the letter's chosen earlier activities exactly `activity_ids`."""
+    _refuse_unless_draft(letter)
+    wanted = set(activity_ids)
+    have = {a.activity_id for a in chosen_activities(db, letter)}
+    for activity_id in sorted(have - wanted):
+        set_participant_activity(db, letter, activity_id, chosen=False)
+    for activity_id in sorted(wanted - have):
+        set_participant_activity(db, letter, activity_id, chosen=True, today=today)
+
+
 def set_participant_activity(
     db: Session, letter: Newsletter, activity_id: int, *, chosen: bool, today: Optional[date] = None
 ) -> None:

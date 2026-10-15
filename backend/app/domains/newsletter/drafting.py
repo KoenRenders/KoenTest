@@ -310,7 +310,7 @@ def _earlier_lines(db: Session, letter: Newsletter, names: set[str]) -> list[str
     return [
         scrub(
             f"{row.name or row.activity_id}"
-            + (f" ({row.last_date.strftime('%d-%m-%Y')})" if row.last_date else ""),
+            + (f" ({nb.short_date(row.last_date)})" if row.last_date else ""),
             names,
         )
         for row in nb.chosen_activities(db, letter)

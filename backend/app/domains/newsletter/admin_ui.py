@@ -647,7 +647,7 @@ def _participant_said(db: Session, letter) -> tuple[list[AudienceLine], list[str
             sentence=_("Kies één of meer activiteiten waarop de ontvangers waren ingeschreven."),
         )
     else:
-        which = ", ".join(f"{name} ({day.strftime('%d-%m-%Y')})" for name, day in said.activities)
+        which = ", ".join(f"{name} ({nb.short_date(day)})" for name, day in said.activities)
         addresses = ngettext("%(num)s adres", "%(num)s adressen", said.recipients) % {
             "num": said.recipients
         }
@@ -794,7 +794,7 @@ def _archive_view(
         audience_label=code_label(nb.AUDIENCE.name, letter.audience or "", db=db),
         audience_activities=", ".join(
             f"{row.name or row.activity_id}"
-            + (f" ({row.last_date.strftime('%d-%m-%Y')})" if row.last_date else "")
+            + (f" ({nb.short_date(row.last_date)})" if row.last_date else "")
             for row in nb.chosen_activities(db, letter)
         )
         if letter.audience == nb.Audience.PARTICIPANTS
@@ -915,23 +915,22 @@ def participants_panel(
 
 
 @router.post(
-    "/admin/nieuwsbrieven/{newsletter_id:int}/deelnemers/{activity_id:int}",
+    "/admin/nieuwsbrieven/{newsletter_id:int}/deelnemers",
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
 def participants_choose(
     newsletter_id: int,
-    activity_id: int,
     request: Request,
     db: Session = Depends(get_db),
     _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
-    chosen: str = Form(""),
+    chosen: list[str] = Form([]),
 ):
-    """Tick or untick one earlier activity (CR-36)."""
+    """The ticked earlier activities, as the form sends them (CR-36)."""
     letter = _letter_or_404(db, newsletter_id)
     error = None
     try:
-        nb.set_participant_activity(db, letter, activity_id, chosen=bool(chosen))
+        nb.set_participant_activities(db, letter, [int(c) for c in chosen if c.isdigit()])
     except nb.NewsletterError as exc:
         error = str(exc)
     return _participants_response(request, db, letter, error)
