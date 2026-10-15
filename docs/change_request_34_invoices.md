@@ -1,10 +1,10 @@
 # Change Request 34 — Invoices for the webshop
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 15 October 2026 by the design-documentation CLI, on Koen's dictation · build read not yet asked · not assigned to a release · **prerequisites:** CR-21 (webshop) built, and CR-26 (party model) phase 2, "the buyer" (C4.10)
+**Status:** shaped on 15 October 2026 by the design-documentation CLI, on Koen's dictation · build read not yet asked · for v2.18 on Koen's word (not assigned yet: the assignment follows the build read) · **prerequisites:** CR-21 (webshop) built, and CR-26 (party model) phase 2, "the buyer" (C4.10)
 **Tracking issue:** #2009 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** `payment` (the invoice, its number, its VAT, its document; the module "invoices"), `tax` (new: tax classes, categories, rates and the one rule that picks the rate), `product` and `pricing` of CR-21 (the tax class of an article), `sales` (the buyer's details, cancelling and changing an order that has an invoice), `mdm` (the issuing organisation, the buyer as a party; read, not changed), `mail` (the invoice mail), `kernel` (the module registry), `reporting` (a view)
-**Reading:** A 1 500 words · B 2 483 · C 2 774 — measured on 15 October 2026, drawings excluded, tables included; budgets A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1 500 words · B 2 500 · C 2 782 — measured on 15 October 2026, drawings excluded, tables included; budgets A ≤ 1 500, B ≤ 2 500
 
 ---
 
@@ -408,6 +408,7 @@ Credit notes ship with invoices: phases 1 and 2 go live together (B9).
 | 15 Oct 2026 | Q6: **no limit check in the shop** for Dutch private buyers; the accountant watches the EU limit. Koen: "c" | Koen |
 | 15 Oct 2026 | Q9: the booking is the receivable against the payments, no general ledger; the accountant keeps the books in his own system. Koen: "a, … mijn boekhouder doet de boekhouding in zijn systeem met zijn grootboek"; his question about three objects is answered in C4.5 | Koen |
 | 15 Oct 2026 | Q10: the content list of C4.1 is built on as it stands, without the accountant's check first. Koen: "b, maar vertel me misschien even wat je erop wil zetten". Then, on reading it: the date of supply, a printed table per rate and the late-payment text are dropped; the exemption statement is open until explained (C4.1) | Koen |
+| 15 Oct 2026 | Release v2.18, after CR-20 and CR-26: "deze moet ook in v2.18" (CR-26 B9) | Koen |
 | 15 Oct 2026 | Q4: the issuing organisation is Renko BV with its address and VAT number; the tenant is a brand, shown clearly with its name and logo. Koen: "De verkoper is inderdaad Renko BV met zijn adres en btw-nummer."; the brand and its logo must stand on the invoice | Koen |
 
 ---
