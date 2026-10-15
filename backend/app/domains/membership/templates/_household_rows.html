@@ -85,7 +85,7 @@
   {% call ui.form_grid() %}
     {{ person_fields(group, p) }}
     <div data-span="full" data-person-emails{% if fixed %} data-main-emails{% endif %}>{{ email_group(group, p, not p.own) }}</div>
-    {% if p.own %}<p data-span="full" data-own-details class="text-sm text-ink-soft">{{ _("Je naam, je e-mailadressen en je gsm-nummer komen uit je account. Je wijzigt ze in") }}
+    {% if p.own %}<p data-span="full" data-own-details class="text-sm text-ink-soft">{{ _("Je naam, je e-mailadressen en je mobiel nummer komen uit je account. Je wijzigt ze in") }}
       <a class="text-link underline" href="{{ path_for('/mijn/gegevens') }}">{{ _("Mijn gegevens") }}</a>.</p>{% endif %}
   {% endcall %}
 {% endcall %}
