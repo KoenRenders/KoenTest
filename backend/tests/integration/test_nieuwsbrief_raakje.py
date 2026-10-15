@@ -343,6 +343,9 @@ def test_een_zelf_geschreven_datum_wordt_gemarkeerd_de_markering_komt_uit_de_dat
         db_session, letter, instruction="Schrijf de najaarsbrief.", names=set(), base_url=BASE
     )
     held = set(drafting._NUMBER.findall(sources.fact_text().lower()))
+    # The coming activities reach the sources once the port rendered them (CR-33 F7), after
+    # this line: their numbers are held too, every coming activity's id among them.
+    held |= {field.value for field in sources.upcoming_fields} | {str(brood.id)}
     invented = next(str(n) for n in range(1, 32) if str(n) not in held)
     raakje(
         _draft(
@@ -1161,3 +1164,52 @@ def test_een_weigering_noemt_het_deel_van_de_bronnen_en_niet_de_vraag(db_session
     assert blocked.places == ("een voorbeeld van een eerdere brief",)
     assert "Haal de doelgroep even weg" in str(blocked)
     assert "je vraag" not in str(blocked) and "ermeulen" not in str(blocked)
+
+
+# ── CR-33 phase 2 (T8): the coming activities go as fields of the register ────
+
+
+def test_the_coming_activities_go_as_fields_and_the_mark_is_filled(db_session, raakje):
+    """Number and name stand under their labels of the register, in the section of the
+    coming activities; the mark of the port is not left in what was sent, and the sources the
+    later checks read hold what the port rendered."""
+    brood = _activity(db_session, "Brood & Spelen", days_ahead=30)
+    letter = _letter(db_session, activity_ids=[brood.id])
+    provider = raakje(_draft(["# In de kijker", f"[[activiteit:{brood.id}]]"]), _verdict())
+
+    _ask(db_session, letter)
+
+    sent = provider.payloads()
+    assert "komende activiteiten (nummer en naam)" in sent
+    assert f"activiteitnummer: {brood.id}" in sent and "activiteit: brood & spelen" in sent
+    assert "{{fields}}" not in sent, "the mark was sent as it stands"
+    assert f"- {brood.id}: " not in sent, "the old `- id: naam` line is back"
+
+
+def test_a_name_part_in_a_coming_activity_is_scrubbed_by_the_port(db_session, raakje):
+    """The names the guard knows are taken out of the rendered fields, as the caller did
+    by hand before."""
+    from app.domains.mdm.api import person_name_parts
+
+    plain = _activity(db_session, "Wandeling met Zebedeus", days_ahead=25)
+    letter = _letter(db_session, activity_ids=[plain.id])
+    db_session.flush()
+    from unittest import mock
+
+    with mock.patch(
+        "app.domains.mdm.api.person_name_parts", lambda db: {"zebedeus"} | person_name_parts(db)
+    ):
+        provider = raakje(_draft(["# Titel"]), _verdict())
+        _ask(db_session, letter)
+    assert "zebedeus" not in provider.payloads().replace("[naam]", "")
+
+
+def test_the_minutes_are_read_by_the_one_named_exception(db_session):
+    """The notes are `nooit` in the register; the letter's writer says, where it reads them,
+    that it is the exception Koen named — and that call is what this test would lose."""
+    from app.domains.chatbot.api import NAMED_EXCEPTIONS
+
+    letter = _letter(db_session, activity_ids=[])
+    # Reading the sources goes through `use_named_exception`; it raises for any other reader.
+    drafting.gather_sources(db_session, letter, instruction="x", names=set(), base_url=BASE)
+    assert NAMED_EXCEPTIONS["meetings.meeting_item.notes_document"].by == "newsletter.drafting"

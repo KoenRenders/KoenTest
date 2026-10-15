@@ -45,7 +45,7 @@ from typing import Any, Callable, Optional
 
 from sqlalchemy.orm import Session
 
-from app.domains.chatbot.api import AiCapability
+from app.domains.chatbot.api import FIELDS_MARK, AiCapability
 from app.domains.newsletter import service as nb
 from app.domains.newsletter.models import (
     DraftingMessage,
@@ -249,10 +249,14 @@ class Sources:
     points: list[str]
     instruction: str
     letter: list[str]
+    #: The coming activities as the model read them (number and name), set from the port's
+    #: rendering once a call went out; what the later checks read as a source (CR-33 F7).
     upcoming: str
     house_style: str
     examples: list[str]
     tool_results: list[str] = field(default_factory=list)
+    #: The coming activities as fields of the register: the port classifies and renders them.
+    upcoming_fields: list[Any] = field(default_factory=list)
 
     def fact_text(self) -> str:
         """The text a fact must be found in (layer 3). Style examples excluded."""
@@ -274,11 +278,17 @@ def _activity_text(db: Session, activity_id: int) -> str:
     return execute_read_tool("get_activity_detail", {"activity_id": activity_id}, db)
 
 
-def _upcoming_list(db: Session) -> str:
-    """Names and ids of the coming activities — so "zet de BBQ er ook bij"
-    resolves to an id. Dates are left out on purpose: the marker brings them."""
-    spans = nb.insertable_activities(db)
-    return "\n".join(f"- {s.activity.id}: {s.activity.name}" for s in spans)
+def _upcoming_fields(db: Session) -> list[Any]:
+    """Number and name of the coming activities — so "zet de BBQ er ook bij" resolves to
+    an id — as fields of the register (CR-33 F7): the port renders them. Dates are left
+    out on purpose: the marker brings them."""
+    from app.domains.chatbot.api import Field
+
+    fields: list[Any] = []
+    for span in nb.insertable_activities(db):
+        fields.append(Field("activities.activity.id", str(span.activity.id)))
+        fields.append(Field("activities.activity.name", span.activity.name))
+    return fields
 
 
 def _examples(db: Session, letter: Newsletter, names: set[str]) -> list[str]:
@@ -301,11 +311,15 @@ def _examples(db: Session, letter: Newsletter, names: set[str]) -> list[str]:
 def gather_sources(
     db: Session, letter: Newsletter, *, instruction: str, names: set[str], base_url: str = ""
 ) -> Sources:
+    # Whole reports, never single points (Koen, 17 September 2026): every report
+    # since the previous letter (CR-11 W13, #1391), no longer a tick per report.
+    from app.domains.chatbot.api import use_named_exception
     from app.domains.meetings.api import report_points_of
     from app.kernel.tenant_config import tenant_newsletter_house_style
 
-    # Whole reports, never single points (Koen, 17 September 2026): every report
-    # since the previous letter (CR-11 W13, #1391), no longer a tick per report.
+    # The minutes are `nooit` in the register; the letter's writer is the one named reader
+    # that still sends their words, names scrubbed (chatbot/fields.py, Koen 15 October 2026).
+    use_named_exception("meetings.meeting_item.notes_document", by="newsletter.drafting")
     points = []
     for point in report_points_of(db, nb.reports_since_previous_letter(db)):
         line = f"[{point.meeting_date.strftime('%d/%m')} · {point.section}] {point.item.label}"
@@ -324,7 +338,8 @@ def gather_sources(
         points=points,
         instruction=scrub(instruction, names),
         letter=[scrub(plain(p), names) for p in paragraphs(letter.body_html)],
-        upcoming=scrub(_upcoming_list(db), names),
+        upcoming="",
+        upcoming_fields=_upcoming_fields(db),
         house_style=scrub(tenant_newsletter_house_style(db), names),
         examples=_examples(db, letter, names),
     )
@@ -421,10 +436,12 @@ def _sections(src: Sources) -> list[tuple[str, tuple[str, str] | None]]:
         )
     if src.instruction:
         sections.append((f"## Wat de auteur wil vertellen\n{src.instruction}", _OWN_WORDS))
-    if src.upcoming:
+    if src.upcoming_fields or src.upcoming:
+        # The mark stands for the port's rendering of `upcoming_fields` (`chatbot.fields`).
         sections.append(
             (
-                "## Komende activiteiten (id: naam) — details via de leestools\n" + src.upcoming,
+                "## Komende activiteiten (nummer en naam) — details via de leestools\n"
+                + (FIELDS_MARK if src.upcoming_fields else src.upcoming),
                 _UPCOMING,
             )
         )
@@ -465,14 +482,17 @@ def _source_parts(src: Sources) -> list[Any]:
     from app.domains.chatbot.api import Part
 
     return [
-        Part(where=place[0], text=text, advice=place[1])
+        Part(where=place[0], text=text.replace(FIELDS_MARK, src.upcoming), advice=place[1])
         for text, place in _sections(src)
         if place is not None
     ]
 
 
 def _json_answer(
-    provider: Any, messages: list[dict[str, Any]], first: str | None = None
+    provider: Any,
+    messages: list[dict[str, Any]],
+    first: str | None = None,
+    fields: Any = (),
 ) -> dict[str, Any]:
     """Raakje's answer as a JSON object, by the kernel's one rule (#1968): asked
     for as JSON, retried once, logged without content. The second failure is
@@ -480,7 +500,7 @@ def _json_answer(
     from app.domains.chatbot.api import UnusableAnswer, json_answer
 
     try:
-        return json_answer(provider, messages, first=first)
+        return json_answer(provider, messages, first=first, fields=fields)
     except UnusableAnswer as exc:
         raise DraftingError(_("Raakje gaf geen bruikbaar voorstel. Probeer het opnieuw.")) from exc
 
@@ -835,11 +855,14 @@ def ask(
         tools=read_tool_specs(),
         dispatch=_dispatcher(names, collected),
         deadline=deadline,
+        fields=sources.upcoming_fields,
     )
+    # What the port rendered of the coming activities is what the checks read as a source.
+    sources.upcoming = provider.fields_text
     sources.tool_results = collected
     # The loop's final answer is the first attempt; the retry is one call without
     # tools on the conversation as it stands (#1968).
-    data = _json_answer(provider, messages, first=answer)
+    data = _json_answer(provider, messages, first=answer, fields=sources.upcoming_fields)
 
     if mode == MODE_INSERT and data.get("paragraphs") and not str(data.get("text") or "").strip():
         # The author asked for the whole letter again: offer it as one, with the
@@ -958,7 +981,7 @@ def verify(
         },
     ]
     try:
-        data = _json_answer(provider, messages)
+        data = _json_answer(provider, messages, fields=sources.upcoming_fields)
         found = data.get("unsupported") or []
     except Exception as exc:  # noqa: BLE001 — see the docstring
         from app.domains.chatbot.api import SeamBlocked

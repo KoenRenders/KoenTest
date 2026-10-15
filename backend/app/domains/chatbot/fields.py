@@ -129,3 +129,41 @@ def place_fields(messages: Sequence[dict[str, Any]], block: str) -> list[dict[st
             return placed
     placed.append({"role": "user", "content": block})
     return placed
+
+
+@dataclass(frozen=True)
+class NamedException:
+    """A stored datum classified `none` that one named reader still sends to a model, and why.
+
+    Koen, 15 October 2026 (Q&A nr. 12, question 1, "a"): the newsletter's writer reads the
+    minutes as today, with the names removed; everywhere else the notes stay `nooit`. The
+    exception stands HERE, once, with its reader and its reason, and the reader says so at the
+    place where it reads (`use_named_exception`): a second reader is no exception, it is a
+    second door."""
+
+    key: str
+    by: str
+    reason: str
+
+
+NAMED_EXCEPTIONS: dict[str, NamedException] = {
+    "meetings.meeting_item.notes_document": NamedException(
+        key="meetings.meeting_item.notes_document",
+        by="newsletter.drafting",
+        reason=(
+            "the letter is written from the minutes: read as free text with the known name parts "
+            "scrubbed, under the pattern guard (Koen, 15 October 2026, 'a')"
+        ),
+    ),
+}
+
+
+def use_named_exception(key: str, *, by: str) -> NamedException:
+    """The exception for `key` when `by` is the reader it names; `LookupError` otherwise."""
+    found = NAMED_EXCEPTIONS.get(key)
+    if found is None or found.by != by:
+        raise LookupError(
+            f"{by} is no named exception for {key}: a datum of the register that is `none` goes to "
+            f"a model through `fields` or through an exception named in chatbot/fields.py"
+        )
+    return found
