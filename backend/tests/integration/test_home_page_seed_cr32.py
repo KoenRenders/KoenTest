@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from app.domains.cms.api import published_document
+from app.domains.cms.api import get_translation, published_document
 from app.domains.cms.models import CmsPage, CmsPageTranslation
 from app.domains.mdm.api import TenantKind, create_tenant
 
@@ -100,7 +100,10 @@ def test_the_migration_and_the_seed_make_the_same_home_page(db_session, kind):
         by_migration.title,
         by_migration.is_published,
         by_migration.show_in_nav,
+        by_migration.opening,
     )
+    translation_m = get_translation(db_session, by_migration)
+    language_m, signed_m = translation_m.language, translation_m.published_by
     assert intro.is_published is False, "the intro is made invisible by the same step"
 
     # The seed's door: the same tenant, the same intro, no home page.
@@ -115,10 +118,16 @@ def test_the_migration_and_the_seed_make_the_same_home_page(db_session, kind):
         by_seed.title,
         by_seed.is_published,
         by_seed.show_in_nav,
+        by_seed.opening,
     )
+    translation_s = get_translation(db_session, by_seed)
 
     assert document_m == document_s, "the migration and the seed compose differently"
-    assert shape_m == shape_s == ("start", "Bakkerij & Co", True, False)
+    assert shape_m == shape_s == ("start", "Bakkerij & Co", True, False, "title_line")
+    # The same language (the tenant's); only the author differs on purpose — each
+    # door signs for itself, and the downgrade finds its own pages by that.
+    assert language_m == translation_s.language
+    assert (signed_m, translation_s.published_by) == ("migration 208", "seed")
 
 
 def test_a_second_run_of_either_door_makes_nothing_and_never_touches_a_page(db_session):
@@ -153,3 +162,37 @@ def test_the_module_set_decides_what_the_page_holds(db_session):
 
     assert kinds(company.id) == {"activities": False, "fee": False, "contact": True}
     assert kinds(association.id) == {"activities": True, "fee": True, "contact": True}
+
+
+def test_an_association_without_a_single_page_gets_a_home_and_every_intro_goes_dark(db_session):
+    """Master's findings on PR #2029: the migration walks every association (also one
+    with no page yet) and makes `home-intro` invisible for EVERY tenant — also one that
+    kept a home page of its own, so it never reaches `/home-intro` or the sitemap."""
+    association = create_tenant(
+        db_session, name="Zonder pagina", code="home-leeg", kind=TenantKind.ASSOCIATION
+    )
+    _remove_home(db_session, association.id)
+    for page in _pages(db_session, association.id):
+        db_session.query(CmsPageTranslation).filter(CmsPageTranslation.page_id == page.id).delete()
+        db_session.delete(page)
+    db_session.flush()
+    assert _pages(db_session, association.id) == []
+
+    company = create_tenant(
+        db_session, name="Eigen home", code="home-eigen", kind=TenantKind.COMPANY
+    )
+    kept = next(p for p in _pages(db_session, company.id) if p.is_home)
+    intro = _give_an_intro(db_session, company.id)
+    assert intro.is_published is True
+
+    made, skipped = _load().make_home_pages(db_session.connection())
+    db_session.expire_all()
+    assert association.id in made, "an association without pages got no home"
+    assert company.id in skipped, "a tenant with a home page of its own is left alone"
+    assert next(p for p in _pages(db_session, company.id) if p.is_home).id == kept.id
+    assert not any(
+        p.is_published
+        for tenant in (association.id, company.id)
+        for p in _pages(db_session, tenant)
+        if p.slug == "home-intro"
+    ), "a home-intro is still public"
