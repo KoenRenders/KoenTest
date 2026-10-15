@@ -46,6 +46,14 @@ def _paragraph(inline: list[dict[str, Any]]) -> "dict[str, Any] | None":
     return {"type": "paragraph", "content": inline} if has_words else None
 
 
+def _text_of(paragraph: dict[str, Any]) -> str:
+    return "".join(n.get("text", "") for n in paragraph.get("content") or [] if n["type"] == "text")
+
+
+def _has_words(paragraph: dict[str, Any]) -> bool:
+    return bool(_text_of(paragraph).strip())
+
+
 def _split(paragraph: dict[str, Any]) -> list[dict[str, Any]]:
     """One paragraph, cut at every marker in its text: the text before it, the
     block, the text after it."""
@@ -89,7 +97,12 @@ def markup_to_document(markup: "str | None") -> dict[str, Any]:
     document = document_from_html(markup or "")
     blocks: list[dict[str, Any]] = []
     for node in document.get("content") or []:
-        blocks.extend(_split(node) if node["type"] == "paragraph" else [node])
+        if node["type"] != "paragraph":
+            blocks.append(node)
+        elif _has_words(node) or MARKER.search(_text_of(node)):
+            blocks.extend(_split(node))
+        # else: a blank line (`<div><br></div>`) — spacing, which the mail gives
+        # between its paragraphs itself; a document holds no empty paragraph.
     return {"type": "doc", "content": blocks}
 
 

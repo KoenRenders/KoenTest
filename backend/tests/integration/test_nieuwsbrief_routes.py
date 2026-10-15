@@ -6,6 +6,8 @@ send it for real, read the archive; manage subscribers and the import; and the
 public side — sign up, confirm, unsubscribe — without a login.
 """
 
+import json
+import re
 from datetime import date, timedelta
 
 import pytest
@@ -21,6 +23,7 @@ from app.domains.newsletter.models import (
     Subscriber,
     SubscriberStatus,
 )
+from tests._letter import letter_doc
 from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -113,22 +116,22 @@ def test_de_hele_weg_van_een_nieuwsbrief(client, db_session, mailbox):
     assert nieuw.headers["HX-Redirect"] == f"/admin/nieuwsbrieven/{letter.id}"
     scherm = client.get(f"/admin/nieuwsbrieven/{letter.id}")
     assert scherm.status_code == 200
-    assert 'id="nb-trix"' in scherm.text
+    assert 'id="nb-editor"' in scherm.text
     assert (
         'name="audience"' in scherm.text
         and " checked" not in scherm.text.split('name="audience"')[1][:40]
     )
 
-    # 3. "Activiteit invoegen" delivers a REFERENCE (#984, 19 September 2026):
-    # the block itself is built when the letter is sent, because Trix keeps no
-    # table and no class. The calendar is still a line per activity.
-    regel = client.get(f"/admin/nieuwsbrieven/{letter.id}/invoegen/activiteit/{rum.id}")
-    assert regel.status_code == 200
-    assert "Rumproefavond" in regel.text
-    assert f"[[activiteit:{rum.id}|" in regel.text
-    kalender = client.get(f"/admin/nieuwsbrieven/{letter.id}/invoegen/kalender")
-    assert "Rumproefavond" in kalender.text
-    kiezer = client.get(f"/admin/nieuwsbrieven/{letter.id}/activiteiten?q=rum")
+    # 3. "Blok invoegen › Activiteit" offers the letter's FEATURED activities: the
+    # editor's configuration carries them, and the block it inserts is a REFERENCE
+    # (#984, #2023) that the mail turns into the block when the letter is sent.
+    config = json.loads(
+        re.search(r"data-config='([^']*)'", scherm.text).group(1).replace("&#34;", '"')
+    )
+    assert [a["id"] for a in config["activity"]["activities"]] == [rum.id]
+    assert "Rumproefavond" in config["activity"]["activities"][0]["label"]
+    assert "calendar" in config["insert"] and "closing" in config["insert"]
+    kiezer = client.get(f"/admin/nieuwsbrieven/{letter.id}/activiteiten?purpose=featured&q=rum")
     assert "Rumproefavond" in kiezer.text
 
     # 4. Autosave.
@@ -138,7 +141,9 @@ def test_de_hele_weg_van_een_nieuwsbrief(client, db_session, mailbox):
         data={
             "subject": "Het najaar",
             "audience": "non_members",
-            "body_html": f"<div>Beste,</div>{regel.text}",
+            "body": json.dumps(
+                letter_doc(f"<div>Beste,</div><div>[[activiteit:{rum.id}|Rumproefavond]]</div>")
+            ),
         },
     )
     assert bewaard.status_code == 200
@@ -169,7 +174,7 @@ def test_de_hele_weg_van_een_nieuwsbrief(client, db_session, mailbox):
 
     # 7. The same address now opens the archive, not the editor.
     archief = client.get(f"/admin/nieuwsbrieven/{letter.id}")
-    assert 'id="nb-trix"' not in archief.text
+    assert 'id="nb-editor"' not in archief.text
     assert "piet@example.org" in archief.text
     assert "Kopiëren naar een nieuw concept" in archief.text
     filter_ = client.get(
@@ -182,7 +187,7 @@ def test_de_hele_weg_van_een_nieuwsbrief(client, db_session, mailbox):
     geweigerd = client.post(
         f"/admin/nieuwsbrieven/{letter.id}/bewaren",
         headers=headers,
-        data={"subject": "Anders", "audience": "non_members", "body_html": "x"},
+        data={"subject": "Anders", "audience": "non_members", "body": "x"},
     )
     assert "al verstuurd" in geweigerd.text
     db_session.refresh(letter)
@@ -557,9 +562,10 @@ def test_het_voorbeeld_toont_de_brief_zoals_hij_aankomt(client, db_session):
 def test_de_kalender_is_de_kalendergroep_van_de_brief(client, db_session):
     """Koen, 19 september 2026: de kalender blijft compacte regels, maar je kiest
     wat erin staat. Since #1562 that choice is the letter's own calendar group —
-    the group the page shows — and "Kalender invoegen" places exactly it.
+    the group the page shows — and the calendar block of the letter renders exactly
+    it, when the letter is sent (#2023).
 
-    Broken on purpose: the route handing no ids to `calendar_html` → the calendar
+    Broken on purpose: `mail_blocks` handing no ids to `calendar_html` → the calendar
     ignores the group and this test fails on the activity that was taken out.
     """
     headers = _login(client)
@@ -567,8 +573,14 @@ def test_de_kalender_is_de_kalendergroep_van_de_brief(client, db_session):
     ver = _activity(db_session, "Kerstmarkt", date.today() + timedelta(days=120))
     letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
 
-    standaard = client.get(f"/admin/nieuwsbrieven/{letter.id}/invoegen/kalender")
-    assert "Rumproefavond" in standaard.text and "Kerstmarkt" in standaard.text, (
+    calendar = {"type": "doc", "content": [{"type": "calendar"}]}
+    nb.update_draft(db_session, letter, subject="x", body=calendar, audience="members")
+
+    def rendered() -> str:
+        return nb.render_body(db_session, letter, base_url="https://raak.example")
+
+    standaard = rendered()
+    assert "Rumproefavond" in standaard and "Kerstmarkt" in standaard, (
         "a new letter's calendar holds the next nine, however far"
     )
 
@@ -576,8 +588,8 @@ def test_de_kalender_is_de_kalendergroep_van_de_brief(client, db_session):
         f"/admin/nieuwsbrieven/{letter.id}/keuzes/calendar/{ver.id}/weg", headers=headers
     )
     assert weg.status_code == 200
-    gekozen = client.get(f"/admin/nieuwsbrieven/{letter.id}/invoegen/kalender")
-    assert "Rumproefavond" in gekozen.text and "Kerstmarkt" not in gekozen.text
+    gekozen = rendered()
+    assert "Rumproefavond" in gekozen and "Kerstmarkt" not in gekozen
 
     kiezer = client.get(f"/admin/nieuwsbrieven/{letter.id}/activiteiten?purpose=calendar")
     assert kiezer.status_code == 200 and "nb-kal-vinkje" not in kiezer.text
@@ -588,6 +600,5 @@ def test_de_kalender_is_de_kalendergroep_van_de_brief(client, db_session):
         headers=headers,
         data={"activity_id": str(ver.id)},
     )
-    terug = client.get(f"/admin/nieuwsbrieven/{letter.id}/invoegen/kalender")
-    assert "Kerstmarkt" in terug.text
+    assert "Kerstmarkt" in rendered()
     assert dichtbij.id in nb.choices_of(db_session, letter).calendar

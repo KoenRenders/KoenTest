@@ -89,11 +89,11 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K7
     ),
     Attribute(
-        key="newsletter.newsletter.body_html",
-        columns=("newsletter.newsletters.body_html",),
+        key="newsletter.newsletter.body_document",
+        columns=("newsletter.newsletters.body_document",),
         label=None,
-        name_en="Body html",
-        help="The body html of the newsletter.",
+        name_en="Body",
+        help="The text of the newsletter, as a document of the page editor.",
         ai_exposure=AiExposure.INTERNAL,  # K7
     ),
     Attribute(

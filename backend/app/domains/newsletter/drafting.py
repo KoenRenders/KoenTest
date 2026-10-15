@@ -1065,7 +1065,7 @@ def apply(
     proposal = dict(message.proposal or {})
     if proposal.get("status") != "open":
         raise DraftingError(_("Dit voorstel is al afgehandeld."))
-    nb.update_draft(db, letter, subject=letter.subject, body=body, audience=letter.audience)
+    nb.update_draft(db, letter, subject=letter.subject, body=body or None, audience=letter.audience)
     drop: list[str] = [m["sentence"] for m in proposal.get("marks") or [] if m["id"] not in keep]
     facts = nb.activity_facts(db, proposal.get("facts") or [], base_url=base_url)
     operation = (proposal.get("operations") or [{}])[0]

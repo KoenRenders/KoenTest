@@ -25,7 +25,6 @@ from app.domains.media.models import MediaAsset
 from app.domains.newsletter import service as nb
 from app.domains.newsletter.api import ReplyToMode
 from app.domains.newsletter.models import Audience, Subscriber, SubscriberStatus
-from tests._letter import letter_doc
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -229,7 +228,7 @@ def test_a_sent_newsletter_shows_the_png_and_not_the_svg(client, db_session, mon
         db_session,
         letter,
         subject="Najaar",
-        body_document=letter_doc("<div>Hallo</div>"),
+        body_html="<div>Hallo</div>",
         audience=Audience.NON_MEMBERS,
     )
     nb.start_sending(

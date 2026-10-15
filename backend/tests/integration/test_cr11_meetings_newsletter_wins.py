@@ -26,7 +26,6 @@ from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_va
 from app.domains.meetings.api import MeetingStatus, create_meeting
 from app.domains.newsletter import service as nb
 from app.domains.newsletter.models import Audience, Subscriber, SubscriberStatus
-from tests._letter import letter_doc
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -98,7 +97,7 @@ def test_w7_the_last_newsletter_button_names_its_consequence(client, db_session)
         db_session,
         letter,
         subject="Het najaar",
-        body_document=letter_doc("<div>Tot binnenkort.</div>"),
+        body_html="<div>Tot binnenkort.</div>",
         audience=Audience.NON_MEMBERS,
     )
     _login(client)
