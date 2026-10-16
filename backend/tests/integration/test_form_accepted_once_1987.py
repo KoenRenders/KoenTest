@@ -199,7 +199,12 @@ def _remove(ids: tuple[int, int, int]) -> None:
         ActivitySubRegistration,
         RegistrationItem,
     )
-    from app.domains.payment.api import GatewayPayment, PayableType, PaymentRecord
+    from app.domains.payment.api import (
+        GatewayPayment,
+        PayableType,
+        PaymentRecord,
+        PaymentRecordHistory,
+    )
 
     gone = {"synchronize_session": False}
     db = SessionLocal()
@@ -214,7 +219,12 @@ def _remove(ids: tuple[int, int, int]) -> None:
             PaymentRecord.payable_type == PayableType.REGISTRATION,
             PaymentRecord.payable_id.in_(regs),
         )
+        record_ids = [r.id for r in records]
         gateways = [r.gateway_payment_id for r in records if r.gateway_payment_id]
+        if record_ids:
+            db.query(PaymentRecordHistory).filter(
+                PaymentRecordHistory.payment_record_id.in_(record_ids)
+            ).delete(**gone)
         records.delete(**gone)
         db.query(GatewayPayment).filter(GatewayPayment.id.in_(gateways)).delete(**gone)
         db.query(RegistrationItem).filter(RegistrationItem.registration_id.in_(regs)).delete(**gone)
