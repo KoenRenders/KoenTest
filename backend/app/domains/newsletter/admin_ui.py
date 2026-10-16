@@ -208,11 +208,43 @@ def _subscriber_view(
     notice: Optional[str] = None,
 ) -> SubscriberListView:
     rows = nb.list_subscribers(db, query=q, status=status)
+    post = 'hx-target="#nb-abonnees" hx-swap="innerHTML" hx-post="/admin/nieuwsbrieven/abonnees'
+    row_controls = {
+        s.id: {
+            "action": {
+                "label": _("Uitschrijven"),
+                "attrs": f'{post}/{s.id}/uitschrijven"',
+                "confirm": _("%(adres)s uitschrijven? Het adres krijgt geen nieuwsbrief meer.")
+                % {"adres": s.email},
+            }
+            if s.status is not nb.SubscriberStatus.UNSUBSCRIBED
+            else None,
+            # Verwijderen wist het adres helemaal — ook in het archief (recht op
+            # vergetelheid). Uitschrijven bewaart de keuze; verwijderen bewaart niets.
+            "menu": [
+                {
+                    "kind": "delete",
+                    "label": _("Verwijderen"),
+                    "attrs": f'{post}/{s.id}/verwijderen"',
+                    "confirm": _('Adres "%(adres)s" definitief verwijderen?') % {"adres": s.email},
+                }
+            ],
+        }
+        for s in rows
+    }
     return SubscriberListView(
         subscribers=rows,
         counts=nb.subscriber_counts(db),
         status_options=code_labels(nb.SUBSCRIBER_STATUS.name, db=db),
-        unsubscribable={s.id: s.status is not nb.SubscriberStatus.UNSUBSCRIBED for s in rows},
+        columns=[
+            {"key": "email", "label": _("Adres"), "cell": "name"},
+            {"key": "first_name", "label": _("Voornaam"), "cell": "extra", "priority": 2},
+            {"key": "source", "label": _("Bron"), "cell": "extra", "priority": 1},
+            {"key": "status", "label": _("Status"), "cell": "status"},
+            {"key": "since", "label": _("Sinds"), "cell": "moment"},
+            {"key": "actions", "label": _("Acties"), "cell": "actions"},
+        ],
+        row_controls=row_controls,
         source_labels={
             s.id: (
                 _("import %(d)s") % {"d": nb.short_date(local_moment(s.imported_at).date())}

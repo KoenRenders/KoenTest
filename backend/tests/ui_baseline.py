@@ -141,7 +141,6 @@ SIDEWAYS_SCROLLS: dict[str, int] = {
     "domains/chatbot/templates/_ai_kosten_lijst.html": 1,
     "domains/chatbot/templates/admin_ai_kosten.html": 1,
     "domains/mail/templates/_email_log_lijst.html": 1,
-    "domains/newsletter/templates/_nb_abonnees.html": 1,
     "domains/newsletter/templates/_nb_afleveringen.html": 1,
     "domains/reporting/templates/_rp_paneel.html": 2,
     "domains/reporting/templates/_rp_raakje_antwoord.html": 1,
