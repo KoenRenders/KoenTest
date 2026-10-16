@@ -3,6 +3,7 @@
    the kit's field: the asterisk on the label, the refusal under the field. No
    address, birth date or gender — an account is not asked those (R17).
    `novalidate`: the server says what is wrong, under the field, in our words. #}
+{{ ui.error_banner(error|default(None)) }}
 <form data-create-account-form hx-post="{{ path_for('/account-aanmaken') }}" hx-target="#aanmelden-stap" hx-swap="innerHTML" novalidate>
   {% if terug %}<input type="hidden" name="terug" value="{{ terug }}">{% endif %}
   {# #2033: the guard of every public form that mails a typed address — a honeypot and a

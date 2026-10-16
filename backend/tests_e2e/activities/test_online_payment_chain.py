@@ -34,9 +34,10 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import (  # noqa: E402
+from tests_e2e.schermen import (
     BASE,
     fill_signup,
+    laat_de_wacht_passeren,  # noqa: E402
     login_als_admin,
     open_registration,
     pagina_klaar,
@@ -186,6 +187,7 @@ def test_a_registration_is_paid_online(visitor, admin, paid_activity):
     visitor.fill("#phone", "0470000000")
     visitor.fill(f'input[name="product_{product_id}"]', "1")
     visitor.check('input[name="payment_method"][value="online"]')
+    laat_de_wacht_passeren(visitor)
     visitor.locator("#inschrijf-pagina button[type=submit]").click()
     payment_id = _at_the_checkout(visitor)
 

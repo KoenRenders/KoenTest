@@ -14,7 +14,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         label="Straat",
         name_en="Street",
         help="De straatnaam van dit adres, zonder huisnummer.",
-        ai_exposure=AiExposure.NONE,  # K1
+        ai_exposure=AiExposure.INTERNAL,  # the street is intern: Raakje groups by street (Koen, 15 October 2026: "intern")
     ),
     Attribute(
         key="mdm.address.house_number",
@@ -22,7 +22,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         label="Huisnummer",
         name_en="House number",
         help="Het huisnummer.",
-        ai_exposure=AiExposure.NONE,  # K1
+        ai_exposure=AiExposure.TOKENISED,  # a token (Koen, 15 October 2026, read by the master CLI)
     ),
     Attribute(
         key="mdm.address.bus_number",
@@ -30,7 +30,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         label="Bus",
         name_en="Bus number",
         help="Het busnummer, leeg als er geen is.",
-        ai_exposure=AiExposure.NONE,  # K1
+        ai_exposure=AiExposure.TOKENISED,  # a token (Koen, 15 October 2026, read by the master CLI)
     ),
     Attribute(
         key="mdm.address.postal_code_id",
@@ -318,7 +318,7 @@ ADDRESS_LINE = Attribute(
     label="Adres",
     name_en="Address",
     help="Straat, huisnummer en bus op één lijn.",
-    ai_exposure=AiExposure.NONE,  # K1
+    ai_exposure=AiExposure.TOKENISED,  # a token (Koen, 15 October 2026, read by the master CLI)
 )
 
 
@@ -346,6 +346,6 @@ UNIVERSE_ENTRIES: tuple[Attribute, ...] = (
         label="Gezin",
         name_en="Id",
         help="Het gezin zelf.",
-        ai_exposure=AiExposure.INTERNAL,
+        ai_exposure=AiExposure.TOKENISED,  # the source of the token gezin-23
     ),
 )

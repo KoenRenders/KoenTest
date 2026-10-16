@@ -1328,15 +1328,18 @@
 {{ ui.section_header(_("16 · Accountpagina"), cls="mt-10") }}
 {% call ui.card() %}
   <p class="text-sm text-ink-soft mb-4">
-    {{ _("De indeling van elke pagina onder \"Mijn …\" op de publieke site: vanaf 768 px het accountmenu links (240 px) en de inhoud rechts; op een telefoon geen menu op de pagina — daar is het accountmenu in de lade de navigatie, met onderaan de landingspagina de andere pagina's als rijen.") }}
+    {{ _("De indeling van elke pagina onder \"Mijn …\" op de publieke site: vanaf 768 px het accountmenu links (240 px) en de inhoud rechts; op een telefoon geen menu op de pagina — daar is het accountmenu in de lade de navigatie, met onderaan de landingspagina hetzelfde accountmenu als rijen.") }}
   </p>
   {% set _kit_account = [{"href": "#kit-mijn", "label": _("Mijn voorbeeld"), "icon": "house"},
                          {"href": "#kit-gezin", "label": _("Mijn gezin"), "icon": "users"},
                          {"href": "#kit-inschrijvingen", "label": _("Mijn inschrijvingen"), "icon": "calendar-days"}] %}
+  {# #1886: a made-up visitor with a way into the back office, so the example
+     shows the whole account menu — Admin and Uitloggen included. #}
+  {% set _kit_visitor = {"is_member": True, "admin_home": "#kit-admin"} %}
   <div data-kit-account-page>
-  {% call pub.account_page(_("Mijn voorbeeld"), _kit_account, "#kit-mijn") %}
+  {% call pub.account_page(_("Mijn voorbeeld"), _kit_account, "#kit-mijn", _kit_visitor) %}
     <p class="text-base text-ink-soft">{{ _("Dag Emma.") }}</p>
-    {{ pub.account_links(_kit_account, "#kit-mijn") }}
+    {{ pub.account_links(_kit_account, "#kit-mijn", _kit_visitor) }}
   {% endcall %}
   </div>
 {% endcall %}

@@ -24,7 +24,12 @@
     <p class="text-sm text-gray-600">{{ _("Je krijgt eerst een mail om te bevestigen. Uitschrijven kan onderaan elke nieuwsbrief.") }}
       {# #1569: the same pages the footer lists, by their title. #}
       {% for p in footer_pages %}<a class="text-blue-500 underline" href="{{ path_for('/' ~ p.slug) }}">{{ p.title }}</a>{% if not loop.last %} · {% endif %}{% endfor %}</p>
+    {# #1883: who has a household is offered no "Word lid" (Koen, 10 October 2026:
+       "Normaliter krijgt iemand die al een gezin zit die knop niet meer") — the
+       same source as the CMS's buttons to that screen (`gebruiker.has_household`). #}
+    {% if not (gebruiker and gebruiker.has_household) %}
     <p class="text-base">{{ _("Liever lid worden?") }} <a class="text-blue-500 underline" href="{{ path_for('/lid-worden') }}">{{ _("Word lid") }}</a></p>
+    {% endif %}
   </form>
 {% elif state == "sent" %}
   <h1 class="text-3xl font-bold text-kop">{{ _("Kijk in je mailbox") }}</h1>

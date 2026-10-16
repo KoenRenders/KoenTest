@@ -204,10 +204,19 @@ def access_overview_page(
     in the platform workspace only (#1535)."""
     from app.domains.auth.users import access_overview
 
+    # #2015: the kit's list table, so the overview behaves on a phone as every
+    # other list does. A row opens nothing — roles are changed in Gebruikers of
+    # the workspace — so the account is the row's name without a link.
+    columns = [
+        {"key": "account", "label": _("Account"), "cell": "name"},
+        {"key": "workspace", "label": _("Werkruimte"), "cell": "context"},
+        {"key": "role", "label": _("Rol"), "cell": "more"},
+        {"key": "status", "label": _("Status"), "cell": "status"},
+    ]
     return templates.TemplateResponse(
         request,
         "admin_gebruikers_overzicht.html",
-        {"nav_items": admin_nav(NAV, request), "rows": access_overview(db)},
+        {"nav_items": admin_nav(NAV, request), "rows": access_overview(db), "columns": columns},
     )
 
 

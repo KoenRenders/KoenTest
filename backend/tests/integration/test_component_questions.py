@@ -36,6 +36,7 @@ from app.kernel.tenancy import TENANT_MILLEGEM_ID, TENANT_VOORBEELD_ID, current_
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     ask_questions,
+    form_guard_fields,
     seed_activity_with_product,
     seed_question_form,
 )
@@ -165,6 +166,7 @@ def test_a_component_whose_form_was_deleted_asks_nothing(client, db_session):
     r = client.post(
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
         data={
+            **form_guard_fields(),
             "contact_name": "Zonder Vragen",
             "contact_email": "zonder@example.com",
             "phone": "0470000000",

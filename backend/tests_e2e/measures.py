@@ -318,6 +318,9 @@ def _account_code_step(page) -> None:
     form.locator('input[name="last_name"]').fill("Codestap")
     form.locator('input[name="email"]').fill("meting.codestap@example.com")
     form.locator('input[name="mobile"]').fill("0470 00 00 08")
+    from tests_e2e.schermen import laat_de_wacht_passeren
+
+    laat_de_wacht_passeren(page, server_clock=True)  # the guard's two seconds (#2039)
     form.locator("button").click()
     page.locator("[data-code-sent]").wait_for(state="visible", timeout=5000)
 

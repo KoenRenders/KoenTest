@@ -247,10 +247,6 @@ class UniverseObject:
     sql: str
     format: Format
     role: Role
-    # CR-07 §5.1: hoe ver dit object naar een taalmodel mag reizen. GEEN default —
-    # zie AiExposure. Staat hier tussen de verplichte velden zodat een nieuw object
-    # zonder classificatie niet eens importeert.
-    ai_exposure: AiExposure
     # Measures name the fact they aggregate. A measure is the only object that
     # decides the grain, which is why the fan-trap check reads exactly this field.
     fact: str | None = None
@@ -320,6 +316,14 @@ class UniverseObject:
         if self.qualifier:
             text = f"{text} ({self.qualifier})"
         return text
+
+    @property
+    def ai_exposure(self) -> AiExposure:
+        """How far this object may travel towards a language model (CR-07 §5.1): the
+        classification of its attribute, one rule set for every surface (CR-33 F4, F5).
+        A declaration cannot forget it: an object names an attribute, and an attribute
+        cannot be built without a classification."""
+        return attribute(self.attribute).ai_exposure
 
     @property
     def description(self) -> str:
@@ -667,7 +671,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year",
         format=Format.YEAR,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="registration_date_quarter",
@@ -685,7 +688,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sort_sql="{view}.year, {view}.quarter",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="registration_date_month",
@@ -697,7 +699,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year_month",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="registration_date_day",
@@ -709,7 +710,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.date_key",
         format=Format.DATE,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="payment_created_year",
@@ -721,7 +721,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year",
         format=Format.YEAR,
         role=Role.FINANCE,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="payment_created_quarter",
@@ -739,7 +738,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sort_sql="{view}.year, {view}.quarter",
         format=Format.LABEL,
         role=Role.FINANCE,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="payment_created_month",
@@ -751,7 +749,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year_month",
         format=Format.LABEL,
         role=Role.FINANCE,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="payment_created_day",
@@ -763,7 +760,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.date_key",
         format=Format.DATE,
         role=Role.FINANCE,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="member_created_year",
@@ -775,7 +771,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year",
         format=Format.YEAR,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="member_created_quarter",
@@ -793,7 +788,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sort_sql="{view}.year, {view}.quarter",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="member_created_month",
@@ -805,7 +799,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year_month",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="member_created_day",
@@ -817,7 +810,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.date_key",
         format=Format.DATE,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="form_created_year",
@@ -829,7 +821,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year",
         format=Format.YEAR,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="form_created_quarter",
@@ -847,7 +838,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sort_sql="{view}.year, {view}.quarter",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="form_created_month",
@@ -859,7 +849,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year_month",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="form_created_day",
@@ -871,7 +860,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.date_key",
         format=Format.DATE,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="submission_date_year",
@@ -883,7 +871,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year",
         format=Format.YEAR,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="submission_date_quarter",
@@ -901,7 +888,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sort_sql="{view}.year, {view}.quarter",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="submission_date_month",
@@ -913,7 +899,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year_month",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="submission_date_day",
@@ -925,7 +910,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.date_key",
         format=Format.DATE,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="task_created_year",
@@ -937,7 +921,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year",
         format=Format.YEAR,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="task_created_quarter",
@@ -955,7 +938,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sort_sql="{view}.year, {view}.quarter",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="task_created_month",
@@ -967,7 +949,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year_month",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="task_created_day",
@@ -979,7 +960,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.date_key",
         format=Format.DATE,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="membership_year",
@@ -991,7 +971,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year",
         format=Format.YEAR,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     # #895: dezelfde oprolling op een TWEEDE datum van hetzelfde feit. De rol staat
     # in de naam — "Betaaldatum › Maand" en niet een tweede kaal "Maand" — want
@@ -1007,7 +986,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year",
         format=Format.YEAR,
         role=Role.FINANCE,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="paid_date_quarter",
@@ -1025,7 +1003,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sort_sql="{view}.year, {view}.quarter",
         format=Format.LABEL,
         role=Role.FINANCE,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="paid_date_month",
@@ -1037,7 +1014,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year_month",
         format=Format.LABEL,
         role=Role.FINANCE,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="paid_date_day",
@@ -1049,7 +1025,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.date_key",
         format=Format.DATE,
         role=Role.FINANCE,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="done_date_year",
@@ -1061,7 +1036,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year",
         format=Format.YEAR,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="done_date_quarter",
@@ -1079,7 +1053,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sort_sql="{view}.year, {view}.quarter",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="done_date_month",
@@ -1091,7 +1064,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year_month",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="done_date_day",
@@ -1103,7 +1075,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.date_key",
         format=Format.DATE,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="start_date_year",
@@ -1115,7 +1086,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year",
         format=Format.YEAR,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="start_date_quarter",
@@ -1133,7 +1103,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sort_sql="{view}.year, {view}.quarter",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="start_date_month",
@@ -1145,7 +1114,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year_month",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="start_date_day",
@@ -1157,7 +1125,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.date_key",
         format=Format.DATE,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="end_date_year",
@@ -1169,7 +1136,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year",
         format=Format.YEAR,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="end_date_quarter",
@@ -1187,7 +1153,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sort_sql="{view}.year, {view}.quarter",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="end_date_month",
@@ -1199,7 +1164,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year_month",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="end_date_day",
@@ -1211,7 +1175,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.date_key",
         format=Format.DATE,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     # #1428: every date of an activity, not only its first and last.
     UniverseObject(
@@ -1224,7 +1187,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year",
         format=Format.YEAR,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="activity_date_quarter",
@@ -1238,7 +1200,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sort_sql="{view}.year, {view}.quarter",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="activity_date_month",
@@ -1250,7 +1211,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year_month",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="activity_date_day",
@@ -1262,7 +1222,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.date_key",
         format=Format.DATE,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="activity_date_time",
@@ -1275,7 +1234,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         fact="f_activity_dates",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="activity_date_count",
@@ -1287,7 +1245,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.COUNT,
         role=Role.ADMIN,
         fact="f_activity_dates",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     # #1439: the annual programme, one row per activity per year.
     UniverseObject(
@@ -1300,7 +1257,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year",
         format=Format.YEAR,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="year_first_date_quarter",
@@ -1313,7 +1269,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sort_sql="{view}.year, {view}.quarter",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="year_first_date_month",
@@ -1325,7 +1280,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.year_month",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="year_first_date_day",
@@ -1337,7 +1291,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.date_key",
         format=Format.DATE,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="year_first_time",
@@ -1350,7 +1303,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         fact="f_activity_years",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="year_dates",
@@ -1362,7 +1314,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         fact="f_activity_years",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="year_activity_count",
@@ -1375,7 +1326,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         role=Role.ADMIN,
         fact="f_activity_years",
         additive=False,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     # ── Leden ───────────────────────────────────────────────────────────────
     UniverseObject(
@@ -1389,7 +1339,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         role=Role.ADMIN,
         fact="f_memberships",
         additive=False,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="membership_households",
@@ -1401,7 +1350,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.COUNT,
         role=Role.ADMIN,
         fact="f_memberships",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="membership_persons",
@@ -1413,7 +1361,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.COUNT,
         role=Role.ADMIN,
         fact="f_memberships",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="membership_amount_charged",
@@ -1425,7 +1372,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.MONEY,
         role=Role.FINANCE,
         fact="f_memberships",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="membership_amount_paid",
@@ -1437,7 +1383,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.MONEY,
         role=Role.FINANCE,
         fact="f_memberships",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="membership_open_amount",
@@ -1449,7 +1394,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.MONEY,
         role=Role.FINANCE,
         fact="f_memberships",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="membership_is_active",
@@ -1461,7 +1405,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         fact="f_memberships",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="membership_status",
@@ -1472,7 +1415,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.label",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="member_municipality",
@@ -1485,7 +1427,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         sensitive=True,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="member_postal_code",
@@ -1498,7 +1439,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         sensitive=True,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="member_size_group",
@@ -1510,7 +1450,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         sensitive=True,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="member_since",
@@ -1522,7 +1461,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.YEAR,
         role=Role.ADMIN,
         sensitive=True,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="member",
@@ -1537,7 +1475,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sensitive=True,
         drill="member",
         drill_sql="{view}.member_id",
-        ai_exposure=AiExposure.TOKENISED,
         token_prefix="gezin",
     ),
     UniverseObject(
@@ -1555,7 +1492,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         ),
         format=Format.LABEL,
         role=Role.MEMBER_DETAILS,
-        ai_exposure=AiExposure.TOKENISED,
         token_prefix="gezin",
         entity_sql="{view}.member_id",
     ),
@@ -1571,7 +1507,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         sensitive=True,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="address_postal_code",
@@ -1585,7 +1520,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         sensitive=True,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="address_street",
@@ -1597,7 +1531,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="COALESCE({view}.street, 'Geen adres')",
         format=Format.LABEL,
         role=Role.MEMBER_DETAILS,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="address_house_number",
@@ -1610,7 +1543,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sort_sql="{view}.house_number_num, {view}.house_number_rest",
         format=Format.LABEL,
         role=Role.MEMBER_DETAILS,
-        ai_exposure=AiExposure.TOKENISED,
         token_prefix="gezin",
         entity_sql="{view}.member_id",
     ),
@@ -1623,7 +1555,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.bus_number",
         format=Format.LABEL,
         role=Role.MEMBER_DETAILS,
-        ai_exposure=AiExposure.TOKENISED,
         token_prefix="gezin",
         entity_sql="{view}.member_id",
     ),
@@ -1636,7 +1567,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.head_name",
         format=Format.LABEL,
         role=Role.MEMBER_DETAILS,
-        ai_exposure=AiExposure.TOKENISED,
         token_prefix="gezin",
         entity_sql="{view}.member_id",
     ),
@@ -1649,7 +1579,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.partner_name",
         format=Format.LABEL,
         role=Role.MEMBER_DETAILS,
-        ai_exposure=AiExposure.TOKENISED,
         token_prefix="gezin",
         entity_sql="{view}.member_id",
     ),
@@ -1663,7 +1592,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         fact="f_members",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="person_age_group",
@@ -1675,7 +1603,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         sensitive=True,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="person_gender",
@@ -1688,7 +1615,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         sensitive=True,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="person_relation_type",
@@ -1700,7 +1626,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         sensitive=True,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     # ── Activiteiten ────────────────────────────────────────────────────────
     UniverseObject(
@@ -1714,7 +1639,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         role=Role.ADMIN,
         additive=False,
         fact="f_registrations",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="registration_quantity",
@@ -1726,7 +1650,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.COUNT,
         role=Role.ADMIN,
         fact="f_registrations",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="registration_amount",
@@ -1738,7 +1661,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.MONEY,
         role=Role.FINANCE,
         fact="f_registrations",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="activity",
@@ -1752,7 +1674,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         role=Role.ADMIN,
         drill="activity",
         drill_sql="{view}.activity_id",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="activity_description",
@@ -1764,7 +1685,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.activity_description",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="activity_board_notes",
@@ -1776,7 +1696,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.activity_board_notes",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.NONE,
     ),
     UniverseObject(
         key="activity_organisers",
@@ -1793,7 +1712,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         # geen id om te vervangen — en een naam zonder id laat de naadwachter de
         # hele toolaanroep blokkeren, niet enkel deze kolom. NONE weigert hem netjes
         # bij naam, vóór de query, terwijl het rapportenpaneel de namen gewoon toont.
-        ai_exposure=AiExposure.NONE,
     ),
     UniverseObject(
         key="activity_organiser",
@@ -1807,7 +1725,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         # Een organisator is een persoon, dus het model krijgt `persoon-23` en niet
         # de naam. Dat kan hier wél en bij de samengevoegde kolom niet: deze rij
         # wijst één persoon aan, dus er is een id om het token op te bouwen.
-        ai_exposure=AiExposure.TOKENISED,
         token_prefix="persoon",
         entity_sql="{view}.person_id",
     ),
@@ -1821,7 +1738,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.activity_id",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
         # #975: the activity mode of the assistant filters on this, server-side.
         # Hidden from the pane and from the catalogue; see `in_pane`.
         in_pane=False,
@@ -1835,7 +1751,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.activity_year",
         format=Format.YEAR,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="activity_location",
@@ -1846,7 +1761,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.location",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     # #1428: the two fields of part A, as their Dutch label.
     UniverseObject(
@@ -1859,7 +1773,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.status_label",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="activity_target_audience",
@@ -1871,7 +1784,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.target_audience_label",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="activity_cancelled",
@@ -1883,7 +1795,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql=_boolean_label("is_cancelled"),
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="activity_members_only",
@@ -1894,7 +1805,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql=_boolean_label("members_only"),
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="activity_count",
@@ -1907,7 +1817,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         role=Role.ADMIN,
         fact="f_activities",
         additive=False,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="activity_last_date",
@@ -1919,7 +1828,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.DATE,
         role=Role.ADMIN,
         fact="f_activities",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     # #1135: de vraag "wie is ingeschreven?" kon het universum niet beantwoorden —
     # `f_registrations` draagt `person_id`, maar niets ontsloot de ingeschrevene.
@@ -1939,7 +1847,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         # persoons-id, dus tokeniseren op de persoon zou 98% van de rijen hun
         # naam ongewijzigd laten meegeven. De inschrijving heeft altijd een id,
         # dus werkt één tokensoort voor allebei de bronnen.
-        ai_exposure=AiExposure.TOKENISED,
         token_prefix="inschrijving",
         entity_sql="{view}.registration_id",
     ),
@@ -1954,7 +1861,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         role=Role.ADMIN,
         fact="f_registrations",
         # Geen naam, wel een van drie vaste woorden: mag ongewijzigd mee.
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="component",
@@ -1966,7 +1872,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         fact="f_registrations",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="product",
@@ -1979,7 +1884,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         fact="f_registrations",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="registration_type",
@@ -1991,7 +1895,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         fact="f_registrations",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="registration_has_team",
@@ -2003,7 +1906,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         fact="f_registrations",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     # ── Betalingen ──────────────────────────────────────────────────────────
     # Elk object in deze klasse draagt de rol `finance`: CR-06 §5.1 zegt dat een
@@ -2019,7 +1921,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.MONEY,
         role=Role.FINANCE,
         fact="f_payments",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="payment_amount_paid",
@@ -2031,7 +1932,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.MONEY,
         role=Role.FINANCE,
         fact="f_payments",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="payment_open_amount",
@@ -2043,7 +1943,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.MONEY,
         role=Role.FINANCE,
         fact="f_payments",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="payment_refunded",
@@ -2055,7 +1954,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.MONEY,
         role=Role.FINANCE,
         fact="f_payments",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="payment_count",
@@ -2068,7 +1966,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         role=Role.FINANCE,
         additive=False,
         fact="f_payments",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="payment_days_to_paid",
@@ -2081,7 +1978,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         role=Role.FINANCE,
         additive=False,
         fact="f_payments",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="payment_method",
@@ -2092,7 +1988,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.label",
         format=Format.LABEL,
         role=Role.FINANCE,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="payment_status",
@@ -2104,7 +1999,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.label",
         format=Format.LABEL,
         role=Role.FINANCE,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="payment_open",
@@ -2116,7 +2010,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.FINANCE,
         fact="f_payments",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="payment_type",
@@ -2129,7 +2022,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.FINANCE,
         fact="f_payments",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="payment_payable_type",
@@ -2142,7 +2034,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.FINANCE,
         fact="f_payments",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="payment_age_bucket",
@@ -2154,7 +2045,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.FINANCE,
         fact="f_payments",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="payment_record",
@@ -2169,7 +2059,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         fact="f_payments",
         drill="payment",
         drill_sql="{view}.payment_id",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="membership_person_count",
@@ -2181,7 +2070,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.COUNT,
         role=Role.ADMIN,
         fact="f_membership_persons",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     # ── Betaaldetail ────────────────────────────────────────────────────────
     # The row-level fields of a payment, for a listing rather than a summary.
@@ -2204,7 +2092,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.MEMBER_DETAILS,
         fact="f_payments",
-        ai_exposure=AiExposure.NONE,
     ),
     UniverseObject(
         key="payment_ogm",
@@ -2216,7 +2103,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.FINANCE,
         fact="f_payments",
-        ai_exposure=AiExposure.NONE,
     ),
     UniverseObject(
         key="payment_due",
@@ -2229,7 +2115,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.MONEY,
         role=Role.FINANCE,
         fact="f_payments",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="payment_received",
@@ -2242,7 +2127,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.MONEY,
         role=Role.FINANCE,
         fact="f_payments",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="payment_balance",
@@ -2254,7 +2138,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.MONEY,
         role=Role.FINANCE,
         fact="f_payments",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="payment_paid_on",
@@ -2267,7 +2150,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.DATE,
         role=Role.FINANCE,
         fact="f_payments",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="payment_note",
@@ -2279,7 +2161,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.FINANCE,
         fact="f_payments",
-        ai_exposure=AiExposure.NONE,
     ),
     UniverseObject(
         key="board_member",
@@ -2298,7 +2179,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         # so it travels as `persoon-90` and the admin reads the name back on screen.
         format=Format.LABEL,
         role=Role.MEMBER_DETAILS,
-        ai_exposure=AiExposure.TOKENISED,
         token_prefix="persoon",
         entity_sql="{view}.board_member_id",
     ),
@@ -2313,7 +2193,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         role=Role.ADMIN,
         fact="f_members",
         additive=False,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="member_ever_member",
@@ -2325,7 +2204,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         fact="f_members",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="membership_active_count",
@@ -2337,7 +2215,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.COUNT,
         role=Role.ADMIN,
         fact="f_memberships",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="membership_person_valid_today",
@@ -2349,7 +2226,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         fact="f_membership_persons",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="membership_person_unique",
@@ -2362,7 +2238,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         role=Role.ADMIN,
         fact="f_membership_persons",
         additive=False,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     # ── Formulieren ─────────────────────────────────────────────────────────
     UniverseObject(
@@ -2376,7 +2251,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         role=Role.ADMIN,
         fact="f_forms",
         additive=False,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="submission_count",
@@ -2389,7 +2263,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         role=Role.ADMIN,
         fact="f_form_submissions",
         additive=False,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="submission_answers",
@@ -2401,7 +2274,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.COUNT,
         role=Role.ADMIN,
         fact="f_form_submissions",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="form",
@@ -2415,7 +2287,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         role=Role.ADMIN,
         drill="form",
         drill_sql="{view}.form_id",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="form_status",
@@ -2427,7 +2298,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.form_status_label",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="form_anonymous",
@@ -2439,7 +2309,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         sql="{view}.is_anonymous_label",
         format=Format.LABEL,
         role=Role.ADMIN,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="submission_edited",
@@ -2451,7 +2320,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         fact="f_form_submissions",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     # ── Taken ───────────────────────────────────────────────────────────────
     UniverseObject(
@@ -2465,7 +2333,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         role=Role.ADMIN,
         fact="f_tasks",
         additive=False,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="task_age_days",
@@ -2478,7 +2345,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         role=Role.ADMIN,
         fact="f_tasks",
         additive=False,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="task_days_to_done",
@@ -2491,7 +2357,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         role=Role.ADMIN,
         fact="f_tasks",
         additive=False,
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="task_kind",
@@ -2503,7 +2368,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         fact="f_tasks",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="task_status",
@@ -2516,7 +2380,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         fact="f_tasks",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="task_detail",
@@ -2528,7 +2391,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         fact="f_tasks",
-        ai_exposure=AiExposure.NONE,
     ),
     UniverseObject(
         key="task_role",
@@ -2540,7 +2402,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         fact="f_tasks",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="task_age_bucket",
@@ -2552,7 +2413,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.ADMIN,
         fact="f_tasks",
-        ai_exposure=AiExposure.INTERNAL,
     ),
     UniverseObject(
         key="task_done_by",
@@ -2569,7 +2429,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL,
         role=Role.MEMBER_DETAILS,
         fact="f_tasks",
-        ai_exposure=AiExposure.NONE,
     ),
 )
 

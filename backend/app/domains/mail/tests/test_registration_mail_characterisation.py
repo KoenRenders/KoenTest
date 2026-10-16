@@ -25,7 +25,12 @@ from pathlib import Path
 import pytest
 
 from tests._snapshot import compare, normalise
-from tests.conftest import seed_activity_with_product, seed_postal_code, sign_up_at_the_door
+from tests.conftest import (
+    form_guard_fields,
+    seed_activity_with_product,
+    seed_postal_code,
+    sign_up_at_the_door,
+)
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -87,6 +92,7 @@ def test_the_activity_confirmation(client, db_session, sent):
     response = client.post(
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
         data={
+            **form_guard_fields(),
             "contact_name": "Mail Proef",
             "contact_email": "mail-proef@example.com",
             "phone": "0470000000",

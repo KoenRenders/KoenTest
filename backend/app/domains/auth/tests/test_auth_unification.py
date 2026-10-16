@@ -28,7 +28,12 @@ from app.domains.auth.api import (
     get_user_roles,
     login_person_for_email,
 )
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_postal_code, sign_up_at_the_door
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    form_guard_fields,
+    seed_postal_code,
+    sign_up_at_the_door,
+)
 
 FIXED_OTP = "424242"
 
@@ -77,7 +82,7 @@ def _latest_token(db_session, email):
 
 
 def _ask(client, email):
-    return client.post("/aanmelden", data={"email": email})
+    return client.post("/aanmelden", data={**form_guard_fields(), "email": email})
 
 
 def _code(client, email, code=FIXED_OTP):

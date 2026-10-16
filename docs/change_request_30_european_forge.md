@@ -1,10 +1,10 @@
 # Change Request 30 — A European forge: a hosted platform, a private repository, a runner of our own
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 8 October 2026 at Koen's request ("Is er eigenlijk een Europees alternatief voor github dat we zouden kunnen gebruiken?" — "Ja, en graag een CR hiervoor"), with his three refinements of the same day: hosted by preference, the repository private at the switch, the runner may run on his desktop · **parked by Koen on 8 October 2026 for a few weeks** ("we parkeren die repo vraag voor enkele weken") · tracking issue: on hold, created by the master CLI · build read: when the question is taken up again · not assigned to a release · nothing is built
-**Tracking issue:** to be created — the one place where what is open stands; this document is the design, the issue is the status
+**Status:** shaped on 8 October 2026 at Koen's request ("Is er eigenlijk een Europees alternatief voor github dat we zouden kunnen gebruiken?" — "Ja, en graag een CR hiervoor"), with his three refinements of the same day: hosted by preference, the repository private at the switch, the runner may run on his desktop · **parked by Koen on 8 October 2026 for a few weeks** ("we parkeren die repo vraag voor enkele weken"), **taken up again by him on 15 October 2026** (B9; a trial and the points of B8 Q7 first) · tracking issue: on hold, created by the master CLI · build read: when the question is taken up again · not assigned to a release · nothing is built
+**Tracking issue:** #1754 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** where the repository, its issues, pull requests and releases live; the CI workflow and the machine that runs it; the master CLI's scripts outside the repository; the conventions in `AGENTS.md` that name GitHub, `gh` or "public"; the Claude cloud sessions and the outside builders
-**Reading:** A 1658 words · B 2555 · C 4212 (A 158 over, B 55 over: parked as shaped, trimmed when taken up) — measured on 8 October 2026 without drawings; the budget is A ≤ 1 500, B ≤ 2 500
+**Reading:** A 1585 words · B 2508 · C 3887 — re-measured on 15 October 2026 (the first count of 8 October, A 1658 · B 2555 · C 4212, used another method); A is 85 over, B 8 over: parked as shaped, trimmed when taken up for real
 
 ---
 
@@ -82,6 +82,9 @@ Unseen by the business: the Claude cloud sessions stop (A5), the master CLI's sc
 | R8 | The switch is a single day with a way back; nothing is lost if it fails. | Must | — | B6 phase 2 |
 | R9 | The forge works for **every builder**, not only Claude Code: Mistral Vibe, OpenCode, and whoever comes later. Everything `AGENTS.md` asks of a builder works without `gh` or with a tool each can call: open and update a pull request, read and write comments, read a tip's CI verdict, poll its own pull request; no step through one vendor's integration only; a limited token per builder; the one-branch-one-pull-request rule and the `Tool:` trailer stay. | Must | Koen, 8 Oct 2026 ("Mistral compatibel ook meeneemt als requirement, idem OpenCode") | measured per tool in phase 1, not assumed (B8 Q4, C2) |
 | R10 | Claude cloud sessions continue. | Won't | the documentation (A5) | cloud sessions require GitHub; the terminal CLIs cover the work |
+| R11 | ChatGPT (Codex) is one of the builders R9 covers, besides Claude Code, OpenCode on DeepSeek and Mistral | Must | Koen, 15 Oct 2026 | not looked at yet; measured on the trial (B8 Q4) |
+| R12 | Markdown with Mermaid diagrams renders on the forge: the documents, the issues, the pull requests | Must | Koen, 15 Oct 2026 | not measured; the trial (C8) |
+| R13 | The history of commits matters little: the latest version is enough; the issues keep their numbers (B8 Q7) | Should | Koen, 15 Oct 2026 | R3 stands until Q7 is answered |
 
 ## A7. Non-functional requirements — security, privacy, house style, tenants
 
@@ -223,6 +226,7 @@ No data model. The workflow follows Forgejo Actions' documented subset of GitHub
 | Q4 | The builders: which of Mistral Vibe and OpenCode can push to, open a pull request on and comment on a Forgejo repository, and with which tool? | Measured in phase 1 on the trial, by Koen who starts them, per tool: what it calls of GitHub today (`gh`? the API? git only?), what replaces it. A user and a limited token per builder, so a builder reaches its own branch only (today all push as Koen). | A tool that cannot comment: its reviews come through Koen's paste again, as before CR-18; a tool that cannot push over ssh is out. |
 | Q5 | The runner beside the dev CLIs on one desktop: `capacity: 1` with the runner first, or a second machine? | `capacity: 1`, the runner first: a run gates a merge, a local suite is a check; phase 0 measures whether 12 cores carry both. | A second machine: a small EU server at about €10 per month, always on — and A7's availability question disappears. |
 | Q6 | Private: may a real domain name now stand in the repository (the Caddy site files, the smoke tests)? | No: keep the placeholders; outside tools read the files and the history was public. | Yes: the `.env.caddy` indirection could go; a change of its own. |
+| Q7 | What history comes along? Koen: the latest version is enough. The document imports everything and keeps issue numbers because 1 406 mentions of issue numbers stand in `docs/` and `AGENTS.md` and 7 783 in code (P2). Git commit history is cheap to keep; the issues and pull requests are what cost | keep issues and pull requests with their numbers, drop nothing that costs little; the commit history may be cut to the latest version if Koen prefers | R3 and R13, and the size of the import |
 
 ## B9. Decisions log — dated answers
 
@@ -236,6 +240,7 @@ No data model. The workflow follows Forgejo Actions' documented subset of GitHub
 | 8 Oct 2026 | "Mistral compatibel ook meeneemt als requirement, idem OpenCode": the forge works for every builder — R9 a Must, with the four points the master CLI drew from it (no `gh`-only step, no vendor-only integration, a token per builder, the branch rule and the `Tool:` trailer kept). | Koen |
 | 8 Oct 2026 | "We parkeren die repo vraag voor enkele weken": the document stands as shaped, parked; the tracking issue is on hold; phase 0 starts when Koen takes the question up again. | Koen |
 | 8 Oct 2026 | The Claude cloud sessions end with the switch: the documentation says cloning and pull requests require GitHub and a bundle cannot push back (R10, C1). | architecture CLI, measured |
+| 15 Oct 2026 | The question is taken up again; new wishes: ChatGPT (Codex) among the builders (R11), Mermaid renders (R12), the history matters little (R13); no forge of his own to run, hosted, Git compatible, in Europe, open source or a European party; the CI may run at home and publish its result in the repository; deploys and database scripts keep working | Koen: "Mijn doel zou eigenlijk zijn om weg van GitHub te gaan. Toch te kunnen blijven werken met bijvoorbeeld Claude Code, Open Code met het model DeepSeek, met Mistral en ChatGPT."; "Ik heb niet de ambitie om een source code repository zelf te gaan hosten"; "de historiek is voor mij minder belangrijk. […] Als we de laatste versie meepakken, is het voor mij voldoende." |
 
 ---
 

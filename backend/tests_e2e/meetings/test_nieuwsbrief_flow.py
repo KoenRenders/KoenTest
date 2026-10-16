@@ -20,6 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests_e2e.schermen import (  # noqa: E402
     BASE,
     htmx_afgerond,
+    laat_de_wacht_passeren,
     login_als_admin,
     netwerk_bijgewerkt,
 )
@@ -190,6 +191,7 @@ def test_inschrijven_via_de_link_op_de_homepagina_op_een_telefoon(browser):
         page.wait_for_selector("#nb-publiek", timeout=5_000)
         _klikbaar(page, "#nb-email")
         page.fill("#nb-email", "e2e-nieuwsbrief@example.org")
+        laat_de_wacht_passeren(page)  # the guard's two seconds (#2039)
         page.locator("#nb-publiek").get_by_role("button", name="Inschrijven").click()
         page.get_by_text("Kijk in je mailbox").wait_for(timeout=5_000)
         breedte = page.evaluate("document.documentElement.scrollWidth")
