@@ -157,6 +157,35 @@ def test_the_list_is_as_wide_as_the_kits_lists_and_shows_bron_first(browser, sub
         page.close()
 
 
+_BREAKS = """() => [...document.querySelectorAll('[data-subscriber-row] [data-cell=name]')].map(td => {
+  const [before, after] = [...td.childNodes].filter(n => n.nodeType === 3);
+  const tops = node => { const r = document.createRange(); r.selectNodeContents(node);
+                         return [...r.getClientRects()].map(x => Math.round(x.top)); };
+  return {text: td.innerText, before: before && before.textContent,
+          beforeTops: before ? [...new Set(tops(before))] : [], afterTops: after ? tops(after) : []};
+})"""
+
+
+def test_an_address_breaks_after_the_at_on_a_phone(browser, subscribers):
+    """The master CLI's eye on the 390 px print (16 October 2026): an address broke
+    inside a word ("…@example.co" / "m"), its cell beside the row's action. It may
+    break after the "@" (`<wbr>`) and nowhere inside the part before it.
+
+    Broken on purpose (16 October 2026, put back): the `<wbr>` taken out of
+    `_nb_abonnees.html` → the address is one text node and the test is red."""
+    page = _open(browser, 390)
+    try:
+        cells = [c for c in page.evaluate(_BREAKS) if subscribers in c["text"]]
+        print(f"MEASURE 390: {cells}")
+        assert len(cells) == 3
+        for cell in cells:
+            assert cell["before"] and cell["before"].endswith("@"), cell
+            assert len(cell["beforeTops"]) == 1, f"the part before the @ wraps: {cell}"
+            assert min(cell["afterTops"]) > cell["beforeTops"][0], f"no break at the @: {cell}"
+    finally:
+        page.close()
+
+
 def test_unsubscribe_and_delete_through_the_browser(browser, subscribers):
     tag = subscribers
     page = _open(browser, 1440)

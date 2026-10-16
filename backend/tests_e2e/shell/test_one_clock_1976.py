@@ -126,7 +126,7 @@ def test_one_moment_reads_the_same_brussels_time_on_four_screens(world):
             ),
             ("workbench", f"/admin/werkbank?q={MARK}", f'tr[data-task="{world["ids"]["task"]}"]'),
             ("form results", f"/admin/formulieren/{world['ids']['form']}/resultaten", "main"),
-            ("e-mail log", f"/admin/e-maillog?recipient={ADDRESS}", f"tr:has-text('{MARK} mail')"),
+            ("e-mail log", f"/admin/e-maillog?q={ADDRESS}", f"tr:has-text('{MARK} mail')"),
         ):
             page.goto(path)
             pagina_klaar(page)
@@ -147,7 +147,7 @@ SCREENS = {
     "dashboard": "/admin",
     "newsletter-letters": "/admin/nieuwsbrieven",
     "workbench": f"/admin/werkbank?q={MARK}",
-    "e-mail-log": f"/admin/e-maillog?recipient={ADDRESS}",
+    "e-mail-log": f"/admin/e-maillog?q={ADDRESS}",
 }
 
 

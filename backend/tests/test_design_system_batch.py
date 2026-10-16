@@ -314,7 +314,8 @@ def test_the_document_editor_s_dialogs_and_only_they_bring_the_focus_back_themse
     ]
 
     # The scan itself, before its answer.
-    assert "design_system.html:demo" in plain and "_email_log_lijst.html:open" in plain, (
+    # #1925: the e-mail log's preview left its modal for a page of its own.
+    assert "design_system.html:demo" in plain, (
         f"the scan did not find the ordinary dialogs it is known to have: {sorted(plain)}"
     )
     assert sorted(through_the_shell) == [

@@ -1,5 +1,9 @@
 """Wijzigingen en E-maillog in de Betalingen-vorm (#1083).
 
+Since #1925 the e-mail log stands on the kit's list (`list_page`, the toolbar,
+the table and the pager), which the kit's own tests hold; this file keeps
+Wijzigingen, the screen that still has the hand-built form.
+
 Vier dingen gaan hier naar de referentie van §2.3: volle breedte, een dichte
 tabel, een meta-regel boven die tabel (hoeveel regels, in welke volgorde) en de
 keuze hoeveel rijen er op een pagina staan.
@@ -35,7 +39,6 @@ from tests.integration.test_filterbalk_op_een_regel import meet
 pytestmark = pytest.mark.ui_serverrendered
 
 WIJZIGINGEN = "/admin/ledenwijzigingen"
-EMAILLOG = "/admin/e-maillog"
 
 
 def _login(client, db):
@@ -85,7 +88,7 @@ def _emails(db, aantal):
 # ── 1. Volle breedte ─────────────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("pad", [WIJZIGINGEN, EMAILLOG])
+@pytest.mark.parametrize("pad", [WIJZIGINGEN])
 def test_beide_schermen_gebruiken_de_volle_breedte(client, db_session, pad):
     """De schil geeft standaard `max-w-5xl` — de leesbreedte van een formulier.
 
@@ -104,7 +107,7 @@ def test_beide_schermen_gebruiken_de_volle_breedte(client, db_session, pad):
         assert grens not in html, f"{pad}: draagt nog de begrensde kolom {grens}"
 
 
-@pytest.mark.parametrize("pad", [WIJZIGINGEN, EMAILLOG])
+@pytest.mark.parametrize("pad", [WIJZIGINGEN])
 def test_de_tabel_zit_in_haar_eigen_schuifcontainer(client, db_session, pad):
     """Volle breedte mag de PAGINA niet breed maken (§2.3).
 
@@ -148,26 +151,10 @@ def test_de_meta_regel_van_wijzigingen_telt_en_benoemt_de_volgorde(client, db_se
     assert "nieuwste eerst" not in op_actor
 
 
-def test_the_email_log_meta_line_states_the_counted_total(client, db_session):
-    """Since #1391 (CR-11 W8) the e-mail log counts, so the meta line says "N
-    e-mails" — N being every logged mail, not the rows on this page. With more
-    mails than one page holds, "on this page" and "in total" differ, so the test
-    tells them apart."""
-    from app.domains.mail.models import EmailLog
-
-    _emails(db_session, PER_PAGE_DEFAULT + 3)
-    total = db_session.query(EmailLog).count()
-    _login(client, db_session)
-    html = client.get(EMAILLOG).text
-
-    assert f"{total} e-mails · nieuwste eerst" in html
-    assert f"1–{PER_PAGE_DEFAULT} van {total}" in html
-
-
 # ── 3. Hoeveel rijen op een pagina ───────────────────────────────────────────
 
 
-@pytest.mark.parametrize("pad,form_id", [(WIJZIGINGEN, "lw-filters"), (EMAILLOG, "el-filters")])
+@pytest.mark.parametrize("pad,form_id", [(WIJZIGINGEN, "lw-filters")])
 def test_de_keuze_biedt_precies_de_toegestane_maten(client, db_session, pad, form_id):
     """De keuzelijst wordt uit dezelfde reeks gevuld als de whitelist in de route.
 
@@ -201,7 +188,7 @@ def test_een_kleinere_pagina_toont_ook_echt_minder_rijen(client, db_session):
     assert rijen(per_page=100000) == PER_PAGE_DEFAULT
 
 
-@pytest.mark.parametrize("pad,sleutel", [(WIJZIGINGEN, "actor"), (EMAILLOG, "ontvanger")])
+@pytest.mark.parametrize("pad,sleutel", [(WIJZIGINGEN, "actor")])
 def test_de_paginagrootte_overleeft_een_kop_klik(client, db_session, pad, sleutel):
     """Een kop-klik gaat langs de LINK en niet langs de filterbalk.
 
@@ -289,7 +276,6 @@ def test_het_vanaf_veld_staat_standaard_op_dertig_dagen_geleden(client, db_sessi
     "pad,verwacht",
     [
         (WIJZIGINGEN, {"actor", "since", "group"}),
-        (EMAILLOG, {"recipient", "email_type", "status"}),
     ],
 )
 def test_de_filterregel_blijft_een_rij(client, db_session, pad, verwacht):

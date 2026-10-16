@@ -1,84 +1,28 @@
 {% import "_macros.html" as ui %}
-{# Sorteerstand out-of-band terug de filterform in (golf 3, #913): zo draagt
-   de eerstvolgende filterwijziging de actuele sortering mee. #}
-<input type="hidden" id="el-sort" name="sort" value="{{ sort }}" hx-swap-oob="true">
-<input type="hidden" id="el-richting" name="richting" value="{{ richting }}" hx-swap-oob="true">
-{% if toast_melding is defined and toast_melding %}{{ ui.toast_oob(toast_melding) }}{% endif %}
+{# The list of the e-mail log (#1925): one row per mail on the kit's table — the
+   subject as the row's link to the mail's own page, the recipient, the status
+   with the reason of a mail that did not leave, the type (the first column to
+   leave a narrow screen) and the moment. #}
 {% if rows %}
-{# Meta-regel boven de tabel (§2.3, referentie Betalingen): hoeveel regels en in
-   welke volgorde, met de paginagrootte rechts. Die keuze stond onder de tabel —
-   §2.3 zet ze boven, bij de rest van wat over de LIJST gaat. #}
-{% set _kopcel = "px-3 py-2 font-medium" %}
-{% call ui.list_meta(meta_telling, meta_volgorde) %}
-  {{ ui.per_page_select("/admin/e-maillog/lijst", "#email-log-lijst", "el-filters",
-                        per_page, per_page_options, id="el-per-page") }}
+{% call ui.data_table(columns, hx_target="#email-log-lijst", caption=_("E-mails")) %}
+  <tbody>
+    {% for r in rows %}
+    {% set m = r.mail %}
+    <tr data-row data-mail="{{ m.id }}" class="align-middle">
+      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">{{ ui.row_link(m.subject or _("(geen onderwerp)"), r.href) }}</td>
+      <td data-cell="context" class="border-b border-line px-3 py-2"><div class="truncate" title="{{ m.recipient }}">{{ m.recipient }}</div></td>
+      <td data-cell="status" class="border-b border-line px-3 py-2">
+        {{ ui.badge(m.status | code_label("mail_status"), m.status | tone("mail_status")) }}
+        {% if m.error_message %}<span class="block mt-1 text-[11px] leading-4 text-ink-soft truncate" title="{{ m.error_message }}">{{ m.error_message }}</span>{% endif %}
+      </td>
+      <td data-cell="extra" data-p="2" class="border-b border-line px-3 py-2 whitespace-nowrap text-ink-soft">{{ r.type }}</td>
+      <td data-cell="moment" class="border-b border-line px-3 py-2 whitespace-nowrap tabular-nums text-ink-soft">{{ m.created_at|short_datetime }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
 {% endcall %}
-{# Dichte tabel (§2.3): 12px celtekst, 11px subregels, `align-middle`. #}
-<div class="mb-4 rounded-card border border-gray-200 bg-white shadow-sm overflow-x-auto">
-  <table class="w-full text-xs">
-    <thead>
-      <tr class="bg-gray-50 text-xs text-ink-soft text-left">
-        {{ ui.sort_th(sorteer_labels["datum"], sorteer_urls["datum"], active=(sort == "datum"), direction=richting, hx_target="#email-log-lijst", cls=_kopcel) }}
-        {{ ui.sort_th(sorteer_labels["ontvanger"], sorteer_urls["ontvanger"], active=(sort == "ontvanger"), direction=richting, hx_target="#email-log-lijst", cls=_kopcel) }}
-        {{ ui.sort_th(sorteer_labels["onderwerp"], sorteer_urls["onderwerp"], active=(sort == "onderwerp"), direction=richting, hx_target="#email-log-lijst", cls=_kopcel) }}
-        {{ ui.sort_th(sorteer_labels["type"], sorteer_urls["type"], active=(sort == "type"), direction=richting, hx_target="#email-log-lijst", cls=_kopcel) }}
-        {{ ui.sort_th(sorteer_labels["status"], sorteer_urls["status"], active=(sort == "status"), direction=richting, hx_target="#email-log-lijst", cls=_kopcel) }}
-        {# w-px: de actiekolom krijgt exact haar inhoudsbreedte, zodat de rest van
-           de tabel de ruimte houdt (zelfde reden als op Betalingen). #}
-        <th scope="col" class="{{ _kopcel }} text-right w-px">{{ _("Acties") }}</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for row in rows %}
-      <tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
-        <td class="px-3 py-2 whitespace-nowrap tabular-nums">{{ row.created_at|short_datetime }}</td>
-        <td class="px-3 py-2 whitespace-nowrap">{{ row.recipient }}</td>
-        {# #523: onderwerp op één regel (truncate + title-tooltip) i.p.v. wrappen. #}
-        <td class="px-3 py-2 max-w-xs truncate" title="{{ row.subject }}">{{ row.subject }}</td>
-        {# #523: Type als rustige tekst i.p.v. blauwe pill — kleur reserveren we voor
-           de semantische Status (§2.10). #}
-        <td class="px-3 py-2 whitespace-nowrap text-ink-soft">{{ row.email_type | code_label("email_type") }}</td>
-        <td class="px-3 py-2">
-          {{ ui.badge(row.status | code_label("mail_status"), row.status | tone("mail_status")) }}
-          {% if row.error_message %}<span class="block text-[11px] text-ink-soft mt-1">{{ row.error_message }}</span>{% endif %}
-        </td>
-        <td class="px-3 py-2 text-right whitespace-nowrap w-px" x-data="{ open: false }">
-          <button type="button" class="text-blue-700 hover:underline text-xs" @click="open = true">{{ _("Bekijk") }}</button>
-          {# Modal (design-system §2.5, §2.8): een read-only detailweergave in een
-             lijstcontext — hét geval waarvoor een modal juist is. Sinds #640 via
-             ui.modal() i.p.v. een eigen kopie van dezelfde overlay-markup: die
-             kopie kon stil uit de pas lopen met het gedeelde gedrag
-             (klik-buiten, Escape, aria-label op de sluitknop).
-
-             De macro heeft geen subtitel-parameter, dus de meta-regel staat
-             bovenaan de body i.p.v. er een parameter voor dit ene geval bij te
-             verzinnen. De opmaak uit #523 blijft: onderwerp text-lg (dat doet de
-             macro), meta text-sm/leading-relaxed. #}
-          {% call ui.modal("open", row.subject, max_w="max-w-2xl") %}
-            <p class="text-sm text-gray-500 leading-relaxed -mt-1 mb-3">{{ _("Aan") }}: {{ row.recipient }} · {{ row.created_at|short_datetime }} · {{ row.status | code_label("mail_status") }}</p>
-            {# #523: body "zoals gemaild" — in een gesandboxte iframe (srcdoc) zodat
-               ze als eigen document rendert (bullets/indents blijven staan) en
-               geïsoleerd is van de admin-CSS/Preflight-reset. sandbox="" blokkeert
-               scripts → veilige preview. #}
-            {% if row.body %}
-            <iframe sandbox title="{{ _('E-mailinhoud') }}" class="w-full h-96 border border-gray-200 rounded-lg bg-white" srcdoc="{{ row.body }}"></iframe>
-            {% else %}
-            <div class="border border-gray-200 rounded-lg p-4 text-sm"><span class="text-gray-400">{{ _("(geen inhoud bewaard)") }}</span></div>
-            {% endif %}
-            <div class="flex justify-end border-t border-gray-200 -mx-5 px-5 pt-3 mt-4">
-              {{ ui.btn_danger(_("Verwijderen"), size="md", attrs='hx-post="/admin/e-maillog/' ~ row.id ~ '/verwijderen" hx-target="#email-log-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("E-mail"), row.subject)) }}
-            </div>
-          {% endcall %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-{# Kit pager (#580), with the counted total since #1391 (CR-11 W8). The filters
-   travel in the URL so they survive paging. #}
-{% set _base = "/admin/e-maillog/lijst?email_type=" ~ (email_type or "") ~ "&status=" ~ (status or "") ~ "&recipient=" ~ (recipient or "") ~ "&sort=" ~ sort ~ "&richting=" ~ richting ~ "&per_page=" ~ per_page %}
-{{ ui.pager(page, per_page, total, hx_get=_base, hx_target="#email-log-lijst") }}
+{{ ui.pager(page, per_page=per_page, total=total, hx_get=pager_url, hx_target="#email-log-lijst", count=False, push=True) }}
 {% else %}
-{{ ui.empty_state(_("Geen e-mails gevonden voor deze filter.")) }}
+{{ ui.empty_state(empty_reason) }}
 {% endif %}
+{% if oob %}{{ ui.toolbar_oob("el-filter", page=page, per_page=per_page, total=total, sort=sort) }}{% endif %}

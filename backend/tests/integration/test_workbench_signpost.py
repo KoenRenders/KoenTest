@@ -159,9 +159,9 @@ def test_a_mail_task_points_at_the_e_mail_log(client, db_session):
 
     html = _detail(client, task)
 
-    assert "/admin/e-maillog?recipient=someone%40example.com" in html, (
-        "the mail task does not point at the log of that recipient"
-    )
+    # #1925: a mail has a page of its own, and the task opens it.
+    assert f"/admin/e-maillog/{log.id}" in html, "the mail task does not point at the mail"
+
     assert "Afhandelen" in html, "a mail task remains a workplace"
 
 
