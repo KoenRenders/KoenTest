@@ -835,10 +835,17 @@ def test_verkoop_wijzigt_een_bestelling(webshop_page):
     assert _geen_zijwaartse_scroll(page)
     assert "Webshop T-shirt" in page.locator("main").inner_text()
 
+    # Add the size once more, so the order holds two of it.
+    page.locator("#maten [data-tile]").first.click()
+    page.locator("#new_quantity").fill("1")
+    with htmx_afgerond(page):
+        page.get_by_role("button", name="Artikel toevoegen").click()
     with htmx_afgerond(page):
         page.get_by_role("button", name="Opslaan").click()
     page.wait_for_url("**/admin/verkoop/**")
-    assert "Bestelling" in page.locator("main").inner_text()
+    assert "30,00" in page.locator("main").inner_text(), "the changed total stands on the page"
+    page.wait_for_url("**/admin/verkoop/**")
+    assert "30,00" in page.locator("main").inner_text(), "the changed total stands on the page"
 
 
 def test_productbeheer_en_prijsbeheer_zijn_tabellen(webshop_page):

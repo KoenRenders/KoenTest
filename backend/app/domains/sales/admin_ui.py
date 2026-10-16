@@ -334,13 +334,16 @@ def _board_order_view(
     email: str,
     items: list[tuple[int, int]],
     product_id: str = "",
+    member_override: bool | None = None,
 ) -> BoardOrderView:
     """The "Bestelling toevoegen" view-model (R43): the lines at the member price
     of the typed person, the articles for the picker, and the chosen article's
-    sizes."""
+    sizes. `member_override` prices as the order's person, for the change form."""
     from decimal import Decimal
 
     status, person, member = board_order_person(db, email)
+    if member_override is not None:
+        member = member_override
     lines = basket_lines(db, member=member, items=items)
     total = sum(
         (line["price"] * line["quantity"] for line in lines if line["available"]),
@@ -520,8 +523,32 @@ def _change_order_view(
     toevoegen", but the POST goes to the order's change route."""
     from dataclasses import replace
 
-    vm = _board_order_view(db, request, email=email, items=items)
-    return replace(vm, form_url=f"/admin/verkoop/{order_id}/wijzigen", order_id=order_id)
+    from app.domains.sales.api import get_order, order_person_member
+
+    vm = _board_order_view(
+        db,
+        request,
+        email=email,
+        items=items,
+        member_override=order_person_member(db, get_order(db, order_id)),
+    )
+    vm = replace(vm, form_url=f"/admin/verkoop/{order_id}/wijzigen", order_id=order_id)
+    if vm.product_id == "" and vm.articles:
+        # The first article is preselected, so its sizes show without a change event.
+        first_id = vm.articles[0][0]
+        sizes = _sizes_of(db, first_id, vm.member_applied)
+        vm = replace(vm, product_id=first_id, sizes=sizes)
+    return vm
+
+
+def _sizes_of(db: Session, product_id: str, member: bool) -> list[dict]:
+    from app.domains.sales.api import article_offer
+
+    try:
+        offer = article_offer(db, int(product_id), member=member)
+    except (TypeError, ValueError):
+        return []
+    return offer["sizes"] if offer else []
 
 
 @router.post("/admin/verkoop/{order_id}/wijzigen/maten", response_class=HTMLResponse)
@@ -563,14 +590,14 @@ async def change_order(
 ):
     """Change the order's lines (R15, R16, F7): the lines are replaced at today's
     price, the reservations follow, and payment recalculates."""
-    from app.domains.sales.api import change_order_lines, get_order, order_person_email
+    from app.domains.sales.api import change_order_lines, get_order, order_person_email, parse_lines
 
     form = await request.form()
     action = str(form.get("action") or "save")
     order = get_order(db, order_id)
     if order is None:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
-    items, parse_error = parse_items(form)
+    items, parse_error = parse_lines(form)
     email = order_person_email(db, order)
 
     if form.get("remove_variant_id"):
@@ -585,11 +612,9 @@ async def change_order(
             except ValueError:
                 variant_id, quantity = 0, 0
             if variant_id > 0 and quantity > 0:
-                merged = dict(items)
-                merged[variant_id] = merged.get(variant_id, 0) + quantity
-                items = sorted(merged.items())
+                items = sorted(items + [(variant_id, quantity)])
         vm = _change_order_view(db, request, order_id, email, items)
-        return templates.TemplateResponse(request, "admin_verkoop_wijzigen.html", vm.as_context())
+        return templates.TemplateResponse(request, "_verkoop_wijzig_form.html", vm.as_context())
 
     if action == "remove":
         remove_variant = str(form.get("remove_variant_id") or "").strip()
@@ -600,7 +625,7 @@ async def change_order(
                 remove_id = 0
             items = [(v, q) for v, q in items if v != remove_id]
         vm = _change_order_view(db, request, order_id, email, items)
-        return templates.TemplateResponse(request, "admin_verkoop_wijzigen.html", vm.as_context())
+        return templates.TemplateResponse(request, "_verkoop_wijzig_form.html", vm.as_context())
 
     if parse_error is not None:
         return refusal_response(request, [FieldError("", parse_error)], "#order-melding", send=True)

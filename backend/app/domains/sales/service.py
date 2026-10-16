@@ -606,6 +606,18 @@ def order_person_email(db: Session, order) -> str:
     return email.value if email else ""
 
 
+def order_person_member(db: Session, order) -> bool:
+    """Whether the order's person is a member today — the one price source for a
+    changed order (the form and the service both ask it)."""
+    from app.domains.mdm.api import Person
+    from app.domains.membership.api import has_valid_membership
+
+    if order.person_id is None:
+        return False
+    person = db.get(Person, order.person_id)
+    return has_valid_membership(person, belgian_today()) if person is not None else False
+
+
 def orders_of_person(db: Session, person_id: int):
     """The orders of a person, newest first (AC13, W26)."""
     from app.domains.sales.models import SalesOrder
@@ -694,6 +706,21 @@ def parse_items(form) -> tuple[list[tuple[int, int]], str | None]:
     for variant_id, quantity in zip(variant_ids, quantities):
         merged[variant_id] = merged.get(variant_id, 0) + quantity
     return sorted(merged.items()), None
+
+
+def parse_lines(form) -> tuple[list[tuple[int, int]], str | None]:
+    """The `(variant_id, quantity)` pairs the change form posts, kept apart — two
+    lines of one variant stay two lines, so a line can be split (F7, Q30)."""
+    from app.i18n import _
+
+    try:
+        variant_ids = [int(str(v)) for v in form.getlist("variant_id")]
+        quantities = [int(str(q)) for q in form.getlist("quantity")]
+    except ValueError:
+        return [], _("Ongeldig aantal.")
+    if len(variant_ids) != len(quantities):
+        return [], _("Ongeldig aantal.")
+    return sorted(zip(variant_ids, quantities)), None
 
 
 def order_delivery_state(db: Session, order) -> str:
@@ -815,11 +842,14 @@ def cancel_order(db: Session, order_id: int, *, actor: str | None) -> None:
 def change_order_lines(
     db: Session, order_id: int, items: list[tuple[int, int]], *, actor: str | None
 ) -> None:
-    """Replace the order's lines (R15, R16, F7): the old reservations are released
-    first, then the new lines reserved at today's price — in one savepoint, so a
-    change that keeps the order's own last unit is not refused for it, and a refusal
-    leaves the old lines exactly as they were. A delivered line refuses the change
-    (a return is by hand, R25). `SalesOrderChanged` lets payment recalculate."""
+    """Replace the order's lines (R15, R16, F7): a line the change leaves alone —
+    same variant, same quantity — keeps its price and its reservation; only a new or
+    changed line takes today's price (Koen, "2a"). The old reservations release first,
+    then the new lines reserve, in one savepoint, so a change that keeps the order's
+    own last unit is not refused for it and a refusal leaves the old lines as they
+    were. A delivered line cannot be changed (a return is by hand, R25): a change that
+    touches one is refused, naming it; the other lines of that order can still change.
+    `SalesOrderChanged` lets payment recalculate."""
     from app.domains.mdm.api import Person
     from app.domains.membership.api import has_valid_membership
     from app.domains.sales.models import SalesOrder, SalesOrderLine
@@ -835,11 +865,9 @@ def change_order_lines(
     order = db.query(SalesOrder).filter(SalesOrder.id == order_id).one_or_none()
     if order is None:
         raise SalesError(_("Deze bestelling bestaat niet."))
-    if any(line.delivered_at is not None for line in order.lines):
-        raise SalesError(_("Een geleverde bestelling kan niet gewijzigd worden."))
 
-    items = sorted(items, key=lambda item: item[0])
-    if not items:
+    target = sorted(items, key=lambda item: item[0])
+    if not target:
         raise SalesError(_("Je mandje is leeg."))
     max_quantity = tenant_max_item_quantity(db)
     today = belgian_today()
@@ -848,17 +876,41 @@ def change_order_lines(
         person = db.get(Person, order.person_id)
         member = has_valid_membership(person, today) if person is not None else False
 
+    for variant_id, quantity in target:
+        if quantity < 1 or quantity > max_quantity:
+            raise SalesError(
+                _("Ongeldig aantal: kies een waarde tussen 1 en %(max)s.") % {"max": max_quantity}
+            )
+
+    # A delivered line the target no longer keeps is refused, naming the size.
+    for line in order.lines:
+        if line.delivered_at is None:
+            continue
+        if (line.variant_id, line.quantity) not in target:
+            variant = get_variant(db, line.variant_id)
+            size = size_of(variant) if variant is not None else ""
+            raise SalesError(
+                _("Maat %(size)s is al geleverd en kan niet gewijzigd worden.")
+                % {"size": size or str(line.variant_id)}
+            )
+
+    # The lines the target keeps — delivered or not — stay; the undelivered ones it
+    # does not keep are released and soft-deleted. `to_create` is what is left of
+    # the target after the kept lines are matched.
+    to_create = list(target)
+    to_remove: list[SalesOrderLine] = []
+    for line in order.lines:
+        if (line.variant_id, line.quantity) in to_create:
+            to_create.remove((line.variant_id, line.quantity))
+        elif line.delivered_at is None:
+            to_remove.append(line)
+
     savepoint = db.begin_nested()
     try:
-        for line in order.lines:
+        for line in to_remove:
             call(ReleaseStock(order_line_id=line.id), db)
             soft_delete(line)
-        for variant_id, quantity in items:
-            if quantity < 1 or quantity > max_quantity:
-                raise SalesError(
-                    _("Ongeldig aantal: kies een waarde tussen 1 en %(max)s.")
-                    % {"max": max_quantity}
-                )
+        for variant_id, quantity in to_create:
             variant = get_variant(db, variant_id)
             if variant is None:
                 raise SalesError(_("Dit artikel wordt niet meer aangeboden."))
@@ -949,7 +1001,23 @@ def order_view(db: Session, order) -> dict[str, Any]:
         "delivery": order_delivery_state(db, order),
         "total": total_of(order),
         "cancellable": all(line.delivered_at is None for line in order.lines),
+        # A1: an online order whose open booking became a transfer (a change
+        # dropped the online checkout) pays by transfer now.
+        "online_checkout_stale": _online_checkout_stale(db, order),
     }
+
+
+def _online_checkout_stale(db: Session, order) -> bool:
+    from app.domains.mdm.api import PaymentMethod
+    from app.domains.payment.api import PaymentRecord
+
+    if order.payment_method is not PaymentMethod.ONLINE:
+        return False
+    booking_id = order_payment_state(db, order.id).get("booking_id")
+    if not booking_id:
+        return False
+    record = db.get(PaymentRecord, booking_id)
+    return record is not None and record.method is not PaymentMethod.ONLINE
 
 
 def shop_settings(db: Session) -> ShopSettings:

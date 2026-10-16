@@ -6,6 +6,9 @@
     <span class="text-ink-soft">{{ order.delivery }}</span>
     <span class="text-ink-soft">{{ _("Te betalen") if order.payment == "open" else _("Betaald") }}</span>
   </div>
+  {% if order.online_checkout_stale %}
+  <p class="mb-3 text-sm text-ink-soft">{{ _("De betaallink is vervallen — betaal per overschrijving.") }}</p>
+  {% endif %}
   <div class="space-y-2">
     {% for l in order.lines %}
     <div class="flex items-center justify-between gap-2">
