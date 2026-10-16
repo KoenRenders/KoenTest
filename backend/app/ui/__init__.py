@@ -26,6 +26,7 @@ from jinja2 import (
 )
 
 from app.config import settings
+from app.kernel.clock import belgian_today
 from app.kernel.phone import readable_phone
 from app.kernel.refusals import as_refusal
 
@@ -1351,8 +1352,6 @@ def site_context(db, request=None) -> dict:
     """Gedeelde context van de SiteShell (site_base.html): navigatie-pagina's,
     de voet (nieuwsbrief, sociale links, sponsors, de juridische regel). Eén
     plek, elke publieke route neemt hem mee."""
-    from datetime import date
-
     from app.domains.auth.api import csrf_from_request
     from app.domains.cms.api import CmsPage, menu_tree
     from app.domains.mdm.api import Organization, OrganizationType, TenantKind, module_enabled
@@ -1454,7 +1453,7 @@ def site_context(db, request=None) -> dict:
         "sponsors": [
             {"title": s.title, "link_url": s.link_url, "url": media_url(s.id)} for s in sponsors
         ],
-        "current_year": date.today().year,
+        "current_year": belgian_today().year,
         # CR-19 (#1477): and only with the chatbot module on for this tenant —
         # the bubble would otherwise post to a route that answers 404. #1568: and
         # with the tenant's own switch for the public site on; one rule

@@ -38,6 +38,7 @@ from app.domains.membership.service import (  # noqa: F401
 
 # The two ways to pay a membership, for a screen that reads the choice (#1899).
 from app.domains.membership.signup_form import PAYMENT_METHODS  # noqa: F401
+from app.kernel.clock import belgian_today
 
 __all__ = [
     "snapshot_membership",
@@ -213,7 +214,6 @@ def board_renewal_page(db, household_id: int, codes: dict):
     page of the public renewal, speaking of the household. None when there is
     nothing to start — no main member, no renewal available, or one that runs:
     the record says which."""
-    from datetime import date
 
     from app.domains.membership.household_page import RenewPage, Terms, household_summary
     from app.domains.membership.portal_service import main_person_of
@@ -222,7 +222,7 @@ def board_renewal_page(db, household_id: int, codes: dict):
     if person is None or renewal_is_running(db, person):
         return None
     valid_until = membership_coverage_until(person)
-    if not renewal_available(valid_until, date.today()):
+    if not renewal_available(valid_until, belgian_today()):
         return None
     _from, until, amount = renewal_terms(db, person)
     summary, address_line = household_summary(household_view(db, person), codes)

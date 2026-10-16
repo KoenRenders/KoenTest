@@ -38,6 +38,7 @@ from app.domains.activities.models import (
     RegistrationState,
 )
 from app.domains.mdm.api import CONTACT
+from app.kernel.clock import belgian_today
 from app.kernel.codes import code_label, code_of
 from app.kernel.copying import CopyPlan
 
@@ -180,7 +181,7 @@ def registration_state(
 
     **The deadline is inclusive and Belgian.** `registration_closes_on` is the last
     day a registration is accepted, until midnight in Brussels. `today` defaults to
-    `belgian_today()` and not to `date.today()`, because the container may run on
+    `belgian_today()` and not to the container's own date, because the container may run on
     UTC and a deadline would then close two hours late in summer.
 
     **The deadline belongs to the COMPONENT since #1053.** Pass the component
@@ -3008,7 +3009,7 @@ def past_activities(
     `since_year` or later — newest first. A soft-deleted activity or date is not
     there (the global filter); one with no date at all is not an activity that
     took place."""
-    today = today or date.today()
+    today = today or belgian_today()
     since = date(since_year, 1, 1)
     spans = _spans(db, lambda first, last: (last < today) & (last >= since), published=True)
     return sorted(spans, key=lambda s: (s.end, s.activity.id), reverse=True)
