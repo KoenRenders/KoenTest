@@ -167,9 +167,11 @@ class ShopSettings(TenantMixin, Base):
     )
 
 
-class ShopContact(TenantMixin, Base):
+class ShopContact(TenantMixin, SoftDeleteMixin, Base):
     """A contact person of the shop (F17, R41): a soft reference to `mdm.persons`,
-    ordered. No override of e-mail or mobile — the person's own are shown (Q71)."""
+    ordered. No override of e-mail or mobile — the person's own are shown (Q71).
+    Soft-deleted like the rest of the domain: removing a contact leaves the row,
+    so nothing that pointed at it reads through to a gap."""
 
     __tablename__ = "shop_contacts"
     __table_args__ = {"schema": "sales"}

@@ -827,6 +827,23 @@ def test_productbeheer_en_prijsbeheer_zijn_tabellen(webshop_page):
         assert _geen_zijwaartse_scroll(page)
 
 
+def test_webshop_instellingen_zet_de_tekst_boven_de_webshop(webshop_page):
+    """R42, in the browser at 390 px: Verkoop saves the intro text, and the Webshop
+    shows it above the articles."""
+    page = webshop_page
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.goto("/admin/verkoop/instellingen")
+    assert _geen_zijwaartse_scroll(page)
+
+    page.locator('textarea[name="intro"]').fill("Kledij en spullen van Raak.")
+    with htmx_afgerond(page):
+        page.get_by_role("button", name="Opslaan").click()
+    page.wait_for_url("**/admin/verkoop/instellingen")
+
+    page.goto("/webshop")
+    assert "Kledij en spullen van Raak." in page.locator("main").inner_text()
+
+
 def test_de_actiebalk_is_zo_breed_als_het_formulier(webshop_page):
     """The article's action bar is as wide as its form column, not the whole
     window (Koen's first point). On a phone the kit's bar full-bleeds, as on

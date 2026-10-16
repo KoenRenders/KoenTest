@@ -13,6 +13,7 @@ class WebshopView(ViewModel):
     """`webshop.html` — the list of articles on offer."""
 
     products: list[dict[str, Any]]
+    intro: str = ""
     site: dict[str, Any] = field(default_factory=dict)
 
     def as_context(self) -> dict[str, Any]:
@@ -99,6 +100,7 @@ class BedanktView(ViewModel):
 
     order: Any
     order_id: int
+    contacts: list[dict[str, Any]] = field(default_factory=list)
     site: dict[str, Any] = field(default_factory=dict)
 
     def as_context(self) -> dict[str, Any]:
@@ -106,6 +108,22 @@ class BedanktView(ViewModel):
         context.pop("site", None)
         context.update(self.site)
         return context
+
+
+@dataclass(frozen=True, kw_only=True)
+class ShopSettingsView(ViewModel):
+    """`admin_shop_settings.html` — the shop's intro text and contact
+    persons (R41, R42), under Verkoop."""
+
+    intro: str = ""
+    contacts: list[dict[str, Any]] = field(default_factory=list)
+    contact_q: str = ""
+    candidates: list[dict[str, Any]] = field(default_factory=list)
+    nav_items: list[Any] = field(default_factory=list)
+    csrf_token: str = ""
+
+    def as_context(self) -> dict[str, Any]:
+        return super().as_context()
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -132,6 +150,7 @@ class OrderPageView(ViewModel):
 
     order: dict[str, Any]
     is_admin: bool
+    contacts: list[dict[str, Any]] = field(default_factory=list)
     site: dict[str, Any] = field(default_factory=dict)
 
     def as_context(self) -> dict[str, Any]:

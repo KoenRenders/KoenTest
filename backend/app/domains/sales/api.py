@@ -15,6 +15,7 @@ from app.domains.sales.models import (  # noqa: F401
 from app.domains.sales.payables import order_describer  # noqa: F401
 from app.domains.sales.service import (  # noqa: F401
     Honeypot,
+    add_shop_contact,
     article_offer,
     basket_lines,
     board_order_person,
@@ -32,6 +33,11 @@ from app.domains.sales.service import (  # noqa: F401
     owned_order,
     parse_items,
     place_order,
+    remove_shop_contact,
+    save_shop_intro,
+    shop_contact_cards,
+    shop_contacts,
+    shop_settings,
     submit_order,
     total_of,
 )
@@ -44,6 +50,7 @@ __all__ = [
     "SalesOrderLine",
     "ShopContact",
     "ShopSettings",
+    "add_shop_contact",
     "article_offer",
     "basket_lines",
     "board_order_person",
@@ -62,6 +69,11 @@ __all__ = [
     "owned_order",
     "parse_items",
     "place_order",
+    "remove_shop_contact",
+    "save_shop_intro",
+    "shop_contact_cards",
+    "shop_contacts",
+    "shop_settings",
     "submit_order",
     "total_of",
 ]

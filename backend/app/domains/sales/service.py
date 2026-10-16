@@ -27,7 +27,7 @@ from app.domains.product.api import (
     size_of,
     variants_of,
 )
-from app.domains.sales.models import SalesError
+from app.domains.sales.models import SalesError, ShopContact, ShopSettings
 from app.kernel.clock import belgian_today
 
 
@@ -831,3 +831,70 @@ def order_view(db: Session, order) -> dict[str, Any]:
         "total": total_of(order),
         "cancellable": all(line.delivered_at is None for line in order.lines),
     }
+
+
+def shop_settings(db: Session) -> ShopSettings:
+    """The tenant's shop settings, made on first ask (F17, R42)."""
+    settings = db.query(ShopSettings).first()
+    if settings is None:
+        settings = ShopSettings()
+        db.add(settings)
+        db.flush()
+    return settings
+
+
+def save_shop_intro(db: Session, intro: str) -> ShopSettings:
+    """Save the intro text above the Webshop (R42); an empty text clears it."""
+    settings = shop_settings(db)
+    settings.intro = intro.strip() or None
+    db.commit()
+    return settings
+
+
+def shop_contacts(db: Session) -> list[ShopContact]:
+    """The shop's contact persons, in their chosen order (R41)."""
+    return db.query(ShopContact).order_by(ShopContact.sort_order, ShopContact.id).all()
+
+
+def add_shop_contact(db: Session, person_id: int) -> None:
+    """Add a person as a contact, once (R41): the same person twice is one row."""
+    existing = db.query(ShopContact).filter(ShopContact.person_id == person_id).first()
+    if existing is None:
+        db.add(ShopContact(person_id=person_id, sort_order=db.query(ShopContact).count()))
+        db.commit()
+
+
+def remove_shop_contact(db: Session, contact_id: int) -> None:
+    """Remove a contact person (R41): soft-deleted, as everything in this domain
+    that a later row may have pointed at."""
+    from app.soft_delete import soft_delete
+
+    contact = db.get(ShopContact, contact_id)
+    if contact is not None:
+        soft_delete(contact)
+        db.commit()
+
+
+def shop_contact_cards(db: Session) -> list[dict[str, Any]]:
+    """The contact persons for the buyer (R41, Q71): name, e-mail and mobile, as
+    the person holds them — no other address or number. The `id` and `person_id`
+    ride along for the settings screen; the pages read the three shown fields."""
+    from app.domains.mdm.api import CONTACT, Person
+
+    cards: list[dict[str, Any]] = []
+    for contact in shop_contacts(db):
+        person = db.get(Person, contact.person_id)
+        if person is None:
+            continue
+        email = person.primary_contact(CONTACT.EMAIL)
+        mobile = person.primary_contact(CONTACT.MOBILE)
+        cards.append(
+            {
+                "id": contact.id,
+                "person_id": contact.person_id,
+                "name": f"{person.first_name} {person.last_name}".strip(),
+                "email": email.value if email else "",
+                "mobile": mobile.value if mobile else "",
+            }
+        )
+    return cards

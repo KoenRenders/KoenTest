@@ -22,6 +22,8 @@ from app.domains.sales.api import (
     orders_of_person,
     owned_order,
     parse_items,
+    shop_contact_cards,
+    shop_settings,
     submit_order,
 )
 from app.domains.sales.viewmodels import (
@@ -75,6 +77,7 @@ def webshop(request: Request, db: Session = Depends(get_db)):
     member = _member(request, db)
     vm = WebshopView(
         products=offered_products(db, member=member),
+        intro=shop_settings(db).intro or "",
         site=site_context(db, request),
     )
     return templates.TemplateResponse(request, "webshop.html", vm.as_context())
@@ -92,7 +95,12 @@ def bedankt(request: Request, order: int | None = None, db: Session = Depends(ge
     found = get_order(db, order)
     if found is None:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
-    vm = BedanktView(order=found, order_id=found.id, site=site_context(db, request))
+    vm = BedanktView(
+        order=found,
+        order_id=found.id,
+        contacts=shop_contact_cards(db),
+        site=site_context(db, request),
+    )
     return templates.TemplateResponse(request, "webshop_bedankt.html", vm.as_context())
 
 
@@ -263,5 +271,10 @@ def my_order(request: Request, order_id: int, db: Session = Depends(get_db)):
     order = owned_order(db, order_id, person_id)
     if order is None:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
-    vm = OrderPageView(order=order_view(db, order), is_admin=False, site=site_context(db, request))
+    vm = OrderPageView(
+        order=order_view(db, order),
+        is_admin=False,
+        contacts=shop_contact_cards(db),
+        site=site_context(db, request),
+    )
     return templates.TemplateResponse(request, "webshop_order.html", vm.as_context())

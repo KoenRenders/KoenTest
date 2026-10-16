@@ -27,7 +27,12 @@ from app.domains.sales.api import (
     order_view,
     parse_items,
 )
-from app.domains.sales.viewmodels import BoardOrderView, OrderPageView, VerkoopView
+from app.domains.sales.viewmodels import (
+    BoardOrderView,
+    OrderPageView,
+    ShopSettingsView,
+    VerkoopView,
+)
 from app.i18n import _
 from app.kernel.refusals import FieldError
 from app.limiter import board_order_limiter
@@ -352,6 +357,74 @@ def _board_order_view(
         product_id=product_id,
         site={"nav_items": admin_nav(NAV, request), "csrf_token": _csrf(request)},
     )
+
+
+@router.get("/admin/verkoop/instellingen", response_class=HTMLResponse)
+def shop_settings_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.SALES_VIEW)),
+):
+    """The shop's own settings (R41, R42): the intro text above the Webshop and
+    the contact persons, under Verkoop."""
+    from app.domains.sales.api import shop_contact_cards, shop_settings
+
+    vm = ShopSettingsView(
+        intro=shop_settings(db).intro or "",
+        contacts=shop_contact_cards(db),
+        nav_items=admin_nav(NAV, request),
+        csrf_token=_csrf(request),
+    )
+    return templates.TemplateResponse(request, "admin_shop_settings.html", vm.as_context())
+
+
+@router.get("/admin/verkoop/instellingen/personen", response_class=HTMLResponse)
+def shop_contact_candidates(
+    request: Request,
+    contact_q: str = "",
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.SALES_VIEW)),
+):
+    """The candidates of the contact search — every person, not only members (R41,
+    Q71); whoever is already a contact is left out."""
+    from app.domains.mdm.api import search_persons
+    from app.domains.sales.api import shop_contacts
+
+    taken = {c.person_id for c in shop_contacts(db)}
+    candidates = [
+        {
+            "id": match.person.id,
+            "name": f"{match.first_name} {match.last_name}".strip(),
+            "email": match.email or "",
+        }
+        for match in search_persons(db, contact_q, exclude_ids=taken)
+    ]
+    vm = ShopSettingsView(contact_q=contact_q, candidates=candidates)
+    return templates.TemplateResponse(request, "_shop_settings_candidates.html", vm.as_context())
+
+
+@router.post("/admin/verkoop/instellingen", response_class=HTMLResponse)
+async def shop_settings_save(
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.SALES_MANAGE)),
+    _csrf: None = Depends(require_csrf),
+):
+    """Save the intro, or add or remove a contact person (R41, R42)."""
+    from app.domains.sales.api import add_shop_contact, remove_shop_contact, save_shop_intro
+
+    form = await request.form()
+    action = str(form.get("action") or "save")
+    if action == "remove_contact":
+        contact_id = int(str(form.get("contact_id") or 0))
+        remove_shop_contact(db, contact_id)
+    elif action == "add_contact":
+        person_id = int(str(form.get("person_id") or 0))
+        if person_id:
+            add_shop_contact(db, person_id)
+    else:
+        save_shop_intro(db, str(form.get("intro") or ""))
+    return _redirect(request, "/admin/verkoop/instellingen")
 
 
 @router.get("/admin/verkoop/{order_id}", response_class=HTMLResponse)
