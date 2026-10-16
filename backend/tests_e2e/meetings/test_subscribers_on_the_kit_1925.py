@@ -13,6 +13,12 @@ Made-up subscribers on the example domain, removed again afterwards.
 Broken on purpose (16 October 2026): the delete item moved back out of the
 menu as a visible button → "one visible action" is red; `action` given to an
 unsubscribed address → the unsubscribed row shows a button and is red.
+
+The width and Bron (Koen, 16 October 2026, "b"), measured at 1 024, 1 150 and
+1 440 px against Personen, a `list_page`. Broken on purpose, each put back:
+master's two templates → the content is 1 024 px against 1 038 and 1 168, red at
+1 150 and 1 440; master's priorities (Voornaam 2, Bron 1) → at 1 150 px Voornaam
+shows and Bron does not, red.
 """
 
 import os
@@ -114,6 +120,39 @@ def test_one_visible_action_and_the_rest_behind_the_menu(browser, subscribers, w
             page.screenshot(
                 path=os.path.join(folder, f"1925-abonnees-{width}.png"), full_page=False
             )
+    finally:
+        page.close()
+
+
+_SHOWN = """() => {
+  const content = document.querySelector('.admin-content').getBoundingClientRect();
+  const head = key => [...document.querySelectorAll('[data-table-frame] th')]
+    .find(th => th.innerText.trim() === key);
+  const shown = th => !!th && th.getBoundingClientRect().width > 0;
+  return {content: Math.round(content.width),
+          bron: shown(head('Bron')), voornaam: shown(head('Voornaam'))};
+}"""
+
+
+@pytest.mark.parametrize("width", [1024, 1150, 1440])
+def test_the_list_is_as_wide_as_the_kits_lists_and_shows_bron_first(browser, subscribers, width):
+    """Koen, 16 October 2026, "b, en gelieve de lijst zo breed te maken als de nieuwe
+    lijstschermen via de kit": the content is as wide as Personen's (a `list_page`),
+    and where only one of the two optional columns fits, it is Bron."""
+    page = _open(browser, width)
+    try:
+        here = page.evaluate(_SHOWN)
+        page.goto("/admin/personen")
+        pagina_klaar(page)
+        kit = page.evaluate(
+            "Math.round(document.querySelector('.admin-content').getBoundingClientRect().width)"
+        )
+        print(
+            f"MEASURE {width}: content {here['content']} (Personen {kit}), "
+            f"Bron {here['bron']}, Voornaam {here['voornaam']}"
+        )
+        assert here["content"] == kit, "the list is narrower than the kit's list screens"
+        assert here["bron"] or not here["voornaam"], "Voornaam shows where Bron does not"
     finally:
         page.close()
 

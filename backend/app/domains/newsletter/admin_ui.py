@@ -48,7 +48,7 @@ from app.domains.newsletter.viewmodels import (
 )
 from app.i18n import _, local_moment, short_datetime
 from app.kernel.codes import code_label, code_labels, code_of, register_tones, tone
-from app.ui import admin_nav, is_fragment_request, templates
+from app.ui import admin_nav, delete_question, is_fragment_request, templates
 
 logger = logging.getLogger(__name__)
 
@@ -227,7 +227,7 @@ def _subscriber_view(
                     "kind": "delete",
                     "label": _("Verwijderen"),
                     "attrs": f'{post}/{s.id}/verwijderen"',
-                    "confirm": _('Adres "%(adres)s" definitief verwijderen?') % {"adres": s.email},
+                    "confirm": delete_question(_("Adres"), s.email),
                 }
             ],
         }
@@ -239,8 +239,10 @@ def _subscriber_view(
         status_options=code_labels(nb.SUBSCRIBER_STATUS.name, db=db),
         columns=[
             {"key": "email", "label": _("Adres"), "cell": "name"},
-            {"key": "first_name", "label": _("Voornaam"), "cell": "extra", "priority": 2},
-            {"key": "source", "label": _("Bron"), "cell": "extra", "priority": 1},
+            # Koen, 16 October 2026 ("b"): on a wide screen Bron before Voornaam —
+            # priority 2 shows from a narrower table than priority 1.
+            {"key": "first_name", "label": _("Voornaam"), "cell": "extra", "priority": 1},
+            {"key": "source", "label": _("Bron"), "cell": "extra", "priority": 2},
             {"key": "status", "label": _("Status"), "cell": "status"},
             {"key": "since", "label": _("Sinds"), "cell": "moment"},
             {"key": "actions", "label": _("Acties"), "cell": "actions"},

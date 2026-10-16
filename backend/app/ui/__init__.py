@@ -230,15 +230,18 @@ templates.env.filters["relatielabel"] = _relatielabel
 # Sinds #595 levert dit `data-confirm` i.p.v. `hx-confirm`: het native browser-
 # confirm() is verbannen (lint-gate). De globale `htmx:confirm`-handler in
 # ui.confirm_host() ziet `data-confirm` en toont de in-app bevestig-modal.
+def delete_question(type_label, name) -> str:
+    """The question of a real delete: «<Type> "<naam>" definitief verwijderen?» — one
+    sentence for a button (`confirm_attrs`) and for a row menu's delete item (#1925)."""
+    from app.i18n import _
+
+    return f'{type_label} "{name}" {_("definitief verwijderen?")}'
+
+
 def _confirm_attrs(type_label, name) -> str:
     from markupsafe import escape
 
-    from app.i18n import _
-
-    return (
-        f'data-confirm=\'{escape(type_label)} "{escape(name)}" '
-        f"{escape(_('definitief verwijderen?'))}'"
-    )
+    return f"data-confirm='{escape(delete_question(type_label, name))}'"
 
 
 templates.env.globals["confirm_attrs"] = _confirm_attrs
