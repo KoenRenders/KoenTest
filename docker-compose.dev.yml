@@ -98,6 +98,7 @@ services:
       MAX_REGISTRATIONS_PER_EMAIL: ${MAX_REGISTRATIONS_PER_EMAIL:-}
       # Onderhoud en diagnose.
       EMAIL_LOG_RETENTION_DAYS: ${EMAIL_LOG_RETENTION_DAYS:-}
+      MAIL_ALLOWED_RECIPIENTS: ${MAIL_ALLOWED_RECIPIENTS:-}
       SLOW_REQUEST_MS: ${SLOW_REQUEST_MS:-}
       SQL_ECHO: ${SQL_ECHO:-}
       # Alleen hier nog niet doorgegeven.
