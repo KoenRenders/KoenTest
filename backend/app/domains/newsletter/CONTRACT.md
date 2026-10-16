@@ -150,6 +150,9 @@ None: no row of part D of the architecture document names this module, and its `
   while it is rendered and stored nowhere; an event holds the letter, the code, the link and the
   *day* — no address, delivery, IP, device or time of day (a gate lists the columns). The
   test mail and the preview carry no code. The unsubscribe link is never counted or changed.
+  "Nobody is tracked" holds for the portal's tables and its e-mail log (90 days): the Sent
+  folder of the mailbox the portal sends from keeps every mail with its code and its recipient,
+  and so does every recipient's own mailbox.
   The click forwards only to an address stored for that letter. Operations: a link of a
   sent letter points at the portal's address, so it fails while the portal is down; the
   code is signed with a key derived from the portal's secret, so **rotating that secret

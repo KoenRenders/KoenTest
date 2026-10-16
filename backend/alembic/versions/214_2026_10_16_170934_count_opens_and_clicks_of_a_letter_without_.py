@@ -44,8 +44,8 @@ depends_on = None
 TITLE = "Nieuwsbrief"
 TEXT = (
     "Bij de nieuwsbrief tellen we hoeveel brieven geopend worden en hoe vaak een link wordt "
-    "aangeklikt. Dat gebeurt anoniem: we houden niet bij wie een brief las, wie op welke link "
-    "klikte of wanneer. Een uitgeschreven adres krijgt geen nieuwsbrief meer."
+    "aangeklikt. Dat gebeurt anoniem: we houden niet bij wie een brief las of wie op welke "
+    "link klikte. Een uitgeschreven adres krijgt geen nieuwsbrief meer."
 )
 
 
