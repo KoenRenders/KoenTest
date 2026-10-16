@@ -364,7 +364,7 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `GET /admin/verkoop/nieuw`
 - `GET /admin/verkoop/{order_id}`
 
-### `sales.manage` — 8 routes
+### `sales.manage` — 11 routes
 
 - `GET /admin/verkoop/instellingen`
 - `POST /admin/verkoop/instellingen`
@@ -374,6 +374,9 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `POST /admin/verkoop/nieuw/maten`
 - `POST /admin/verkoop/{order_id}/annuleren`
 - `POST /admin/verkoop/{order_id}/lijn/{line_id}/leveren`
+- `GET /admin/verkoop/{order_id}/wijzigen`
+- `POST /admin/verkoop/{order_id}/wijzigen`
+- `POST /admin/verkoop/{order_id}/wijzigen/maten`
 
 ### `stock.view` — 5 routes
 

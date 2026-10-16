@@ -81,6 +81,9 @@ TYPED_LABELS: dict[str, dict[str, int]] = {
         "Artikel": 1,
         "E-mailadres van de koper": 1,
     },
+    "domains/sales/templates/_verkoop_wijzig_form.html": {
+        "Artikel": 1,
+    },
     "domains/stock/templates/admin_correctie.html": {
         "Artikel en maat": 1,
         "Richting": 1,

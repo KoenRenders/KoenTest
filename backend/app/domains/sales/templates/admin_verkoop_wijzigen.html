@@ -1,0 +1,8 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Bestelling wijzigen — Raak beheer") }}{% endblock %}
+{% block content %}
+{{ ui.record_header(_("Bestelling wijzigen"), back={"label": _("Bestelling"), "href": "/admin/verkoop/" ~ order_id}) }}
+{% include "_verkoop_wijzig_form.html" %}
+{{ ui.action_bar(form="bestel-form", cancel_href="/admin/verkoop/" ~ order_id, save_attrs='name="action" value="save"') }}
+{% endblock %}

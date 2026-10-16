@@ -493,3 +493,121 @@ def annuleer(
     except SalesError as refusal:
         return refusal_response(request, [FieldError("", str(refusal))], "#order-melding")
     return _redirect(request, "/admin/verkoop")
+
+
+@router.get("/admin/verkoop/{order_id}/wijzigen", response_class=HTMLResponse)
+def change_order_page(
+    request: Request,
+    order_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.SALES_MANAGE)),
+):
+    """The change form (R15, R16, F7): the order's lines, to be replaced."""
+    from app.domains.sales.api import get_order, order_person_email
+
+    order = get_order(db, order_id)
+    if order is None:
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
+    items = [(line.variant_id, line.quantity) for line in order.lines]
+    vm = _change_order_view(db, request, order_id, order_person_email(db, order), items)
+    return templates.TemplateResponse(request, "admin_verkoop_wijzigen.html", vm.as_context())
+
+
+def _change_order_view(
+    db: Session, request: Request, order_id: int, email: str, items: list[tuple[int, int]]
+) -> BoardOrderView:
+    """The change form's view (R15, R16): the same lines and picker as "Bestelling
+    toevoegen", but the POST goes to the order's change route."""
+    from dataclasses import replace
+
+    vm = _board_order_view(db, request, email=email, items=items)
+    return replace(vm, form_url=f"/admin/verkoop/{order_id}/wijzigen", order_id=order_id)
+
+
+@router.post("/admin/verkoop/{order_id}/wijzigen/maten", response_class=HTMLResponse)
+async def change_order_sizes(
+    request: Request,
+    order_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.SALES_MANAGE)),
+):
+    """The size tiles for one article of the change form (Q90)."""
+    from app.domains.sales.api import article_offer, get_order, order_person_email
+
+    form = await request.form()
+    product_id = str(form.get("product_id") or "")
+    order = get_order(db, order_id)
+    email = order_person_email(db, order) if order is not None else ""
+    status, _person, member = board_order_person(db, email)
+    sizes: list[dict] = []
+    if product_id:
+        try:
+            offer = article_offer(db, int(product_id), member=member)
+        except (TypeError, ValueError):
+            offer = None
+        sizes = offer["sizes"] if offer else []
+    return templates.TemplateResponse(
+        request,
+        "_verkoop_maten.html",
+        BoardOrderView(product_id=product_id, sizes=sizes).as_context(),
+    )
+
+
+@router.post("/admin/verkoop/{order_id}/wijzigen")
+async def change_order(
+    request: Request,
+    order_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.SALES_MANAGE)),
+    _csrf: None = Depends(require_csrf),
+):
+    """Change the order's lines (R15, R16, F7): the lines are replaced at today's
+    price, the reservations follow, and payment recalculates."""
+    from app.domains.sales.api import change_order_lines, get_order, order_person_email
+
+    form = await request.form()
+    action = str(form.get("action") or "save")
+    order = get_order(db, order_id)
+    if order is None:
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
+    items, parse_error = parse_items(form)
+    email = order_person_email(db, order)
+
+    if form.get("remove_variant_id"):
+        action = "remove"
+
+    if action == "add":
+        new_variant = str(form.get("new_variant_id") or "").strip()
+        new_quantity = str(form.get("new_quantity") or "").strip()
+        if parse_error is None and new_variant:
+            try:
+                variant_id, quantity = int(new_variant), int(new_quantity)
+            except ValueError:
+                variant_id, quantity = 0, 0
+            if variant_id > 0 and quantity > 0:
+                merged = dict(items)
+                merged[variant_id] = merged.get(variant_id, 0) + quantity
+                items = sorted(merged.items())
+        vm = _change_order_view(db, request, order_id, email, items)
+        return templates.TemplateResponse(request, "admin_verkoop_wijzigen.html", vm.as_context())
+
+    if action == "remove":
+        remove_variant = str(form.get("remove_variant_id") or "").strip()
+        if parse_error is None and remove_variant:
+            try:
+                remove_id = int(remove_variant)
+            except ValueError:
+                remove_id = 0
+            items = [(v, q) for v, q in items if v != remove_id]
+        vm = _change_order_view(db, request, order_id, email, items)
+        return templates.TemplateResponse(request, "admin_verkoop_wijzigen.html", vm.as_context())
+
+    if parse_error is not None:
+        return refusal_response(request, [FieldError("", parse_error)], "#order-melding", send=True)
+    try:
+        change_order_lines(db, order_id, items, actor=_email)
+    except SalesError as refusal:
+        return refusal_response(
+            request, [FieldError("", str(refusal))], "#order-melding", send=True
+        )
+    return _redirect(request, f"/admin/verkoop/{order_id}")

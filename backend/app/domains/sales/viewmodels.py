@@ -170,6 +170,8 @@ class BoardOrderView(ViewModel):
     email: str = ""
     status: str = ""
     person_name: str = ""
+    form_url: str = "/admin/verkoop/nieuw"
+    order_id: int = 0
     lines: list[dict[str, Any]] = field(default_factory=list)
     total: Any = None
     member_applied: bool = False

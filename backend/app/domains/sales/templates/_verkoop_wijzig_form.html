@@ -1,0 +1,26 @@
+{% import "_macros.html" as ui %}
+<form id="bestel-form" hx-post="{{ form_url }}" hx-target="#bestel-form" hx-swap="outerHTML">
+  {{ ui.form_guard_fields() }}
+  <div id="order-melding" data-form-message></div>
+  {% call ui.record_columns() %}
+  <div class="form-flow">
+    {% call ui.section(_("Artikelen")) %}
+      {% for l in lines %}
+      <div data-span="full" class="flex items-center justify-between gap-3 text-sm">
+        <span class="min-w-0">{{ l.name }}{% if l.size %} · {{ _("maat") }} {{ l.size }}{% endif %} · {{ l.quantity }} ×</span>
+        <span class="flex items-center gap-2 shrink-0">
+          <span class="font-medium">€ {{ (l.price * l.quantity)|geld }}</span>
+          {{ ui.btn_secondary("", "submit", size="sm", lead_icon="x", aria_label=_("Verwijderen"), attrs='name="remove_variant_id" value="' ~ l.variant_id ~ '" formnovalidate') }}
+        </span>
+      </div>
+      <input type="hidden" name="variant_id" value="{{ l.variant_id }}">
+      <input type="hidden" name="quantity" value="{{ l.quantity }}">
+      {% endfor %}
+      {{ ui.field("product_id", _("Artikel"), kind="select", value=product_id, options=articles,
+                 attrs='hx-post="' ~ form_url ~ '/maten" hx-target="#maten" hx-swap="innerHTML" hx-trigger="change"') }}
+      <div id="maten" data-span="full">{% include "_verkoop_maten.html" %}</div>
+    {% endcall %}
+    {{ ui.total_line(total, note=_("(ledenprijs)") if member_applied else "") }}
+  </div>
+  {% endcall %}
+</form>

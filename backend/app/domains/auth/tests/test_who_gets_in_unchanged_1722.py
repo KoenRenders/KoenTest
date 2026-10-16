@@ -394,6 +394,8 @@ ON_A_RIGHT = {
     # to look and to change, as the `sales` row of the document says (C4.3a's
     # viewing/change split does not apply: there is no read-only view of it).
     "/admin/verkoop/instellingen": ("sales.manage", "sales.manage"),
+    # CR-21 R15/R16: the change form of an order is a change, to look and to act.
+    "/admin/verkoop/{order_id}/wijzigen": ("sales.manage", "sales.manage"),
     "/admin/betalingen": ("payment.view", "payment.manage"),
     "/admin/rapporten": ("report.view", "report.manage"),
     "/admin/rapporten/raakje": ("assistant.use", "assistant.use"),

@@ -530,6 +530,10 @@
    "platform": "OPERATOR",
    "tenant": "OPERATOR"
   },
+  "GET /admin/verkoop/{order_id}/wijzigen": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
   "GET /admin/voorraad": {
    "platform": "OPERATOR",
    "tenant": "OPERATOR"
@@ -1371,6 +1375,14 @@
    "tenant": "OPERATOR"
   },
   "POST /admin/verkoop/{order_id}/lijn/{line_id}/leveren": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/verkoop/{order_id}/wijzigen": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/verkoop/{order_id}/wijzigen/maten": {
    "platform": "OPERATOR",
    "tenant": "OPERATOR"
   },

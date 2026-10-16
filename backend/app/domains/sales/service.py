@@ -592,6 +592,20 @@ def order_by_secret_key(db: Session, secret_key: str):
     return db.query(SalesOrder).filter(SalesOrder.secret_key == secret_key).first()
 
 
+def order_person_email(db: Session, order) -> str:
+    """The e-mail the order's person signs in with, or "" — for the board's change
+    form, which prices the lines as that person."""
+    from app.domains.mdm.api import CONTACT, Person
+
+    if order.person_id is None:
+        return ""
+    person = db.get(Person, order.person_id)
+    if person is None:
+        return ""
+    email = person.primary_contact(CONTACT.EMAIL)
+    return email.value if email else ""
+
+
 def orders_of_person(db: Session, person_id: int):
     """The orders of a person, newest first (AC13, W26)."""
     from app.domains.sales.models import SalesOrder
@@ -795,6 +809,99 @@ def cancel_order(db: Session, order_id: int, *, actor: str | None) -> None:
         call(ReleaseStock(order_line_id=line.id), db)
     soft_delete(order)
     publish(SalesOrderChanged(order_id=order.id, total_due="0", actor=actor), db)
+    db.commit()
+
+
+def change_order_lines(
+    db: Session, order_id: int, items: list[tuple[int, int]], *, actor: str | None
+) -> None:
+    """Replace the order's lines (R15, R16, F7): the old reservations are released
+    first, then the new lines reserved at today's price — in one savepoint, so a
+    change that keeps the order's own last unit is not refused for it, and a refusal
+    leaves the old lines exactly as they were. A delivered line refuses the change
+    (a return is by hand, R25). `SalesOrderChanged` lets payment recalculate."""
+    from app.domains.mdm.api import Person
+    from app.domains.membership.api import has_valid_membership
+    from app.domains.sales.models import SalesOrder, SalesOrderLine
+    from app.domains.stock.api import NotEnoughStock
+    from app.i18n import _
+    from app.kernel.contracts.sales import SalesOrderChanged
+    from app.kernel.contracts.stock import ReleaseStock, ReserveStock
+    from app.kernel.events import publish
+    from app.kernel.ports import call
+    from app.kernel.tenant_config import tenant_max_item_quantity
+    from app.soft_delete import soft_delete
+
+    order = db.query(SalesOrder).filter(SalesOrder.id == order_id).one_or_none()
+    if order is None:
+        raise SalesError(_("Deze bestelling bestaat niet."))
+    if any(line.delivered_at is not None for line in order.lines):
+        raise SalesError(_("Een geleverde bestelling kan niet gewijzigd worden."))
+
+    items = sorted(items, key=lambda item: item[0])
+    if not items:
+        raise SalesError(_("Je mandje is leeg."))
+    max_quantity = tenant_max_item_quantity(db)
+    today = belgian_today()
+    member = False
+    if order.person_id is not None:
+        person = db.get(Person, order.person_id)
+        member = has_valid_membership(person, today) if person is not None else False
+
+    savepoint = db.begin_nested()
+    try:
+        for line in order.lines:
+            call(ReleaseStock(order_line_id=line.id), db)
+            soft_delete(line)
+        for variant_id, quantity in items:
+            if quantity < 1 or quantity > max_quantity:
+                raise SalesError(
+                    _("Ongeldig aantal: kies een waarde tussen 1 en %(max)s.")
+                    % {"max": max_quantity}
+                )
+            variant = get_variant(db, variant_id)
+            if variant is None:
+                raise SalesError(_("Dit artikel wordt niet meer aangeboden."))
+            product = get_product_in_tenant(db, variant.product_id)
+            if product is None or product.status is not ProductStatus.ON_SALE:
+                raise SalesError(_("Dit artikel wordt niet meer aangeboden."))
+            price = price_for(db, variant_id, today, member)
+            if price is None:
+                raise SalesError(_("Dit artikel wordt niet meer aangeboden."))
+            refusal = _stock_refusal(db, product, variant_id, quantity, today)
+            if refusal is not None:
+                raise SalesError(refusal)
+            open_window, _until = pre_order_window(product, today)
+            line = SalesOrderLine(
+                order_id=order.id,
+                variant_id=variant_id,
+                quantity=quantity,
+                unit_price=price,
+            )
+            db.add(line)
+            db.flush()
+            try:
+                call(
+                    ReserveStock(
+                        order_line_id=line.id,
+                        variant_id=variant_id,
+                        quantity=quantity,
+                        allow_short=open_window,
+                    ),
+                    db,
+                )
+            except NotEnoughStock as exc:
+                raise SalesError(_("Niet genoeg voorraad.")) from exc
+    except Exception:
+        savepoint.rollback()
+        raise
+    savepoint.commit()
+
+    db.expire(order, ["lines"])
+    publish(
+        SalesOrderChanged(order_id=order.id, total_due=str(total_of(order)), actor=actor),
+        db,
+    )
     db.commit()
 
 
