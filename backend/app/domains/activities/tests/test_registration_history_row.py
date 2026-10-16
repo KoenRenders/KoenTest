@@ -7,6 +7,10 @@ this test was written and run green on the code BEFORE the move (audit's writer)
 and must stay green after it — the same columns, the same values, the same action
 code, one row for one real change and none for a save without one. The only
 difference after the move is the new `answers` column, empty on such a row.
+
+#1885 (16 October 2026): the row is written by the one snapshot and carries every
+logged column of the registration; the recorded columns keep their values, and
+the two secrets (`answer_token`, `submission_key`) are not in it.
 """
 
 from __future__ import annotations
@@ -70,6 +74,16 @@ def test_a_correction_writes_the_row_it_always_wrote(db_session):
             "contact_email": "rij@example.com",
             "phone": "0470111111",
             "remarks": "Komt later",
+            # #1885: the one snapshot copies every logged column (migration 215);
+            # the columns above keep the values they always had.
+            "activity_id": activity.id,
+            "person_id": None,
+            "registered_at": registration.registered_at,
+            "registration_type": "INDIVIDUAL",
+            "team_name": None,
+            "payment_method": None,
+            "component_id": component.id,
+            "form_submission_id": None,
             "operation": "update",
             "action": "registration_contact_updated",
             "source": "admin_manual",
@@ -78,3 +92,7 @@ def test_a_correction_writes_the_row_it_always_wrote(db_session):
     ]
     [row] = db_session.query(RegistrationHistory).filter_by(registration_id=registration.id)
     assert row.answers is None
+    # The two secrets are no column of the history table (Koen, 16 October 2026, "3a").
+    assert {"answer_token", "submission_key"}.isdisjoint(
+        RegistrationHistory.__table__.columns.keys()
+    )

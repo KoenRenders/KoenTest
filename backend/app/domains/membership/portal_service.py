@@ -16,7 +16,6 @@ De member_id wordt server-side afgeleid uit het JWT, nooit uit de request.
 """
 
 import logging
-from datetime import date
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -30,6 +29,7 @@ from app.domains.mdm.api import (
     person_payload,
 )
 from app.i18n import _
+from app.kernel.clock import belgian_today
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +119,7 @@ def renew_membership(
     )
     source = "admin_manual" if by else "member_self"
 
-    today = date.today()
+    today = belgian_today()
 
     # Controleer of de hernieuwingscampagne open is.
     # Hernieuwingsvenster-regel op één plek (§19.3): membership-facade.

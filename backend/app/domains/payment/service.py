@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.domains.mdm.api import PaymentMethod
 from app.domains.payment.history import snapshot_payment_record
+from app.kernel.clock import belgian_today
 from app.kernel.codes import code_of
 
 from .models import PayableType, PaymentError, PaymentRecord, PaymentStatus, PaymentType
@@ -37,7 +38,7 @@ def membership_price_for_date(today: Optional[date] = None) -> Decimal:
 
     conf = tenant_membership_config()
     if today is None:
-        today = date.today()
+        today = belgian_today()
     half_start = _parse_md(conf["half_start_md"], today.year)
     half_end = _parse_md(conf["half_end_md"], today.year)
     if half_start <= today <= half_end:
@@ -55,7 +56,7 @@ def membership_valid_period(paid_at: Optional[date] = None) -> Tuple[date, date]
     from app.kernel.tenant_config import tenant_membership_config
 
     if paid_at is None:
-        paid_at = date.today()
+        paid_at = belgian_today()
     next_year_cutoff = _parse_md(tenant_membership_config()["next_year_from_md"], paid_at.year)
     valid_from = paid_at
     if paid_at >= next_year_cutoff:

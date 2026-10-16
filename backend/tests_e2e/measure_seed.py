@@ -125,6 +125,9 @@ def _sections_page(db) -> None:
 def main() -> None:
     if os.environ.get("E2E_SEED") != "1":
         sys.exit("measure_seed: refused, set E2E_SEED=1 to make this data")
+    # The route table: a page's address is checked against it (#2061, as a
+    # tenant code is since #1951), and only `app.main` registers it.
+    import app.main  # noqa: F401
     import app.models  # noqa: F401  load every table
     from app.database import SessionLocal
     from app.domains.activities.api import Activity, ActivityDate, ActivitySubRegistration

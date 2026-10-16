@@ -26,6 +26,7 @@ from jinja2 import (
 )
 
 from app.config import settings
+from app.kernel.clock import belgian_today
 from app.kernel.phone import readable_phone
 from app.kernel.refusals import as_refusal
 
@@ -230,15 +231,20 @@ templates.env.filters["relatielabel"] = _relatielabel
 # Sinds #595 levert dit `data-confirm` i.p.v. `hx-confirm`: het native browser-
 # confirm() is verbannen (lint-gate). De globale `htmx:confirm`-handler in
 # ui.confirm_host() ziet `data-confirm` en toont de in-app bevestig-modal.
+def delete_question(type_label, name, *, esc=str) -> str:
+    """The question of a real delete: «<Type> "<naam>" definitief verwijderen?» — one
+    sentence for a button (`confirm_attrs`) and for a row menu's delete item (#1925).
+    `esc` is applied to each part, not to the sentence: the attribute escapes the
+    type and the name and keeps the quotes around the name as they are."""
+    from app.i18n import _
+
+    return f'{esc(type_label)} "{esc(name)}" {esc(_("definitief verwijderen?"))}'
+
+
 def _confirm_attrs(type_label, name) -> str:
     from markupsafe import escape
 
-    from app.i18n import _
-
-    return (
-        f'data-confirm=\'{escape(type_label)} "{escape(name)}" '
-        f"{escape(_('definitief verwijderen?'))}'"
-    )
+    return f"data-confirm='{delete_question(type_label, name, esc=escape)}'"
 
 
 templates.env.globals["confirm_attrs"] = _confirm_attrs
@@ -1363,8 +1369,6 @@ def site_context(db, request=None) -> dict:
     """Gedeelde context van de SiteShell (site_base.html): navigatie-pagina's,
     de voet (nieuwsbrief, sociale links, sponsors, de juridische regel). Eén
     plek, elke publieke route neemt hem mee."""
-    from datetime import date
-
     from app.domains.auth.api import csrf_from_request
     from app.domains.cms.api import CmsPage, menu_tree
     from app.domains.mdm.api import Organization, OrganizationType, TenantKind, module_enabled
@@ -1466,7 +1470,7 @@ def site_context(db, request=None) -> dict:
         "sponsors": [
             {"title": s.title, "link_url": s.link_url, "url": media_url(s.id)} for s in sponsors
         ],
-        "current_year": date.today().year,
+        "current_year": belgian_today().year,
         # CR-19 (#1477): and only with the chatbot module on for this tenant —
         # the bubble would otherwise post to a route that answers 404. #1568: and
         # with the tenant's own switch for the public site on; one rule

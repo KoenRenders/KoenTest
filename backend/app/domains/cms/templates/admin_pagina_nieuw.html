@@ -11,6 +11,7 @@
     <form class="space-y-3" hx-post="/admin/paginas">
       {# Golf 6, kop-herziening: alles bovenaan. #}
       {{ ui.action_bar(cancel_href="/admin/paginas") }}
+      <div id="pagina-nieuw-melding" data-form-message></div>
       <div>{{ ui.label(_("Titel"), "title", required=True) }}
         <input name="title" id="title" required class="w-full"></div>
       <div>{{ ui.label(_("Slug"), "slug", required=True) }}

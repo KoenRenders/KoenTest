@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from app.domains.mdm.codes import CONTACT
 from app.domains.mdm.models import Person, PersonHistory, RelationType
 from app.i18n import _
+from app.kernel.clock import belgian_today
 from app.kernel.codes import code_of
 from app.kernel.contracts.mdm import EmailAddressAdded, EntityMerged
 from app.kernel.events import has_subscribers, publish
@@ -485,7 +486,7 @@ def organization_circle(
     from app.domains.mdm.models import OrganizationPerson, Person
 
     if on_day is None:
-        on_day = date.today()
+        on_day = belgian_today()
     rows = (
         db.query(OrganizationPerson, Person)
         .join(Person, Person.id == OrganizationPerson.person_id)
@@ -539,7 +540,7 @@ def add_to_circle(
         person_id=person_id,
         organization_id=organization_id,
         relation_type=relation_type,
-        start_date=on_day or date.today(),
+        start_date=on_day or belgian_today(),
     )
     db.add(relation)
     db.commit()
@@ -588,7 +589,7 @@ def end_circle_relation(db: Session, relation_id: int, on_day: Optional[date] = 
     relation = db.get(OrganizationPerson, relation_id)
     if relation is None:
         return
-    end = on_day or date.today()
+    end = on_day or belgian_today()
     # #1346: a start can lie in the future now. Taking such a person out ends the
     # relation on its start: it never counted, and the end may not precede it.
     if relation.start_date is not None and relation.start_date > end:
@@ -1820,6 +1821,7 @@ def create_person_for_circle(
     organization_id: int,
     relation_type: str = BOARD_MEETING,
     on_day: Optional[date] = None,
+    actor: Optional[str] = None,
 ):
     """Een persoon aanmaken die aan de organisatie hangt en aan géén gezin (#939).
 
@@ -1848,11 +1850,27 @@ def create_person_for_circle(
     # household, so any holder of this address refuses him — and the caller is
     # left with nothing half-written to undo.
     require_email_free(db, None, email)
+    from app.domains.mdm.history import snapshot_contact_detail, snapshot_person
+
     person = Person(first_name=first_name, last_name=last_name)
     db.add(person)
     db.flush()
+    # #1885: a person made here is logged as one made anywhere else.
+    snapshot_person(
+        db, person, operation="insert", action="person_created", source="admin_manual", actor=actor
+    )
     if email:
-        db.add(new_contact_detail(db, person, CONTACT.EMAIL, email, is_primary=True))
+        detail = new_contact_detail(db, person, CONTACT.EMAIL, email, is_primary=True)
+        db.add(detail)
+        db.flush()
+        snapshot_contact_detail(
+            db,
+            detail,
+            operation="insert",
+            action="contact_added",
+            source="admin_manual",
+            actor=actor,
+        )
         db.flush()
     add_to_circle(
         db, person.id, organization_id=organization_id, relation_type=relation_type, on_day=on_day
@@ -1878,7 +1896,12 @@ def delete_person(db: Session, person: Person, *, actor: Optional[str]) -> None:
     Does not commit — the door that calls it does, once (CR-13 §B9.3); a
     refusal (`MasterDataError`) leaves nothing written.
     """
-    from app.domains.mdm.history import snapshot_address, snapshot_contact_detail, snapshot_person
+    from app.domains.mdm.history import (
+        snapshot_address,
+        snapshot_contact_detail,
+        snapshot_external_number,
+        snapshot_person,
+    )
     from app.domains.mdm.household_service import detach_household_person
     from app.soft_delete import soft_delete
 
@@ -1895,6 +1918,7 @@ def delete_person(db: Session, person: Person, *, actor: Optional[str]) -> None:
         snapshot_contact_detail(db, contact, actor=actor, **history)
         soft_delete(contact)
     for number in person.external_numbers:
+        snapshot_external_number(db, number, actor=actor, **history)
         soft_delete(number)
     if person.address:
         snapshot_address(db, person.address, actor=actor, **history)

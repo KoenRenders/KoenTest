@@ -1068,14 +1068,19 @@ def test_bestelling_toevoegen_hangs_on_the_typed_person_and_his_member_price(
 
     member, person = create_test_family(db_session, email="lid@example.com")
     today = date.today()
-    db_session.add(
-        Membership(
-            member_id=member.id,
-            year=today.year,
-            is_active=True,
-            valid_from=date(today.year, 1, 1),
-            valid_to=date(today.year, 12, 31),
-        )
+    membership = Membership(
+        member_id=member.id,
+        year=today.year,
+        is_active=True,
+        valid_from=date(today.year, 1, 1),
+        valid_to=date(today.year, 12, 31),
+    )
+    db_session.add(membership)
+    db_session.flush()
+    from app.domains.membership.history import snapshot_membership
+
+    snapshot_membership(
+        db_session, membership, operation="insert", action="membership_imported", source="test"
     )
     product = create_product(db_session, "T-shirt")
     set_status(db_session, product.id, ProductStatus.ON_SALE)

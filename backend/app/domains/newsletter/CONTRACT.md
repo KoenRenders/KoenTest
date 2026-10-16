@@ -32,6 +32,8 @@ and a send of one mail per recipient in a queue under a daily cap.
   (`letter_markup.py`: `[[activiteit:…]]`, `[[kalender]]`, `[[afsluiting]]`),
   `render_body` builds the mail's body from the blocks (`mail_blocks`),
   `letter_is_blank` says whether there is anything to send.
+- **Counting (CR-37, #2027):** `record_open`, `record_click`, `results_of` (and `PIXEL_GIF`,
+  `LetterResult`, `LinkResult`); the code, the rewriting and the store live in `tracking.py`.
 - **Content helpers:** `activity_facts`, `activity_line_html`, `calendar_html`,
   `closing_html`, `insertable_activities`.
 - **Sending:** `render_test` (a read: the test mail rendered; the door hands it
@@ -115,7 +117,7 @@ skips it. Only a `confirmed` subscriber gets a delivery.
 
 ## Screens
 
-`ui.py`: 7 routes under `/nieuwsbrief` (sign up, confirm, unsubscribe, subscribe again); `admin_ui.py`: 31 routes under `/admin/nieuwsbrieven`.
+`ui.py`: 9 routes under `/nieuwsbrief` (sign up, confirm, unsubscribe, subscribe again, and the two that count — the pixel `/nieuwsbrief/o/<code>.gif`, called by a reader's mail program, and the click `/nieuwsbrief/k/<code>/<link>`, called by a reader's browser); `admin_ui.py`: 31 routes under `/admin/nieuwsbrieven`.
 
 ## Deprecations
 
@@ -144,6 +146,18 @@ None: no row of part D of the architecture document names this module, and its `
   its mail left.
 - **Confirming and unsubscribing act on a POST,** never on opening the link —
   mail scanners open links.
+- **A letter is counted without knowing who** (CR-37). Each real mail carries one code made
+  while it is rendered and stored nowhere; an event holds the letter, the code, the link and the
+  *day* — no address, delivery, IP, device or time of day (a gate lists the columns). The
+  test mail and the preview carry no code. The unsubscribe link is never counted or changed.
+  "Nobody is tracked" holds for the portal's tables and its e-mail log (90 days): the Sent
+  folder of the mailbox the portal sends from keeps every mail with its code and its recipient,
+  and so does every recipient's own mailbox.
+  The click forwards only to an address stored for that letter. Operations: a link of a
+  sent letter points at the portal's address, so it fails while the portal is down; the
+  code is signed with a key derived from the portal's secret, so **rotating that secret
+  ends the counting of late opens and clicks of letters sent before** (nothing else here
+  depends on it); the e-mail log keeps a mail with its codes for 90 days.
 - **Raakje proposes, never acts:** no tool sends, nothing reaches the editor
   without "Toepassen", nothing outbound carries a known name or a recipient
   address, and a marked sentence is left out unless the author keeps it.

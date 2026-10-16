@@ -36,7 +36,7 @@ def test_a_label_and_an_attribute_together_are_refused():
 
 def test_an_attribute_without_a_label_or_without_an_entry_is_refused():
     with pytest.raises(ValueError, match="no label"):
-        _render('attribute="activities.activity.slug"')  # an entry no screen has a label for
+        _render('attribute="activities.activity_organiser.email_override"')  # no label yet
     with pytest.raises(LookupError, match="known keys"):
         _render('attribute="mdm.person.nothing"')
 

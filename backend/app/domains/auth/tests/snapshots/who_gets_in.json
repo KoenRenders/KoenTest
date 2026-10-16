@@ -706,6 +706,14 @@
    "platform": "everyone",
    "tenant": "everyone"
   },
+  "GET /nieuwsbrief/k/{code}/{link_id}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /nieuwsbrief/o/{name}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
   "GET /nieuwsbrief/uitschrijven/d/{link}": {
    "platform": "everyone",
    "tenant": "everyone"

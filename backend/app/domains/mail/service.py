@@ -11,6 +11,7 @@ from app.domains.activities.api import compute_registration_total
 from app.domains.mail.models import MailStatus
 from app.i18n import _
 from app.kernel.attributes import attribute
+from app.kernel.clock import belgian_today
 from app.kernel.codes import code_label, code_of
 from app.kernel.phone import readable_phone
 from app.kernel.rules import own_transaction
@@ -848,9 +849,8 @@ def activity_confirmation_message(
     confirmation's subject — the reminder of the answer link."""
     activity_name = escape(activity.name)
     subject = subject or _("Inschrijving bevestigd: %(name)s") % {"name": activity_name}
-    from datetime import date as _date
 
-    today = _date.today()
+    today = belgian_today()
     all_dates = sorted(activity.dates, key=lambda d: d.start_date) if activity.dates else []
     relevant = next(
         (d for d in all_dates if (d.end_date or d.start_date) >= today),

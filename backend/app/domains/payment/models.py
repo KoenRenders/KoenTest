@@ -418,3 +418,5 @@ class PaymentRecordHistory(TenantMixin, Base):
     gateway_payment_id = Column(String(36), nullable=True)
     note = Column(String(200), nullable=True)
     paid_at = Column(DateTime(timezone=True), nullable=True)
+    # #1885 (migration 215).
+    structured_communication = Column(String(20), nullable=True)

@@ -6,6 +6,12 @@ Moved here unchanged from `audit/service.py` (CR-13 phase 4c, #1251). A helper
 only adds the row and never commits: the history row is committed in the same
 transaction as the change it records. Call it before the caller's commit, and
 before a delete, while the source can still be read.
+
+#1885: what is logged is declared here, beside the history models, and the
+row is written by the one snapshot (`kernel.logged.snapshot`) — every column of
+the object but the technical moments. The registration's two secrets are not
+logged (Koen, 16 October 2026, "3a, de sleutel moet niet in wijzigingen terecht
+komen"): whoever reads Wijzigingen must not be able to answer for somebody else.
 """
 
 from typing import Optional
@@ -21,8 +27,37 @@ from app.domains.activities.models import (
     ActivitySubRegistration,
     ComponentHistory,
     ProductHistory,
+    Registration,
+    RegistrationHistory,
     RegistrationItem,
     RegistrationItemHistory,
+)
+from app.kernel.logged import declare, snapshot
+
+declare(Activity, ActivityHistory, key="activity_id")
+declare(ActivityDate, ActivityDateHistory, key="activity_date_id")
+_ORDER = (
+    "its place in the list of the activity's record: a reorder writes no hi"
+    "story (#1559), the order is the record's, not a fact of the row"
+)
+declare(
+    ActivitySubRegistration,
+    ComponentHistory,
+    key="component_id",
+    not_logged={"sort_order": _ORDER},
+)
+declare(ActivityProduct, ProductHistory, key="product_id", not_logged={"sort_order": _ORDER})
+declare(RegistrationItem, RegistrationItemHistory, key="registration_item_id")
+declare(
+    Registration,
+    RegistrationHistory,
+    key="registration_id",
+    not_logged={
+        "answer_token": "a secret: the link that answers for this registration (Koen, "
+        "16 October 2026, 3a)",
+        "submission_key": "a secret: the random part of the form's token it came from "
+        "(#1987), of the same kind as the answer link's",
+    },
 )
 
 
@@ -35,17 +70,14 @@ def snapshot_registration_item(
     source: str,
     actor: Optional[str] = None,
 ) -> None:
-    db.add(
-        RegistrationItemHistory(
-            registration_item_id=item.id,
-            registration_id=item.registration_id,
-            product_id=item.product_id,
-            quantity=item.quantity,
-            operation=operation,
-            action=action,
-            source=source,
-            actor=actor,
-        )
+    snapshot(
+        db,
+        item,
+        operation=operation,
+        action=action,
+        source=source,
+        actor=actor,
+        model=RegistrationItem,
     )
 
 
@@ -58,15 +90,8 @@ def snapshot_activity(
     source: str,
     actor: Optional[str] = None,
 ) -> None:
-    db.add(
-        ActivityHistory(
-            activity_id=activity.id,
-            name=activity.name,
-            operation=operation,
-            action=action,
-            source=source,
-            actor=actor,
-        )
+    snapshot(
+        db, activity, operation=operation, action=action, source=source, actor=actor, model=Activity
     )
 
 
@@ -79,17 +104,8 @@ def snapshot_activity_date(
     source: str,
     actor: Optional[str] = None,
 ) -> None:
-    db.add(
-        ActivityDateHistory(
-            activity_date_id=ad.id,
-            activity_id=ad.activity_id,
-            start_date=ad.start_date,
-            end_date=ad.end_date,
-            operation=operation,
-            action=action,
-            source=source,
-            actor=actor,
-        )
+    snapshot(
+        db, ad, operation=operation, action=action, source=source, actor=actor, model=ActivityDate
     )
 
 
@@ -102,18 +118,14 @@ def snapshot_component(
     source: str,
     actor: Optional[str] = None,
 ) -> None:
-    db.add(
-        ComponentHistory(
-            component_id=comp.id,
-            activity_id=comp.activity_id,
-            name=comp.name,
-            price=comp.price,
-            member_price=comp.member_price,
-            operation=operation,
-            action=action,
-            source=source,
-            actor=actor,
-        )
+    snapshot(
+        db,
+        comp,
+        operation=operation,
+        action=action,
+        source=source,
+        actor=actor,
+        model=ActivitySubRegistration,
     )
 
 
@@ -126,16 +138,12 @@ def snapshot_product(
     source: str,
     actor: Optional[str] = None,
 ) -> None:
-    db.add(
-        ProductHistory(
-            product_id=product.id,
-            component_id=product.component_id,
-            name=product.name,
-            price=product.price,
-            member_price=product.member_price,
-            operation=operation,
-            action=action,
-            source=source,
-            actor=actor,
-        )
+    snapshot(
+        db,
+        product,
+        operation=operation,
+        action=action,
+        source=source,
+        actor=actor,
+        model=ActivityProduct,
     )

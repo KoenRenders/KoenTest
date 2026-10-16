@@ -296,6 +296,8 @@ class Outcome:
     transfer_amount: Any = 0
     #: The guard did not take the form (`REFUSED`): the answer carries a fresh token for it (#2039).
     fresh_guard: bool = False
+    #: The answer is an earlier registration of the same shown form (#2079): the page says so.
+    repeated: bool = False
 
 
 def answered_again(db: Session, registration: Any) -> Outcome:
@@ -324,14 +326,18 @@ def answered_again(db: Session, registration: Any) -> Outcome:
                     checkout_url=url,
                     registration_id=registration.id,
                     name=name,
+                    repeated=True,
                 )
-        return Outcome(kind=OutcomeKind.DONE, registration_id=registration.id, name=name)
+        return Outcome(
+            kind=OutcomeKind.DONE, registration_id=registration.id, name=name, repeated=True
+        )
     total, _lines = compute_registration_total(registration)
     return Outcome(
         kind=OutcomeKind.DONE,
         registration_id=registration.id,
         name=name,
         transfer_amount=total if registration.payment_method is not None else 0,
+        repeated=True,
     )
 
 

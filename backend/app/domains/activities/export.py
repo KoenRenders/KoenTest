@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Tuple
 
 from app.domains.activities.totals import compute_registration_total
 from app.i18n import _
+from app.kernel.clock import belgian_day
 from app.kernel.codes import code_label
 from app.kernel.ods import build_ods_multi
 
@@ -109,7 +110,7 @@ def _payments_sheet(db: Session, registrations: list[Registration]) -> dict:
                     float(amount),
                     float(paid),
                     float(amount - paid),
-                    r.paid_at.date().isoformat() if r.paid_at else "",
+                    belgian_day(r.paid_at).isoformat() if r.paid_at else "",
                     r.note or "",
                 ]
             )

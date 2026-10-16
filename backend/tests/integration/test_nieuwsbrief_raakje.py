@@ -1149,6 +1149,7 @@ def test_een_eerdere_brief_met_een_gewoon_woord_vooraan_een_regel_houdt_niets_te
     """
     db_session.add(Person(first_name="Lode", last_name="Neven"))
     db_session.add(Person(first_name="Nels", last_name="Tom"))
+    db_session.flush()  # the seed is the test's own write, before the app commits (#1885 gate 2)
     old = nb.create_newsletter(db_session, created_by="s@example.org")
     nb.update_draft(
         db_session,

@@ -32,6 +32,14 @@ def belgian_now(now: datetime | None = None) -> datetime:
     return moment.astimezone(BELGIUM)
 
 
+def belgian_day(moment: datetime) -> date:
+    """The Brussels day a moment belongs to (#2065): the one place that decides
+    which day a payment or a registration falls on. A naive moment is refused."""
+    if moment.tzinfo is None:
+        raise ValueError("belgian_day() needs a timezone-aware datetime")
+    return moment.astimezone(BELGIUM).date()
+
+
 def belgian_today(now: datetime | None = None) -> date:
     """Today's date in Brussels.
 

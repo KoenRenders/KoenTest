@@ -159,6 +159,7 @@ register_describer(PayableType.REGISTRATION, registration_describer())
 register_describer(PayableType.MEMBERSHIP, membership_describer())
 register_describer(PayableType.ORDER, order_describer())
 
+
 app = FastAPI(
     lifespan=_lifespan,
     title="Raak Millegem API",

@@ -53,6 +53,7 @@ from app.domains.reporting.api import (
     build_member_changes_ods,
     member_changes_since,
 )
+from app.kernel.tenancy import TENANT_MILLEGEM_ID
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -568,8 +569,47 @@ EXPECTED: dict[str, object] = {
 }
 
 
+#: #1885: the history tables gained every column of their models, so a source
+#: carries those columns too — at values that change nothing this report shows.
+#: A source reads only the attributes its model declares; the rest go unused.
+NEW_COLUMNS = {
+    "tenant_id": TENANT_MILLEGEM_ID,
+    "superseded_by_id": None,
+    "organization_id": None,
+    "slug": None,
+    "location": None,
+    "description": None,
+    "poster_url": None,
+    "is_cancelled": False,
+    "members_only": False,
+    "board_notes": None,
+    "status": "published",
+    "target_audience": None,
+    "copied_from_id": None,
+    "start_time": None,
+    "end_time": None,
+    "external_register_url": None,
+    "external_registrations_url": None,
+    "info_url": None,
+    "registration_type_code": "INDIVIDUAL",
+    "max_participants": None,
+    "registration_closes_on": None,
+    "is_free": False,
+    "team_name_required": False,
+    "form_id": None,
+    "sort_order": 0,
+    "pay_on_site": False,
+    "is_active": True,
+    "structured_communication": None,
+}
+
+
+def _source(**values) -> SimpleNamespace:
+    return SimpleNamespace(**{**NEW_COLUMNS, **values})
+
+
 def _person(first_name: str) -> SimpleNamespace:
-    return SimpleNamespace(
+    return _source(
         id=886_001,
         last_name="Voorbeeld",
         first_name=first_name,
@@ -579,7 +619,7 @@ def _person(first_name: str) -> SimpleNamespace:
 
 
 def _address(street: str) -> SimpleNamespace:
-    return SimpleNamespace(
+    return _source(
         id=886_004,
         person_id=886_001,
         street=street,
@@ -590,7 +630,7 @@ def _address(street: str) -> SimpleNamespace:
 
 
 def _contact(value: str) -> SimpleNamespace:
-    return SimpleNamespace(
+    return _source(
         id=886_006,
         person_id=886_001,
         contact_type_code=CONTACT.EMAIL,
@@ -605,13 +645,13 @@ WRITES = [
     (snapshot_person, _person("Anna"), "update", "person_updated"),
     (
         snapshot_member,
-        SimpleNamespace(id=886_002, board_member_id=None),
+        _source(id=886_002, board_member_id=None),
         "insert",
         "member_created",
     ),
     (
         snapshot_member_person,
-        SimpleNamespace(
+        _source(
             id=886_003,
             member_id=886_002,
             person_id=886_001,
@@ -626,7 +666,7 @@ WRITES = [
     (snapshot_contact_detail, _contact("anna@example.org"), "update", "contact_updated"),
     (
         snapshot_membership,
-        SimpleNamespace(
+        _source(
             id=886_007,
             member_id=886_002,
             year=2099,
@@ -639,13 +679,13 @@ WRITES = [
     ),
     (
         snapshot_activity,
-        SimpleNamespace(id=886_010, name="Quiz night"),
+        _source(id=886_010, name="Quiz night"),
         "insert",
         "activity_created",
     ),
     (
         snapshot_activity_date,
-        SimpleNamespace(
+        _source(
             id=886_011,
             activity_id=886_010,
             start_date=date(2099, 3, 14),
@@ -656,7 +696,7 @@ WRITES = [
     ),
     (
         snapshot_component,
-        SimpleNamespace(
+        _source(
             id=886_012,
             activity_id=886_010,
             name="Evening part",
@@ -668,7 +708,7 @@ WRITES = [
     ),
     (
         snapshot_product,
-        SimpleNamespace(
+        _source(
             id=886_013, component_id=886_012, name="Adult", price=Decimal("8.00"), member_price=None
         ),
         "delete",
@@ -676,13 +716,13 @@ WRITES = [
     ),
     (
         snapshot_registration_item,
-        SimpleNamespace(id=886_014, registration_id=886_015, product_id=886_013, quantity=3),
+        _source(id=886_014, registration_id=886_015, product_id=886_013, quantity=3),
         "insert",
         "registration_item_added",
     ),
     (
         snapshot_payment_record,
-        SimpleNamespace(
+        _source(
             id="00000000-0000-4000-8000-000000000886",
             payable_type="registration",
             payable_id=886_015,

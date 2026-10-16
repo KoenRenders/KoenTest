@@ -19,6 +19,7 @@ from decimal import Decimal
 from app.domains.payment.api import PayableType, PaymentRecord
 from app.domains.payment.describers import describe_many, describer, in_filter_context
 from app.kernel.attributes import attribute
+from app.kernel.clock import belgian_day
 from app.kernel.codes import code_label
 from app.kernel.ods import build_ods
 
@@ -106,7 +107,7 @@ def build_payments_export_ods(
                 float(amount),
                 float(paid),
                 float(amount - paid),
-                r.paid_at.date().isoformat() if r.paid_at else "",
+                belgian_day(r.paid_at).isoformat() if r.paid_at else "",
                 r.note or "",
             ]
         )

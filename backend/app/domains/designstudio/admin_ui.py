@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import replace
-from datetime import date
 from typing import Optional
 
 from fastapi import (
@@ -93,6 +92,7 @@ from app.domains.designstudio.viewmodels import (
     VersionRow,
 )
 from app.i18n import _, short_datetime
+from app.kernel.clock import belgian_today
 from app.kernel.codes import code_label, code_labels, code_of, register_tones, tone
 from app.ui import admin_nav, is_fragment_request, templates
 
@@ -406,7 +406,7 @@ def _editor_view(
             ("third_image_id", design.third_image_id),
         )
     }
-    year = date.today().year
+    year = belgian_today().year
     logos = [
         ImageOption(
             id=m["id"],

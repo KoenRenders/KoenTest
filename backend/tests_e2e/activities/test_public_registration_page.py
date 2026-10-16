@@ -333,3 +333,40 @@ def _registrations_named(name: str) -> int:
         return db.query(Registration).filter(Registration.contact_name == name).count()
     finally:
         db.close()
+
+
+def test_a_second_submission_of_the_shown_form_says_it_was_already_received(browser, setup):
+    """#2079: the form that is still on screen (a phone that went back to it) is sent
+    again with another name. It carries the first form's token, so the answer is the first
+    registration's thank-you with one sentence and a link to the form; nobody else is
+    registered. The first press shows no such sentence. Two pages stand for one page seen
+    twice: the second takes the first's signed token, as a restored page still holds it."""
+    first = _open(browser, setup["url"], 390, 844)
+    second = _open(browser, setup["url"], 390, 844)
+    token = first.input_value("input[name=form_ts]")
+    second.evaluate(
+        "(token) => { document.querySelector('input[name=form_ts]').value = token }", token
+    )
+    suffix = secrets.token_hex(2)
+    names = (f"Eerste {suffix}", f"Tweede {suffix}")
+    for page, name in zip((first, second), names):
+        page.fill("#contact_name", name)
+        page.fill("#contact_email", "twee-keer-e2e@example.org")
+        page.fill("#phone", "0470000000")
+        page.locator('input[name="payment_method"][value="transfer"]').check()
+        laat_de_wacht_passeren(page)
+    first.click("[data-form-save]")
+    expect(first.locator("[data-public-form-page][data-result] h1")).to_have_text(
+        "Je inschrijving is ontvangen"
+    )
+    assert first.locator("[data-already-received]").count() == 0
+    second.click("[data-form-save]")
+    sentence = second.locator("[data-already-received]")
+    expect(sentence).to_contain_text("Deze inschrijving was al ontvangen.")
+    expect(sentence.locator("a")).to_have_attribute("href", setup["url"])
+    expect(second.locator("[data-public-form-page][data-result]")).to_contain_text(names[0])
+    assert second.evaluate("() => document.documentElement.scrollWidth") <= 390
+    assert _registrations_named(names[0]) == 1
+    assert _registrations_named(names[1]) == 0, "the second person was registered"
+    first.close()
+    second.close()

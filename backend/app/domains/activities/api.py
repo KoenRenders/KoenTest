@@ -31,6 +31,10 @@ from app.domains.activities.codes import (  # noqa: F401
 )
 from app.domains.activities.export import build_component_export_ods  # noqa: F401
 from app.domains.activities.fiche import NEW_ACTIVITY_STATUS  # noqa: F401
+
+# #1885: what this domain logs is declared in its history module — imported with the
+# facade, so the declarations stand before the first request.
+from app.domains.activities.history import snapshot_activity  # noqa: F401
 from app.domains.activities.models import (  # noqa: F401
     Activity,
     ActivityDate,

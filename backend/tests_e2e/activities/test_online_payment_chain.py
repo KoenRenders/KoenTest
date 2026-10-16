@@ -209,6 +209,59 @@ def test_a_registration_is_paid_online(visitor, admin, paid_activity):
     )
 
 
+def test_a_second_submission_says_it_was_received_and_links_to_the_open_payment(
+    browser, paid_activity
+):
+    """#2079 (Koen, 16 October 2026: (b)): the form that is still on screen goes to the
+    provider on its first press; sent again with another name — it holds the first form's
+    token — the visitor stays on a thank-you that says it was already received and links to
+    the payment that is still open. The second person is not registered."""
+    activity_id, component_id, product_id = paid_activity
+    pages = []
+    for _ in range(2):
+        context = browser.new_context(base_url=BASE, viewport={"width": 390, "height": 844})
+        page = context.new_page()
+        open_registration(page, activity_id, component_id)
+        pages.append(page)
+    first, second = pages
+    second.evaluate(
+        "(t) => { document.querySelector('input[name=form_ts]').value = t }",
+        first.input_value("input[name=form_ts]"),
+    )
+    stamp = int(time.time() * 1000)
+    for page, name in ((first, f"Eerste {stamp}"), (second, f"Tweede {stamp}")):
+        page.fill("#contact_name", name)
+        page.fill("#contact_email", f"e2e+twice{stamp}@example.com")
+        page.fill("#phone", "0470000000")
+        page.fill(f'input[name="product_{product_id}"]', "1")
+        page.check('input[name="payment_method"][value="online"]')
+        laat_de_wacht_passeren(page)
+    first.locator("#inschrijf-pagina button[type=submit]").click()
+    payment_id = _at_the_checkout(first)
+    second.locator("#inschrijf-pagina button[type=submit]").click()
+    sentence = second.locator("[data-already-received]")
+    expect(sentence).to_contain_text("Deze inschrijving was al ontvangen.")
+    assert not CHECKOUT.search(second.url), "the repeat went to the payment on its own"
+    link = second.get_by_role("link", name="Betaling afronden")
+    link.click()
+    assert _at_the_checkout(second) == payment_id
+    assert _registered_named(f"Tweede {stamp}") == 0, "the second person was registered"
+    for page in pages:
+        page.context.close()
+
+
+def _registered_named(name: str) -> int:
+    import app.models  # noqa: F401
+    from app.database import SessionLocal
+    from app.domains.activities.api import Registration
+
+    db = SessionLocal()
+    try:
+        return db.query(Registration).filter(Registration.contact_name == name).count()
+    finally:
+        db.close()
+
+
 def _membership_line(admin, member_id: int) -> str:
     """The household's Lidmaatschapsjaren card on its record, one line (#1899: a
     year that waits for its payment says so; the year of today reads "Actief")."""

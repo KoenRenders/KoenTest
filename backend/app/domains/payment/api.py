@@ -25,6 +25,10 @@ from app.domains.payment.gateway_service import (  # noqa: F401
     create_payment,
     refresh_payment_status,
 )
+
+# #1885: what this domain logs is declared in its history module — imported with the
+# facade, so the declarations stand before the first request.
+from app.domains.payment.history import snapshot_payment_record  # noqa: F401
 from app.domains.payment.models import (  # noqa: F401
     GatewayPayment,
     PayableType,

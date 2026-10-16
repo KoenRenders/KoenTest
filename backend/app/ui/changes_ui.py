@@ -24,6 +24,7 @@ from app.domains.auth.api import (
     require_right,
 )
 from app.i18n import _
+from app.kernel.clock import belgian_today
 from app.ui import (
     PER_PAGE_OPTIONS,
     admin_nav,
@@ -42,7 +43,7 @@ def _since(value: str) -> date:
     try:
         return date.fromisoformat(value)
     except ValueError:
-        return date.today() - timedelta(days=30)
+        return belgian_today() - timedelta(days=30)
 
 
 # Sorteerbare kolommen (golf 3, #913): sleutel → veld van de feed-rij. De feed

@@ -110,6 +110,35 @@ def _migrate_schema():
     yield
 
 
+def pytest_sessionstart(session):
+    """#1885, gate 2 in report mode: each run starts with no findings of an earlier one."""
+    if not os.environ.get("PYTEST_XDIST_WORKER"):
+        import glob
+
+        for path in glob.glob("/tmp/logged_watch_*.txt"):
+            os.remove(path)
+
+
+def pytest_terminal_summary(terminalreporter):
+    """#1885, gate 2 in report mode: the writes that left no history row, at the
+    end of the run, so a CI log carries the measurement."""
+    import glob
+
+    from tests._logged_watch import PRINTED
+
+    if PRINTED["done"]:
+        return
+    PRINTED["done"] = True
+    lines = []
+    for path in sorted(glob.glob("/tmp/logged_watch_*.txt")):
+        with open(path, encoding="utf-8") as found:
+            lines.extend(line.rstrip() for line in found if line.strip())
+    if lines:
+        terminalreporter.section(f"logged watch (#1885): {len(lines)} writes without a history row")
+        for line in lines:
+            terminalreporter.write_line(f"LOGGED-WATCH {line}")
+
+
 def pytest_collection_modifyitems(config, items):
     """`TEST_SHUFFLE=<seed>` runs the suite in a shuffled order (CR-29 F3).
 
@@ -278,7 +307,7 @@ def _check_deferred_constraints(connection) -> None:
 
 
 @pytest.fixture
-def db_session(_migrate_schema):
+def db_session(_migrate_schema, request):
     """Een sessie met SAVEPOINT-isolatie die endpoint-commits overleeft."""
     connection = engine.connect()
     trans = connection.begin()
@@ -288,6 +317,12 @@ def db_session(_migrate_schema):
     # same request passed here and failed in the app.
     session = SessionLocal(bind=connection)
     session.begin_nested()
+    # #1885, gate 2: every write of a logged object leaves its history row.
+    from tests._logged_watch import Watch, attach, mode
+
+    watch = Watch(test=request.node.nodeid)
+    if mode() != "off":
+        attach(session, watch)
 
     @event.listens_for(session, "after_transaction_end")
     def _restart_savepoint(sess, transaction):
@@ -297,6 +332,14 @@ def db_session(_migrate_schema):
     yield session
 
     event.remove(session, "after_transaction_end", _restart_savepoint)
+    if mode() != "off":
+        watch.pending()
+        watch.check()
+        if watch.findings and mode() == "report":
+            worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
+            with open(f"/tmp/logged_watch_{worker}.txt", "a", encoding="utf-8") as out:
+                out.write("\n".join(watch.findings) + "\n")
+
     try:
         # Before the session closes: closing rolls its savepoint back, and then
         # there is nothing left to check.
@@ -305,6 +348,13 @@ def db_session(_migrate_schema):
         session.close()
         trans.rollback()
     connection.close()
+    if mode() == "fail" and watch.findings:
+        pytest.fail(
+            "a logged object was written without its history row — call its snapshot, "
+            "or declare why it is not logged (#1885, gate 2): "
+            + "; ".join(f.split(" | ", 1)[1] for f in watch.findings),
+            pytrace=False,
+        )
 
 
 @pytest.fixture

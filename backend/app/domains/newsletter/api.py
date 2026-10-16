@@ -130,6 +130,14 @@ from app.domains.newsletter.service import (  # noqa: F401
     unsubscribe_participant,
     update_draft,
 )
+from app.domains.newsletter.tracking import (  # noqa: F401
+    PIXEL_GIF,
+    LetterResult,
+    LinkResult,
+    record_click,
+    record_open,
+    results_of,
+)
 
 __all__ = [
     "AUDIENCE",

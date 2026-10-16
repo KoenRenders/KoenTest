@@ -20,6 +20,7 @@ from typing import Any, Optional
 from sqlalchemy.orm import Session
 
 from app.domains.payment.api import TransferDue
+from app.kernel.clock import belgian_today
 
 
 @dataclass(frozen=True)
@@ -108,7 +109,7 @@ def membership_card(db: Session, person, *, household: Optional[dict] = None) ->
     transfer, online = _running_renewal(db, person)
     return MembershipCard(
         valid_until=valid_until,
-        renewal_available=renewal_available(valid_until, date.today()),
+        renewal_available=renewal_available(valid_until, belgian_today()),
         board_member_name=household.get("board_member_name"),
         transfer=transfer,
         online=online,

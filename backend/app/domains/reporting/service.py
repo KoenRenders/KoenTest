@@ -43,6 +43,7 @@ from app.domains.reporting.universe import (
     UniverseObject,
     physical_view,
 )
+from app.kernel.clock import belgian_today
 from app.kernel.copying import CopyPlan
 
 logger = logging.getLogger(__name__)
@@ -363,7 +364,7 @@ def resolve_selection(
     if not any(f.symbolic for f in selection.filters):
         return selection
 
-    nu = today or date.today()
+    nu = today or belgian_today()
     opgelost: list[Filter] = []
     for flt in selection.filters:
         if not flt.symbolic:

@@ -13,6 +13,8 @@ from datetime import date
 
 from starlette.websockets import WebSocket
 
+from app.kernel.clock import belgian_today
+
 
 def ws_client_ip(websocket: WebSocket) -> str:
     """Zelfde betrouwbare-IP-logica als ``app.limiter._client_ip`` (#268): het
@@ -53,10 +55,10 @@ class DailyAudioBudget:
     def __init__(self, max_bytes_per_day: int):
         self.max_bytes = max_bytes_per_day
         self._usage: dict[str, int] = defaultdict(int)
-        self._day: date = date.today()
+        self._day: date = belgian_today()
 
     def _roll(self) -> None:
-        today = date.today()
+        today = belgian_today()
         if today != self._day:
             self._usage.clear()
             self._day = today
@@ -76,4 +78,4 @@ class DailyAudioBudget:
 
     def reset(self) -> None:
         self._usage.clear()
-        self._day = date.today()
+        self._day = belgian_today()

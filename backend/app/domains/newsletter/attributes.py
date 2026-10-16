@@ -324,4 +324,28 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         help="The last date of that activity, copied when the send starts.",
         ai_exposure=AiExposure.INTERNAL,  # K7
     ),
+    Attribute(
+        key="newsletter.letter_link.url",
+        columns=("newsletter.letter_links.url",),
+        label=None,
+        name_en="Address of a link",
+        help="An address that stood in a letter, kept so a click can be sent on to it.",
+        ai_exposure=AiExposure.INTERNAL,  # K8
+    ),
+    Attribute(
+        key="newsletter.letter_event.code",
+        columns=("newsletter.letter_events.code",),
+        label=None,
+        name_en="Code of a mail",
+        help="The random, signed code one mail carried; it stands nowhere else in the portal.",
+        ai_exposure=AiExposure.INTERNAL,  # K8
+    ),
+    Attribute(
+        key="newsletter.letter_event.day",
+        columns=("newsletter.letter_events.day",),
+        label=None,
+        name_en="Day of the count",
+        help="The day an open or a click was counted: a day, never a time.",
+        ai_exposure=AiExposure.INTERNAL,  # K8
+    ),
 )

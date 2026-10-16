@@ -13,6 +13,7 @@ from datetime import date
 from fastapi import HTTPException, Request, status
 
 from app.i18n import _
+from app.kernel.clock import belgian_today
 
 
 def _client_ip(request: Request) -> str:
@@ -70,10 +71,10 @@ class DailyCharBudget:
     def __init__(self, max_chars_per_day: int):
         self.max_chars = max_chars_per_day
         self._usage: dict = defaultdict(int)
-        self._day: date = date.today()
+        self._day: date = belgian_today()
 
     def _roll_day(self):
-        today = date.today()
+        today = belgian_today()
         if today != self._day:
             self._usage.clear()
             self._day = today

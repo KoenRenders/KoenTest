@@ -315,8 +315,12 @@ def test_the_migration_counts_the_whole_table_and_not_the_living_rows(db_session
         )
 
 
-def test_the_history_table_has_no_payment_method_to_migrate(db_session):
-    """§B4.6 said "and its history"; there is none. Verified, not assumed."""
+def test_the_history_table_keeps_the_payment_method_as_a_plain_code(db_session):
+    """§B4.6 said "and its history"; in phase 1 there was none — verified, not
+    assumed. #1885 (16 October 2026) gave `registration_history` every logged column
+    of the registration, `payment_method` among them: as the code in plain text,
+    with no foreign key, as a history table stores a code (CR-12 §F4). The
+    registration's own column stays the one key to the code list."""
     columns = {
         r[0]
         for r in db_session.execute(
@@ -326,31 +330,24 @@ def test_the_history_table_has_no_payment_method_to_migrate(db_session):
             )
         ).all()
     }
-    assert "payment_method" not in columns
+    assert "payment_method" in columns
 
-    everywhere = db_session.execute(
-        text("SELECT count(*) FROM information_schema.columns WHERE column_name = 'payment_method'")
-    ).scalar_one()
-    # The column lives in the two places that choose how the buyer pays — a
-    # registration and a webshop order (CR-21 R14) — and each carries its
-    # foreign key to `mdm.payment_method_codes`.
-    assert everywhere == 2, "payment_method is in more than registrations and sales_orders"
-
-    def _has_fk(table: str) -> int:
-        return db_session.execute(
+    keyed = (
+        db_session.execute(
             text(
-                "SELECT count(*) FROM information_schema.table_constraints tc "
-                "JOIN information_schema.key_column_usage kcu "
-                "  ON tc.constraint_name = kcu.constraint_name "
-                "  AND tc.table_schema = kcu.table_schema "
-                "WHERE tc.constraint_type = 'FOREIGN KEY' "
-                "  AND tc.table_name = :table AND kcu.column_name = 'payment_method'"
-            ),
-            {"table": table},
-        ).scalar_one()
-
-    assert _has_fk("registrations") == 1, "registrations.payment_method lost its key"
-    assert _has_fk("sales_orders") == 1, "sales_orders.payment_method has no key"
+                "SELECT tc.table_schema || '.' || tc.table_name "
+                "FROM information_schema.table_constraints tc "
+                "JOIN information_schema.key_column_usage k "
+                "  ON k.constraint_name = tc.constraint_name AND k.table_schema = tc.table_schema "
+                "WHERE tc.constraint_type = 'FOREIGN KEY' AND k.column_name = 'payment_method'"
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert "activities.registration_history" not in keyed, "a history table keys no code"
+    assert "activities.registrations" in keyed
+    assert "sales.sales_orders" in keyed, "the webshop's order keys the code (CR-21 R14)"
 
 
 # ── The gateway keeps its own vocabulary (§B4.10) ────────────────────────────

@@ -34,7 +34,9 @@ from app.domains.newsletter.models import (
     SubscriberSource,
     SubscriberStatus,
 )
+from app.domains.newsletter.tracking import make_code
 from app.i18n import _
+from app.kernel.clock import belgian_today
 from app.kernel.codes import code_of
 from app.kernel.contracts.media import StoreFile
 from app.kernel.copying import CopyPlan
@@ -465,7 +467,7 @@ def member_audience(db: Session, today: Optional[date] = None) -> tuple[int, set
     from app.domains.mdm.api import email_addresses_per_member
     from app.domains.membership.api import members_with_membership_for_year
 
-    year = (today or date.today()).year
+    year = (today or belgian_today()).year
     per_household = email_addresses_per_member(db, members_with_membership_for_year(db, year))
     reached = {household for household, found in per_household.items() if found}
     addresses = sorted(set().union(*per_household.values())) if per_household else []
@@ -557,7 +559,7 @@ def audience_summary(
     year, households, members = (
         member_audience(db, today)
         if audience in (Audience.MEMBERS, Audience.BOTH)
-        else ((today or date.today()).year, set(), [])
+        else ((today or belgian_today()).year, set(), [])
     )
     subscribers = (
         {s.email for s in confirmed_subscribers(db)}
@@ -634,7 +636,7 @@ def chosen_activities(db: Session, letter: Newsletter) -> list[AudienceActivity]
 def _offered_spans(db: Session, today: Optional[date] = None) -> "dict[int, ActivitySpan]":
     from app.domains.activities.api import past_activities
 
-    today = today or date.today()
+    today = today or belgian_today()
     spans = past_activities(db, since_year=today.year - (PARTICIPANT_YEARS - 1), today=today)
     return {span.activity.id: span for span in spans}
 
@@ -897,7 +899,7 @@ def reports_since_previous_letter(db: Session, today: Optional[date] = None) -> 
     """
     from app.domains.meetings.api import sent_reports
 
-    today = today or date.today()
+    today = today or belgian_today()
     since = _since_previous_letter(db, today)
     return [m.id for m in sent_reports(db, limit=200) if m.meeting_date >= since]
 
@@ -989,7 +991,7 @@ def default_choices(db: Session, today: Optional[date] = None) -> Choices:
     """
     from app.domains.activities.api import activities_active_between, activities_from
 
-    today = today or date.today()
+    today = today or belgian_today()
     since = _since_previous_letter(db, today)
     until = _months_later(today, MONTHS_AHEAD)
     past = [s.activity.id for s in activities_active_between(db, since, today, published_only=True)]
@@ -1330,7 +1332,7 @@ def activity_facts(
         return {}
     albums = _albums(db)
     pictures = _pictures(db, wanted)
-    since = (today or date.today()) - timedelta(days=400)
+    since = (today or belgian_today()) - timedelta(days=400)
     spans = {
         span.activity.id: span
         for span in activities_from(db, since, published_only=True)
@@ -1354,7 +1356,7 @@ def activity_facts(
         page = f"{base_url}/activiteiten/{key}"
         components = list(getattr(activity, "sub_registrations", []) or [])
         is_full = bool(span and span.capacity and span.registered >= span.capacity)
-        is_past = (span.end if span else start) < (today or date.today())
+        is_past = (span.end if span else start) < (today or belgian_today())
         # The same rules as the public card: register while it is open, and a
         # participant list for an internal registration or an external list.
         register_url = None
@@ -1717,7 +1719,7 @@ def calendar_html(
     """
     from app.domains.activities.api import activities_from
 
-    start = today or date.today()
+    start = today or belgian_today()
     if activity_ids is not None:
         wanted = {int(i) for i in activity_ids}
         spans = [
@@ -1750,7 +1752,7 @@ def insertable_activities(
     the activities of the last year, most recent first. Optionally filtered."""
     from app.domains.activities.api import activities_active_between, activities_from
 
-    today = today or date.today()
+    today = today or belgian_today()
     if past:
         spans = sorted(
             activities_active_between(db, _months_later(today, -12), today, published_only=True),
@@ -1904,14 +1906,32 @@ def plain_text(html: str) -> str:
     return "\n".join(out).strip()
 
 
+def counting_line() -> str:
+    """The line every counted letter carries, in the footer and in the text part (CR-37)."""
+    return _("Wij tellen anoniem hoeveel brieven geopend en hoeveel links aangeklikt worden.")
+
+
 def render_text(
-    db: Session, letter: Newsletter, *, unsubscribe_url: Optional[str], base_url: str = ""
+    db: Session,
+    letter: Newsletter,
+    *,
+    unsubscribe_url: Optional[str],
+    base_url: str = "",
+    code: Optional[str] = None,
 ) -> str:
-    """The letter as plain text, with the same footer as the HTML version."""
+    """The letter as plain text, with the same footer as the HTML version. With a `code`
+    (a real mail) its links go through the portal and the counting line is added."""
     base = (base_url or letter.link_base or "").rstrip("/")
     name, address = _organisation_footer(db)
-    body = plain_text(render_body(db, letter, base_url=base))
+    body_html = render_body(db, letter, base_url=base)
+    if code:
+        from app.domains.newsletter.tracking import track_links
+
+        body_html = track_links(db, letter, body_html, code=code, base=base)
+    body = plain_text(body_html)
     footer = [f"{name} · {address}" if address else name]
+    if code:
+        footer.append(counting_line())
     if unsubscribe_url:
         footer.append(
             _("Je krijgt deze mail omdat je op de mailinglijst van %(naam)s staat.")
@@ -1940,11 +1960,16 @@ def render_mail(
     unsubscribe_url: Optional[str],
     logo_url: Optional[str] = None,
     base_url: str = "",
+    code: Optional[str] = None,
 ) -> str:
     """The letter as it arrives: a simple frame around the text.
 
     Inline styles only — many mail clients ignore a style block. A member mail
     has no unsubscribe line (CR-05 §3.4); a subscriber mail always has one.
+
+    With a `code` (a real mail, CR-37) every link goes through the portal, the
+    counting line is added and the one-pixel picture ends the letter; the test mail
+    and the preview pass none and stay as they were.
     """
     esc = html_lib.escape
     # The letter's own origin once it is sent (`link_base`), the caller's while
@@ -1959,6 +1984,8 @@ def render_mail(
     footer = [esc(name)]
     if address:
         footer[0] = f"{esc(name)} · {esc(address)}"
+    if code:
+        footer.append(esc(counting_line()))
     if kind != DeliveryKind.MEMBER and unsubscribe_url:
         footer.append(
             esc(
@@ -1972,6 +1999,13 @@ def render_mail(
     # The preview line: hidden in the letter, shown by the inbox beside the
     # subject. The spaces after it stop a client from padding it with the first
     # words of the letter.
+    body = with_inline_styles(render_body(db, letter, base_url=base))
+    pixel = ""
+    if code:
+        from app.domains.newsletter.tracking import pixel_html, track_links
+
+        body = track_links(db, letter, body, code=code, base=base)
+        pixel = pixel_html(code, base=base)
     preview = preview_text_of(letter)
     preview_block = (
         (
@@ -1989,10 +2023,11 @@ def render_mail(
         '<div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:10px;'
         'padding:22px 26px;font-size:15px;line-height:1.6;color:#14171c">'
         f'<div style="border-bottom:3px solid #ffce00;padding-bottom:10px;margin-bottom:16px">{header}</div>'
-        f"{with_inline_styles(render_body(db, letter, base_url=base))}"
+        f"{body}"
         "</div>"
         '<div style="max-width:640px;margin:0 auto;text-align:center;font-size:12px;'
         f'color:#52607a;padding:14px 10px 0;line-height:1.6">{"<br>".join(footer)}</div>'
+        f"{pixel}"
         "</div>"
     )
 
@@ -2332,10 +2367,17 @@ def send_batch(db: Session, newsletter_id: int, *, batch_size: int = BATCH_SIZE)
             )
         elif delivery.kind == DeliveryKind.PARTICIPANT:
             unsubscribe_url = unsubscribe_link_of(delivery, letter.link_base or "")
+        # One code per mail, kept nowhere: the pixel and the links of this mail carry it (CR-37).
+        code = make_code(letter.id)
         body = render_mail(
-            db, letter, kind=delivery.kind, unsubscribe_url=unsubscribe_url, logo_url=logo_url
+            db,
+            letter,
+            kind=delivery.kind,
+            unsubscribe_url=unsubscribe_url,
+            logo_url=logo_url,
+            code=code,
         )
-        text = render_text(db, letter, unsubscribe_url=unsubscribe_url)
+        text = render_text(db, letter, unsubscribe_url=unsubscribe_url, code=code)
         try:
             # #1783: a fault that may be gone a moment later gets ONE more try,
             # here, of a mail that is known not to have left. Not a job of its
