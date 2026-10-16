@@ -280,7 +280,8 @@ def _serialise_dates(activity: Activity) -> list[dict[str, Any]]:
 
 
 def get_activities(db: Session, when: str = "upcoming", limit: int = 20) -> dict[str, Any]:
-    """Komende of voorbije, niet-geannuleerde activiteiten.
+    """Komende of voorbije activiteiten; een geannuleerde staat erin met
+    `cancelled`, zoals de publieke lijst haar als "Geannuleerd" toont (#2055).
 
     ``when="upcoming"`` (default): vanaf vandaag, eerstvolgende eerst.
     ``when="past"``: vóór vandaag, meest recent eerst. In beide gevallen max

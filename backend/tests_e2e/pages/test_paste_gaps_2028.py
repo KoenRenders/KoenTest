@@ -18,7 +18,11 @@ Broken on purpose (16 October 2026): `breakWithoutMarks` taken out of the
 editor's extensions → the bold-break test is red on the save; the button's
 `renderHTML` back to the bare element → the copy test is red on the label and
 the destinations; the parse rule's `priority: 60` taken out → the pasted
-`<a data-button href>` is a link and that case is red.
+`<a data-button href>` is a link and that case is red. After the review of #2058:
+`data-form-slug` misspelled in the button's attributes → the copy test red on the
+form button. Review B1 of #2059: bold made over a selection with a break in it
+was red on 0287773f (the save refused, no navigation), when the ranges came only
+from the step maps — a mark step moves no position.
 """
 
 import json
@@ -81,6 +85,19 @@ def _save_and_wait(page, page_id: int, done) -> dict:
     return draft
 
 
+def _a_form_a_button_may_lead_to() -> str:
+    from app.database import SessionLocal
+    from app.domains.forms.api import form_button_choices
+
+    db = SessionLocal()
+    try:
+        choices = form_button_choices(db)
+    finally:
+        db.close()
+    assert choices, "the seeded site has no form a button may lead to — is the test looking?"
+    return choices[0][0]
+
+
 def _in_editor(page) -> dict:
     return json.loads(page.locator("#cp-document-input").input_value())
 
@@ -125,10 +142,13 @@ def test_a_bold_line_break_is_pasted_and_saved(setup, width):
 def test_a_copied_button_comes_back_with_its_label_and_destination(setup):
     browser, session = setup
     target_id, _ = _new_page("Doelpagina 2028", {"type": "doc", "content": [_paragraph("Doel.")]})
+    form_slug = _a_form_a_button_may_lead_to()
     buttons = [
         {"label": "Buiten", "variant": "primary", "href": "https://voorbeeld.test/buiten"},
         {"label": "Pagina", "variant": "secondary", "page_id": target_id},
         {"label": "Word lid", "variant": "secondary", "screen": "lid-worden"},
+        # Review of #2058: the form's own attribute, walked, not assumed.
+        {"label": "Formulier", "variant": "secondary", "form_slug": form_slug},
     ]
     content = [_paragraph("Boven.")] + [{"type": "button", "attrs": b} for b in buttons]
     page_id, _slug = _new_page("Knoppen kopiëren 2028", {"type": "doc", "content": content})
@@ -152,7 +172,7 @@ def test_a_copied_button_comes_back_with_its_label_and_destination(setup):
         page.evaluate(PASTE, '<a data-button href="https://voorbeeld.test/geplakt">Geplakt</a>')
         page.evaluate("() => window.__settle()")
 
-        keys = ("label", "variant", "href", "page_id", "screen")
+        keys = ("label", "variant", "href", "page_id", "screen", "form_slug")
         came_back = [
             {k: v for k, v in n["attrs"].items() if k in keys and v is not None}
             for n in _in_editor(page)["content"]
@@ -166,9 +186,50 @@ def test_a_copied_button_comes_back_with_its_label_and_destination(setup):
         draft = _save_and_wait(
             page,
             page_id,
-            lambda d: sum(1 for n in d.get("content") or [] if n.get("type") == "button") == 4,
+            lambda d: sum(1 for n in d.get("content") or [] if n.get("type") == "button") == 5,
         )
-        assert sum(1 for n in draft["content"] if n["type"] == "button") == 4, draft
+        assert sum(1 for n in draft["content"] if n["type"] == "button") == 5, draft
+        assert page.errors == [], f"the screen throws: {page.errors}"
+    finally:
+        page.close()
+
+
+@pytest.mark.parametrize("width", [390, 1440])
+def test_bold_made_over_a_line_break_is_saved(setup, width):
+    """Review B1 of #2059: making a selection with a line break in it bold is a
+    mark step, which moves no position — the break must lose the mark there
+    too, or the save is refused on `hardBreak.marks`."""
+    browser, session = setup
+    line = {
+        "type": "paragraph",
+        "content": [
+            {"type": "text", "text": "Een"},
+            {"type": "hardBreak"},
+            {"type": "text", "text": "twee"},
+        ],
+    }
+    page_id, _slug = _new_page(f"Vet gemaakt {width}", {"type": "doc", "content": [line]})
+    page = _open(browser, session, page_id, width)
+    try:
+        page.evaluate(_SETTLE)
+        page.locator(f"{EDITOR} .tiptap > p").first.click()
+        page.keyboard.press("Control+a", delay=HELD)
+        page.keyboard.press("Control+b", delay=HELD)
+        page.evaluate("() => window.__settle()")
+
+        def bold(draft):
+            block = (draft.get("content") or [{}])[0]
+            return [m["type"] for m in (block.get("content") or [{}])[0].get("marks", [])] == [
+                "bold"
+            ]
+
+        draft = _save_and_wait(page, page_id, bold)
+        line = draft["content"][0]["content"]
+        assert [(n["type"], [m["type"] for m in n.get("marks", [])]) for n in line] == [
+            ("text", ["bold"]),
+            ("hardBreak", []),
+            ("text", ["bold"]),
+        ], line
         assert page.errors == [], f"the screen throws: {page.errors}"
     finally:
         page.close()

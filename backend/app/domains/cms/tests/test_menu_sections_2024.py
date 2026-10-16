@@ -271,3 +271,14 @@ def test_the_menu_name_is_written_in_the_pages_own_language(db_session):
         for t in db_session.query(CmsPageTranslation).filter(CmsPageTranslation.page_id == page.id)
     }
     assert labels == {"nl": "Talen", "en": None}, labels
+
+
+def test_the_menu_switch_says_what_it_does_for_a_section(client, db_session):
+    """#2060 (Koen, 16 October 2026, "2a"): the help line under "In het menu"."""
+    page = _page(db_session, "hulp-2060", "Hulp")
+    client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
+    editor = client.get(f"/admin/paginas/{page.id}").text
+    at = editor.index('name="show_in_nav"')
+    assert "Bij een sectie verdwijnen ook haar pagina" in editor[at - 2000 : at + 2000], (
+        "the help line stands with the switch"
+    )
