@@ -45,8 +45,14 @@ from typing import Any, Callable, Optional
 
 from sqlalchemy.orm import Session
 
-from app.domains.chatbot.api import AiCapability
+from app.domains.chatbot.api import FIELDS_MARK, AiCapability
 from app.domains.newsletter import service as nb
+from app.domains.newsletter.letter_markup import (
+    CALENDAR_MARKER,
+    CLOSING_MARKER,
+    activity_marker,
+    markup_to_document,
+)
 from app.domains.newsletter.models import (
     DraftingMessage,
     LetterStatus,
@@ -249,10 +255,14 @@ class Sources:
     points: list[str]
     instruction: str
     letter: list[str]
+    #: The coming activities as the model read them (number and name), set from the port's
+    #: rendering once a call went out; what the later checks read as a source (CR-33 F7).
     upcoming: str
     house_style: str
     examples: list[str]
     tool_results: list[str] = field(default_factory=list)
+    #: The coming activities as fields of the register: the port classifies and renders them.
+    upcoming_fields: list[Any] = field(default_factory=list)
 
     def fact_text(self) -> str:
         """The text a fact must be found in (layer 3). Style examples excluded."""
@@ -274,11 +284,17 @@ def _activity_text(db: Session, activity_id: int) -> str:
     return execute_read_tool("get_activity_detail", {"activity_id": activity_id}, db)
 
 
-def _upcoming_list(db: Session) -> str:
-    """Names and ids of the coming activities — so "zet de BBQ er ook bij"
-    resolves to an id. Dates are left out on purpose: the marker brings them."""
-    spans = nb.insertable_activities(db)
-    return "\n".join(f"- {s.activity.id}: {s.activity.name}" for s in spans)
+def _upcoming_fields(db: Session) -> list[Any]:
+    """Number and name of the coming activities — so "zet de BBQ er ook bij" resolves to
+    an id — as fields of the register (CR-33 F7): the port renders them. Dates are left
+    out on purpose: the marker brings them."""
+    from app.domains.chatbot.api import Field
+
+    fields: list[Any] = []
+    for span in nb.insertable_activities(db):
+        fields.append(Field("activities.activity.id", str(span.activity.id)))
+        fields.append(Field("activities.activity.name", span.activity.name))
+    return fields
 
 
 def _examples(db: Session, letter: Newsletter, names: set[str]) -> list[str]:
@@ -295,17 +311,21 @@ def _examples(db: Session, letter: Newsletter, names: set[str]) -> list[str]:
         .limit(EXAMPLE_LETTERS)
         .all()
     )
-    return [scrub(plain(e.body_html)[:EXAMPLE_CHARS], names) for e in earlier]
+    return [scrub(plain(nb.markup_of(e))[:EXAMPLE_CHARS], names) for e in earlier]
 
 
 def gather_sources(
     db: Session, letter: Newsletter, *, instruction: str, names: set[str], base_url: str = ""
 ) -> Sources:
+    # Whole reports, never single points (Koen, 17 September 2026): every report
+    # since the previous letter (CR-11 W13, #1391), no longer a tick per report.
+    from app.domains.chatbot.api import use_named_exception
     from app.domains.meetings.api import report_points_of
     from app.kernel.tenant_config import tenant_newsletter_house_style
 
-    # Whole reports, never single points (Koen, 17 September 2026): every report
-    # since the previous letter (CR-11 W13, #1391), no longer a tick per report.
+    # The minutes are `nooit` in the register; the letter's writer is the one named reader
+    # that still sends their words, names scrubbed (chatbot/fields.py, Koen 15 October 2026).
+    use_named_exception("meetings.meeting_item.notes_document", by="newsletter.drafting")
     points = []
     for point in report_points_of(db, nb.reports_since_previous_letter(db)):
         line = f"[{point.meeting_date.strftime('%d/%m')} · {point.section}] {point.item.label}"
@@ -323,8 +343,9 @@ def gather_sources(
         past_ids={i for i, f in facts.items() if f.is_past},
         points=points,
         instruction=scrub(instruction, names),
-        letter=[scrub(plain(p), names) for p in paragraphs(letter.body_html)],
-        upcoming=scrub(_upcoming_list(db), names),
+        letter=[scrub(plain(p), names) for p in paragraphs(nb.markup_of(letter))],
+        upcoming="",
+        upcoming_fields=_upcoming_fields(db),
         house_style=scrub(tenant_newsletter_house_style(db), names),
         examples=_examples(db, letter, names),
     )
@@ -421,10 +442,12 @@ def _sections(src: Sources) -> list[tuple[str, tuple[str, str] | None]]:
         )
     if src.instruction:
         sections.append((f"## Wat de auteur wil vertellen\n{src.instruction}", _OWN_WORDS))
-    if src.upcoming:
+    if src.upcoming_fields or src.upcoming:
+        # The mark stands for the port's rendering of `upcoming_fields` (`chatbot.fields`).
         sections.append(
             (
-                "## Komende activiteiten (id: naam) — details via de leestools\n" + src.upcoming,
+                "## Komende activiteiten (nummer en naam) — details via de leestools\n"
+                + (FIELDS_MARK if src.upcoming_fields else src.upcoming),
                 _UPCOMING,
             )
         )
@@ -465,14 +488,17 @@ def _source_parts(src: Sources) -> list[Any]:
     from app.domains.chatbot.api import Part
 
     return [
-        Part(where=place[0], text=text, advice=place[1])
+        Part(where=place[0], text=text.replace(FIELDS_MARK, src.upcoming), advice=place[1])
         for text, place in _sections(src)
         if place is not None
     ]
 
 
 def _json_answer(
-    provider: Any, messages: list[dict[str, Any]], first: str | None = None
+    provider: Any,
+    messages: list[dict[str, Any]],
+    first: str | None = None,
+    fields: Any = (),
 ) -> dict[str, Any]:
     """Raakje's answer as a JSON object, by the kernel's one rule (#1968): asked
     for as JSON, retried once, logged without content. The second failure is
@@ -480,7 +506,7 @@ def _json_answer(
     from app.domains.chatbot.api import UnusableAnswer, json_answer
 
     try:
-        return json_answer(provider, messages, first=first)
+        return json_answer(provider, messages, first=first, fields=fields)
     except UnusableAnswer as exc:
         raise DraftingError(_("Raakje gaf geen bruikbaar voorstel. Probeer het opnieuw.")) from exc
 
@@ -511,10 +537,12 @@ def _paragraph_html(
         plain = _PLAIN_MARKER.fullmatch(line)
         if plain:
             soort = _plain_kind_of(plain.group(1))
+            # The letter takes the blocks as its own (`letter_markup.py`): the mail
+            # builds them when it is sent.
             if db is not None and soort == "kalender":
-                blocks.append(nb.calendar_html(db, base_url=base_url))
+                blocks.append(f"<div>{CALENDAR_MARKER}</div>")
             elif db is not None and soort == "afsluiting":
-                blocks.append(nb.closing_html(db))
+                blocks.append(f"<div>{CLOSING_MARKER}</div>")
             # A marker that means nothing leaves nothing: never show the reader
             # a raw [[…]].
             continue
@@ -527,7 +555,7 @@ def _paragraph_html(
             # Koen, 19 September 2026: what Raakje inserts is what the button
             # inserts — the whole block, built by the server, never typed.
             if kind == "activiteit":
-                blocks.append(f"<div>{nb.activity_card_html(fact)}</div>")
+                blocks.append(f"<div>{activity_marker(fact.id, fact.name)}</div>")
                 continue
             html = nb.photos_line_html(fact)
             if html:
@@ -835,11 +863,14 @@ def ask(
         tools=read_tool_specs(),
         dispatch=_dispatcher(names, collected),
         deadline=deadline,
+        fields=sources.upcoming_fields,
     )
+    # What the port rendered of the coming activities is what the checks read as a source.
+    sources.upcoming = provider.fields_text
     sources.tool_results = collected
     # The loop's final answer is the first attempt; the retry is one call without
     # tools on the conversation as it stands (#1968).
-    data = _json_answer(provider, messages, first=answer)
+    data = _json_answer(provider, messages, first=answer, fields=sources.upcoming_fields)
 
     if mode == MODE_INSERT and data.get("paragraphs") and not str(data.get("text") or "").strip():
         # The author asked for the whole letter again: offer it as one, with the
@@ -912,7 +943,7 @@ def build_proposal(
         "operations": ops,
         "marks": _attach(raw_marks, {0: text}),
         "facts": sorted(facts),
-        "snapshot": nb_snapshot(letter.body_html),
+        "snapshot": nb_snapshot(nb.markup_of(letter)),
         "names": {str(i): scrub(f.name, names) for i, f in facts.items()},
         "status": "open",
     }
@@ -958,7 +989,7 @@ def verify(
         },
     ]
     try:
-        data = _json_answer(provider, messages)
+        data = _json_answer(provider, messages, fields=sources.upcoming_fields)
         found = data.get("unsupported") or []
     except Exception as exc:  # noqa: BLE001 — see the docstring
         from app.domains.chatbot.api import SeamBlocked
@@ -1010,9 +1041,10 @@ def _without(text: str, sentences: list[str]) -> str:
 
 @dataclass
 class Applied:
-    """What the editor does with an applied proposal."""
+    """What the editor does with an applied proposal: the blocks (document nodes) it
+    takes over, and where they go."""
 
-    html: str
+    content: list
     placement: str  # "replace" (whole letter), "cursor" or "selection"
     range: Optional[list[int]] = None
     #: #1562: the subject and the preview text a whole letter proposes, each with
@@ -1024,16 +1056,22 @@ class Applied:
     base_preview: str = ""
 
 
+def _content_of(markup: str) -> list:
+    """The blocks of a proposal's text (HTML with markers): the document nodes the
+    editor inserts, the markers become blocks."""
+    return markup_to_document(markup)["content"]
+
+
 def apply(
     db: Session,
     letter: Newsletter,
     message: DraftingMessage,
     *,
     keep: set[int],
-    body_html: str,
+    body: str,
     base_url: str,
 ) -> Applied:
-    """The HTML the editor takes over, and where it goes.
+    """The blocks the editor takes over, and where they go.
 
     A marked sentence is left out unless its mark id is in ``keep``
     (CR-05 §3.16, layer 5). The server never rewrites the letter itself for a
@@ -1047,14 +1085,10 @@ def apply(
     A replacement is refused when the letter changed since the proposal was
     made: the remembered selection would point at other text.
     """
-    from app.domains.cms.api import sanitize_cms_html
-
     proposal = dict(message.proposal or {})
     if proposal.get("status") != "open":
         raise DraftingError(_("Dit voorstel is al afgehandeld."))
-    nb.update_draft(
-        db, letter, subject=letter.subject, body_html=body_html, audience=letter.audience
-    )
+    nb.update_draft(db, letter, subject=letter.subject, body=body or None, audience=letter.audience)
     drop: list[str] = [m["sentence"] for m in proposal.get("marks") or [] if m["id"] not in keep]
     facts = nb.activity_facts(db, proposal.get("facts") or [], base_url=base_url)
     operation = (proposal.get("operations") or [{}])[0]
@@ -1071,7 +1105,9 @@ def apply(
         # A whole letter gets its greeting and its closing from the portal, each
         # set apart by a blank line (Koen, 17 September 2026).
         result = Applied(
-            html=nb.greeting_html() + BLANK + html + BLANK + nb.closing_html(db),
+            content=_content_of(
+                nb.greeting_html() + BLANK + html + BLANK + f"<div>{CLOSING_MARKER}</div>"
+            ),
             placement="replace",
             subject=proposal.get("subject"),
             base_subject=proposal.get("base_subject") or "",
@@ -1079,22 +1115,23 @@ def apply(
             base_preview=proposal.get("base_preview") or "",
         )
     elif kind == MODE_REPLACE:
-        if proposal.get("snapshot") != nb_snapshot(letter.body_html) or not proposal.get("range"):
+        if proposal.get("snapshot") != nb_snapshot(nb.markup_of(letter)) or not proposal.get(
+            "range"
+        ):
             raise DraftingError(
                 _(
                     "De brief veranderde sinds dit voorstel. Selecteer de "
                     "tekst opnieuw en vraag het Raakje nog eens."
                 )
             )
-        result = Applied(html=html, placement="selection", range=proposal["range"])
+        result = Applied(content=_content_of(html), placement="selection", range=proposal["range"])
     else:
-        result = Applied(html=html, placement="cursor")
+        result = Applied(content=_content_of(html), placement="cursor")
 
     proposal["status"] = "applied"
     proposal["kept"] = sorted(keep)
     message.proposal = proposal
     db.commit()
-    result.html = sanitize_cms_html(result.html) or ""
     return result
 
 
@@ -1145,8 +1182,8 @@ def display(db: Session, letter: Newsletter, message: DraftingMessage) -> dict[s
     marked sentences highlighted and their reasons listed. Built here and not
     in the template (design-system §8.3)."""
     proposal = message.proposal or {}
-    current = [plain(p) for p in paragraphs(letter.body_html)]
-    unchanged = proposal.get("snapshot") == nb_snapshot(letter.body_html)
+    current = [plain(p) for p in paragraphs(nb.markup_of(letter))]
+    unchanged = proposal.get("snapshot") == nb_snapshot(nb.markup_of(letter))
     from app.domains.activities.api import Activity
 
     ids = proposal.get("facts") or []

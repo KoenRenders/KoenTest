@@ -58,15 +58,15 @@ def admin_dashboard(
     rapportagedomein; het scherm rekent niet zelf. (The JSON twin that computed
     them a second way, `/api/v1/admin/stats`, went with CR-13 phase 4b, #1251.)
     """
-    from datetime import datetime
-
     from app.domains.reporting.api import dashboard_numbers
+    from app.kernel.clock import belgian_now
     from app.kernel.geld import bedrag
 
     # Golf 7 (#913, B3): één peilmoment voor het hele scherm — de tegels resolven
     # hun symbolische filters ("vandaag", "dit jaar") op déze ene klok, en het
-    # scherm zegt eronder van wanneer de cijfers zijn.
-    peilmoment = datetime.now()
+    # scherm zegt eronder van wanneer de cijfers zijn. #1976: in Brussel — the
+    # container runs on UTC, so `datetime.now()` stood on yesterday until 02:00.
+    peilmoment = belgian_now()
     # CR-19 (#1477): only the tiles of the modules this tenant has on — a tile
     # of a module that is off would count what the tenant cannot open.
     from app.domains.mdm.api import module_enabled

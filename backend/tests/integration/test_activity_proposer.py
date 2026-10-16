@@ -623,10 +623,16 @@ def test_the_instruction_is_left_out_also_when_it_shares_its_sentence_with_the_f
         "Uitstap naar de zoo op zondag 6 december, vertrek aan het Dorpsplein om 9 uur "
         "en wil je een mooie tekst schrijven als omschrijving?"
     )
-    given = proposer.given_facts("Naam: \nLocatie: (leeg)\nDatums: (geen)", asked, "")
+    from app.kernel.attributes import attribute
+
+    # The labels of the record are the register's words (CR-33), as the port writes them.
+    label = {k: attribute(f"activities.activity.{k}").text for k in ("name", "location", "dates")}
+    record = f"{label['name']}: \n{label['location']}: (leeg)\n{label['dates']}: (geen)"
+    given = proposer.given_facts(record, asked, "")
     words = set(proposer._TOKEN.findall(given.lower()))
     assert {"zoo", "dorpsplein", "9", "december"} <= words
-    assert not ({"mooie", "tekst", "omschrijving", "naam", "locatie", "leeg", "geen"} & words)
+    labels = {w for text in label.values() for w in text.lower().split()}
+    assert not ({"mooie", "tekst", "omschrijving", "leeg", "geen"} | labels) & words
 
 
 def test_the_known_limit_a_sentence_of_given_words_alone_passes(db_session, raakje):

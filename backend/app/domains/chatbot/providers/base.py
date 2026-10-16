@@ -42,6 +42,16 @@ class AssistantMessage:
     request_id: str = ""
 
 
+@dataclass
+class OcrResult:
+    """What the provider read from a document: the text, the provider's own id for
+    the call, and the pages it charged for when it says (#1212)."""
+
+    text: str
+    request_id: str = ""
+    pages_charged: Optional[int] = None
+
+
 class LLMProvider(ABC):
     """De enige naad tussen de chatbot en een concrete LLM-leverancier."""
 
@@ -72,3 +82,14 @@ class LLMProvider(ABC):
         whether a provider takes both in one call is not measured.
         """
         raise NotImplementedError
+
+    def ocr(self, document: bytes, content_type: str) -> OcrResult:
+        """Read the text of an image or a scan (CR-33 C4.6).
+
+        The one door for the document reader: a provider that cannot read one
+        says so. The document is free text from a person's own file — a poster —
+        so it carries no attribute and the classification does not apply; the
+        text that comes back keeps whatever the document held, contact data
+        included (Koen, 15 October 2026), and stays free text under the pattern
+        guard wherever it enters a prompt."""
+        raise NotImplementedError(f"{self.name} cannot read documents")

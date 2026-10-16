@@ -41,6 +41,11 @@ class NewsletterComposeView(ViewModel):
     """`admin_nieuwsbrief.html` for a draft, with its fragments."""
 
     letter: Any
+    #: The letter's text as the page editor's document, JSON text.
+    body_json: str
+    #: The page editor's configuration for the letter set, with the letter's featured
+    #: activities for its activity dialog.
+    editor_config: Any
     counts: Any
     #: `(code, label, count)` — the code is the radio value, so the
     #: template never renders an enum member into an attribute.
@@ -58,6 +63,10 @@ class NewsletterComposeView(ViewModel):
     # What the letter is about, in three groups (#1562): per group its key, its
     # title, a hint, the chosen activities' facts and whether one more may join.
     choices: list[dict[str, Any]]
+    #: `{id, label}` per FEATURED activity: the editor's activity dialog offers them.
+    featured_options: list[dict[str, Any]]
+    #: `(id, title)` of the site's pages a button of the letter may lead to.
+    button_pages: list[tuple[int, str]]
     # How many whole meeting reports go along (CR-11 W13).
     report_count: int
     csrf_token: str
@@ -73,6 +82,8 @@ class NewsletterChoicesView(ViewModel):
 
     letter: Any
     choices: list[dict[str, Any]]
+    #: `{id, label}` per FEATURED activity: the editor's activity dialog offers them.
+    featured_options: list[dict[str, Any]]
     report_count: int
     raakje_enabled: bool
     csrf_token: str
@@ -81,8 +92,7 @@ class NewsletterChoicesView(ViewModel):
 
 @dataclass(frozen=True, kw_only=True)
 class NewsletterPickerView(ViewModel):
-    """`_nb_kiezer.html` — the activity picker: for one of the three groups, or
-    (`insert`) the featured activities to put a block of at the cursor."""
+    """`_nb_kiezer.html` — the activity picker, for one of the letter's three groups."""
 
     letter: Any
     #: `{id, name, date}` per activity offered.
@@ -117,6 +127,8 @@ class NewsletterArchiveView(ViewModel):
     """`admin_nieuwsbrief_archief.html` — a letter that is being or was sent."""
 
     letter: Any
+    #: The letter's text as the mail shows it (the blocks built from today's data).
+    body_html: str
     status_label: str
     status_tone: str
     audience_label: str
@@ -174,9 +186,13 @@ class SubscriberListView(ViewModel):
     #: list, so the order is the list's and the option value is the code
     #: (CR-12 phase 3). The badge per row uses the `code_label`/`tone` filters.
     status_options: list[tuple[str, str]]
-    #: Per subscriber id: may this address still be unsubscribed? Derived
-    #: here, because a template does not compare codes (§B4.7).
-    unsubscribable: dict[int, bool]
+    #: The kit table's columns and, per subscriber id, its row controls — the
+    #: status decides here whether "Uitschrijven" stands, because a template
+    #: does not compare codes (§B4.7) —
+    #: "Uitschrijven" visible, "Verwijderen" behind ⋯ (#1925; Koen, 16
+    #: October 2026, "7 ja").
+    columns: list[dict]
+    row_controls: dict[int, dict]
     source_labels: dict[int, str]
     moments: dict[int, str]
     q: str

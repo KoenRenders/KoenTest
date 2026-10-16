@@ -212,7 +212,9 @@ def _activity(db, name, when, *, cancelled=False):
     return a
 
 
-def test_upcoming_excludes_past_and_cancelled(db_session):
+def test_upcoming_excludes_past_and_marks_cancelled(db_session):
+    """#2055 (Koen, 16 October 2026, "1a"): a cancelled activity stands in the
+    answer marked `cancelled`, as the public list shows it "Geannuleerd"."""
     future = date.today() + timedelta(days=10)
     past = date.today() - timedelta(days=10)
     _activity(db_session, "Toekomstfeest", future)
@@ -225,7 +227,8 @@ def test_upcoming_excludes_past_and_cancelled(db_session):
     assert out["when"] == "upcoming"
     assert "Toekomstfeest" in names
     assert "Oud feest" not in names
-    assert "Afgelast feest" not in names
+    cancelled = {a["name"]: a["cancelled"] for a in out["activities"]}
+    assert cancelled["Afgelast feest"] is True and cancelled["Toekomstfeest"] is False
 
 
 def test_past_returns_only_past_most_recent_first(db_session):
@@ -239,8 +242,9 @@ def test_past_returns_only_past_most_recent_first(db_session):
     names = [a["name"] for a in out["activities"]]
     assert out["when"] == "past"
     assert "Toekomstfeest" not in names  # geen toekomst
-    assert "Afgelast verleden" not in names  # geannuleerd telt niet
-    assert names == ["Recent voorbij", "Lang geleden"]  # meest recent eerst
+    # #2055: the archive shows a cancelled activity too, as "Geannuleerd".
+    assert names == ["Recent voorbij", "Afgelast verleden", "Lang geleden"]  # meest recent eerst
+    assert [a["cancelled"] for a in out["activities"]] == [False, True, False]
 
 
 def test_past_respects_limit(db_session):

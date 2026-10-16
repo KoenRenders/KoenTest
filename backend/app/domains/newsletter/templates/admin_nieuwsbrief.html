@@ -3,44 +3,13 @@
 {% block title %}{{ letter.subject or _("Nieuwsbrief") }} — {{ _("Raak beheer") }}{% endblock %}
 {% block content %}
 {{ ui.back_link(_("Alle nieuwsbrieven"), "/admin/nieuwsbrieven") }}
-{# Het activiteitenblok draagt klassen; de mail krijgt de opmaak pas bij het
-   versturen (de ontsmetting bij elke autobewaring gooit `style` weg). Hier
-   dezelfde vorm, zodat de schrijver ziet wat hij verstuurt. #}
-<style>
-  /* Dezelfde kop als in de mail: de brief laat je zien wat je verstuurt. */
-  trix-editor h1, trix-editor h2, trix-editor h3 {
-    font-size: 20px; font-weight: 700; line-height: 1.3;
-    color: rgb(var(--c-kop)); margin: 18px 0 6px;
-  }
-  trix-editor .nb-blok { margin: 18px 0; }
-  trix-editor .nb-blok-tabel { border-collapse: collapse; width: 100%; }
-  trix-editor .nb-blok-beeld { vertical-align: top; width: 180px; padding-right: 14px; }
-  trix-editor .nb-blok-foto { display: block; width: 100%; max-width: 180px; height: auto; border-radius: 10px; }
-  trix-editor .nb-blok-tekst { vertical-align: top; }
-  trix-editor .nb-blok-titel { font-size: 20px; font-weight: 700; line-height: 1.3; padding-bottom: 6px; }
-  trix-editor .nb-blok-omschrijving, trix-editor .nb-blok-praktisch { padding-bottom: 6px; }
-  trix-editor .nb-blok-praktisch { color: var(--ink-soft); }
-  trix-editor .nb-blok-actie { font-weight: 700; }
-</style>
+{# The letter is a document of the page editor (CR-17 phase 7): its blocks — an
+   activity, the calendar, the closing — are nodes the editor draws as labelled
+   boxes, and the mail builds them when it is sent. What this screen adds to the
+   editor is two small things the editor itself does not know: the attachment (a
+   file the server stores, whose link goes at the cursor) and the selection that
+   Raakje rewrites. #}
 <script>
-  // Invoegen op de cursor (#984). Eén keer registreren: onder hx-boost wordt dit
-  // blok bij elke navigatie opnieuw uitgevoerd. De server levert het stukje HTML;
-  // de browser weet niets van activiteiten — datum, uur en link komen uit
-  // dezelfde bron als de agenda.
-  if (!window.nbInvoegen) {
-    window.nbInvoegen = function (url) {
-      fetch(url, { credentials: "same-origin" })
-        .then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.text(); })
-        .then(function (html) {
-          var editor = document.getElementById("nb-trix").editor;
-          editor.insertHTML(html);
-          document.getElementById("nb-trix").focus();
-        })
-        .catch(function (fout) { console.error("invoegen mislukt", fout); });
-      var kiezer = document.getElementById("nb-kiezer");
-      if (kiezer) { kiezer.innerHTML = ""; }
-    };
-  }
   // Een bijlage opladen en de link op de cursor zetten. Een weigering (verkeerd
   // type, te groot) komt als tekst terug en verschijnt in de statusregel.
   if (!window.nbBijlage) {
@@ -57,39 +26,40 @@
             if (status) { status.textContent = antwoord.tekst; }
             return;
           }
-          var el = document.getElementById("nb-trix");
-          el.editor.insertHTML(antwoord.tekst);
-          el.focus();
+          var editor = window.raakDocumentEditor && window.raakDocumentEditor("nb-editor");
+          if (editor) { editor.chain().focus().insertContent(antwoord.tekst).run(); }
         })
         .finally(function () { veld.value = ""; });
     };
   }
   // De geselecteerde tekst in de editor: Raakje herschrijft dan alleen die alinea.
+  // De plaats is die van de editor zelf (van, tot): het voorstel schrijft er later
+  // precies over terug.
   if (!window.nbSelectie) {
+    function nbEditor() { return window.raakDocumentEditor && window.raakDocumentEditor("nb-editor"); }
     window.nbSelectie = function () {
-      var el = document.getElementById("nb-trix");
-      if (!el || !el.editor) { return ""; }
-      var bereik = el.editor.getSelectedRange();
-      if (bereik[0] === bereik[1]) { return ""; }
-      return el.editor.getDocument().getStringAtRange(bereik).toString();
+      var editor = nbEditor();
+      if (!editor) { return ""; }
+      var sel = editor.state.selection;
+      return sel.empty ? "" : editor.state.doc.textBetween(sel.from, sel.to, "\n");
     };
     // Waar de selectie ligt, en wat er vlak voor de cursor staat: Raakje schrijft
     // dan precies voor die plek (Koen, 17 september 2026).
     window.nbBereik = function () {
-      var el = document.getElementById("nb-trix");
-      if (!el || !el.editor) { return ""; }
-      var bereik = el.editor.getSelectedRange();
-      return bereik[0] === bereik[1] ? "" : bereik[0] + "," + bereik[1];
+      var editor = nbEditor();
+      if (!editor) { return ""; }
+      var sel = editor.state.selection;
+      return sel.empty ? "" : sel.from + "," + sel.to;
     };
     window.nbVoorCursor = function () {
-      var el = document.getElementById("nb-trix");
-      if (!el || !el.editor) { return ""; }
-      var tot = el.editor.getSelectedRange()[0];
-      return el.editor.getDocument().getStringAtRange([Math.max(0, tot - 400), tot]).toString();
+      var editor = nbEditor();
+      if (!editor) { return ""; }
+      var tot = editor.state.selection.from;
+      return editor.state.doc.textBetween(Math.max(0, tot - 400), tot, "\n");
     };
   }
   // A proposal of Raakje reaches the fields through the kit's mechanism
-  // (`static/form-proposal.js`, #1562): the editor takes it via Trix itself, so
+  // (`static/form-proposal.js`, #1562): the editor takes it as one transaction, so
   // undo keeps working.
 </script>
 
@@ -139,7 +109,7 @@
   <form id="nb-formulier" class="space-y-4"
         hx-post="/admin/nieuwsbrieven/{{ letter.id }}/bewaren"
         hx-target="#nb-bewaard" hx-swap="innerHTML" hx-indicator="#nb-bewaard"
-        hx-trigger="change, keyup changed delay:1500ms from:#nb-onderwerp, trix-change delay:1500ms from:#nb-trix, trix-blur from:#nb-trix">
+        hx-trigger="change, keyup changed delay:1500ms from:#nb-onderwerp, raak-editor-change delay:1500ms, raak-editor-blur">
     {# The choice is one line of pills with the number on each (Koen, 17 September
        2026); who each audience is stands under it in the send screen's own words
        (#1834) — nothing a reader needs in order to choose is in a hover text.
@@ -188,12 +158,6 @@
     <div class="bg-surface border border-line rounded-2xl p-5">
       <div class="flex flex-wrap items-center gap-2">
         <h2 class="font-semibold text-blue-700 mr-auto">{{ _("Inhoud") }}</h2>
-        {{ ui.btn_outline(_("Activiteit invoegen"), lead_icon="plus",
-                          attrs='hx-get="/admin/nieuwsbrieven/' ~ letter.id ~ '/activiteiten" hx-target="#nb-kiezer" hx-swap="innerHTML"') }}
-        {# #1562: the calendar block is the letter's own calendar group — no second
-           choice in a picker. #}
-        {{ ui.btn_outline(_("Kalender invoegen"), lead_icon="calendar",
-                          attrs='onmousedown="event.preventDefault()" onclick="nbInvoegen(\'/admin/nieuwsbrieven/' ~ letter.id ~ '/invoegen/kalender\')"') }}
         {# Een bijlage wordt een link in de tekst (Koen, 17 september 2026): de
            brief vertrekt als aparte mail naar honderden adressen. #}
         <input type="file" id="nb-bijlage" class="hidden" accept="application/pdf,image/*"
@@ -201,18 +165,11 @@
                onchange="nbBijlage(this, '/admin/nieuwsbrieven/{{ letter.id }}/bijlage', '{{ csrf_token }}')">
         {{ ui.btn_outline(_("Bijlage invoegen"), lead_icon="upload",
                           attrs='onmousedown="event.preventDefault()" onclick="document.getElementById(\'nb-bijlage\').click()"') }}
-        {{ ui.btn_outline(_("Afsluiting invoegen"), lead_icon="pencil",
-                          attrs='onmousedown="event.preventDefault()" onclick="nbInvoegen(\'/admin/nieuwsbrieven/' ~ letter.id ~ '/invoegen/afsluiting\')"') }}
       </div>
-      <p class="text-sm text-ink-soft mt-0.5">{{ _("Opgemaakte tekst, zoals je hem in een mailprogramma schrijft. De knoppen zetten een voorstel op de plek van de cursor — daarna pas je het vrij aan.") }}</p>
-      {# Koen, 19 september 2026: de editor bewaart geen tabel, dus een activiteit
-         reist als markering en wordt pas bij het versturen een blok. Dat moet op
-         het scherm staan, anders lijkt het een fout. #}
-      <p class="text-sm text-ink-soft mt-0.5">{{ _("Een regel als [[activiteit:12|Naam]] wordt bij het versturen een blok met affiche, omschrijving en inschrijflink. Verplaats of verwijder ze gerust; bewerk de tekst ertussen niet.") }}</p>
-      <div id="nb-kiezer"></div>
-      <div class="mt-3" data-field="body_html">
-        {{ ui.rich_text("body_html", "nb-trix", value=letter.body_html, input_id="nb-inhoud",
-                        cls="min-h-[22rem]", placeholder=_("Beste,")) }}
+      <p class="text-sm text-ink-soft mt-0.5">{{ _("Opgemaakte tekst, zoals je hem in een mailprogramma schrijft. Een activiteit, de kalender en de afsluiting zet je met “Blok invoegen”: ze worden bij het versturen een blok met affiche, omschrijving en inschrijflink.") }}</p>
+      <div class="mt-3" data-field="body">
+        {{ ui.document_editor("body", editor_config, body_json, id="nb-editor", cls="min-h-[22rem]",
+                              button_pages=button_pages, button_forms=[], button_lid_worden=False) }}
       </div>
     </div>
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

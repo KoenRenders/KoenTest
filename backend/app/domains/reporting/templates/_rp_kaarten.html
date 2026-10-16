@@ -26,7 +26,7 @@
           {% endfor %}
           <span>{{ _("Eigenaar") }}: {{ r.owner_email or _("de afdeling") }}</span>
           {% if r.last_run_at %}
-          <span>{{ _("laatst bekeken") }} {{ r.last_run_at.date()|langedatum }}</span>
+          <span>{{ _("laatst bekeken") }} {{ r.last_run_at|langedatum }}</span>
           {% endif %}
         </div>
       </div>

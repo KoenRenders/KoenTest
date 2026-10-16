@@ -6,12 +6,14 @@
 {# One link of the site's navigation. In the header's row (from 768 px): white on
    the band, the active page with a 2 px underline. In the drawer (`drawer`): a
    row of 48 px (`site-drawer-row`), which closes the drawer on its way. #}
-{% macro navlink(pad, href, label, exact=False, match=None, drawer=False) -%}
+{% macro navlink(pad, href, label, exact=False, match=None, drawer=False, sub=False, within=()) -%}
 {%- set _m = match or href -%}
-{%- set _actief = (pad == _m) if exact else (pad == _m or pad.startswith(_m ~ "/")) -%}
+{#- `within`: the paths of a section's pages — on one of them, the section is
+    where the visitor is (#2024). -#}
+{%- set _actief = (pad == _m) if exact else (pad == _m or pad.startswith(_m ~ "/") or pad in within) -%}
 {# #889: de VERGELIJKING blijft op het kale pad — de middleware heeft de prefix er al
    afgehaald voor `_pad`. Alleen wat de bezoeker aanklikt draagt hem. #}
-{% if drawer %}<a href="{{ path_for(href) }}" class="site-drawer-row"{% if _actief %} aria-current="page"{% endif %} @click="menu = false">{{ label }}</a>
+{% if drawer %}<a href="{{ path_for(href) }}" class="site-drawer-row{% if sub %} site-drawer-sub{% endif %}"{% if _actief %} aria-current="page"{% endif %} @click="menu = false">{{ label }}</a>
 {% else %}<a href="{{ path_for(href) }}" class="inline-flex items-center min-h-11 px-3 rounded-md text-sm hover:bg-white/10 hover:no-underline {% if _actief %}text-white font-semibold underline underline-offset-8 decoration-2{% else %}text-white/90{% endif %}"{% if _actief %} aria-current="page"{% endif %}>{{ label }}</a>{% endif %}
 {%- endmacro %}
 {# SiteShell (React-exit #405, §21): de volwaardige publieke schil — navigatie
@@ -155,7 +157,37 @@
         {% for n in public_nav %}{{ navlink(_pad, n.href, n.label, match=n.match) }}
         {% endfor %}
         {% for p in nav_pages|default([]) %}
-        {{ navlink(_pad, "/" ~ p.slug, p.title) }}
+        {% if p.children %}
+        {#- CR-17 phase 6 (#2024; Koen, 16 October 2026, "1a"): the section's name
+            opens its page; the arrow beside it opens its pages — a click, a tap or
+            Enter, and Escape or a click elsewhere closes them. -#}
+        {#- Near the window's right edge — the section last in a full row — the
+            pages open to the left instead, so they never leave the window: the
+            open list is measured, its own width the one source (review B2 of
+            #2057), again when the window changes size. Tab out of the section
+            closes it, like Escape and a click elsewhere (B3). -#}
+        <div class="relative flex items-center" data-menu-section
+             x-data="{ sub: false, edge: false, place() { this.edge = false; this.$nextTick(() => { this.edge = this.$refs.pages.getBoundingClientRect().right > window.innerWidth - 16 }) } }"
+             @resize.window="if (sub) place()"
+             @focusout="if (sub && !$el.contains($event.relatedTarget)) sub = false"
+             @keydown.escape="if (sub) { sub = false; $refs.sub.focus() }" @click.outside="sub = false">
+          {{ navlink(_pad, "/" ~ p.slug, p.label, within=p.children|map(attribute="path")|list) }}
+          <button type="button" x-ref="sub" data-menu-section-button @click="sub = !sub; if (sub) place()"
+                  class="inline-flex items-center justify-center w-8 min-h-11 -ml-2 rounded-md text-white/90 hover:bg-white/10"
+                  :aria-expanded="sub.toString()" aria-expanded="false" aria-controls="menu-sectie-{{ p.id }}"
+                  aria-label="{{ _("Pagina's onder %(naam)s", naam=p.label) }}">{{ ui.icon("chevron-down", 16) }}</button>
+          <div id="menu-sectie-{{ p.id }}" x-ref="pages" x-show="sub" x-cloak style="display: none" data-menu-section-pages
+               :class="edge ? 'right-0' : 'left-0'"
+               class="absolute top-full z-50 mt-1 w-64 max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-surface py-1 text-ink shadow-lg">
+            {% for c in p.children %}
+            <a href="{{ path_for("/" ~ c.slug) }}" @click="sub = false"
+               class="flex items-center min-h-11 px-4 text-sm text-ink hover:bg-surface-2 hover:no-underline{% if _pad == "/" ~ c.slug %} font-semibold text-blue-700{% endif %}"{% if _pad == "/" ~ c.slug %} aria-current="page"{% endif %}>{{ c.label }}</a>
+            {% endfor %}
+          </div>
+        </div>
+        {% else %}
+        {{ navlink(_pad, "/" ~ p.slug, p.label) }}
+        {% endif %}
         {% endfor %}
       </nav>
       {# The account: the member's first name with a chevron opens ONE menu —
@@ -211,7 +243,10 @@
       {% for n in public_nav %}{{ navlink(_pad, n.href, n.label, match=n.match, drawer=True) }}
       {% endfor %}
       {% for p in nav_pages|default([]) %}
-      {{ navlink(_pad, "/" ~ p.slug, p.title, drawer=True) }}
+      {{ navlink(_pad, "/" ~ p.slug, p.label, drawer=True) }}
+      {#- A section's pages always show, indented under it (#2024, "2a"). -#}
+      {% for c in p.children %}{{ navlink(_pad, "/" ~ c.slug, c.label, drawer=True, sub=True) }}
+      {% endfor %}
       {% endfor %}
     </nav>
     <div class="mt-6 border-t border-line pt-6" data-drawer-account>

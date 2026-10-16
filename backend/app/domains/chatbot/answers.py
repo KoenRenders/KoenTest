@@ -77,12 +77,15 @@ def _where(provider: Any) -> str:
     return getattr(provider, "log_name", None) or getattr(provider, "name", "") or "-"
 
 
-def _ask(provider: Any, messages: list[dict[str, Any]]) -> str:
-    return provider.complete(messages, tools=None, json_answer=True).content or ""
+def _ask(provider: Any, messages: list[dict[str, Any]], fields: Any = ()) -> str:
+    # `fields` (CR-33 F6) go to the guarded provider as they are; a provider that is not
+    # the seam is never offered them.
+    extra = {"fields": fields} if fields else {}
+    return provider.complete(messages, tools=None, json_answer=True, **extra).content or ""
 
 
 def json_answer(
-    provider: Any, messages: list[dict[str, Any]], *, first: str | None = None
+    provider: Any, messages: list[dict[str, Any]], *, first: str | None = None, fields: Any = ()
 ) -> dict[str, Any]:
     """The model's answer to `messages` as a JSON object, by the one rule above.
 
@@ -90,7 +93,7 @@ def json_answer(
     only the retry is a call of this function's own. Raises `UnusableAnswer` when
     the second answer does not parse either; a refusal of the guard and a failure
     of the provider pass through as they are."""
-    text = _ask(provider, messages) if first is None else first
+    text = _ask(provider, messages, fields) if first is None else first
     try:
         return parse_json_object(text)
     except UnusableAnswer as fault:
@@ -100,7 +103,7 @@ def json_answer(
             len(text),
             fault.reason,
         )
-    text = _ask(provider, messages)
+    text = _ask(provider, messages, fields)
     try:
         data = parse_json_object(text)
     except UnusableAnswer as fault:

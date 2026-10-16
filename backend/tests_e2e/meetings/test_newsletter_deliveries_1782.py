@@ -31,6 +31,7 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from tests._letter import letter_doc
 from tests_e2e.schermen import BASE, login_met_sessie, pagina_klaar  # noqa: E402
 
 LONG = "een.heel.lang.adres.van.een.lid.met.dubbele.naam@example.com"
@@ -77,9 +78,10 @@ def letter():
     try:
         sent = Newsletter(
             subject="E2E Per adres",
-            body_html="<div>Beste</div>",
+            body_document=letter_doc("<div>Beste</div>"),
             audience=Audience.BOTH,
             status=LetterStatus.SENT,
+            sent_body_html="<div>Beste</div>",
         )
         db.add(sent)
         db.flush()
@@ -146,7 +148,10 @@ def test_an_address_keeps_its_line_the_moment_too_and_the_reason_has_room(browse
         with_reason = [row for row in m["rows"] if row["reason"]]
         assert len(with_reason) == 3
         for row in with_reason:
-            assert row["reason_width"] >= 112 and row["reason_lines"] <= 3, row
+            # #1976 (Koen, 16 October 2026, "3a"): the reason is at least 5.5rem
+            # wide, so the four columns fit the card at 770 px; a reason of
+            # five words then takes four lines (it took three at 7rem).
+            assert row["reason_width"] >= 88 and row["reason_lines"] <= 4, row
         # The page never scrolls sideways; the table may, inside its card.
         assert m["page"] == [width, width], m["page"]
         assert m["room"] <= width

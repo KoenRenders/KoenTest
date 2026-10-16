@@ -12,7 +12,7 @@ editor-endpoints geven de ruwe codes terug, zodat ze bewerkbaar blijven.
 
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from contextvars import ContextVar
 from html import escape, unescape
 from typing import Dict, Optional
@@ -520,6 +520,21 @@ def _block_html(
     kind = node["type"]
     content = node.get("content")
 
+    # A caller that renders for another place than the site (the letter, as a
+    # mail) builds some blocks itself (`render_document(blocks=...)`): they are
+    # built whole in code, so they stand after the sanitiser like the cards.
+    builders = _BLOCKS.get()
+    if builders is not None and kind in builders:
+        block = builders[kind](node)
+        if not block or late is None:
+            return block
+        late.append(block)
+        return f"<div>{_LATE}{len(late) - 1}{_LATE}</div>"
+
+    if kind in LETTER_BLOCKS:
+        # The letter's own blocks (CR-17 phase 7): a page shows nothing of them.
+        return ""
+
     if kind == "paragraph":
         inner = _inline_html(content)
         return inner if cell else f"<p>{inner}</p>"
@@ -811,6 +826,16 @@ def _unreachable_html(block: str, reason: str) -> str:
 #: preview, the chatbot, a mail). An input of `render_document`; held in a context
 #: variable for the length of one render so the many nested calls need no new
 #: parameter, and reset when it ends.
+#: The blocks of a letter (CR-17 phase 7): the mail renderer builds them; a page
+#: renders them as nothing.
+LETTER_BLOCKS: tuple[str, ...] = ("activity", "calendar", "closing")
+
+#: Blocks the CALLER builds (`render_document(blocks=...)`): kind → function of the
+#: node, answering the block's HTML. Held for the length of a render, like the viewer.
+_BLOCKS: ContextVar["Mapping[str, Callable[[dict], str]] | None"] = ContextVar(
+    "cms_render_blocks", default=None
+)
+
 _VIEWER: ContextVar["Mapping | None"] = ContextVar("cms_render_viewer", default=None)
 
 
@@ -842,6 +867,15 @@ def _button_html(node: dict, preview: bool = False, db=None) -> str:
         f'<a class="prose-button prose-button--{variant}" '
         f'href="{escape(address, quote=True)}"{rel}>{label}</a>'
     )
+
+
+def button_address(node: dict, db=None) -> "tuple[str | None, bool]":
+    """Where a button block leads — the address as the site's button resolves it
+    (a path of the site, or an address outside it) — and whether it is outside; none
+    when it cannot be reached. For a renderer of another place than the site (the
+    letter, as a mail), which builds its own button and needs the one resolver."""
+    address, _reason, outside = _resolved(node.get("attrs") or {}, db)
+    return address, outside
 
 
 def hero_view(page, db=None, *, preview: bool = False, viewer=None) -> "dict | None":
@@ -1078,7 +1112,13 @@ def _card_html(node: dict, preview: bool = False, db=None) -> str:
 
 
 def render_document(
-    document, db=None, *, target: str = "site", preview: bool = False, viewer=None
+    document,
+    db=None,
+    *,
+    target: str = "site",
+    preview: bool = False,
+    viewer=None,
+    blocks: "Mapping[str, Callable[[dict], str]] | None" = None,
 ) -> str:
     """A validated document (dict or JSON string) to site HTML (CR-17, C4.2) —
     or to plain text (``target="text"``): the words the chatbot's context
@@ -1098,7 +1138,10 @@ def render_document(
     if target == "text":
         return _document_text(document, db)
     return "".join(
-        html for _kind, html in render_document_parts(document, db, preview=preview, viewer=viewer)
+        html
+        for _kind, html in render_document_parts(
+            document, db, preview=preview, viewer=viewer, blocks=blocks
+        )
     )
 
 
@@ -1110,7 +1153,7 @@ _DATA_BLOCKS = {
 
 
 def render_document_parts(
-    document, db=None, *, preview: bool = False, viewer=None
+    document, db=None, *, preview: bool = False, viewer=None, blocks=None
 ) -> "list[tuple[str, str]]":
     """The page as `(kind, html)` parts, in order (CR-32 phase 5): `"prose"` for
     what the author wrote — the stretch of blocks between two data blocks — and
@@ -1136,6 +1179,7 @@ def render_document_parts(
             run.clear()
 
     token = _VIEWER.set(viewer)
+    blocks_token = _BLOCKS.set(blocks)
     try:
         for node in (document or {}).get("content") or []:
             if node.get("type") in DATA_BLOCKS:
@@ -1148,6 +1192,7 @@ def render_document_parts(
         close_run()
     finally:
         _VIEWER.reset(token)
+        _BLOCKS.reset(blocks_token)
     return parts
 
 

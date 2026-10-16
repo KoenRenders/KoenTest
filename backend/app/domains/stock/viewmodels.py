@@ -52,7 +52,8 @@ class StockMovementsView(ViewModel):
     product_name: str
     size: str
     #: One dict per movement: `reason` (a MovementReason), `quantity`, `note`,
-    #: and `occurred` (the moment in the tenant's time zone, pre-formatted).
+    #: and `occurred` (the moment as stored; the template's `short_datetime`
+    #: converts it to the association's time).
     movements: list[dict[str, Any]]
     error: Optional[str] = None
     nav_items: list[dict[str, Any]] = field(default_factory=list)

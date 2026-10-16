@@ -652,6 +652,15 @@ html.nav-rail .nav-when-wide{display:none}
    account). The environment banner stands above it in the document flow and
    scrolls away.
 
+   A long menu (#1917; Koen, 15 and 16 October 2026, "a" and "5a"): from 768 px
+   the header is a row that wraps, CSS only. The account stands fixed at the
+   top right, and every row keeps its room free (`--site-account-room`: the
+   account's widest, a first name of 12rem with its arrow, or "Inloggen"). From
+   1 200 px the pages stand beside the logo while they fit; when they do not,
+   they move to a row of their own under it, and wrap to a third row if they
+   must. The logo never gives up its width for them, and the page never
+   scrolls sideways. With a short menu the header is what it was.
+
    The LOGO is as high as its row allows — the row minus 2 × 8 px of air, the
    trade of #1156 (#1621, CR-11 Q69, end state §2.5): 48 px in the rows of 64
    (a phone, and the first row from 768 px), 64 px in the band of 80 from
@@ -682,6 +691,8 @@ body[data-shell="site"]>main{flex:1 0 auto}
 .site-drawer-backdrop{position:fixed;inset:0;z-index:45;background:rgb(var(--c-ink)/.32)}
 .site-drawer-row{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;padding:12px;border-radius:6px;font-size:16px;color:rgb(var(--c-ink));text-align:left}
 .site-drawer-row:hover{background:rgb(var(--c-surface-2));text-decoration:none}
+/* CR-17 phase 6 (#2024): a page under a section, indented under it in the drawer. */
+.site-drawer-sub{padding-left:36px;font-size:15px}
 .site-drawer-row[aria-current="page"]{background:rgb(var(--c-blue-50));color:rgb(var(--c-brand));font-weight:600;text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:2px}
 .site-footer{background:rgb(var(--c-surface))}
 /* #1654 (CR-11 Q85): no line above the row — the ground changing from grey to
@@ -702,10 +713,12 @@ body[data-shell="site"]>main{padding-bottom:24px}
 .site-sponsor:focus-visible{outline:2px solid rgb(var(--c-focus));outline-offset:2px;border-radius:6px}
 @media (min-width:768px){
   .site-container{width:calc(100% - 48px)}
-  .site-header-grid{grid-template-columns:minmax(0,1fr) auto;grid-template-rows:64px 48px;grid-template-areas:"brand account" "pages pages";height:112px}
+  .site-header-grid{--site-account-room:15rem;position:relative;display:flex;flex-wrap:wrap;align-items:center;column-gap:16px;height:auto;min-height:112px;padding-right:var(--site-account-room)}
+  .site-header-grid:has([data-sign-in]){--site-account-room:6.5rem}
+  .site-brand{flex:0 1 auto;min-height:64px}
   .site-menu-button{display:none}
-  .site-pages{grid-area:pages;display:flex;align-items:center;gap:4px;height:48px;min-width:0}
-  .site-account{grid-area:account;display:flex;align-items:center;gap:8px}
+  .site-pages{display:flex;flex-wrap:wrap;align-items:center;gap:4px;flex:1 0 100%;min-height:48px;min-width:0}
+  .site-account{position:absolute;top:10px;right:0;max-width:var(--site-account-room);display:flex;align-items:center;justify-content:flex-end;gap:8px}
   body[data-shell="site"]>main{padding-bottom:32px}
   .site-footer-core{padding-top:32px}
   .site-legal{margin-top:32px}
@@ -719,9 +732,11 @@ body[data-shell="site"]>main{padding-bottom:24px}
 }
 @media (min-width:1200px){
   .site-container{width:calc(100% - 64px)}
-  .site-header-grid{grid-template-columns:minmax(0,1fr) auto auto;grid-template-rows:80px;grid-template-areas:"brand pages account";gap:24px;height:80px}
+  .site-header-grid{column-gap:24px;min-height:80px}
+  .site-brand{flex:0 0 auto;min-height:80px}
   .site-brand img{height:64px}
-  .site-pages{height:auto}
+  .site-pages{flex:0 1 auto;margin-left:auto}
+  .site-account{top:18px}
   .site-footer-row{gap:48px}
 }
 /* ── CR-17 (#1671, slice 4): the prose rules — `.prose-raak`, one class ───────

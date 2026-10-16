@@ -15,7 +15,7 @@
 <tbody>
   {% for m in movements %}
   <tr class="align-middle">
-    <td data-cell="moment" class="border-b border-line px-3 py-2 whitespace-nowrap text-ink-soft">{{ m.occurred }}</td>
+    <td data-cell="moment" class="border-b border-line px-3 py-2 whitespace-nowrap text-ink-soft">{{ m.occurred|short_datetime }}</td>
     <td data-cell="status" class="border-b border-line px-3 py-2 font-medium">{{ m.reason | code_label("movement_reason") }}</td>
     <td data-cell="amount" class="border-b border-line px-3 py-2 text-right tabular-nums">{{ ("+" ~ m.quantity) if m.quantity > 0 else m.quantity }}</td>
     <td data-cell="text" class="border-b border-line px-3 py-2 text-ink-soft">{{ m.note or "" }}</td>

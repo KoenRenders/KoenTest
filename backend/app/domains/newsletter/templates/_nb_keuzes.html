@@ -1,13 +1,16 @@
 {% import "_macros.html" as ui %}
 {# What the letter is about, in three groups (CR-11 block 10, #1562; decision 10,
    row 41 — Koen, 4 October 2026). They stood in Raakje's column as two groups;
-   they are the page's own choices now: Raakje's proposal, "Activiteit invoegen"
-   and "Kalender invoegen" all read these three. Each group's title carries its
+   they are the page's own choices now: Raakje's proposal, the editor's blocks
+   Activiteit and Kalender all read these three. Each group's title carries its
    count; a chip takes an activity out, "Toevoegen" opens the picker under it. #}
-<div data-letter-choices class="bg-surface border border-line rounded-2xl p-5 space-y-4">
+{# The editor's activity dialog offers the featured activities: tell it the list
+   whenever this fragment arrives (CR-17 phase 7). #}
+<div data-letter-choices class="bg-surface border border-line rounded-2xl p-5 space-y-4"
+     x-data x-init='$dispatch("raak-letter-featured", {{ featured_options|tojson }})'>
   <div>
     <h2 class="font-semibold text-blue-700">{{ _("Waarover gaat de brief?") }}</h2>
-    <p class="text-sm text-ink-soft mt-0.5">{{ _("Deze keuzes gelden voor de hele brief: voor het voorstel van Raakje, voor “Activiteit invoegen” en voor “Kalender invoegen”.") }}</p>
+    <p class="text-sm text-ink-soft mt-0.5">{{ _("Deze keuzes gelden voor de hele brief: voor het voorstel van Raakje en voor de blokken Activiteit en Kalender in de tekst.") }}</p>
   </div>
   {% if choices_error %}{{ ui.error_banner(choices_error) }}{% endif %}
   {% for group in choices %}

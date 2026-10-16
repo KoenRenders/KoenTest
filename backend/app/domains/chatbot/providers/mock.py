@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 from typing import Any, Optional
 
-from .base import AssistantMessage, LLMProvider, ToolCall
+from .base import AssistantMessage, LLMProvider, OcrResult, ToolCall
 
 _ACTIVITY_TRIGGERS = ("activiteit", "agenda", "wanneer", "evenement", "kalender")
 
@@ -144,6 +144,10 @@ def _format_report(data: dict[str, Any]) -> str:
 
 class MockProvider(LLMProvider):
     name = "mock"
+
+    def ocr(self, document: bytes, content_type: str) -> OcrResult:
+        """The stand-in reads nothing: no network, no document leaves (CI, local)."""
+        return OcrResult(text="")
 
     def complete(
         self,

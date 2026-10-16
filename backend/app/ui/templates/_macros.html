@@ -1788,6 +1788,32 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   {% endcall %}
 </div>
 {% endif %}
+{% if blocks.activity %}
+{# The letter's activity dialog (CR-17 phase 7): one of the activities the letter
+   features. The block holds the activity's id; the mail shows its picture, name,
+   when and where and the sign-up link, built when the letter is sent. The list is the
+   caller's own (`blocks.activity.activities`) and follows the page's choices: the
+   screen says `raak-letter-featured` with the new list whenever it changes them.
+   Nothing featured: the dialog says where to choose. #}
+<div x-data='{ activity: false, list: {{ blocks.activity.activities|tojson }}, aId: "" }'
+     @raak-letter-featured.window="list = $event.detail"
+     @raak-activity-choose.window="if ($event.detail.editor === '{{ editor_id }}') { aId = list.length ? String(list[0].id) : ''; activity = true }"
+     @raak-activity-apply.window="if (activity && aId) { $dispatch('raak-activity-chosen', { editor: '{{ editor_id }}', activity_id: Number(aId) }); activity = false }">
+  {% call _editor_dialog("activity", _("Activiteit"), editor_id, max_w="max-w-lg") %}
+  <div x-show="list.length">
+    {{ label(blocks.activity.activityLabel, editor_id ~ "-activity-pick") }}
+    <select id="{{ editor_id }}-activity-pick" class="w-full border border-gray-300 rounded-lg px-3 py-2" x-model="aId" data-activity-pick>
+      <template x-for="a in list" :key="a.id"><option :value="String(a.id)" x-text="a.label"></option></template>
+    </select>
+  </div>
+  <p class="text-sm text-gray-600" x-show="!list.length">{{ blocks.activity.emptyLabel }}</p>
+  <div class="mt-4 flex justify-end gap-2">
+    {{ btn_secondary(_("Annuleren"), attrs='@click="activity = false"') }}
+    {{ btn_primary(_("Invoegen"), type="button", attrs='x-show="list.length" @click="$dispatch(\'raak-activity-apply\')" data-activity-apply') }}
+  </div>
+  {% endcall %}
+</div>
+{% endif %}
 {% if blocks.figure %}
 {# The dialog opens empty for a new picture, and filled with what a placed
    picture holds when the choose event carries it (`attrs`, `url`): that

@@ -236,6 +236,9 @@ def _rows_for_the_refusal_test(db, design):
 
     meeting = create_meeting(db, meeting_date=date(2026, 11, 3))
     letter = create_newsletter(db, created_by="bestuur@example.com")
+    # Any status but a draft needs its frozen body (ck_newsletter_sent_has_body), which
+    # would refuse the unknown status before the foreign key is asked.
+    letter.sent_body_html = "<div>x</div>"
     # `ck_newsletter_sent_has_audience` refuses a non-draft status without an
     # audience. Choosing one here leaves the foreign key as the only thing
     # that can refuse the status below.

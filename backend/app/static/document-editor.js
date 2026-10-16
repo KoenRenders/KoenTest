@@ -199,6 +199,68 @@
     });
   }
 
+  /* A block put in at the author's place. The selection after an inserted block is
+     the block itself, and `insertContent` over a selected block REPLACES it — so a
+     second block would take the first one's place. At the END of the selection the
+     new block lands after the old one (and at the cursor, when it is a cursor). */
+  function insertBlock(editor, node) {
+    editor.chain().focus().insertContentAt(editor.state.selection.to, node).run();
+  }
+
+  /* The letter's three blocks (CR-17 phase 7, F9): an activity (its id; the mail
+     shows its picture, name, when, where and the sign-up link, built when the letter
+     is sent), the calendar (the activities the letter's own choices name) and the
+     closing. Atoms, like the gallery: the editor draws a labelled box, the mail
+     renderer builds the block. */
+  function letterNodes(RaakTiptap, config) {
+    var insert = config.toolbar.insert || [];
+    function label(id) {
+      return (insert.filter(function (i) { return i.id === id; })[0] || {}).label || id;
+    }
+    var names = {};
+    ((config.activity && config.activity.activities) || []).forEach(function (a) { names[a.id] = a.label; });
+    function atom(name, attrs, caption) {
+      return RaakTiptap.Node.create({
+        name: name,
+        group: "block",
+        atom: true,
+        addAttributes: function () {
+          return attrs ? { activity_id: { default: null } } : {};
+        },
+        parseHTML: function () {
+          return [{
+            tag: "div[data-letter-block=" + name + "]",
+            getAttrs: function (el) {
+              return attrs ? { activity_id: Number(el.getAttribute("data-activity")) } : {};
+            },
+          }];
+        },
+        renderHTML: function (props) {
+          var out = { "data-letter-block": name, class: "de-gallery" };
+          if (attrs) out["data-activity"] = props.node.attrs.activity_id;
+          return ["div", out, caption(props.node)];
+        },
+        addNodeView: function () {
+          return function (props) {
+            var dom = document.createElement("div");
+            dom.className = "de-gallery";
+            dom.contentEditable = "false";
+            dom.setAttribute("data-letter-block", name);
+            dom.textContent = caption(props.node);
+            return { dom: dom };
+          };
+        },
+      });
+    }
+    return [
+      atom("activity", true, function (node) {
+        return label("activity") + ": " + (names[node.attrs.activity_id] || "#" + node.attrs.activity_id);
+      }),
+      atom("calendar", false, function () { return label("calendar"); }),
+      atom("closing", false, function () { return label("closing"); }),
+    ];
+  }
+
   /* The activities of CR-32 (R15): a data block — the upcoming activities as the
      home shows them, at most `count`. The module supplies the data at render time;
      the editor holds the count and draws a labelled box with a select of 1 to 50,
@@ -477,23 +539,65 @@
       name: "button",
       group: "block",
       atom: true,
+      /* #2028: what the editor draws is also what a copy carries, so the
+         label and every destination stand on the element as `data-` fields
+         and are read back from it on a paste — before, a copied button came
+         back without a label and without a destination. The outside address
+         is `data-href`, not `href`: an `<a href>` would be the link mark's.
+         A button pasted from a page of the site (`<a data-button href>`)
+         keeps its address as an outside address. */
       addAttributes: function () {
+        var data = function (name, parse) {
+          return {
+            default: null,
+            parseHTML: function (el) {
+              var v = el.getAttribute("data-" + name);
+              return v === null || v === "" ? null : parse ? parse(v) : v;
+            },
+            renderHTML: function (attrs) {
+              var v = attrs[name.replace(/-/g, "_")];
+              var out = {};
+              if (v !== null && v !== undefined && v !== "") out["data-" + name] = String(v);
+              return out;
+            },
+          };
+        };
         return {
-          label: { default: "" },
-          variant: { default: "secondary" },
-          page_id: { default: null },
-          href: { default: null },
-          form_slug: { default: null },
-          screen: { default: null },
+          label: {
+            default: "",
+            parseHTML: function (el) { return el.getAttribute("data-label") || el.textContent.trim(); },
+            renderHTML: function (attrs) { return attrs.label ? { "data-label": attrs.label } : {}; },
+          },
+          variant: {
+            default: "secondary",
+            parseHTML: function (el) { return el.getAttribute("data-variant") || "secondary"; },
+            renderHTML: function (attrs) { return { "data-variant": attrs.variant || "secondary" }; },
+          },
+          page_id: data("page-id", function (v) { var n = parseInt(v, 10); return isNaN(n) ? null : n; }),
+          href: {
+            default: null,
+            parseHTML: function (el) {
+              return el.getAttribute("data-href") || el.getAttribute("href") || null;
+            },
+            renderHTML: function (attrs) { return attrs.href ? { "data-href": attrs.href } : {}; },
+          },
+          form_slug: data("form-slug"),
+          screen: data("screen"),
         };
       },
       parseHTML: function () {
-        return [{ tag: "a[data-button]" }];
+        /* Above the link mark's `a[href]`: a button with an address is a
+           button, not a link. */
+        return [{ tag: "a[data-button]", priority: 60 }];
       },
       renderHTML: function (props) {
         var a = props.node.attrs;
         var naam = a.label || (config.toolbar.insert || []).filter(function (i) { return i.id === "button"; })[0].label;
-        return ["a", { "data-button": "", class: "prose-button prose-button--" + (a.variant || "secondary") }, naam];
+        var attrs = Object.assign({}, props.HTMLAttributes, {
+          "data-button": "",
+          class: "prose-button prose-button--" + (a.variant || "secondary"),
+        });
+        return ["a", attrs, naam];
       },
     });
   }
@@ -738,6 +842,57 @@
     });
   }
 
+  /* #2028: a line break carries no mark. Pasted `<strong>…<br>…</strong>`
+     gave the break the bold mark, and the schema (`cms/schema.py`) refuses a
+     mark on a hard break, so the whole document could not be saved. One rule
+     for every way a break arrives — pasted, typed, dropped: after any change,
+     a break with a mark loses it. The text around it keeps its marks. Only
+     the ranges the transactions changed are walked, mapped onto the new
+     document — not the whole page on every keystroke (review of #2058). */
+  function breakWithoutMarks(RaakTiptap) {
+    return RaakTiptap.Extension.create({
+      name: "breakWithoutMarks",
+      addProseMirrorPlugins: function () {
+        return [
+          new RaakTiptap.Plugin({
+            key: new RaakTiptap.PluginKey("breakWithoutMarks"),
+            appendTransaction: function (transactions, _old, state) {
+              if (!transactions.some(function (t) { return t.docChanged; })) return null;
+              var ranges = [];
+              transactions.forEach(function (t) {
+                ranges = ranges.map(function (r) { return [t.mapping.map(r[0], -1), t.mapping.map(r[1], 1)]; });
+                /* Each step's own range, mapped through itself and the steps
+                   after it: a replace moves positions, but a mark step (bold
+                   made over a selection) moves none and has a range all the
+                   same (review B1 of #2059). */
+                t.steps.forEach(function (step, i) {
+                  var from = step.from !== undefined ? step.from : step.pos;
+                  var to = step.to !== undefined ? step.to : step.pos !== undefined ? step.pos + 1 : undefined;
+                  if (from === undefined || to === undefined) return;
+                  var rest = t.mapping.slice(i);
+                  ranges.push([rest.map(from, -1), rest.map(to, 1)]);
+                });
+              });
+              var size = state.doc.content.size;
+              var tr = null;
+              ranges.forEach(function (r) {
+                var from = Math.max(0, Math.min(r[0], r[1]));
+                var to = Math.min(size, Math.max(r[0], r[1]));
+                state.doc.nodesBetween(from, to, function (node, pos) {
+                  if (node.type.name === "hardBreak" && node.marks.length) {
+                    tr = tr || state.tr;
+                    tr.setNodeMarkup(pos, null, node.attrs, []);
+                  }
+                });
+              });
+              return tr;
+            },
+          }),
+        ];
+      },
+    });
+  }
+
   /* The card the selection stands on, with her place — or null. A card is an
      atom, so a click or the arrow keys select her as a node. */
   function selectedCard(editor) {
@@ -934,6 +1089,9 @@
         item.id === "cards" ||
         item.id === "section" ||
         (item.id === "gallery" && !!config.gallery) ||
+        item.id === "activity" ||
+        item.id === "calendar" ||
+        item.id === "closing" ||
         item.id === "activities" ||
         item.id === "albums"
       );
@@ -993,6 +1151,12 @@
                 attrs: { albums: 3, photos: 4, interval: 3 },
               })
               .run();
+          } else if (item.id === "activity") {
+            /* The activity is chosen in the dialog of the macro, among the ones the
+               letter features. */
+            announce("raak-activity-choose", { editor: editorId });
+          } else if (item.id === "calendar" || item.id === "closing") {
+            insertBlock(editor, { type: item.id });
           } else if (item.id === "gallery") {
             /* The album is chosen in the dialog of the macro; the block lands
                with it (the server refuses an activity that is no album). */
@@ -1426,6 +1590,12 @@
     return /\s/.test(address) ? "space" : "";
   };
 
+  document.addEventListener("raak-activity-chosen", function (event) {
+    var editor = editors[event.detail.editor];
+    if (!editor || editor.isDestroyed || !event.detail.activity_id) return;
+    insertBlock(editor, { type: "activity", attrs: { activity_id: event.detail.activity_id } });
+  });
+
   document.addEventListener("raak-gallery-chosen", function (event) {
     var editor = editors[event.detail.editor];
     if (!editor || editor.isDestroyed || !event.detail.activity_id) return;
@@ -1504,7 +1674,11 @@
        the starter kit's would refuse her at the root. */
     var withSection = (config.insert || []).indexOf("section") !== -1;
     if (withSection) starterOptions.document = false;
-    var extensions = [holdWholeBlock(RaakTiptap), RaakTiptap.StarterKit.configure(starterOptions)];
+    var extensions = [
+      holdWholeBlock(RaakTiptap),
+      breakWithoutMarks(RaakTiptap),
+      RaakTiptap.StarterKit.configure(starterOptions),
+    ];
     if (withSection) {
       extensions = extensions.concat(sectionNode(RaakTiptap, config));
     }
@@ -1541,6 +1715,9 @@
     }
     if ((config.insert || []).indexOf("gallery") !== -1 && config.gallery) {
       extensions.push(galleryNode(RaakTiptap, config));
+    }
+    if ((config.insert || []).indexOf("activity") !== -1) {
+      letterNodes(RaakTiptap, config).forEach(function (node) { extensions.push(node); });
     }
 
     var editor = new RaakTiptap.Editor({
@@ -1631,6 +1808,9 @@
       editor.on("update", function () {
         input.value = JSON.stringify(editor.getJSON());
         changed = true;
+        /* A screen that saves while the author types (the letter) listens for
+           this one, with its own delay (it bubbles to the form around the editor). */
+        mount.dispatchEvent(new CustomEvent("raak-editor-change", { bubbles: true }));
       });
       /* A screen that saves as the author leaves the editor (the notes of a
          meeting point, as they did on Trix) listens for this event (it bubbles from the editor's element
@@ -1660,6 +1840,13 @@
       }
     });
   }
+
+  /* The editor of an element, for a script of the screen that works with it: the
+     Assistent's proposal for the letter writes into it and reads the selection. */
+  window.raakDocumentEditor = function (mountId) {
+    var editor = editors[mountId];
+    return editor && !editor.isDestroyed ? editor : null;
+  };
 
   function scan() {
     if (!window.RaakTiptap) watchScripts();

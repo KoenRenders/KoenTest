@@ -143,6 +143,7 @@ async def _lifespan(app: FastAPI):
     en de e-maillog opschonen. De oude on_event("startup")-hooks zijn weg."""
     _start_kernel_jobs()
     _purge_old_email_logs()
+    _report_tenant_code_collisions()
     yield
 
 
@@ -165,6 +166,12 @@ app = FastAPI(
     version="1.0.0",
     **_docs_kwargs(settings.app_env),
 )
+
+# #1951: the reserved first segments are read from this route table when asked,
+# so a route added below is reserved too.
+from app.kernel.route_table import register as _register_route_table  # noqa: E402
+
+_register_route_table(app)
 
 app.add_middleware(
     CORSMiddleware,
@@ -618,6 +625,34 @@ def _purge_old_email_logs() -> None:
             db.close()
     except Exception as exc:
         logger.warning("E-maillog opschonen bij opstart mislukt: %s", exc)
+
+
+def _report_tenant_code_collisions() -> None:
+    """A tenant code that equals a route's first segment takes that route away
+    from every tenant (#1951). Creating such a code is refused; this covers the
+    other direction — a new route that meets a code an environment already
+    carries. Reported, never a refused start: that would take every tenant down
+    for one tenant's code. An ERROR before `Uvicorn running`, so the deploy's log
+    check shows it."""
+    try:
+        from app.database import SessionLocal
+        from app.domains.mdm.api import tenant_codes
+        from app.kernel.route_table import colliding
+
+        db = SessionLocal()
+        try:
+            codes = tenant_codes(db)
+        finally:
+            db.close()
+        for code in colliding(codes):
+            logger.error(
+                "Tenant code %r equals the first segment of a route (/%s/…): "
+                "that tenant takes the route away from every tenant (#1951).",
+                code,
+                code,
+            )
+    except Exception as exc:
+        logger.warning("Checking tenant codes against the routes at startup failed: %s", exc)
 
 
 @app.get("/api/health")

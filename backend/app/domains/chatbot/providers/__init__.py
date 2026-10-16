@@ -6,6 +6,6 @@ enkel deze map aan; router, tools en widget blijven ongemoeid.
 """
 
 from .base import AssistantMessage, LLMProvider, ToolCall
-from .factory import get_provider
+from .factory import get_provider, ocr_available
 
-__all__ = ["AssistantMessage", "LLMProvider", "ToolCall", "get_provider"]
+__all__ = ["AssistantMessage", "LLMProvider", "ToolCall", "get_provider", "ocr_available"]

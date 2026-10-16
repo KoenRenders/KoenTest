@@ -103,19 +103,26 @@ def test_the_band_heights_stand_once_and_the_logo_fits():
     #1156 are gone with the padding they were derived from.
     """
     rules = _css_rules(".site-header-grid")
-    assert [_px(rule, "height") for rule in rules] == [64, 112, 80]
-    assert "grid-template-rows:64px 48px" in rules[1], "two rows from 768 px"
+    # Since #1917 the header from 768 px is a row that wraps: 112 and 80 px are
+    # its least height (`min-height`), which a long menu may exceed by a row.
+    assert [_px(rules[0], "height"), _px(rules[1], "min-height"), _px(rules[2], "min-height")] == [
+        64,
+        112,
+        80,
+    ]
 
     # #1621: the logo takes what its row gives — EQUAL to the row minus 2 × 8 px,
     # not merely fitting it. The row of the logo per breakpoint: 64 on a phone,
-    # the first row of 64 from 768 px, the band of 80 from 1 200 px.
+    # the first row of 64 from 768 px (the brand's own least height since
+    # #1917), the band of 80 from 1 200 px.
     phone, wide = (_px(rule, "height") for rule in _css_rules(".site-brand img"))
-    first_row = int(re.search(r"grid-template-rows:(\d+)px 48px", rules[1]).group(1))
+    brand = _css_rules(".site-brand")
+    first_row, band = _px(brand[1], "min-height"), _px(brand[2], "min-height")
     assert phone == _px(rules[0], "height") - 16 == first_row - 16, (
         f"the logo is {phone} px in a row of {_px(rules[0], 'height')} and of {first_row} px"
     )
-    assert wide == _px(rules[2], "height") - 16, (
-        f"the logo is {wide} px in the band of {_px(rules[2], 'height')} px from 1 200 px"
+    assert wide == band - 16 == _px(rules[2], "min-height") - 16, (
+        f"the logo is {wide} px in the band of {band} px from 1 200 px"
     )
     css = BUILD_CSS.read_text()
     assert css.index(".site-brand img{height:64px}") > css.index("@media (min-width:1200px){"), (

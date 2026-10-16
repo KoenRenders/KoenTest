@@ -20,10 +20,12 @@ from app.domains.chatbot.providers.base import AssistantMessage
 from app.domains.mdm.api import Person
 from app.domains.newsletter import drafting
 from app.domains.newsletter import service as nb
+from app.domains.newsletter.letter_markup import document_to_markup
 from app.domains.newsletter.models import (
     Audience,
     LetterStatus,
 )
+from tests._letter import letter_doc
 from tests._meeting_notes import note
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -101,6 +103,16 @@ def _activity(db, name, days_ahead=20, price=None, member_price=None):
         )
     db.flush()
     return activity
+
+
+def _body(markup: str) -> str:
+    """What the editor sends for a letter: the document of this text, as JSON."""
+    return json.dumps(letter_doc(markup))
+
+
+def _markup(applied) -> str:
+    """The text with markers a proposal's blocks stand for."""
+    return document_to_markup({"type": "doc", "content": applied.content})
 
 
 def _letter(db, body="", audience=Audience.MEMBERS, activity_ids=()):
@@ -185,6 +197,7 @@ def _previous_letter(db, days_ago):
         db, vorige, subject="Vorige", body_html="<div>x</div>", audience=Audience.MEMBERS
     )
     vorige.status = LetterStatus.SENT
+    vorige.sent_body_html = "<div>x</div>"
     vorige.send_started_at = datetime.now(timezone.utc) - timedelta(days=days_ago)
     db.commit()
 
@@ -343,6 +356,9 @@ def test_een_zelf_geschreven_datum_wordt_gemarkeerd_de_markering_komt_uit_de_dat
         db_session, letter, instruction="Schrijf de najaarsbrief.", names=set(), base_url=BASE
     )
     held = set(drafting._NUMBER.findall(sources.fact_text().lower()))
+    # The coming activities reach the sources once the port rendered them (CR-33 F7), after
+    # this line: their numbers are held too, every coming activity's id among them.
+    held |= {field.value for field in sources.upcoming_fields} | {str(brood.id)}
     invented = next(str(n) for n in range(1, 32) if str(n) not in held)
     raakje(
         _draft(
@@ -365,7 +381,8 @@ def test_een_zelf_geschreven_datum_wordt_gemarkeerd_de_markering_komt_uit_de_dat
     assert f"[[activiteit:{brood.id}|" in html
     from app.domains.newsletter import service as nb
 
-    mail = nb.expand_blocks(db_session, html, base_url=BASE)
+    nb.update_draft(db_session, letter, subject="x", body_html=html, audience=Audience.MEMBERS)
+    mail = nb.render_body(db_session, letter, base_url=BASE)
     assert f"{BASE}/activiteiten/brood-en-spelen" in mail
     assert "Dorpsplein" in mail
 
@@ -393,6 +410,7 @@ def test_een_prijs_die_alleen_in_een_oude_brief_staat_telt_als_verzonnen(db_sess
         audience=Audience.MEMBERS,
     )
     old.status = LetterStatus.SENT
+    old.sent_body_html = "<div>x</div>"
     db_session.commit()
     bbq = _activity(db_session, "BBQ", price="15")
     letter = _letter(db_session, activity_ids=[bbq.id])
@@ -496,15 +514,17 @@ def test_een_gemarkeerde_zin_blijft_weg_tenzij_je_hem_behoudt(db_session, raakje
         )
         turn = _ask(db_session, letter)
         message = _proposal_message(db_session, letter, turn)
-        assert letter.body_html == "", "niets in de brief vóór Toepassen"
+        assert nb.markup_of(letter) == "", "niets in de brief vóór Toepassen"
 
-        html = drafting.apply(
-            db_session, letter, message, keep=keep, body_html="", base_url=BASE
-        ).html
+        html = _markup(
+            drafting.apply(db_session, letter, message, keep=keep, body=_body(""), base_url=BASE)
+        )
 
         assert ("zaklopen" in html) is expected
         assert "Kom naar Brood &amp; Spelen!" in html
-        assert "Het bestuur van" in html, "de afsluiting zet het portaal er zelf onder"
+        assert html.endswith("<div>[[afsluiting]]</div>"), (
+            "de afsluiting zet het portaal er zelf onder"
+        )
         assert message.proposal["status"] == "applied"
 
 
@@ -521,13 +541,17 @@ def test_zonder_selectie_komt_het_stuk_waar_de_cursor_staat(db_session, raakje):
         db_session, letter, instruction="Een stuk over de BBQ.", before_cursor="Eerste alinea."
     )
     message = _proposal_message(db_session, letter, turn)
-    applied = drafting.apply(db_session, letter, message, keep=set(), body_html=body, base_url=BASE)
+    applied = drafting.apply(
+        db_session, letter, message, keep=set(), body=_body(body), base_url=BASE
+    )
 
     assert turn.proposal["kind"] == "insert"
     assert "TEKST VLAK VOOR DE CURSOR" in provider.asked[0][-1]["content"]
     assert "Eerste alinea." in provider.asked[0][-1]["content"]
-    assert (applied.placement, applied.html) == ("cursor", "<div>Een nieuw stuk.</div>")
-    assert letter.body_html == body, "de server herschrijft de brief niet zelf"
+    assert (applied.placement, _markup(applied)) == ("cursor", "<p>Een nieuw stuk.</p>")
+    assert nb.markup_of(letter) == nb.markup_of(_letter(db_session, body=body)), (
+        "de server herschrijft de brief niet zelf"
+    )
 
 
 def test_een_selectie_wordt_vervangen(db_session, raakje):
@@ -543,14 +567,16 @@ def test_een_selectie_wordt_vervangen(db_session, raakje):
         selection_range="7,39",
     )
     message = _proposal_message(db_session, letter, turn)
-    applied = drafting.apply(db_session, letter, message, keep=set(), body_html=body, base_url=BASE)
+    applied = drafting.apply(
+        db_session, letter, message, keep=set(), body=_body(body), base_url=BASE
+    )
 
     assert turn.proposal["kind"] == "replace"
     assert "Een te lange zin die korter mag." in provider.asked[0][-1]["content"]
-    assert (applied.placement, applied.range, applied.html) == (
+    assert (applied.placement, applied.range, _markup(applied)) == (
         "selection",
         [7, 39],
-        "<div>Een korte zin.</div>",
+        "<p>Een korte zin.</p>",
     )
 
 
@@ -572,7 +598,7 @@ def test_een_selectie_op_een_intussen_veranderde_brief_wordt_geweigerd(db_sessio
             letter,
             message,
             keep=set(),
-            body_html="<div>Nul.</div>" + body,
+            body=_body("<div>Nul.</div>" + body),
             base_url=BASE,
         )
     assert message.proposal["status"] == "open"
@@ -641,11 +667,11 @@ def test_met_raakje_uit_is_er_geen_paneel_en_werkt_de_rest(client, db_session, m
 
     scherm = client.get(f"/admin/nieuwsbrieven/{letter.id}")
     assert 'id="nb-raakje"' not in scherm.text
-    assert 'id="nb-trix"' in scherm.text
+    assert 'id="nb-editor"' in scherm.text
     vraag = client.post(
         f"/admin/nieuwsbrieven/{letter.id}/raakje/vraag",
         headers=headers,
-        data={"instruction": "x", "body_html": ""},
+        data={"instruction": "x", "body": ""},
     )
     assert vraag.status_code == 404
 
@@ -678,7 +704,7 @@ def test_het_gesprek_via_het_scherm(client, db_session, monkeypatch, raakje):
     antwoord = client.post(
         f"/admin/nieuwsbrieven/{letter.id}/raakje/vraag",
         headers=headers,
-        data={"vraag": "Een feestelijke brief", "body_html": ""},
+        data={"vraag": "Een feestelijke brief", "body": ""},
     )
     assert "X-Raakje-Failed" not in antwoord.headers
     assert "Een feestelijke brief" in antwoord.text, "the question stands in the turn"
@@ -694,13 +720,13 @@ def test_het_gesprek_via_het_scherm(client, db_session, monkeypatch, raakje):
         f'data-proposal-apply-url="/admin/nieuwsbrieven/{letter.id}/raakje/{message.id}/toepassen"'
         in block
     )
-    assert 'data-proposal-include="#nb-inhoud"' in block and "data-proposal-auto" not in block
+    assert 'data-proposal-include="#nb-editor-input"' in block and "data-proposal-auto" not in block
 
     subject_before = letter.subject
     toegepast = client.post(
         f"/admin/nieuwsbrieven/{letter.id}/raakje/{message.id}/toepassen",
         headers=headers,
-        data={"body_html": ""},
+        data={"body": ""},
     )
     assert "data-proposal-auto" in toegepast.text
     fields = json.loads(
@@ -710,11 +736,12 @@ def test_het_gesprek_via_het_scherm(client, db_session, monkeypatch, raakje):
             re.S,
         ).group(1)
     )
-    body = next(f for f in fields if f["name"] == "body_html")
-    assert "Kom naar Brood" in body["value"]
-    assert "zaklopen" not in body["value"]
+    body = next(f for f in fields if f["name"] == "body")
+    assert "Kom naar Brood" in json.dumps(body["value"])
+    assert "zaklopen" not in json.dumps(body["value"])
+    assert isinstance(body["value"], list), "blocks of the editor, no HTML"
     assert body["placement"] == "replace" and "base" not in body
-    assert [f["name"] for f in fields][-1] == "body_html"
+    assert [f["name"] for f in fields][-1] == "body"
     db_session.refresh(letter)
     assert letter.subject == subject_before, "Toepassen writes no subject: the form does"
     assert message.proposal["status"] == "applied"
@@ -780,14 +807,16 @@ def test_een_volledige_brief_krijgt_aanhef_witregels_en_afsluiting(db_session, r
     turn = _ask(db_session, letter)
     message = drafting.record(db_session, letter, author_text="vraag", turn=turn)
 
-    html = drafting.apply(db_session, letter, message, keep=set(), body_html="", base_url=BASE).html
+    applied = drafting.apply(db_session, letter, message, keep=set(), body=_body(""), base_url=BASE)
+    html = _markup(applied)
 
-    # Sinds 20 september 2026 is een kopje een echte titel (`h1`), zodat ze bij
-    # het versturen dezelfde merkkleur krijgt als de rest van de brief.
-    assert html.startswith("<div>Beste,</div><div><br></div><h1>Vooruitblik</h1>")
-    assert "<div><br></div><h1>Terugblik</h1>" in html
-    assert "Het was gezellig.</div><div><br></div><div>Tot binnenkort!" in html
-    assert html.count("<div><br></div>") == 3
+    # Een kopje is een echte titel, zodat ze bij het versturen dezelfde merkkleur
+    # krijgt als de rest van de brief; de witregels van vroeger zijn de ruimte die
+    # de mail zelf tussen de blokken laat (een document kent geen lege alinea).
+    assert html.startswith("<p>Beste,</p><h2>Vooruitblik</h2>")
+    assert "<h2>Terugblik</h2>" in html
+    assert html.endswith("Het was gezellig.</p><div>[[afsluiting]]</div>")
+    assert "<p><br></p>" not in html
 
 
 def test_een_naam_in_een_zin_komt_er_een_keer_en_vet_in(db_session, raakje):
@@ -834,6 +863,7 @@ def test_een_nieuwe_brief_start_met_voorbije_en_volgende_activiteiten(db_session
         db_session, vorige, subject="Vorige", body_html="<div>x</div>", audience=Audience.MEMBERS
     )
     vorige.status = LetterStatus.SENT
+    vorige.sent_body_html = "<div>x</div>"
     vorige.send_started_at = datetime.now(timezone.utc) - timedelta(days=30)
     db_session.commit()
 
@@ -886,12 +916,12 @@ def test_het_gesprek_leest_van_oud_naar_nieuw(client, db_session, monkeypatch, r
     client.post(
         f"/admin/nieuwsbrieven/{letter.id}/raakje/vraag",
         headers=headers,
-        data={"vraag": "Vraag een", "body_html": ""},
+        data={"vraag": "Vraag een", "body": ""},
     )
     tweede = client.post(
         f"/admin/nieuwsbrieven/{letter.id}/raakje/vraag",
         headers=headers,
-        data={"vraag": "Vraag twee", "body_html": "<div>Er staat al tekst.</div>"},
+        data={"vraag": "Vraag twee", "body": _body("<div>Er staat al tekst.</div>")},
     ).text
     assert "Vraag een" not in tweede and tweede.index("Vraag twee") < tweede.index("Antwoord twee")
 
@@ -921,9 +951,20 @@ def test_raakje_zet_de_kalender_en_de_afsluiting(db_session, raakje):
     turn = _ask(db_session, letter)
 
     html = turn.proposal["operations"][0]["html"]
-    assert "Herfstfuif" in html, "de kalender staat er als compacte regel"
-    assert "[[kalender]]" not in html and "[[afsluiting]]" not in html
-    assert "Tot binnenkort!" in html
+    assert "<div>[[kalender]]</div>" in html and "<div>[[afsluiting]]</div>" in html
+    # De markeringen worden blokken van de brief; de mail bouwt ze bij het versturen.
+    from app.domains.newsletter.letter_markup import markup_to_document
+
+    nb.update_draft(db_session, letter, subject="x", body_html=html, audience=Audience.MEMBERS)
+    assert [b["type"] for b in markup_to_document(html)["content"]] == [
+        "heading",
+        "calendar",
+        "closing",
+    ]
+    mail = nb.render_body(db_session, letter, base_url=BASE)
+    assert "Herfstfuif" in mail, "de kalender staat er als compacte regel"
+    assert "[[kalender]]" not in mail and "[[afsluiting]]" not in mail
+    assert "Tot binnenkort!" in mail
 
 
 def test_een_markering_zonder_nummer_wordt_niet_als_verzonnen_gemarkeerd(db_session, raakje):
@@ -1007,10 +1048,18 @@ def test_de_groet_staat_maar_een_keer_onder_een_volledige_brief(db_session, raak
     turn = _ask(db_session, letter)
     message = drafting.record(db_session, letter, author_text="schrijf de brief", turn=turn)
 
-    html = drafting.apply(db_session, letter, message, keep=set(), body_html="", base_url=BASE).html
+    applied = drafting.apply(db_session, letter, message, keep=set(), body=_body(""), base_url=BASE)
+    nb.update_draft(
+        db_session,
+        letter,
+        subject="x",
+        body={"type": "doc", "content": applied.content},
+        audience=Audience.MEMBERS,
+    )
+    mail = nb.render_body(db_session, letter, base_url=BASE)
 
-    assert html.count("Tot binnenkort!") == 1
-    assert "[[afsluiting]]" not in html
+    assert mail.count("Tot binnenkort!") == 1
+    assert "[[afsluiting]]" not in mail
 
 
 def test_een_verkeerd_gespelde_markering_wordt_toch_ingevuld(db_session, raakje):
@@ -1112,6 +1161,7 @@ def test_een_eerdere_brief_met_een_gewoon_woord_vooraan_een_regel_houdt_niets_te
         audience=Audience.MEMBERS,
     )
     old.status = LetterStatus.SENT
+    old.sent_body_html = "<div>x</div>"
     db_session.commit()
     letter = _letter(db_session)
     provider = raakje(_draft(["Tot dan."]), _verdict())
@@ -1161,3 +1211,52 @@ def test_een_weigering_noemt_het_deel_van_de_bronnen_en_niet_de_vraag(db_session
     assert blocked.places == ("een voorbeeld van een eerdere brief",)
     assert "Haal de doelgroep even weg" in str(blocked)
     assert "je vraag" not in str(blocked) and "ermeulen" not in str(blocked)
+
+
+# ── CR-33 phase 2 (T8): the coming activities go as fields of the register ────
+
+
+def test_the_coming_activities_go_as_fields_and_the_mark_is_filled(db_session, raakje):
+    """Number and name stand under their labels of the register, in the section of the
+    coming activities; the mark of the port is not left in what was sent, and the sources the
+    later checks read hold what the port rendered."""
+    brood = _activity(db_session, "Brood & Spelen", days_ahead=30)
+    letter = _letter(db_session, activity_ids=[brood.id])
+    provider = raakje(_draft(["# In de kijker", f"[[activiteit:{brood.id}]]"]), _verdict())
+
+    _ask(db_session, letter)
+
+    sent = provider.payloads()
+    assert "komende activiteiten (nummer en naam)" in sent
+    assert f"activiteitnummer: {brood.id}" in sent and "activiteit: brood & spelen" in sent
+    assert "{{fields}}" not in sent, "the mark was sent as it stands"
+    assert f"- {brood.id}: " not in sent, "the old `- id: naam` line is back"
+
+
+def test_a_name_part_in_a_coming_activity_is_scrubbed_by_the_port(db_session, raakje):
+    """The names the guard knows are taken out of the rendered fields, as the caller did
+    by hand before."""
+    from app.domains.mdm.api import person_name_parts
+
+    plain = _activity(db_session, "Wandeling met Zebedeus", days_ahead=25)
+    letter = _letter(db_session, activity_ids=[plain.id])
+    db_session.flush()
+    from unittest import mock
+
+    with mock.patch(
+        "app.domains.mdm.api.person_name_parts", lambda db: {"zebedeus"} | person_name_parts(db)
+    ):
+        provider = raakje(_draft(["# Titel"]), _verdict())
+        _ask(db_session, letter)
+    assert "zebedeus" not in provider.payloads().replace("[naam]", "")
+
+
+def test_the_minutes_are_read_by_the_one_named_exception(db_session):
+    """The notes are `nooit` in the register; the letter's writer says, where it reads them,
+    that it is the exception Koen named — and that call is what this test would lose."""
+    from app.domains.chatbot.api import NAMED_EXCEPTIONS
+
+    letter = _letter(db_session, activity_ids=[])
+    # Reading the sources goes through `use_named_exception`; it raises for any other reader.
+    drafting.gather_sources(db_session, letter, instruction="x", names=set(), base_url=BASE)
+    assert NAMED_EXCEPTIONS["meetings.meeting_item.notes_document"].by == "newsletter.drafting"

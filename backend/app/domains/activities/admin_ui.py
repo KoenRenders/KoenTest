@@ -251,13 +251,16 @@ def _moment_text(activity: Any) -> str:
     """The first date with its start time, on one line; the date alone when the
     board entered no time."""
     from app.i18n import short_date, short_datetime
+    from app.kernel.clock import BELGIUM
 
     if activity.sort_date is None:
         return "—"
     start = _first_start(activity)
     if start is None:
         return short_date(activity.sort_date)
-    return short_datetime(datetime.combine(activity.sort_date, start))
+    # #1976: a time the board typed is Belgian time; handed in as such, so the
+    # filter's conversion leaves it as it is.
+    return short_datetime(datetime.combine(activity.sort_date, start, tzinfo=BELGIUM))
 
 
 def _sorted(activities: list, sort: str) -> list:

@@ -7,7 +7,7 @@ cel is daar `valuetype="string"`, wat meteen de bescherming is tegen formule-inj
 """
 
 from app.domains.forms.models import FieldType, Form, FormSubmission
-from app.i18n import _
+from app.i18n import _, moment_text
 from app.kernel.meetwaarden import plain_number
 from app.kernel.ods import build_ods
 
@@ -55,7 +55,7 @@ def _build_table(db, form: Form):
     rows = []
     for sub in submissions:
         per_field = values_per_field(sub, form.fields, option_label)
-        when = sub.submitted_at.strftime("%d/%m/%Y %H:%M") if sub.submitted_at else ""
+        when = moment_text(sub.submitted_at, "%d/%m/%Y %H:%M")
         row = [when, sub.submitter_name or "", sub.submitter_email or ""]
         for f in form.fields:
             row.append(_MULTI_SEP.join(per_field[f.id]))

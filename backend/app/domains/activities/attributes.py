@@ -54,7 +54,9 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         label="Geannuleerd",
         name_en="Is cancelled",
         help="Of de activiteit geannuleerd werd.",
-        ai_exposure=AiExposure.INTERNAL,  # K8
+        # Koen, 16 October 2026, "1a" (#2055): the public page shows a cancelled
+        # activity as "Geannuleerd" to every visitor, so the public assistant may say so.
+        ai_exposure=AiExposure.PUBLIC,
     ),
     Attribute(
         key="activities.activity.members_only",
@@ -70,7 +72,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         label="Notities bestuur",
         name_en="Board notes",
         help="De interne nota bij de activiteit: afspraken, contacten, wat iemand zichzelf wilde herinneren.",
-        ai_exposure=AiExposure.INTERNAL,  # K7
+        ai_exposure=AiExposure.NONE,  # the board's own notes: never to a model (Koen, 15 October 2026: "akkoord")
     ),
     Attribute(
         key="activities.activity.status",
@@ -195,7 +197,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.activity_product.price",
         columns=("activities.activity_products.price",),
-        label=None,
+        label="Prijs",
         name_en="Price",
         help="The price of the activity product.",
         ai_exposure=AiExposure.PUBLIC,  # K5
@@ -254,12 +256,12 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         label="Onderdeel",
         name_en="Name",
         help="Het onderdeel van de activiteit waarop ingeschreven werd — een activiteit kan er meerdere hebben, elk met een eigen prijs en capaciteit.",
-        ai_exposure=AiExposure.TOKENISED,  # K2
+        ai_exposure=AiExposure.PUBLIC,  # K5 (CR-33 phase 2: the inventory's name rule read a registration table as a person)
     ),
     Attribute(
         key="activities.activity_sub_registration.description",
         columns=("activities.activity_sub_registrations.description",),
-        label=None,
+        label="Omschrijving",
         name_en="Description",
         help="The description of the activity sub registration.",
         ai_exposure=AiExposure.PUBLIC,  # K5
@@ -315,7 +317,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.activity_sub_registration.price",
         columns=("activities.activity_sub_registrations.price",),
-        label=None,
+        label="Prijs",
         name_en="Price",
         help="The price of the activity sub registration.",
         ai_exposure=AiExposure.PUBLIC,  # K5
@@ -469,4 +471,20 @@ UNIVERSE_ENTRIES: tuple[Attribute, ...] = (
         help="Het technische nummer van de activiteit.",
         ai_exposure=AiExposure.INTERNAL,
     ),
+)
+
+
+# Several columns, one datum: the dates of an activity as the fiche reads them, one line.
+ACTIVITY_DATES = Attribute(
+    key="activities.activity.dates",
+    columns=(
+        "activities.activity_dates.start_date",
+        "activities.activity_dates.end_date",
+        "activities.activity_dates.start_time",
+        "activities.activity_dates.end_time",
+    ),
+    label="Datums",
+    name_en="Dates",
+    help="De dagen en uren van de activiteit, op één regel.",
+    ai_exposure=AiExposure.PUBLIC,  # K5
 )

@@ -239,10 +239,11 @@ def main() -> None:
         # Before the marker check: it is idempotent itself, and an environment
         # seeded before it must get it too.
         # The CMS hears `TenantCreated` and seeds the site blocks — but only when
-        # its handler is registered, which `app.main` does and a script does not.
-        import app.domains.cms.handlers  # noqa: F401 — the TenantCreated subscriber
-        import app.domains.forms.handlers  # noqa: F401 — and its contact form (#1509)
-        import app.domains.workflow.handlers  # noqa: F401 — and the task it starts (#1509)
+        # its handler is registered, which `app.main` does. Since #1951 the new
+        # code is also checked against the application's routes, which only
+        # `app.main` registers; so this script imports the application, and with
+        # it every subscriber (the contact form and the task of #1509 too).
+        import app.main  # noqa: F401
         from app.domains.mdm.api import TenantKind, create_tenant, tenant_codes
 
         if "voorbeeldbedrijf" not in tenant_codes(db):

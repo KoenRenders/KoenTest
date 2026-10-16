@@ -656,6 +656,10 @@ class GuardedProvider(LLMProvider):
         #: The payloads this provider sent, in order — what the "wat zag Mistral"
         #: fold-out shows for the answer being rendered.
         self.sent: list[str] = []
+        #: The block of `fields` the last call rendered (empty before one): what a
+        #: caller reads for its own sources, so the text that went and the text it
+        #: checks against are one (CR-33 F6).
+        self.fields_text = ""
         #: Surface and capability of this provider's calls, for a log line about
         #: what came back (#1968).
         self.log_name = "/".join(
@@ -663,8 +667,33 @@ class GuardedProvider(LLMProvider):
         )
 
     def complete(
-        self, messages, tools=None, tool_choice=None, json_answer: bool = False
+        self, messages, tools=None, tool_choice=None, json_answer: bool = False, fields=()
     ) -> AssistantMessage:
+        """One call through the seam: classify the `fields`, scan, log, then send.
+
+        `fields` (CR-33 F6) are the stored values the caller hands as `(attribute key,
+        value)` pairs instead of formatting them into the prompt: the classification of
+        each key for this call's surface is applied first, a key that may not go is
+        refused before anything is scanned or sent (and logged as blocked, with the key
+        and never the value), and the rendered block takes the place of `FIELDS_MARK`
+        in the messages (`chatbot.fields`)."""
+        if fields:
+            from .fields import FieldRefused, place_fields, render_fields
+
+            try:
+                block = render_fields(fields, self._rules)
+            except FieldRefused as refused:
+                reason = f"gegeven {refused.key}: {refused.why}"
+                logger.warning(
+                    "Naadwachter weigerde een gegeven (%s/%s): %s",
+                    self._rules.surface,
+                    self._rules.capability or "-",
+                    reason,
+                )
+                self._log(payload_text(messages), blocked_reason=reason)
+                raise
+            self.fields_text = block
+            messages = place_fields(messages, block)
         text = payload_text(messages)
         blocked = refusal(messages, self._rules)
         if blocked is not None:
