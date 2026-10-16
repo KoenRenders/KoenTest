@@ -15,9 +15,21 @@
   {% if klaar %}
   {# The confirmation (§2.6): received — and what is still to pay, said as such.
      An online payment never passes here: it goes to the payment page and comes
-     back on `/betaling/succes`, which reads what the provider confirmed. #}
+     back on `/betaling/succes`, which reads what the provider confirmed. The one
+     exception is the second post of a shown form (#2079): it says so and links to
+     the payment that is still open. #}
   {% call ui.public_form_page(_("Je inschrijving is ontvangen"), intro=_("Bedankt, %(naam)s! Je ontvangt ook een bevestiging per e-mail.", naam=naam), result=True) %}
   <div class="form-flow">
+    {% if reeds_ontvangen %}
+    {# #2079: a second post of the same shown form is answered with the first registration. #}
+    <p data-already-received>{{ _("Deze inschrijving was al ontvangen. Wil je iemand anders inschrijven, open dan het formulier opnieuw.") }}
+      <a class="text-link underline" href="{{ formulier_url }}">{{ _("Naar het formulier") }}</a></p>
+    {% endif %}
+    {% if betaal_url %}
+    {% call ui.flow_card(_("Betaling nog af te ronden"), attrs="data-payment-pending") %}
+      <p>{{ ui.btn_primary(_("Betaling afronden"), href=betaal_url, attrs='hx-boost="false"') }}</p>
+    {% endcall %}
+    {% endif %}
     {% if over_te_schrijven %}
     {% call ui.flow_card(_("Betaling nog af te ronden"), attrs="data-payment-pending") %}
       <p>{{ _("Schrijf € %(bedrag)s over. Het rekeningnummer en de mededeling staan in je bevestigingsmail.", bedrag=over_te_schrijven|geld) }}</p>
