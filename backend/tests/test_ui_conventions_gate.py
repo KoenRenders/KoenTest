@@ -125,10 +125,11 @@ Vier regels, elk met een reden:
     24 px regel op een telefoon (4 px marge), 20 px op een breed scherm (2 px). Een
     kale `mt-1` op een icoon is dus 2 px te veel op het brede scherm.
 
-36. **Een `<trix-editor>` staat alleen in `ui.rich_text`** (#984). De editor
-    stond als losse markup in de pagina-editor en in de vergadernotities, elk
-    met een eigen verborgen veld en eigen CSS voor de balk; de nieuwsbrief zou
-    de derde kopie worden. Eén macro, en deze regel houdt haar de enige.
+36. **Er staat geen Trix meer** (#984, vervallen met #2023). De opgemaakte-tekst-
+    editor was één macro, `ui.rich_text`; sinds CR-17 fase 7 draagt elk scherm
+    dat opgemaakte tekst bewaart de document-editor (`ui.document_editor`, regel
+    van poort 14) en is de macro weg. Deze regel houdt het zo: geen
+    `<trix-editor>` in een sjabloon en geen `rich_text` in de kit.
 
 37. **Een bevestigingsvraag staat op het element dat het verzoek doet** (#984).
     htmx leest `data-confirm` op het element met `hx-post`; bij een formulier is
@@ -1545,26 +1546,26 @@ def test_verborgen_beginstand_met_id_staat_ook_in_de_servermarkup():
     )
 
 
-def test_de_opgemaakte_tekst_editor_komt_uit_de_kit():
-    """#984 — `<trix-editor>` hoort alleen in `ui.rich_text` (`_macros.html`).
+def test_er_staat_geen_trix_meer_in_de_sjablonen():
+    """CR-17 fase 7 (#2023) — Trix is weg: geen `<trix-editor>` in een sjabloon en
+    geen `rich_text`-macro in de kit; opgemaakte tekst is de document-editor.
 
-    Kapotgemaakt om te controleren dat deze test rood kan worden: in
-    `_vg_punt.html` de macro-aanroep terug vervangen door de losse
-    `<trix-editor>`-markup → de test valt om met dat pad.
+    Kapotgemaakt (15 oktober 2026) om te controleren dat deze test rood kan worden,
+    additief: in `_vg_punt.html` een `<trix-editor>` erbij → de test valt om met dat
+    pad; in de kit een `macro rich_text(` erbij → de tweede bewering valt om.
     """
+    assert TEMPLATES, "geen sjablonen gevonden — dan bewaakt deze regel niets"
     fouten = [
         f"{pad.relative_to(APP)}:{nr}"
         for pad in TEMPLATES
-        if pad.name != "_macros.html"
         for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1)
         if "<trix-editor" in regel
     ]
     assert not fouten, (
-        "Gebruik `ui.rich_text(...)` in plaats van een losse `<trix-editor>`; zo "
-        "delen alle schermen hetzelfde verborgen veld en dezelfde balk:\n  " + "\n  ".join(fouten)
+        "Trix is weg (CR-17 fase 7): gebruik `ui.document_editor(...)`:\n  " + "\n  ".join(fouten)
     )
     kit = (APP / "ui" / "templates" / "_macros.html").read_text()
-    assert "<trix-editor" in kit, "de macro zelf is verdwenen — dan bewaakt deze regel niets"
+    assert "macro rich_text(" not in kit, "de macro `rich_text` is terug in de kit"
 
 
 # #984 added a rule here: "`data-confirm` in an hx-post form belongs on the form,

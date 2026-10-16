@@ -114,7 +114,7 @@ _PLAIN_MARKER = _PLAIN
 _CLOSING_MARKER = re.compile(r"^[ \t]*\[\[[A-Za-z]+\]\][ \t]*$", re.M)
 #: A heading line, however many hashes the model used.
 _HEADING = re.compile(r"#{1,6}\s+")
-# The blank line between blocks, the way Trix writes one.
+# The blank line between blocks, as Raakje's text writes one (the document drops it).
 BLANK = "<div><br></div>"
 _NUMBER = re.compile(r"\d+(?:[.,:]\d+)*")
 _AMOUNT = re.compile(
@@ -1076,7 +1076,7 @@ def apply(
     A marked sentence is left out unless its mark id is in ``keep``
     (CR-05 §3.16, layer 5). The server never rewrites the letter itself for a
     piece of text: the editor inserts it at the cursor or over the selection,
-    through Trix, so undo keeps working and autosave stores the result.
+    through the page editor, so undo keeps working and autosave stores the result.
     Since #1562 the placement follows the kind of proposal (a whole letter
     replaces, a piece goes to the cursor, a rewrite over the selection), and
     the subject and the preview text go into their fields: only the form

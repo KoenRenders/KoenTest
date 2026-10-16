@@ -610,7 +610,7 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
 /* CR-11 block 10 (#1562), §3.15: a field the Assistent proposes a value for —
    a blue line and the brand tint on its control, the note under it. The same
    look once applied; the note's words say which of the two it is. */
-[data-field][data-proposed] :is(input:not([type=hidden]),select,textarea,trix-editor),[data-field][data-proposal-applied] :is(input:not([type=hidden]),select,textarea,trix-editor){border-left:3px solid rgb(var(--c-blue-600));background-color:rgb(var(--c-blue-50))}
+[data-field][data-proposed] :is(input:not([type=hidden]),select,textarea,.de-surface),[data-field][data-proposal-applied] :is(input:not([type=hidden]),select,textarea,.de-surface){border-left:3px solid rgb(var(--c-blue-600));background-color:rgb(var(--c-blue-50))}
 [data-form-proposal] [hidden]{display:none!important}
 [data-proposal-note]{margin-top:4px;font-size:13px;line-height:19.5px;color:rgb(var(--c-blue-700));overflow-wrap:anywhere}
 /* The toast in the admin (§3.18): under the top bar at the right on a desktop,
@@ -801,15 +801,12 @@ body[data-shell="site"]>main{padding-bottom:24px}
    2026): overflow clips, so a link on the holder's left edge lost her
    ring's left side. The room is INSIDE the holder — 2 px padding, won
    back with a 2 px negative margin, so every visible position stays
-   where she was. The Trix editor keeps her own box: her class is on the
-   element herself, a negative margin would push her out of line with the
-   fields beside her, and her internal padding already keeps links off
-   her clip edge. The page editor's surface keeps hers for the same
-   reason (review A1 of 12 October 2026): her class sits on the element
-   herself (`de-surface`), and the negative margin pushed her 2 px out
-   of line with the toolbar above her. */
+   where she was. The page editor's surface keeps her own box (review A1 of
+   12 October 2026): her class sits on the element herself (`de-surface`), and
+   the negative margin pushed her 2 px out of line with the toolbar above
+   her. */
 .prose-raak{overflow-x:auto}
-.prose-raak:not(trix-editor):not(.de-surface){margin-inline:-2px;padding-inline:2px}
+.prose-raak:not(.de-surface){margin-inline:-2px;padding-inline:2px}
 .prose-raak table{border-collapse:collapse;width:100%;margin:.5rem 0;font-size:.875rem;line-height:1.5}
 .prose-raak :is(th,td){border-bottom:1px solid rgb(var(--c-line));padding:.75rem 1rem;text-align:left;vertical-align:top}
 .prose-raak tbody tr:last-child :is(th,td){border-bottom:none}

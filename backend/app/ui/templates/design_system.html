@@ -227,14 +227,6 @@
                              cls="w-full", autogrow=False) }}
     </div>
     <div>
-      {# `rich_text` is de opgemaakte-tekst-editor van elk beheerscherm (#984):
-         pagina's, vergadernotities, nieuwsbrief. Hier met de balk die pas bij
-         focus verschijnt, zoals in de vergadernotities. #}
-      {{ ui.label(_("Opgemaakte tekst"), "ds-opgemaakt") }}
-      {{ ui.rich_text("opgemaakt", "ds-opgemaakt", value="<div>Een <strong>vetgedrukt</strong> en een <em>cursief</em> woord.</div>",
-                      placeholder=_("Klik om te typen…"), cls="min-h-[4rem]", toolbar_on_focus=True) }}
-    </div>
-    <div>
       {{ ui.label(_("Status"), "ds-status") }}
       {% call ui.select_control("status", cls="w-full", attrs='id="ds-status"') %}
         <option selected>{{ _("Open") }}</option><option>{{ _("Gesloten") }}</option>
@@ -280,8 +272,8 @@
 {% endcall %}
 
 {# ── 6c. The document editor (CR-17 #1671, slice 2) ─────────────────────────── #}
-{# TipTap beside Trix: `ui.rich_text` above keeps serving the newsletter and
-   the meeting notes until phase 7; a page gets this editor. The toolbar is
+{# The one editor of every screen that keeps formatted text — a page, the meeting
+   notes, the newsletter (CR-17 phase 7). The toolbar is
    built by the JavaScript from the set's configuration — here the `page`
    set with every block she offers (C6 3: no toolbar markup in a template).
    Since slice 3 the figure dialog and the link dialog travel with the
