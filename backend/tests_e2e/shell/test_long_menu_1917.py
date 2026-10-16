@@ -206,6 +206,9 @@ def test_a_short_menu_keeps_the_header_of_before(short):
     for width, (x, y) in LOGO_ON_MASTER.items():
         assert (short[width]["logo_img"]["x"], short[width]["logo_img"]["y"]) == (x, y), width
     for width, m in short.items():
+        # dev2, review of #2076: an empty link list would pass the overlap check
+        # below vacuously.
+        assert m["links"], f"no menu link measured at {width} px — is the test looking?"
         assert m["header"]["h"] == (112 if width < 1200 else 80), (width, m["header"])
         assert m["scroll"] == width
         assert not any(_overlap(link, m["account"]) for link in m["links"]), width
