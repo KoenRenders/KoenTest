@@ -1346,7 +1346,7 @@ def site_context(db, request=None) -> dict:
     from datetime import date
 
     from app.domains.auth.api import csrf_from_request
-    from app.domains.cms.api import CmsPage
+    from app.domains.cms.api import CmsPage, menu_tree
     from app.domains.mdm.api import Organization, OrganizationType, TenantKind, module_enabled
     from app.domains.media.api import MediaAsset, MediaKind, media_url
     from app.i18n import _
@@ -1376,15 +1376,8 @@ def site_context(db, request=None) -> dict:
         .one_or_none()
     )
 
-    pages = (
-        db.query(CmsPage)
-        .filter(
-            CmsPage.is_published == True,  # noqa: E712
-            CmsPage.show_in_nav == True,
-        )  # noqa: E712  (#465)
-        .order_by(CmsPage.sort_order.asc(), CmsPage.title.asc())
-        .all()
-    )
+    # CR-17 phase 6 (#2024): the menu's pages, a section with its pages under it.
+    pages = menu_tree(db)
     # #1569: the pages that say themselves that they stand in the footer. One
     # list for the footer and for the newsletter form's small print.
     footer_pages = (

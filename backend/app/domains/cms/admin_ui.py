@@ -98,6 +98,7 @@ def _record_ctx(
         schema,
         versions,
     )
+    from app.domains.cms.service import section_choices
 
     # The button's dialog needs the tenant's pages and her button-eligible
     # forms (Koen, 11 October 2026: a button may lead to a page, a form,
@@ -147,6 +148,9 @@ def _record_ctx(
 
     return {
         "p": page,
+        # CR-17 phase 6 (#2024): the pages this one may stand under.
+        "section_options": [("", _("— geen —"))]
+        + [(str(pid), title) for pid, title in section_choices(db, page)],
         "hero_form": hero_form_values(page.hero),
         "hero_destinations": hero_destinations,
         "opening_options": [
@@ -307,6 +311,8 @@ def pagina_bijwerken(
     is_home: str = Form(""),
     show_in_footer: str = Form(""),
     sort_order: str | None = Form(None),
+    parent_id: str = Form(""),
+    menu_label: str = Form(""),
     opening: str = Form("title_line"),
     hero_tone: str = Form("plain"),
     hero_eyebrow: str = Form(""),
@@ -334,6 +340,10 @@ def pagina_bijwerken(
             volgorde = int(sort_order or "0")
         except ValueError:
             raise HTTPException(status_code=400, detail=_("Ongeldige volgorde."))
+    try:
+        sectie = int(parent_id) if parent_id.strip() else None
+    except ValueError:
+        raise HTTPException(status_code=400, detail=_("Ongeldige sectie."))
     # No `content` and no `is_published` ride along: the editor is the author
     # of the document (content is her fallback, not her source), and
     # publishing is the Publiceren action — not a checkbox.
@@ -344,6 +354,9 @@ def pagina_bijwerken(
         is_home=bool(is_home),
         show_in_footer=bool(show_in_footer),
         sort_order=volgorde,
+        # CR-17 phase 6 (#2024): empty is "under no section" and "the title".
+        parent_id=sectie,
+        menu_label=menu_label,
         opening=opening,
         hero=hero_from_form(
             hero_tone,
@@ -514,9 +527,17 @@ def pagina_verwijderen(
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.PAGE_MANAGE)),
 ):
-    from app.domains.cms.api import delete_page
+    from app.domains.cms.api import SectionRefused, delete_page
 
-    delete_page(db, page_id)
+    try:
+        delete_page(db, page_id)
+    except SectionRefused as error:
+        # A section with pages under it stays (#2024): the record page again,
+        # with the reason, where the delete was asked.
+        response = _record_response(request, db, page_id, error=str(error))
+        response.headers["HX-Retarget"] = "#main"
+        response.headers["HX-Reswap"] = "innerHTML"
+        return response
     # Verwijderen gebeurt vanuit de editor; die pagina bestaat daarna niet meer.
     return Response(status_code=204, headers={"HX-Redirect": "/admin/paginas"})
 
@@ -531,7 +552,7 @@ def pagina_voorbeeld(
     """Admin-voorbeeld van een pagina — óók een concept (ongepubliceerd), #554. De
     publieke /{slug}-route blijft enkel gepubliceerde pagina's tonen (404 op concept),
     dus 'Bekijk' linkt hierheen zodat je een concept kan bekijken vóór publicatie."""
-    from app.domains.cms.api import draft_parts, get_page_by_id, hero_view
+    from app.domains.cms.api import draft_parts, get_page_by_id, hero_view, section_back
     from app.ui import site_context
 
     page = get_page_by_id(db, page_id)
@@ -543,6 +564,7 @@ def pagina_voorbeeld(
         {
             **site_context(db, request),
             "page": page,
+            "section_back": section_back(db, page),
             "content_parts": draft_parts(db, page),
             "hero": hero_view(page, db, preview=True),
             # #924: het voorbeeld toont wat de bezoeker ziet, dus ook het contactblok

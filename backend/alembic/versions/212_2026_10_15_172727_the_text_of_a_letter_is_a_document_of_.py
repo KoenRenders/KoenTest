@@ -53,7 +53,7 @@ from alembic import op
 # a bare string, because `down_revision` is a tuple for a merge and None for the
 # first migration.
 revision = "212_2026_10_15_172727"
-down_revision = "210_2026_10_15_215353"
+down_revision = "211_2026_10_16_021737"
 branch_labels = None
 depends_on = None
 

@@ -14,8 +14,8 @@ wide as the form grid and no label takes more than two lines; the page is no
 wider than the window.
 
 Broken on purpose (14 October 2026), put back by the reverse edit: the five
-fields wrapped in a hand-made grid again → both widths red on "the form grid
-does not hold the five fields", with the input 72 px wide in a grid of 324 at
+fields (seven since #2024) wrapped in a hand-made grid again → both widths red
+on "the form grid does not hold the five fields", with the input 72 px wide in a grid of 324 at
 390 px.
 """
 
@@ -72,8 +72,10 @@ def test_the_head_gives_its_fields_the_form_grid(setup, width, most_lines):
     try:
         page.locator("#cp-slug").fill(THIRTY)
         seen = page.evaluate(HEAD)
-        assert seen["fields in the grid"] == 5, (
-            f"the form grid does not hold the five fields: {seen}"
+        # Seven since #2024 (CR-17 phase 6): Naam in het menu and Onder sectie,
+        # which shows because the seeded site has pages to stand under.
+        assert seen["fields in the grid"] == 7, (
+            f"the form grid does not hold the seven fields: {seen}"
         )
         assert len(seen["label lines"]) == 3, f"the test did not find the three switches: {seen}"
         if width == 1440:
