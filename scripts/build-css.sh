@@ -3,6 +3,8 @@
 # Nul Node (React-exit #405): gebruikt de Tailwind standalone-CLI. De binary
 # wordt eenmalig gedownload naar .cache/ (staat in .gitignore).
 # Draai dit na elke template-wijziging en commit de gegenereerde CSS mee.
+# Een merge stopt nooit op app.css (#2037): .gitattributes houdt van beide kanten de
+# regels (merge=union); de CI-job `css` blijft rood tot dit script na de merge draait.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
