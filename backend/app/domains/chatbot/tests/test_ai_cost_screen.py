@@ -105,3 +105,21 @@ def test_another_department_is_not_on_the_screen(client, leeg_logboek):
 
 def test_the_screen_needs_an_admin(client):
     assert sent_to_sign_in(client, "/admin/info/ai-kosten")
+
+
+def test_the_calls_stand_on_the_kits_table(client, leeg_logboek):
+    """#1925 (Koen, 16 October 2026, "a"): eight values in the kit's seven places —
+    the model and its provider in ONE optional column (priority 1, a wide screen),
+    the duration in the other (priority 2)."""
+    import re
+
+    _oproep(DEFAULT_TENANT_ID)
+    _login(client)
+    html = client.get("/admin/info/ai-kosten").text
+    assert "data-table" in html, "the kit's table"
+    model = re.search(r'<th[^>]*data-p="1"[^>]*>\s*Model', html)
+    duur = re.search(r'<th[^>]*data-p="2"[^>]*>\s*Duur', html)
+    assert model and duur, "Model is priority 1 and Duur priority 2"
+    assert "mistral-medium · Mistral" in html, "the model with its provider, one cell"
+    calls = html.split('id="ai-oproepen"', 1)[1]
+    assert ">Provider<" not in calls, "no column of its own for the provider in the list"

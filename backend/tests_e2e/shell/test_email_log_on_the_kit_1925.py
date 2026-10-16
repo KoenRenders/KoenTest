@@ -120,6 +120,20 @@ def test_the_list_and_a_mails_page(browser, mails, width):
         )
         assert scroll == width, "the mail's page scrolls sideways"
         assert frame["width"] >= column["width"] - 40, "the mail is as wide as its column"
+        # As tall as the mail, not a fixed box (the master CLI's eye on the print):
+        # the frame's height is the mail's own.
+        # The mail's own bottom (its body's box and margin), not the frame's
+        # scrollHeight, which is never less than the frame itself.
+        inner = page.evaluate(
+            """() => { const b = document.querySelector('[data-mail-body]').contentDocument.body;
+                       return Math.round(b.getBoundingClientRect().bottom
+                              + parseFloat(getComputedStyle(b).marginBottom)); }"""
+        )
+        frame = page.locator("[data-mail-body]").bounding_box()
+        print(f"MEASURE page {width}: frame height {frame['height']:.0f}, mail {inner}")
+        # The frame also holds the last block's bottom margin (a list's 8 px, measured).
+        assert inner <= frame["height"] <= inner + 16, "the frame is not as tall as the mail"
+        assert frame["height"] < 150, "a two-line mail in a tall frame"
         _print(page, f"1925-emaillog-mail-{width}.png")
     finally:
         page.close()
