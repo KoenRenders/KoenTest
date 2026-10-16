@@ -169,7 +169,49 @@ def _test_module_strings() -> dict[str, list[str]]:
     }
 
 
-def docs_filter_findings(workflow: dict, strings: dict[str, list[str]] | None = None) -> list[str]:
+def _glob_regex(pattern: str) -> re.Pattern[str]:
+    """A workflow `paths` glob as a regex: `**` crosses folders, `*` and `?` do not."""
+    out = ""
+    i = 0
+    while i < len(pattern):
+        if pattern.startswith("**", i):
+            out += ".*"
+            i += 2
+        elif pattern[i] == "*":
+            out += "[^/]*"
+            i += 1
+        elif pattern[i] == "?":
+            out += "[^/]"
+            i += 1
+        else:
+            out += re.escape(pattern[i])
+            i += 1
+    return re.compile(out + r"\Z")
+
+
+def other_workflows() -> list[dict]:
+    """Every workflow beside the one the docs filter belongs to."""
+    folder = WORKFLOW.parent
+    return [load_workflow(p) for p in sorted(folder.glob("*.yml")) if p != WORKFLOW]
+
+
+def _runs_on_paths_covering(workflow: dict, module: str, document: str) -> bool:
+    """Does this workflow run `module` on a `paths` filter, push and pull request alike,
+    that covers `document`? A reader is safe when it does: a commit that changes only
+    the document is skipped by the docs filter and still runs the module here."""
+    for event in ("push", "pull_request"):
+        paths = (workflow["on"].get(event) or {}).get("paths") or []
+        if not any(_glob_regex(glob).match(document) for glob in paths):
+            return False
+    steps = [step for job in workflow["jobs"].values() for step in job.get("steps", [])]
+    return any(module.removeprefix("backend/") in str(step.get("run", "")) for step in steps)
+
+
+def docs_filter_findings(
+    workflow: dict,
+    strings: dict[str, list[str]] | None = None,
+    others: list[dict] | None = None,
+) -> list[str]:
     filters = {
         event: (workflow["on"].get(event) or {}).get("paths-ignore") or []
         for event in ("push", "pull_request")
@@ -177,6 +219,7 @@ def docs_filter_findings(workflow: dict, strings: dict[str, list[str]] | None = 
     if filters["push"] != filters["pull_request"]:
         return ["`paths-ignore` differs between `push` and `pull_request` — CR-29"]
     strings = _test_module_strings() if strings is None else strings
+    others = other_workflows() if others is None else others
     findings = []
     for entry in filters["push"]:
         files = [path for path in REPO.glob(entry) if path.is_file()]
@@ -188,10 +231,11 @@ def docs_filter_findings(workflow: dict, strings: dict[str, list[str]] | None = 
                 for module, constants in strings.items()
                 if any(path.name in constant for constant in constants)
             )
+            document = str(path.relative_to(REPO))
             findings.extend(
-                f"a test reads `{path.relative_to(REPO)}` ({module}); "
-                "the docs filter would skip it — CR-29"
+                f"a test reads `{document}` ({module}); the docs filter would skip it — CR-29"
                 for module in readers
+                if not any(_runs_on_paths_covering(other, module, document) for other in others)
             )
     return findings
 
@@ -294,6 +338,17 @@ def test_the_docs_filter_skips_nothing_a_test_reads():
     assert docs_filter_findings(workflow) == []
 
 
+def test_the_change_requests_are_read_by_a_job_that_covers_them():
+    """The form gate of #2040 reads the change requests the docs filter skips, and
+    stays out of the findings only because another workflow runs it on those paths."""
+    gate = "backend/tests/test_change_request_form_gate_2040.py"
+    document = str(sorted(REPO.glob("docs/change_request_[0-9]*.md"))[0].relative_to(REPO))
+    assert gate in {
+        m for m, c in _test_module_strings().items() if any("change_request" in x for x in c)
+    }
+    assert any(_runs_on_paths_covering(w, gate, document) for w in other_workflows())
+
+
 def test_every_browser_test_runs_in_exactly_one_part():
     assert e2e_part_findings(load_workflow()) == []
 
@@ -358,6 +413,38 @@ def test_proof_a_filter_entry_a_test_reads_is_refused(changed):
     assert findings, "a document a test compares with its render passed the filter"
     assert all("docs/reporting-universe.md" in finding for finding in findings), findings
     assert any("test_reporting_universe_gate.py" in finding for finding in findings), findings
+
+
+def _form_gate_workflow() -> dict:
+    return load_workflow(WORKFLOW.parent / "cr-form-gate.yml")
+
+
+def test_proof_a_reader_nobody_else_runs_is_refused():
+    findings = docs_filter_findings(load_workflow(), others=[])
+    assert any("test_change_request_form_gate_2040.py" in f for f in findings), findings
+
+
+def test_proof_a_workflow_whose_paths_miss_the_document_does_not_excuse_it():
+    other = _form_gate_workflow()
+    for event in ("push", "pull_request"):
+        other["on"][event]["paths"] = ["docs/some_other_*.md"]
+    findings = docs_filter_findings(load_workflow(), others=[other])
+    assert any("test_change_request_form_gate_2040.py" in f for f in findings), findings
+
+
+def test_proof_a_filter_on_one_trigger_only_does_not_excuse_it():
+    other = _form_gate_workflow()
+    del other["on"]["pull_request"]["paths"]
+    findings = docs_filter_findings(load_workflow(), others=[other])
+    assert any("test_change_request_form_gate_2040.py" in f for f in findings), findings
+
+
+def test_proof_a_workflow_that_does_not_run_the_module_does_not_excuse_it():
+    other = _form_gate_workflow()
+    for job in other["jobs"].values():
+        job["steps"] = [{"run": "echo nothing"}]
+    findings = docs_filter_findings(load_workflow(), others=[other])
+    assert any("test_change_request_form_gate_2040.py" in f for f in findings), findings
 
 
 def test_proof_a_docstring_mention_is_not_a_read():
