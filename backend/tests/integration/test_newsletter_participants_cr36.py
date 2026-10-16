@@ -362,6 +362,9 @@ def test_a_link_that_does_not_check_out_answers_like_a_dead_one(client, db_sessi
         f"99999.{good.split('.')[1]}",
         f"²{number}.{good.split('.')[1]}",
         "٣.abcd",
+        # More than 4300 digits: `int()` refuses the string (Python's limit) before the
+        # signature is looked at.
+        f"{'9' * 5000}.{good.split('.')[1]}",
     ):
         page = client.get(f"/nieuwsbrief/uitschrijven/d/{bad}")
         assert "Deze link werkt niet meer" in page.text, bad
