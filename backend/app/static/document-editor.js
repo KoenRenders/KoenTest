@@ -1702,6 +1702,21 @@
       element: surface,
       extensions: extensions,
       content: input && input.value ? JSON.parse(input.value) : "",
+      editorProps: {
+        /* A file is never taken: dropped or pasted on the editor it would be opened by
+           the browser in this tab, and the author's unsaved text is left behind (Trix
+           refused it with `trix-file-accept`; review B1 of 16 October 2026). Text, HTML
+           and a paste that carries text next to a file stay ProseMirror's. */
+        handleDOMEvents: {
+          dragover: function (view, event) { return refuseFile(event, event.dataTransfer); },
+          drop: function (view, event) { return refuseFile(event, event.dataTransfer); },
+          paste: function (view, event) {
+            var data = event.clipboardData;
+            var text = data && (data.getData("text/plain") || data.getData("text/html"));
+            return text ? false : refuseFile(event, data);
+          },
+        },
+      },
     });
 
     /* A click on a button opens her own dialog, filled with what she holds
@@ -1821,6 +1836,15 @@
 
   /* The editor of an element, for a script of the screen that works with it: the
      Assistent's proposal for the letter writes into it and reads the selection. */
+  /* Whether a transfer carries a file; if so the event is stopped and answered. */
+  function refuseFile(event, transfer) {
+    if (!transfer) return false;
+    var types = Array.prototype.slice.call(transfer.types || []);
+    if (types.indexOf("Files") === -1 && !(transfer.files && transfer.files.length)) return false;
+    event.preventDefault();
+    return true;
+  }
+
   window.raakDocumentEditor = function (mountId) {
     var editor = editors[mountId];
     return editor && !editor.isDestroyed ? editor : null;
