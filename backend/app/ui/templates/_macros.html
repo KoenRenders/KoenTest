@@ -1788,6 +1788,32 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   {% endcall %}
 </div>
 {% endif %}
+{% if blocks.activity %}
+{# The letter's activity dialog (CR-17 phase 7): one of the activities the letter
+   features. The block holds the activity's id; the mail shows its picture, name,
+   when and where and the sign-up link, built when the letter is sent. The list is the
+   caller's own (`blocks.activity.activities`) and follows the page's choices: the
+   screen says `raak-letter-featured` with the new list whenever it changes them.
+   Nothing featured: the dialog says where to choose. #}
+<div x-data='{ activity: false, list: {{ blocks.activity.activities|tojson }}, aId: "" }'
+     @raak-letter-featured.window="list = $event.detail"
+     @raak-activity-choose.window="if ($event.detail.editor === '{{ editor_id }}') { aId = list.length ? String(list[0].id) : ''; activity = true }"
+     @raak-activity-apply.window="if (activity && aId) { $dispatch('raak-activity-chosen', { editor: '{{ editor_id }}', activity_id: Number(aId) }); activity = false }">
+  {% call _editor_dialog("activity", _("Activiteit"), editor_id, max_w="max-w-lg") %}
+  <div x-show="list.length">
+    {{ label(blocks.activity.activityLabel, editor_id ~ "-activity-pick") }}
+    <select id="{{ editor_id }}-activity-pick" class="w-full border border-gray-300 rounded-lg px-3 py-2" x-model="aId" data-activity-pick>
+      <template x-for="a in list" :key="a.id"><option :value="String(a.id)" x-text="a.label"></option></template>
+    </select>
+  </div>
+  <p class="text-sm text-gray-600" x-show="!list.length">{{ blocks.activity.emptyLabel }}</p>
+  <div class="mt-4 flex justify-end gap-2">
+    {{ btn_secondary(_("Annuleren"), attrs='@click="activity = false"') }}
+    {{ btn_primary(_("Invoegen"), type="button", attrs='x-show="list.length" @click="$dispatch(\'raak-activity-apply\')" data-activity-apply') }}
+  </div>
+  {% endcall %}
+</div>
+{% endif %}
 {% if blocks.figure %}
 {# The dialog opens empty for a new picture, and filled with what a placed
    picture holds when the choose event carries it (`attrs`, `url`): that
@@ -3404,16 +3430,34 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    **Toegankelijk**: `role="img"` met een `<title>` en een `<desc>`, en per element
    een `<title>` met de waarde. De tabel of draaitabel eronder blijft staan; die is
    het echte tekstalternatief. #}
-{% set _plot = {"left": 96, "right": 704, "top": 24, "bottom": 248, "legend": 276} %}
+{# #1978 (Koen, 15 October 2026, to "Welke vorm?": "a"): the x labels stand
+   slanted, 45° up to the right, each ending under its bar, with room reserved
+   under the axis — the same at every number of bars, one rule without an
+   estimate of the text's width. Horizontal, in a slot of 608 / n units, they
+   touched from seven labels of 18 characters, twelve of 18, twenty of 8
+   (measured in the browser, `tests_e2e/reports/test_chart_labels_1978.py`).
+   Slanted, two neighbours stand `608 / n × sin 45°` apart, 21 units at twenty
+   bars, more than a line of 11. A label still stops at 18 characters; the full
+   one stands in the bar's `<title>` and in the list after the chart. #}
+{% set _plot = {"left": 96, "right": 704, "top": 24, "bottom": 248, "labels": 258, "legend": 362, "height": 384} %}
 
 {# F28 (#996): min-w houdt as- en legendatekst leesbaar; op smal scrolt de
    grafiek binnen haar container (de aanroepers wikkelen in overflow-x-auto)
    in plaats van tot onleesbaar te verkleinen. #}
 {% macro _chart_open(chart, id) -%}
-<svg viewBox="0 0 720 300" class="w-full h-auto min-w-[480px]" role="img"
+<svg viewBox="0 0 720 {{ _plot.height }}" class="w-full h-auto min-w-[480px]" role="img"
      aria-labelledby="{{ id }}-t {{ id }}-d" preserveAspectRatio="xMidYMid meet">
   <title id="{{ id }}-t">{{ chart.title }}</title>
   <desc id="{{ id }}-d">{{ chart.description }}</desc>
+{%- endmacro %}
+
+{# Closes a chart: the svg, then its x labels in full for a screen reader
+   (#1978 — the svg is one image to it, and a label may be cut at 18). #}
+{% macro _chart_close(chart, id) -%}
+</svg>
+<ul class="sr-only" data-chart-labels aria-label="{{ chart.title }}">
+  {% for label in chart.x_labels %}<li>{{ label }}</li>{% endfor %}
+</ul>
 {%- endmacro %}
 
 {% macro _chart_value(waarde, money) -%}
@@ -3434,8 +3478,9 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 {% endfor %}
 {% for label in chart.x_labels %}
 {% set breedte = (_plot.right - _plot.left) / (chart.x_labels|length or 1) %}
-<text x="{{ _plot.left + breedte * loop.index0 + breedte / 2 }}" y="{{ _plot.bottom + 16 }}"
-      text-anchor="middle" font-size="11" fill="var(--ink-soft)">{{ label|truncate(18, True, "…") }}</text>
+{% set x = _plot.left + breedte * loop.index0 + breedte / 2 %}
+<text data-x-label x="{{ x }}" y="{{ _plot.labels }}" transform="rotate(-45 {{ x }} {{ _plot.labels }})"
+      text-anchor="end" dominant-baseline="hanging" font-size="11" fill="var(--ink-soft)">{{ label|truncate(18, True, "…") }}</text>
 {% endfor %}
 {% if chart.series|length > 1 %}
 {% for reeks in chart.series %}
@@ -3464,7 +3509,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   </rect>
   {% endif %}{% endfor %}
   {% endfor %}
-</svg>
+{{ _chart_close(chart, id) }}
 {%- endmacro %}
 
 {% macro chart_line(chart, id="chart") -%}
@@ -3484,7 +3529,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   </circle>
   {% endif %}{% endfor %}
   {% endfor %}
-</svg>
+{{ _chart_close(chart, id) }}
 {%- endmacro %}
 
 {% macro chart_stacked(chart, id="chart") -%}
@@ -3506,7 +3551,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   {% set ns.onder = ns.onder + waarde %}
   {% endif %}{% endfor %}
   {% endfor %}
-</svg>
+{{ _chart_close(chart, id) }}
 {%- endmacro %}
 
 {# ══ The list kit (CR-11 pilot A, K1 — #1555) ═════════════════════════════════

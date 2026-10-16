@@ -31,6 +31,7 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from tests._letter import letter_doc
 from tests_e2e.schermen import BASE, login_met_sessie, pagina_klaar  # noqa: E402
 
 LONG = "een.heel.lang.adres.van.een.lid.met.dubbele.naam@example.com"
@@ -77,9 +78,10 @@ def letter():
     try:
         sent = Newsletter(
             subject="E2E Per adres",
-            body_html="<div>Beste</div>",
+            body_document=letter_doc("<div>Beste</div>"),
             audience=Audience.BOTH,
             status=LetterStatus.SENT,
+            sent_body_html="<div>Beste</div>",
         )
         db.add(sent)
         db.flush()

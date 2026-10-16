@@ -7,9 +7,11 @@ from app.domains.cms.models import (  # noqa: F401
     CmsPageTranslation,
     PageIncomplete,
 )
+from app.domains.cms.parse import document_from_trix as document_from_html  # noqa: F401
 from app.domains.cms.render import (  # noqa: F401
     _format_md,
     _format_price,
+    button_address,
     hero_view,
     render_cms_content,
     render_document,
@@ -17,7 +19,10 @@ from app.domains.cms.render import (  # noqa: F401
 )
 from app.domains.cms.service import (  # noqa: F401
     SITE_BLOCK_SLUGS,
+    MenuItem,
+    SectionRefused,
     SlugBestaatAl,
+    button_page_choices,
     create_page,
     delete_page,
     document_from_editor,
@@ -33,6 +38,8 @@ from app.domains.cms.service import (  # noqa: F401
     insertable_codes,
     is_page,
     list_pages,
+    menu_name,
+    menu_tree,
     placeholders,
     publish,
     published_document,
@@ -47,6 +54,8 @@ from app.domains.cms.service import (  # noqa: F401
     save_document,
     save_draft,
     save_page_form,
+    section_back,
+    section_choices,
     seed_site_blocks,
     take_page_offline,
     update_page,
@@ -57,6 +66,13 @@ from app.domains.cms.service import (  # noqa: F401
 __all__ = [
     "PageIncomplete",
     "SlugBestaatAl",
+    # CR-17 phase 6 (#2024): sections in the menu.
+    "SectionRefused",
+    "section_choices",
+    "section_back",
+    "menu_name",
+    "menu_tree",
+    "MenuItem",
     "create_page",
     "delete_page",
     "verplaats_pagina",
@@ -74,6 +90,7 @@ __all__ = [
     "published_page",
     "is_page",
     "SITE_BLOCK_SLUGS",
+    "button_page_choices",
     "update_page",
     "CmsPage",
     "CmsPageHistory",
@@ -100,6 +117,8 @@ __all__ = [
     "published_text",
     "draft_html",
     "document_from_editor",
+    "document_from_html",
+    "button_address",
     "editable_document",
     "get_translation",
     "_format_md",

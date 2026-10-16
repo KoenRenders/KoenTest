@@ -101,10 +101,15 @@ def test_two_seconds_are_counted_from_the_start_of_the_second(issued_at, posted_
 
 
 def test_a_token_moved_to_another_time_is_refused():
-    """The signature covers the time: an older stamp with a fresh signature fails."""
-    stamp, signature = issue_token(now=NOW - 1).split(".")
-    moved = Proof(token=f"{int(stamp) - 600}.{signature}")
+    """The signature covers the time: an older stamp with a fresh signature fails.
+    And since #1987 the random part too: another one with the same signature fails."""
+    stamp, nonce, signature = issue_token(now=NOW - 1).split(".")
+    moved = Proof(token=f"{int(stamp) - 600}.{nonce}.{signature}")
     assert refusal(moved, now=NOW) is Refusal.BAD_TOKEN
+    other = Proof(token=f"{stamp}.{'0' * len(nonce)}.{signature}")
+    assert refusal(other, now=NOW) is Refusal.BAD_TOKEN
+    # The shape before #1987 is no token of ours any more: refused once, with a sentence.
+    assert refusal(Proof(token=f"{stamp}.{signature}"), now=NOW) is Refusal.BAD_TOKEN
 
 
 def test_the_chatbot_is_trusted_by_name():

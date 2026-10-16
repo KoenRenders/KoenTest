@@ -480,6 +480,10 @@ class TestEveryNodeRenders:
             {"type": "callout", "content": [{"type": "text", "text": "Let op."}]},
             {"type": "blockquote", "content": [_par("Een citaat.")]},
             {"type": "gallery", "attrs": {"activity_id": 1}},
+            # The letter's blocks (phase 7): a page renders them as nothing.
+            {"type": "activity", "attrs": {"activity_id": 1}},
+            {"type": "calendar"},
+            {"type": "closing"},
             {"type": "activities", "attrs": {"count": 6}},
             {"type": "albums", "attrs": {"albums": 3, "photos": 4, "interval": 3}},
             {

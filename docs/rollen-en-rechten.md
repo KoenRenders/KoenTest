@@ -210,7 +210,7 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `POST /admin/ontwerpen/{design_id}/svg/verwijderen`
 - `POST /admin/ontwerpen/{design_id}/verwijderen`
 
-### `newsletter.view` — 12 routes
+### `newsletter.view` — 9 routes
 
 - `GET /admin/nieuwsbrieven`
 - `GET /admin/nieuwsbrieven/abonnees`
@@ -218,9 +218,6 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `GET /admin/nieuwsbrieven/instellingen`
 - `GET /admin/nieuwsbrieven/{newsletter_id:int}`
 - `GET /admin/nieuwsbrieven/{newsletter_id:int}/activiteiten`
-- `GET /admin/nieuwsbrieven/{newsletter_id:int}/invoegen/activiteit/{activity_id:int}`
-- `GET /admin/nieuwsbrieven/{newsletter_id:int}/invoegen/afsluiting`
-- `GET /admin/nieuwsbrieven/{newsletter_id:int}/invoegen/kalender`
 - `GET /admin/nieuwsbrieven/{newsletter_id:int}/raakje/gesprek`
 - `GET /admin/nieuwsbrieven/{newsletter_id:int}/versturen`
 - `GET /admin/nieuwsbrieven/{newsletter_id:int}/voorbeeld`

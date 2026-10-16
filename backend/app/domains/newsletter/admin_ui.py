@@ -12,6 +12,7 @@ already left.
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Optional
 
@@ -28,6 +29,7 @@ from app.domains.auth.api import (
     require_csrf,
     require_right,
 )
+from app.domains.cms.api import schema
 from app.domains.newsletter import api as nb
 from app.domains.newsletter.viewmodels import (
     AudienceLine,
@@ -484,7 +486,7 @@ def _proposal_fields(shown: dict) -> list[dict]:
         fields.append({"name": "subject", "label": _("Onderwerp")})
     if shown.get("preview"):
         fields.append({"name": "preview_text", "label": _("Voorbeeldtekst")})
-    fields.append({"name": "body_html", "label": _("Inhoud")})
+    fields.append({"name": "body", "label": _("Inhoud")})
     return fields
 
 
@@ -552,8 +554,16 @@ def _compose_view(
 
     if not module_enabled(ModuleCode.MEMBERSHIP):
         options = [(nb.Audience.BOTH.value, _("Iedereen"), str(counts.both))]
+    featured_options = _featured_options(db, letter)
+    editor_config = schema.schema_for(
+        "letter", letter_activities=[(o["id"], o["label"]) for o in featured_options]
+    )
     return NewsletterComposeView(
         letter=letter,
+        body_json=json.dumps(letter.body_document),
+        editor_config=editor_config,
+        featured_options=featured_options,
+        button_pages=_button_pages(db),
         counts=counts,
         audience_options=options,
         audience_lines=lines,
@@ -571,6 +581,25 @@ def _compose_view(
     )
 
 
+def _button_pages(db: Session) -> list[tuple[int, str]]:
+    """The pages of the site a button of the letter may lead to: the ones the site
+    serves at an address (the same rule the page editor's button uses)."""
+    from app.domains.cms.api import button_page_choices
+
+    return button_page_choices(db)
+
+
+def _featured_options(db: Session, letter) -> list[dict]:
+    """The letter's featured activities as the editor's activity dialog lists them."""
+    featured = nb.choices_of(db, letter).featured
+    facts = nb.activity_facts(db, featured, base_url=_base_url(db))
+    return [
+        {"id": i, "label": f"{facts[i].name} · {nb.short_date(facts[i].start)}"}
+        for i in featured
+        if i in facts
+    ]
+
+
 def _choices_response(
     request: Request, db: Session, letter, error: Optional[str] = None
 ) -> HTMLResponse:
@@ -580,6 +609,7 @@ def _choices_response(
         NewsletterChoicesView(
             letter=letter,
             choices=_choices(db, letter),
+            featured_options=_featured_options(db, letter),
             report_count=len(nb.reports_since_previous_letter(db)),
             raakje_enabled=_raakje_enabled(db),
             csrf_token=_csrf(request),
@@ -620,6 +650,9 @@ def _archive_view(
     deliveries = nb.deliveries_of(db, letter, status=status, query=q)
     return NewsletterArchiveView(
         letter=letter,
+        # A letter that started to send shows the body it went with (frozen by
+        # `start_sending`); the blocks of one that has not stand with today's data.
+        body_html=nb.render_body(db, letter, base_url=letter.link_base or _base_url(db)),
         status_label=code_label(nb.LETTER_STATUS.name, letter.status, db=db),
         status_tone=tone(nb.LETTER_STATUS.name, letter.status),
         audience_label=code_label(nb.AUDIENCE.name, letter.audience or "", db=db),
@@ -676,7 +709,7 @@ def newsletter_save(
     db: Session = Depends(get_db),
     _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
     subject: str = Form(""),
-    body_html: str = Form(""),
+    body: str = Form(""),
     audience: str = Form(""),
     preview_text: str = Form(""),
 ):
@@ -689,7 +722,7 @@ def newsletter_save(
             db,
             letter,
             subject=subject,
-            body_html=body_html,
+            body=body or None,
             audience=audience or None,
             preview_text=preview_text,
         )
@@ -706,29 +739,19 @@ def activity_picker(
     request: Request,
     db: Session = Depends(get_db),
     _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
+    purpose: str = "",
     q: str = "",
-    purpose: str = "insert",
 ):
-    """The picker. `purpose` says what a click does: put the activity in one of
-    the letter's three groups (`past`, `featured`, `calendar`), or (`insert`) put
-    a block of a FEATURED activity at the cursor — "Activiteit invoegen" reads
-    the same groups the page shows (#1562)."""
+    """The picker. `purpose` says which of the letter's three groups a click puts
+    the activity in (`past`, `featured`, `calendar`; #1562)."""
     letter = _letter_or_404(db, newsletter_id)
-    purpose = purpose if purpose in ("insert", *nb.GROUPS) else "insert"
-    if purpose == "insert":
-        featured = nb.choices_of(db, letter).featured
-        facts = nb.activity_facts(db, featured, base_url=_base_url(db))
-        items = [
-            {"id": i, "name": facts[i].name, "date": nb.short_date(facts[i].start)}
-            for i in featured
-            if i in facts
-        ]
-    else:
-        spans = nb.insertable_activities(db, query=q, past=purpose == "past")
-        items = [
-            {"id": s.activity.id, "name": s.activity.name, "date": nb.short_date(s.start)}
-            for s in spans
-        ]
+    if purpose not in nb.GROUPS:
+        raise HTTPException(status_code=404, detail=_("Onbekende groep."))
+    spans = nb.insertable_activities(db, query=q, past=purpose == "past")
+    items = [
+        {"id": s.activity.id, "name": s.activity.name, "date": nb.short_date(s.start)}
+        for s in spans
+    ]
     view = NewsletterPickerView(
         letter=letter, items=items, q=q, purpose=purpose, csrf_token=_csrf(request)
     )
@@ -776,57 +799,6 @@ def choice_remove(
     except nb.NewsletterError as exc:
         return _choices_response(request, db, letter, error=str(exc))
     return _choices_response(request, db, letter)
-
-
-@router.get(
-    "/admin/nieuwsbrieven/{newsletter_id:int}/invoegen/activiteit/{activity_id:int}",
-    response_class=HTMLResponse,
-)
-def insert_activity(
-    newsletter_id: int,
-    activity_id: int,
-    db: Session = Depends(get_db),
-    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
-):
-    """The HTML snippet "Activiteit invoegen" puts at the cursor."""
-    _letter_or_404(db, newsletter_id)
-    facts = nb.activity_facts(db, [activity_id], base_url=_base_url(db))
-    if activity_id not in facts:
-        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden."))
-    # Koen, 19 September 2026: "Activiteit invoegen" puts the block of the Raak
-    # nationaal letter at the cursor — picture, title, description, call to
-    # action. The compact line lives on in the calendar.
-    # The letter carries a REFERENCE; the server builds the block when the
-    # letter is sent (measured: Trix keeps no table, no class, and turns an
-    # image into an attachment of its own — Koen saw it spill out of a letter).
-    return HTMLResponse(f"<div>{nb.activity_card_html(facts[activity_id])}</div>")
-
-
-@router.get(
-    "/admin/nieuwsbrieven/{newsletter_id:int}/invoegen/kalender", response_class=HTMLResponse
-)
-def insert_calendar(
-    newsletter_id: int,
-    db: Session = Depends(get_db),
-    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
-):
-    """The calendar block: one line per activity of the letter's calendar group
-    — the group the page shows (#1562), no second choice in a picker."""
-    letter = _letter_or_404(db, newsletter_id)
-    chosen = list(nb.choices_of(db, letter).calendar)
-    return HTMLResponse(nb.calendar_html(db, base_url=_base_url(db), activity_ids=chosen))
-
-
-@router.get(
-    "/admin/nieuwsbrieven/{newsletter_id:int}/invoegen/afsluiting", response_class=HTMLResponse
-)
-def insert_closing(
-    newsletter_id: int,
-    db: Session = Depends(get_db),
-    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
-):
-    _letter_or_404(db, newsletter_id)
-    return HTMLResponse(nb.closing_html(db))
 
 
 @router.post(
@@ -1080,7 +1052,7 @@ def _send_view(
         send_label=send_label,
         recipient_count=count,
         days=nb.expected_days(db, count) if count else 0,
-        blocked=bool(nb.unfilled_placeholders(letter.body_html)),
+        blocked=bool(nb.unfilled_placeholders(nb.markup_of(letter))),
         daily_cap=tenant_newsletter_daily_cap(db),
         reply_to_sender=email,
         csrf_token=_csrf(request),
@@ -1102,7 +1074,7 @@ def send_screen(
     error = None
     if not letter.audience:
         error = _("Kies eerst voor wie deze nieuwsbrief is.")
-    error = error or nb.placeholder_refusal(letter.body_html)
+    error = error or nb.placeholder_refusal(nb.markup_of(letter))
     return templates.TemplateResponse(
         request,
         "admin_nieuwsbrief_versturen.html",
@@ -1187,7 +1159,7 @@ def raakje_ask(
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
     vraag: str = Form(""),
-    body_html: str = Form(""),
+    body: str = Form(""),
     selection: str = Form(""),
     selection_range: str = Form(""),
     before_cursor: str = Form(""),
@@ -1209,7 +1181,7 @@ def raakje_ask(
             db,
             letter,
             subject=letter.subject,
-            body_html=body_html,
+            body=body or None,
             audience=letter.audience,
             preview_text=letter.preview_text,
         )
@@ -1269,7 +1241,7 @@ async def raakje_apply(
             letter,
             message,
             keep=keep,
-            body_html=str(form.get("body_html") or ""),
+            body=str(form.get("body") or ""),
             base_url=_base_url(db),
         )
     except nb.DraftingError as exc:
@@ -1299,9 +1271,9 @@ async def raakje_apply(
         )
     fields.append(
         {
-            "name": "body_html",
+            "name": "body",
             "label": _("Inhoud"),
-            "value": applied.html,
+            "value": applied.content,
             "placement": applied.placement,
             "range": applied.range,
         }

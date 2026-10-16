@@ -15,6 +15,7 @@ from app.domains.cms.api import (
     published_page,
     published_parts,
     published_slugs,
+    section_back,
 )
 from app.i18n import _
 from app.ui import site_context, templates
@@ -177,6 +178,8 @@ def _render_page(request: Request, db: Session, page):
         {
             **context,
             "page": page,
+            # CR-17 phase 6 (#2024): the way back names the section.
+            "section_back": section_back(db, page),
             "content_parts": published_parts(db, page, viewer=viewer),
             "hero": hero_view(page, db, viewer=viewer),
             # #924: één vaste slug krijgt het contactblok uit de organisatie, zoals de

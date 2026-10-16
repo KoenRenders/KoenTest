@@ -18,11 +18,12 @@ import httpx
 
 from app.config import settings
 
-from .base import AssistantMessage, LLMProvider, ToolCall
+from .base import AssistantMessage, LLMProvider, OcrResult, ToolCall
 
 logger = logging.getLogger(__name__)
 
 MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions"
+MISTRAL_OCR_URL = "https://api.mistral.ai/v1/ocr"
 
 
 class MistralProvider(LLMProvider):
@@ -98,6 +99,34 @@ class MistralProvider(LLMProvider):
             tool_calls=tool_calls,
             usage=usage,
             request_id=str(data.get("id") or ""),
+        )
+
+    def ocr(self, document: bytes, content_type: str) -> OcrResult:
+        """Read an image or a scanned PDF with Mistral's OCR (moved here from the
+        document reader, CR-33 C4.6: the key and the address stay in this folder)."""
+        import base64
+
+        data_uri = f"data:{content_type};base64,{base64.b64encode(document).decode('ascii')}"
+        if content_type == "application/pdf":
+            source = {"type": "document_url", "document_url": data_uri}
+        else:
+            source = {"type": "image_url", "image_url": data_uri}
+        response = httpx.post(
+            MISTRAL_OCR_URL,
+            headers={
+                "Authorization": f"Bearer {self._api_key}",
+                "Content-Type": "application/json",
+            },
+            json={"model": settings.ocr_model, "document": source},
+            timeout=120.0,
+        )
+        response.raise_for_status()
+        data = response.json()
+        pages = data.get("pages") or []
+        return OcrResult(
+            text="\n\n".join((p.get("markdown") or "").strip() for p in pages).strip(),
+            request_id=str(data.get("id") or ""),
+            pages_charged=(data.get("usage_info") or {}).get("pages_processed"),
         )
 
 

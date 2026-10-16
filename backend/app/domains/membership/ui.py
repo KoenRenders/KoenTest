@@ -54,10 +54,31 @@ def _signup_terms():
     return Terms(amount=membership_price_for_date(), valid_to=until)
 
 
+def _signed_in_account(request: Request, db: Session):
+    """The person signed in as an ACCOUNT — no household yet — or None (#1883).
+    Who has a household is offered no "Word lid" (#1883, point 3); who is not
+    signed in gets the empty form."""
+    from app.domains.auth.api import (
+        SESSION_COOKIE,
+        has_household,
+        login_person_for_email,
+        read_session_value,
+    )
+
+    email = read_session_value(request.cookies.get(SESSION_COOKIE))
+    person = login_person_for_email(db, email) if email else None
+    return person if person is not None and not has_household(person) else None
+
+
 def _signup_page(request: Request, db: Session, **state) -> HTMLResponse:
     from app.domains.membership.household_page import SignupPage, signup_group
 
-    page = SignupPage(group=signup_group(_codes(db)), terms=_signup_terms(), **state)
+    group = signup_group(
+        _codes(db),
+        own=_signed_in_account(request, db),
+        short_date=templates.env.filters["kortedatum"],
+    )
+    page = SignupPage(group=group, terms=_signup_terms(), **state)
     return templates.TemplateResponse(
         request, "lid_worden.html", {**site_context(db, request), "page": page}
     )
@@ -65,6 +86,8 @@ def _signup_page(request: Request, db: Session, **state) -> HTMLResponse:
 
 @router.get("/lid-worden", response_class=HTMLResponse)
 def sign_up_page(request: Request, db: Session = Depends(get_db)):
+    """Word lid. A signed-in account stands in it as the main member, with what
+    the application already has of him (#1883)."""
     return _signup_page(request, db)
 
 
@@ -87,10 +110,14 @@ async def sign_up_submit(
     request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
 ):
     from app.domains.membership.api import register_family
-    from app.domains.membership.signup_form import signup_from_form
+    from app.domains.membership.signup_form import own_details, signup_from_form
+    from app.kernel.form_guard import NotSent, Proof
     from app.kernel.refusals import FieldError
 
-    data, errors = signup_from_form(await request.form())
+    form = await request.form()
+    # #1883: a signed-in account is the main member with his own details.
+    account = _signed_in_account(request, db)
+    data, errors = signup_from_form(form, own=own_details(account) if account is not None else None)
     if data is None:
         return refusal_response(request, errors, SIGNUP_MESSAGE, send=True)
     # CR-22 R9 (#1713): an account that signs up while signed in becomes the
@@ -100,12 +127,23 @@ async def sign_up_submit(
     session_email = read_session_value(request.cookies.get(SESSION_COOKIE))
     signed_in = login_person_for_email(db, session_email) if session_email else None
     try:
-        result = register_family(db, data, background_tasks, signed_in=signed_in)
+        result = register_family(
+            db, data, background_tasks, signed_in=signed_in, proof=Proof.from_request(request, form)
+        )
     except HTTPException as refusal:
         # What the service refuses has no field here (a known household, a rule on
         # the object): it stands in the banner, the form stays as typed.
         return refusal_response(
             request, [FieldError("", str(refusal.detail))], SIGNUP_MESSAGE, send=True
+        )
+    except NotSent as hurry:
+        # A person's pace (Koen, 15 October 2026): the banner over the form as typed.
+        return refusal_response(
+            request,
+            [FieldError("", str(hurry))],
+            SIGNUP_MESSAGE,
+            send=True,
+            guard_form="#lid-worden-form",
         )
 
     checkout_url = getattr(result, "checkout_url", None)

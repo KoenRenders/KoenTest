@@ -6,7 +6,7 @@ De tekst gaat naar een **``chatbot_info``-rij** die naar het media-asset verwijs
 Strategie, in volgorde van kost:
 1. **PDF mét tekstlaag** → rechtstreeks uitlezen met ``pypdf`` (gratis, exact).
 2. **Scan-PDF zonder bruikbare tekstlaag, of een afbeelding** → **Mistral OCR**
-   (zelfde ``MISTRAL_API_KEY`` als de chatbot, EU-verwerker).
+   (dezelfde sleutel als de chatbot, EU-verwerker).
 
 Eénmalig per asset: ``update_media_extracted_text`` draait als achtergrond-taak
 na een upload. Een nieuwe upload is een nieuw record (de oude wordt hard
@@ -19,7 +19,6 @@ winnen altijd; de geëxtraheerde tekst vult enkel de zachte info aan.
 
 from __future__ import annotations
 
-import base64
 import io
 import logging
 import re
@@ -36,7 +35,9 @@ from app.domains.chatbot.api import (
     AiProvider,
     AiStatus,
     AiSurface,
+    get_provider,
     has_extracted_text,
+    ocr_available,
     sink_for,
 )
 from app.domains.media.models import MediaAsset, MediaKind
@@ -45,7 +46,6 @@ from app.kernel.events import has_subscribers, publish
 
 logger = logging.getLogger(__name__)
 
-MISTRAL_OCR_URL = "https://api.mistral.ai/v1/ocr"
 
 # Soorten media waarvan we tekst extraheren (documenten, geen sponsor/foto).
 EXTRACTABLE_KINDS = {MediaKind.ACTIVITY_POSTER, MediaKind.COMPONENT_INFO}
@@ -91,36 +91,22 @@ def _extract_pdf_text_layer(raw: bytes) -> str:
 
 
 def _ocr_via_mistral(raw: bytes, content_type: str, tenant_id: Optional[int] = None) -> str:
-    """Lees een afbeelding of scan-PDF uit via de Mistral OCR-API.
+    """Lees een afbeelding of scan-PDF uit via de OCR van de aanbieder.
+
+    The call itself is the provider's (`chatbot` facade, CR-33 C4.6: the key and
+    the address of the provider stay in the chatbot's provider folder); what stays
+    here is the part that is the document reader's — the log.
 
     Every call lands in the AI log (#978), failed ones included: the document
     left the building either way. The log gets a description of the document,
     not the document — a scan of a poster is not what "wat zag Mistral" is for,
     and a base64 copy would fill the table.
     """
-    b64 = base64.b64encode(raw).decode("ascii")
-    data_uri = f"data:{content_type};base64,{b64}"
-    if content_type == "application/pdf":
-        document = {"type": "document_url", "document_url": data_uri}
-    else:
-        document = {"type": "image_url", "image_url": data_uri}
-
     begin = time.monotonic()
     status, request_id, pages_charged = AiStatus.ERROR, "", None
     try:
-        response = httpx.post(
-            MISTRAL_OCR_URL,
-            headers={
-                "Authorization": f"Bearer {settings.mistral_api_key}",
-                "Content-Type": "application/json",
-            },
-            json={"model": settings.ocr_model, "document": document},
-            timeout=120.0,
-        )
-        response.raise_for_status()
-        data = response.json()
-        status, request_id = AiStatus.OK, str(data.get("id") or "")
-        pages_charged = (data.get("usage_info") or {}).get("pages_processed")
+        result = get_provider().ocr(raw, content_type)
+        status, request_id, pages_charged = AiStatus.OK, result.request_id, result.pages_charged
     finally:
         _log_ocr(
             raw,
@@ -131,8 +117,7 @@ def _ocr_via_mistral(raw: bytes, content_type: str, tenant_id: Optional[int] = N
             pages_charged=pages_charged,
             duration_ms=int(round((time.monotonic() - begin) * 1000)),
         )
-    pages = data.get("pages") or []
-    return "\n\n".join((p.get("markdown") or "").strip() for p in pages).strip()
+    return result.text
 
 
 def _log_ocr(
@@ -190,8 +175,7 @@ def _select_text(raw: bytes, content_type: str, tenant_id: Optional[int] = None)
         if len(pdf_text) >= settings.pdf_text_min_chars:
             return pdf_text  # tekstlaag volstaat → gratis, geen OCR
 
-    can_ocr = settings.ocr_enabled and bool(settings.mistral_api_key)
-    if not can_ocr:
+    if not ocr_available():
         return pdf_text  # niets meer te doen zonder key (leeg voor afbeeldingen)
 
     try:

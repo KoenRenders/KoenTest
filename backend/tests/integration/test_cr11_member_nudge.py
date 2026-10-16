@@ -25,7 +25,7 @@ import pytest
 
 from app.domains.activities.api import Activity, ActivityDate, ActivitySubRegistration
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
-from tests.conftest import create_test_family
+from tests.conftest import create_test_family, form_guard_fields
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -72,7 +72,9 @@ def _sign_in(client, monkeypatch, email, return_to):
 
     monkeypatch.setattr(auth_login, "_generate_otp", lambda: "424242")
     first = client.get("/aanmelden", params={"terug": return_to})
-    step = client.post("/aanmelden", data={"email": email, "terug": return_to})
+    step = client.post(
+        "/aanmelden", data={**form_guard_fields(), "email": email, "terug": return_to}
+    )
     done = client.post(
         "/aanmelden/code", data={"email": email, "code": "424242", "terug": return_to}
     )

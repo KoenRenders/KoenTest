@@ -15,7 +15,12 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import fill_signup, open_registration, send_form  # noqa: E402
+from tests_e2e.schermen import (  # noqa: E402
+    fill_signup,
+    laat_de_wacht_passeren,
+    open_registration,
+    send_form,
+)
 
 BASE = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
 
@@ -130,6 +135,7 @@ def test_activiteit_inschrijving_met_ploegnaam(page, seeded_activities):
     aid, cid = seeded_activities["team"]
     _open_inschrijfform(page, aid, cid)
     page.fill("#team_name", "De Kampioenen")
+    laat_de_wacht_passeren(page)
     page.locator("#inschrijf-pagina button[type=submit]").click()
     expect(page.get_by_text("Je inschrijving is ontvangen")).to_be_visible()
     # P8 and P10 (CR-14 B4.9): the thank-you page leads back to the activity, where
@@ -148,6 +154,7 @@ def test_activiteit_inschrijving_met_producten_en_betaling(page, seeded_activiti
     page.fill(f'input[name="product_{pid}"]', "2")
     # CR-12 phase 1: the radio value is the code, not the Dutch word.
     page.check('input[name="payment_method"][value="transfer"]')
+    laat_de_wacht_passeren(page)
     page.locator("#inschrijf-pagina button[type=submit]").click()
     expect(page.get_by_text("Je inschrijving is ontvangen")).to_be_visible()
 
@@ -297,9 +304,10 @@ def _forget(email: str) -> None:
 
 
 def _menu(page) -> list[str]:
-    """Where the account menu leads, in its order (hidden on a phone, where
-    the drawer carries it — the links are the same)."""
-    return page.locator("[data-account-page-menu] a").evaluate_all(
+    """Which pages the account menu leads to, in its order (hidden on a
+    phone, where the drawer carries it — the links are the same). The pages
+    only: Admin and Uitloggen stand in it too since #1886."""
+    return page.locator('[data-account-page-menu] a[data-account-item="member"]').evaluate_all(
         "links => links.map(a => a.getAttribute('href'))"
     )
 
@@ -310,6 +318,7 @@ def _register(page, aid: int, cid: int, *, name: str, email: str, team: str) -> 
     page.fill("#contact_email", email)
     page.fill("#phone", "0470000000")
     page.fill("#team_name", team)
+    laat_de_wacht_passeren(page)
     page.locator("#inschrijf-pagina button[type=submit]").click()
     expect(page.get_by_text("Je inschrijving is ontvangen")).to_be_visible()
 
@@ -432,6 +441,7 @@ def test_door_member_signs_in_from_the_page_that_asked(page, seeded_activities):
         door.goto(renew)
         door.wait_for_url(f"**/aanmelden?terug={renew}")
         door.fill("#email", MARKER_EMAIL_VERLOPEN)
+        laat_de_wacht_passeren(door)
         door.get_by_role("button", name="Stuur inloginfo").click()
         door.wait_for_selector("#code")
         door.goto(_mail_link(MARKER_EMAIL_VERLOPEN, renew))

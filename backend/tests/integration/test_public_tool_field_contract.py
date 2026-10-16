@@ -32,7 +32,13 @@ from datetime import date, time, timedelta
 
 from app.domains.activities.api import Activity, ActivityDate
 from app.domains.activities.models import ActivityProduct, ActivitySubRegistration
-from app.domains.chatbot.tools import PUBLIC_FIELD_CONTRACT, execute_tool
+from app.domains.chatbot.tools import (
+    PUBLIC_FIELD_CONTRACT,
+    STRUCTURAL_NAMES,
+    STRUCTURE,
+    declared_fields,
+    execute_tool,
+)
 
 
 def _seeded_activity(db):
@@ -127,7 +133,7 @@ def test_no_tool_emits_a_field_the_contract_does_not_declare(db_session):
     undeclared = []
     for tool, paths in emitted.items():
         for path, keys in paths.items():
-            allowed = PUBLIC_FIELD_CONTRACT[tool].get(path, set())
+            allowed = declared_fields(tool, path)
             for key in sorted(keys - allowed):
                 undeclared.append(f"{tool}: {path or '(wortel)'}.{key}")
 
@@ -144,7 +150,8 @@ def test_the_contract_declares_no_field_that_is_never_emitted(db_session):
     emitted = _emitted(db_session)
     stale = []
     for tool, paths in PUBLIC_FIELD_CONTRACT.items():
-        for path, keys in paths.items():
+        for path in paths:
+            keys = declared_fields(tool, path)
             seen = emitted.get(tool, {}).get(path, set())
             for key in sorted(keys - seen):
                 stale.append(f"{tool}: {path or '(wortel)'}.{key}")
@@ -156,3 +163,82 @@ def test_the_contract_declares_no_field_that_is_never_emitted(db_session):
         + "\n\nHaal ze weg. Een achtergebleven regel is geen documentatie maar een "
         "openstaande deur voor de dag dat iemand de naam hergebruikt."
     )
+
+
+def _unexplained_structure(contract) -> list[str]:
+    """The fields declared `STRUCTURE` whose name is no structural name: a way round the register."""
+    return [
+        f"{tool}: {path or '(root)'}.{name}"
+        for tool, paths in contract.items()
+        for path, fields in paths.items()
+        for name, keys in fields.items()
+        if not keys and name not in STRUCTURAL_NAMES
+    ]
+
+
+def _non_public_keys(contract) -> list[str]:
+    """The register keys a contract names that are unknown or not `publiek`, with the field."""
+    from app.domains.registry import load_all_models
+    from app.kernel.attributes import AiExposure, attribute
+
+    load_all_models()
+    problems = []
+    for tool, paths in contract.items():
+        for path, fields in paths.items():
+            for name, keys in fields.items():
+                for key in keys:
+                    try:
+                        level = attribute(key).ai_exposure
+                    except LookupError:
+                        problems.append(
+                            f"{tool}: {path or '(root)'}.{name} names {key}, which is not in the register"
+                        )
+                        continue
+                    if level is not AiExposure.PUBLIC:
+                        problems.append(
+                            f"{tool}: {path or '(root)'}.{name} comes from {key}, which the register "
+                            f"classifies {level.value}"
+                        )
+    return problems
+
+
+def test_every_field_of_the_contract_comes_from_a_public_register_entry():
+    """One list, not two: the register decides what may travel, the contract names where each
+    field of an answer comes from (CR-33 phase 2, review of #2053). A field that comes from a
+    datum the register does not call public cannot be declared until the register says so."""
+    assert not _non_public_keys(PUBLIC_FIELD_CONTRACT), "\n  ".join(
+        ["the public bot would send what the register does not call public:"]
+        + _non_public_keys(PUBLIC_FIELD_CONTRACT)
+    )
+    named = [
+        k for paths in PUBLIC_FIELD_CONTRACT.values() for f in paths.values() for k in f.values()
+    ]
+    assert sum(1 for keys in named if keys is not STRUCTURE and keys) >= 15, (
+        "the contract names too few register keys — is it still read?"
+    )
+
+
+def test_a_contract_field_from_a_datum_that_is_not_public_is_named():
+    """The gate can go red, additively: a field `street` that comes from the household's street
+    (internal) and one from a key nobody registered."""
+    added = {
+        "get_activities": {
+            "activities[]": {
+                "street": ("mdm.address.street",),
+                "ghost": ("activities.activity.no_such_column",),
+            }
+        }
+    }
+    found = _non_public_keys(added)
+    assert any("street" in line and "internal" in line for line in found), found
+    assert any("ghost" in line and "not in the register" in line for line in found), found
+
+
+def test_a_field_cannot_skip_the_register_by_calling_itself_structure():
+    """The contract's own fields use `STRUCTURE` only under the closed set of structural names, and
+    the gate can go red: an additive `organiser: STRUCTURE`."""
+    assert not _unexplained_structure(PUBLIC_FIELD_CONTRACT), _unexplained_structure(
+        PUBLIC_FIELD_CONTRACT
+    )
+    added = {"get_activity_detail": {"": {"organiser": STRUCTURE, "id": STRUCTURE}}}
+    assert _unexplained_structure(added) == ["get_activity_detail: (root).organiser"]

@@ -14,6 +14,13 @@
    "x": 368,
    "y": 112
   },
+  "account item": {
+   "count": 5,
+   "h": 48,
+   "w": 240,
+   "x": 96,
+   "y": 112
+  },
   "account menu": {
    "count": 1,
    "h": 287,

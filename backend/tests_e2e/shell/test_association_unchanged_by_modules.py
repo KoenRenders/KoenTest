@@ -68,6 +68,13 @@ DELIBERATE_MENU_CHANGES: dict[str, str | None] = {
     "/admin/rapporten/raakje AI · Raakje": None,
 }
 
+#: Tiles of the dashboard renamed since the recording, each with its issue.
+#: #1979 (Koen, 14 and 15 October 2026): the tile counts every upcoming activity,
+#: drafts and cancelled ones included, and its name says so.
+DELIBERATE_TILE_CHANGES: dict[str, str] = {
+    "Komende activiteiten": "Komende activiteiten (alle statussen)",
+}
+
 #: Items that joined the menu since the recording, each with its issue.
 #: CR-22 S7 (#1712): Personen, master data's list of natural persons.
 NEW_MENU_ITEMS = ["/admin/personen Personen"]
@@ -200,6 +207,9 @@ def test_the_association_shows_what_it_showed_on_v2_12_0(browser):
         ]
         + NEW_MENU_ITEMS
     )
+    tiles = before["shown"]["dashboard_tiles"]
+    assert set(DELIBERATE_TILE_CHANGES) <= set(tiles), "a renamed tile names no recorded tile"
+    before["shown"]["dashboard_tiles"] = [DELIBERATE_TILE_CHANGES.get(t, t) for t in tiles]
     for part, change in DELIBERATE_HOME_CHANGES.items():
         recorded = before["shown"][part]
         assert set(change["gone"]) <= set(recorded), (

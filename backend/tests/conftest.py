@@ -599,6 +599,8 @@ def signup_fields(
         if db.query(PostalCode).filter(PostalCode.postal_code == "2400").first() is None:
             seed_postal_code(db)
     fields: dict = {
+        # The guard's two fields (#2039): the page carries them, a person's browser sends them.
+        **form_guard_fields(),
         "h_order": ["n0"],
         "h.n0.first_name": "Nieuw",
         "h.n0.last_name": "Lid",
@@ -728,6 +730,14 @@ def save_record(client, household_id: int, fields: dict, headers: dict | None = 
     if headers is None:
         headers = {"X-CSRF-Token": csrf_token_for(client.cookies.get(SESSION_COOKIE))}
     return client.post(f"/admin/leden/gezin/{household_id}", data=fields, headers=headers)
+
+
+def form_guard_proof():
+    """The guard's proof of a form a person loaded five seconds ago, for a test that calls a
+    service which takes a `Proof` (#2033, #2039) — the same fields `form_guard_fields` posts."""
+    from app.kernel.form_guard import Proof
+
+    return Proof.from_values(form_guard_fields())
 
 
 def form_guard_fields() -> dict:
@@ -1038,7 +1048,9 @@ def sign_up_at_the_door(client, json: dict, *, signed_in_email: str | None = Non
         return DoorAnswer(422, {"detail": jsonable_encoder(refusal.errors())})
     signed_in = login_person_for_email(db, signed_in_email) if signed_in_email else None
     try:
-        result = register_family(db, data, BackgroundTasks(), signed_in=signed_in)
+        result = register_family(
+            db, data, BackgroundTasks(), signed_in=signed_in, proof=form_guard_proof()
+        )
     except StarletteHTTPException as refusal:
         return DoorAnswer(refusal.status_code, {"detail": refusal.detail})
     body = FamilyRegisteredResponse.model_validate(result).model_dump(mode="json")

@@ -36,10 +36,11 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import (  # noqa: E402
+from tests_e2e.schermen import (
     BASE,
     HOUSEHOLD_ROWS,
     fill_person,
+    laat_de_wacht_passeren,  # noqa: E402
     login_met_sessie,
     pagina_klaar,
     refusal_shown,
@@ -217,9 +218,13 @@ def _sign_up(
             ]
     data, errors = signup_from_form(FormData(fields))
     assert data is not None, errors
+    from tests.conftest import (
+        form_guard_proof,  # in the body: a module-level import of conftest sets the DB url
+    )
+
     db = _db()
     try:
-        register_family(db, data, BackgroundTasks())
+        register_family(db, data, BackgroundTasks(), proof=form_guard_proof())
     finally:
         db.close()
     assert _household(email) is not None, "the household was not stored"
@@ -324,6 +329,7 @@ def test_word_lid_on_a_phone_from_the_first_field_to_the_stored_household(browse
         page.fill("#address-street", "Teststraat")
         page.fill("#address-house_number", "1")
         page.posts.clear()
+        laat_de_wacht_passeren(page)
         save.click()
         banner = refusal_shown(page)
         expect(banner).to_contain_text("Verzenden kan nog niet: controleer 2 velden.")
@@ -357,6 +363,7 @@ def test_word_lid_on_a_phone_from_the_first_field_to_the_stored_household(browse
         refused.fill("Marie")
         page.select_option("#address-postal_code", index=1)
         page.posts.clear()
+        laat_de_wacht_passeren(page)
         save.click()
         expect(page.get_by_role("heading", name="Je aanvraag is ontvangen")).to_be_visible()
         expect(page.locator("[data-payment-pending]")).to_be_visible()

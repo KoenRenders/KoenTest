@@ -1,7 +1,7 @@
 """E2E for the newsletter (#984) and the confirmations that now appear (#939).
 
-What only a browser can prove: that "Activiteit invoegen" really puts a line at
-the cursor through Trix, that autosave really stores it, that the public signup
+What only a browser can prove: that the editor's "Activiteit" block really lands
+in the letter, that autosave really stores it, that the public signup
 block works on a phone, and that a delete question really opens the dialog —
 the server tests showed the attribute moved, not that htmx reads it there.
 
@@ -20,6 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests_e2e.schermen import (  # noqa: E402
     BASE,
     htmx_afgerond,
+    laat_de_wacht_passeren,
     login_als_admin,
     netwerk_bijgewerkt,
 )
@@ -79,49 +80,68 @@ def admin_page(browser):
 
 
 def test_een_activiteit_invoegen_en_bewaren(admin_page):
-    """New letter → subject and audience → insert an activity at the cursor →
-    autosave → after a reload the line is still there."""
+    """New letter → subject and audience → insert an activity block through the
+    editor's menu → autosave → after a reload the block is still there."""
     page = admin_page
     page.get_by_role("button", name="+ Nieuwe nieuwsbrief").click()
-    page.wait_for_selector("#nb-trix", timeout=10_000)
+    page.wait_for_selector("#nb-editor .ProseMirror", timeout=10_000)
     _klikbaar(page, "#nb-onderwerp")
     adres = page.url
 
     page.fill("#nb-onderwerp", "Het najaar in de e2e")
     page.locator("input[name=audience][value=members]").check()
-    editor = page.locator("#nb-trix")
+    editor = page.locator("#nb-editor .ProseMirror")
     editor.click()
-    editor.type("Beste,")
-    editor.press("Enter")
+    page.keyboard.type("Beste,", delay=40)
+    page.keyboard.press("Enter")
 
-    page.get_by_role("button", name="Activiteit invoegen").click()
-    page.wait_for_selector("#nb-kiezer-resultaten-insert", timeout=5_000)
-    eerste = page.locator("#nb-kiezer-resultaten-insert button", has_text="Invoegen").first
-    assert eerste.count() == 1, "de seed hoort minstens één komende activiteit te leveren"
-    naam = page.locator("#nb-kiezer-resultaten-insert .font-medium").first.text_content().strip()
-    eerste.click()
+    page.locator("#nb-editor summary").click()
+    # The letter set: a picture, a button and the three blocks of the letter.
+    assert page.locator("#nb-editor .de-menu-item").all_inner_texts() == [
+        "Afbeelding",
+        "Knop",
+        "Activiteit",
+        "Kalender",
+        "Afsluiting",
+    ]
+    page.locator("#nb-editor .de-menu-item", has_text="Activiteit").click()
+    keuze = page.locator("[data-activity-pick] option").first
+    assert keuze.count() == 1, "de seed hoort minstens één komende activiteit te leveren"
+    naam = (keuze.text_content() or "").split(" · ")[0].strip()
+    page.locator("[data-activity-apply]").click()
     page.wait_for_function(
-        "naam => document.getElementById('nb-trix').editor.getDocument().toString().includes(naam)",
+        "naam => [...document.querySelectorAll('#nb-editor [data-letter-block=activity]')]"
+        ".some(b => b.textContent.includes(naam))",
         arg=naam,
         timeout=5_000,
     )
 
+    # A second and a third block stand AFTER the first: the selection after an inserted
+    # block is the block itself, and an insert over it would have taken its place.
+    for label in ("Kalender", "Afsluiting"):
+        page.locator("#nb-editor summary").click()
+        page.locator("#nb-editor .de-menu-item", has_text=label).click()
+    soorten = page.evaluate(
+        "[...document.querySelectorAll('#nb-editor [data-letter-block]')].map(b => b.dataset.letterBlock)"
+    )
+    assert soorten == ["activity", "calendar", "closing"], soorten
+
     # Autosave waits 1.5 s after the last change; leaving the editor saves at once
-    # (`trix-blur`). #997: wait for that save to be answered, not for 2.5 s.
+    # (`raak-editor-blur`). #997: wait for that save to be answered, not for 2.5 s.
     with htmx_afgerond(page):
         page.locator("#nb-onderwerp").click()
 
     page.goto(adres)
-    page.wait_for_selector("#nb-trix")
+    page.wait_for_selector("#nb-editor .ProseMirror")
     _klikbaar(page, "#nb-onderwerp")
-    bewaard = page.locator("#nb-inhoud").get_attribute("value") or ""
-    assert naam in bewaard, "de ingevoegde verwijzing is niet bewaard"
-    # #984, 19 September 2026: the letter holds the activity NUMBER; the block
-    # with picture and registration link is built when it is sent. Measured:
-    # Trix keeps no table and no class, and makes an inserted image its own
-    # full-width attachment — which is what spilled out of a letter on HDEV.
-    assert "[[activiteit:" in bewaard, "de markering naar de activiteit ontbreekt"
-    assert "<table" not in bewaard and "trix-attachment" not in bewaard
+    bewaard = page.locator("#nb-editor-input").get_attribute("value") or ""
+    # The letter holds the activity NUMBER as a block; the mail builds the block with
+    # picture and registration link when it is sent (#984, #2023).
+    assert '"type":"activity"' in bewaard.replace(" ", ""), "het blok van de activiteit ontbreekt"
+    assert "<table" not in bewaard
+    assert page.evaluate(
+        "[...document.querySelectorAll('#nb-editor [data-letter-block]')].map(b => b.dataset.letterBlock)"
+    ) == ["activity", "calendar", "closing"]
     assert page.locator("input[name=audience][value=members]").is_checked()
 
 
@@ -171,6 +191,7 @@ def test_inschrijven_via_de_link_op_de_homepagina_op_een_telefoon(browser):
         page.wait_for_selector("#nb-publiek", timeout=5_000)
         _klikbaar(page, "#nb-email")
         page.fill("#nb-email", "e2e-nieuwsbrief@example.org")
+        laat_de_wacht_passeren(page)  # the guard's two seconds (#2039)
         page.locator("#nb-publiek").get_by_role("button", name="Inschrijven").click()
         page.get_by_text("Kijk in je mailbox").wait_for(timeout=5_000)
         breedte = page.evaluate("document.documentElement.scrollWidth")
@@ -181,52 +202,57 @@ def test_inschrijven_via_de_link_op_de_homepagina_op_een_telefoon(browser):
 
 def test_een_voorstel_komt_op_de_cursor_of_over_de_selectie(admin_page):
     """The client glue of "Toepassen" (Koen, 17 September 2026): a piece goes
-    where the cursor stands, a rewrite replaces the selection — through Trix,
-    so undo still works.
+    where the cursor stands, a rewrite replaces the selection — as one transaction
+    of the editor, so undo still works.
 
     The server side is tested with a scripted model; here the answer to
     Toepassen is simulated by placing the same block the route renders: since
     #1562 the kit's proposal block (`data-form-proposal`, `data-proposal-auto`),
-    with the placement on the field `body_html`.
+    with the placement on the field `body`; since #2023 its value is the list of
+    blocks the editor takes over, and the positions are the editor's own.
     """
     page = admin_page
     page.get_by_role("button", name="+ Nieuwe nieuwsbrief").click()
-    page.wait_for_selector("#nb-trix", timeout=10_000)
-    _klikbaar(page, "#nb-trix")
+    page.wait_for_selector("#nb-editor .ProseMirror", timeout=10_000)
+    _klikbaar(page, "#nb-editor .ProseMirror")
     page.evaluate(
-        "() => document.getElementById('nb-trix').editor.loadHTML('<div>Een twee drie.</div>')"
+        """() => window.raakDocumentEditor('nb-editor').commands.setContent(
+            {type: 'doc', content: [{type: 'paragraph', content: [{type: 'text', text: 'Een twee drie.'}]}]})"""
     )
 
-    def pas_toe(html, plaats, bereik=None):
+    def pas_toe(tekst, plaats, bereik=None):
         page.evaluate(
-            """([html, plaats, bereik]) => {
+            """([tekst, plaats, bereik]) => {
             const block = document.createElement('form');
             block.setAttribute('data-form-proposal', ''); block.setAttribute('data-proposal-auto', '');
             block.innerHTML = '<script type="application/json" data-proposal-fields></scr' + 'ipt><p data-proposal-result hidden></p>';
+            const value = [{type: 'paragraph', content: [{type: 'text', text: tekst}]}];
             block.querySelector('[data-proposal-fields]').textContent = JSON.stringify(
-              [{name: 'body_html', label: 'Inhoud', value: html, placement: plaats, range: bereik}]);
+              [{name: 'body', label: 'Inhoud', value: value, placement: plaats, range: bereik}]);
             document.body.appendChild(block);
             window.raakFormProposal.scan();
         }""",
-            [html, plaats, bereik],
+            [tekst, plaats, bereik],
         )
 
-    tekst = "() => document.getElementById('nb-trix').editor.getDocument().toString()"
-    page.evaluate("() => document.getElementById('nb-trix').editor.setSelectedRange([4, 8])")
-    pas_toe("<div>TWEE</div>", "selection", [4, 8])
-    assert page.evaluate(tekst).startswith("Een TWEE drie.")
+    tekst = "() => window.raakDocumentEditor('nb-editor').state.doc.textBetween(0, window.raakDocumentEditor('nb-editor').state.doc.content.size, '|')"
+    # "Een twee drie." — the word "twee" stands at positions 5 to 9.
+    page.evaluate(
+        "() => window.raakDocumentEditor('nb-editor').commands.setTextSelection({from: 5, to: 9})"
+    )
+    pas_toe("TWEE", "selection", [5, 9])
+    assert page.evaluate(tekst).startswith("Een TWEE drie."), page.evaluate(tekst)
 
-    page.evaluate("() => document.getElementById('nb-trix').editor.setSelectedRange([0, 0])")
-    pas_toe("<div>Bovenaan.</div>", "cursor")
-    assert page.evaluate(tekst).startswith("Bovenaan.")
-    assert "Een TWEE drie." in page.evaluate(tekst)
+    page.evaluate("() => window.raakDocumentEditor('nb-editor').commands.setTextSelection(1)")
+    pas_toe("Bovenaan.", "cursor")
+    assert "Bovenaan." in page.evaluate(tekst) and "Een TWEE drie." in page.evaluate(tekst)
 
-    page.evaluate("() => document.getElementById('nb-trix').editor.undo()")
-    assert not page.evaluate(tekst).startswith("Bovenaan."), "ongedaan maken werkt niet"
+    page.evaluate("() => window.raakDocumentEditor('nb-editor').commands.undo()")
+    assert "Bovenaan." not in page.evaluate(tekst), "ongedaan maken werkt niet"
 
-    pas_toe("<div>Een hele nieuwe brief.</div>", "replace")
-    assert page.evaluate(tekst).strip() == "Een hele nieuwe brief."
-    assert page.locator('[data-field="body_html"][data-proposal-applied]').count() == 1
+    pas_toe("Een hele nieuwe brief.", "replace")
+    assert page.evaluate(tekst).strip("|") == "Een hele nieuwe brief."
+    assert page.locator('[data-field="body"][data-proposal-applied]').count() == 1
 
 
 def test_the_audience_card_holds_its_content_and_the_editor_has_the_full_width(admin_page):
@@ -245,7 +271,7 @@ def test_the_audience_card_holds_its_content_and_the_editor_has_the_full_width(a
     """
     page = admin_page
     page.get_by_role("button", name="+ Nieuwe nieuwsbrief").click()
-    page.wait_for_selector("#nb-trix", timeout=10_000)
+    page.wait_for_selector("#nb-editor .ProseMirror", timeout=10_000)
     _klikbaar(page, "#nb-onderwerp")
 
     measure = """() => {

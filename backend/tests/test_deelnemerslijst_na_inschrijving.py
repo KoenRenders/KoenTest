@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.conftest import seed_activity_with_product
+from tests.conftest import form_guard_fields, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -36,6 +36,7 @@ def _schrijf_in(client, activity, component, product, naam: str, aantal: int):
     return client.post(
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
         data={
+            **form_guard_fields(),
             "contact_name": naam,
             "contact_email": f"{naam.lower()}@example.com",
             "phone": "0470000000",
@@ -122,6 +123,7 @@ def test_the_paid_path_still_redirects_to_mollie(client, db_session, mock_mollie
     resp = client.post(
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
         data={
+            **form_guard_fields(),
             "contact_name": "Roos",
             "contact_email": "roos@example.com",
             "phone": "0470000001",

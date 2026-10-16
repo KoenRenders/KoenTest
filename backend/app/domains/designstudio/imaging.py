@@ -130,13 +130,21 @@ def looks_dutch(text: str) -> bool:
 
 def translate_scene(scene: str, *, actor: str = "") -> tuple[str, bool]:
     """The scene in English, and whether it was translated. Without a real
-    LLM (mock provider) or without Dutch in it, the text goes through as is."""
+    LLM (mock provider) or without Dutch in it, the text goes through as is —
+    but never unscanned: the pattern guard reads the scene whatever its language,
+    because the image vendor is sent it as it is (review of #2053)."""
     from dataclasses import replace
 
-    from app.domains.chatbot.api import GuardedProvider, admin_rules, get_provider, sink_for
+    from app.domains.chatbot.api import (
+        GuardedProvider,
+        admin_rules,
+        get_provider,
+        refusal,
+        sink_for,
+    )
 
     text = " ".join((scene or "").split())
-    if not text or not looks_dutch(text):
+    if not text:
         return text, False
     # Through the seam like every other LLM call (test_ai_log_coverage_gate):
     # the guard logs the call — provider, model, cost, duration — under this
@@ -145,6 +153,11 @@ def translate_scene(scene: str, *, actor: str = "") -> tuple[str, bool]:
         admin_rules(lambda: set(), capability=AiCapability.TRANSLATE, scan_prompt_names=False),
         surface=SURFACE,
     )
+    blocked = refusal([{"role": "user", "content": text[:600]}], rules)
+    if blocked is not None:
+        raise ImagingError(str(blocked))
+    if not looks_dutch(text):
+        return text, False
     provider = GuardedProvider(get_provider(), rules, sink_for(actor))
     if provider.name == "mock":
         return text, False

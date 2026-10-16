@@ -31,7 +31,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from tests_e2e.schermen import BASE, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import BASE, laat_de_wacht_passeren, pagina_klaar  # noqa: E402
 
 #: What a visitor reads when the limiter refuses (429): the public shell's own
 #: sentence for a brake, shown as a toast (#920) — the form itself stays as it was.
@@ -59,6 +59,7 @@ def _send(page, email: str) -> tuple[int, str]:
     with page.expect_response(
         lambda r: r.url.endswith("/aanmelden") and r.request.method == "POST"
     ) as answer:
+        laat_de_wacht_passeren(page)
         page.get_by_role("button", name="Stuur inloginfo").click()
     pagina_klaar(page)
     return answer.value.status, page.locator("body").inner_text()
