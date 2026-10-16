@@ -2,6 +2,7 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ letter.subject }} — {{ _("Raak beheer") }}{% endblock %}
 {% block content %}
+{% macro people(n) %}{% if n == 1 %}{{ _("1 persoon") }}{% else %}{{ _("%(n)s mensen", n=n) }}{% endif %}{% endmacro %}
 {{ ui.back_link(_("Alle nieuwsbrieven"), "/admin/nieuwsbrieven") }}
 {# Een verstuurde brief staat hier zoals hij vertrok — niet meer te wijzigen.
    "Kopiëren" maakt een nieuw concept (CR-05 §3.12). #}
@@ -61,9 +62,9 @@
       <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm mt-3">
         <dt class="text-ink-soft">{{ _("Verstuurd") }}</dt><dd>{{ result.sent }}</dd>
         <dt class="text-ink-soft">{{ _("Geopend (indicatie)") }}</dt>
-        <dd>{% if result.opened_pct is not none %}{{ result.opened_pct }} % · {{ _("%(n)s mensen", n=result.opened) }}{% else %}—{% endif %}</dd>
+        <dd>{% if result.opened_pct is not none %}{{ result.opened_pct }}&nbsp;% · {{ people(result.opened) }}{% else %}—{% endif %}</dd>
         <dt class="text-ink-soft">{{ _("Geklikt (indicatie)") }}</dt>
-        <dd>{% if result.clicked_pct is not none %}{{ result.clicked_pct }} % · {{ _("%(n)s mensen", n=result.clicked) }}{% else %}—{% endif %}</dd>
+        <dd>{% if result.clicked_pct is not none %}{{ result.clicked_pct }}&nbsp;% · {{ people(result.clicked) }}{% else %}—{% endif %}</dd>
       </dl>
       {% if result.links %}
       <h3 class="font-semibold text-sm mt-4">{{ _("Links") }}</h3>
@@ -71,7 +72,7 @@
         {% for link in result.links %}
         <li class="flex items-baseline gap-3 py-2">
           <span class="min-w-0 flex-1 break-all">{{ link.url }}</span>
-          <span class="text-ink-soft whitespace-nowrap">{{ _("%(n)s mensen", n=link.clicked) }}</span>
+          <span class="text-ink-soft whitespace-nowrap">{{ people(link.clicked) }}</span>
         </li>
         {% endfor %}
       </ul>

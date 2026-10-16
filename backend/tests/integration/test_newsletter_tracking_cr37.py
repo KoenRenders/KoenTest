@@ -438,8 +438,8 @@ def test_the_archive_shows_the_result_of_a_sent_letter_and_names_nobody(
     page = client.get(f"/admin/nieuwsbrieven/{letter.id}")
     assert page.status_code == 200
     block = page.text.split("data-letter-result", 1)[1].split("De tekst zoals hij vertrok")[0]
-    assert "Geopend (indicatie)" in block and "50 %" in block and "2 mensen" in block
-    assert "Geklikt (indicatie)" in block and "25 %" in block and "1 mensen" in block
+    assert "Geopend (indicatie)" in block and "50&nbsp;%" in block and "2 mensen" in block
+    assert "Geklikt (indicatie)" in block and "25&nbsp;%" in block and "1 persoon" in block
     assert OUTSIDE.replace("&", "&amp;") in block
     assert "example.org" not in block, "the result names nobody"
     assert "lezer" not in block
@@ -454,7 +454,7 @@ def test_the_archive_list_percentages_equal_the_counts_of_the_events(client, db_
     _admin(client)
     page = client.get("/admin/nieuwsbrieven")
     line = page.text.split("data-letter-result", 1)[1].split("</div>", 1)[0]
-    assert "50 %" in line and "25 %" in line and "1 links" in line
+    assert "50\u00a0%" in line and "25\u00a0%" in line and "1 link" in line
 
 
 def test_a_letter_that_was_not_sent_shows_no_result(client, db_session):

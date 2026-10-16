@@ -22,7 +22,7 @@
     {% set r = results[letter.id] %}
     {% if r and r.sent %}
     <div class="mt-1 text-sm text-ink-soft" data-letter-result>
-      {{ _("Geopend (indicatie) %(o)s", o=(r.opened_pct ~ " %") if r.opened_pct is not none else "—") }} · {{ _("Geklikt (indicatie) %(c)s", c=(r.clicked_pct ~ " %") if r.clicked_pct is not none else "—") }} · {{ _("%(n)s links", n=r.link_count) }}
+      {{ _("Geopend (indicatie) %(o)s", o=(r.opened_pct ~ " %") if r.opened_pct is not none else "—") }} · {{ _("Geklikt (indicatie) %(c)s", c=(r.clicked_pct ~ " %") if r.clicked_pct is not none else "—") }} · {% if r.link_count == 1 %}{{ _("1 link") }}{% else %}{{ _("%(n)s links", n=r.link_count) }}{% endif %}
     </div>
     {% endif %}
     {% if p.queued %}

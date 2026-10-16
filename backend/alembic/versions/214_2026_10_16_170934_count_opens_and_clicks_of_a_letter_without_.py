@@ -47,6 +47,14 @@ TEXT = (
     "aangeklikt. Dat gebeurt anoniem: we houden niet bij wie een brief las, wie op welke link "
     "klikte of wanneer. Een uitgeschreven adres krijgt geen nieuwsbrief meer."
 )
+
+
+def _html_section(level: int) -> str:
+    """The section as legacy HTML: `content` is shown one heading level down, a document
+    stores the level it shows, so the HTML names the level above the document's."""
+    return f"<h{level}>{TITLE}</h{level}><p>{TEXT}</p>"
+
+
 #: The words by which a page that already says it is recognised.
 MARKER = "tellen we hoeveel brieven geopend"
 
@@ -112,11 +120,21 @@ def add_privacy_section(bind) -> dict[str, int]:
                     ),
                     {"page": page_id, "doc": json.dumps(new_published)},
                 )
+            if content is not None and MARKER not in content:
+                # The page still holds the HTML it had before it became a document, and
+                # a gate compares the two renderings: both say the same.
+                bind.execute(
+                    sa.text("UPDATE cms.cms_pages SET content = :c WHERE id = :p"),
+                    {
+                        "c": content + _html_section(max(1, _level_of(published or draft) - 1)),
+                        "p": page_id,
+                    },
+                )
             done["documents"] += 1
         elif content is not None and MARKER not in content:
             bind.execute(
                 sa.text("UPDATE cms.cms_pages SET content = :c WHERE id = :p"),
-                {"c": f"{content}<h3>{TITLE}</h3><p>{TEXT}</p>", "p": page_id},
+                {"c": content + _html_section(3), "p": page_id},
             )
             done["html"] += 1
         else:
