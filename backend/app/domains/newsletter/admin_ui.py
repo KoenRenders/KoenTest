@@ -657,8 +657,8 @@ def _archive_view(
     deliveries = nb.deliveries_of(db, letter, status=status, query=q)
     return NewsletterArchiveView(
         letter=letter,
-        # The blocks stand with today's data, as for a letter still to be sent: the
-        # mail that went is in the delivery log, not rebuilt here.
+        # A letter that started to send shows the body it went with (frozen by
+        # `start_sending`); the blocks of one that has not stand with today's data.
         body_html=nb.render_body(db, letter, base_url=letter.link_base or _base_url(db)),
         status_label=code_label(nb.LETTER_STATUS.name, letter.status, db=db),
         status_tone=tone(nb.LETTER_STATUS.name, letter.status),

@@ -841,6 +841,7 @@ NEWSLETTER_COPY = CopyPlan(
         "status": "a new draft",
         "sent_by": "the source's send, not the copy's",
         "send_started_at": "the source's send, not the copy's",
+        "sent_body_html": "the source's send, not the copy's",
         "send_finished_at": "the source's send, not the copy's",
         "paused_until": "the source's send, not the copy's",
         "id": "a new row: its own id and bookkeeping",
@@ -1281,9 +1282,14 @@ def mail_blocks(db: Session, letter: Newsletter, *, base_url: str) -> dict:
 
 def render_body(db: Session, letter: Newsletter, *, base_url: str) -> str:
     """The letter's text as the HTML of the mail, before the frame and the inline
-    styles: the document through the page renderer, its blocks built for a mail."""
+    styles: the document through the page renderer, its blocks built for a mail.
+
+    A letter that has started to send answers with the body it was frozen with
+    (`start_sending`): every mail and the archive read the one body that went."""
     from app.domains.cms.api import render_document
 
+    if letter.sent_body_html is not None:
+        return letter.sent_body_html
     return render_document(
         letter.body_document, db, blocks=mail_blocks(db, letter, base_url=base_url)
     )
@@ -1818,6 +1824,7 @@ def start_sending(
     letter.reply_to_address = reply_address(mode, sent_by)
     letter.link_base = base_url.rstrip("/")
     letter.send_started_at = _now()
+    letter.sent_body_html = render_body(db, letter, base_url=letter.link_base)
     # The conversation with Raakje ends here: the letter is the record now.
     for message in list(letter.messages):
         db.delete(message)

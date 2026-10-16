@@ -398,6 +398,11 @@ class Newsletter(TenantMixin, SoftDeleteMixin, Base):
     # from it when the letter is sent; Raakje reads and writes it as text with
     # markers (`letter_markup.py`) and nothing stores that text.
     body_document = Column(JSONB, nullable=False, default=lambda: {"type": "doc", "content": []})
+    # The body as it went out: the rendered HTML of the document, written once when the
+    # send starts and never again, so the archive shows the letter as it left and not as
+    # the app would build it with today's data. NULL while the letter is a draft. Without
+    # the per-recipient parts (greeting, unsubscribe link).
+    sent_body_html = Column(Text, nullable=True)
     # Empty in a draft on purpose: there is no default audience (CR-05 §3.2).
     audience: Mapped[Optional[Audience]] = mapped_column(
         EnumColumn(Audience, length=20), ForeignKey("newsletter.audience_codes.code"), nullable=True

@@ -12,9 +12,11 @@ document, or through the marker text derived from it (`letter_markup.py`), so no
 reader needs the old column.
 
 The conversion is `markup_to_document`: the lenient one of a page's draft (formatting
-may soften, no word is lost) with the three markers become blocks. A sent letter
-is not frozen by this: the mail that went is in the delivery log, and the archive
-shows the document as it renders now.
+may soften, no word is lost) with the three markers become blocks. The archive of
+a sent letter shows the letter as it went (Koen, 16 October 2026: "a"): a new column
+`sent_body_html` holds the rendered body, written once when the send starts. For the
+letters sent before it, this migration fills it with the body rendered at migration
+time — the closest to what went out that still exists.
 
 Downgrade restores the text with markers from the documents and drops the column;
 the exact Trix markup is not restored.
@@ -36,7 +38,7 @@ from alembic import op
 # a bare string, because `down_revision` is a tuple for a merge and None for the
 # first migration.
 revision = "210_2026_10_15_172727"
-down_revision = "209_2026_10_15_163129"
+down_revision = "210_2026_10_15_215353"
 branch_labels = None
 depends_on = None
 
@@ -93,8 +95,47 @@ def convert_letters(bind) -> int:
     return converted
 
 
+def freeze_sent_letters(bind) -> int:
+    """Add `sent_body_html` and fill it, for every letter that has started to send and
+    has none yet, with the body rendered now. Returns how many were filled. Idempotent."""
+    from sqlalchemy.orm import Session
+
+    from app.domains.newsletter.models import Newsletter
+    from app.domains.newsletter.service import render_body
+    from app.kernel.tenancy import current_tenant_id
+
+    if "sent_body_html" not in _columns(bind):
+        bind.execute(sa.text("ALTER TABLE newsletter.newsletters ADD COLUMN sent_body_html TEXT"))
+    rows = bind.execute(
+        sa.text(
+            "SELECT id, tenant_id, body_document, link_base, draft_activity_ids FROM newsletter.newsletters "
+            "WHERE status <> 'draft' AND sent_body_html IS NULL ORDER BY id"
+        )
+    ).fetchall()
+    session = Session(bind=bind)
+    for letter_id, tenant_id, document, link_base, choices in rows:
+        # A bare instance, never a row loaded through the model: the model may know
+        # columns a later migration of the same deploy has not added yet.
+        letter = Newsletter(
+            id=letter_id, body_document=document, link_base=link_base, draft_activity_ids=choices
+        )
+        token = current_tenant_id.set(tenant_id)
+        try:
+            body = render_body(session, letter, base_url=link_base or "")
+        finally:
+            current_tenant_id.reset(token)
+        bind.execute(
+            sa.text("UPDATE newsletter.newsletters SET sent_body_html = :b WHERE id = :i"),
+            {"b": body, "i": letter_id},
+        )
+    session.close()
+    return len(rows)
+
+
 def upgrade() -> None:
-    log.info("#2023: %s letters converted to documents", convert_letters(op.get_bind()))
+    bind = op.get_bind()
+    log.info("#2023: %s letters converted to documents", convert_letters(bind))
+    log.info("#2023: %s sent letters frozen as they render now", freeze_sent_letters(bind))
 
 
 def downgrade() -> None:
@@ -118,3 +159,5 @@ def downgrade() -> None:
                 {"b": document_to_markup(document), "i": letter_id},
             )
         bind.execute(sa.text("ALTER TABLE newsletter.newsletters DROP COLUMN body_document"))
+    if "sent_body_html" in columns:
+        bind.execute(sa.text("ALTER TABLE newsletter.newsletters DROP COLUMN sent_body_html"))

@@ -1,5 +1,5 @@
 """CR-17 phase 7b (#2023, C6 10): the letter is a document of the page editor, the
-mail is built from its blocks, and migration 210 moves every letter onto it.
+mail is built from its blocks, and migration 212 moves every letter onto it.
 
 Broken on purpose (15 October 2026), each red for its own reason: the marker
 splitter not cutting a paragraph at the marker → the mid-paragraph test fails; the
@@ -28,7 +28,7 @@ from tests._letter import letter_doc
 pytestmark = pytest.mark.ui_serverrendered
 
 BASE = "https://raak.example"
-MIGRATION = next((Path(__file__).parents[2] / "alembic" / "versions").glob("210_*.py"))
+MIGRATION = next((Path(__file__).parents[2] / "alembic" / "versions").glob("212_*document_of_*.py"))
 
 
 def _activity(db, name="Zomerfeest", days=10):
@@ -217,7 +217,7 @@ def test_a_document_the_schema_refuses_is_refused_by_name_and_nothing_is_stored(
     assert letter.body_document == _doc(_par("Goed")), "nothing stored"
 
 
-# ── Migration 210 ────────────────────────────────────────────────────────────
+# ── Migration 212 ────────────────────────────────────────────────────────────
 
 
 def test_the_migration_converts_every_letter_the_sent_ones_too_and_drops_the_html(db_session):
@@ -269,3 +269,60 @@ def test_the_migration_converts_every_letter_the_sent_ones_too_and_drops_the_htm
 
 def test_the_helper_makes_the_document_of_a_text():
     assert letter_doc("<div>Hoi</div>")["content"][0]["type"] == "paragraph"
+
+
+# ── The letter as it went (Koen, 16 October 2026: "a") ───────────────────────
+
+
+def _send(db, letter):
+    from app.domains.newsletter.models import Subscriber, SubscriberStatus
+
+    db.add(
+        Subscriber(
+            email="lezer@example.org",
+            status=SubscriberStatus.CONFIRMED,
+            source="admin",
+            unsubscribe_token="frozen-1",
+        )
+    )
+    letter.audience = Audience.NON_MEMBERS
+    db.flush()
+    nb.start_sending(
+        db, letter, sent_by="s@example.org", reply_to_mode="association", base_url=BASE
+    )
+
+
+def test_a_sent_letter_keeps_the_body_it_went_with(db_session):
+    """The activity moves after the send: the archive and every later mail still read
+    the body of the moment. Broken on purpose: `start_sending` not writing the column →
+    the archive shows the new place and this test fails."""
+    activity = _activity(db_session)
+    letter = _letter(
+        db_session,
+        _doc(_par("Beste,"), {"type": "activity", "attrs": {"activity_id": activity.id}}),
+    )
+    assert letter.sent_body_html is None, "a draft is built from today's data"
+    _send(db_session, letter)
+    assert "Dorpsplein" in letter.sent_body_html
+    activity.location = "Kerkplein"
+    db_session.flush()
+    assert "Dorpsplein" in nb.render_body(db_session, letter, base_url=BASE)
+    assert "Kerkplein" not in _mail(db_session, letter)
+
+
+def test_the_migration_freezes_the_sent_letters_and_leaves_a_draft(db_session):
+    activity = _activity(db_session)
+    body = _doc(_par("Hoi"), {"type": "activity", "attrs": {"activity_id": activity.id}})
+    sent = _letter(db_session, body)
+    draft = _letter(db_session, body)
+    sent.status = nb.LetterStatus.SENT
+    sent.link_base = BASE
+    db_session.flush()
+    spec = importlib.util.spec_from_file_location("letters_212", MIGRATION)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.freeze_sent_letters(db_session.connection()) == 1
+    db_session.expire_all()
+    assert "Zomerfeest" in sent.sent_body_html and "Hoi" in sent.sent_body_html
+    assert draft.sent_body_html is None
+    assert module.freeze_sent_letters(db_session.connection()) == 0, "a second run changes nothing"
