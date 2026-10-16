@@ -180,7 +180,11 @@ def sign_in_link(db: Session, email: str, return_to: str) -> str | None:
     """The link that signs in `email` and lands on `return_to`, for a mail that is
     not the sign-in's own (CR-21, F13/Q26): the order confirmation carries it for a
     member. The token is stored in the same transaction; the caller queues its own
-    mail. None when the address cannot sign in."""
+    mail. None when the address cannot sign in.
+
+    `_issue` keeps one live token per address, whatever its purpose, so issuing this
+    link ends a sign-in code the same address had asked for minutes before (CR-22
+    §B1 D2, one rule for every link)."""
     user = (
         db.query(User)
         .filter(func.lower(User.email) == email.lower(), User.is_active == True)
