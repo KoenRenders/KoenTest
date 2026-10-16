@@ -477,23 +477,65 @@
       name: "button",
       group: "block",
       atom: true,
+      /* #2028: what the editor draws is also what a copy carries, so the
+         label and every destination stand on the element as `data-` fields
+         and are read back from it on a paste — before, a copied button came
+         back without a label and without a destination. The outside address
+         is `data-href`, not `href`: an `<a href>` would be the link mark's.
+         A button pasted from a page of the site (`<a data-button href>`)
+         keeps its address as an outside address. */
       addAttributes: function () {
+        var data = function (name, parse) {
+          return {
+            default: null,
+            parseHTML: function (el) {
+              var v = el.getAttribute("data-" + name);
+              return v === null || v === "" ? null : parse ? parse(v) : v;
+            },
+            renderHTML: function (attrs) {
+              var v = attrs[name.replace(/-/g, "_")];
+              var out = {};
+              if (v !== null && v !== undefined && v !== "") out["data-" + name] = String(v);
+              return out;
+            },
+          };
+        };
         return {
-          label: { default: "" },
-          variant: { default: "secondary" },
-          page_id: { default: null },
-          href: { default: null },
-          form_slug: { default: null },
-          screen: { default: null },
+          label: {
+            default: "",
+            parseHTML: function (el) { return el.getAttribute("data-label") || el.textContent.trim(); },
+            renderHTML: function (attrs) { return attrs.label ? { "data-label": attrs.label } : {}; },
+          },
+          variant: {
+            default: "secondary",
+            parseHTML: function (el) { return el.getAttribute("data-variant") || "secondary"; },
+            renderHTML: function (attrs) { return { "data-variant": attrs.variant || "secondary" }; },
+          },
+          page_id: data("page-id", function (v) { var n = parseInt(v, 10); return isNaN(n) ? null : n; }),
+          href: {
+            default: null,
+            parseHTML: function (el) {
+              return el.getAttribute("data-href") || el.getAttribute("href") || null;
+            },
+            renderHTML: function (attrs) { return attrs.href ? { "data-href": attrs.href } : {}; },
+          },
+          form_slug: data("form-slug"),
+          screen: data("screen"),
         };
       },
       parseHTML: function () {
-        return [{ tag: "a[data-button]" }];
+        /* Above the link mark's `a[href]`: a button with an address is a
+           button, not a link. */
+        return [{ tag: "a[data-button]", priority: 60 }];
       },
       renderHTML: function (props) {
         var a = props.node.attrs;
         var naam = a.label || (config.toolbar.insert || []).filter(function (i) { return i.id === "button"; })[0].label;
-        return ["a", { "data-button": "", class: "prose-button prose-button--" + (a.variant || "secondary") }, naam];
+        var attrs = Object.assign({}, props.HTMLAttributes, {
+          "data-button": "",
+          class: "prose-button prose-button--" + (a.variant || "secondary"),
+        });
+        return ["a", attrs, naam];
       },
     });
   }
@@ -731,6 +773,35 @@
                   RaakTiptap.Decoration.widget(selection.to, hold, { side: 1, key: "de-hold" }),
                 ]);
               },
+            },
+          }),
+        ];
+      },
+    });
+  }
+
+  /* #2028: a line break carries no mark. Pasted `<strong>…<br>…</strong>`
+     gave the break the bold mark, and the schema (`cms/schema.py`) refuses a
+     mark on a hard break, so the whole document could not be saved. One rule
+     for every way a break arrives — pasted, typed, dropped: after any change,
+     a break with a mark loses it. The text around it keeps its marks. */
+  function breakWithoutMarks(RaakTiptap) {
+    return RaakTiptap.Extension.create({
+      name: "breakWithoutMarks",
+      addProseMirrorPlugins: function () {
+        return [
+          new RaakTiptap.Plugin({
+            key: new RaakTiptap.PluginKey("breakWithoutMarks"),
+            appendTransaction: function (transactions, _old, state) {
+              if (!transactions.some(function (t) { return t.docChanged; })) return null;
+              var tr = null;
+              state.doc.descendants(function (node, pos) {
+                if (node.type.name === "hardBreak" && node.marks.length) {
+                  tr = tr || state.tr;
+                  tr.setNodeMarkup(pos, null, node.attrs, []);
+                }
+              });
+              return tr;
             },
           }),
         ];
@@ -1504,7 +1575,11 @@
        the starter kit's would refuse her at the root. */
     var withSection = (config.insert || []).indexOf("section") !== -1;
     if (withSection) starterOptions.document = false;
-    var extensions = [holdWholeBlock(RaakTiptap), RaakTiptap.StarterKit.configure(starterOptions)];
+    var extensions = [
+      holdWholeBlock(RaakTiptap),
+      breakWithoutMarks(RaakTiptap),
+      RaakTiptap.StarterKit.configure(starterOptions),
+    ];
     if (withSection) {
       extensions = extensions.concat(sectionNode(RaakTiptap, config));
     }
