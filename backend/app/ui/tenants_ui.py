@@ -571,7 +571,7 @@ def _secret_field(key: str, label: str, help_text: str, is_set: bool) -> dict[st
         "is_set": is_set,
         "placeholder": _("•••• (gezet — leeg laten = ongewijzigd)")
         if is_set
-        else _("niet gezet — .env-default geldt"),
+        else _("niet gezet — de waarde van de omgeving geldt"),
         "display": _("gezet") if is_set else _("niet gezet"),
         "clear_label": _("Wissen"),
     }

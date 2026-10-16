@@ -41,11 +41,6 @@ APPROVED = [
 #: Words a board member cannot act on, or that name what another part does with a value.
 JARGON = [".env", "SMTP", "ENABLED", "Publieke origin", "Mollie/SEO", "de mails", "de voettekst"]
 
-#: The placeholder of an empty secret says ".env-default". It is a placeholder, not a help
-#: text, and Koen's package leaves the two secrets as they are; named to him as a
-#: remaining case, so the check passes over it instead of hiding it.
-LEFT_FOR_KOEN = "niet gezet — .env-default geldt"
-
 
 def _record(client, db_session, tenant_id) -> str:
     _login(client, db_session, operator=True)
@@ -60,13 +55,13 @@ def test_the_record_shows_the_approved_help_texts(client, platform_workspace, db
     page = _record(client, db_session, TENANT_VOORBEELD_ID)
     missing = [text for text in APPROVED if text not in page]
     assert not missing, f"approved help texts not on the record: {missing}"
+    assert "niet gezet — de waarde van de omgeving geldt" in page
 
 
 def test_no_help_text_speaks_jargon_or_other_parts(client, platform_workspace, db_session):
     from app.kernel.tenancy import TENANT_VOORBEELD_ID
 
     page = _record(client, db_session, TENANT_VOORBEELD_ID)
-    page = page.replace(LEFT_FOR_KOEN, "")
     found = [word for word in JARGON if word in page]
     where = {w: page[max(page.index(w) - 60, 0) : page.index(w) + 40] for w in found}
     assert not found, f"the tenant record still says: {where}"
