@@ -34,6 +34,7 @@ from app.domains.newsletter.models import (
     SubscriberSource,
     SubscriberStatus,
 )
+from app.domains.newsletter.tracking import make_code
 from app.i18n import _
 from app.kernel.clock import belgian_today
 from app.kernel.codes import code_of
@@ -1905,14 +1906,32 @@ def plain_text(html: str) -> str:
     return "\n".join(out).strip()
 
 
+def counting_line() -> str:
+    """The line every counted letter carries, in the footer and in the text part (CR-37)."""
+    return _("Wij tellen anoniem hoeveel brieven geopend en hoeveel links aangeklikt worden.")
+
+
 def render_text(
-    db: Session, letter: Newsletter, *, unsubscribe_url: Optional[str], base_url: str = ""
+    db: Session,
+    letter: Newsletter,
+    *,
+    unsubscribe_url: Optional[str],
+    base_url: str = "",
+    code: Optional[str] = None,
 ) -> str:
-    """The letter as plain text, with the same footer as the HTML version."""
+    """The letter as plain text, with the same footer as the HTML version. With a `code`
+    (a real mail) its links go through the portal and the counting line is added."""
     base = (base_url or letter.link_base or "").rstrip("/")
     name, address = _organisation_footer(db)
-    body = plain_text(render_body(db, letter, base_url=base))
+    body_html = render_body(db, letter, base_url=base)
+    if code:
+        from app.domains.newsletter.tracking import track_links
+
+        body_html = track_links(db, letter, body_html, code=code, base=base)
+    body = plain_text(body_html)
     footer = [f"{name} · {address}" if address else name]
+    if code:
+        footer.append(counting_line())
     if unsubscribe_url:
         footer.append(
             _("Je krijgt deze mail omdat je op de mailinglijst van %(naam)s staat.")
@@ -1941,11 +1960,16 @@ def render_mail(
     unsubscribe_url: Optional[str],
     logo_url: Optional[str] = None,
     base_url: str = "",
+    code: Optional[str] = None,
 ) -> str:
     """The letter as it arrives: a simple frame around the text.
 
     Inline styles only — many mail clients ignore a style block. A member mail
     has no unsubscribe line (CR-05 §3.4); a subscriber mail always has one.
+
+    With a `code` (a real mail, CR-37) every link goes through the portal, the
+    counting line is added and the one-pixel picture ends the letter; the test mail
+    and the preview pass none and stay as they were.
     """
     esc = html_lib.escape
     # The letter's own origin once it is sent (`link_base`), the caller's while
@@ -1960,6 +1984,8 @@ def render_mail(
     footer = [esc(name)]
     if address:
         footer[0] = f"{esc(name)} · {esc(address)}"
+    if code:
+        footer.append(esc(counting_line()))
     if kind != DeliveryKind.MEMBER and unsubscribe_url:
         footer.append(
             esc(
@@ -1973,6 +1999,13 @@ def render_mail(
     # The preview line: hidden in the letter, shown by the inbox beside the
     # subject. The spaces after it stop a client from padding it with the first
     # words of the letter.
+    body = with_inline_styles(render_body(db, letter, base_url=base))
+    pixel = ""
+    if code:
+        from app.domains.newsletter.tracking import pixel_html, track_links
+
+        body = track_links(db, letter, body, code=code, base=base)
+        pixel = pixel_html(code, base=base)
     preview = preview_text_of(letter)
     preview_block = (
         (
@@ -1990,10 +2023,11 @@ def render_mail(
         '<div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:10px;'
         'padding:22px 26px;font-size:15px;line-height:1.6;color:#14171c">'
         f'<div style="border-bottom:3px solid #ffce00;padding-bottom:10px;margin-bottom:16px">{header}</div>'
-        f"{with_inline_styles(render_body(db, letter, base_url=base))}"
+        f"{body}"
         "</div>"
         '<div style="max-width:640px;margin:0 auto;text-align:center;font-size:12px;'
         f'color:#52607a;padding:14px 10px 0;line-height:1.6">{"<br>".join(footer)}</div>'
+        f"{pixel}"
         "</div>"
     )
 
@@ -2333,10 +2367,17 @@ def send_batch(db: Session, newsletter_id: int, *, batch_size: int = BATCH_SIZE)
             )
         elif delivery.kind == DeliveryKind.PARTICIPANT:
             unsubscribe_url = unsubscribe_link_of(delivery, letter.link_base or "")
+        # One code per mail, kept nowhere: the pixel and the links of this mail carry it (CR-37).
+        code = make_code(letter.id)
         body = render_mail(
-            db, letter, kind=delivery.kind, unsubscribe_url=unsubscribe_url, logo_url=logo_url
+            db,
+            letter,
+            kind=delivery.kind,
+            unsubscribe_url=unsubscribe_url,
+            logo_url=logo_url,
+            code=code,
         )
-        text = render_text(db, letter, unsubscribe_url=unsubscribe_url)
+        text = render_text(db, letter, unsubscribe_url=unsubscribe_url, code=code)
         try:
             # #1783: a fault that may be gone a moment later gets ONE more try,
             # here, of a mail that is known not to have left. Not a job of its

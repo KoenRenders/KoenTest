@@ -18,6 +18,13 @@
     <div class="mt-2 text-sm text-ink-soft">
       {{ _("%(sent)s van %(total)s verstuurd", sent=p.sent, total=p.total) }}{% if p.failed %} · {{ _("%(n)s mislukt", n=p.failed) }}{% endif %}{% if p.skipped %} · {{ _("%(n)s overgeslagen", n=p.skipped) }}{% endif %}
     </div>
+    {# CR-37: what was counted, as an indication; nothing until a letter has gone out. #}
+    {% set r = results[letter.id] %}
+    {% if r and r.sent %}
+    <div class="mt-1 text-sm text-ink-soft" data-letter-result>
+      {{ _("Geopend (indicatie) %(o)s", o=(r.opened_pct ~ " %") if r.opened_pct is not none else "—") }} · {{ _("Geklikt (indicatie) %(c)s", c=(r.clicked_pct ~ " %") if r.clicked_pct is not none else "—") }} · {% if r.link_count == 1 %}{{ _("1 link") }}{% else %}{{ _("%(n)s links", n=r.link_count) }}{% endif %}
+    </div>
+    {% endif %}
     {% if p.queued %}
     <div class="mt-1.5 h-1.5 w-48 max-w-full rounded-full bg-line overflow-hidden" role="progressbar"
          aria-valuemin="0" aria-valuemax="{{ p.total }}" aria-valuenow="{{ p.sent }}">

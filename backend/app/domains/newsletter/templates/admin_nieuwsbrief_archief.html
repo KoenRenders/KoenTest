@@ -2,6 +2,7 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ letter.subject }} — {{ _("Raak beheer") }}{% endblock %}
 {% block content %}
+{% macro people(n) %}{% if n == 1 %}{{ _("1 persoon") }}{% else %}{{ _("%(n)s mensen", n=n) }}{% endif %}{% endmacro %}
 {{ ui.back_link(_("Alle nieuwsbrieven"), "/admin/nieuwsbrieven") }}
 {# Een verstuurde brief staat hier zoals hij vertrok — niet meer te wijzigen.
    "Kopiëren" maakt een nieuw concept (CR-05 §3.12). #}
@@ -52,6 +53,33 @@
      without it is as wide as its widest content: a table with a long address
      then widened the whole page on a phone instead of scrolling in its card. #}
   <div class="space-y-4 min-w-0">
+    {# CR-37: what was counted, without knowing who. An open and a click are an indication:
+       a mail program that loads pictures in advance shows an open that did not happen, one
+       that blocks them hides a real one, and a filter that tests links clicks every link. #}
+    {% if result.sent %}
+    <div class="bg-surface border border-line rounded-2xl p-5" data-letter-result>
+      <h2 class="font-semibold text-blue-700">{{ _("Resultaat") }}</h2>
+      <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm mt-3">
+        <dt class="text-ink-soft">{{ _("Verstuurd") }}</dt><dd>{{ result.sent }}</dd>
+        <dt class="text-ink-soft">{{ _("Geopend (indicatie)") }}</dt>
+        <dd>{% if result.opened_pct is not none %}{{ result.opened_pct }}&nbsp;% · {{ people(result.opened) }}{% else %}—{% endif %}</dd>
+        <dt class="text-ink-soft">{{ _("Geklikt (indicatie)") }}</dt>
+        <dd>{% if result.clicked_pct is not none %}{{ result.clicked_pct }}&nbsp;% · {{ people(result.clicked) }}{% else %}—{% endif %}</dd>
+      </dl>
+      {% if result.links %}
+      <h3 class="font-semibold text-sm mt-4">{{ _("Links") }}</h3>
+      <ul class="mt-2 divide-y divide-line text-sm" data-letter-links>
+        {% for link in result.links %}
+        <li class="flex items-baseline gap-3 py-2">
+          <span class="min-w-0 flex-1 break-all">{{ link.url }}</span>
+          <span class="text-ink-soft whitespace-nowrap">{{ people(link.clicked) }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      <p class="mt-3 text-xs text-ink-soft">{{ _("Wij tellen anoniem: je ziet hoeveel mensen een brief openden of een link aanklikten, niet wie.") }}</p>
+    </div>
+    {% endif %}
     <div class="bg-surface border border-line rounded-2xl p-5">
       <h2 class="font-semibold text-blue-700">{{ _("De tekst zoals hij vertrok") }}</h2>
       <div class="prose-raak mt-3 text-sm">{{ body_html|safe }}</div>

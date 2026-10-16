@@ -32,9 +32,9 @@ class Settings(BaseSettings):
     gmail_from: Optional[str] = None
 
     # E-maillog (#328): bewaartermijn in dagen voor de centrale email_log-tabel.
-    # Standaard 365 (1 jaar). 0 (of negatief) = niet opschonen, oneindig bewaren.
+    # Standaard 90 dagen (CR-37: een code van een nieuwsbrief is via dit log aan een ontvanger te koppelen). 0 (of negatief) = niet opschonen, oneindig bewaren.
     # Niet auto-toegevoegd aan de echte .env-bestanden; per host instellen.
-    email_log_retention_days: int = 365
+    email_log_retention_days: int = 90
 
     # #2034: a test environment mails only these addresses (comma-separated); the
     # rest is logged, not sent. Empty or unset = no restriction (PROD leaves it unset).
