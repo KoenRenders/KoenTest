@@ -20,6 +20,7 @@ from typing import Dict, Optional
 import nh3
 
 from app.i18n import _
+from app.kernel.clock import belgian_today
 
 # Sanitisatie-allowlist voor CMS-inhoud (#476): dezelfde soort bescherming als de
 # oude DOMPurify (React), maar server-side. Enkel de tags/attributen die de
@@ -920,7 +921,6 @@ def _activities_html(node: dict, preview: bool = False, db=None) -> str:
     (`_activiteiten_cards.html`), rendered through the template environment as the
     sites list is. A tenant without the module, or with nothing to show, gets
     nothing on the site and the reason in the preview."""
-    from datetime import date
 
     from app.database import SessionLocal
     from app.domains.activities.api import list_activities
@@ -939,7 +939,7 @@ def _activities_html(node: dict, preview: bool = False, db=None) -> str:
             return _unreachable_html("activities", "empty") if preview else ""
         return (
             templates.env.get_template("_activiteiten_cards.html")
-            .render(activities=activities, current_year=date.today().year, scope="upcoming")
+            .render(activities=activities, current_year=belgian_today().year, scope="upcoming")
             .strip()
         )
     finally:

@@ -45,6 +45,7 @@ from app.domains.membership.schemas_member import (  # noqa: F401
     PersonListItem,
 )
 from app.i18n import _
+from app.kernel.clock import belgian_today
 from app.kernel.codes import code_of
 from app.soft_delete import soft_delete
 
@@ -272,7 +273,7 @@ def create_family_with_members(
     from app.kernel.contracts.mdm import CreateHousehold, HouseholdPerson
     from app.kernel.ports import call
 
-    vandaag = today or date.today()
+    vandaag = today or belgian_today()
     try:
         created = call(
             CreateHousehold(

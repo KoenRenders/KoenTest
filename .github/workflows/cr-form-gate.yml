@@ -1,0 +1,44 @@
+name: change request form
+
+# The gate of #2040 — every change request on master carries the drawings, the
+# traceability matrix and the walkthrough the template requires — as a light job of
+# its own. backend-tests.yml skips a commit that only changes a change request
+# (paths-ignore, CR-29: a document commit costs no full run), which is exactly the
+# commit this gate is for. So this job runs on those paths, with pytest only: no
+# database, no conftest, a few seconds. The full suite runs the same test on every
+# other commit. Koen, 16 October 2026, to the choice between taking the change
+# requests out of paths-ignore, a light job of its own, or nothing: "b".
+
+on:
+  push:
+    branches: ["master"]
+    paths:
+      - "docs/change_request_*.md"
+      - "backend/tests/test_change_request_form_gate_2040.py"
+      - ".github/workflows/cr-form-gate.yml"
+  pull_request:
+    branches: ["master"]
+    paths:
+      - "docs/change_request_*.md"
+      - "backend/tests/test_change_request_form_gate_2040.py"
+      - ".github/workflows/cr-form-gate.yml"
+
+concurrency:
+  group: cr-form-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  cr-form:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pytest==8.3.4
+      # --noconftest: the suite's conftest wants a database; this gate reads files only.
+      - run: python -m pytest --noconftest -p no:cacheprovider tests/test_change_request_form_gate_2040.py

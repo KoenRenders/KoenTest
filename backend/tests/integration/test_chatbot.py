@@ -62,15 +62,10 @@ def test_person_role_guardrail_present(db_session):
     assert "Leid een rol nooit af" in prompt
 
 
-def _fixed_date(y, m, d):
+def _fixed_day(y, m, d):
     import datetime as _dt
 
-    class _D(_dt.date):
-        @classmethod
-        def today(cls):
-            return cls(y, m, d)
-
-    return _D
+    return lambda: _dt.date(y, m, d)
 
 
 def test_membership_duration_until_dec31_in_halfprice_window(monkeypatch):
@@ -78,7 +73,7 @@ def test_membership_duration_until_dec31_in_halfprice_window(monkeypatch):
     t/m 31 december gecommuniceerd — niet de halfprijs-einddatum (16 sep)."""
     from app.domains.chatbot import context
 
-    monkeypatch.setattr(context, "date", _fixed_date(2026, 7, 1))
+    monkeypatch.setattr(context, "belgian_today", _fixed_day(2026, 7, 1))
     block = context._membership_block()
     assert "lid t/m 31 december 2026" in block
     assert "bepaalt ALLEEN de prijs" in block
@@ -93,7 +88,7 @@ def test_membership_duration_next_year_after_cutoff(monkeypatch):
     from app.domains.chatbot import context
 
     m, d = (int(x) for x in settings.membership_next_year_from_md.split("-"))
-    monkeypatch.setattr(context, "date", _fixed_date(2026, m, d))
+    monkeypatch.setattr(context, "belgian_today", _fixed_day(2026, m, d))
     block = context._membership_block()
     assert "lid t/m 31 december 2027" in block
 

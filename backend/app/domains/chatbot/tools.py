@@ -14,7 +14,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import date
 from decimal import Decimal
 from typing import Any, Optional
 
@@ -23,6 +22,7 @@ from sqlalchemy.orm import Session
 from app.domains.activities.api import Activity, ActivityDate, publicly_bookable_products
 from app.domains.chatbot.models import ChatbotInfo
 from app.domains.media.api import MediaAsset
+from app.kernel.clock import belgian_today
 
 logger = logging.getLogger(__name__)
 
@@ -287,7 +287,7 @@ def get_activities(db: Session, when: str = "upcoming", limit: int = 20) -> dict
     ``when="past"``: vóór vandaag, meest recent eerst. In beide gevallen max
     ``limit`` (default 20), zodat de prompt niet volloopt en de kost beperkt blijft.
     """
-    today = date.today()
+    today = belgian_today()
     is_past = when == "past"
 
     date_q = db.query(ActivityDate.activity_id).distinct()

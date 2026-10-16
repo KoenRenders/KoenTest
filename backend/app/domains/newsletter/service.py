@@ -36,6 +36,7 @@ from app.domains.newsletter.models import (
 )
 from app.domains.newsletter.tracking import make_code
 from app.i18n import _
+from app.kernel.clock import belgian_today
 from app.kernel.codes import code_of
 from app.kernel.contracts.media import StoreFile
 from app.kernel.copying import CopyPlan
@@ -466,7 +467,7 @@ def member_audience(db: Session, today: Optional[date] = None) -> tuple[int, set
     from app.domains.mdm.api import email_addresses_per_member
     from app.domains.membership.api import members_with_membership_for_year
 
-    year = (today or date.today()).year
+    year = (today or belgian_today()).year
     per_household = email_addresses_per_member(db, members_with_membership_for_year(db, year))
     reached = {household for household, found in per_household.items() if found}
     addresses = sorted(set().union(*per_household.values())) if per_household else []
@@ -558,7 +559,7 @@ def audience_summary(
     year, households, members = (
         member_audience(db, today)
         if audience in (Audience.MEMBERS, Audience.BOTH)
-        else ((today or date.today()).year, set(), [])
+        else ((today or belgian_today()).year, set(), [])
     )
     subscribers = (
         {s.email for s in confirmed_subscribers(db)}
@@ -635,7 +636,7 @@ def chosen_activities(db: Session, letter: Newsletter) -> list[AudienceActivity]
 def _offered_spans(db: Session, today: Optional[date] = None) -> "dict[int, ActivitySpan]":
     from app.domains.activities.api import past_activities
 
-    today = today or date.today()
+    today = today or belgian_today()
     spans = past_activities(db, since_year=today.year - (PARTICIPANT_YEARS - 1), today=today)
     return {span.activity.id: span for span in spans}
 
@@ -898,7 +899,7 @@ def reports_since_previous_letter(db: Session, today: Optional[date] = None) -> 
     """
     from app.domains.meetings.api import sent_reports
 
-    today = today or date.today()
+    today = today or belgian_today()
     since = _since_previous_letter(db, today)
     return [m.id for m in sent_reports(db, limit=200) if m.meeting_date >= since]
 
@@ -990,7 +991,7 @@ def default_choices(db: Session, today: Optional[date] = None) -> Choices:
     """
     from app.domains.activities.api import activities_active_between, activities_from
 
-    today = today or date.today()
+    today = today or belgian_today()
     since = _since_previous_letter(db, today)
     until = _months_later(today, MONTHS_AHEAD)
     past = [s.activity.id for s in activities_active_between(db, since, today, published_only=True)]
@@ -1331,7 +1332,7 @@ def activity_facts(
         return {}
     albums = _albums(db)
     pictures = _pictures(db, wanted)
-    since = (today or date.today()) - timedelta(days=400)
+    since = (today or belgian_today()) - timedelta(days=400)
     spans = {
         span.activity.id: span
         for span in activities_from(db, since, published_only=True)
@@ -1355,7 +1356,7 @@ def activity_facts(
         page = f"{base_url}/activiteiten/{key}"
         components = list(getattr(activity, "sub_registrations", []) or [])
         is_full = bool(span and span.capacity and span.registered >= span.capacity)
-        is_past = (span.end if span else start) < (today or date.today())
+        is_past = (span.end if span else start) < (today or belgian_today())
         # The same rules as the public card: register while it is open, and a
         # participant list for an internal registration or an external list.
         register_url = None
@@ -1718,7 +1719,7 @@ def calendar_html(
     """
     from app.domains.activities.api import activities_from
 
-    start = today or date.today()
+    start = today or belgian_today()
     if activity_ids is not None:
         wanted = {int(i) for i in activity_ids}
         spans = [
@@ -1751,7 +1752,7 @@ def insertable_activities(
     the activities of the last year, most recent first. Optionally filtered."""
     from app.domains.activities.api import activities_active_between, activities_from
 
-    today = today or date.today()
+    today = today or belgian_today()
     if past:
         spans = sorted(
             activities_active_between(db, _months_later(today, -12), today, published_only=True),

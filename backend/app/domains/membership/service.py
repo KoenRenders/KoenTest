@@ -21,6 +21,8 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
+from app.kernel.clock import belgian_today
+
 
 def has_valid_membership(person, ref_date: Optional[date] = None) -> bool:
     """True als ``person`` op ``ref_date`` een actief, geldig lidmaatschap heeft.
@@ -31,7 +33,7 @@ def has_valid_membership(person, ref_date: Optional[date] = None) -> bool:
     if person is None:
         return False
     if ref_date is None:
-        ref_date = date.today()
+        ref_date = belgian_today()
     return valid_membership_until(person, ref_date) is not None
 
 
@@ -44,7 +46,7 @@ def valid_membership_until(person, ref_date: Optional[date] = None):
     if person is None:
         return None
     if ref_date is None:
-        ref_date = date.today()
+        ref_date = belgian_today()
     best = None
     for mp in getattr(person, "member_persons", None) or []:
         member = getattr(mp, "member", None)
@@ -68,7 +70,7 @@ def membership_coverage_until(person, ref_date: Optional[date] = None):
     if person is None:
         return None
     if ref_date is None:
-        ref_date = date.today()
+        ref_date = belgian_today()
     best = None
     for mp in getattr(person, "member_persons", None) or []:
         member = getattr(mp, "member", None)
@@ -89,7 +91,7 @@ def renewal_open(today: Optional[date] = None) -> bool:
     (MEMBERSHIP_RENEWAL_START_MD, "MM-DD"). Zonder instelling: dicht."""
 
     if today is None:
-        today = date.today()
+        today = belgian_today()
     from app.kernel.tenant_config import tenant_membership_config
 
     renewal_start_md = tenant_membership_config()["renewal_start_md"]
@@ -110,7 +112,7 @@ def renewal_available(coverage_until: Optional[date], today: Optional[date] = No
     if coverage_until is None:
         return True
     if today is None:
-        today = date.today()
+        today = belgian_today()
     return renewal_open(today) and coverage_until.year <= today.year
 
 
@@ -139,7 +141,7 @@ def renewal_years(today: Optional[date] = None) -> tuple[int, int]:
     moeten vernieuwen.
     """
     if today is None:
-        today = date.today()
+        today = belgian_today()
     from app.kernel.tenant_config import tenant_membership_config
 
     md = tenant_membership_config()["next_year_from_md"]
@@ -202,7 +204,7 @@ def renewal_terms(db, person, today: date | None = None) -> tuple[date, date, De
     from app.domains.payment.api import membership_price_for_date, membership_valid_period
     from app.kernel.tenant_config import tenant_membership_config
 
-    today = today or date.today()
+    today = today or belgian_today()
     current_until = membership_coverage_until(person, today)
     if current_until is not None:
         year = current_until.year + 1
@@ -248,7 +250,9 @@ def members_valid_on(db, day: Optional[date] = None) -> set[int]:
     """De member-id's met een lidmaatschap dat op ``day`` geldig is (#582, #1307)."""
     from app.domains.membership.models import Membership
 
-    rijen = db.query(Membership.member_id).filter(*valid_on(day or date.today())).distinct().all()
+    rijen = (
+        db.query(Membership.member_id).filter(*valid_on(day or belgian_today())).distinct().all()
+    )
     return {r[0] for r in rijen}
 
 
@@ -321,7 +325,7 @@ def current_membership_counts(db, today: Optional[date] = None) -> tuple[int, in
     from app.domains.mdm.api import MemberPerson, Person
     from app.domains.membership.models import Membership
 
-    valid = valid_on(today or date.today())
+    valid = valid_on(today or belgian_today())
     households = db.query(func.count(distinct(Membership.member_id))).filter(*valid).scalar() or 0
     persons = (
         db.query(func.count(distinct(MemberPerson.person_id)))
@@ -363,7 +367,7 @@ def membership_states(
         return {}
     until = dict(
         db.query(Membership.member_id, func.max(Membership.valid_to))
-        .filter(Membership.member_id.in_(ids), *valid_on(today or date.today()))
+        .filter(Membership.member_id.in_(ids), *valid_on(today or belgian_today()))
         .group_by(Membership.member_id)
         .all()
     )
@@ -461,7 +465,7 @@ def activate_after_payment(
         return
     membership.is_active = True
     if membership.valid_from is None or membership.valid_to is None:
-        valid_from, valid_to = membership_valid_period(date.today())
+        valid_from, valid_to = membership_valid_period(belgian_today())
         membership.valid_from = membership.valid_from or valid_from
         membership.valid_to = membership.valid_to or valid_to
     db.flush()

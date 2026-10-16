@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.i18n import _
+from app.kernel.clock import belgian_today
 from app.limiter import registration_limiter
 from app.ui import refusal_response, site_context, templates
 
@@ -250,7 +251,6 @@ def _require_member_csrf(request: Request, db: Session):
 
 
 def _renew_page(request: Request, db: Session, person) -> HTMLResponse:
-    from datetime import date
 
     from app.domains.membership.api import (
         household_view,
@@ -261,7 +261,7 @@ def _renew_page(request: Request, db: Session, person) -> HTMLResponse:
     from app.domains.membership.household_page import RenewPage, Terms, household_summary
 
     valid_until = membership_coverage_until(person)
-    available = renewal_available(valid_until, date.today())
+    available = renewal_available(valid_until, belgian_today())
     terms = None
     if available:
         _from, until, amount = renewal_terms(db, person)
