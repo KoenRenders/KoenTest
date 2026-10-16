@@ -5,6 +5,7 @@ The mail transport is replaced by a mailbox that records what would leave; the
 queue is driven by calling the job's own function, the way the scheduler does.
 """
 
+import json
 from datetime import date, datetime, time, timedelta, timezone
 
 import pytest
@@ -240,7 +241,7 @@ def test_een_kopie_neemt_de_doelgroep_niet_mee(db_session):
     letter = _letter(db_session, audience=Audience.BOTH, subject="Zomer")
     copy = nb.copy_newsletter(db_session, letter, created_by="s@example.org")
 
-    assert (copy.subject, copy.body_html) == (letter.subject, letter.body_html)
+    assert (copy.subject, copy.body_document) == (letter.subject, letter.body_document)
     assert copy.audience is None
     assert copy.copied_from_id == letter.id
     assert copy.status == LetterStatus.DRAFT
@@ -657,8 +658,8 @@ def test_een_verstuurde_brief_is_niet_meer_te_wijzigen(db_session, mailbox):
 
 def test_de_tekst_wordt_ontsmet(db_session):
     letter = _letter(db_session, body="<div>Hallo<script>alert(1)</script></div>")
-    assert "<script" not in letter.body_html
-    assert "Hallo" in letter.body_html
+    assert "<script" not in json.dumps(letter.body_document)
+    assert "Hallo" in nb.markup_of(letter)
 
 
 def test_de_afsluiting_draagt_geen_persoonsnamen(db_session):
@@ -949,8 +950,8 @@ def test_de_brief_draagt_een_verwijzing_en_de_mail_het_blok(db_session):
     saw the picture spill out of the letter. So the letter carries the activity
     NUMBER and the server builds the block when it sends.
 
-    Broken on purpose: `expand_blocks` taken out of `render_mail` → the mail
-    arrives with the bare reference and this test fails.
+    Broken on purpose: the `activity` block taken out of `mail_blocks` → the mail
+    arrives without the block and this test fails.
     """
     vandaag = date.today()
     activity = _dated_activity(
@@ -958,12 +959,14 @@ def test_de_brief_draagt_een_verwijzing_en_de_mail_het_blok(db_session):
     )
     activity.description = "Een avond over vaderschap."
     db_session.flush()
-    facts = nb.activity_facts(db_session, [activity.id], base_url="https://raak.example")
-    kaart = nb.activity_card_html(facts[activity.id])
-    letter = _letter(db_session, audience=Audience.MEMBERS, body=kaart)
+    letter = _letter(
+        db_session, audience=Audience.MEMBERS, body=f"<div>[[activiteit:{activity.id}|x]]</div>"
+    )
 
-    assert f"[[activiteit:{activity.id}|" in letter.body_html, "overleeft de ontsmetting"
-    assert "<table" not in letter.body_html, "de brief draagt geen blok"
+    assert letter.body_document["content"] == [
+        {"type": "activity", "attrs": {"activity_id": activity.id}}
+    ], "de brief draagt de verwijzing als blok"
+    assert "<table" not in json.dumps(letter.body_document), "de brief draagt geen blok"
 
     mail = nb.render_mail(
         db_session,
@@ -1006,11 +1009,10 @@ def test_de_opmaak_komt_er_pas_bij_het_versturen_op(db_session, mailbox):
     vandaag = date.today()
     activity = _dated_activity(db_session, "Rumproefavond", vandaag + timedelta(days=12))
     letter = _letter(
-        db_session, audience=Audience.MEMBERS, body=_block(db_session, activity, vandaag)
+        db_session, audience=Audience.MEMBERS, body=f"<div>[[activiteit:{activity.id}]]</div>"
     )
 
-    bewaard = letter.body_html
-    assert "style=" not in bewaard, "de ontsmetting laat geen style toe"
+    assert "style=" not in json.dumps(letter.body_document), "de brief draagt geen opmaak"
 
     mail = nb.render_mail(db_session, letter, kind=DeliveryKind.MEMBER, unsubscribe_url=None)
     assert 'class="nb-blok-titel" style="font-size:20px' in mail
@@ -1041,7 +1043,7 @@ def test_de_voorbeeldtekst_staat_in_de_mail_en_valt_terug_op_de_eerste_zin(db_se
         db_session,
         letter,
         subject=letter.subject,
-        body_html=letter.body_html,
+        body_html=nb.markup_of(letter),
         audience=Audience.MEMBERS,
         preview_text="Ontdek ons najaar!",
     )
@@ -1060,11 +1062,10 @@ def test_de_mail_draagt_ook_een_tekstversie(db_session):
     """
     vandaag = date.today()
     activity = _dated_activity(db_session, "Rumproefavond", vandaag + timedelta(days=10))
-    facts = nb.activity_facts(db_session, [activity.id], base_url=BASE)
     letter = _letter(
         db_session,
         audience=Audience.MEMBERS,
-        body=f"<div>Beste,</div><div>{nb.activity_card_html(facts[activity.id])}</div>",
+        body=f"<div>Beste,</div><div>[[activiteit:{activity.id}|Rumproefavond]]</div>",
     )
 
     tekst = nb.render_test(db_session, letter, base_url=BASE).body_text

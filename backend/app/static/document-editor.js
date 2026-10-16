@@ -199,6 +199,68 @@
     });
   }
 
+  /* A block put in at the author's place. The selection after an inserted block is
+     the block itself, and `insertContent` over a selected block REPLACES it — so a
+     second block would take the first one's place. At the END of the selection the
+     new block lands after the old one (and at the cursor, when it is a cursor). */
+  function insertBlock(editor, node) {
+    editor.chain().focus().insertContentAt(editor.state.selection.to, node).run();
+  }
+
+  /* The letter's three blocks (CR-17 phase 7, F9): an activity (its id; the mail
+     shows its picture, name, when, where and the sign-up link, built when the letter
+     is sent), the calendar (the activities the letter's own choices name) and the
+     closing. Atoms, like the gallery: the editor draws a labelled box, the mail
+     renderer builds the block. */
+  function letterNodes(RaakTiptap, config) {
+    var insert = config.toolbar.insert || [];
+    function label(id) {
+      return (insert.filter(function (i) { return i.id === id; })[0] || {}).label || id;
+    }
+    var names = {};
+    ((config.activity && config.activity.activities) || []).forEach(function (a) { names[a.id] = a.label; });
+    function atom(name, attrs, caption) {
+      return RaakTiptap.Node.create({
+        name: name,
+        group: "block",
+        atom: true,
+        addAttributes: function () {
+          return attrs ? { activity_id: { default: null } } : {};
+        },
+        parseHTML: function () {
+          return [{
+            tag: "div[data-letter-block=" + name + "]",
+            getAttrs: function (el) {
+              return attrs ? { activity_id: Number(el.getAttribute("data-activity")) } : {};
+            },
+          }];
+        },
+        renderHTML: function (props) {
+          var out = { "data-letter-block": name, class: "de-gallery" };
+          if (attrs) out["data-activity"] = props.node.attrs.activity_id;
+          return ["div", out, caption(props.node)];
+        },
+        addNodeView: function () {
+          return function (props) {
+            var dom = document.createElement("div");
+            dom.className = "de-gallery";
+            dom.contentEditable = "false";
+            dom.setAttribute("data-letter-block", name);
+            dom.textContent = caption(props.node);
+            return { dom: dom };
+          };
+        },
+      });
+    }
+    return [
+      atom("activity", true, function (node) {
+        return label("activity") + ": " + (names[node.attrs.activity_id] || "#" + node.attrs.activity_id);
+      }),
+      atom("calendar", false, function () { return label("calendar"); }),
+      atom("closing", false, function () { return label("closing"); }),
+    ];
+  }
+
   /* The activities of CR-32 (R15): a data block — the upcoming activities as the
      home shows them, at most `count`. The module supplies the data at render time;
      the editor holds the count and draws a labelled box with a select of 1 to 50,
@@ -1005,6 +1067,9 @@
         item.id === "cards" ||
         item.id === "section" ||
         (item.id === "gallery" && !!config.gallery) ||
+        item.id === "activity" ||
+        item.id === "calendar" ||
+        item.id === "closing" ||
         item.id === "activities" ||
         item.id === "albums"
       );
@@ -1064,6 +1129,12 @@
                 attrs: { albums: 3, photos: 4, interval: 3 },
               })
               .run();
+          } else if (item.id === "activity") {
+            /* The activity is chosen in the dialog of the macro, among the ones the
+               letter features. */
+            announce("raak-activity-choose", { editor: editorId });
+          } else if (item.id === "calendar" || item.id === "closing") {
+            insertBlock(editor, { type: item.id });
           } else if (item.id === "gallery") {
             /* The album is chosen in the dialog of the macro; the block lands
                with it (the server refuses an activity that is no album). */
@@ -1497,6 +1568,12 @@
     return /\s/.test(address) ? "space" : "";
   };
 
+  document.addEventListener("raak-activity-chosen", function (event) {
+    var editor = editors[event.detail.editor];
+    if (!editor || editor.isDestroyed || !event.detail.activity_id) return;
+    insertBlock(editor, { type: "activity", attrs: { activity_id: event.detail.activity_id } });
+  });
+
   document.addEventListener("raak-gallery-chosen", function (event) {
     var editor = editors[event.detail.editor];
     if (!editor || editor.isDestroyed || !event.detail.activity_id) return;
@@ -1617,6 +1694,9 @@
     if ((config.insert || []).indexOf("gallery") !== -1 && config.gallery) {
       extensions.push(galleryNode(RaakTiptap, config));
     }
+    if ((config.insert || []).indexOf("activity") !== -1) {
+      letterNodes(RaakTiptap, config).forEach(function (node) { extensions.push(node); });
+    }
 
     var editor = new RaakTiptap.Editor({
       element: surface,
@@ -1706,6 +1786,9 @@
       editor.on("update", function () {
         input.value = JSON.stringify(editor.getJSON());
         changed = true;
+        /* A screen that saves while the author types (the letter) listens for
+           this one, with its own delay (it bubbles to the form around the editor). */
+        mount.dispatchEvent(new CustomEvent("raak-editor-change", { bubbles: true }));
       });
       /* A screen that saves as the author leaves the editor (the notes of a
          meeting point, as they did on Trix) listens for this event (it bubbles from the editor's element
@@ -1735,6 +1818,13 @@
       }
     });
   }
+
+  /* The editor of an element, for a script of the screen that works with it: the
+     Assistent's proposal for the letter writes into it and reads the selection. */
+  window.raakDocumentEditor = function (mountId) {
+    var editor = editors[mountId];
+    return editor && !editor.isDestroyed ? editor : null;
+  };
 
   function scan() {
     if (!window.RaakTiptap) watchScripts();

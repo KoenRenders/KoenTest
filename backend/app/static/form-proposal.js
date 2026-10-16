@@ -85,12 +85,19 @@
     return trix && trix.editor ? trix : null;
   }
 
+  /* The page editor (TipTap) in a field, or null. */
+  function pageEditorOf(field) {
+    var mount = field.querySelector("[data-document-editor]");
+    return mount && window.raakDocumentEditor ? window.raakDocumentEditor(mount.id) : null;
+  }
+
   function controlOf(field) {
     return field.querySelector("input:not([type=hidden]):not([type=file]), select, textarea");
   }
 
   /* What the field holds now, as the server would receive it. */
   function read(field) {
+    if (pageEditorOf(field)) return JSON.stringify(pageEditorOf(field).getJSON());
     var trix = editorOf(field);
     if (trix) return trix.inputElement ? trix.inputElement.value : trix.innerHTML;
     var control = controlOf(field);
@@ -105,6 +112,28 @@
      of a record form, the autosave of a document, a counter, a growing field,
      the editor's undo — hears it as if it was typed. */
   function write(field, value, item) {
+    var page = pageEditorOf(field);
+    if (page) {
+      /* The page editor takes the blocks of the value (a list of document nodes)
+         where the proposal says: over everything (the default), over the
+         selection it was asked for (positions of the editor), or at the cursor.
+         One transaction, so the editor's undo takes it back at once, and the
+         editor's own `update` writes the form's field and starts its save. */
+      var content = Array.isArray(value) ? value : [];
+      var chain = page.chain().focus();
+      if (item.placement === "selection" && item.range && item.range.length === 2) {
+        /* A rewrite of some words is some words: one paragraph replaces the selection
+           with its own text, not with a paragraph in the middle of another. */
+        var inline = content.length === 1 && content[0].type === "paragraph" ? content[0].content || [] : content;
+        chain.insertContentAt({ from: item.range[0], to: item.range[1] }, inline);
+      } else if (item.placement === "cursor") {
+        chain.insertContent(content);
+      } else {
+        chain.setContent({ type: "doc", content: content }, true);
+      }
+      chain.run();
+      return;
+    }
     var trix = editorOf(field);
     if (trix) {
       // A rich text takes the value where the proposal says: over everything

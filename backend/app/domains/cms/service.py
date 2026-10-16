@@ -697,6 +697,13 @@ def serves_at_address(page: CmsPage) -> bool:
     return not is_site_block(page.slug)
 
 
+def button_page_choices(db) -> "list[tuple[int, str]]":
+    """The pages a button may lead to — `(id, title)` — for the dialog of every editor
+    that offers a button (the page screen, the letter): the pages served at an address
+    of their own, by the rule `serves_at_address` states."""
+    return [(p.id, p.title) for p in list_pages(db) if serves_at_address(p)]
+
+
 def published_html(db, page: CmsPage, language: Optional[str] = None, *, viewer=None) -> str:
     """What a visitor sees: the page's published document, rendered; her
     pre-CR-17 HTML as long as nothing is published (snede 3, #1671 — the

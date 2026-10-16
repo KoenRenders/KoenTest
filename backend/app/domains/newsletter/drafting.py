@@ -47,6 +47,12 @@ from sqlalchemy.orm import Session
 
 from app.domains.chatbot.api import FIELDS_MARK, AiCapability
 from app.domains.newsletter import service as nb
+from app.domains.newsletter.letter_markup import (
+    CALENDAR_MARKER,
+    CLOSING_MARKER,
+    activity_marker,
+    markup_to_document,
+)
 from app.domains.newsletter.models import (
     DraftingMessage,
     LetterStatus,
@@ -305,7 +311,7 @@ def _examples(db: Session, letter: Newsletter, names: set[str]) -> list[str]:
         .limit(EXAMPLE_LETTERS)
         .all()
     )
-    return [scrub(plain(e.body_html)[:EXAMPLE_CHARS], names) for e in earlier]
+    return [scrub(plain(nb.markup_of(e))[:EXAMPLE_CHARS], names) for e in earlier]
 
 
 def gather_sources(
@@ -337,7 +343,7 @@ def gather_sources(
         past_ids={i for i, f in facts.items() if f.is_past},
         points=points,
         instruction=scrub(instruction, names),
-        letter=[scrub(plain(p), names) for p in paragraphs(letter.body_html)],
+        letter=[scrub(plain(p), names) for p in paragraphs(nb.markup_of(letter))],
         upcoming="",
         upcoming_fields=_upcoming_fields(db),
         house_style=scrub(tenant_newsletter_house_style(db), names),
@@ -531,10 +537,12 @@ def _paragraph_html(
         plain = _PLAIN_MARKER.fullmatch(line)
         if plain:
             soort = _plain_kind_of(plain.group(1))
+            # The letter takes the blocks as its own (`letter_markup.py`): the mail
+            # builds them when it is sent.
             if db is not None and soort == "kalender":
-                blocks.append(nb.calendar_html(db, base_url=base_url))
+                blocks.append(f"<div>{CALENDAR_MARKER}</div>")
             elif db is not None and soort == "afsluiting":
-                blocks.append(nb.closing_html(db))
+                blocks.append(f"<div>{CLOSING_MARKER}</div>")
             # A marker that means nothing leaves nothing: never show the reader
             # a raw [[…]].
             continue
@@ -547,7 +555,7 @@ def _paragraph_html(
             # Koen, 19 September 2026: what Raakje inserts is what the button
             # inserts — the whole block, built by the server, never typed.
             if kind == "activiteit":
-                blocks.append(f"<div>{nb.activity_card_html(fact)}</div>")
+                blocks.append(f"<div>{activity_marker(fact.id, fact.name)}</div>")
                 continue
             html = nb.photos_line_html(fact)
             if html:
@@ -935,7 +943,7 @@ def build_proposal(
         "operations": ops,
         "marks": _attach(raw_marks, {0: text}),
         "facts": sorted(facts),
-        "snapshot": nb_snapshot(letter.body_html),
+        "snapshot": nb_snapshot(nb.markup_of(letter)),
         "names": {str(i): scrub(f.name, names) for i, f in facts.items()},
         "status": "open",
     }
@@ -1033,9 +1041,10 @@ def _without(text: str, sentences: list[str]) -> str:
 
 @dataclass
 class Applied:
-    """What the editor does with an applied proposal."""
+    """What the editor does with an applied proposal: the blocks (document nodes) it
+    takes over, and where they go."""
 
-    html: str
+    content: list
     placement: str  # "replace" (whole letter), "cursor" or "selection"
     range: Optional[list[int]] = None
     #: #1562: the subject and the preview text a whole letter proposes, each with
@@ -1047,16 +1056,22 @@ class Applied:
     base_preview: str = ""
 
 
+def _content_of(markup: str) -> list:
+    """The blocks of a proposal's text (HTML with markers): the document nodes the
+    editor inserts, the markers become blocks."""
+    return markup_to_document(markup)["content"]
+
+
 def apply(
     db: Session,
     letter: Newsletter,
     message: DraftingMessage,
     *,
     keep: set[int],
-    body_html: str,
+    body: str,
     base_url: str,
 ) -> Applied:
-    """The HTML the editor takes over, and where it goes.
+    """The blocks the editor takes over, and where they go.
 
     A marked sentence is left out unless its mark id is in ``keep``
     (CR-05 §3.16, layer 5). The server never rewrites the letter itself for a
@@ -1070,14 +1085,10 @@ def apply(
     A replacement is refused when the letter changed since the proposal was
     made: the remembered selection would point at other text.
     """
-    from app.domains.cms.api import sanitize_cms_html
-
     proposal = dict(message.proposal or {})
     if proposal.get("status") != "open":
         raise DraftingError(_("Dit voorstel is al afgehandeld."))
-    nb.update_draft(
-        db, letter, subject=letter.subject, body_html=body_html, audience=letter.audience
-    )
+    nb.update_draft(db, letter, subject=letter.subject, body=body or None, audience=letter.audience)
     drop: list[str] = [m["sentence"] for m in proposal.get("marks") or [] if m["id"] not in keep]
     facts = nb.activity_facts(db, proposal.get("facts") or [], base_url=base_url)
     operation = (proposal.get("operations") or [{}])[0]
@@ -1094,7 +1105,9 @@ def apply(
         # A whole letter gets its greeting and its closing from the portal, each
         # set apart by a blank line (Koen, 17 September 2026).
         result = Applied(
-            html=nb.greeting_html() + BLANK + html + BLANK + nb.closing_html(db),
+            content=_content_of(
+                nb.greeting_html() + BLANK + html + BLANK + f"<div>{CLOSING_MARKER}</div>"
+            ),
             placement="replace",
             subject=proposal.get("subject"),
             base_subject=proposal.get("base_subject") or "",
@@ -1102,22 +1115,23 @@ def apply(
             base_preview=proposal.get("base_preview") or "",
         )
     elif kind == MODE_REPLACE:
-        if proposal.get("snapshot") != nb_snapshot(letter.body_html) or not proposal.get("range"):
+        if proposal.get("snapshot") != nb_snapshot(nb.markup_of(letter)) or not proposal.get(
+            "range"
+        ):
             raise DraftingError(
                 _(
                     "De brief veranderde sinds dit voorstel. Selecteer de "
                     "tekst opnieuw en vraag het Raakje nog eens."
                 )
             )
-        result = Applied(html=html, placement="selection", range=proposal["range"])
+        result = Applied(content=_content_of(html), placement="selection", range=proposal["range"])
     else:
-        result = Applied(html=html, placement="cursor")
+        result = Applied(content=_content_of(html), placement="cursor")
 
     proposal["status"] = "applied"
     proposal["kept"] = sorted(keep)
     message.proposal = proposal
     db.commit()
-    result.html = sanitize_cms_html(result.html) or ""
     return result
 
 
@@ -1168,8 +1182,8 @@ def display(db: Session, letter: Newsletter, message: DraftingMessage) -> dict[s
     marked sentences highlighted and their reasons listed. Built here and not
     in the template (design-system §8.3)."""
     proposal = message.proposal or {}
-    current = [plain(p) for p in paragraphs(letter.body_html)]
-    unchanged = proposal.get("snapshot") == nb_snapshot(letter.body_html)
+    current = [plain(p) for p in paragraphs(nb.markup_of(letter))]
+    unchanged = proposal.get("snapshot") == nb_snapshot(nb.markup_of(letter))
     from app.domains.activities.api import Activity
 
     ids = proposal.get("facts") or []

@@ -89,11 +89,11 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K7
     ),
     Attribute(
-        key="newsletter.newsletter.body_html",
-        columns=("newsletter.newsletters.body_html",),
+        key="newsletter.newsletter.body_document",
+        columns=("newsletter.newsletters.body_document",),
         label=None,
-        name_en="Body html",
-        help="The body html of the newsletter.",
+        name_en="Body",
+        help="The text of the newsletter, as a document of the page editor.",
         ai_exposure=AiExposure.INTERNAL,  # K7
     ),
     Attribute(
@@ -167,6 +167,14 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         name_en="Sent by",
         help="The sent by of the newsletter.",
         ai_exposure=AiExposure.NONE,  # K1
+    ),
+    Attribute(
+        key="newsletter.newsletter.sent_body_html",
+        columns=("newsletter.newsletters.sent_body_html",),
+        label=None,
+        name_en="Body as sent",
+        help="The text of the newsletter as it went out, frozen when the send started.",
+        ai_exposure=AiExposure.INTERNAL,  # K7
     ),
     Attribute(
         key="newsletter.newsletter.send_started_at",
