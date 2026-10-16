@@ -9,6 +9,13 @@ function still in `audit/service.py`) and has not been touched since.
 
 Proven red (9 October 2026): `note=record.note` taken out of the snapshot → the
 rows that carry a note differ, and the test shows the first row that does.
+
+Isolated (#2056): the test reads only the history rows of the records it made. It read
+every row of the table and went red now and then with a `KeyError` on a record id it
+did not know, when the test of #1987 (two online posts at once) ran before it in the
+same session: that test committed on connections of its own and cleaned up the
+records but not their history rows. Both are repaired; proven red by running that
+test and then this one, in one session, before the repair.
 """
 
 from __future__ import annotations
@@ -162,9 +169,17 @@ EXPECTED: list[tuple] = [
 
 
 def _rows(db, labels: dict[str, str]) -> list[tuple]:
-    """Every history row, oldest first, with the generated ids replaced by the
-    label of the record they name and the moment reduced to "set or not"."""
-    history = db.query(PaymentRecordHistory).order_by(PaymentRecordHistory.id).all()
+    """Every history row of the labelled records, oldest first, with the generated ids
+    replaced by the label of the record they name and the moment reduced to "set or
+    not". Only the rows of the records this test made: a row another test left in the
+    table (the history has no foreign key and outlives its record) is not this test's
+    to read (#2056)."""
+    history = (
+        db.query(PaymentRecordHistory)
+        .filter(PaymentRecordHistory.payment_record_id.in_(list(labels)))
+        .order_by(PaymentRecordHistory.id)
+        .all()
+    )
     return [
         (
             labels[h.payment_record_id],

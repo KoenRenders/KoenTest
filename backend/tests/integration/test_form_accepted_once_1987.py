@@ -199,7 +199,12 @@ def _remove(ids: tuple[int, int, int]) -> None:
         ActivitySubRegistration,
         RegistrationItem,
     )
-    from app.domains.payment.api import GatewayPayment, PayableType, PaymentRecord
+    from app.domains.payment.api import (
+        GatewayPayment,
+        PayableType,
+        PaymentRecord,
+        PaymentRecordHistory,
+    )
 
     gone = {"synchronize_session": False}
     db = SessionLocal()
@@ -215,6 +220,11 @@ def _remove(ids: tuple[int, int, int]) -> None:
             PaymentRecord.payable_id.in_(regs),
         )
         gateways = [r.gateway_payment_id for r in records if r.gateway_payment_id]
+        # The history rows of those records too: they have no foreign key and outlive
+        # their record, so a later test that reads the history would find them (#2056).
+        db.query(PaymentRecordHistory).filter(
+            PaymentRecordHistory.payment_record_id.in_([r.id for r in records])
+        ).delete(**gone)
         records.delete(**gone)
         db.query(GatewayPayment).filter(GatewayPayment.id.in_(gateways)).delete(**gone)
         db.query(RegistrationItem).filter(RegistrationItem.registration_id.in_(regs)).delete(**gone)
