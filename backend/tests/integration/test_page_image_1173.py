@@ -399,21 +399,16 @@ def test_the_editor_still_refuses_a_dropped_file():
     """Deliberate (#1173): dragging a file in would be an unbounded upload path
     to a public page. Inserting goes through the library instead.
 
-    Checked on the shell, where the Trix listener lives (the newsletter and
-    the notes keep her until CR-17 phase 7), and on the page screen's own
-    templates — which may not smuggle an upload field back in. The
-    document editor inserts a figure through the dialog's picker, never
-    through an upload."""
+    Checked on the page screen's own templates — which may not smuggle an
+    upload field back in. The document editor inserts a figure through the
+    dialog's picker, never through an upload (the Trix listener that used to
+    refuse a dropped file left with Trix, CR-17 phase 7)."""
     from pathlib import Path
 
     app = Path(__file__).resolve().parents[2] / "app"
-    schil = (app / "ui/templates/admin_base.html").read_text(encoding="utf-8")
     record = (app / "domains/cms/templates/_cp_record.html").read_text(encoding="utf-8")
     recordkop = (app / "domains/cms/templates/_cp_recordkop.html").read_text(encoding="utf-8")
 
-    assert "trix-file-accept" in schil and "preventDefault" in schil, (
-        "de beheerschil onderschept geen bestanden meer in de editors die Trix houden"
-    )
     for naam, bron in (("het recordscherm", record), ("de recordkop", recordkop)):
         assert 'type="file"' not in bron, (
             f"{naam} heeft een eigen uploadveld gekregen — invoegen hoort "

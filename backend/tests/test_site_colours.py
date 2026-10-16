@@ -367,4 +367,4 @@ def test_no_help_text_of_the_tenant_editor_names_an_issue():
     site = [row for row in BEKENDE_SLEUTELS if owner_of("tenant_settings", row[0]) is None]
     for key in SITE_COLOR_DEFAULTS:
         (text,) = [text for k, _label, text in site if k == key]
-        assert text.endswith("Leeg = de standaardkleur van de schil."), (key, text)
+        assert text.endswith("Leeg = de standaardkleur."), (key, text)

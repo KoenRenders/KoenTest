@@ -80,11 +80,6 @@
     }).map(function (part) { return part.text; }).join(" ");
   }
 
-  function editorOf(field) {
-    var trix = field.querySelector("trix-editor");
-    return trix && trix.editor ? trix : null;
-  }
-
   /* The page editor (TipTap) in a field, or null. */
   function pageEditorOf(field) {
     var mount = field.querySelector("[data-document-editor]");
@@ -98,8 +93,6 @@
   /* What the field holds now, as the server would receive it. */
   function read(field) {
     if (pageEditorOf(field)) return JSON.stringify(pageEditorOf(field).getJSON());
-    var trix = editorOf(field);
-    if (trix) return trix.inputElement ? trix.inputElement.value : trix.innerHTML;
     var control = controlOf(field);
     return control ? control.value : "";
   }
@@ -132,21 +125,6 @@
         chain.setContent({ type: "doc", content: content }, true);
       }
       chain.run();
-      return;
-    }
-    var trix = editorOf(field);
-    if (trix) {
-      // A rich text takes the value where the proposal says: over everything
-      // (the default), over the selection it was asked for, or at the cursor —
-      // the editor remembers where that stood, also after a click in the panel.
-      trix.editor.recordUndoEntry("Assistent");
-      if (item.placement === "selection" && item.range && item.range.length === 2) {
-        trix.editor.setSelectedRange(item.range);
-      } else if (item.placement !== "cursor") {
-        trix.editor.setSelectedRange([0, trix.editor.getDocument().getLength()]);
-      }
-      trix.editor.insertHTML(value);
-      trix.focus();
       return;
     }
     var control = controlOf(field);
