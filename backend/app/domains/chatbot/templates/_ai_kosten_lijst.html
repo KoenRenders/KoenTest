@@ -1,33 +1,25 @@
 {% import "_macros.html" as ui %}
+{# Every call, newest first, on the kit's table (#1925): what, who, the status, the
+   model with its provider and the duration (the two optional columns, the model
+   only on a wide screen — Koen, 16 October 2026, "a"), the cost and the moment.
+   A call has no page of its own, so the name is plain text. On a phone a call is
+   a card. #}
 {% if calls %}
-<div class="bg-surface border border-line rounded-2xl overflow-x-auto">
-<table class="w-full text-sm">
-  <thead><tr class="text-left text-ink-soft border-b border-line">
-    <th scope="col" class="px-4 py-3 font-semibold">{{ _("Datum") }}</th>
-    <th scope="col" class="px-4 py-3 font-semibold">{{ _("Onderdeel") }}</th>
-    <th scope="col" class="px-4 py-3 font-semibold">{{ _("Wie") }}</th>
-    <th scope="col" class="px-4 py-3 font-semibold">{{ _("Model") }}</th>
-    <th scope="col" class="px-4 py-3 font-semibold">{{ _("Provider") }}</th>
-    <th scope="col" class="px-4 py-3 font-semibold">{{ _("Status") }}</th>
-    <th scope="col" class="px-4 py-3 font-semibold text-right">{{ _("Duur") }}</th>
-    <th scope="col" class="px-4 py-3 font-semibold text-right">{{ _("Kost") }}</th>
-  </tr></thead>
-  <tbody class="divide-y divide-line">
+{% call ui.data_table(columns, caption=_("AI-oproepen")) %}
+  <tbody>
   {% for c in calls %}
-    <tr>
-      <td class="px-4 py-2 whitespace-nowrap">{{ c.moment }}</td>
-      <td class="px-4 py-2 whitespace-nowrap">{{ c.what }}</td>
-      <td class="px-4 py-2 text-ink-soft">{{ c.actor }}</td>
-      <td class="px-4 py-2 text-ink-soft">{{ c.model }}</td>
-      <td class="px-4 py-2 text-ink-soft">{{ c.provider }}</td>
-      <td class="px-4 py-2">{{ ui.badge(c.status_label, c.status_tone) }}</td>
-      <td class="px-4 py-2 text-right tabular-nums whitespace-nowrap">{{ c.duration }}</td>
-      <td class="px-4 py-2 text-right tabular-nums whitespace-nowrap">{{ c.cost }}</td>
+    <tr data-row data-ai-call class="align-middle">
+      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2 text-ink">{{ c.what }}</td>
+      <td data-cell="context" class="border-b border-line px-3 py-2"><div class="truncate" title="{{ c.actor }}">{{ c.actor }}</div></td>
+      <td data-cell="status" class="border-b border-line px-3 py-2">{{ ui.badge(c.status_label, c.status_tone) }}</td>
+      <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-ink-soft">{{ c.engine }}</td>
+      <td data-cell="extra" data-p="2" class="border-b border-line px-3 py-2 text-ink-soft tabular-nums whitespace-nowrap">{{ c.duration }}</td>
+      <td data-cell="amount" class="border-b border-line px-3 py-2 text-right tabular-nums whitespace-nowrap">{{ c.cost }}</td>
+      <td data-cell="moment" class="border-b border-line px-3 py-2 whitespace-nowrap tabular-nums text-ink-soft">{{ c.moment }}</td>
     </tr>
   {% endfor %}
   </tbody>
-</table>
-</div>
+{% endcall %}
 {{ ui.pager(page, per_page, total, hx_get="/admin/info/ai-kosten", hx_target="#ai-oproepen") }}
 {% else %}
 {{ ui.empty_state(_("Nog geen AI-oproepen in deze afdeling.")) }}

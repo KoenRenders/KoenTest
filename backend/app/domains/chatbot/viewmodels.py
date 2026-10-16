@@ -25,8 +25,8 @@ class AiCallLine:
     moment: str
     what: str
     actor: str
-    model: str
-    provider: str
+    #: The model and its provider in one column (#1925; Koen, 16 October 2026, "a").
+    engine: str
     status_label: str
     status_tone: str
     duration: str
@@ -35,7 +35,10 @@ class AiCallLine:
 
 @dataclass(frozen=True, kw_only=True)
 class AiCallListView(ViewModel):
-    """`_ai_kosten_lijst.html`: the calls, newest first, one page."""
+    """`_ai_kosten_lijst.html`: the calls, newest first, one page, on the kit's
+    table (#1925)."""
+
+    columns: list[dict[str, Any]]
 
     calls: list[AiCallLine]
     page: int
