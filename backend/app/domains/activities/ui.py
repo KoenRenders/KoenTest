@@ -180,6 +180,9 @@ def _page_ctx(request: Request, db: Session, activity: Any, component: Any, form
         "onderdelen": onderdelen,
         "terug_url": terug,
         "klaar": False,
+        "reeds_ontvangen": False,
+        "betaal_url": None,
+        "formulier_url": f"/activiteiten/{activity.id}/inschrijven/{component.id}",
         "klaar_url": f"{terug}?deelnemers={component.id}",
         # #1589: what the confirmation says is still to pay by bank transfer.
         "over_te_schrijven": None,
@@ -290,7 +293,7 @@ async def inschrijf_submit(
             guard_form="#inschrijf-form" if outcome.fresh_guard else None,
         )
     page = _page_ctx(request, db, activity, component, {"activity": activity})
-    if outcome.kind is OutcomeKind.CHECKOUT:
+    if outcome.kind is OutcomeKind.CHECKOUT and not outcome.repeated:
         # Vaste UI-beslissing: harde redirect naar Mollie (nooit client-side route).
         response = HTMLResponse("")
         response.headers["HX-Redirect"] = outcome.checkout_url
@@ -306,6 +309,9 @@ async def inschrijf_submit(
         {
             **page,
             "klaar": True,
+            "reeds_ontvangen": outcome.repeated,
+            # #2079: a repeat with a payment still open links to it, and goes nowhere on its own.
+            "betaal_url": outcome.checkout_url or None,
             "naam": outcome.name,
             "over_te_schrijven": outcome.transfer_amount or None,
             "antwoord_url": answer_path(db, outcome.registration_id),

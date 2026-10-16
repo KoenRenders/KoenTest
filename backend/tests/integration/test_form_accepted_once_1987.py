@@ -148,7 +148,12 @@ def test_online_two_posts_go_to_the_same_payment(client, db_session, paid, chann
     second = _post(client, channel, paid, form)
 
     assert first.headers.get("HX-Redirect") == "https://mollie.test/checkout/tr_test_123"
-    assert second.headers.get("HX-Redirect") == first.headers.get("HX-Redirect")
+    if channel == "board":
+        assert second.headers.get("HX-Redirect") == first.headers.get("HX-Redirect")
+    else:
+        # #2079: the public page says it was received, and links to the payment still open.
+        assert "HX-Redirect" not in second.headers
+        assert 'href="https://mollie.test/checkout/tr_test_123"' in second.text
     saved = _saved(db_session, paid)
     assert len(saved) == 1
     assert len(_records(db_session, saved[0].id)) == 1, "a second payment was started"
