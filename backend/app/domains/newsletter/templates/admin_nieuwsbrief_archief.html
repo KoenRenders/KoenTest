@@ -29,7 +29,7 @@
       <dt class="text-ink-soft">{{ _("Verstuurd") }}</dt><dd>{{ progress.sent }} / {{ progress.total }}</dd>
       {% if progress.failed %}<dt class="text-ink-soft">{{ _("Mislukt") }}</dt><dd>{{ progress.failed }}</dd>{% endif %}
       {% if progress.skipped %}<dt class="text-ink-soft">{{ _("Overgeslagen") }}</dt><dd>{{ progress.skipped }}</dd>{% endif %}
-      <dt class="text-ink-soft">{{ _("Verstuurd door") }}</dt><dd>{{ letter.sent_by }}</dd>
+      {% if letter.sent_by %}<dt class="text-ink-soft">{{ _("Verstuurd door") }}</dt><dd>{{ letter.sent_by }}</dd>{% endif %}
       <dt class="text-ink-soft">{{ _("Antwoorden") }}</dt>
       <dd>{% if letter.reply_to_address %}{{ letter.reply_to_address }}{% else %}{{ _("naar de vereniging") }}{% endif %}</dd>
     </dl>
