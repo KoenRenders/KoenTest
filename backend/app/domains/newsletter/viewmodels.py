@@ -22,6 +22,8 @@ class NewsletterListView(ViewModel):
     audience_labels: dict[int, str]
     progress: dict[int, Any]
     moments: dict[int, str]
+    #: Per sent letter, what was counted (CR-37): opened and clicked as an indication.
+    results: dict[int, Any]
     q: str = ""
     csrf_token: str
     error: Optional[str] = None
@@ -165,6 +167,8 @@ class NewsletterArchiveView(ViewModel):
     #: per row reads its word and its tone from the filters (CR-12 phase 3).
     delivery_options: list[tuple[str, str]]
     moments: dict[int, str]
+    #: What was counted for this letter (CR-37): the block *Resultaat* and its links.
+    result: Any
     status_filter: str
     q: str
     csrf_token: str

@@ -18,7 +18,7 @@ service carry the abuse protection.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -201,3 +201,27 @@ def resubscribe(token: str, request: Request, db: Session = Depends(get_db)):
     if subscriber is None:
         return _page(request, db, "invalid")
     return _page(request, db, "confirmed", email=subscriber.email, resubscribed=True)
+
+
+@router.get("/nieuwsbrief/o/{name}")
+def counted_open(name: str, db: Session = Depends(get_db)):
+    """The one-pixel picture of a letter (CR-37). Every name answers the same picture,
+    so a forged code learns nothing; a code the portal made counts one open. Never
+    cached, or a reader's second open would be a hit on a proxy."""
+    nb.record_open(db, name.removesuffix(".gif"))
+    return Response(
+        nb.PIXEL_GIF,
+        media_type="image/gif",
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
+
+
+@router.get("/nieuwsbrief/k/{code}/{link_id}")
+def counted_click(code: str, link_id: int, db: Session = Depends(get_db)):
+    """A link of a letter, counted and sent on (CR-37). The address comes from the
+    letter's link store, never from the request; a code that does not verify, or a link
+    of another letter, is a 404."""
+    url = nb.record_click(db, code, link_id)
+    if url is None:
+        return PlainTextResponse("Not found", status_code=404)
+    return RedirectResponse(url, status_code=302, headers={"Cache-Control": "no-store"})

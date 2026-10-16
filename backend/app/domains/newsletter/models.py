@@ -564,3 +564,62 @@ class DraftingMessage(TenantMixin, Base):
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
 
     newsletter = relationship("Newsletter", back_populates="messages")
+
+
+class LetterLink(TenantMixin, Base):
+    """An address that stood in a letter, kept so a reader's click can be sent on to it
+    (CR-37, #2027). The redirect reads the destination from here, never from the request,
+    so it cannot be made to forward to an address the letter did not hold. A row is made
+    the first time a link is rendered."""
+
+    __tablename__ = "letter_links"
+    __table_args__ = (
+        UniqueConstraint("newsletter_id", "url", name="uq_letter_link_url"),
+        {"schema": "newsletter"},
+    )
+
+    id = Column(Integer, primary_key=True)
+    newsletter_id = Column(
+        Integer,
+        ForeignKey("newsletter.newsletters.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    url = Column(Text, nullable=False)
+
+
+class LetterEvent(TenantMixin, Base):
+    """One open or one click, counted without knowing who (CR-37, #2027).
+
+    Holds the letter, the code of one mail, the link clicked (empty for an open) and the
+    day: no address, no delivery, no IP, no device and no time of day, so an event cannot
+    be matched to the moment one mail left. The unique key, `NULLS NOT DISTINCT` because
+    the link is empty for an open, is what makes a code count once however often it opens.
+
+    Standard deviation, on purpose: the change request draws a `kind` column; the link
+    says it already (empty = an open), so there is one source for it."""
+
+    __tablename__ = "letter_events"
+    __table_args__ = (
+        UniqueConstraint(
+            "newsletter_id",
+            "code",
+            "link_id",
+            name="uq_letter_event",
+            postgresql_nulls_not_distinct=True,
+        ),
+        {"schema": "newsletter"},
+    )
+
+    id = Column(Integer, primary_key=True)
+    newsletter_id = Column(
+        Integer,
+        ForeignKey("newsletter.newsletters.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    code = Column(String(80), nullable=False)
+    link_id = Column(
+        Integer, ForeignKey("newsletter.letter_links.id", ondelete="CASCADE"), nullable=True
+    )
+    day = Column(Date, nullable=False)
