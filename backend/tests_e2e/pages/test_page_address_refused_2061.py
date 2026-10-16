@@ -73,7 +73,9 @@ def test_the_record_shows_the_reason_under_the_address_field(setup):
         assert reason["x"] + reason["width"] <= 390, "the reason fits the phone"
         assert wide, "the record scrolls sideways at 390 px"
         assert page.locator("#cp-slug").get_attribute("aria-invalid") == "true"
-        assert page.locator("#cp-slug").input_value() == "activiteiten", "the field keeps what was typed"
+        assert page.locator("#cp-slug").input_value() == "activiteiten", (
+            "the field keeps what was typed"
+        )
         _print(page, "record-390.png")
     finally:
         page.close()
