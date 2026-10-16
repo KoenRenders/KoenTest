@@ -65,27 +65,24 @@ BEKENDE_SLEUTELS = [
     # An issue number belongs in a comment, never in what a user reads (#1643):
     # "(#519)" and "(#992)" stood in these help texts. #519: no hard-coded
     # tagline. #992: the header colour per tenant.
-    ("tagline", "Tagline", "Ondertitel in de header. Leeg = geen ondertitel."),
+    ("tagline", "Tagline", "Korte ondertitel van de site. Leeg = geen ondertitel."),
     # #992, #1622: with the logo, the three colours of the tenant's brand file.
     # One line and an example each (#1643); the rule that refuses a colour says
     # why when it does.
     (
         "site_header_color",
         "Kleur van de kopbalk",
-        "Achtergrond van de kopbalk op de publieke site, bv. #005d29. "
-        "Leeg = de standaardkleur van de schil.",
+        "Achtergrondkleur van de kopbalk, bv. #005d29. Leeg = de standaardkleur.",
     ),
     (
         "site_brand_color",
         "Merkkleur",
-        "Koppen, links, knoppen en de actieve navigatie op de publieke site, bv. #0051a4. "
-        "Leeg = de standaardkleur van de schil.",
+        "De hoofdkleur van de huisstijl, bv. #0051a4. Leeg = de standaardkleur.",
     ),
     (
         "site_accent_color",
         "Accentkleur",
-        "De ene oproep op de publieke site (de knop voor de nieuwsbrief), bv. #ffd200. "
-        "Leeg = de standaardkleur van de schil.",
+        "De kleur voor wat moet opvallen, bv. #ffd200. Leeg = de standaardkleur.",
     ),
     # #924: de sociale links staan bij de ORGANISATIE — ze bestaan ook als de
     # vereniging geen site heeft. Hier laten staan zou een tweede bewerkbare bron
@@ -93,14 +90,18 @@ BEKENDE_SLEUTELS = [
     (
         "base_url",
         "Canonieke URL",
-        "Publieke origin voor links in mails/Mollie/SEO, bv. https://raakmillegem.be.",
+        "Het webadres van de site, bv. https://…",
     ),
     # #1933: a choice and a switch, where a text field took "'send' of 'log_only'"
     # and "'1'". The stored values are the same.
     ("mail_mode", "Mail-modus", "Alleen loggen: mails worden niet verstuurd (demo)."),
     ("noindex", "Niet indexeren", "Zoekmachines nemen de site niet op (demo)."),
-    ("language", "Taal", "Catalogustaal, bv. nl_BE (default)."),
-    ("membership_price_full", "Lidgeld volledig", "Bedrag, bv. 35.00. Leeg = .env-default."),
+    ("language", "Taal", "Taal van de site, bv. nl_BE."),
+    (
+        "membership_price_full",
+        "Lidgeld volledig",
+        "Bedrag, bv. 35.00. Leeg = het bedrag van de omgeving.",
+    ),
     ("membership_price_half", "Lidgeld half", "Bedrag, bv. 17.50."),
     ("membership_half_price_start_md", "Halfprijs van", "MM-DD, bv. 04-16."),
     ("membership_half_price_end_md", "Halfprijs tot", "MM-DD, bv. 09-16."),
@@ -116,12 +117,12 @@ BEKENDE_SLEUTELS = [
     (
         "payment_term_days",
         "Betaaltermijn (dagen)",
-        "Aantal dagen voor een overschrijving. Default 7.",
+        "Aantal dagen voor een overschrijving. Leeg = 7.",
     ),
     (
         "gmail_user",
         "Gmail-gebruiker",
-        "Afzender-account voor uitgaande mail (SMTP). Leeg = .env-default.",
+        "Het Gmail-account waarmee de site mailt. Leeg = het account van de omgeving.",
     ),
     ("gmail_from", "Afzender (From)", "Getoonde afzender; leeg = de Gmail-gebruiker."),
     (
@@ -129,23 +130,29 @@ BEKENDE_SLEUTELS = [
         "Umami script-URL",
         "bv. https://stats.example/script.js. Leeg = geen webstatistieken.",
     ),
-    ("umami_website_id", "Umami Website-ID", "Het Umami-site-ID (geen secret)."),
-    ("max_item_quantity", "Max. aantal per item", "Inschrijvingslimiet per item. Default 50."),
-    ("max_registrations_per_email", "Max. inschrijvingen per e-mail", "Per activiteit. Default 3."),
+    ("umami_website_id", "Umami Website-ID", "Het nummer van de site bij Umami."),
+    (
+        "max_item_quantity",
+        "Max. aantal per item",
+        "Hoogste aantal per product in één inschrijving. Leeg = 50.",
+    ),
+    (
+        "max_registrations_per_email",
+        "Max. inschrijvingen per e-mail",
+        "Per e-mailadres en per activiteit. Leeg = 3.",
+    ),
     # #1568: the two Raakje settings are switches (`SWITCH_SETTINGS` in
     # `kernel.tenant_config`), independent of each other. #917: the back-office
     # assistant needs the environment's switch too ("(#917)" stood in the help).
     (
         "admin_chat_enabled",
         "Raakje in de backoffice",
-        "Het bestuur mag Raakje vragen stellen over de eigen cijfers. "
-        "Werkt enkel als ADMIN_CHAT_ENABLED ook aan staat.",
+        "Werkt alleen als de omgeving Raakje toelaat.",
     ),
     (
         "public_chat_enabled",
         "Raakje op de publieke site",
-        "Bezoekers zien de Raakje-bel en mogen vragen stellen. "
-        "Werkt enkel als CHAT_ENABLED ook aan staat.",
+        "Werkt alleen als de omgeving Raakje toelaat.",
     ),
 ]
 

@@ -155,7 +155,10 @@ def test_the_assistent_card_holds_two_switches_that_save_independently(
     assert _switches(card) == {"admin_chat_enabled": False, "public_chat_enabled": True}
     for label in ("Raakje in de backoffice", "Raakje op de publieke site"):
         assert label in card
-    assert "ADMIN_CHAT_ENABLED" in card and "CHAT_ENABLED" in card, "the help names the switch"
+    # The help says what the switch is, in plain words, and names no environment variable
+    # (#1963, the approved text); it is shown under both switches.
+    assert card.count("Werkt alleen als de omgeving Raakje toelaat.") == 2
+    assert "CHAT_ENABLED" not in card
     assert '<input name="admin_chat_enabled"' not in card, (
         "the text field that took '1' is still there"
     )
