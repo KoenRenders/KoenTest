@@ -126,6 +126,17 @@ def _check_code(db, name: str, code: str) -> tuple[str, str]:
         )
     if db.query(Organization).filter(Organization.code == code).first():
         raise TenantFout("Die code bestaat al.")
+    # #1951: a code is a path prefix, and the prefix wins over the route — a
+    # tenant `admin` would take the back office from every tenant. The reserved
+    # words come from the route table itself (`kernel.route_table`). For an
+    # account too: one rule for `organizations.code`, as uniqueness above is.
+    from app.kernel.route_table import colliding
+
+    if colliding([code]):
+        raise TenantFout(
+            "De code %(code)s is een adres van de toepassing zelf (/%(code)s/…). "
+            "Kies een andere code." % {"code": code}
+        )
     return name, code
 
 
