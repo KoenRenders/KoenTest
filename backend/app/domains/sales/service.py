@@ -857,7 +857,14 @@ def shop_contacts(db: Session) -> list[ShopContact]:
 
 
 def add_shop_contact(db: Session, person_id: int) -> None:
-    """Add a person as a contact, once (R41): the same person twice is one row."""
+    """Add a person as a contact, once (R41): the same person twice is one row. A
+    person who does not exist is refused — the row would be skipped on the pages
+    but still stand."""
+    from app.domains.mdm.api import Person
+    from app.i18n import _
+
+    if db.get(Person, person_id) is None:
+        raise SalesError(_("Deze persoon is niet gekend."))
     existing = db.query(ShopContact).filter(ShopContact.person_id == person_id).first()
     if existing is None:
         db.add(ShopContact(person_id=person_id, sort_order=db.query(ShopContact).count()))

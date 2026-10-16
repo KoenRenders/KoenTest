@@ -74,12 +74,15 @@ def test_the_intro_is_saved_and_shown_on_the_webshop(client, db_session, every_m
 
 
 def test_an_empty_intro_shows_nothing_above_the_webshop(client, db_session, every_module_on):
-    """R42: no intro is set, nothing stands above the articles."""
+    """R42: no intro is set, no intro paragraph stands above the articles."""
     _operator(client, db_session, every_module_on)
     _orderable_variant(db_session)
 
     page = client.get("/webshop")
     assert page.status_code == 200
+    assert "T-shirt Raak" in page.text
+    # The intro paragraph only renders when there is a text to show.
+    assert 'class="mb-4 text-sm text-ink-soft whitespace-pre-line"' not in page.text
 
 
 def test_the_contact_persons_show_on_the_thank_you_page_not_the_webshop(
@@ -162,12 +165,25 @@ def test_the_contact_persons_show_on_the_buyers_order_page(client, db_session, e
 
 
 def test_removing_a_contact_person_takes_it_off_the_pages(client, db_session, every_module_on):
-    """R41: a removed contact person is gone from the thank-you page."""
-    from app.domains.sales.api import add_shop_contact, shop_contacts
+    """R41: a removed contact person is gone from the thank-you page, and the row
+    stays soft-deleted (migration 310)."""
+    from app.domains.mdm.api import PaymentMethod
+    from app.domains.sales.api import add_shop_contact, place_order, shop_contacts
 
     headers = _operator(client, db_session, every_module_on)
     contact = _contact_person(
         db_session, first="An", last="Contact", email="an@example.com", mobile="0470000000"
+    )
+    variant = _orderable_variant(db_session)
+    order = place_order(
+        db_session,
+        person_id=None,
+        guest_name="Bo",
+        guest_email="bo@example.com",
+        guest_mobile="0470000001",
+        method=PaymentMethod.TRANSFER,
+        items=[(variant.id, 1)],
+        member=False,
     )
     add_shop_contact(db_session, contact.id)
     db_session.commit()
@@ -181,3 +197,16 @@ def test_removing_a_contact_person_takes_it_off_the_pages(client, db_session, ev
     )
     assert removed.status_code == 303
     assert shop_contacts(db_session) == []
+
+    bedankt = client.get(f"/webshop/bedankt?order={order.id}")
+    assert "An Contact" not in bedankt.text
+
+    from app.domains.sales.models import ShopContact
+
+    row = (
+        db_session.query(ShopContact)
+        .execution_options(include_deleted=True)
+        .filter(ShopContact.id == contact_id)
+        .one()
+    )
+    assert row.deleted_at is not None

@@ -390,6 +390,10 @@ ON_A_RIGHT = {
     "/admin/prijzen": ("price.view", "price.manage"),
     "/admin/voorraad": ("stock.view", "stock.manage"),
     "/admin/verkoop": ("sales.view", "sales.manage"),
+    # CR-21 R41/R42: Webshop-instellingen is one screen behind `sales.manage` —
+    # to look and to change, as the `sales` row of the document says (C4.3a's
+    # viewing/change split does not apply: there is no read-only view of it).
+    "/admin/verkoop/instellingen": ("sales.manage", "sales.manage"),
     "/admin/betalingen": ("payment.view", "payment.manage"),
     "/admin/rapporten": ("report.view", "report.manage"),
     "/admin/rapporten/raakje": ("assistant.use", "assistant.use"),

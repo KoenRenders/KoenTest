@@ -827,21 +827,44 @@ def test_productbeheer_en_prijsbeheer_zijn_tabellen(webshop_page):
         assert _geen_zijwaartse_scroll(page)
 
 
-def test_webshop_instellingen_zet_de_tekst_boven_de_webshop(webshop_page):
-    """R42, in the browser at 390 px: Verkoop saves the intro text, and the Webshop
-    shows it above the articles."""
+def test_webshop_instellingen_zet_de_tekst_en_de_contactpersonen(webshop_page):
+    """R41/R42, in the browser at 390 px: Verkoop saves the intro, the Webshop shows
+    it, and a contact person is added and removed again by clicking — the list
+    after each click. The textarea and the search are as wide as the section."""
     page = webshop_page
     page.set_viewport_size({"width": 390, "height": 844})
     page.goto("/admin/verkoop/instellingen")
     assert _geen_zijwaartse_scroll(page)
 
-    page.locator('textarea[name="intro"]').fill("Kledij en spullen van Raak.")
+    textarea = page.locator('textarea[name="intro"]')
+    assert textarea.bounding_box()["width"] > 300, "de tekst staat in een te smal veld"
+    search = page.locator('input[name="contact_q"]')
+    assert search.bounding_box()["width"] > 300, "het zoekveld is te smal"
+
+    textarea.fill("Kledij en spullen van Raak.")
     with htmx_afgerond(page):
         page.get_by_role("button", name="Opslaan").click()
     page.wait_for_url("**/admin/verkoop/instellingen")
 
     page.goto("/webshop")
     assert "Kledij en spullen van Raak." in page.locator("main").inner_text()
+
+    page.goto("/admin/verkoop/instellingen")
+    search.fill("Webshop")
+    add = page.get_by_role("button", name="Toevoegen").first
+    add.wait_for(state="visible", timeout=5000)
+    with htmx_afgerond(page):
+        add.click()
+    page.wait_for_url("**/admin/verkoop/instellingen")
+    assert "Webshop Lid" in page.locator("main").inner_text()
+
+    page.get_by_role("button", name="Verwijderen").click()
+    ok = page.locator("[data-dialog] [data-dialog-ok]")
+    ok.wait_for(state="visible")
+    with htmx_afgerond(page):
+        ok.click()
+    page.wait_for_url("**/admin/verkoop/instellingen")
+    assert "Webshop Lid" not in page.locator("main").inner_text()
 
 
 def test_de_actiebalk_is_zo_breed_als_het_formulier(webshop_page):

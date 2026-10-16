@@ -363,7 +363,7 @@ def _board_order_view(
 def shop_settings_page(
     request: Request,
     db: Session = Depends(get_db),
-    _email: str = Depends(require_right(Right.SALES_VIEW)),
+    _email: str = Depends(require_right(Right.SALES_MANAGE)),
 ):
     """The shop's own settings (R41, R42): the intro text above the Webshop and
     the contact persons, under Verkoop."""
@@ -383,7 +383,7 @@ def shop_contact_candidates(
     request: Request,
     contact_q: str = "",
     db: Session = Depends(get_db),
-    _email: str = Depends(require_right(Right.SALES_VIEW)),
+    _email: str = Depends(require_right(Right.SALES_MANAGE)),
 ):
     """The candidates of the contact search — every person, not only members (R41,
     Q71); whoever is already a contact is left out."""
@@ -415,15 +415,24 @@ async def shop_settings_save(
 
     form = await request.form()
     action = str(form.get("action") or "save")
-    if action == "remove_contact":
-        contact_id = int(str(form.get("contact_id") or 0))
-        remove_shop_contact(db, contact_id)
-    elif action == "add_contact":
-        person_id = int(str(form.get("person_id") or 0))
-        if person_id:
-            add_shop_contact(db, person_id)
-    else:
-        save_shop_intro(db, str(form.get("intro") or ""))
+    try:
+        if action == "remove_contact":
+            contact_id = int(str(form.get("contact_id") or 0))
+            remove_shop_contact(db, contact_id)
+        elif action == "add_contact":
+            person_id = int(str(form.get("person_id") or 0))
+            if person_id:
+                add_shop_contact(db, person_id)
+        else:
+            save_shop_intro(db, str(form.get("intro") or ""))
+    except ValueError:
+        return refusal_response(
+            request, [FieldError("", _("Ongeldige keuze."))], "#instellingen-melding", send=True
+        )
+    except SalesError as refusal:
+        return refusal_response(
+            request, [FieldError("", str(refusal))], "#instellingen-melding", send=True
+        )
     return _redirect(request, "/admin/verkoop/instellingen")
 
 
