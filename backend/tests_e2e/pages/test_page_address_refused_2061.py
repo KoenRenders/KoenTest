@@ -88,13 +88,30 @@ def test_the_new_page_form_shows_the_reason(setup):
         login_met_sessie(page, session)
         page.goto("/admin/paginas/nieuw")
         pagina_klaar(page)
+        line = page.locator("#pagina-nieuw-melding")
+        empty = line.bounding_box()
+        assert empty["height"] == 0, f"the empty message line takes room: {empty}"
         page.locator("#title").fill("Botsing")
         page.locator("#slug").fill("activiteiten")
         page.get_by_role("button", name="Opslaan").first.click()
-        line = page.locator("#pagina-nieuw-melding")
         expect(line).to_contain_text(REASON)
+        # The banner comes in with a transition: measure and print what is painted
+        # once it ends, not the first frame (the master CLI's eye on the print).
+        page.wait_for_function("document.getAnimations().every(a => a.playState !== 'running')")
         box = line.bounding_box()
-        print("MEASURE message line", box)
+        painted = page.evaluate(
+            """() => {
+              const b = document.querySelector('#pagina-nieuw-melding [data-save-refusal]');
+              const r = b.getBoundingClientRect();
+              const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+              let opacity = 1;
+              for (let e = b; e; e = e.parentElement) opacity *= +getComputedStyle(e).opacity;
+              return {hit: b.contains(hit), opacity, visible: b.checkVisibility({opacityProperty: true}),
+                      colour: getComputedStyle(b).color};
+            }"""
+        )
+        print("MEASURE message line", empty, box, painted)
+        assert painted["hit"] and painted["visible"] and painted["opacity"] == 1, painted
         assert box["x"] >= 0 and box["x"] + box["width"] <= 390, "the message fits the phone"
         assert page.url.endswith("/admin/paginas/nieuw"), "no page was opened"
         _print(page, "nieuw-390.png")
