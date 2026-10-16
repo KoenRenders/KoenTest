@@ -456,11 +456,8 @@ def submit_order(
     from app.kernel.ports import call
     from app.kernel.tenant_config import tenant_base_url
 
-    try:
-        if form_guard.refused(proof, "order"):
-            raise Honeypot()
-    except form_guard.NotSent:
-        raise
+    if form_guard.refused(proof, "order"):
+        raise Honeypot()
     key = form_guard.submission_key(values)
     if key is None:
         raise form_guard.NotSent(form_guard.Refusal.BAD_TOKEN)

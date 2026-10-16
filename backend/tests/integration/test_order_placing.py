@@ -653,6 +653,18 @@ def test_the_last_piece_goes_to_one_buyer_only(every_module_on):
         _clean(variant_id, order_id, location_id)
 
 
+def _clean_orders(variant_id: int, location_id: int, order_ids: set[int]) -> None:
+    """Remove every order the race tests made, in a finally — a red assertion still
+    leaves the database clean, and a second order (when the unique index is gone)
+    goes with it. `_clean` deletes the variant, its stock and the location on its
+    first call; the later calls remove only the order they name."""
+    if not order_ids:
+        _clean(variant_id, None, location_id)
+        return
+    for order_id in order_ids:
+        _clean(variant_id, order_id, location_id)
+
+
 def _clean(variant_id: int, order_id: int | None, location_id: int) -> None:
     """Remove exactly what this test made, in a finally — never a broad delete,
     so a red assertion still leaves the database clean for the tests after it."""
@@ -1479,36 +1491,38 @@ def test_two_posts_at_once_make_one_order(client, db_session, every_module_on):
         finally:
             db.close()
 
-    sales_service.order_for_submission = _lookup
     try:
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            first = pool.submit(_post)
-            second = pool.submit(_post)
-            first.result()
-            second.result()
-    finally:
-        sales_service.order_for_submission = real
+        sales_service.order_for_submission = _lookup
+        try:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                first = pool.submit(_post)
+                second = pool.submit(_post)
+                first.result()
+                second.result()
+        finally:
+            sales_service.order_for_submission = real
 
-    assert not errors, errors
-    assert len(set(outcomes)) == 1, f"two orders from one form: {outcomes}"
-    from app.domains.payment.api import PayableType
-    from app.domains.payment.models import PaymentRecord
+        assert not errors, errors
+        assert len(set(outcomes)) == 1, f"two orders from one form: {outcomes}"
+        from app.domains.payment.api import PayableType
+        from app.domains.payment.models import PaymentRecord
 
-    check = SessionLocal()
-    try:
-        assert check.query(SalesOrder).count() == 1
-        records = (
-            check.query(PaymentRecord)
-            .filter(
-                PaymentRecord.payable_type == PayableType.ORDER,
-                PaymentRecord.payable_id == outcomes[0],
+        check = SessionLocal()
+        try:
+            assert check.query(SalesOrder).filter(SalesOrder.id.in_(outcomes)).count() == 1
+            records = (
+                check.query(PaymentRecord)
+                .filter(
+                    PaymentRecord.payable_type == PayableType.ORDER,
+                    PaymentRecord.payable_id == outcomes[0],
+                )
+                .count()
             )
-            .count()
-        )
-        assert records == 1, "two posts at once must start one payment"
+            assert records == 1, "two posts at once must start one payment"
+        finally:
+            check.close()
     finally:
-        check.close()
-    _clean(variant_id, outcomes[0], location_id)
+        _clean_orders(variant_id, location_id, {o for o in outcomes})
 
 
 def test_two_online_posts_at_once_start_one_payment(monkeypatch):
@@ -1588,34 +1602,43 @@ def test_two_online_posts_at_once_start_one_payment(monkeypatch):
         finally:
             db.close()
 
-    sales_service.order_for_submission = _lookup
     try:
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            first = pool.submit(_post)
-            second = pool.submit(_post)
-            first.result()
-            second.result()
-    finally:
-        sales_service.order_for_submission = real
+        sales_service.order_for_submission = _lookup
+        try:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                first = pool.submit(_post)
+                second = pool.submit(_post)
+                first.result()
+                second.result()
+        finally:
+            sales_service.order_for_submission = real
 
-    assert not errors, errors
-    assert len({order_id for _, order_id in outcomes}) == 1, f"two orders from one form: {outcomes}"
-    assert {checkout_url for checkout_url, _ in outcomes} == {
-        "https://mollie.test/checkout/tr_order_race_1987"
-    }
-    assert calls["provider"] == 1, "a second payment was started at the provider"
-    check = SessionLocal()
-    try:
-        assert check.query(SalesOrder).count() == 1
-        records = (
-            check.query(PaymentRecord)
-            .filter(
-                PaymentRecord.payable_type == PayableType.ORDER,
-                PaymentRecord.payable_id == outcomes[0][1],
-            )
-            .count()
+        assert not errors, errors
+        assert len({order_id for _, order_id in outcomes}) == 1, (
+            f"two orders from one form: {outcomes}"
         )
-        assert records == 1
+        assert {checkout_url for checkout_url, _ in outcomes} == {
+            "https://mollie.test/checkout/tr_order_race_1987"
+        }
+        assert calls["provider"] == 1, "a second payment was started at the provider"
+        check = SessionLocal()
+        try:
+            assert (
+                check.query(SalesOrder)
+                .filter(SalesOrder.id.in_([order_id for _, order_id in outcomes]))
+                .count()
+                == 1
+            )
+            records = (
+                check.query(PaymentRecord)
+                .filter(
+                    PaymentRecord.payable_type == PayableType.ORDER,
+                    PaymentRecord.payable_id == outcomes[0][1],
+                )
+                .count()
+            )
+            assert records == 1
+        finally:
+            check.close()
     finally:
-        check.close()
-    _clean(variant_id, outcomes[0][1], location_id)
+        _clean_orders(variant_id, location_id, {order_id for _, order_id in outcomes})
