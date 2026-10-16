@@ -176,6 +176,23 @@ def _link(db: Session, token: str, return_to: str) -> str:
     return link
 
 
+def sign_in_link(db: Session, email: str, return_to: str) -> str | None:
+    """The link that signs in `email` and lands on `return_to`, for a mail that is
+    not the sign-in's own (CR-21, F13/Q26): the order confirmation carries it for a
+    member. The token is stored in the same transaction; the caller queues its own
+    mail. None when the address cannot sign in."""
+    user = (
+        db.query(User)
+        .filter(func.lower(User.email) == email.lower(), User.is_active == True)
+        .first()
+    )
+    identity, _person = sign_in_identity(db, email)
+    if user is None and identity not in (HOUSEHOLD, ACCOUNT):
+        return None
+    token, _otp_code = _issue(db, email, purpose=LoginPurpose.SIGN_IN)
+    return _link(db, token, return_to)
+
+
 def start_login(
     db: Session, email: str, return_to: str = "", *, proof: form_guard.AnyProof
 ) -> None:

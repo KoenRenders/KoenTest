@@ -977,11 +977,11 @@ def order_confirmation_message(
     order,
     transfer=None,
     contacts=None,
-    history_url=None,
+    sign_in_url=None,
 ) -> dict:
     """The confirmation of a webshop order, as a finished message for `queue_mail`
     (CR-21 phase 2, commit 7). The contact persons (R41) stand after the payment
-    information; a guest gets no history link, the mail itself says what was ordered."""
+    information; a member gets a sign-in link to his order (F13/Q26), a guest none."""
     from app.domains.product.api import get_variant, size_of
     from app.domains.sales.api import total_of
     from app.kernel.geld import bedrag
@@ -1023,11 +1023,11 @@ def order_confirmation_message(
             + f"</h4><ul>{rows}</ul>"
         )
 
-    if history_url:
+    if sign_in_url:
         message += (
             "<p style='margin-top:12px'>"
-            + _("Je vindt deze bestelling terug onder Mijn aankopen:")
-            + f' <a href="{escape(history_url)}">{escape(history_url)}</a></p>'
+            + _("Klik om je bestelling te bekijken:")
+            + f' <a href="{escape(sign_in_url)}">{escape(sign_in_url)}</a></p>'
         )
 
     return dict(

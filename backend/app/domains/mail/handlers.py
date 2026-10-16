@@ -246,10 +246,10 @@ def queue_order_confirmation(event: SalesOrderPlaced, db: Session) -> None:
     """The confirmation of a webshop order, built now — in the request, in its
     language — and queued to leave after the commit (CR-21 phase 2, commit 7). A
     mail that cannot be built never stops the order."""
+    from app.domains.auth.api import sign_in_link
     from app.domains.mdm.api import CONTACT, Person
     from app.domains.payment.api import PaymentRecord
     from app.domains.sales.api import SalesOrder, shop_contact_cards
-    from app.kernel.tenant_config import tenant_base_url
 
     try:
         order = db.get(SalesOrder, event.order_id)
@@ -277,8 +277,10 @@ def queue_order_confirmation(event: SalesOrderPlaced, db: Session) -> None:
             order=order,
             transfer=_transfer_of(db, payment_record),
             contacts=shop_contact_cards(db),
-            history_url=(
-                f"{tenant_base_url(db)}/mijn/aankopen/{order.id}" if order.person_id else None
+            sign_in_url=(
+                sign_in_link(db, to_email, f"/mijn/aankopen/{order.id}")
+                if order.person_id
+                else None
             ),
         )
         queue_mail(db, **message)

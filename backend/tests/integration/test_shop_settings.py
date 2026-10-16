@@ -251,3 +251,103 @@ def test_a_placed_order_queues_its_confirmation_mail(client, db_session, every_m
     assert "Betaalinstructies" in mail["body_html"], "the transfer instructions are in the mail"
     assert "An Contact" in mail["body_html"], "the contact persons are in the mail"
     assert "an@example.com" in mail["body_html"]
+
+
+def test_a_members_mail_link_signs_in_and_lands_on_his_order(client, db_session, every_module_on):
+    """F13/Q26: the member's order mail carries the sign-in link, with the order as
+    its destination; a guest's mail carries no link."""
+    from app.domains.mdm.api import PaymentMethod
+    from app.domains.sales.api import submit_order
+    from app.kernel.form_guard import TRUSTED
+    from tests._queued_mail import queued_link, queued_mails
+    from tests.conftest import form_guard_fields
+
+    _operator(client, db_session, every_module_on)
+    member = _contact_person(
+        db_session, first="An", last="Contact", email="an@example.com", mobile="0470000000"
+    )
+    variant = _orderable_variant(db_session)
+    db_session.commit()
+
+    _checkout, order_id = submit_order(
+        db_session,
+        proof=TRUSTED,
+        values=form_guard_fields(),
+        person_id=member.id,
+        member=False,
+        contact_name="",
+        contact_email="",
+        phone="",
+        method=PaymentMethod.TRANSFER,
+        items=[(variant.id, 1)],
+    )
+
+    link = queued_link(db_session, "an@example.com")
+    assert "/login/verify?token=" in link, "the member's link is the sign-in link"
+    assert f"terug=/mijn/aankopen/{order_id}" in link, "the link lands on the order"
+
+    from app.domains.auth.api import consume_link
+
+    token = link.split("token=")[1].split("&")[0]
+    consumed = consume_link(db_session, token)
+    assert consumed is not None and consumed.email == "an@example.com"
+    db_session.commit()
+
+    _sign_in(client, db_session, "an@example.com")
+    assert client.get(f"/mijn/aankopen/{order_id}").status_code == 200
+
+    guest_variant = _orderable_variant(db_session)
+    _checkout, guest_id = submit_order(
+        db_session,
+        proof=TRUSTED,
+        values=form_guard_fields(),
+        person_id=None,
+        member=False,
+        contact_name="Bo",
+        contact_email="bo@example.com",
+        phone="0470000001",
+        method=PaymentMethod.TRANSFER,
+        items=[(guest_variant.id, 1)],
+    )
+    assert queued_mails(db_session, "bo@example.com")[-1]["body_html"].count("login/verify") == 0, (
+        "a guest's mail carries no sign-in link"
+    )
+    assert client.get(f"/mijn/aankopen/{guest_id}").status_code == 404
+
+
+def test_an_order_on_a_person_without_an_address_queues_no_mail(
+    client, db_session, every_module_on
+):
+    """B1: an order on a person without a confirmed e-mail queues no mail and does
+    not fail."""
+    from app.domains.mdm.api import PaymentMethod
+    from app.domains.sales.api import submit_order
+    from app.kernel.form_guard import TRUSTED
+    from tests.conftest import create_test_person, form_guard_fields
+
+    _operator(client, db_session, every_module_on)
+    person = create_test_person(db_session, first_name="Geen", last_name="Adres")
+    variant = _orderable_variant(db_session)
+    db_session.commit()
+
+    before = _mail_count(db_session)
+    _checkout, order_id = submit_order(
+        db_session,
+        proof=TRUSTED,
+        values=form_guard_fields(),
+        person_id=person.id,
+        member=False,
+        contact_name="",
+        contact_email="",
+        phone="",
+        method=PaymentMethod.TRANSFER,
+        items=[(variant.id, 1)],
+    )
+    assert _mail_count(db_session) == before, "an order without an address queues no mail"
+
+
+def _mail_count(db_session) -> int:
+    from app.kernel.jobs import KernelJob
+
+    db_session.expire_all()
+    return db_session.query(KernelJob).filter(KernelJob.name == "mail.send").count()
