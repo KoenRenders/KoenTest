@@ -29,7 +29,7 @@ def test_emaillog_recipient_search_filters(client, db_session):
     db_session.commit()
     _login(client)
 
-    html = client.get("/admin/e-maillog/lijst?recipient=an@").text
+    html = client.get("/admin/e-maillog/lijst?q=an@").text
     assert "an@example.com" in html
     assert "bob@example.com" not in html
 
@@ -47,7 +47,8 @@ def test_emaillog_shows_friendly_labels(client, db_session):
 def test_emaillog_has_recipient_search_box(client, db_session):
     _login(client)
     html = client.get("/admin/e-maillog").text
-    assert 'name="recipient"' in html
+    # #1925: the kit toolbar's search, on the recipient.
+    assert 'name="q"' in html and "Zoek op ontvanger" in html
 
 
 def test_media_upload_has_activity_dropdown(client, db_session):

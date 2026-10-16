@@ -97,5 +97,6 @@ def test_email_log_delete_requires_csrf(client, db_session):
     assert zonder.status_code == 403
 
     met = client.post(f"/admin/e-maillog/{row.id}/verwijderen", headers={"X-CSRF-Token": csrf})
-    assert met.status_code == 200
+    # #1925: deleted from the mail's own page, the answer leads back to the list.
+    assert met.status_code == 204 and met.headers["HX-Redirect"] == "/admin/e-maillog"
     assert db_session.query(EmailLog).filter(EmailLog.id == row.id).first() is None

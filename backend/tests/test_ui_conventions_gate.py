@@ -1780,7 +1780,8 @@ def test_een_verwijderknop_kiest_haar_maat():
     # 9 since K2 (#1556): the payments row lost its unfold, and with it one call.
     # Seven since #1899: the household's cards went, and their two delete buttons.
     # Six since #1925: the subscribers' Verwijderen moved behind the row's ⋯.
-    assert geteld >= 6, (
+    # Five since #1925's e-mail log: a mail's Verwijderen stands under its page's Acties.
+    assert geteld >= 5, (
         f"maar {geteld} btn_danger-oproepen gevonden — de zoekopdracht mist er, "
         "een gate die nergens kijkt bewaakt niets"
     )

@@ -75,13 +75,15 @@ def test_tiebreaker_maakt_paging_sluitend_bij_gelijke_datums(db_session):
 def test_kopklik_rendert_gesorteerde_lijst_met_chevron(client, db_session):
     _seed(db_session, "koptest-zoe@example.com", "koptest-an@example.com")
     _login(client)
-    resp = client.get("/admin/e-maillog/lijst?sort=ontvanger&richting=asc&recipient=koptest-")
+    # #1925: the kit's sort — the key ascending, "-key" descending.
+    resp = client.get("/admin/e-maillog/lijst?sort=ontvanger&q=koptest-")
     assert resp.status_code == 200
     assert resp.text.index("koptest-an@example.com") < resp.text.index("koptest-zoe@example.com")
     # De actieve kop draagt de richting — zichtbaar (chevron) én semantisch.
     assert 'aria-sort="ascending"' in resp.text
-    # De sorteerstand reist out-of-band terug de filterform in.
-    assert 'id="el-sort"' in resp.text and "hx-swap-oob" in resp.text
+    down = client.get("/admin/e-maillog/lijst?sort=-ontvanger&q=koptest-").text
+    assert down.index("koptest-zoe@example.com") < down.index("koptest-an@example.com")
+    assert 'aria-sort="descending"' in down
 
 
 def test_paginagrootte_kent_enkel_de_whitelist(db_session):
@@ -91,8 +93,9 @@ def test_paginagrootte_kent_enkel_de_whitelist(db_session):
     assert len(rijen) == 25
 
 
-def test_verwijderen_bevestigt_met_een_toast(client, db_session):
-    """#760-absorptie: elke mutatie bevestigt. Fragment-antwoord → toast_oob."""
+def test_verwijderen_gaat_terug_naar_de_lijst(client, db_session):
+    """#1925: a mail is deleted from its own page, and the answer leads back to
+    where it was opened from (the kit's toast confirms it after the redirect)."""
     from app.domains.auth.api import csrf_token_for
     from app.domains.mail.models import EmailLog
 
@@ -101,8 +104,11 @@ def test_verwijderen_bevestigt_met_een_toast(client, db_session):
     waarde = make_session_value(SEEDED_ADMIN_EMAIL)
     client.cookies.set(SESSION_COOKIE, waarde)
     resp = client.post(
-        f"/admin/e-maillog/{rij.id}/verwijderen", headers={"X-CSRF-Token": csrf_token_for(waarde)}
+        f"/admin/e-maillog/{rij.id}/verwijderen",
+        data={"terug": "/admin/e-maillog?q=toast-"},
+        headers={"X-CSRF-Token": csrf_token_for(waarde)},
     )
-    assert resp.status_code == 200
-    assert "Logregel verwijderd." in resp.text
-    assert 'hx-swap-oob="afterbegin:#toasts"' in resp.text
+    assert resp.status_code == 204
+    assert resp.headers["HX-Redirect"] == "/admin/e-maillog?q=toast-"
+    db_session.expire_all()
+    assert db_session.get(EmailLog, rij.id) is None

@@ -1,35 +1,34 @@
-{% extends "admin_base.html" %}
+{% extends "list_page.html" %}
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("E-maillog — Raak") }}{% endblock %}
-{# Volle breedte (#1083), zoals Betalingen. Dit scherm had geen overschrijving en
-   stond dus in de 5xl-leeskolom van de schil — zes kolommen in de breedte van een
-   formulier. #}
-{% block content_width %}max-w-none{% endblock %}
-{% block content %}
-{# Lijst-index-volgorde (design-system C1): paginatitel → zoeken → filters →
-   records. Er is hier geen "+ Nieuwe": een e-maillogregel ontstaat door te
-   versturen, niet door hem aan te maken. #}
-{{ ui.page_header(_("E-maillog"),
-                  _("Elke uitgaande e-mail, met status. Persoonsgegevens — enkel voor beheer.")) }}
-{% call ui.filter_bar("/admin/e-maillog/lijst", "#email-log-lijst", id="el-filters") %}
-  {# Golf 3 (#913): de sorteerstand reist mee met elke filterwijziging; het
-     lijstfragment ververst deze velden out-of-band na een kop-klik (#748:
-     oob mag, want het is een fragment-antwoord). #}
-  <input type="hidden" id="el-sort" name="sort" value="{{ sort }}">
-  <input type="hidden" id="el-richting" name="richting" value="{{ richting }}">
-  <div class="flex flex-wrap gap-3 items-center">
-    <div class="flex-1 min-w-[14rem]">{{ ui.search(value=recipient or "", name="recipient",
-                 placeholder=_('Zoek op ontvanger…'), standalone=False) }}</div>
-    {% call ui.select_control("email_type") %}
+{# The e-mail log on the kit's list layout (#1925): the title, the toolbar — the
+   search on the recipient, Filters with the type and the status, the count with
+   the page size — and the kit's table. A row's subject opens the mail's own page;
+   nothing is made here, so the title row has no button. The toolbar stands outside
+   the list fragment. #}
+{% block list_title %}{{ _("E-maillog") }}{% endblock %}
+{% block list_toolbar %}
+{% call ui.toolbar("/admin/e-maillog/lijst", "#email-log-lijst", "el-filter",
+                   q=q, search_placeholder=_("Zoek op ontvanger…"),
+                   page=page, per_page=per_page, total=total, page_sizes=page_sizes,
+                   sort=sort, sort_options=sort_options) %}
+  <div class="flex flex-col gap-1">
+    {{ ui.label(_("Type"), "el-type") }}
+    {% call ui.select_control("email_type", cls="w-full", attrs='id="el-type"') %}
       <option value="">{{ _("Alle types") }}</option>
-      {% for t, word in type_options %}<option value="{{ t }}" {% if t == email_type %}selected{% endif %}>{{ word }}</option>{% endfor %}
+      {% for value, word in type_options %}<option value="{{ value }}"{% if value == email_type %} selected{% endif %}>{{ word }}</option>{% endfor %}
     {% endcall %}
-    {% call ui.select_control("status") %}
+  </div>
+  <div class="flex flex-col gap-1">
+    {{ ui.label(_("Status"), "el-status") }}
+    {% call ui.select_control("status", cls="w-full", attrs='id="el-status"') %}
       <option value="">{{ _("Alle statussen") }}</option>
-      {% for s, word in status_options %}<option value="{{ s }}" {% if s == status %}selected{% endif %}>{{ word }}</option>{% endfor %}
+      {% for value, word in status_options %}<option value="{{ value }}"{% if value == status %} selected{% endif %}>{{ word }}</option>{% endfor %}
     {% endcall %}
   </div>
 {% endcall %}
+{% endblock %}
+{% block list_body %}
 <div id="email-log-lijst">
   {% include "_email_log_lijst.html" %}
 </div>

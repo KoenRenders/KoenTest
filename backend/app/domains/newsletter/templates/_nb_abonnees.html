@@ -14,7 +14,10 @@
   <tbody>
   {% for s in subscribers %}
     <tr data-row class="align-middle" data-subscriber-row>
-      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2 text-ink break-words">{{ s.email }}</td>
+      {#- On a phone the address shares its row with the action: it may break after
+          the "@" (and at a hyphen, as text does), not inside a word (#1925). -#}
+      {% set _at = s.email.find("@") %}
+      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2 text-ink break-words">{% if _at > 0 %}{{ s.email[:_at] }}@<wbr>{{ s.email[_at + 1:] }}{% else %}{{ s.email }}{% endif %}</td>
       <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2">{{ s.first_name or "" }}</td>
       <td data-cell="extra" data-p="2" class="border-b border-line px-3 py-2 text-ink-soft">{{ source_labels[s.id] }}</td>
       <td data-cell="status" class="border-b border-line px-3 py-2">{{ ui.badge(s.status | code_label("subscriber_status"),

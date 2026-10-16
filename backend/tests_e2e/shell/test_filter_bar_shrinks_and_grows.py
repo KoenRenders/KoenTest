@@ -57,7 +57,6 @@ TAB = "activiteit-tab"
 SCREENS = [
     # #1535: Tenants and Organisaties answer in the platform workspace only.
     PLATFORM + "/admin/tenants",
-    "/admin/e-maillog",
     "/admin/vergaderingen",
     PLATFORM + "/admin/organisaties",
     "/admin/paginas",
