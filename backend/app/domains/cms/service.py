@@ -9,6 +9,7 @@ queries, maar wel met een regel erin die nergens anders staat — "publiek betek
 import html
 import json
 import re
+from dataclasses import dataclass
 from typing import Any, Iterable, Optional
 
 from app.domains.cms import schema as _schema
@@ -305,6 +306,132 @@ def _check_opening(data) -> None:
         validate_hero(hero)
 
 
+class SectionRefused(ValueError):
+    """A section the menu cannot hold (CR-17 phase 6, #2024): its message is
+    the author's sentence."""
+
+
+def _check_section(db, page: CmsPage, parent_id: Optional[int], *, is_home: bool) -> None:
+    """The menu is one level deep and a section is a page (Koen, 15 October
+    2026, Q&A nr. 11: "ja"): a page stands under a page that stands under no
+    section, a page with pages under it stands under none, and the home page
+    is neither a section nor under one — it is the site's `/`, not a menu item."""
+    holds_pages = (
+        page.id is not None
+        and db.query(CmsPage).filter(CmsPage.parent_id == page.id).first() is not None
+    )
+    if is_home and holds_pages:
+        raise SectionRefused(
+            _("Er staan pagina's onder deze pagina: de startpagina is geen sectie.")
+        )
+    if parent_id is None:
+        return
+    if is_home:
+        raise SectionRefused(_("De startpagina staat niet onder een sectie."))
+    if parent_id == page.id:
+        raise SectionRefused(_("Een pagina kan niet onder zichzelf staan."))
+    section = db.query(CmsPage).filter(CmsPage.id == parent_id).first()
+    if section is None:
+        raise SectionRefused(_("Die sectie bestaat niet."))
+    if section.parent_id is not None:
+        raise SectionRefused(
+            _("“%(naam)s” staat zelf onder een sectie: het menu heeft één niveau.")
+            % {"naam": section.title}
+        )
+    if section.is_home:
+        raise SectionRefused(_("De startpagina is geen sectie."))
+    if holds_pages:
+        raise SectionRefused(
+            _(
+                "Er staan pagina's onder deze pagina: ze is een sectie en staat zelf onder geen sectie."
+            )
+        )
+
+
+def menu_name(db, page: CmsPage) -> str:
+    """The page's word in the menu: its menu name, else its title (Koen, 15
+    October 2026, Q&A nr. 11: "ja")."""
+    translation = get_translation(db, page)
+    return (translation.menu_label if translation else None) or page.title
+
+
+def section_back(db, page: CmsPage) -> Optional[tuple[str, str]]:
+    """The way back from a page under a section: the section's menu name and
+    its path, or None — also when the section is offline, since then it is no
+    page a visitor can go back to."""
+    if page.parent_id is None:
+        return None
+    section = published_page_by_id(db, page.parent_id)
+    if section is None:
+        return None
+    return menu_name(db, section), "/" + section.slug
+
+
+@dataclass(frozen=True)
+class MenuItem:
+    """A page in the site's menu, by its menu name; a section carries the
+    pages under it (CR-17 phase 6, #2024)."""
+
+    id: int
+    slug: str
+    label: str
+    children: tuple["MenuItem", ...] = ()
+
+    @property
+    def path(self) -> str:
+        return "/" + self.slug
+
+
+def menu_tree(db) -> list[MenuItem]:
+    """The site's menu: the published pages that stand in it, in the order set
+    in the back office, a section with its pages under it. A page whose section
+    is not in the menu — offline, or out of the menu — is not in it either
+    (Koen, 16 October 2026, "3a": only the menu hides it; its address keeps
+    working while it is published)."""
+    pages = (
+        db.query(CmsPage)
+        .filter(CmsPage.is_published.is_(True), CmsPage.show_in_nav.is_(True))
+        .order_by(CmsPage.sort_order.asc(), CmsPage.title.asc())
+        .all()
+    )
+    # One question for every menu name, in each page's own language (the
+    # tenant's: phase 1 has one row per page), as `menu_name` reads it.
+    language = {p.id: _language(db, p) for p in pages}
+    labels = {
+        t.page_id: t.menu_label
+        for t in db.query(CmsPageTranslation).filter(
+            CmsPageTranslation.page_id.in_(list(language)),
+            CmsPageTranslation.menu_label.isnot(None),
+        )
+        if t.language == language[t.page_id]
+    }
+
+    def item(page: CmsPage, children: tuple[MenuItem, ...] = ()) -> MenuItem:
+        return MenuItem(page.id, page.slug, labels.get(page.id) or page.title, children)
+
+    return [
+        item(top, tuple(item(p) for p in pages if p.parent_id == top.id))
+        for top in pages
+        if top.parent_id is None
+    ]
+
+
+def published_page_by_id(db, page_id: int) -> Optional[CmsPage]:
+    return db.query(CmsPage).filter(CmsPage.id == page_id, CmsPage.is_published.is_(True)).first()
+
+
+def section_choices(db, page: CmsPage) -> list[tuple[int, str]]:
+    """The pages this page may stand under, by the rules of `_check_section`:
+    none for the home page or for a section that holds pages."""
+    if page.is_home or db.query(CmsPage).filter(CmsPage.parent_id == page.id).first():
+        return []
+    return [
+        (p.id, p.title)
+        for p in list_pages(db)
+        if p.id != page.id and p.parent_id is None and not p.is_home and serves_at_address(p)
+    ]
+
+
 def _apply_page_fields(db, page: CmsPage, data) -> None:
     """The record's fields onto the page, in the CALLER's transaction — the
     applying half of `update_page` and of the screen's one save (the review's
@@ -320,15 +447,30 @@ def _apply_page_fields(db, page: CmsPage, data) -> None:
     if data.slug and data.slug != page.slug:
         if db.query(CmsPage).filter(CmsPage.slug == data.slug).first():
             raise SlugBestaatAl("Dit webadres bestaat al.")
+    # CR-17 phase 6 (#2024): before anything is written, the home flag's move
+    # included — a refusal leaves the transaction as it found it.
+    is_home = data.is_home if data.is_home is not None else page.is_home
+    parent_id = data.parent_id if "parent_id" in data.model_fields_set else page.parent_id
+    _check_section(db, page, parent_id, is_home=bool(is_home))
     if data.is_home and not page.is_home:
         # #1477: one home page per tenant — the flag moves, it is not refused.
         # Flushed first, so the unique index never sees two at once.
         for other in db.query(CmsPage).filter(CmsPage.is_home.is_(True)).all():
             other.is_home = False
         db.flush()
-    velden = data.model_dump(exclude_none=True)
+    velden = data.model_dump(exclude_none=True, exclude={"parent_id", "menu_label"})
     for veld, waarde in velden.items():
         setattr(page, veld, waarde)
+    page.parent_id = parent_id
+    if "menu_label" in data.model_fields_set:
+        # The menu's word, when it differs from the title; empty is the title.
+        label = (data.menu_label or "").strip() or None
+        if label and len(label) > 80:
+            raise SectionRefused(_("De naam in het menu is te lang: hooguit 80 tekens."))
+        for translation in db.query(CmsPageTranslation).filter(
+            CmsPageTranslation.page_id == page.id
+        ):
+            translation.menu_label = label
     # CR-17 fase 1 (#1671): the translation row is the title's source; the
     # page column is its one-release shadow (kept in sync here so every
     # existing reader — the menus, the shell — keeps working unchanged).
@@ -438,6 +580,16 @@ def delete_page(db, page_id: int) -> None:
     page = get_page_by_id(db, page_id)
     if page is None:
         raise LookupError("Page not found")
+    # CR-17 phase 6 (#2024): a section with pages under it stays (Koen, 15
+    # October 2026: "ja"); the database's RESTRICT is the net under this.
+    if db.query(CmsPage).filter(CmsPage.parent_id == page.id).first():
+        raise SectionRefused(
+            _(
+                "Er staan nog pagina's onder “%(naam)s”: zet ze eerst onder een andere "
+                "sectie of onder geen."
+            )
+            % {"naam": page.title}
+        )
     db.delete(page)
     db.commit()
 

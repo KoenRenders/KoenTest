@@ -65,6 +65,14 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.PUBLIC,  # K4
     ),
     Attribute(
+        key="cms.cms_page.parent_id",
+        columns=("cms.cms_pages.parent_id",),
+        label="Onder sectie",
+        name_en="Section",
+        help="The page this page stands under in the site's menu (CR-17 phase 6).",
+        ai_exposure=AiExposure.PUBLIC,  # K4
+    ),
+    Attribute(
         key="cms.cms_page.sort_order",
         columns=("cms.cms_pages.sort_order",),
         label=None,
@@ -99,7 +107,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="cms.cms_page_translation.menu_label",
         columns=("cms.page_translations.menu_label",),
-        label=None,
+        label="Naam in het menu",
         name_en="Menu label",
         help="The menu label of the cms page translation.",
         ai_exposure=AiExposure.PUBLIC,  # K4
