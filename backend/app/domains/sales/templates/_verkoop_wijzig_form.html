@@ -10,7 +10,7 @@
         <span class="min-w-0">{{ l.name }}{% if l.size %} · {{ _("maat") }} {{ l.size }}{% endif %} · {{ l.quantity }} ×</span>
         <span class="flex items-center gap-2 shrink-0">
           <span class="font-medium">€ {{ (l.price * l.quantity)|geld }}</span>
-          {{ ui.btn_secondary("", "submit", size="sm", lead_icon="x", aria_label=_("Verwijderen"), attrs='name="remove_variant_id" value="' ~ l.variant_id ~ '" formnovalidate') }}
+          {{ ui.btn_secondary("", "submit", size="sm", lead_icon="x", aria_label=_("Verwijderen"), attrs='name="remove_index" value="' ~ loop.index0 ~ '" formnovalidate') }}
         </span>
       </div>
       <input type="hidden" name="variant_id" value="{{ l.variant_id }}">

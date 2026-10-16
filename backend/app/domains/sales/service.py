@@ -290,6 +290,7 @@ def _basket_line(
     member: bool,
     today: date,
     max_quantity: int,
+    kept_price=None,
 ) -> dict[str, Any]:
     """One basket line in the one shape every caller reads: name, size, price,
     quantity, whether it is orderable (`available`), whether it keeps a stepper
@@ -343,7 +344,7 @@ def _basket_line(
             note=_("Dit artikel wordt niet meer aangeboden."),
             stepper_max=max_quantity,
         )
-    price = price_for(db, variant_id, today, member)
+    price = kept_price if kept_price is not None else price_for(db, variant_id, today, member)
     if price is None:
         return _make(
             available=False,
@@ -387,19 +388,22 @@ def _basket_line(
 
 
 def basket_lines(
-    db: Session, *, member: bool, items: list[tuple[int, int]]
+    db: Session, *, member: bool, items: list[tuple[int, int]], kept_prices=None
 ) -> list[dict[str, Any]]:
     """The basket's lines as the checkout shows them — article, size, the price
     recomputed here (never from the browser, C5), the quantity, and whether the
     line can still be ordered (Koen's "ja op beide"): a line no longer offered
     keeps only "Verwijderen"; a line that is only too many keeps its stepper,
     bounded by what can be ordered; the rest of the basket stays orderable. Only a
-    quantity below 1 is a refusal."""
+    quantity below 1 is a refusal. `kept_prices` maps a `(variant_id, quantity)`
+    the change leaves alone to the price it already has (A6), so the change form
+    shows the price the save will write."""
     from app.i18n import _
     from app.kernel.tenant_config import tenant_max_item_quantity
 
     today = belgian_today()
     max_quantity = tenant_max_item_quantity(db)
+    kept = kept_prices or {}
     lines: list[dict[str, Any]] = []
     for variant_id, quantity in sorted(items, key=lambda item: item[0]):
         if quantity < 1:
@@ -412,6 +416,7 @@ def basket_lines(
                 member=member,
                 today=today,
                 max_quantity=max_quantity,
+                kept_price=kept.get((variant_id, quantity)),
             )
         )
     return lines
@@ -839,6 +844,30 @@ def cancel_order(db: Session, order_id: int, *, actor: str | None) -> None:
     db.commit()
 
 
+def change_plan(
+    db: Session, order, target: list[tuple[int, int]]
+) -> tuple[dict[tuple[int, int], Decimal], list[tuple[int, int]], list]:
+    """Split a change's target against the order's lines: `kept_prices` maps a kept
+    `(variant_id, quantity)` to the price it already has, `to_create` is what is
+    left of the target after the kept lines are matched, and `to_remove` the
+    undelivered lines the target drops. Delivered lines are matched first (B3), so
+    a delivered line keeps its slot and an identical undelivered line is the one
+    removed — the order never ends with a dangling delivered line."""
+
+    to_create = list(target)
+    kept_prices: dict[tuple[int, int], Decimal] = {}
+    to_remove: list = []
+    ordered = sorted(order.lines, key=lambda line: line.delivered_at is None)
+    for line in ordered:
+        key = (line.variant_id, line.quantity)
+        if key in to_create:
+            to_create.remove(key)
+            kept_prices[key] = line.unit_price
+        elif line.delivered_at is None:
+            to_remove.append(line)
+    return kept_prices, to_create, to_remove
+
+
 def change_order_lines(
     db: Session, order_id: int, items: list[tuple[int, int]], *, actor: str | None
 ) -> None:
@@ -850,8 +879,6 @@ def change_order_lines(
     were. A delivered line cannot be changed (a return is by hand, R25): a change that
     touches one is refused, naming it; the other lines of that order can still change.
     `SalesOrderChanged` lets payment recalculate."""
-    from app.domains.mdm.api import Person
-    from app.domains.membership.api import has_valid_membership
     from app.domains.sales.models import SalesOrder, SalesOrderLine
     from app.domains.stock.api import NotEnoughStock
     from app.i18n import _
@@ -871,10 +898,7 @@ def change_order_lines(
         raise SalesError(_("Je mandje is leeg."))
     max_quantity = tenant_max_item_quantity(db)
     today = belgian_today()
-    member = False
-    if order.person_id is not None:
-        person = db.get(Person, order.person_id)
-        member = has_valid_membership(person, today) if person is not None else False
+    member = order_person_member(db, order)
 
     for variant_id, quantity in target:
         if quantity < 1 or quantity > max_quantity:
@@ -896,14 +920,8 @@ def change_order_lines(
 
     # The lines the target keeps — delivered or not — stay; the undelivered ones it
     # does not keep are released and soft-deleted. `to_create` is what is left of
-    # the target after the kept lines are matched.
-    to_create = list(target)
-    to_remove: list[SalesOrderLine] = []
-    for line in order.lines:
-        if (line.variant_id, line.quantity) in to_create:
-            to_create.remove((line.variant_id, line.quantity))
-        elif line.delivered_at is None:
-            to_remove.append(line)
+    # the target after the kept lines are matched (delivered first).
+    _kept_prices, to_create, to_remove = change_plan(db, order, target)
 
     savepoint = db.begin_nested()
     try:

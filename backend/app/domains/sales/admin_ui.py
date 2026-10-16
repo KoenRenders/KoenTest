@@ -335,16 +335,18 @@ def _board_order_view(
     items: list[tuple[int, int]],
     product_id: str = "",
     member_override: bool | None = None,
+    kept_prices: dict | None = None,
 ) -> BoardOrderView:
     """The "Bestelling toevoegen" view-model (R43): the lines at the member price
     of the typed person, the articles for the picker, and the chosen article's
-    sizes. `member_override` prices as the order's person, for the change form."""
+    sizes. `member_override` prices as the order's person, for the change form;
+    `kept_prices` shows a kept line at the price the save will write (A6)."""
     from decimal import Decimal
 
     status, person, member = board_order_person(db, email)
     if member_override is not None:
         member = member_override
-    lines = basket_lines(db, member=member, items=items)
+    lines = basket_lines(db, member=member, items=items, kept_prices=kept_prices)
     total = sum(
         (line["price"] * line["quantity"] for line in lines if line["available"]),
         Decimal("0"),
@@ -523,14 +525,18 @@ def _change_order_view(
     toevoegen", but the POST goes to the order's change route."""
     from dataclasses import replace
 
-    from app.domains.sales.api import get_order, order_person_member
+    from app.domains.sales.api import change_plan, get_order, order_person_member
 
+    order = get_order(db, order_id)
+    member = order_person_member(db, order)
+    kept_prices, _to_create, _to_remove = change_plan(db, order, items)
     vm = _board_order_view(
         db,
         request,
         email=email,
         items=items,
-        member_override=order_person_member(db, get_order(db, order_id)),
+        member_override=member,
+        kept_prices=kept_prices,
     )
     vm = replace(vm, form_url=f"/admin/verkoop/{order_id}/wijzigen", order_id=order_id)
     if vm.product_id == "" and vm.articles:
@@ -600,7 +606,7 @@ async def change_order(
     items, parse_error = parse_lines(form)
     email = order_person_email(db, order)
 
-    if form.get("remove_variant_id"):
+    if form.get("remove_index"):
         action = "remove"
 
     if action == "add":
@@ -617,13 +623,14 @@ async def change_order(
         return templates.TemplateResponse(request, "_verkoop_wijzig_form.html", vm.as_context())
 
     if action == "remove":
-        remove_variant = str(form.get("remove_variant_id") or "").strip()
-        if parse_error is None and remove_variant:
+        remove_index = str(form.get("remove_index") or "").strip()
+        if parse_error is None and remove_index:
             try:
-                remove_id = int(remove_variant)
+                idx = int(remove_index)
             except ValueError:
-                remove_id = 0
-            items = [(v, q) for v, q in items if v != remove_id]
+                idx = -1
+            if 0 <= idx < len(items):
+                items = items[:idx] + items[idx + 1 :]
         vm = _change_order_view(db, request, order_id, email, items)
         return templates.TemplateResponse(request, "_verkoop_wijzig_form.html", vm.as_context())
 

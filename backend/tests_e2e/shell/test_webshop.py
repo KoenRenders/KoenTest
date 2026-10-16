@@ -844,8 +844,6 @@ def test_verkoop_wijzigt_een_bestelling(webshop_page):
         page.get_by_role("button", name="Opslaan").click()
     page.wait_for_url("**/admin/verkoop/**")
     assert "30,00" in page.locator("main").inner_text(), "the changed total stands on the page"
-    page.wait_for_url("**/admin/verkoop/**")
-    assert "30,00" in page.locator("main").inner_text(), "the changed total stands on the page"
 
 
 def test_productbeheer_en_prijsbeheer_zijn_tabellen(webshop_page):
