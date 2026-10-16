@@ -20,7 +20,7 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
-from app.domains.activities.api import Activity, ActivityDate
+from app.domains.activities.api import Activity, ActivityDate, publicly_bookable_products
 from app.domains.chatbot.models import ChatbotInfo
 from app.domains.media.api import MediaAsset
 
@@ -35,8 +35,9 @@ TOOL_SPECS: list[dict[str, Any]] = [
             "name": "get_activities",
             "description": (
                 "Geeft activiteiten van Raak Millegem met datum, locatie, "
-                "prijs-vanaf en of ze enkel voor leden zijn. Standaard de komende, "
-                "niet-geannuleerde activiteiten (when='upcoming'); zet when='past' "
+                "prijs-vanaf, of ze enkel voor leden zijn en of ze geannuleerd is "
+                "(cancelled: zeg dat dan). Standaard de komende activiteiten "
+                "(when='upcoming'); zet when='past' "
                 "voor voorbije activiteiten (meest recent eerst). Gebruik dit voor "
                 "elke vraag over de agenda, wat er te doen is, of wat er geweest is."
             ),
@@ -59,7 +60,8 @@ TOOL_SPECS: list[dict[str, Any]] = [
             "name": "get_activity_detail",
             "description": (
                 "Geeft de details van één activiteit (datums, locatie, "
-                "onderdelen en prijzen, opmerkingen). Geef het id terug dat je "
+                "onderdelen en prijzen, opmerkingen, en of ze geannuleerd is — "
+                "cancelled: zeg dat dan). Geef het id terug dat je "
                 "uit get_activities kreeg."
             ),
             "parameters": {
@@ -165,6 +167,7 @@ PUBLIC_FIELD_CONTRACT: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
             "name": (_ACTIVITY + "name",),
             "location": (_ACTIVITY + "location",),
             "members_only": (_ACTIVITY + "members_only",),
+            "cancelled": (_ACTIVITY + "is_cancelled",),
             "price_from": _PRICE_FROM,
             "dates": STRUCTURE,
         },
@@ -177,6 +180,7 @@ PUBLIC_FIELD_CONTRACT: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
             "name": (_ACTIVITY + "name",),
             "location": (_ACTIVITY + "location",),
             "members_only": (_ACTIVITY + "members_only",),
+            "cancelled": (_ACTIVITY + "is_cancelled",),
             "description": (_ACTIVITY + "description",),
             "flyer_text": _INFO_TEXT,
             "price_from": _PRICE_FROM,
@@ -220,12 +224,15 @@ def _fmt_price(value: Optional[Decimal]) -> Optional[str]:
 
 
 def _price_from(activity: Activity) -> Optional[str]:
-    """Laagste niet-gratis prijs over onderdelen en producten, of None (gratis)."""
+    """Laagste niet-gratis prijs over onderdelen en producten, of None (gratis).
+
+    #2055: only the products a visitor may pick count — the public form's own
+    selection (`publicly_bookable_products`), not a second filter here."""
     prices: list[Decimal] = []
     for sub in activity.sub_registrations:
         if not sub.is_free and sub.price is not None:
             prices.append(Decimal(sub.price))
-        for product in sub.products:
+        for product in publicly_bookable_products(sub):
             if not product.is_free and product.price is not None:
                 prices.append(Decimal(product.price))
     return _fmt_price(min(prices)) if prices else None
@@ -273,7 +280,8 @@ def _serialise_dates(activity: Activity) -> list[dict[str, Any]]:
 
 
 def get_activities(db: Session, when: str = "upcoming", limit: int = 20) -> dict[str, Any]:
-    """Komende of voorbije, niet-geannuleerde activiteiten.
+    """Komende of voorbije activiteiten; een geannuleerde staat erin met
+    `cancelled`, zoals de publieke lijst haar als "Geannuleerd" toont (#2055).
 
     ``when="upcoming"`` (default): vanaf vandaag, eerstvolgende eerst.
     ``when="past"``: vóór vandaag, meest recent eerst. In beide gevallen max
@@ -294,7 +302,6 @@ def get_activities(db: Session, when: str = "upcoming", limit: int = 20) -> dict
         db.query(Activity)
         .filter(
             Activity.id.in_(activity_ids),
-            Activity.is_cancelled == False,  # noqa: E712 - a SQL comparison, not Python truth
             published_only(),
         )
         .all()
@@ -308,6 +315,8 @@ def get_activities(db: Session, when: str = "upcoming", limit: int = 20) -> dict
                 "name": a.name,
                 "location": a.location,
                 "members_only": a.members_only,
+                # #2055: as the public list shows it — "Geannuleerd" (Koen, "1a").
+                "cancelled": a.is_cancelled,
                 "price_from": _price_from(a),
                 "dates": _serialise_dates(a),
             }
@@ -357,7 +366,9 @@ def get_activity_detail(db: Session, activity_id: int) -> dict[str, Any]:
                         "price": None if p.is_free else _fmt_price(p.price),
                         "member_price": _fmt_price(p.member_price),
                     }
-                    for p in sub.products
+                    # #2055: what the public form offers, nothing the board
+                    # keeps for itself (an inactive product is its guest list).
+                    for p in publicly_bookable_products(sub)
                 ],
             }
         )
@@ -367,6 +378,9 @@ def get_activity_detail(db: Session, activity_id: int) -> dict[str, Any]:
         "name": a.name,
         "location": a.location,
         "members_only": a.members_only,
+        # #2055: the public page shows a cancelled activity as "Geannuleerd";
+        # the assistant says so too, instead of answering as if it took place.
+        "cancelled": a.is_cancelled,
         # #1028: de publieke omschrijving (#1016) — de twee, drie zinnen die ook op
         # de activiteitenpagina staan. Bewust toegevoegd: Raakje beantwoordde
         # "waar gaat dit over?" tot nu met de affichetekst, terwijl de bestuurder

@@ -1779,7 +1779,8 @@ def test_een_verwijderknop_kiest_haar_maat():
                 fouten.append(f"{rel}:{regel}")
     # 9 since K2 (#1556): the payments row lost its unfold, and with it one call.
     # Seven since #1899: the household's cards went, and their two delete buttons.
-    assert geteld >= 7, (
+    # Six since #1925: the subscribers' Verwijderen moved behind the row's ⋯.
+    assert geteld >= 6, (
         f"maar {geteld} btn_danger-oproepen gevonden — de zoekopdracht mist er, "
         "een gate die nergens kijkt bewaakt niets"
     )

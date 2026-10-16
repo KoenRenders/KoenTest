@@ -54,7 +54,9 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         label="Geannuleerd",
         name_en="Is cancelled",
         help="Of de activiteit geannuleerd werd.",
-        ai_exposure=AiExposure.INTERNAL,  # K8
+        # Koen, 16 October 2026, "1a" (#2055): the public page shows a cancelled
+        # activity as "Geannuleerd" to every visitor, so the public assistant may say so.
+        ai_exposure=AiExposure.PUBLIC,
     ),
     Attribute(
         key="activities.activity.members_only",

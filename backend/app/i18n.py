@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import gettext as _gettext
 from contextvars import ContextVar
+from datetime import datetime
 from pathlib import Path
 
 LOCALES_DIR = Path(__file__).parent / "locales"
@@ -60,6 +61,44 @@ def install_jinja_i18n(env) -> None:
     )
 
 
+def local_moment(moment: datetime) -> datetime:
+    """A moment in the association's time — the one place a moment is converted
+    for a person to read (#1976).
+
+    Every column holds a moment timezone-aware, in UTC as PostgreSQL hands it out;
+    the back office showed most of them that way, two hours early in summer, while
+    the newsletter converted on its own. Koen, 15 October 2026, to "Waar gebeurt de
+    omzetting naar Belgische tijd?": "a" — the display filter that formats every
+    moment converts it. So the formatters below call this, and a screen hands in
+    the moment as it has it. A naive moment is refused rather than guessed at: it
+    is UTC from one caller and local from the next, and guessing is the bug. A
+    caller that holds a local moment hands it in Brussels-aware.
+    """
+    from app.kernel.clock import BELGIUM
+
+    if moment.tzinfo is None:
+        raise ValueError(f"a moment to show needs its time zone, got a naive {moment!r}")
+    return moment.astimezone(BELGIUM)
+
+
+def _day(d):
+    """A date as given; a moment as its day in the association's time (#1976)."""
+    return local_moment(d) if isinstance(d, datetime) else d
+
+
+def moment_text(moment: datetime | None, fmt: str) -> str:
+    """A moment in the association's time, in a format of the caller's — for an
+    export whose column has its own shape (#1976). "" for nothing."""
+    if not moment:
+        return ""
+    return local_moment(moment).strftime(fmt)
+
+
+def clock_time(moment: datetime | None) -> str:
+    """The time of a moment in the association's time, `14:05` (#1976)."""
+    return moment_text(moment, "%H:%M")
+
+
 def long_date(d) -> str:
     """A long date in the active locale, e.g. 'zaterdag 29 augustus 2026' (#451).
 
@@ -73,7 +112,7 @@ def long_date(d) -> str:
         return ""
     from babel.dates import format_date
 
-    return format_date(d, format="full", locale=current_locale.get())
+    return format_date(_day(d), format="full", locale=current_locale.get())
 
 
 def short_date(d) -> str:
@@ -101,19 +140,18 @@ def short_date(d) -> str:
             d = _Date.fromisoformat(d[:10])
         except ValueError:
             return d
-    return d.strftime("%d-%m-%Y")
+    return _day(d).strftime("%d-%m-%Y")
 
 
 def short_datetime(moment) -> str:
     """A short numeric date with its time, `30-10-2026 14:05` (#1242).
 
-    Built on `short_date`, so the date half has one source. The time is the
-    moment as given: a caller that shows local time converts first, as the AI
-    log does with `astimezone`.
+    Built on `short_date` and `clock_time`, so each half has one source; both
+    show the moment in the association's time (`local_moment`, #1976).
     """
     if not moment:
         return ""
-    return f"{short_date(moment)} {moment.strftime('%H:%M')}"
+    return f"{short_date(moment)} {clock_time(moment)}"
 
 
 def long_date_no_year(d) -> str:
@@ -127,4 +165,4 @@ def long_date_no_year(d) -> str:
         return ""
     from babel.dates import format_date
 
-    return format_date(d, format="EEEE d MMMM", locale=current_locale.get())
+    return format_date(_day(d), format="EEEE d MMMM", locale=current_locale.get())

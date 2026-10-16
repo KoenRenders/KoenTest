@@ -846,7 +846,9 @@
      gave the break the bold mark, and the schema (`cms/schema.py`) refuses a
      mark on a hard break, so the whole document could not be saved. One rule
      for every way a break arrives — pasted, typed, dropped: after any change,
-     a break with a mark loses it. The text around it keeps its marks. */
+     a break with a mark loses it. The text around it keeps its marks. Only
+     the ranges the transactions changed are walked, mapped onto the new
+     document — not the whole page on every keystroke (review of #2058). */
   function breakWithoutMarks(RaakTiptap) {
     return RaakTiptap.Extension.create({
       name: "breakWithoutMarks",
@@ -856,12 +858,32 @@
             key: new RaakTiptap.PluginKey("breakWithoutMarks"),
             appendTransaction: function (transactions, _old, state) {
               if (!transactions.some(function (t) { return t.docChanged; })) return null;
+              var ranges = [];
+              transactions.forEach(function (t) {
+                ranges = ranges.map(function (r) { return [t.mapping.map(r[0], -1), t.mapping.map(r[1], 1)]; });
+                /* Each step's own range, mapped through itself and the steps
+                   after it: a replace moves positions, but a mark step (bold
+                   made over a selection) moves none and has a range all the
+                   same (review B1 of #2059). */
+                t.steps.forEach(function (step, i) {
+                  var from = step.from !== undefined ? step.from : step.pos;
+                  var to = step.to !== undefined ? step.to : step.pos !== undefined ? step.pos + 1 : undefined;
+                  if (from === undefined || to === undefined) return;
+                  var rest = t.mapping.slice(i);
+                  ranges.push([rest.map(from, -1), rest.map(to, 1)]);
+                });
+              });
+              var size = state.doc.content.size;
               var tr = null;
-              state.doc.descendants(function (node, pos) {
-                if (node.type.name === "hardBreak" && node.marks.length) {
-                  tr = tr || state.tr;
-                  tr.setNodeMarkup(pos, null, node.attrs, []);
-                }
+              ranges.forEach(function (r) {
+                var from = Math.max(0, Math.min(r[0], r[1]));
+                var to = Math.min(size, Math.max(r[0], r[1]));
+                state.doc.nodesBetween(from, to, function (node, pos) {
+                  if (node.type.name === "hardBreak" && node.marks.length) {
+                    tr = tr || state.tr;
+                    tr.setNodeMarkup(pos, null, node.attrs, []);
+                  }
+                });
               });
               return tr;
             },
