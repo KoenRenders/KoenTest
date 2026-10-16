@@ -1405,14 +1405,15 @@ def calendar_html(
     if not spans:
         return f"<div>{html_lib.escape(_('Er staan de komende weken geen activiteiten gepland.'))}</div>"
     facts = activity_facts(db, [s.activity.id for s in spans], base_url=base_url, today=start)
+    return calendar_list_html([facts[s.activity.id] for s in spans if s.activity.id in facts])
+
+
+def calendar_list_html(facts: list[ActivityFacts]) -> str:
+    """The calendar block from the facts of its activities, soonest first."""
     # A bulleted list (Koen, 20 September 2026): seven lines under each other
     # read as one block of text; a bullet per activity makes them countable at a
     # glance. Trix keeps `ul`/`li`, so the list survives the editor.
-    items = "".join(
-        f"<li>{activity_line_html(facts[s.activity.id])}</li>"
-        for s in spans
-        if s.activity.id in facts
-    )
+    items = "".join(f"<li>{activity_line_html(fact)}</li>" for fact in facts)
     return f"<ul>{items}</ul>" if items else ""
 
 

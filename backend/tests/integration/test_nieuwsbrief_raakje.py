@@ -197,6 +197,7 @@ def _previous_letter(db, days_ago):
         db, vorige, subject="Vorige", body_html="<div>x</div>", audience=Audience.MEMBERS
     )
     vorige.status = LetterStatus.SENT
+    vorige.sent_body_html = "<div>x</div>"
     vorige.send_started_at = datetime.now(timezone.utc) - timedelta(days=days_ago)
     db.commit()
 
@@ -409,6 +410,7 @@ def test_een_prijs_die_alleen_in_een_oude_brief_staat_telt_als_verzonnen(db_sess
         audience=Audience.MEMBERS,
     )
     old.status = LetterStatus.SENT
+    old.sent_body_html = "<div>x</div>"
     db_session.commit()
     bbq = _activity(db_session, "BBQ", price="15")
     letter = _letter(db_session, activity_ids=[bbq.id])
@@ -861,6 +863,7 @@ def test_een_nieuwe_brief_start_met_voorbije_en_volgende_activiteiten(db_session
         db_session, vorige, subject="Vorige", body_html="<div>x</div>", audience=Audience.MEMBERS
     )
     vorige.status = LetterStatus.SENT
+    vorige.sent_body_html = "<div>x</div>"
     vorige.send_started_at = datetime.now(timezone.utc) - timedelta(days=30)
     db_session.commit()
 
@@ -1158,6 +1161,7 @@ def test_een_eerdere_brief_met_een_gewoon_woord_vooraan_een_regel_houdt_niets_te
         audience=Audience.MEMBERS,
     )
     old.status = LetterStatus.SENT
+    old.sent_body_html = "<div>x</div>"
     db_session.commit()
     letter = _letter(db_session)
     provider = raakje(_draft(["Tot dan."]), _verdict())

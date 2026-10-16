@@ -135,6 +135,7 @@ def test_a_sent_letter_keeps_its_choices(db_session, world):
     letter = nb.create_newsletter(db_session, created_by="s@example.org")
     letter.audience = Audience.MEMBERS
     letter.status = LetterStatus.SENT
+    letter.sent_body_html = "<div>x</div>"
     db_session.commit()
     with pytest.raises(nb.NewsletterError):
         nb.set_choice(db_session, letter, "past", world["past"].id, chosen=False)
@@ -255,6 +256,7 @@ def test_a_draft_is_a_context_of_the_panel_and_a_sent_letter_is_not(db_session, 
     assert not ctx("/admin/nieuwsbrieven").available
     letter.audience = Audience.MEMBERS
     letter.status = LetterStatus.SENT
+    letter.sent_body_html = "<div>x</div>"
     db_session.commit()
     assert not ctx(f"/admin/nieuwsbrieven/{letter.id}").available
 

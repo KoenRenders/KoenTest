@@ -75,6 +75,7 @@ def _letter(db, *addresses, status=LetterStatus.SENDING, done=()):
         body_document=letter_doc("<div>Beste</div>"),
         audience=Audience.MEMBERS,
         status=status,
+        sent_body_html="<div>Beste</div>",
     )
     db.add(letter)
     db.flush()

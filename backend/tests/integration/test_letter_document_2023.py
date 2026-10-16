@@ -231,6 +231,9 @@ def test_the_migration_converts_every_letter_the_sent_ones_too_and_drops_the_htm
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     # The state before the migration: the HTML column back, the document column gone.
+    db_session.execute(
+        text("ALTER TABLE newsletter.newsletters DROP CONSTRAINT ck_newsletter_sent_has_body")
+    )
     db_session.execute(text("ALTER TABLE newsletter.newsletters DROP COLUMN body_document"))
     db_session.execute(
         text("ALTER TABLE newsletter.newsletters ADD COLUMN body_html TEXT NOT NULL DEFAULT ''")
@@ -310,19 +313,41 @@ def test_a_sent_letter_keeps_the_body_it_went_with(db_session):
     assert "Kerkplein" not in _mail(db_session, letter)
 
 
-def test_the_migration_freezes_the_sent_letters_and_leaves_a_draft(db_session):
+def test_the_migration_freezes_the_sent_letters_and_leaves_a_draft(db_session, monkeypatch):
     activity = _activity(db_session)
     body = _doc(_par("Hoi"), {"type": "activity", "attrs": {"activity_id": activity.id}})
     sent = _letter(db_session, body)
     draft = _letter(db_session, body)
-    sent.status = nb.LetterStatus.SENT
     sent.link_base = BASE
+    # The state before the migration: sent, with no frozen body and no CHECK yet.
+    db_session.execute(
+        text("ALTER TABLE newsletter.newsletters DROP CONSTRAINT ck_newsletter_sent_has_body")
+    )
+    sent.status = nb.LetterStatus.SENT
     db_session.flush()
     spec = importlib.util.spec_from_file_location("letters_212", MIGRATION)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+
+    # The models of the other domains are not read: if they were, this would raise.
+    def refuse(*args, **kwargs):
+        raise AssertionError("the migration read the model of another domain")
+
+    monkeypatch.setattr(nb, "activity_facts", refuse)
+    monkeypatch.setattr("app.domains.activities.api.activities_from", refuse)
     assert module.freeze_sent_letters(db_session.connection()) == 1
     db_session.expire_all()
     assert "Zomerfeest" in sent.sent_body_html and "Hoi" in sent.sent_body_html
     assert draft.sent_body_html is None
     assert module.freeze_sent_letters(db_session.connection()) == 0, "a second run changes nothing"
+
+
+def test_a_sent_letter_without_its_body_is_refused_by_the_database(db_session):
+    """Broken on purpose: the CHECK left out → the flush succeeds and this fails."""
+    from sqlalchemy.exc import IntegrityError
+
+    letter = _letter(db_session, _doc(_par("Hoi")))
+    letter.status = nb.LetterStatus.SENT
+    with pytest.raises(IntegrityError, match="ck_newsletter_sent_has_body"):
+        db_session.flush()
+    db_session.rollback()

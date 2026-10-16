@@ -21,6 +21,7 @@ from typing import Optional
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
@@ -385,7 +386,13 @@ class Newsletter(TenantMixin, SoftDeleteMixin, Base):
     """One letter: its text, its audience, and how far sending has come."""
 
     __tablename__ = "newsletters"
-    __table_args__ = {"schema": "newsletter"}
+    __table_args__ = (
+        # A letter that started to send has the body it went with (`start_sending`).
+        CheckConstraint(
+            "status = 'draft' OR sent_body_html IS NOT NULL", name="ck_newsletter_sent_has_body"
+        ),
+        {"schema": "newsletter"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     subject = Column(String(500), nullable=False, default="")
