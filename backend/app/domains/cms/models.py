@@ -63,6 +63,13 @@ class CmsPage(TenantMixin, Base):
     # `privacy_url`.
     show_in_footer = Column(Boolean, default=False, server_default=false(), nullable=False)
     sort_order = Column(Integer, default=0, nullable=False)
+    # CR-17 phase 6 (#2024): the section this page stands under in the menu. A
+    # section is itself a page; one level only, so a page under a section is no
+    # section (`service._check_section`). RESTRICT: a section with pages under it
+    # cannot be deleted.
+    parent_id = Column(
+        Integer, ForeignKey("cms.cms_pages.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
     # CR-32 F4 (B8.11): how the page opens — the title line or a hero — and
     # the hero's own words and buttons (`schema.validate_hero`); the hero is
     # kept when the page goes back to the title line.

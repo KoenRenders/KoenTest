@@ -17,6 +17,8 @@ from app.domains.cms.render import (  # noqa: F401
 )
 from app.domains.cms.service import (  # noqa: F401
     SITE_BLOCK_SLUGS,
+    MenuItem,
+    SectionRefused,
     SlugBestaatAl,
     create_page,
     delete_page,
@@ -33,6 +35,8 @@ from app.domains.cms.service import (  # noqa: F401
     insertable_codes,
     is_page,
     list_pages,
+    menu_name,
+    menu_tree,
     placeholders,
     publish,
     published_document,
@@ -47,6 +51,8 @@ from app.domains.cms.service import (  # noqa: F401
     save_document,
     save_draft,
     save_page_form,
+    section_back,
+    section_choices,
     seed_site_blocks,
     take_page_offline,
     update_page,
@@ -57,6 +63,13 @@ from app.domains.cms.service import (  # noqa: F401
 __all__ = [
     "PageIncomplete",
     "SlugBestaatAl",
+    # CR-17 phase 6 (#2024): sections in the menu.
+    "SectionRefused",
+    "section_choices",
+    "section_back",
+    "menu_name",
+    "menu_tree",
+    "MenuItem",
     "create_page",
     "delete_page",
     "verplaats_pagina",
