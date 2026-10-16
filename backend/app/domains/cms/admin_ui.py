@@ -77,6 +77,8 @@ def _record_ctx(
     page,
     *,
     error=None,
+    slug_error=None,
+    slug_typed=None,
     toast: bool = False,
     document: str | None = None,
 ) -> dict:
@@ -174,6 +176,10 @@ def _record_ctx(
         "insert_codes": insertable_codes(codes),
         "csrf_token": csrf_from_request(request),
         "error": error,
+        # #2061: why the address was refused, under its field.
+        "slug_error": slug_error,
+        # ... and the address as typed, so the field shows what the reason names.
+        "slug_typed": slug_typed,
         "toast_opgeslagen": toast,
         "wijzigend": draft_differs(db, page),
         "vertaling": (vertaling := get_translation(db, page)),
@@ -194,6 +200,8 @@ def _record_response(
     page_id: int,
     *,
     error=None,
+    slug_error=None,
+    slug_typed=None,
     toast: bool = False,
     document: str | None = None,
 ):
@@ -211,14 +219,32 @@ def _record_response(
         return templates.TemplateResponse(
             request,
             "_cp_record.html",
-            _record_ctx(request, db, page, error=error, toast=toast, document=document),
+            _record_ctx(
+                request,
+                db,
+                page,
+                error=error,
+                slug_error=slug_error,
+                slug_typed=slug_typed,
+                toast=toast,
+                document=document,
+            ),
         )
     return templates.TemplateResponse(
         request,
         "admin_pagina.html",
         {
             "nav_items": admin_nav(NAV, request),
-            **_record_ctx(request, db, page, error=error, toast=toast, document=document),
+            **_record_ctx(
+                request,
+                db,
+                page,
+                error=error,
+                slug_error=slug_error,
+                slug_typed=slug_typed,
+                toast=toast,
+                document=document,
+            ),
         },
     )
 
@@ -288,10 +314,13 @@ def pagina_aanmaken(
 
     try:
         nieuw = create_page(db, CmsPageCreate(title=title.strip(), slug=slug.strip().lower()))
-    except PageIncomplete as refusal:
-        raise HTTPException(status_code=400, detail=str(refusal)) from refusal
-    except SlugBestaatAl:
-        raise HTTPException(status_code=400, detail=_("Die slug bestaat al."))
+    except (PageIncomplete, SlugBestaatAl) as refusal:
+        # #2061: the reason on the form's message line. A 400 reached the screen
+        # as the general "something went wrong", whatever its detail said.
+        from app.kernel.refusals import FieldError
+        from app.ui import refusal_response
+
+        return refusal_response(request, [FieldError("", str(refusal))], "#pagina-nieuw-melding")
     # Aanmaken opent meteen de editor: een verse pagina heeft nog inhoud nodig.
     return Response(status_code=204, headers={"HX-Redirect": f"/admin/paginas/{nieuw.id}"})
 
@@ -330,7 +359,7 @@ def pagina_bijwerken(
     POSTED, not with the stored draft her words would otherwise replace.
     C6 4: nothing published changes here.
     """
-    from app.domains.cms.api import save_page_form
+    from app.domains.cms.api import SlugBestaatAl, save_page_form
     from app.domains.cms.schema import hero_from_form
     from app.schemas.cms import CmsPageUpdate
 
@@ -374,6 +403,18 @@ def pagina_bijwerken(
         # An unknown page id is the author's own door: the words the list
         # screen uses, not Python's 500 (review B4, #1770).
         raise HTTPException(status_code=404, detail=_("Pagina niet gevonden."))
+    except SlugBestaatAl as refusal:
+        # #2061: the address's own refusal stands under its field, the banner
+        # says where to look — on a long record the field is out of view.
+        return _record_response(
+            request,
+            db,
+            page_id,
+            error=_("Opslaan kan nog niet: controleer 1 veld."),
+            slug_error=str(refusal),
+            slug_typed=data.slug,
+            document=document,
+        )
     except (ValueError, TypeError) as error:
         # UnknownBlock, UnknownAttribute, InvalidShape, a slug that exists,
         # an unreadable document and a picture the picker does not offer

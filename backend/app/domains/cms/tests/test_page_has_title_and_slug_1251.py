@@ -9,9 +9,10 @@ home*) and holds for every writer; the screen gives the refusal its status.
 the move, on purpose: the same status, the same sentence, nothing made, and the
 page's rule still speaks before the lookup of the slug.
 
-**What the refusal is measured at:** the answer of the route — a JSON 400 with
-the sentence as its detail, before and after. On the screen that is NOT the
-sentence: the page shows the general message for an answer it cannot place. The
+**What the refusal is measured at:** the answer of the route. Until #2061 that
+was a JSON 400 with the sentence as its detail, which the screen showed as the
+general message for an answer it cannot place; since #2061 it is the kit's
+refusal (an HTML 422 for the form's message line) with the sentence itself. The
 browser's own `required` stops an empty field first; a title of spaces gets
 through to it.
 
@@ -57,7 +58,7 @@ def test_the_screen_refuses_a_page_without_a_title_or_a_slug(
 
     answer = client.post("/admin/paginas", data={"title": title, "slug": slug}, headers=headers)
 
-    assert (answer.status_code, answer.json()) == (400, {"detail": RULE})
+    assert answer.status_code == 422 and RULE in answer.text
     assert _pages(db_session) == before, "a refused page was made"
 
 
@@ -72,8 +73,8 @@ def test_the_pages_rule_speaks_before_the_lookup_of_the_slug(client, db_session,
         "/admin/paginas", data={"title": "Nog een", "slug": "over-ons"}, headers=headers
     )
 
-    assert answer.json() == {"detail": RULE}
-    assert taken.json() == {"detail": "Die slug bestaat al."}
+    assert RULE in answer.text
+    assert "Dit webadres bestaat al." in taken.text
 
 
 def test_a_page_is_made_as_before(client, db_session, headers):

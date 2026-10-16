@@ -81,7 +81,7 @@
      hand-made grid in here is ONE cell of that grid, and two fields then
      share one field column. #}
   {{ ui.field("title", _("Titel"), id="cp-title", value=p.title, required=True) }}
-  {{ ui.field("slug", _("Webadres"), id="cp-slug", value=p.slug, required=True, attrs='pattern="[a-z0-9-]+"') }}
+  {{ ui.field("slug", _("Webadres"), id="cp-slug", value=slug_typed or p.slug, required=True, error=slug_error, attrs='pattern="[a-z0-9-]+"') }}
   {{ ui.field("menu_label", attribute="cms.cms_page_translation.menu_label", value=(vertaling.menu_label if vertaling else "") or "", help=_("Leeg: de titel."), attrs='maxlength="80"') }}
   {#- #2060 (Koen, 16 October 2026, "2a"): what the switch also does for a section. -#}
   {{ ui.field("show_in_nav", _("In het menu"), kind="switch", value=p.show_in_nav,
