@@ -21,7 +21,7 @@
 {% if edit %}
 {{ ui.field(s.key, s.label, kind="secret", value="", placeholder=s.placeholder, help=s.help, attrs='autocomplete="off"') }}
 {{ ui.field(s.key ~ "_wissen", s.clear_label, kind="switch", value=False, beside_field=True,
-            help=_("Terug naar de .env-default.")) }}
+            help=_("Terug naar de waarde van de omgeving.")) }}
 {% else %}
 <p data-span="half" data-secret="{{ s.key }}" class="min-w-0">{{ ui.label_fact(s.label, s.display) }}</p>
 {% endif %}
@@ -80,7 +80,7 @@
     {% if edit %}
     {{ ui.field("site_organization_id", _("Organisatie achter de site"), kind="select", span="full", value=tenant_card.site_org.value,
                 options=tenant_card.site_org.options, id="t-site-org",
-                help=_("De voettekst, Onze organisatie en de mails tonen de gegevens van deze organisatie. Alleen organisaties van het eigen account.")) }}
+                help=_("De organisatie waarvan de site de gegevens toont. Alleen organisaties van het eigen account.")) }}
     {% else %}
     <p data-span="full" data-setting="site_organization_id" class="min-w-0">{{ ui.label_fact(_("Organisatie achter de site"), tenant_card.site_org.label) }}</p>
     {% endif %}
@@ -95,7 +95,7 @@
   {% call ui.section(card.label, id="tn-section-site", attrs='data-card="site"') %}
     {% if edit %}
     {{ ui.field("site_name", _("Naam van de site"), value=site_name.value, placeholder=site_name.default, id="site_name",
-                help=_("Staat in de kop, de titel van het tabblad, de voettekst en de mails. Leeg = de naam van de organisatie achter de site.")) }}
+                help=_("De naam waaronder de site zich voorstelt. Leeg = de naam van de organisatie achter de site.")) }}
     {% else %}
     <p data-span="half" data-setting="site_name" class="min-w-0">{{ ui.label_fact(_("Naam van de site"), site_name.value or site_name.default or "—") }}</p>
     {% endif %}
