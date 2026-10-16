@@ -328,20 +328,24 @@ def _gmail_config() -> tuple:
         return (settings.gmail_user, settings.gmail_app_password, settings.gmail_from)
 
 
+def is_allowed_recipient(address: str) -> bool:
+    """Whether a mail may go to this address (#2034): always, unless
+    ``MAIL_ALLOWED_RECIPIENTS`` is set; then only to an address on that list."""
+    allowed = {
+        a.strip().lower() for a in (settings.mail_allowed_recipients or "").split(",") if a.strip()
+    }
+    return not allowed or address.strip().lower() in allowed
+
+
 def _hold_back(addresses: list[str], subject: str, body_html: str, email_type: str) -> list[str]:
     """The addresses a mail may go to (#2034). A test environment sets
     ``MAIL_ALLOWED_RECIPIENTS`` (comma-separated, case-insensitive) and mails only
     those; every other address is written to the mail log as *logged* with the
     reason, exactly as ``log_only`` logs, so a sign-in link stays readable there.
     Unset or empty: every address is allowed. Each address is checked on its own."""
-    allowed = {
-        a.strip().lower() for a in (settings.mail_allowed_recipients or "").split(",") if a.strip()
-    }
-    if not allowed:
-        return list(addresses)
     keep = []
     for address in addresses:
-        if address.strip().lower() in allowed:
+        if is_allowed_recipient(address):
             keep.append(address)
         else:
             _log_email(
@@ -363,9 +367,12 @@ def _send(
             "demo-tenant: alleen gelogd, niet verstuurd",
         )
         return
-    recipients = _hold_back([to_email] + ([cc] if cc else []), subject, body_html, email_type)
-    if not recipients:
+    # One rule: a mail whose To is not on the list leaves for nobody, its Cc included.
+    # A Cc that is not on the list is dropped from a mail that does go to the To.
+    if not _hold_back([to_email], subject, body_html, email_type):
         return
+    if cc and not _hold_back([cc], subject, body_html, email_type):
+        cc = None
     gmail_user, gmail_password, gmail_from = _gmail_config()
     if not gmail_user or not gmail_password:
         logger.warning(
@@ -392,7 +399,7 @@ def _send(
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as server:
             server.login(gmail_user, gmail_password)
-            server.sendmail(gmail_user, recipients, msg.as_string())
+            server.sendmail(gmail_user, [to_email] + ([cc] if cc else []), msg.as_string())
     except Exception as exc:
         logger.error("E-mail versturen mislukt naar %s: %s", to_email, exc)
         log_id = _log_email(to_email, subject, body_html, email_type, MailStatus.FAILED, str(exc))
