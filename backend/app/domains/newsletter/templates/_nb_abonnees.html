@@ -15,8 +15,8 @@
   {% for s in subscribers %}
     <tr data-row class="align-middle" data-subscriber-row>
       <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2 text-ink break-words">{{ s.email }}</td>
-      <td data-cell="extra" data-p="2" class="border-b border-line px-3 py-2">{{ s.first_name or "" }}</td>
-      <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-ink-soft">{{ source_labels[s.id] }}</td>
+      <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2">{{ s.first_name or "" }}</td>
+      <td data-cell="extra" data-p="2" class="border-b border-line px-3 py-2 text-ink-soft">{{ source_labels[s.id] }}</td>
       <td data-cell="status" class="border-b border-line px-3 py-2">{{ ui.badge(s.status | code_label("subscriber_status"),
                                         s.status | tone("subscriber_status")) }}</td>
       <td data-cell="moment" class="border-b border-line px-3 py-2 text-ink-soft whitespace-nowrap">{{ moments[s.id] }}</td>
