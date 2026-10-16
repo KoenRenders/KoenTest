@@ -286,14 +286,17 @@ def test_a_members_mail_link_signs_in_and_lands_on_his_order(client, db_session,
     assert "/login/verify?token=" in link, "the member's link is the sign-in link"
     assert f"terug=/mijn/aankopen/{order_id}" in link, "the link lands on the order"
 
-    from app.domains.auth.api import consume_link
+    from html import unescape
+    from urllib.parse import urlparse
 
-    token = link.split("token=")[1].split("&")[0]
-    consumed = consume_link(db_session, token)
-    assert consumed is not None and consumed.email == "an@example.com"
-    db_session.commit()
+    link = unescape(link)
+    path = urlparse(link).path + "?" + urlparse(link).query
+    followed = client.get(path, follow_redirects=False)
+    assert followed.status_code == 302
+    assert followed.headers["Location"] == f"/mijn/aankopen/{order_id}", (
+        "following the link lands on the order"
+    )
 
-    _sign_in(client, db_session, "an@example.com")
     assert client.get(f"/mijn/aankopen/{order_id}").status_code == 200
 
     guest_variant = _orderable_variant(db_session)
