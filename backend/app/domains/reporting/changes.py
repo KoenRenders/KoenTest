@@ -277,6 +277,197 @@ def _row(
     }
 
 
+# ── #1885 gate 3: every logged column a history row carries is shown ─────────
+#
+# Each object kind keeps the summary it had (Koen retypes these lines into the
+# national programme: #82, #230, #1833); what that summary does not show yet is
+# added to an update as "<label>: old → new", from the one declaration of what is
+# logged (`kernel.logged`) and with the word of the attribute register (CR-33).
+# A long text is not written out: "<label> gewijzigd" — its old and new text stay
+# in the history table (Koen, 16 October 2026, "10a").
+
+#: What no row of Wijzigingen shows, with its reason. `tenant_id` for every kind.
+NOT_SHOWN_ANYWHERE = {"tenant_id": "the screen shows one workspace's changes"}
+
+#: Per logged model: the columns its own summary shows (`shown`) and the ones no
+#: row shows (`not_shown`, with the reason). Every other logged column is shown
+#: by `_more`, under its register label. `tests/test_logged_gate.py` (gate 3)
+#: holds every declared model to this table.
+SHOWN: dict[str, dict] = {}
+
+
+def shows(model_name: str, *, shown=(), not_shown=None) -> None:
+    SHOWN[model_name] = {"shown": set(shown), "not_shown": dict(not_shown or {})}
+
+
+def _column_index() -> dict:
+    from app.kernel.attributes import load_all_attributes, registry
+
+    load_all_attributes()
+    return {column: attr for attr in registry().values() for column in attr.columns}
+
+
+def label_of(model, column: str):
+    """The register's entry of a model column, or None."""
+    from sqlalchemy import inspect
+
+    from app.kernel.attributes import column_path
+
+    col = inspect(model).columns[column]
+    return _column_index().get(column_path(col))
+
+
+def _show(model, column: str, value) -> str:
+    """A value as the user reads it: yes/no, a code as its label, else as stored."""
+    if value is None or value == "":
+        return "—"
+    if isinstance(value, bool):
+        return _("ja") if value else _("nee")
+    from sqlalchemy import inspect
+
+    col = inspect(model).columns[column]
+    for key in col.foreign_keys:
+        table = key.column.table.name
+        if table.endswith("_codes"):
+            return code_label(table.removesuffix("_codes"), value)
+    return _fmt(value)
+
+
+def _is_long_text(model, column: str) -> bool:
+    from sqlalchemy import Text, inspect
+
+    return isinstance(inspect(model).columns[column].type, Text)
+
+
+def _model_of(history: type) -> type:
+    from app.kernel.logged import declared
+
+    for entry in declared():
+        if entry.history is history:
+            return entry.model
+    raise LookupError(f"{history.__name__} belongs to no logged model (#1885)")
+
+
+def _more(db: Session, h) -> List[str]:
+    """What an update changed that its kind's own summary does not show."""
+    from app.kernel.logged import declaration_of, history_column, logged_columns
+
+    if h.operation != "update":
+        return []
+    model = _model_of(type(h))
+    entry = declaration_of(model)
+    rules = SHOWN[model.__name__]
+    history = type(h)
+    key = getattr(history, entry.key)
+    prev = (
+        db.query(history)
+        .filter(key == getattr(h, entry.key), history.id < h.id)
+        .order_by(history.id.desc())
+        .first()
+    )
+    if prev is None:
+        return []
+    lines: List[str] = []
+    for name in logged_columns(entry):
+        if name in rules["shown"] or name in rules["not_shown"] or name in NOT_SHOWN_ANYWHERE:
+            continue
+        stored = history_column(entry, name)
+        old, new = getattr(prev, stored), getattr(h, stored)
+        if _fmt(old) == _fmt(new):
+            continue
+        attr = label_of(model, name)
+        label = attr.text if attr is not None else name
+        if _is_long_text(model, name):
+            lines.append(_("%(label)s gewijzigd") % {"label": label})
+        else:
+            lines.append(f"{label}: {_show(model, name, old)} → {_show(model, name, new)}")
+    return lines
+
+
+REF = "a reference by id, set when the row is made"
+_SUBJECT = "the row's subject columns name the person and the household"
+
+shows(
+    "Person",
+    shown={"first_name", "last_name", "date_of_birth", "gender_code"},
+    not_shown={
+        "superseded_by_id": "set and cleared by a merge, which the row's action names "
+        "(person_merged, person_unmerged)"
+    },
+)
+shows("Member", shown={"board_member_id"})
+shows(
+    "MemberPerson",
+    shown={"relation_type"},
+    not_shown={"person_id": _SUBJECT, "member_id": _SUBJECT},
+)
+shows(
+    "Address",
+    shown={"street", "house_number", "bus_number", "postal_code_id"},
+    not_shown={"person_id": _SUBJECT, "organization_id": "the organisation that owns it: " + REF},
+)
+shows(
+    "ContactDetail",
+    shown={"contact_type_code", "value", "is_primary"},
+    not_shown={"person_id": _SUBJECT, "organization_id": "the organisation that owns it: " + REF},
+)
+shows(
+    "ExternalNumber",
+    shown={"source", "external_id"},
+    not_shown={"person_id": _SUBJECT},
+)
+shows(
+    "Membership",
+    shown={"year", "is_active", "valid_from", "valid_to"},
+    not_shown={"member_id": _SUBJECT},
+)
+shows(
+    "Activity",
+    shown={"name"},
+    not_shown={"copied_from_id": "the activity a copy was made from: " + REF},
+)
+shows("ActivityDate", shown={"start_date", "end_date", "activity_id"})
+_FIXED = "fixed since v2.0: every component is INDIVIDUAL and free, its products carry the price"
+shows(
+    "ActivitySubRegistration",
+    shown={"name", "activity_id"},
+    not_shown={
+        "registration_type_code": _FIXED,
+        "is_free": _FIXED,
+        "member_price": _FIXED,
+        "form_id": "the form of its questions: " + REF.replace(", set when the row is made", ""),
+    },
+)
+shows(
+    "ActivityProduct",
+    shown={"name", "price", "component_id"},
+)
+shows(
+    "Registration",
+    shown={"contact_name", "contact_email", "phone", "remarks"},
+    not_shown={
+        "activity_id": _SUBJECT,
+        "person_id": _SUBJECT,
+        "component_id": "the component it is for: " + REF,
+        "form_submission_id": "the record of its answers; the row's answers show them in words",
+    },
+)
+shows("RegistrationItem", shown={"product_id", "quantity", "registration_id"})
+shows(
+    "PaymentRecord",
+    shown={"type", "amount", "method", "status", "payable_type", "payable_id"},
+    not_shown={
+        "refund_of_id": "the payment a refund pays back: " + REF,
+        "gateway_payment_id": "the provider's payment: " + REF,
+    },
+)
+
+
+def _with_more(summary: str, db: Session, h) -> str:
+    more = _more(db, h)
+    return "; ".join([summary, *more]) if more else summary
+
+
 def member_changes_since(db: Session, since: date) -> List[dict]:
     """Alle ledendata-wijzigingen met recorded_at >= since, nieuw → oud."""
     since_dt = datetime.combine(since, time.min, tzinfo=timezone.utc)
@@ -339,7 +530,7 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
                 h,
                 entity="Persoon",
                 entity_id=h.person_id,
-                summary=summary,
+                summary=_with_more(summary, db, h),
                 subject=subj.fields(person_id=h.person_id),
             )
         )
@@ -358,7 +549,7 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
                 h,
                 entity="Gezin",
                 entity_id=h.member_id,
-                summary=summary,
+                summary=_with_more(summary, db, h),
                 subject=subj.fields(member_id=h.member_id),
             )
         )
@@ -384,7 +575,7 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
                 h,
                 entity="Gezinslid",
                 entity_id=h.member_person_id,
-                summary=summary,
+                summary=_with_more(summary, db, h),
                 subject=subj.fields(person_id=h.person_id, member_id=h.member_id),
             )
         )
@@ -413,7 +604,7 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
                 h,
                 entity="Adres",
                 entity_id=h.address_id,
-                summary=summary,
+                summary=_with_more(summary, db, h),
                 subject=subj.fields(person_id=h.person_id),
             )
         )
@@ -480,7 +671,7 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
                 h,
                 entity="Contact",
                 entity_id=h.contact_detail_id,
-                summary=f"{shown.text()}{markering}",
+                summary=_with_more(f"{shown.text()}{markering}", db, h),
                 subject=subj.fields(person_id=h.person_id),
             )
         )
@@ -491,7 +682,12 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
                 h,
                 entity="Lidmaatschap",
                 entity_id=h.membership_id,
-                summary=f"jaar {_fmt(h.year)}, actief={_fmt(h.is_active)}, {_fmt(h.valid_from)}–{_fmt(h.valid_to)}",
+                summary=_with_more(
+                    f"jaar {_fmt(h.year)}, actief={_fmt(h.is_active)}, "
+                    f"{_fmt(h.valid_from)}–{_fmt(h.valid_to)}",
+                    db,
+                    h,
+                ),
                 subject=subj.fields(member_id=h.member_id),
             )
         )
@@ -525,7 +721,7 @@ def all_changes_since(
                 h,
                 entity="Activiteit",
                 entity_id=h.activity_id,
-                summary=_fmt(h.name) or f"activiteit #{_fmt(h.activity_id)}",
+                summary=_with_more(_fmt(h.name) or f"activiteit #{_fmt(h.activity_id)}", db, h),
                 group="Activiteiten",
             )
         )
@@ -535,7 +731,11 @@ def all_changes_since(
                 h,
                 entity="Datum",
                 entity_id=h.activity_date_id,
-                summary=f"{_fmt(h.start_date)}–{_fmt(h.end_date)} (activiteit #{_fmt(h.activity_id)})",
+                summary=_with_more(
+                    f"{_fmt(h.start_date)}–{_fmt(h.end_date)} (activiteit #{_fmt(h.activity_id)})",
+                    db,
+                    h,
+                ),
                 group="Activiteiten",
             )
         )
@@ -545,7 +745,7 @@ def all_changes_since(
                 h,
                 entity="Onderdeel",
                 entity_id=h.component_id,
-                summary=f"{_fmt(h.name)} (activiteit #{_fmt(h.activity_id)})",
+                summary=_with_more(f"{_fmt(h.name)} (activiteit #{_fmt(h.activity_id)})", db, h),
                 group="Activiteiten",
             )
         )
@@ -555,7 +755,9 @@ def all_changes_since(
                 h,
                 entity="Product",
                 entity_id=h.product_id,
-                summary=f"{_fmt(h.name)} €{_fmt(h.price)} (onderdeel #{_fmt(h.component_id)})",
+                summary=_with_more(
+                    f"{_fmt(h.name)} €{_fmt(h.price)} (onderdeel #{_fmt(h.component_id)})", db, h
+                ),
                 group="Activiteiten",
             )
         )
@@ -590,7 +792,7 @@ def all_changes_since(
                 h,
                 entity="Inschrijving",
                 entity_id=h.registration_id,
-                summary=summary,
+                summary=_with_more(summary, db, h),
                 group="Inschrijvingen",
                 subject=subj.from_registration(h.registration_id),
             )
@@ -603,7 +805,12 @@ def all_changes_since(
                 h,
                 entity="Bestelregel",
                 entity_id=h.registration_item_id,
-                summary=f"product #{_fmt(h.product_id)} ×{_fmt(h.quantity)} (inschrijving #{_fmt(h.registration_id)})",
+                summary=_with_more(
+                    f"product #{_fmt(h.product_id)} ×{_fmt(h.quantity)} "
+                    f"(inschrijving #{_fmt(h.registration_id)})",
+                    db,
+                    h,
+                ),
                 group="Inschrijvingen",
                 subject=subj.from_registration(h.registration_id),
             )
@@ -614,7 +821,12 @@ def all_changes_since(
                 h,
                 entity="Betaling",
                 entity_id=None,
-                summary=f"{_fmt(h.type)} €{_fmt(h.amount)} {_fmt(h.method)}/{_fmt(h.status)} ({_fmt(h.payable_type)} #{_fmt(h.payable_id)})",
+                summary=_with_more(
+                    f"{_fmt(h.type)} €{_fmt(h.amount)} {_fmt(h.method)}/{_fmt(h.status)} "
+                    f"({_fmt(h.payable_type)} #{_fmt(h.payable_id)})",
+                    db,
+                    h,
+                ),
                 group="Betalingen",
                 subject=subj.from_payment(h.payable_type, h.payable_id),
             )

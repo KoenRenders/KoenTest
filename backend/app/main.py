@@ -143,6 +143,7 @@ from app.domains.payment.api import PayableType, register_describer  # noqa: E40
 register_describer(PayableType.REGISTRATION, registration_describer())
 register_describer(PayableType.MEMBERSHIP, membership_describer())
 
+
 app = FastAPI(
     lifespan=_lifespan,
     title="Raak Millegem API",

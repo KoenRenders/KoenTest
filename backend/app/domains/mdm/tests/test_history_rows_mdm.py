@@ -5,8 +5,9 @@ The snapshot functions of mdm move from `audit/service.py` to their owner
 owner). The move changes no row: each function is given one fixed source and
 every column of the row it writes is compared with what the code wrote before
 the move. `EXPECTED` was recorded on the old code (9 October 2026, the functions
-still in `audit/service.py`) and has not been touched since: the move changed the import
-above and nothing below it.
+still in `audit/service.py`) and touched once since: #1885 (16 October 2026)
+gave the history tables every column of their model, so the rows gained those
+columns; every column of before kept the value it was recorded with.
 
 Proven red (9 October 2026): `value=contact.value` taken out of `snapshot_contact_detail` → its row differs.
 """
@@ -47,6 +48,7 @@ EXPECTED: list[tuple[str, dict]] = [
             "first_name": "An",
             "date_of_birth": "1980-02-29",
             "gender_code": "F",
+            "superseded_by_id": None,
             "operation": "update",
             "action": "recorded_0",
             "source": "recording",
@@ -86,6 +88,7 @@ EXPECTED: list[tuple[str, dict]] = [
             "house_number": "12",
             "bus_number": "B",
             "postal_code_id": 883005,
+            "organization_id": None,
             "operation": "update",
             "action": "recorded_3",
             "source": "recording",
@@ -100,6 +103,7 @@ EXPECTED: list[tuple[str, dict]] = [
             "contact_type_code": "EMAIL",
             "value": "an@example.org",
             "is_primary": True,
+            "organization_id": None,
             "operation": "update",
             "action": "recorded_4",
             "source": "recording",
@@ -118,18 +122,25 @@ def test_every_snapshot_of_mdm_writes_the_row_it_wrote(db_session):
                 PersonHistory,
                 SimpleNamespace(
                     id=883_001,
+                    superseded_by_id=None,
+                    tenant_id=1,
                     last_name="Voorbeeld",
                     first_name="An",
                     date_of_birth=date(1980, 2, 29),
                     gender_code="F",
                 ),
             ),
-            (snapshot_member, MemberHistory, SimpleNamespace(id=883_002, board_member_id=883_009)),
+            (
+                snapshot_member,
+                MemberHistory,
+                SimpleNamespace(id=883_002, tenant_id=1, board_member_id=883_009),
+            ),
             (
                 snapshot_member_person,
                 MemberPersonHistory,
                 SimpleNamespace(
                     id=883_003,
+                    tenant_id=1,
                     member_id=883_002,
                     person_id=883_001,
                     relation_type=RelationType.PRIMARY_MEMBER,
@@ -140,6 +151,8 @@ def test_every_snapshot_of_mdm_writes_the_row_it_wrote(db_session):
                 AddressHistory,
                 SimpleNamespace(
                     id=883_004,
+                    organization_id=None,
+                    tenant_id=1,
                     person_id=883_001,
                     street="Voorbeeldstraat",
                     house_number="12",
@@ -152,6 +165,8 @@ def test_every_snapshot_of_mdm_writes_the_row_it_wrote(db_session):
                 ContactDetailHistory,
                 SimpleNamespace(
                     id=883_006,
+                    organization_id=None,
+                    tenant_id=1,
                     person_id=883_001,
                     contact_type_code=CONTACT.EMAIL,
                     value="an@example.org",

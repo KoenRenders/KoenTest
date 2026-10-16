@@ -19,7 +19,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.activity.slug",
         columns=("activities.activities.slug",),
-        label=None,
+        label="Vriendelijke URL",
         name_en="Slug",
         help="The slug of the activity.",
         ai_exposure=AiExposure.PUBLIC,  # K5
@@ -43,7 +43,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.activity.poster_url",
         columns=("activities.activities.poster_url",),
-        label=None,
+        label="Poster-URL",
         name_en="Poster url",
         help="The poster url of the activity.",
         ai_exposure=AiExposure.INTERNAL,  # K9
@@ -205,7 +205,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.activity_product.member_price",
         columns=("activities.activity_products.member_price",),
-        label=None,
+        label="Ledenprijs",
         name_en="Member price",
         help="The member price of the activity product.",
         ai_exposure=AiExposure.PUBLIC,  # K5
@@ -213,7 +213,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.activity_product.is_free",
         columns=("activities.activity_products.is_free",),
-        label=None,
+        label="Gratis",
         name_en="Is free",
         help="The is free of the activity product.",
         ai_exposure=AiExposure.PUBLIC,  # K5
@@ -221,7 +221,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.activity_product.pay_on_site",
         columns=("activities.activity_products.pay_on_site",),
-        label=None,
+        label="Ter plaatse",
         name_en="Pay on site",
         help="The pay on site of the activity product.",
         ai_exposure=AiExposure.INTERNAL,  # K8
@@ -229,7 +229,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.activity_product.is_active",
         columns=("activities.activity_products.is_active",),
-        label=None,
+        label="Publiek zichtbaar",
         name_en="Is active",
         help="The is active of the activity product.",
         ai_exposure=AiExposure.INTERNAL,  # K8
@@ -237,7 +237,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.activity_product.max_participants",
         columns=("activities.activity_products.max_participants",),
-        label=None,
+        label="Maximum",
         name_en="Max participants",
         help="The max participants of the activity product.",
         ai_exposure=AiExposure.PUBLIC,  # K5
@@ -269,7 +269,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.activity_sub_registration.external_register_url",
         columns=("activities.activity_sub_registrations.external_register_url",),
-        label=None,
+        label="Externe inschrijf-URL",
         name_en="External register url",
         help="The external register url of the activity sub registration.",
         ai_exposure=AiExposure.INTERNAL,  # K9
@@ -277,7 +277,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.activity_sub_registration.external_registrations_url",
         columns=("activities.activity_sub_registrations.external_registrations_url",),
-        label=None,
+        label="Externe inschrijvingen-URL",
         name_en="External registrations url",
         help="The external registrations url of the activity sub registration.",
         ai_exposure=AiExposure.INTERNAL,  # K9
@@ -285,7 +285,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.activity_sub_registration.info_url",
         columns=("activities.activity_sub_registrations.info_url",),
-        label=None,
+        label="Externe info-URL",
         name_en="Info url",
         help="The info url of the activity sub registration.",
         ai_exposure=AiExposure.INTERNAL,  # K9
@@ -301,7 +301,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.activity_sub_registration.max_participants",
         columns=("activities.activity_sub_registrations.max_participants",),
-        label=None,
+        label="Maximum",
         name_en="Max participants",
         help="The max participants of the activity sub registration.",
         ai_exposure=AiExposure.PUBLIC,  # K5
@@ -309,7 +309,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.activity_sub_registration.registration_closes_on",
         columns=("activities.activity_sub_registrations.registration_closes_on",),
-        label=None,
+        label="Inschrijven tot",
         name_en="Registration closes on",
         help="The registration closes on of the activity sub registration.",
         ai_exposure=AiExposure.INTERNAL,  # K8
@@ -341,7 +341,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.activity_sub_registration.team_name_required",
         columns=("activities.activity_sub_registrations.team_name_required",),
-        label=None,
+        label="Ploegnaam vereist",
         name_en="Team name required",
         help="The team name required of the activity sub registration.",
         ai_exposure=AiExposure.INTERNAL,  # K8
@@ -405,7 +405,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.registration.team_name",
         columns=("activities.registrations.team_name",),
-        label=None,
+        label="Ploegnaam",
         name_en="Team name",
         help="The team name of the registration.",
         ai_exposure=AiExposure.TOKENISED,  # K2

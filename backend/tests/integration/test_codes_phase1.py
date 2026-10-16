@@ -315,8 +315,12 @@ def test_the_migration_counts_the_whole_table_and_not_the_living_rows(db_session
         )
 
 
-def test_the_history_table_has_no_payment_method_to_migrate(db_session):
-    """§B4.6 said "and its history"; there is none. Verified, not assumed."""
+def test_the_history_table_keeps_the_payment_method_as_a_plain_code(db_session):
+    """§B4.6 said "and its history"; in phase 1 there was none — verified, not
+    assumed. #1885 (16 October 2026) gave `registration_history` every logged column
+    of the registration, `payment_method` among them: as the code in plain text,
+    with no foreign key, as a history table stores a code (CR-12 §F4). The
+    registration's own column stays the one key to the code list."""
     columns = {
         r[0]
         for r in db_session.execute(
@@ -326,12 +330,23 @@ def test_the_history_table_has_no_payment_method_to_migrate(db_session):
             )
         ).all()
     }
-    assert "payment_method" not in columns
+    assert "payment_method" in columns
 
-    everywhere = db_session.execute(
-        text("SELECT count(*) FROM information_schema.columns WHERE column_name = 'payment_method'")
-    ).scalar_one()
-    assert everywhere == 1, "payment_method is in more than one place in the schema"
+    keyed = (
+        db_session.execute(
+            text(
+                "SELECT tc.table_schema || '.' || tc.table_name "
+                "FROM information_schema.table_constraints tc "
+                "JOIN information_schema.key_column_usage k "
+                "  ON k.constraint_name = tc.constraint_name AND k.table_schema = tc.table_schema "
+                "WHERE tc.constraint_type = 'FOREIGN KEY' AND k.column_name = 'payment_method'"
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert "activities.registration_history" not in keyed, "a history table keys no code"
+    assert "activities.registrations" in keyed
 
 
 # ── The gateway keeps its own vocabulary (§B4.10) ────────────────────────────

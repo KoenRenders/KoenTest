@@ -515,6 +515,7 @@ def delete_household(db: Session, family_id: int, admin=None) -> None:
     from app.domains.mdm.history import (
         snapshot_address,
         snapshot_contact_detail,
+        snapshot_external_number,
         snapshot_member,
         snapshot_member_person,
         snapshot_person,
@@ -540,6 +541,7 @@ def delete_household(db: Session, family_id: int, admin=None) -> None:
             snapshot_contact_detail(db, contact, actor=admin.email, **stamp)
             soft_delete(contact)
         for number in person.external_numbers:
+            snapshot_external_number(db, number, actor=admin.email, **stamp)
             soft_delete(number)
         if person.address:
             snapshot_address(db, person.address, actor=admin.email, **stamp)

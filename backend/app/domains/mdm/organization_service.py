@@ -99,8 +99,30 @@ def _organisatie(db, organization_id: int):
     )
 
 
+#: #1885: what an organisation's own rows write in their history.
+ORGANIZATION_SAVED = "organization_saved"
+_SOURCE = "admin_manual"
+
+
+def _log(db, rij, operation: str, actor: str | None) -> None:
+    """The history row of an organisation's row, when its model is logged
+    (#1885: its address and contact details are, as a person's are)."""
+    from app.kernel.logged import is_logged, snapshot
+
+    if is_logged(type(rij)):
+        snapshot(
+            db, rij, operation=operation, action=ORGANIZATION_SAVED, source=_SOURCE, actor=actor
+        )
+
+
 def _zet_lijstrij(
-    db, model, filters: dict, kolom: str, waarde: str | None, standaard: dict | None = None
+    db,
+    model,
+    filters: dict,
+    kolom: str,
+    waarde: str | None,
+    standaard: dict | None = None,
+    actor: str | None = None,
 ) -> None:
     """Eén rij per soort: schrijf, maak aan, of verwijder als de waarde leeg is.
 
@@ -118,16 +140,21 @@ def _zet_lijstrij(
     )
     if not waarde:
         if rij is not None:
+            _log(db, rij, "delete", actor)
             db.delete(rij)
         return
     if rij is None:
         rij = model(**filters, **(standaard or {}), **{kolom: waarde})
         db.add(rij)
-    else:
+        db.flush()
+        _log(db, rij, "insert", actor)
+    elif getattr(rij, kolom) != waarde:
         setattr(rij, kolom, waarde)
+        db.flush()
+        _log(db, rij, "update", actor)
 
 
-def save_organization(db, organization_id: int, form: Mapping) -> None:
+def save_organization(db, organization_id: int, form: Mapping, *, actor: str | None = None) -> None:
     """The whole organisation form in ONE transaction: details and address (#1244).
 
     The screen saves two things with one button, and they were two transactions:
@@ -142,8 +169,8 @@ def save_organization(db, organization_id: int, form: Mapping) -> None:
     the request's session closes with the partial writes still open, and closing
     rolls them back.
     """
-    _write_organization_details(db, organization_id, form)
-    update_organization_address(db, organization_id, form)
+    _write_organization_details(db, organization_id, form, actor=actor)
+    update_organization_address(db, organization_id, form, actor=actor)
     db.commit()
 
 
@@ -158,13 +185,17 @@ def _email_address(text: str) -> None:
         raise OngeldigeInstelling({"email": str(refused)}) from None
 
 
-def update_organization_details(db, organization_id: int, form: Mapping) -> None:
+def update_organization_details(
+    db, organization_id: int, form: Mapping, *, actor: str | None = None
+) -> None:
     """The details on their own, committed. The screen uses `save_organization`."""
-    _write_organization_details(db, organization_id, form)
+    _write_organization_details(db, organization_id, form, actor=actor)
     db.commit()
 
 
-def _write_organization_details(db, organization_id: int, form: Mapping) -> None:
+def _write_organization_details(
+    db, organization_id: int, form: Mapping, *, actor: str | None = None
+) -> None:
     """De wereld-kenmerken van de organisatie bewaren (#924, herzien in #945).
 
     Deze velden verdwenen bij de eerste twee omschakelingen uit de
@@ -235,6 +266,7 @@ def _write_organization_details(db, organization_id: int, form: Mapping) -> None
             # module hernoemde een blinde zoek-en-vervang ook deze sleutel; de
             # tests vielen er meteen over, wat precies is waar ze voor zijn.)
             standaard={"tenant_id": organization_id, "person_id": None},
+            actor=actor,
         )
 
     for veld, schema in IDENTIFICATIEVELDEN:
@@ -487,7 +519,9 @@ def organization_address(db, organization_id: int) -> dict[str, str]:
     }
 
 
-def update_organization_address(db, organization_id: int, form: Mapping) -> None:
+def update_organization_address(
+    db, organization_id: int, form: Mapping, *, actor: str | None = None
+) -> None:
     """Het adres bewaren: aanmaken, wijzigen, of weghalen als alles leeg is.
 
     **De postcode komt uit de postcodetabel**, zoals overal in v2.0: een vrij
@@ -515,6 +549,7 @@ def update_organization_address(db, organization_id: int, form: Mapping) -> None
 
     if not straat and not nummer:
         if rij is not None:
+            _log(db, rij, "delete", actor)
             db.delete(rij)
             db.flush()
         return
@@ -538,6 +573,7 @@ def update_organization_address(db, organization_id: int, form: Mapping) -> None
         # precies wat een volgende bewerking stukmaakt.
         raise OngeldigeInstelling(fouten)
 
+    operation = "insert" if rij is None else "update"
     if rij is None:
         rij = Address(
             organization_id=organization_id,
@@ -552,3 +588,4 @@ def update_organization_address(db, organization_id: int, form: Mapping) -> None
     rij.bus_number = bus or None
     rij.postal_code_id = pc.id
     db.flush()
+    _log(db, rij, operation, actor)

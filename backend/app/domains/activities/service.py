@@ -34,7 +34,6 @@ from app.domains.activities.models import (
     ActivityStatus,
     ActivitySubRegistration,
     Registration,
-    RegistrationHistory,
     RegistrationState,
 )
 from app.domains.mdm.api import CONTACT
@@ -1799,6 +1798,17 @@ def register(
                 actor=actor,
             )
         take_answers(db, registration, component, data.answers)
+        # #1885: one history row for the new registration — not one per line, the
+        # lines write their own — after its answers, so the row carries them.
+        record_registration_history(
+            db,
+            registration,
+            operation="insert",
+            action="registration_created",
+            source="registration",
+            actor=actor,
+            answers=_answer_words(db, registration),
+        )
     except Exception:
         savepoint.rollback()
         raise
@@ -1993,6 +2003,15 @@ def answer_questions(db: Session, token: str, answers: list) -> Registration:
     try:
         registration.answer_token = None
         take_answers(db, registration, registration.component, answers)
+        # #1885: the answers given through the link are a change of the registration.
+        record_registration_history(
+            db,
+            registration,
+            operation="update",
+            action="answers_given",
+            source="answer_link",
+            answers=_answer_words(db, registration),
+        )
     except Exception:
         savepoint.rollback()
         raise
@@ -2134,6 +2153,19 @@ def require_phone(phone: Optional[str]) -> None:
         raise ActiviteitFout(vertaal("Vul een mobiel nummer in."))
 
 
+def _answer_words(db: Session, registration: Registration) -> Optional[str]:
+    """The registration's answers as "label: value" lines, as the history row
+    carries them (CR-14 §B4.7), or None when it has none (#1885)."""
+    if registration.form_submission_id is None:
+        return None
+    from app.domains.forms.api import submission_views
+
+    views = submission_views(db, [registration.form_submission_id]).get(
+        registration.form_submission_id, []
+    )
+    return "\n".join(f"{label}: {value or '—'}" for label, value in views) or None
+
+
 def record_registration_history(
     db: Session,
     registration: Registration,
@@ -2153,20 +2185,20 @@ def record_registration_history(
     listed (§B4.9, "the audit snapshots move with their writers"). The same row, the
     same columns — `test_registration_history_row` was green before the move.
     `answers`: the registration's answers as label: value lines, where an action
-    concerns them (CR-14 §B4.7)."""
-    db.add(
-        RegistrationHistory(
-            registration_id=registration.id,
-            contact_name=registration.contact_name,
-            contact_email=registration.contact_email,
-            phone=registration.phone,
-            remarks=registration.remarks,
-            answers=answers,
-            operation=operation,
-            action=action,
-            source=source,
-            actor=actor,
-        )
+    concerns them (CR-14 §B4.7).
+
+    #1885: written by the one snapshot, every logged column of the registration
+    (`activities.history` declares which)."""
+    from app.kernel.logged import snapshot
+
+    snapshot(
+        db,
+        registration,
+        operation=operation,
+        action=action,
+        source=source,
+        actor=actor,
+        answers=answers,
     )
 
 
@@ -2270,6 +2302,15 @@ def delete_registration(
     # the registration goes and everything commits — once. A failing reconciliation
     # rolls the lines back instead of leaving them deleted with a wrong balance.
     _order_changed(db, reg, actor)
+    # #1885: the registration's own row, while it can still be read.
+    record_registration_history(
+        db,
+        reg,
+        operation="delete",
+        action="registration_deleted",
+        source="admin_manual",
+        actor=actor,
+    )
     soft_delete(reg)
     db.commit()
     return True
