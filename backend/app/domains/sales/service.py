@@ -161,6 +161,8 @@ def place_order(
     Returns the `SalesOrder` (its lines carry the prices); the total is the sum of
     the line amounts, `total_of`.
     """
+    import secrets
+
     from sqlalchemy.exc import IntegrityError
 
     from app.domains.sales.models import SalesOrder, SalesOrderLine
@@ -187,6 +189,7 @@ def place_order(
             guest_mobile=guest_mobile,
             payment_method=method,
             submission_key=submission_key,
+            secret_key=secrets.token_urlsafe(32),
         )
         db.add(order)
         db.flush()
@@ -430,12 +433,13 @@ def submit_order(
     phone: str,
     method: Any,
     items: list[tuple[int, int]],
-) -> tuple[str | None, int]:
+) -> tuple[str | None, int, str | None]:
     """The whole placing flow (C4.1, C5, #1987): place, start the payment, publish,
     commit. A shown form is accepted once — a second post answers with the first
     order, never a second payment.
 
-    Returns `(checkout_url, order_id)` — `checkout_url` only for an online order.
+    Returns `(checkout_url, order_id, secret_key)` — `checkout_url` only for an
+    online order, `secret_key` the thank-you page's key.
     Raises `SalesError` for a refusal (the door answers 422, the order rolled
     back); raises `HTTPException(502)` when an online payment cannot start (the
     order is rolled back, nothing reserved); raises `form_guard.NotSent` when the
@@ -513,7 +517,7 @@ def submit_order(
                     payable_id=order.id,
                     amount=str(total),
                     method=method.value,
-                    redirect_url=f"{tenant_base_url(db)}/webshop/bedankt?order={order.id}",
+                    redirect_url=f"{tenant_base_url(db)}/webshop/bedankt?key={order.secret_key}",
                     description=f"Bestelling {order.id}",
                     audit_source="webshop-order",
                 ),
@@ -542,7 +546,7 @@ def submit_order(
         db,
     )
     db.commit()
-    return checkout_url, order.id
+    return checkout_url, order.id, order.secret_key
 
 
 def get_order(db: Session, order_id: int):
@@ -560,7 +564,7 @@ def order_for_submission(db: Session, key: str):
     return db.query(SalesOrder).filter(SalesOrder.submission_key == key).first()
 
 
-def order_again(db: Session, order) -> tuple[str | None, int]:
+def order_again(db: Session, order) -> tuple[str | None, int, str | None]:
     """What a second post of a form answers: the first order (D4, #1987). The same
     provider checkout while that payment is still pending — never a second payment —
     else the thank-you page's order."""
@@ -576,8 +580,16 @@ def order_again(db: Session, order) -> tuple[str | None, int]:
         for record in get_records_for(db, PayableType.ORDER, order.id):
             url = checkout_url_for(db, record) if record.status == PaymentStatus.PENDING else None
             if url:
-                return url, order.id
-    return None, order.id
+                return url, order.id, order.secret_key
+    return None, order.id, order.secret_key
+
+
+def order_by_secret_key(db: Session, secret_key: str):
+    """The order whose thank-you link carries this key, or None (Koen, 16 October
+    2026): the page opens only for the order whose key it is."""
+    from app.domains.sales.models import SalesOrder
+
+    return db.query(SalesOrder).filter(SalesOrder.secret_key == secret_key).first()
 
 
 def orders_of_person(db: Session, person_id: int):

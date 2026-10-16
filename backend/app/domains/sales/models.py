@@ -81,6 +81,8 @@ class SalesOrder(TenantMixin, SoftDeleteMixin, Base):
             unique=True,
             postgresql_where=text("submission_key IS NOT NULL AND deleted_at IS NULL"),
         ),
+        # The secret of the thank-you page: unique, so a link names exactly one order.
+        Index("uq_sales_orders_secret_key", "secret_key", unique=True),
         {"schema": "sales"},
     )
 
@@ -96,6 +98,10 @@ class SalesOrder(TenantMixin, SoftDeleteMixin, Base):
     # #1987: the key a shown order form is accepted once by — the token's signed
     # time and random part (`form_guard.submission_key`). Nothing else reads it.
     submission_key = Column(String(64), nullable=True)
+    # The secret of the thank-you page's link (Koen, 16 October 2026): random and
+    # unique, never shown in the back office or logged. An order placed before the
+    # migration has none and has no thank-you page by link.
+    secret_key = Column(String(64), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
     updated_at = Column(
         DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False

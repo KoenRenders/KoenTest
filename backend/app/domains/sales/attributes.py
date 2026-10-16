@@ -65,6 +65,14 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.NONE,  # K1, as the answer token: a technical key
     ),
     Attribute(
+        key="sales.sales_order.secret_key",
+        columns=("sales.sales_orders.secret_key",),
+        label=None,
+        name_en="Secret key",
+        help="The secret of the thank-you page's link: random and unique, never shown in the back office.",
+        ai_exposure=AiExposure.NONE,  # K1: a technical key, never logged
+    ),
+    Attribute(
         key="sales.sales_order_line.variant_id",
         columns=("sales.sales_order_lines.variant_id",),
         label=None,

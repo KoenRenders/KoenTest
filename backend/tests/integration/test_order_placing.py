@@ -116,7 +116,7 @@ def test_posting_places_one_order_and_starts_a_transfer(client, db_session, ever
     )
 
     assert response.status_code == 200
-    assert "/webshop/bedankt?order=" in response.headers["HX-Redirect"]
+    assert "/webshop/bedankt?key=" in response.headers["HX-Redirect"]
     order = db_session.query(SalesOrder).first()
     assert order is not None
     assert len(order.lines) == 1
@@ -397,19 +397,18 @@ def test_the_thank_you_page_answers_its_own_path(client, db_session, every_modul
     m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
     placed = _post(client, m.id)
     redirect = placed.headers["HX-Redirect"]
-    assert "/webshop/bedankt?order=" in redirect
+    assert "/webshop/bedankt?key=" in redirect
 
     page = client.get(redirect)
     assert page.status_code == 200
     assert "Bedankt" in page.text
 
 
-def test_the_thank_you_page_without_an_order_goes_to_the_shop(client, every_module_on):
-    """A bare `/webshop/bedankt` (no order) sends the visitor to the shop, not
-    FastAPI's raw JSON 422."""
+def test_the_thank_you_page_without_a_key_is_a_404(client, every_module_on):
+    """Koen, 16 October 2026: the page opens only on the order's secret key — a
+    bare `/webshop/bedankt` (no key) is a 404, not an id's page."""
     response = client.get("/webshop/bedankt", follow_redirects=False)
-    assert response.status_code == 303
-    assert response.headers["location"] == "/webshop"
+    assert response.status_code == 404
 
 
 def test_a_quantity_below_one_is_refused_on_the_basket_page(client, db_session, every_module_on):
@@ -956,7 +955,7 @@ def test_cancelling_a_paid_order_leaves_the_full_refund_due(db_session, every_mo
     from app.domains.sales.api import cancel_order, submit_order
 
     m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
-    _checkout, order_id = submit_order(
+    _checkout, order_id, _key = submit_order(
         db_session,
         proof=TRUSTED,
         values=form_guard_fields(),
@@ -998,7 +997,7 @@ def test_the_verkoop_list_segments_and_counter_follow_the_filter(
 
     m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
 
-    _checkout, unpaid_id = submit_order(
+    _checkout, unpaid_id, _key = submit_order(
         db_session,
         proof=TRUSTED,
         values=form_guard_fields(),
@@ -1010,7 +1009,7 @@ def test_the_verkoop_list_segments_and_counter_follow_the_filter(
         method=PaymentMethod.TRANSFER,
         items=[(m.id, 1)],
     )
-    _checkout, paid_id = submit_order(
+    _checkout, paid_id, _key = submit_order(
         db_session,
         proof=TRUSTED,
         values=form_guard_fields(),
@@ -1472,7 +1471,7 @@ def test_two_posts_at_once_make_one_order(client, db_session, every_module_on):
     def _post() -> None:
         db = SessionLocal()
         try:
-            _checkout, order_id = submit_order(
+            _checkout, order_id, _key = submit_order(
                 db,
                 proof=proof,
                 values=form,
@@ -1583,7 +1582,7 @@ def test_two_online_posts_at_once_start_one_payment(monkeypatch):
     def _post() -> None:
         db = SessionLocal()
         try:
-            checkout_url, order_id = submit_order(
+            checkout_url, order_id, _key = submit_order(
                 db,
                 proof=proof,
                 values=form,

@@ -10,14 +10,13 @@ basket and the order all ask the same rule. `/webshop/bestellen` places the orde
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.sales.api import (
     article_offer,
     basket_lines,
-    get_order,
     offered_products,
     orders_of_person,
     owned_order,
@@ -84,15 +83,17 @@ def webshop(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/webshop/bedankt", response_class=HTMLResponse)
-def bedankt(request: Request, order: int | None = None, db: Session = Depends(get_db)):
+def bedankt(request: Request, key: str | None = None, db: Session = Depends(get_db)):
     """The shop's thank-you page (Q60, Q78): after an online payment the provider
     returns here and the page reads the ledger; after a transfer the placing
-    redirects here. Registered before `/webshop/{product_id}` so the fixed path
-    wins over the parameter; without an `order` it sends the visitor to the shop
-    instead of FastAPI's raw JSON 422."""
-    if order is None:
-        return RedirectResponse("/webshop", status_code=303)
-    found = get_order(db, order)
+    redirects here. The link carries the order's secret key (Koen, 16 October
+    2026) — the page opens only for the order whose key it is, so an id reveals
+    nothing. Registered before `/webshop/{product_id}` so the fixed path wins."""
+    from app.domains.sales.api import order_by_secret_key
+
+    if not key:
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
+    found = order_by_secret_key(db, key)
     if found is None:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
     vm = BedanktView(
@@ -220,7 +221,7 @@ async def order_submit(request: Request, db: Session = Depends(get_db)) -> Respo
     person_id, member = _buyer(request, db)
 
     try:
-        checkout_url, order_id = submit_order(
+        checkout_url, order_id, secret_key = submit_order(
             db,
             proof=proof,
             values=form,
@@ -240,7 +241,7 @@ async def order_submit(request: Request, db: Session = Depends(get_db)) -> Respo
         return refusal_response(request, [FieldError("", str(exc))], "#bestel-melding", send=True)
 
     response = HTMLResponse("")
-    response.headers["HX-Redirect"] = checkout_url or f"/webshop/bedankt?order={order_id}"
+    response.headers["HX-Redirect"] = checkout_url or f"/webshop/bedankt?key={secret_key}"
     return response
 
 

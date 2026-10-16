@@ -306,7 +306,7 @@ async def add_order_submit(
             send=True,
         )
     try:
-        _checkout, order_id = submit_order(
+        _checkout, order_id, _secret = submit_order(
             db,
             proof=form_guard.TRUSTED,
             values=form,

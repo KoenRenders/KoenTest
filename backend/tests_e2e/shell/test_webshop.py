@@ -1078,8 +1078,9 @@ def test_het_mandje_toont_het_totaal_en_behoudt_het_contact(webshop_page):
 
 
 def test_online_betalen_landt_op_de_stub(browser):
-    """Koen's fault 7: an online order starts the stand-in provider and lands back
-    on the thank-you page, never a red error block."""
+    """Koen's fault 7, and the secret key (Koen, 16 October 2026): an online order
+    starts the stand-in provider, and paying comes back on the thank-you page by the
+    order's key — never a red error block."""
     page = browser.new_page(base_url=WEBSHOP_HOST)
     page.set_viewport_size({"width": 390, "height": 844})
     try:
@@ -1096,6 +1097,9 @@ def test_online_betalen_landt_op_de_stub(browser):
             page.get_by_role("button", name="Bestellen en betalen").click()
         page.wait_for_url("**/betaling/stub/**")
         assert "betaling" in page.locator("main").inner_text().lower()
+        page.get_by_role("button", name="Betaal").click()
+        page.wait_for_url("**/webshop/bedankt?key=**")
+        assert "Bedankt" in page.locator("main").inner_text()
     finally:
         page.close()
 

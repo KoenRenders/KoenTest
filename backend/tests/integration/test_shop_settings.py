@@ -119,7 +119,7 @@ def test_the_contact_persons_show_on_the_thank_you_page_not_the_webshop(
     )
     db_session.commit()
 
-    bedankt = client.get(f"/webshop/bedankt?order={order.id}")
+    bedankt = client.get(f"/webshop/bedankt?key={order.secret_key}")
     assert "An Contact" in bedankt.text
     assert "an@example.com" in bedankt.text
     assert "0470000000" in bedankt.text
@@ -198,7 +198,7 @@ def test_removing_a_contact_person_takes_it_off_the_pages(client, db_session, ev
     assert removed.status_code == 303
     assert shop_contacts(db_session) == []
 
-    bedankt = client.get(f"/webshop/bedankt?order={order.id}")
+    bedankt = client.get(f"/webshop/bedankt?key={order.secret_key}")
     assert "An Contact" not in bedankt.text
 
     from app.domains.sales.models import ShopContact
@@ -269,7 +269,7 @@ def test_a_members_mail_link_signs_in_and_lands_on_his_order(client, db_session,
     variant = _orderable_variant(db_session)
     db_session.commit()
 
-    _checkout, order_id = submit_order(
+    _checkout, order_id, _key = submit_order(
         db_session,
         proof=TRUSTED,
         values=form_guard_fields(),
@@ -303,7 +303,7 @@ def test_a_members_mail_link_signs_in_and_lands_on_his_order(client, db_session,
     assert client.get(f"/mijn/aankopen/{order_id}").status_code == 200
 
     guest_variant = _orderable_variant(db_session)
-    _checkout, guest_id = submit_order(
+    _checkout, guest_id, _key = submit_order(
         db_session,
         proof=TRUSTED,
         values=form_guard_fields(),
@@ -337,7 +337,7 @@ def test_an_order_on_a_person_without_an_address_queues_no_mail(
     db_session.commit()
 
     before = _mail_count(db_session)
-    _checkout, order_id = submit_order(
+    _checkout, order_id, _key = submit_order(
         db_session,
         proof=TRUSTED,
         values=form_guard_fields(),
@@ -357,3 +357,27 @@ def _mail_count(db_session) -> int:
 
     db_session.expire_all()
     return db_session.query(KernelJob).filter(KernelJob.name == "mail.send").count()
+
+
+def test_the_thank_you_page_opens_only_on_its_orders_key(client, db_session, every_module_on):
+    """Koen, 16 October 2026: the right key opens the page; a wrong key and the
+    order's id are each a 404, so ids reveal nothing."""
+    from app.domains.mdm.api import PaymentMethod
+    from app.domains.sales.api import place_order
+
+    variant = _orderable_variant(db_session)
+    order = place_order(
+        db_session,
+        person_id=None,
+        guest_name="Bo",
+        guest_email="bo@example.com",
+        guest_mobile="0470000001",
+        method=PaymentMethod.TRANSFER,
+        items=[(variant.id, 1)],
+        member=False,
+    )
+    db_session.commit()
+
+    assert client.get(f"/webshop/bedankt?key={order.secret_key}").status_code == 200
+    assert client.get("/webshop/bedankt?key=onbestaande-sleutel").status_code == 404
+    assert client.get(f"/webshop/bedankt?key={order.id}").status_code == 404
