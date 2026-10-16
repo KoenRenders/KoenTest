@@ -186,9 +186,13 @@ class SubscriberListView(ViewModel):
     #: list, so the order is the list's and the option value is the code
     #: (CR-12 phase 3). The badge per row uses the `code_label`/`tone` filters.
     status_options: list[tuple[str, str]]
-    #: Per subscriber id: may this address still be unsubscribed? Derived
-    #: here, because a template does not compare codes (§B4.7).
-    unsubscribable: dict[int, bool]
+    #: The kit table's columns and, per subscriber id, its row controls — the
+    #: status decides here whether "Uitschrijven" stands, because a template
+    #: does not compare codes (§B4.7) —
+    #: "Uitschrijven" visible, "Verwijderen" behind ⋯ (#1925; Koen, 16
+    #: October 2026, "7 ja").
+    columns: list[dict]
+    row_controls: dict[int, dict]
     source_labels: dict[int, str]
     moments: dict[int, str]
     q: str

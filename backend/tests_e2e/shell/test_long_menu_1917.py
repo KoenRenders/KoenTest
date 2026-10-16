@@ -25,7 +25,9 @@ wrap taken off, the long menu squeezed beside the logo and wrapped there; the
 assertion that it stands UNDER the logo is what turns that red.) After the
 review of #2067: the brand given 4 px of padding → the logo is no longer where
 master put it and the short-menu test is red; the account's `max-width` taken
-off and the room cut to 14rem → the forty-character name overlaps the menu;
+off and the room cut to 14rem → the forty-character name overlaps the menu
+(and, after review B1 of #2067, the button's padding grown from `px-3` to `px-6`
+→ the button outgrows the room and that test is red);
 `overflow:hidden` on the header → the section's list on a later row is
 clipped and that test is red. (With the `max-width` in place a smaller room
 only cuts the name shorter: the room and the account's width are one variable.)
@@ -53,7 +55,10 @@ MEASURE = """() => {
   const logo = document.querySelector('[data-site-brand]');
   const links = [...document.querySelectorAll('#site-nav-breed > a, #site-nav-breed [data-menu-section]')]
     .map(box);
-  return {header: box(header), account: box(account), logo: box(logo),
+  // What is painted: the button (or the sign-in link), which may outgrow its
+  // box — the box is capped by the room, so measuring it proves nothing (#2067).
+  const button = document.querySelector('[data-site-account] [data-account-button], [data-site-account] [data-sign-in]');
+  return {header: box(header), account: box(account), button: box(button), logo: box(logo),
           logo_img: logo.querySelector('img, span') ? box(logo.querySelector('img, span')) : null,
           links, rows: [...new Set(links.map(l => l.y))].length,
           scroll: document.documentElement.scrollWidth, window: window.innerWidth};
@@ -171,8 +176,11 @@ def test_a_name_of_forty_characters_keeps_its_room(browser, short):
     the long menu is made (`short` is asked first, the order of this file)."""
     email = "a" * 40 + "@example.com"  # no person: the first name is the address's first part
     m = _measure(browser, 1200, signed_in=True, name="lange-naam", email=email)
-    assert m["account"]["right"] <= 1200 and m["account"]["w"] <= 240, m["account"]
-    assert not [link for link in m["links"] if _overlap(link, m["account"])]
+    # dev2, review B1 of #2067: the account's box is capped by the room, so its
+    # width holds by construction; the BUTTON is what may outgrow it.
+    button = m["button"]
+    assert button["w"] <= 240 and button["x"] >= m["account"]["x"], button
+    assert not [link for link in m["links"] if _overlap(link, button)]
     assert m["scroll"] == 1200
 
 
