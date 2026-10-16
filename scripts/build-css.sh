@@ -1008,6 +1008,7 @@ body[data-shell="site"] #main .prose-hero-title{margin:0;font-size:2.25rem;line-
   #nprogress{transition:none}
   ::view-transition-old(root),::view-transition-new(root){animation:none}
 }
+.proof-b{outline:1px solid blue}
 CSS
 "$BIN" -c "$TMP/tailwind.config.js" -i "$TMP/in.css" \
   -o backend/app/static/app.css --minify
