@@ -350,6 +350,27 @@
       }
      ],
      "type": "paragraph"
+    },
+    {
+     "attrs": {
+      "level": 3
+     },
+     "content": [
+      {
+       "text": "Nieuwsbrief",
+       "type": "text"
+      }
+     ],
+     "type": "heading"
+    },
+    {
+     "content": [
+      {
+       "text": "Bij de nieuwsbrief tellen we hoeveel brieven geopend worden en hoe vaak een link wordt aangeklikt. Dat gebeurt anoniem: we houden niet bij wie een brief las, wie op welke link klikte of wanneer. Een uitgeschreven adres krijgt geen nieuwsbrief meer.",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
     }
    ],
    "type": "doc"
@@ -652,6 +673,27 @@
       },
       {
        "text": " Gebruik dan een browser zonder ingebouwde cloud-spraakherkenning (bijvoorbeeld Mozilla Firefox, Vivaldi of Opera), of typ je vraag gewoon in.",
+       "type": "text"
+      }
+     ],
+     "type": "paragraph"
+    },
+    {
+     "attrs": {
+      "level": 3
+     },
+     "content": [
+      {
+       "text": "Nieuwsbrief",
+       "type": "text"
+      }
+     ],
+     "type": "heading"
+    },
+    {
+     "content": [
+      {
+       "text": "Bij de nieuwsbrief tellen we hoeveel brieven geopend worden en hoe vaak een link wordt aangeklikt. Dat gebeurt anoniem: we houden niet bij wie een brief las, wie op welke link klikte of wanneer. Een uitgeschreven adres krijgt geen nieuwsbrief meer.",
        "type": "text"
       }
      ],
