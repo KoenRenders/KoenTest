@@ -16,8 +16,6 @@ prijzen/tarieven altijd correct kent — ook als geen pagina ze vermeldt.
 
 from __future__ import annotations
 
-from datetime import date
-
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -28,6 +26,7 @@ from app.domains.payment.api import (
     membership_price_for_date,
     membership_valid_period,
 )
+from app.kernel.clock import belgian_today
 
 # Bovengrens op de ingestopte CMS-tekst, zodat de prompt niet ontspoort als er
 # ooit veel pagina's bijkomen. Ruim voldoende voor een verenigingssite.
@@ -104,11 +103,11 @@ def _membership_block() -> str:
     start = _format_md(settings.membership_half_price_start_md)
     end = _format_md(settings.membership_half_price_end_md)
     nxt = _format_md(settings.membership_next_year_from_md)
-    now_price = _format_price(membership_price_for_date(date.today()))
+    now_price = _format_price(membership_price_for_date(belgian_today()))
     # Duur server-side voorgekauwd (#273): de halfprijs-grens bepaalt enkel de
     # PRIJS, niet de geldigheidsduur. Zo kan de bot 16 sep niet als einddatum
     # verzinnen — een lidmaatschap loopt altijd t/m 31 december van het gedekte jaar.
-    _, valid_to = membership_valid_period(date.today())
+    _, valid_to = membership_valid_period(belgian_today())
     valid_to_str = f"{_format_md(f'{valid_to.month:02d}-{valid_to.day:02d}')} {valid_to.year}"
     return (
         "## Lidmaatschap\n"
@@ -208,7 +207,7 @@ def _today_block() -> str:
     uit terugkerende afspraken."""
     return (
         "## Vandaag\n"
-        f"Vandaag is {date.today().isoformat()} (formaat JJJJ-MM-DD). Gebruik deze "
+        f"Vandaag is {belgian_today().isoformat()} (formaat JJJJ-MM-DD). Gebruik deze "
         "datum om te bepalen wat al voorbij is en wat nog komt; presenteer nooit een "
         "datum uit het verleden als 'eerstvolgende'. Bereken zelf geen concrete datums "
         "uit terugkerende regels (zoals 'de eerste donderdag van de maand'): geef dan "

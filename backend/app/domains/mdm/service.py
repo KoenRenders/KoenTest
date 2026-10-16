@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from app.domains.mdm.codes import CONTACT
 from app.domains.mdm.models import Person, PersonHistory, RelationType
 from app.i18n import _
+from app.kernel.clock import belgian_today
 from app.kernel.codes import code_of
 from app.kernel.contracts.mdm import EmailAddressAdded, EntityMerged
 from app.kernel.events import has_subscribers, publish
@@ -485,7 +486,7 @@ def organization_circle(
     from app.domains.mdm.models import OrganizationPerson, Person
 
     if on_day is None:
-        on_day = date.today()
+        on_day = belgian_today()
     rows = (
         db.query(OrganizationPerson, Person)
         .join(Person, Person.id == OrganizationPerson.person_id)
@@ -539,7 +540,7 @@ def add_to_circle(
         person_id=person_id,
         organization_id=organization_id,
         relation_type=relation_type,
-        start_date=on_day or date.today(),
+        start_date=on_day or belgian_today(),
     )
     db.add(relation)
     db.commit()
@@ -588,7 +589,7 @@ def end_circle_relation(db: Session, relation_id: int, on_day: Optional[date] = 
     relation = db.get(OrganizationPerson, relation_id)
     if relation is None:
         return
-    end = on_day or date.today()
+    end = on_day or belgian_today()
     # #1346: a start can lie in the future now. Taking such a person out ends the
     # relation on its start: it never counted, and the end may not precede it.
     if relation.start_date is not None and relation.start_date > end:
