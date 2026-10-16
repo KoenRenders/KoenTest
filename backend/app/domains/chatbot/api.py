@@ -18,6 +18,15 @@ from app.domains.chatbot.costs import (  # noqa: F401
     list_calls,
     month_period,
 )
+from app.domains.chatbot.fields import (  # noqa: F401
+    FIELDS_MARK,
+    NAMED_EXCEPTIONS,
+    OUTSIDE_THE_REGISTER,
+    SURFACE_LEVELS,
+    Field,
+    FieldRefused,
+    use_named_exception,
+)
 from app.domains.chatbot.info_service import (  # noqa: F401
     InfoRefused,
     add_note,
@@ -52,7 +61,7 @@ from app.domains.chatbot.models import (  # noqa: F401
     AiSurface,
     ChatbotInfo,  # noqa: F401
 )
-from app.domains.chatbot.providers import get_provider  # noqa: F401
+from app.domains.chatbot.providers import get_provider, ocr_available  # noqa: F401
 from app.domains.chatbot.seam import (  # noqa: F401
     REDACTION_PLACEHOLDERS,
     GuardedProvider,
@@ -61,6 +70,7 @@ from app.domains.chatbot.seam import (  # noqa: F401
     admin_rules,
     public_rules,
     redact,
+    refusal,
     scrub_names,
 )
 from app.domains.chatbot.service import (  # noqa: F401
@@ -98,14 +108,23 @@ __all__ = [
     "ChatTimeout",
     "QuestionRefused",
     "asked",
+    "FIELDS_MARK",
+    "NAMED_EXCEPTIONS",
+    "OUTSIDE_THE_REGISTER",
+    "SURFACE_LEVELS",
+    "use_named_exception",
+    "Field",
+    "FieldRefused",
     "GuardedProvider",
     "Part",
     "SeamBlocked",
+    "refusal",
     "UnusableAnswer",
     "json_answer",
     "admin_rules",
     "REDACTION_PLACEHOLDERS",
     "get_provider",
+    "ocr_available",
     "public_rules",
     "redact",
     "scrub_names",
