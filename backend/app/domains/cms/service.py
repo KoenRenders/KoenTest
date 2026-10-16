@@ -113,6 +113,33 @@ def verplaats_pagina(db, page_id: int, richting: str) -> bool:
     return verplaatst
 
 
+def _check_slug(db, slug: str) -> None:
+    """A new address for a page: free, and one the application lets the page have
+    (#2061). A first path segment that is a route of the application, or a tenant's
+    code, is taken before the page's `/{slug}` is ever asked — `/activiteiten` is the
+    activities, `/raak` a tenant's home — so the page would be saved and never
+    served. The route words come from the route table (`kernel.route_table`, #1951),
+    the codes from mdm's live list: neither is kept as a list here."""
+    if db.query(CmsPage).filter(CmsPage.slug == slug).first():
+        raise SlugBestaatAl("Dit webadres bestaat al.")
+    from app.kernel.route_table import colliding
+
+    if colliding([slug]):
+        raise SlugBestaatAl(
+            _(
+                "Het webadres /%(slug)s is een adres van de toepassing zelf. Kies een ander webadres."
+            )
+            % {"slug": slug}
+        )
+    from app.domains.mdm.api import tenant_codes
+
+    if slug.lower() in tenant_codes(db):
+        raise SlugBestaatAl(
+            _("Het webadres /%(slug)s is het adres van een afdeling. Kies een ander webadres.")
+            % {"slug": slug}
+        )
+
+
 def get_page_by_id(db, page_id: int) -> Optional[CmsPage]:
     return db.query(CmsPage).filter(CmsPage.id == page_id).first()
 
@@ -128,8 +155,7 @@ def create_page(db, data) -> CmsPage:
         show_in_nav=data.show_in_nav,
         sort_order=data.sort_order,
     )
-    if db.query(CmsPage).filter(CmsPage.slug == data.slug).first():
-        raise SlugBestaatAl("Dit webadres bestaat al.")
+    _check_slug(db, data.slug)
     db.add(page)
     db.flush()
     # CR-17 fase 1 (#1671): a new page starts with a translation row in the
@@ -449,8 +475,7 @@ def _apply_page_fields(db, page: CmsPage, data) -> None:
         # applies the title.
         raise ValueError("De titel is te lang: hooguit 200 tekens.")
     if data.slug and data.slug != page.slug:
-        if db.query(CmsPage).filter(CmsPage.slug == data.slug).first():
-            raise SlugBestaatAl("Dit webadres bestaat al.")
+        _check_slug(db, data.slug)
     # CR-17 phase 6 (#2024): before anything is written, the home flag's move
     # included — a refusal leaves the transaction as it found it.
     is_home = data.is_home if data.is_home is not None else page.is_home
@@ -527,8 +552,7 @@ def save_page_form(db, page_id: int, data, document, *, by: str | None = None) -
     # address leaves the draft as it was, pending nothing (the app's session
     # does not flush on its own; the promise is not left to that).
     if data.slug and data.slug != page.slug:
-        if db.query(CmsPage).filter(CmsPage.slug == data.slug).first():
-            raise SlugBestaatAl("Dit webadres bestaat al.")
+        _check_slug(db, data.slug)
     _check_opening(data)
     if data.title and len(data.title) > 200:
         # `page_translations.title` is String(200); a longer title would
