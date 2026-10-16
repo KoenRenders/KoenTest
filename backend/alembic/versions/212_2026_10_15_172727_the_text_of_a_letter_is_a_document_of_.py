@@ -30,7 +30,9 @@ a letter frozen here has no registration link, picture or album link in its acti
 blocks, and an activity that is no longer published or has no date leaves its block
 out; the mail that went is in the delivery log. What stays outside the plain SQL is
 the page renderer's own read of the membership settings, which only a configuration
-code in the text uses. A CHECK then holds the invariant at the database: a letter
+code in the text uses. The migration imports the app's pure render functions and the `ActivityFacts` constructor
+as they are today: a later change to them breaks the migration's test, not a deploy,
+because a deploy of this revision runs once and the test runs on every change. A CHECK then holds the invariant at the database: a letter
 that is not a draft has its frozen body.
 
 Downgrade restores the text with markers from the documents and drops the column;
