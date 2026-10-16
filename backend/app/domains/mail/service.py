@@ -984,6 +984,7 @@ def order_confirmation_message(
     information; a guest gets no history link, the mail itself says what was ordered."""
     from app.domains.product.api import get_variant, size_of
     from app.domains.sales.api import total_of
+    from app.kernel.geld import bedrag
 
     regels = []
     for line in order.lines:
@@ -996,14 +997,14 @@ def order_confirmation_message(
                 label += f" · {_('maat')} {size}"
         regels.append(
             f"<li>{escape(label or _('Artikel'))} × {line.quantity} "
-            f"({_('€ %(price)s per stuk') % {'price': f'{line.unit_price:.2f}'}})</li>"
+            f"({_('€ %(price)s per stuk') % {'price': bedrag(line.unit_price)}})</li>"
         )
-    total = total_of(order)
+    total = bedrag(total_of(order))
 
     message = (
         f"<p>Je bestelling <strong>{order.id}</strong> is bevestigd.</p>"
         f"<ul>{''.join(regels)}</ul>"
-        f"<p><strong>{_('Totaal')}:</strong> <strong>€{total:.2f}</strong></p>"
+        f"<p><strong>{_('Totaal')}:</strong> <strong>€ {total}</strong></p>"
     )
     message += _transfer_instructions_html(transfer)
 

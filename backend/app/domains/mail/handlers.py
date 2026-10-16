@@ -267,6 +267,9 @@ def queue_order_confirmation(event: SalesOrderPlaced, db: Session) -> None:
                 if not to_email:
                     email = person.primary_contact(CONTACT.EMAIL)
                     to_email = email.value if email else ""
+        if not to_email:
+            logger.error("Bestelling bevestigingsmail heeft geen adres (order %s)", event.order_id)
+            return
         message = order_confirmation_message(
             db,
             to_email=to_email,
@@ -280,7 +283,7 @@ def queue_order_confirmation(event: SalesOrderPlaced, db: Session) -> None:
         )
         queue_mail(db, **message)
     except Exception as e:  # noqa: BLE001 — a mail never stops an order
-        logger.error("Bestelling bevestigingsmail mislukt naar %s: %s", event.payment_record_id, e)
+        logger.error("Bestelling bevestigingsmail mislukt (order %s): %s", event.order_id, e)
 
 
 @subscribe(FamilyRegistered)

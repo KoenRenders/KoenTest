@@ -246,7 +246,8 @@ def test_a_placed_order_queues_its_confirmation_mail(client, db_session, every_m
     assert mail["email_type"] == "order_confirmation"
     assert "Bo" in mail["body_html"]
     assert "T-shirt Raak" in mail["body_html"]
-    assert "30,00" in mail["body_html"]
+    assert "€ 15,00 per stuk" in mail["body_html"], "the order mail writes amounts with a comma"
+    assert "Totaal:</strong> <strong>€ 30,00" in mail["body_html"]
     assert "Betaalinstructies" in mail["body_html"], "the transfer instructions are in the mail"
     assert "An Contact" in mail["body_html"], "the contact persons are in the mail"
     assert "an@example.com" in mail["body_html"]

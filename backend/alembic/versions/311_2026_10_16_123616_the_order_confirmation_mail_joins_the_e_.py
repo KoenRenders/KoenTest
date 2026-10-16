@@ -34,6 +34,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Data: the rows of the new type are dropped; nothing else wrote one yet.
+    # Data: the rows of the new type are dropped. A mail already logged under the
+    # type blocks the delete through `mail.email_log.email_type`'s foreign key, so
+    # the log rows of the type go first — only the code and its labels are lost.
+    op.execute("DELETE FROM mail.email_log WHERE email_type = 'order_confirmation'")
     op.execute("DELETE FROM mail.email_type_labels WHERE code = 'order_confirmation'")
     op.execute("DELETE FROM mail.email_type_codes WHERE code = 'order_confirmation'")
