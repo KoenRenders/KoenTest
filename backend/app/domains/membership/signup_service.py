@@ -3,7 +3,6 @@ admin-CRUD (verhuisd uit app/routers/members.py, #444).
 """
 
 import logging
-from datetime import date
 
 from fastapi import BackgroundTasks, HTTPException
 from sqlalchemy import and_, func
@@ -27,6 +26,7 @@ from app.domains.membership.schemas_member import (
 from app.domains.payment.api import create_payment_record, membership_price_for_date
 from app.i18n import _
 from app.kernel import form_guard
+from app.kernel.clock import belgian_today
 from app.kernel.contracts.membership import FamilyRegistered
 from app.kernel.events import publish
 
@@ -65,7 +65,7 @@ def register_family(
     """
     if form_guard.refused(proof, "lid-worden"):
         return None
-    today = date.today()
+    today = belgian_today()
 
     # Dedup: voorkom een dubbel lidmaatschap (en dus dubbele betaling) voor
     # hetzelfde hoofdlid-e-mailadres in hetzelfde jaar. We blokkeren zodra er al

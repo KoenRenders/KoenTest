@@ -52,6 +52,7 @@ from app.domains.designstudio.models import (
     Preset,
     RenderVariant,
 )
+from app.kernel.clock import belgian_today
 from app.kernel.codes import code_label, code_of
 from app.kernel.contracts.media import RemoveAsset, StoreFile
 from app.kernel.copying import CopyPlan
@@ -708,7 +709,7 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
         if len(dates) > 1
         else ()
     )
-    year = date.fromisoformat(dates[0]["date"]).year if dates else date.today().year
+    year = date.fromisoformat(dates[0]["date"]).year if dates else belgian_today().year
 
     contacts = tuple(Contact(**c) for c in facts["organisers"])
 

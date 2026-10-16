@@ -15,6 +15,8 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING, List, Tuple, TypedDict
 
+from app.kernel.clock import belgian_day
+
 if TYPE_CHECKING:
     from app.domains.activities.models import (
         ActivityProduct,
@@ -109,7 +111,7 @@ def quote_registration_products(
     from app.domains.membership.api import has_valid_membership
 
     registered_at = getattr(registration, "registered_at", None)
-    ref_date = registered_at.date() if registered_at is not None else None
+    ref_date = belgian_day(registered_at) if registered_at is not None else None
     is_member = has_valid_membership(getattr(registration, "person", None), ref_date)
     return quote_lines(component, quantities, is_member)
 
@@ -152,7 +154,7 @@ def quote_registration(
 
     person = getattr(registration, "person", None)
     registered_at = getattr(registration, "registered_at", None)
-    ref_date = registered_at.date() if registered_at is not None else None
+    ref_date = belgian_day(registered_at) if registered_at is not None else None
     is_member = has_valid_membership(person, ref_date)
     regels: List[RegistrationLine] = [
         _line(item.product, quantities.get(item.id, item.quantity), is_member)
@@ -186,7 +188,7 @@ def compute_registration_total(
 
     person = getattr(registration, "person", None)
     registered_at = getattr(registration, "registered_at", None)
-    ref_date = registered_at.date() if registered_at is not None else None
+    ref_date = belgian_day(registered_at) if registered_at is not None else None
     is_member = has_valid_membership(person, ref_date)
     regels: List[RegistrationLine] = [
         _line(item.product, item.quantity, is_member)

@@ -88,6 +88,7 @@ from app.domains.meetings.viewmodels import (
     MeetingSendView,
 )
 from app.i18n import _
+from app.kernel.clock import belgian_today
 from app.kernel.codes import code_of, register_tones
 from app.ui import admin_nav, is_fragment_request, templates
 
@@ -187,7 +188,7 @@ def _new_view(
 
     `typed` (#1860): the date, time and place as they were typed into a form that was
     refused; the form comes back with them and not with the suggestion."""
-    previous = previous_meeting(db, date.today() + timedelta(days=365))
+    previous = previous_meeting(db, belgian_today() + timedelta(days=365))
     suggestion = (
         "",
         (
@@ -344,7 +345,7 @@ def _circle_view(
         candidates=candidates,
         query=query,
         signature=mail_signature(db),
-        today=date.today().isoformat(),
+        today=belgian_today().isoformat(),
         csrf_token=_csrf(request),
         error=error,
         nav_items=admin_nav(NAV, request),

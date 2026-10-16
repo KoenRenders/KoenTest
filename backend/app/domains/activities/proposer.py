@@ -61,6 +61,7 @@ from sqlalchemy.orm import Session
 
 from app.domains.activities.models import Activity
 from app.i18n import _, long_date
+from app.kernel.clock import belgian_today
 
 logger = logging.getLogger(__name__)
 
@@ -801,7 +802,7 @@ def propose(
     if not request:
         raise ProposerError(_("Zeg wat Raakje moet voorstellen."))
     names = person_name_parts(db)
-    today = today or date.today()
+    today = today or belgian_today()
     asked = scrub(request, names)
     activity = standing or standing_of(stored)
     from app.domains.chatbot.api import FIELDS_MARK

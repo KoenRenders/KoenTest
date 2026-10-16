@@ -41,6 +41,7 @@ from app.domains.meetings.models import (
     SectionKind,
 )
 from app.i18n import _
+from app.kernel.clock import belgian_today
 from app.kernel.codes import code_label
 
 
@@ -1151,7 +1152,7 @@ def member_standing(db: Session, today: Optional[date] = None) -> MemberStanding
     )
 
     if today is None:
-        today = date.today()
+        today = belgian_today()
     total = len(members_with_membership_for_year(db, today.year))
     if not renewal_open(today):
         return MemberStanding(
