@@ -59,6 +59,16 @@ def setup():
         update_page(db, made["bestuur"], CmsPageUpdate(menu_label="Bestuur"))
         yield {"tag": tag, **made}
     finally:
+        # The walk leaves no section behind: a second run on the same database
+        # would otherwise show two "Over ons" in every later print.
+        from app.domains.cms.api import CmsPage
+
+        db.rollback()
+        for key in ("bestuur", "werking", "section"):
+            if key in made:
+                db.query(CmsPage).filter(CmsPage.id == made[key]).delete()
+                db.flush()
+        db.commit()
         db.close()
 
 
