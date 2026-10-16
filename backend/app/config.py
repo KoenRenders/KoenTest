@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     # Niet auto-toegevoegd aan de echte .env-bestanden; per host instellen.
     email_log_retention_days: int = 365
 
+    # #2034: a test environment mails only these addresses (comma-separated); the
+    # rest is logged, not sent. Empty or unset = no restriction (PROD leaves it unset).
+    # The addresses are personal data: set on the host, never in the repository.
+    mail_allowed_recipients: Optional[str] = None
+
     mollie_api_key: Optional[str] = None
 
     # #1274: which payment provider new online payments go to. `mollie` in every

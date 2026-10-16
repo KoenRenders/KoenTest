@@ -49,6 +49,20 @@ def retry_mail(db: Session, payload: dict) -> None:
     if not settings.gmail_user or not settings.gmail_app_password:
         return  # zonder credentials heeft opnieuw proberen geen zin
 
+    # The retry opens SMTP too, so it asks what `_send` asks (#2034): a demo tenant sends
+    # nothing, and a test environment mails only its list - also for a row that failed
+    # before the list was set. The row says it was held back and is not tried again.
+    from app.domains.mail import service
+
+    if service._mail_mode() == "log_only":
+        log.status = MailStatus.LOGGED
+        log.error_message = "demo-tenant: alleen gelogd, niet verstuurd"
+        return
+    if not service.is_allowed_recipient(log.recipient):
+        log.status = MailStatus.LOGGED
+        log.error_message = service.NOT_ALLOWED_REASON
+        return
+
     msg = build_message(
         subject=log.subject,
         from_header=f"Raak Millegem <{settings.gmail_from or settings.gmail_user}>",
