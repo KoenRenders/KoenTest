@@ -24,6 +24,7 @@ from app.domains.mail.service import (
     build_message,
     family_welcome_message,
     membership_renewal_message,
+    order_confirmation_message,
     queue_mail,
 )
 from app.i18n import _
@@ -32,6 +33,7 @@ from app.kernel.contracts.auth import CodeMailRequested
 from app.kernel.contracts.forms import SubmissionCreated
 from app.kernel.contracts.mail import MailRequested
 from app.kernel.contracts.membership import FamilyRegistered, MembershipRenewalPlaced
+from app.kernel.contracts.sales import SalesOrderPlaced
 from app.kernel.events import subscribe
 from app.kernel.jobs import job
 
@@ -237,6 +239,48 @@ def _transfer_of(db: Session, payment_record) -> TransferDue | None:
     from app.domains.payment.api import transfer_due
 
     return transfer_due(db, payment_record, _("Betaalinstructies (overschrijving)"))
+
+
+@subscribe(SalesOrderPlaced)
+def queue_order_confirmation(event: SalesOrderPlaced, db: Session) -> None:
+    """The confirmation of a webshop order, built now — in the request, in its
+    language — and queued to leave after the commit (CR-21 phase 2, commit 7). A
+    mail that cannot be built never stops the order."""
+    from app.domains.mdm.api import CONTACT, Person
+    from app.domains.payment.api import PaymentRecord
+    from app.domains.sales.api import SalesOrder, shop_contact_cards
+    from app.kernel.tenant_config import tenant_base_url
+
+    try:
+        order = db.get(SalesOrder, event.order_id)
+        if order is None:
+            return
+        payment_record = (
+            db.get(PaymentRecord, event.payment_record_id) if event.payment_record_id else None
+        )
+        to_email = order.guest_email or ""
+        name = order.guest_name or _("klant")
+        if order.person_id is not None:
+            person = db.get(Person, order.person_id)
+            if person is not None:
+                name = f"{person.first_name} {person.last_name}".strip() or name
+                if not to_email:
+                    email = person.primary_contact(CONTACT.EMAIL)
+                    to_email = email.value if email else ""
+        message = order_confirmation_message(
+            db,
+            to_email=to_email,
+            name=name,
+            order=order,
+            transfer=_transfer_of(db, payment_record),
+            contacts=shop_contact_cards(db),
+            history_url=(
+                f"{tenant_base_url(db)}/mijn/aankopen/{order.id}" if order.person_id else None
+            ),
+        )
+        queue_mail(db, **message)
+    except Exception as e:  # noqa: BLE001 — a mail never stops an order
+        logger.error("Bestelling bevestigingsmail mislukt naar %s: %s", event.payment_record_id, e)
 
 
 @subscribe(FamilyRegistered)

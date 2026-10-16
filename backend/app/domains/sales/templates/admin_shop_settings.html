@@ -3,45 +3,45 @@
 {% block title %}{{ _("Webshop-instellingen") }} · {{ _("Verkoop") }}{% endblock %}
 {% block content %}
 {% call ui.public_form_page(_("Webshop-instellingen"), back_href="/admin/verkoop", back_label=_("Verkoop"), shell="admin") %}
+<div data-form-flow class="form-flow">
+  <form id="intro-form" hx-post="/admin/verkoop/instellingen" hx-target="body" hx-swap="innerHTML">
+    <input type="hidden" name="action" value="save">
+    {% call ui.section(_("Tekst boven de Webshop")) %}
+      {{ ui.field("intro", attribute="sales.shop_settings.intro", kind="textarea", value=intro,
+                  long=True, help=_("Deze tekst staat boven de artikelen op de Webshop.")) }}
+    {% endcall %}
+  </form>
+  {{ ui.action_bar(form="intro-form", cancel_href="/admin/verkoop") }}
 
-<form id="intro-form" hx-post="/admin/verkoop/instellingen" hx-target="body" hx-swap="innerHTML">
-  <input type="hidden" name="action" value="save">
-  {% call ui.section(_("Tekst boven de Webshop")) %}
-    {{ ui.field("intro", attribute="sales.shop_settings.intro", kind="textarea", value=intro,
-                long=True, help=_("Deze tekst staat boven de artikelen op de Webshop.")) }}
+  {% call ui.section(_("Contactpersonen")) %}
+    <div data-span="full" id="instellingen-melding" data-form-message></div>
+    <p data-span="full" class="text-sm text-ink-soft">{{ _("Wie de koper kan contacteren over zijn bestelling.") }}</p>
+    {% if contacts %}
+    <ul data-span="full" class="divide-y divide-line">
+      {% for c in contacts %}
+      <li class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+        <span class="min-w-0 [overflow-wrap:anywhere]">
+          <span class="font-medium">{{ c.name }}</span>
+          {% if c.email %}<span class="text-ink-soft"> · {{ c.email }}</span>{% endif %}
+          {% if c.mobile %}<span class="text-ink-soft"> · {{ c.mobile|phone }}</span>{% endif %}
+        </span>
+        <form hx-post="/admin/verkoop/instellingen" hx-target="body" hx-swap="innerHTML">
+          <input type="hidden" name="action" value="remove_contact">
+          <input type="hidden" name="contact_id" value="{{ c.id }}">
+          {{ ui.btn_secondary(_("Verwijderen"), "submit", size="sm", confirm=confirm_attrs(_("Contactpersoon"), c.name)) }}
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p data-span="full" class="text-sm text-ink-soft">{{ _("Nog geen contactpersonen.") }}</p>
+    {% endif %}
+    <div data-span="full">
+      {{ ui.search(hx_get="/admin/verkoop/instellingen/personen", hx_target="#kandidaten",
+                   value=contact_q, name="contact_q", placeholder=_("Zoek een persoon…")) }}
+    </div>
+    <div data-span="full" id="kandidaten"></div>
   {% endcall %}
-  {{ ui.action_bar(cancel_href="/admin/verkoop") }}
-</form>
-
-{% call ui.section(_("Contactpersonen")) %}
-  <div data-span="full" id="instellingen-melding" data-form-message></div>
-  <p data-span="full" class="text-sm text-ink-soft">{{ _("Wie de koper kan contacteren over zijn bestelling.") }}</p>
-  {% if contacts %}
-  <ul data-span="full" class="divide-y divide-line">
-    {% for c in contacts %}
-    <li class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-      <span class="min-w-0 [overflow-wrap:anywhere]">
-        <span class="font-medium">{{ c.name }}</span>
-        {% if c.email %}<span class="text-ink-soft"> · {{ c.email }}</span>{% endif %}
-        {% if c.mobile %}<span class="text-ink-soft"> · {{ c.mobile|phone }}</span>{% endif %}
-      </span>
-      <form hx-post="/admin/verkoop/instellingen" hx-target="body" hx-swap="innerHTML">
-        <input type="hidden" name="action" value="remove_contact">
-        <input type="hidden" name="contact_id" value="{{ c.id }}">
-        {{ ui.btn_secondary(_("Verwijderen"), "submit", size="sm", confirm=confirm_attrs(_("Contactpersoon"), c.name)) }}
-      </form>
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p data-span="full" class="text-sm text-ink-soft">{{ _("Nog geen contactpersonen.") }}</p>
-  {% endif %}
-  <div data-span="full">
-    {{ ui.search(hx_get="/admin/verkoop/instellingen/personen", hx_target="#kandidaten",
-                 value=contact_q, name="contact_q", placeholder=_("Zoek een persoon…")) }}
-  </div>
-  <div data-span="full" id="kandidaten"></div>
-{% endcall %}
-
+</div>
 {% endcall %}
 {% endblock %}

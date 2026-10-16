@@ -840,6 +840,11 @@ def test_webshop_instellingen_zet_de_tekst_en_de_contactpersonen(webshop_page):
     assert textarea.bounding_box()["width"] > 300, "de tekst staat in een te smal veld"
     search = page.locator('input[name="contact_q"]')
     assert search.bounding_box()["width"] > 300, "het zoekveld is te smal"
+    sections = page.locator("[data-form-section]")
+    first = sections.nth(0).bounding_box()
+    second = sections.nth(1).bounding_box()
+    gap = second["y"] - (first["y"] + first["height"])
+    assert gap > 60, f"de actiebalk heeft geen ruimte tussen de twee kaarten: {gap} px"
 
     textarea.fill("Kledij en spullen van Raak.")
     with htmx_afgerond(page):

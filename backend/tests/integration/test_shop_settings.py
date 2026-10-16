@@ -210,3 +210,43 @@ def test_removing_a_contact_person_takes_it_off_the_pages(client, db_session, ev
         .one()
     )
     assert row.deleted_at is not None
+
+
+def test_a_placed_order_queues_its_confirmation_mail(client, db_session, every_module_on):
+    """T14/T15/T21's mail: an order queues a confirmation mail with the order's
+    lines and total, the transfer instructions, and the contact persons."""
+    from app.domains.mdm.api import PaymentMethod
+    from app.domains.sales.api import add_shop_contact, submit_order
+    from app.kernel.form_guard import TRUSTED
+    from tests._queued_mail import queued_mails
+    from tests.conftest import form_guard_fields
+
+    _operator(client, db_session, every_module_on)
+    contact = _contact_person(
+        db_session, first="An", last="Contact", email="an@example.com", mobile="0470000000"
+    )
+    add_shop_contact(db_session, contact.id)
+    variant = _orderable_variant(db_session)
+    db_session.commit()
+
+    submit_order(
+        db_session,
+        proof=TRUSTED,
+        values=form_guard_fields(),
+        person_id=None,
+        member=False,
+        contact_name="Bo",
+        contact_email="bo@example.com",
+        phone="0470000001",
+        method=PaymentMethod.TRANSFER,
+        items=[(variant.id, 2)],
+    )
+
+    (mail,) = queued_mails(db_session, "bo@example.com")
+    assert mail["email_type"] == "order_confirmation"
+    assert "Bo" in mail["body_html"]
+    assert "T-shirt Raak" in mail["body_html"]
+    assert "30,00" in mail["body_html"]
+    assert "Betaalinstructies" in mail["body_html"], "the transfer instructions are in the mail"
+    assert "An Contact" in mail["body_html"], "the contact persons are in the mail"
+    assert "an@example.com" in mail["body_html"]
