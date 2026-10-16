@@ -256,7 +256,7 @@ def participant_delivery_by_link(db: Session, link: str) -> Optional[Delivery]:
     from app.kernel.signing import verify
 
     number, _dot, signature = (link or "").partition(".")
-    if not number.isdigit() or not signature:
+    if not (number.isascii() and number.isdigit()) or not signature:
         return None
     if not verify(UNSUBSCRIBE_CONTEXT, int(number), signature=signature):
         return None

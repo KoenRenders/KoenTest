@@ -353,7 +353,16 @@ def test_a_link_that_does_not_check_out_answers_like_a_dead_one(client, db_sessi
     db_session.commit()
     good = _delivery_link(db_session, letter, "gast@example.org")
     number = good.split(".")[0]
-    for bad in (f"{number}.{'0' * 32}", f"{number}.kort", "12.abc", f"99999.{good.split('.')[1]}"):
+    # "²" and the Arabic-Indic "٣" pass `str.isdigit()` and make `int()` raise: a 500 on a
+    # public route (review of 16 October 2026).
+    for bad in (
+        f"{number}.{'0' * 32}",
+        f"{number}.kort",
+        "12.abc",
+        f"99999.{good.split('.')[1]}",
+        f"²{number}.{good.split('.')[1]}",
+        "٣.abcd",
+    ):
         page = client.get(f"/nieuwsbrief/uitschrijven/d/{bad}")
         assert "Deze link werkt niet meer" in page.text, bad
         assert client.post(f"/nieuwsbrief/uitschrijven/d/{bad}").status_code == 200
