@@ -1,0 +1,17 @@
+# Generated files that are committed (#2037). Two branches that each regenerate one
+# conflict on it although nobody edits it by hand; the answer is always "build it
+# again". `union` keeps the lines of both sides, so a merge never stops on them, and
+# the file is wrong until it is rebuilt - which the guard of each one refuses:
+#   app.css            the CI job `css` (rebuilds it and fails on a diff)
+#   rollen-en-rechten  test_roles_document_1722 (fails while it differs from the render)
+# `union` is a built-in merge rule: no setting is needed in a clone, so it holds for
+# every CLI that merges `master` into its branch locally. It does NOT hold for a merge
+# GitHub makes itself: GitHub ignores the rule (measured, #2037), so a pull request whose
+# branch has not merged `master` stays CONFLICTING there. The order for a branch:
+# merge `master`, run scripts/build-css.sh, commit and push.
+#
+# NOT here, on purpose: backend/app/domains/auth/tests/snapshots/who_gets_in.json.
+# It is a recorded decision (the test says so: recording again is a decision, never a
+# repair), so a conflict in it is two decisions that must be read, not rebuilt.
+backend/app/static/app.css merge=union
+docs/rollen-en-rechten.md merge=union
