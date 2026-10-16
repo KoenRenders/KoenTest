@@ -98,7 +98,6 @@ RAW_SURFACES: dict[str, int] = {
     "domains/forms/templates/_fb_kaarten.html": 1,
     "domains/forms/templates/_fb_resultaten.html": 1,
     "domains/forms/templates/admin_formulier_nieuw.html": 1,
-    "domains/mail/templates/_email_log_lijst.html": 3,
     "domains/mdm/templates/_leden_import_resultaat.html": 1,
     "domains/mdm/templates/leden_import.html": 1,
     "domains/media/templates/_me_boom.html": 1,
@@ -140,7 +139,6 @@ HAND_DRAWN_TILES: dict[str, int] = {
 SIDEWAYS_SCROLLS: dict[str, int] = {
     "domains/chatbot/templates/_ai_kosten_lijst.html": 1,
     "domains/chatbot/templates/admin_ai_kosten.html": 1,
-    "domains/mail/templates/_email_log_lijst.html": 1,
     "domains/newsletter/templates/_nb_afleveringen.html": 1,
     "domains/reporting/templates/_rp_paneel.html": 2,
     "domains/reporting/templates/_rp_raakje_antwoord.html": 1,
@@ -176,7 +174,6 @@ SHELL_EXTENDED_DIRECTLY: dict[str, int] = {
     "domains/forms/templates/admin_formulier_nieuw.html": 1,
     "domains/forms/templates/admin_formulier_resultaten.html": 1,
     "domains/forms/templates/admin_formulieren.html": 1,
-    "domains/mail/templates/email_log.html": 1,
     "domains/mdm/templates/leden_import.html": 1,
     "domains/media/templates/admin_media.html": 1,
     "domains/media/templates/admin_media_nieuw.html": 1,

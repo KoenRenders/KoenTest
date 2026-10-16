@@ -5,6 +5,7 @@ kopie van iets dat de kit al doet. De gate-regels in `test_ui_conventions_gate.p
 houden de klasse tegen; deze tests leggen het concrete gedrag vast.
 """
 
+import re
 from pathlib import Path
 
 import pytest
@@ -32,16 +33,17 @@ def test_de_adresknop_toont_beide_standen(client, db_session):
     assert "Bewerken" in html and "Annuleren" in html
 
 
-# ── #640: e-maillogpreview via de kit-modal ──────────────────────────────────
+# ── #640: e-maillogpreview, sinds #1925 op de eigen pagina van een mail ──────
 
 
-def test_email_log_gebruikt_de_kit_modal():
-    """Een tweede kopie van de overlay-markup loopt stil uit de pas met het
-    gedeelde gedrag (klik-buiten, Escape, aria-label op de sluitknop)."""
-    tekst = (APP / "domains" / "mail" / "templates" / "_email_log_lijst.html").read_text()
-
-    assert "ui.modal(" in tekst
-    assert "fixed inset-0" not in tekst, "nog een eigen overlay naast ui.modal()"
+def test_email_log_heeft_geen_eigen_overlay():
+    """#640 took the preview's own overlay away for `ui.modal()`; #1925 gave a mail
+    a page of its own (`record_header`), so neither the list nor the page holds an
+    overlay of its own."""
+    templates = APP / "domains" / "mail" / "templates"
+    for name in ("_email_log_lijst.html", "email_log.html", "email_record.html"):
+        assert "fixed inset-0" not in (templates / name).read_text(), name
+    assert "ui.record_header(" in (templates / "email_record.html").read_text()
 
 
 def test_de_preview_behoudt_de_opmaak_van_523(client, db_session):
@@ -59,13 +61,13 @@ def test_de_preview_behoudt_de_opmaak_van_523(client, db_session):
     db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
 
-    html = client.get("/admin/e-maillog").text
+    log = db_session.query(EmailLog).filter(EmailLog.recipient == "ann@example.com").one()
+    html = client.get(f"/admin/e-maillog/{log.id}").text
 
-    assert "Bevestiging" in html
-    assert "text-lg font-semibold" in html  # onderwerp (via ui.modal)
-    assert "text-sm text-gray-500 leading-relaxed" in html  # meta-regel
-    assert "ann@example.com" in html
-    assert 'srcdoc="&lt;p&gt;Dag Ann&lt;/p&gt;"' in html or "srcdoc=" in html
+    # #1925: the subject is the page's title, the recipient a fact under it.
+    assert re.search(r"<h1[^>]*>\s*Bevestiging\s*</h1>", html), "the subject is the title"
+    assert "Aan: ann@example.com" in html
+    assert 'srcdoc="&lt;p&gt;Dag Ann&lt;/p&gt;"' in html
 
 
 # ── #641: submit-microcopy en het veldtype in gewone taal ────────────────────

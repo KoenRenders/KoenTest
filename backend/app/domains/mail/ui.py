@@ -1,49 +1,64 @@
-"""Server-rendered e-maillogscherm (fase 1, #399 — §21).
+"""The e-mail log in the back office: the list on the kit and a page per mail (#1925).
 
-Zelfde inzage als de admin-API (#328): filterbaar overzicht + verwijderen.
-Sessie-auth (HttpOnly-cookie) + CSRF, zoals de werkbank.
+Koen, 16 October 2026, to "Het e-maillog opent een mail in een venster. In de
+lijst van de kit opent een rij een record, en een mail heeft geen eigen pagina":
+"geef een email maar een read-only eigen scherm, in een volgende versie gaan we
+ook binnenkomende mails visualiseren". So the list stands on `list_page` with the
+kit's toolbar and table, a row's subject opens the mail's own page, and that page
+reads only: the mail as it was sent, to whom, when, its type and its status.
+
+The page says what a mail IS, not which way it went: its facts are a list the
+view-model builds ("Aan"), so an incoming mail later adds its own ("Van") on the
+same page. Nothing of an incoming mail is built here.
+
+Verwijderen stands on the mail's page, under Acties (CR-11's row rule: a list row
+shows at most the positive action of its state, and a mail has none).
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse
+from dataclasses import dataclass, field
+from typing import Any
+from urllib.parse import quote, urlencode
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.auth.api import (
-    SESSION_COOKIE,
-    Right,
-    csrf_token_for,
-    require_csrf,
-    require_right,
-)
+from app.domains.auth.api import Right, csrf_from_request, require_csrf, require_right
 from app.domains.mail.api import (
     EMAIL_LOG_SORT_KEYS,
     EMAIL_TYPE,
     MAIL_STATUS,
     MailStatus,
     delete_email_log,
+    get_email_log,
     list_email_log,
 )
-from app.i18n import _
-from app.kernel.codes import code_labels, register_tones
+from app.i18n import _, short_datetime
+from app.kernel.codes import code_label, code_labels, register_tones, tone
 from app.ui import (
+    PER_PAGE_DEFAULT,
     PER_PAGE_OPTIONS,
     admin_nav,
     filterparams,
+    list_return,
     per_page_from,
-    sort_description,
     templates,
+    veilige_terug,
+    way_back,
 )
+from app.ui.viewmodel import ViewModel
 
 router = APIRouter(include_in_schema=False)
 
+PAGE = "/admin/e-maillog"
+LIST = PAGE + "/lijst"
 
 # CR-12 phase 4: the words of the e-mail types and statuses come from their
-# label tables; the two dictionaries that stood here became their seed. The
-# badge tone stays here, next to the screen that draws it (§B4.5): sent green,
-# failed red, the two that did not leave yellow — as before.
+# label tables. The badge tone stays here, next to the screen that draws it
+# (§B4.5): sent green, failed red, the two that did not leave yellow.
 register_tones(
     MAIL_STATUS.name,
     {
@@ -55,142 +70,239 @@ register_tones(
 )
 
 
-def _sorteer_labels() -> dict[str, str]:
-    """De zichtbare kolomnaam per sorteersleutel (#1083).
+@dataclass(frozen=True, kw_only=True)
+class EmailLogView(ViewModel):
+    """`email_log.html` and its fragment `_email_log_lijst.html`."""
 
-    Per request en niet als moduleconstante: `_()` volgt de taal van de tenant.
-    Hier en niet in het sjabloon, omdat de meta-regel boven de tabel dezelfde
-    woorden gebruikt als de kolomkop.
-    """
-    return {
-        "datum": _("Datum"),
-        "ontvanger": _("Ontvanger"),
-        "onderwerp": _("Onderwerp"),
-        "type": _("Type"),
-        "status": _("Status"),
-    }
+    rows: list[dict[str, Any]]
+    columns: list[dict[str, Any]]
+    q: str
+    email_type: str
+    status: str
+    sort: str | None
+    sort_options: list[tuple[str, str]]
+    type_options: list[tuple[str, str]]
+    status_options: list[tuple[str, str]]
+    page: int
+    per_page: int
+    total: int
+    page_sizes: list[int]
+    pager_url: str
+    empty_reason: str
+    csrf_token: str
+    oob: bool = False
+    nav_items: list[Any] | None = None
 
 
-def _ctx(request: Request, db: Session) -> dict:
-    # #671: uit HX-Current-URL als htmx die meestuurt, anders uit de query-string.
+@dataclass(frozen=True, kw_only=True)
+class EmailRecordView(ViewModel):
+    """`email_record.html` — one mail, read only."""
+
+    title: str
+    badges: list[dict[str, str]]
+    facts: list[dict[str, str]]
+    actions: list[dict[str, Any]]
+    way_back: dict[str, str]
+    body: str | None
+    error: str | None
+    csrf_token: str
+    nav_items: list[Any] = field(default_factory=list)
+
+
+def _state(request: Request) -> dict[str, Any]:
     stand = filterparams(request)
-    email_type = (stand.get("email_type") or "").strip()
-    status = (stand.get("status") or "").strip()
-    recipient = (stand.get("recipient") or "").strip()
+    sort = (stand.get("sort") or "").strip()
+    if sort.lstrip("-") not in EMAIL_LOG_SORT_KEYS:
+        sort = ""
     try:
-        page = max(1, int(stand.get("page", "1")))
+        page = max(1, int(stand.get("page") or 1))
     except ValueError:
         page = 1
-    # Golf 3 (#913): sorteerbare kolommen. Onbekende sleutel → datum; de
-    # kop-URL's dragen de volledige stand (deelbare link, §3.5-principe) en
-    # klikken op de actieve kolom draait de richting.
-    sort = (stand.get("sort") or "datum").strip()
-    if sort not in EMAIL_LOG_SORT_KEYS:
-        sort = "datum"
-    richting = "asc" if (stand.get("richting") or "").strip() == "asc" else "desc"
-    labels = _sorteer_labels()
-    # Golf 3 (#913): paginagrootte-keuze — whitelist, zoals alles wat uit de
-    # querystring komt. De whitelist staat sinds #1083 in `app.ui`, want de
-    # keuzelijst in de meta-regel wordt uit diezelfde reeks gevuld.
-    per_page = per_page_from(stand.get("per_page"))
-    rows, total = list_email_log(
-        db,
-        email_type=email_type,
-        status=status,
-        recipient=recipient,
-        page=page,
-        page_size=per_page,
-        sort=sort,
-        richting=richting,
-    )
-
-    from urllib.parse import urlencode
-
-    def _sorteer_url(key: str) -> str:
-        volgende = "asc" if (sort == key and richting == "desc") else "desc"
-        # Standaardrichting per klik: eerst desc (nieuwste/hoogste eerst), een
-        # tweede klik draait om. Pagina reset — een andere ordening is een
-        # andere lijst.
-        params = {
-            k: v
-            for k, v in (("email_type", email_type), ("status", status), ("recipient", recipient))
-            if v
-        }
-        params.update(
-            {
-                "sort": key,
-                "richting": volgende if sort == key else ("desc" if key == "datum" else "asc"),
-            }
-        )
-        # Altijd meesturen (#1083): met "alleen als het afwijkt" viel de keuze bij
-        # een kop-klik terug op de standaard zodra ze toevallig 50 was — en die
-        # voorwaarde is precies het soort ding dat bij de volgende standaard
-        # vergeten wordt.
-        params["per_page"] = str(per_page)
-        return "/admin/e-maillog/lijst?" + urlencode(params)
-
-    raw = request.cookies.get(SESSION_COOKIE) or ""
     return {
-        "csrf_token": csrf_token_for(raw),
-        "rows": rows,
-        "email_type": email_type,
-        "status": status,
-        "recipient": recipient,
-        "page": page,
-        "total": total,
+        "q": (stand.get("q") or "").strip(),
+        "email_type": (stand.get("email_type") or "").strip(),
+        "status": (stand.get("status") or "").strip(),
         "sort": sort,
-        "richting": richting,
-        "per_page": per_page,
-        "sorteer_urls": {key: _sorteer_url(key) for key in EMAIL_LOG_SORT_KEYS},
-        "sorteer_labels": labels,
-        "per_page_options": PER_PAGE_OPTIONS,
-        # The meta line above the table (§2.3). The list counts since #1391
-        # (CR-11 W8), so it states the total rather than "op deze pagina".
-        "meta_telling": _("%(aantal)s e-mails") % {"aantal": total},
-        "meta_volgorde": sort_description(labels[sort], richting, is_date=(sort == "datum")),
-        # `(code, word)` for the two filters, in the lists' own order.
-        "type_options": code_labels(EMAIL_TYPE.name, db=db),
-        "status_options": code_labels(MAIL_STATUS.name, db=db),
-        "nav_items": admin_nav("/admin/e-maillog", request),
+        "page": page,
+        "per_page": per_page_from(stand.get("per_page")),
     }
 
 
-@router.get("/admin/e-maillog", response_class=HTMLResponse)
+def _view(request: Request, db: Session, **extra) -> EmailLogView:
+    s = _state(request)
+    # The kit's sort ("onderwerp", "-onderwerp") on the service's (key, direction);
+    # no sort is the newest first, as the log always read.
+    key = s["sort"].lstrip("-") or "datum"
+    direction = "desc" if (not s["sort"] or s["sort"].startswith("-")) else "asc"
+    rows, total = list_email_log(
+        db,
+        email_type=s["email_type"],
+        status=s["status"],
+        recipient=s["q"],
+        page=s["page"],
+        page_size=s["per_page"],
+        sort=key,
+        richting=direction,
+    )
+    filters = {k: s[k] for k in ("q", "email_type", "status") if s[k]}
+    way = list_return(
+        PAGE,
+        **filters,
+        sort=s["sort"],
+        page=s["page"] if s["page"] > 1 else "",
+        per_page=s["per_page"] if s["per_page"] != PER_PAGE_DEFAULT else "",
+    )
+
+    def sort_urls(column: str) -> dict[str, Any]:
+        nxt = f"-{column}" if s["sort"] == column else column
+        query = urlencode({**filters, "sort": nxt, "per_page": s["per_page"]})
+        return {
+            "sort_url": f"{LIST}?{query}",
+            "sort_page_url": f"{PAGE}?{query}",
+            "sorted": ("desc" if s["sort"].startswith("-") else "asc")
+            if s["sort"].lstrip("-") == column
+            else None,
+        }
+
+    return EmailLogView(
+        rows=[
+            {
+                "mail": row,
+                "href": f"{PAGE}/{row.id}?terug={quote(way, safe='/')}",
+                "type": code_label(EMAIL_TYPE.name, row.email_type, db=db),
+            }
+            for row in rows
+        ],
+        columns=[
+            {"key": "onderwerp", "label": _("Onderwerp"), "cell": "name", **sort_urls("onderwerp")},
+            {
+                "key": "ontvanger",
+                "label": _("Ontvanger"),
+                "cell": "context",
+                **sort_urls("ontvanger"),
+            },
+            {"key": "status", "label": _("Status"), "cell": "status", **sort_urls("status")},
+            {
+                "key": "type",
+                "label": _("Type"),
+                "cell": "extra",
+                "priority": 2,
+                **sort_urls("type"),
+            },
+            {"key": "datum", "label": _("Datum"), "cell": "moment", **sort_urls("datum")},
+        ],
+        q=s["q"],
+        email_type=s["email_type"],
+        status=s["status"],
+        sort=s["sort"],
+        sort_options=[
+            ("", _("Recentste eerst")),
+            ("datum", _("Oudste eerst")),
+            ("onderwerp", _("Onderwerp (A–Z)")),
+            ("ontvanger", _("Ontvanger (A–Z)")),
+            ("status", _("Status")),
+            ("type", _("Type")),
+        ],
+        type_options=code_labels(EMAIL_TYPE.name, db=db),
+        status_options=code_labels(MAIL_STATUS.name, db=db),
+        page=s["page"],
+        per_page=s["per_page"],
+        total=total,
+        page_sizes=list(PER_PAGE_OPTIONS),
+        pager_url=f"{LIST}?{urlencode({**filters, 'sort': s['sort'], 'per_page': s['per_page']})}",
+        empty_reason=_("Geen e-mails gevonden voor deze filter.")
+        if filters
+        else _("Er zijn nog geen e-mails."),
+        csrf_token=csrf_from_request(request),
+        **extra,
+    )
+
+
+@router.get(PAGE, response_class=HTMLResponse)
 def email_log_page(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.SETTINGS_VIEW)),
 ):
-    return templates.TemplateResponse(request, "email_log.html", _ctx(request, db))
+    view = _view(request, db, nav_items=admin_nav(PAGE, request))
+    return templates.TemplateResponse(request, "email_log.html", view.as_context())
 
 
-@router.get("/admin/e-maillog/lijst", response_class=HTMLResponse)
-def email_log_lijst(
+@router.get(LIST, response_class=HTMLResponse)
+def email_log_list(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.SETTINGS_VIEW)),
 ):
-    """Fragment voor filterwissels (htmx)."""
-    return templates.TemplateResponse(request, "_email_log_lijst.html", _ctx(request, db))
+    """The list alone: the toolbar swaps this fragment, so the search field is not
+    replaced under the fingers."""
+    return templates.TemplateResponse(
+        request, "_email_log_lijst.html", _view(request, db, oob=True).as_context()
+    )
+
+
+@router.get(PAGE + "/{log_id}", response_class=HTMLResponse)
+def email_record(
+    log_id: int,
+    request: Request,
+    terug: str = "",
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.SETTINGS_VIEW)),
+):
+    """One mail, read only: as it was sent, to whom, when, its type and status."""
+    mail = get_email_log(db, log_id)
+    if mail is None:
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
+    back = way_back(db, terug, PAGE)
+    view = EmailRecordView(
+        title=mail.subject or _("(geen onderwerp)"),
+        badges=[
+            {
+                "label": code_label(MAIL_STATUS.name, mail.status, db=db),
+                "tone": tone(MAIL_STATUS.name, mail.status),
+            }
+        ],
+        facts=[
+            {"text": _("Aan: %(adres)s") % {"adres": mail.recipient}},
+            {"text": short_datetime(mail.created_at)},
+            {"text": code_label(EMAIL_TYPE.name, mail.email_type, db=db)},
+        ],
+        actions=[
+            {
+                "kind": "delete",
+                "label": _("Verwijderen"),
+                "attrs": f'hx-post="{PAGE}/{mail.id}/verwijderen"'
+                + (f' hx-vals=\'{{"terug": "{back["href"]}"}}\'' if back["href"] else ""),
+                "confirm": _('E-mail "%(onderwerp)s" definitief verwijderen?')
+                % {"onderwerp": mail.subject},
+            }
+        ],
+        way_back=back,
+        body=mail.body,
+        error=mail.error_message,
+        csrf_token=csrf_from_request(request),
+        nav_items=admin_nav(PAGE, request),
+    )
+    return templates.TemplateResponse(request, "email_record.html", view.as_context())
 
 
 @router.post(
-    "/admin/e-maillog/{log_id}/verwijderen",
+    PAGE + "/{log_id}/verwijderen",
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
-def email_log_verwijderen(
+async def email_log_delete(
     log_id: int,
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.SETTINGS_MANAGE)),
 ):
+    """Delete one mail from the log, from its own page; back to where it was
+    opened from."""
+    form = await request.form()
     delete_email_log(db, log_id)
-    # #760-absorptie (golf 3): elke mutatie bevestigt — fragment-antwoord, dus
-    # de toast mag out-of-band mee (#748).
-    ctx = _ctx(request, db)
-    ctx["toast_melding"] = _("Logregel verwijderd.")
-    return templates.TemplateResponse(request, "_email_log_lijst.html", ctx)
+    back = veilige_terug(str(form.get("terug") or ""), PAGE)
+    return Response(status_code=204, headers={"HX-Redirect": back})
 
 
 @router.get("/admin/emails", response_class=HTMLResponse)
@@ -198,4 +310,4 @@ def emails_redirect(request: Request):
     """URL-pariteit (React-exit 405-e): het oude React-pad → /admin/e-maillog."""
     from fastapi.responses import RedirectResponse
 
-    return RedirectResponse("/admin/e-maillog", status_code=302)
+    return RedirectResponse(PAGE, status_code=302)

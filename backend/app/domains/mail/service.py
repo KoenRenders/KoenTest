@@ -126,24 +126,22 @@ def build_message(
 def email_log_url(db, log_id) -> str | None:
     """Where can this log line be viewed? (#822)
 
-    The e-mail log filters on recipient rather than on id, so this looks up the address
-    and filters on that. It shows the mail AND its earlier attempts — which is exactly
-    what you want to see for a mail that failed for good.
+    Since #1925 a mail has a page of its own, and a task about a mail opens that
+    page. Until then the log filtered on the recipient, which showed the mail and
+    its earlier attempts; the page names the recipient, and the list searches on it.
 
     The URL lives HERE and not in the workbench: this domain owns that screen and its
     route shape. A task should not have to know what an e-mail-log URL looks like.
     """
-    from urllib.parse import quote
-
     from app.domains.mail.models import EmailLog
 
     try:
         log = db.get(EmailLog, int(log_id))
     except (TypeError, ValueError):
         return None
-    if log is None or not log.recipient:
+    if log is None:
         return None
-    return f"/admin/e-maillog?recipient={quote(log.recipient)}"
+    return f"/admin/e-maillog/{log.id}"
 
 
 def email_log_subjects(db, log_ids) -> dict[str, dict]:
@@ -1095,6 +1093,13 @@ def list_email_log(
     total = query.order_by(None).count()
     rijen = query.order_by(*orden).offset((max(1, page) - 1) * page_size).limit(page_size).all()
     return rijen, total
+
+
+def get_email_log(db, log_id: int):
+    """One mail of the log, or None — the mail's own page (#1925)."""
+    from app.domains.mail.models import EmailLog
+
+    return db.get(EmailLog, log_id)
 
 
 def delete_email_log(db, log_id: int) -> bool:

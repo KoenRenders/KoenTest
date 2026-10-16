@@ -1,0 +1,28 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ title }} — {{ _("E-maillog") }}{% endblock %}
+{% block content %}
+{# One mail of the log, read only (#1925; Koen, 16 October 2026: "geef een email
+   maar een read-only eigen scherm"). The head names the subject, the status and
+   the facts — to whom, when, which kind; Verwijderen stands under Acties. The
+   mail itself stands as it was sent, in a sandboxed iframe (`srcdoc`, no scripts),
+   so its own layout survives and the admin's styles do not reach it (#523). The
+   facts are a list, so a mail of another direction adds its own on this page. #}
+{{ ui.record_header(title, badges=badges, facts=facts, actions=actions, back=way_back) }}
+{% call ui.record_columns(wide=True) %}
+<div class="form-flow">
+  {% if error %}
+  {% call ui.section(_("Waarom niet verstuurd")) %}
+    <p data-span="full" data-mail-error class="text-sm leading-[21px] text-ink [overflow-wrap:anywhere]">{{ error }}</p>
+  {% endcall %}
+  {% endif %}
+  {% call ui.section(_("Inhoud")) %}
+    {% if body %}
+    <iframe data-span="full" data-mail-body sandbox title="{{ _('E-mailinhoud') }}" class="block w-full h-[32rem]" srcdoc="{{ body }}"></iframe>
+    {% else %}
+    <p data-span="full" class="text-sm text-ink-soft">{{ _("(geen inhoud bewaard)") }}</p>
+    {% endif %}
+  {% endcall %}
+</div>
+{% endcall %}
+{% endblock %}

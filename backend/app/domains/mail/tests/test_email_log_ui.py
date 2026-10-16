@@ -1,7 +1,8 @@
-"""E-maillog admin-scherm (#523): strakke lijst + preview 'zoals gemaild'.
+"""E-maillog admin-scherm (#523): the mail 'zoals gemaild'.
 
-De preview toont de body in een gesandboxte iframe (srcdoc) zodat opmaak
-(bullets/indents) behouden blijft, en Type is rustige tekst i.p.v. een pill.
+The body stands in a sandboxed iframe (srcdoc), so its layout (bullets,
+indents) survives. Since #1925 it stands on the mail's own page, which the
+list's row opens; the list shows the subject as the row's link.
 """
 
 from datetime import datetime, timezone
@@ -34,13 +35,23 @@ def _seed(db):
 def test_email_log_lijst_en_iframe_preview(client, db_session):
     _seed(db_session)
     _login(client)
-    resp = client.get("/admin/e-maillog")
+    lijst = client.get("/admin/e-maillog")
+    assert lijst.status_code == 200
+    log = db_session.query(EmailLog).filter(EmailLog.recipient == "jan@example.com").one()
+    assert f'href="/admin/e-maillog/{log.id}' in lijst.text, "the row opens the mail's page"
+    assert "srcdoc=" not in lijst.text, "no mail in the list itself"
+
+    resp = client.get(f"/admin/e-maillog/{log.id}")
     assert resp.status_code == 200
     # Body "zoals gemaild" via een gesandboxte iframe (srcdoc), geen |safe in-page.
     assert "srcdoc=" in resp.text
     assert "sandbox" in resp.text
     # De body-HTML zit attribuut-geëscaped in de srcdoc (niet rauw in de pagina).
     assert "&lt;ul&gt;" in resp.text
-    # Onderwerp op één regel (truncate + title-tooltip).
-    assert "truncate" in resp.text
-    assert 'title="Inschrijving bevestigd' in resp.text
+    assert "Aan: jan@example.com" in resp.text
+    assert "Inschrijving bevestigd: E2E-CHECK" in resp.text
+
+
+def test_een_onbekende_mail_is_een_404(client, db_session):
+    _login(client)
+    assert client.get("/admin/e-maillog/999999").status_code == 404
