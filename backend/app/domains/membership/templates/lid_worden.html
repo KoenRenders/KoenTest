@@ -37,6 +37,8 @@
     <form id="lid-worden-form" class="contents" data-record-form data-message="#lid-worden-melding" novalidate
           hx-post="/lid-worden" hx-target="#lid-worden-pagina" hx-select="#lid-worden-pagina"
           hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap">
+      {# #2039: the guard of every public form that mails a typed address (`kernel/form_guard.py`). #}
+      {{ ui.form_guard_fields() }}
       {% include "_household_head.html" %}
       {% include "_household_address.html" %}
       {% include "_household_group.html" %}

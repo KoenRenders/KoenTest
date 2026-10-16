@@ -174,7 +174,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         label=None,
         name_en="Extracted text",
         help="The extracted text of the chatbot info.",
-        ai_exposure=AiExposure.NONE,  # K1
+        ai_exposure=AiExposure.PUBLIC,  # K5 — the public bot reads the poster text (#206)
     ),
     Attribute(
         key="chatbot.chatbot_info.text_override",
@@ -182,7 +182,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         label=None,
         name_en="Text override",
         help="The text override of the chatbot info.",
-        ai_exposure=AiExposure.INTERNAL,  # K7
+        ai_exposure=AiExposure.PUBLIC,  # K5 — the public bot reads the poster text (#206)
     ),
     Attribute(
         key="chatbot.chatbot_info.text_addition",
@@ -190,7 +190,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         label=None,
         name_en="Text addition",
         help="The text addition of the chatbot info.",
-        ai_exposure=AiExposure.INTERNAL,  # K7
+        ai_exposure=AiExposure.PUBLIC,  # K5 — the public bot reads the poster text (#206)
     ),
     Attribute(
         key="chatbot.chatbot_info.extracted_at",

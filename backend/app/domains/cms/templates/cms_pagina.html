@@ -1,4 +1,5 @@
 {% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
 {# The home page's tab is the site's name alone (CR-32 R17): its title is the
    organisation's name, which the header already says. #}
 {% block title %}{% if page.is_home %}{{ site_name }}{% else %}{{ page.title }} · {{ site_name }}{% endif %}{% endblock %}
@@ -12,6 +13,9 @@
    in ONE class, `prose-raak` (scripts/build-css.sh). #}
 <div class="doc-page">
 {% if concept %}<div class="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2 text-sm text-yellow-800">{{ _("Concept-voorbeeld — deze pagina is nog niet gepubliceerd en is publiek niet zichtbaar.") }}</div>{% endif %}
+{#- CR-17 phase 6 (#2024): a page under a section shows the kit's way back to
+    it above its title (Koen, 15 October 2026, Q&A nr. 11: "ja"). -#}
+{% if section_back %}{{ ui.back_link(section_back[0], path_for(section_back[1])) }}{% endif %}
 {% if hero %}
 {# CR-32 F5 (B8.11): the hero is the page's opening — the title large on a band
    that spans the page, with its eyebrow, lead and up to two buttons; still the

@@ -43,7 +43,7 @@ def two_activities():
     from app.database import SessionLocal
     from app.domains.auth.api import make_session_value
     from app.domains.auth.models import User, UserRole
-    from tests.conftest import seed_activity_with_product
+    from tests.conftest import form_guard_fields, seed_activity_with_product
 
     db = SessionLocal()
     ids = []
@@ -65,6 +65,7 @@ def two_activities():
         httpx.post(
             f"{BASE}/activiteiten/{activity_id}/inschrijven/{component_id}",
             data={
+                **form_guard_fields(),
                 "contact_name": name,
                 "contact_email": "e2e-1247@example.org",
                 "phone": "047",

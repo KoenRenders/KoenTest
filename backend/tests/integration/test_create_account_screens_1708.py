@@ -97,7 +97,9 @@ def test_the_sign_in_screen_has_the_second_door(client):
 
 
 def test_the_sign_in_code_step_says_the_one_sentence(client):
-    step = client.post("/aanmelden", data={"email": "niemand-1708@example.org"}).text
+    step = client.post(
+        "/aanmelden", data={**form_guard_fields(), "email": "niemand-1708@example.org"}
+    ).text
     assert SENTENCE in step and "Als dit e-mailadres gekend is" not in step
     assert re.search(r"<button[^>]*>\s*(?:<[^>]+>\s*)*Inloggen", step), "the button is not Inloggen"
     assert 'name="nieuw"' not in step
@@ -251,21 +253,41 @@ def test_the_page_carries_the_guards_two_fields(client):
     assert 'name="website"' in html and 'name="form_ts"' in html
 
 
-def test_a_post_without_the_guards_fields_sends_nothing(client, db_session):
-    _refused_leaves_nothing(client, db_session, _bare(email="zonder-2033@example.org"))
+def test_a_post_without_the_guards_fields_says_the_page_was_stale(client, db_session):
+    """No token at all is no honeypot: a person's browser that lost it (Koen, 15 October 2026)."""
+    tokens = db_session.query(LoginToken).count()
+    step = client.post(PAGE, data=_bare(email="zonder-2033@example.org"))
+    assert "Deze pagina was verouderd" in step.text and SENTENCE not in step.text
+    assert 'value="zonder-2033@example.org"' in step.text and 'name="form_ts"' in step.text
+    assert db_session.query(LoginToken).count() == tokens
 
 
-def test_a_post_that_came_too_fast_sends_nothing(client, db_session):
+@pytest.mark.parametrize(
+    ("age", "said"),
+    [
+        (0, "Even geduld, probeer opnieuw."),
+        (8 * 24 * 3600, "Deze pagina was verouderd en is niet verstuurd."),
+    ],
+    ids=["too fast", "a page left open for a week"],
+)
+def test_a_post_at_a_person_s_pace_says_so_and_sends_nothing(client, db_session, age, said):
+    """Too fast, or too late (Koen, 15 October 2026, on #2039): the form again, typed as it
+    was, one line over it, nothing stored or sent."""
     import time
 
     from app.kernel.form_guard import issue_token
 
-    fast = {
+    data = {
         **_bare(email="snel-2033@example.org"),
-        "form_ts": issue_token(now=time.time()),
+        "form_ts": issue_token(now=time.time() - age),
         "website": "",
     }
-    _refused_leaves_nothing(client, db_session, fast)
+    tokens = db_session.query(LoginToken).count()
+    step = client.post(PAGE, data=data)
+    assert said in step.text and SENTENCE not in step.text
+    assert 'value="snel-2033@example.org"' in step.text, "what was typed is gone"
+    assert db_session.query(LoginToken).count() == tokens
+    assert queued_mails(db_session, data["email"]) == []
 
 
 def test_a_filled_honeypot_sends_nothing(client, db_session):

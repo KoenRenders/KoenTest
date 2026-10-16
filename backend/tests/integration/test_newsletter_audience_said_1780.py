@@ -47,6 +47,7 @@ from app.domains.newsletter import service as nb
 from app.domains.newsletter.api import Audience
 from app.domains.newsletter.models import Newsletter, Subscriber, SubscriberStatus
 from app.kernel.codes import code_label
+from tests._letter import letter_doc
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -108,7 +109,9 @@ def world(db_session):
 
 
 def _screen(client, db, audience: Audience) -> str:
-    letter = Newsletter(subject="Proef", body_html="<div>Beste</div>", audience=audience)
+    letter = Newsletter(
+        subject="Proef", body_document=letter_doc("<div>Beste</div>"), audience=audience
+    )
     db.add(letter)
     db.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
@@ -201,7 +204,9 @@ MIGRATION = (
 
 
 def _concept(client, db, audience: Audience | None = None) -> str:
-    letter = Newsletter(subject="Proef", body_html="<div>Beste</div>", audience=audience)
+    letter = Newsletter(
+        subject="Proef", body_document=letter_doc("<div>Beste</div>"), audience=audience
+    )
     db.add(letter)
     db.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))

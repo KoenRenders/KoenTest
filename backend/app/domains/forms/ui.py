@@ -83,15 +83,23 @@ async def berichten_submit(
         )
 
     from app.domains.forms.service import send_message
-    from app.kernel.form_guard import Proof
+    from app.kernel.form_guard import NotSent, Proof
 
-    send_message(
-        db,
-        naam=naam,
-        email=email or None,
-        bericht=bericht,
-        proof=Proof.from_request(request, await request.form()),
-    )
+    try:
+        send_message(
+            db,
+            naam=naam,
+            email=email or None,
+            bericht=bericht,
+            proof=Proof.from_request(request, await request.form()),
+        )
+    except NotSent as hurry:
+        # A person's pace (Koen, 15 October 2026): the form again, as typed, one line over it.
+        return templates.TemplateResponse(
+            request,
+            "_berichten_form.html",
+            {"form": form, "error": str(hurry), "naam": naam, "email": email, "bericht": bericht},
+        )
     # Terug naar de homepage met een bedankt-flash (#451) i.p.v. op /berichten
     # blijven hangen; htmx doet een volledige navigatie op de HX-Redirect-header.
     return HTMLResponse("", headers={"HX-Redirect": "/?bericht=verzonden"})
@@ -259,7 +267,7 @@ async def formulier_submit(
         submitter_email=email or None,
         answers=answers_from_form(form_model, form_data),
     )
-    from app.kernel.form_guard import Proof
+    from app.kernel.form_guard import NotSent, Proof
 
     try:
         result = submit_public_form(
@@ -270,6 +278,15 @@ async def formulier_submit(
         )
     except HTTPException as exc:
         return _refused(request, exc)
+    except NotSent as hurry:
+        # A person's pace (Koen, 15 October 2026): the banner over the page as typed.
+        return refusal_response(
+            request,
+            [{"field": "", "message": str(hurry)}],
+            MESSAGE_LINE,
+            send=True,
+            guard_form="#formulier-form",
+        )
 
     from app.ui import site_context
 

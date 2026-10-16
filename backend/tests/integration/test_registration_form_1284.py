@@ -40,7 +40,12 @@ import pytest
 
 from app.domains.activities.api import Registration
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, seed_activity_with_product
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    create_test_family,
+    form_guard_fields,
+    seed_activity_with_product,
+)
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -101,14 +106,15 @@ def _send(client, channel: str, act, data: dict, *, visitor_email: str | None = 
             client.cookies.set(SESSION_COOKIE, make_session_value(visitor_email))
         return client.post(
             f"/activiteiten/{activity.id}/inschrijven/{component.id}",
-            data=data,
+            data={**form_guard_fields(), **data},
             headers={"HX-Request": "true"},
         )
     value = make_session_value(SEEDED_ADMIN_EMAIL)
     client.cookies.set(SESSION_COOKIE, value)
     return client.post(
         f"/admin/activiteiten/{activity.id}/inschrijvingen/nieuw",
-        data={"onderdeel": str(component.id), **data},
+        # #1987: the board's form carries the token too — its key, accepted once.
+        data={"onderdeel": str(component.id), **form_guard_fields(), **data},
         headers={"HX-Request": "true", "X-CSRF-Token": csrf_token_for(value)},
     )
 

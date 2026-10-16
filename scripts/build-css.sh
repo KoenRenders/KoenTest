@@ -682,6 +682,8 @@ body[data-shell="site"]>main{flex:1 0 auto}
 .site-drawer-backdrop{position:fixed;inset:0;z-index:45;background:rgb(var(--c-ink)/.32)}
 .site-drawer-row{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;padding:12px;border-radius:6px;font-size:16px;color:rgb(var(--c-ink));text-align:left}
 .site-drawer-row:hover{background:rgb(var(--c-surface-2));text-decoration:none}
+/* CR-17 phase 6 (#2024): a page under a section, indented under it in the drawer. */
+.site-drawer-sub{padding-left:36px;font-size:15px}
 .site-drawer-row[aria-current="page"]{background:rgb(var(--c-blue-50));color:rgb(var(--c-brand));font-weight:600;text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:2px}
 .site-footer{background:rgb(var(--c-surface))}
 /* #1654 (CR-11 Q85): no line above the row — the ground changing from grey to

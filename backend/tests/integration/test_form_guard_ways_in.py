@@ -56,10 +56,21 @@ def _dropped_variants():
         "honeypot": {**form_guard_fields(), "website": "http://spam.example"},
         "no-token": {"website": ""},
         "too-fresh": {"website": "", "form_ts": issue_token()},
+        "expired": {"website": "", "form_ts": issue_token(now=time.time() - 8 * 24 * 3600)},
+        "forged": {"website": "", "form_ts": "1700000000.not-a-signature"},
     }
 
 
-VARIANTS = ["honeypot", "no-token", "too-fresh"]
+#: Not a person: the ordinary thanks, nothing stored.
+VARIANTS = ["honeypot"]
+#: A person's pace — too fresh, or a page left open for more than a week (Koen, 15 October
+#: 2026, on #2039: "a"): the form again as it was typed, one line over it
+#: ("Even geduld, probeer opnieuw."), nothing sent or stored, and no thanks.
+PACE = ["too-fresh", "expired", "no-token", "forged"]
+HURRY = "Even geduld, probeer opnieuw."
+STALE = "Deze pagina was verouderd en is niet verstuurd. Kijk je gegevens na en verstuur opnieuw."
+#: What each is told.
+SAID = {"too-fresh": HURRY, "expired": STALE, "no-token": STALE, "forged": STALE}
 
 
 @pytest.fixture
@@ -72,7 +83,13 @@ def held_clock(monkeypatch):
     monkeypatch.setattr(form_guard, "time", SimpleNamespace(time=lambda: moment))
 
 
-REASON = {"honeypot": "honeypot", "no-token": "no_token", "too-fresh": "too_fast"}
+REASON = {
+    "honeypot": "honeypot",
+    "no-token": "no_token",
+    "too-fresh": "too_fast",
+    "expired": "expired",
+    "forged": "bad_token",
+}
 
 
 @pytest.fixture
@@ -214,3 +231,48 @@ def test_the_newsletter_lets_a_person_through(client, db_session, confirmations)
 
     assert "Kijk in je mailbox" in answer.text
     assert db_session.query(Subscriber).count() == 1 and confirmations == ["an@example.org"]
+
+
+# ── a person's pace: the form again, one line, nothing stored (#2039) ─────────
+
+
+@pytest.mark.parametrize("variant", PACE)
+def test_berichten_says_hurry_to_a_person_s_pace(client, db_session, caplog, held_clock, variant):
+    caplog.set_level(logging.WARNING, logger="app.kernel.form_guard")
+    before = _counts(db_session)
+
+    answer = client.post("/berichten", data={**_dropped_variants()[variant], **BERICHT})
+
+    assert answer.headers.get("HX-Redirect") is None, "thanked for a message that was not sent"
+    assert SAID[variant] in answer.text and BERICHT["email"] in answer.text, (
+        "no line, or what was typed is gone"
+    )
+    assert _counts(db_session) == before
+    assert REASON[variant] in _guard_line(caplog)
+
+
+@pytest.mark.parametrize("variant", PACE)
+def test_the_public_form_says_hurry_to_a_person_s_pace(
+    client, db_session, public_form, held_clock, variant
+):
+    form, field = public_form
+
+    answer = client.post(
+        f"/formulier/{TOKEN}", data={**_dropped_variants()[variant], **_answer(field)}
+    )
+
+    assert SAID[variant] in answer.text and "Bedankt" not in answer.text
+    assert db_session.query(FormSubmission).filter_by(form_id=form.id).count() == 0
+
+
+@pytest.mark.parametrize("variant", PACE)
+def test_the_newsletter_says_hurry_to_a_person_s_pace(
+    client, db_session, confirmations, held_clock, variant
+):
+    answer = client.post(
+        "/nieuwsbrief", data={**_dropped_variants()[variant], "email": "probe@example.org"}
+    )
+
+    assert SAID[variant] in answer.text and "Kijk in je mailbox" not in answer.text
+    assert 'value="probe@example.org"' in answer.text, "what was typed is gone"
+    assert db_session.query(Subscriber).count() == 0 and confirmations == []

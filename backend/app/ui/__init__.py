@@ -760,7 +760,9 @@ _ADMIN_NAV_GROEPEN: list[tuple[str | None, list[tuple[str, str]]]] = _resolve_la
 _ADMIN_NAV: list[tuple[str, str]] = [item for _, _items in _ADMIN_NAV_GROEPEN for item in _items]
 
 
-def refusal_response(request, errors, message_line: str, *, send: bool = False):
+def refusal_response(
+    request, errors, message_line: str, *, send: bool = False, guard_form: str | None = None
+):
     """Why a form was refused, for its message line — and nothing else, so the
     form keeps what was typed (CR-11 block 9, #1561; public since #1589).
 
@@ -771,11 +773,14 @@ def refusal_response(request, errors, message_line: str, *, send: bool = False):
     words the banner for a form that is sent ("Verzenden kan nog niet…") instead
     of a record that is saved.
 
+    `guard_form` (#2039) is the selector of a public form whose guard did not take the
+    submission: the answer carries a fresh `form_ts` for that form, out of band, because the
+    page is not redrawn and the old token would refuse the second attempt as well.
     """
     return templates.TemplateResponse(
         request,
         "_save_refusal.html",
-        {"errors": list(errors), "send": send},
+        {"errors": list(errors), "send": send, "guard_form": guard_form},
         status_code=422,
         headers={
             "HX-Retarget": message_line,
@@ -1341,7 +1346,7 @@ def site_context(db, request=None) -> dict:
     from datetime import date
 
     from app.domains.auth.api import csrf_from_request
-    from app.domains.cms.api import CmsPage
+    from app.domains.cms.api import CmsPage, menu_tree
     from app.domains.mdm.api import Organization, OrganizationType, TenantKind, module_enabled
     from app.domains.media.api import MediaAsset, MediaKind, media_url
     from app.i18n import _
@@ -1371,15 +1376,8 @@ def site_context(db, request=None) -> dict:
         .one_or_none()
     )
 
-    pages = (
-        db.query(CmsPage)
-        .filter(
-            CmsPage.is_published == True,  # noqa: E712
-            CmsPage.show_in_nav == True,
-        )  # noqa: E712  (#465)
-        .order_by(CmsPage.sort_order.asc(), CmsPage.title.asc())
-        .all()
-    )
+    # CR-17 phase 6 (#2024): the menu's pages, a section with its pages under it.
+    pages = menu_tree(db)
     # #1569: the pages that say themselves that they stand in the footer. One
     # list for the footer and for the newsletter form's small print.
     footer_pages = (

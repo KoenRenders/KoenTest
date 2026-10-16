@@ -748,8 +748,11 @@ DASHBOARD_TEGELS: list[tuple[str, str, str, str, bool]] = [
         "/admin/leden",
         False,
     ),
+    # #1979: the tile counts every upcoming activity, drafts and cancelled ones
+    # included, and its name says so (Koen, 14 October 2026: "b"; the words,
+    # 15 October 2026: "a"). Its report's title says the same (migration).
     (
-        "Komende activiteiten",
+        "Komende activiteiten (alle statussen)",
         "dashboard_upcoming_activities",
         "activity_count",
         "/admin/activiteiten",

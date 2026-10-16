@@ -14,16 +14,23 @@ send visitor data to a service outside the EU):
   signed with the app's secret. A submission without it did not come from our
   form; one inside `MIN_SECONDS` came faster than anyone can type.
 
-A refused submission gets the ordinary thanks and leaves nothing behind: no row, no
-task, no mail. So the bot learns nothing. It is logged with its reason and an IP
-prefix, never with its content, so the refusals can be counted.
+A refused submission leaves nothing behind: no row, no task, no mail. A filled honeypot
+gets the ordinary thanks, so the bot learns nothing. Every other reason — too fast, a token
+that is missing, unreadable or a week old — is a person's more often than a script's, and since
+#2039 (Koen, 15 October 2026) the person is told: the form comes back as it was typed, with a
+fresh token and one line, "Even geduld, probeer opnieuw." or "Deze pagina was verouderd en is
+niet verstuurd. Kijk je gegevens na en verstuur opnieuw." (`NotSent`); there is no thanks for
+something that does not exist. A script learns to wait two seconds, which it could be measured to
+do anyway. It is logged with its reason and an IP prefix, never with its content, so the
+refusals can be counted.
 
 The checks live in the services (`submit_message`, the public form's submit,
 `subscribe_public`), which take a `Proof`: a route cannot forget them, and the JSON
 way in falls under them too. A caller that is not a visitor's form — the chatbot,
 which has no form to load — says so with `TRUSTED`, visibly, in its own line.
 
-`MIN_SECONDS` is the trap to avoid: too strict and a person is refused in silence.
+`MIN_SECONDS` is the trap to avoid: too strict and a person is refused (now with a line, no
+longer in silence).
 The e2e of this issue sends like a quick person and must pass; it caught a first
 choice of three seconds as too strict.
 """
@@ -34,6 +41,7 @@ import hashlib
 import hmac
 import ipaddress
 import logging
+import secrets
 import time
 from dataclasses import dataclass
 
@@ -112,15 +120,53 @@ def _secret() -> bytes:
     return settings.secret_key.encode()
 
 
-def _sign(timestamp: int) -> str:
-    message = _PURPOSE + b":" + str(timestamp).encode()
+def _sign(timestamp: int, nonce: str) -> str:
+    message = _PURPOSE + b":" + str(timestamp).encode() + b":" + nonce.encode()
     return hmac.new(_secret(), message, hashlib.sha256).hexdigest()[:32]
 
 
 def issue_token(now: float | None = None) -> str:
-    """The signed render time, for the form's hidden field."""
+    """The signed render time with a random part, for the form's hidden field:
+    `<time>.<random>.<signature>`. The random part makes each shown form its own
+    (#1987): the key a form is accepted once by (`submission_key`)."""
     timestamp = int(time.time() if now is None else now)
-    return f"{timestamp}.{_sign(timestamp)}"
+    nonce = secrets.token_hex(8)
+    return f"{timestamp}.{nonce}.{_sign(timestamp, nonce)}"
+
+
+def _read(token: str) -> tuple[int, str] | None:
+    """The time and the random part of a token we signed, or None. A token from
+    before #1987 (`<time>.<signature>`) is not ours any more: the form it came
+    with is refused once, and comes back with a fresh one (`STALE_MESSAGE`)."""
+    stamp, _, rest = token.partition(".")
+    nonce, _, signature = rest.partition(".")
+    if not stamp.isdigit() or not nonce or not signature:
+        return None
+    if not hmac.compare_digest(signature, _sign(int(stamp), nonce)):
+        return None
+    return int(stamp), nonce
+
+
+def submission_key(values) -> str | None:
+    """The key a shown form is accepted once by (#1987): `<time>.<random>` of
+    its token, when the token is ours; None without one, or with one we never
+    issued. Read from the submitted values, so a caller that skips the guard
+    (`TRUSTED`, the board's channel) still has its form's key. Koen, 15 October
+    2026: the signed field every public form carries becomes the key, nothing
+    is stored for it beforehand ("a")."""
+    token = values.get(TOKEN_FIELD)
+    read = _read(token) if isinstance(token, str) else None
+    return f"{read[0]}.{read[1]}" if read else None
+
+
+def is_repeat(error: Exception, constraint: str) -> bool:
+    """Does this refusal of the database say the form was already accepted — the
+    unique `constraint` on its `submission_key`? (#1987.) Two posts of one form at
+    the same moment both find nothing and both insert; the constraint decides,
+    and the loser answers with what the winner made. Every form that is accepted
+    once asks this one question."""
+    diag = getattr(getattr(error, "orig", None), "diag", None)
+    return getattr(diag, "constraint_name", None) == constraint
 
 
 def refusal(proof: Proof | _Trusted, now: float | None = None) -> Refusal | None:
@@ -131,10 +177,10 @@ def refusal(proof: Proof | _Trusted, now: float | None = None) -> Refusal | None
         return Refusal.HONEYPOT
     if not proof.token:
         return Refusal.NO_TOKEN
-    stamp, _, signature = proof.token.partition(".")
-    if not stamp.isdigit() or not hmac.compare_digest(signature, _sign(int(stamp))):
+    read = _read(proof.token)
+    if read is None:
         return Refusal.BAD_TOKEN
-    age = (time.time() if now is None else now) - int(stamp)
+    age = (time.time() if now is None else now) - read[0]
     if age < MIN_SECONDS:
         return Refusal.TOO_FAST
     if age > MAX_AGE_SECONDS:
@@ -152,8 +198,40 @@ def ip_prefix(ip: str) -> str:
     return str(ipaddress.ip_network(f"{address}/{bits}", strict=False))
 
 
+#: What a person reads when the form was not taken (Koen, 15 October 2026, on #2039: "a" and
+#: "akkoord"): the form comes back as it was typed, with a fresh token and one line over it, and
+#: nothing is sent or stored — and no thanks for something that does not exist. Only a filled
+#: honeypot is silent: that is not a person. The Dutch is a message of ours, so it stands here once.
+HURRY_MESSAGE = "Even geduld, probeer opnieuw."
+STALE_MESSAGE = (
+    "Deze pagina was verouderd en is niet verstuurd. Kijk je gegevens na en verstuur opnieuw."
+)
+
+_MESSAGE = {
+    Refusal.TOO_FAST: HURRY_MESSAGE,
+    Refusal.NO_TOKEN: STALE_MESSAGE,
+    Refusal.BAD_TOKEN: STALE_MESSAGE,
+    Refusal.EXPIRED: STALE_MESSAGE,
+}
+
+
+class NotSent(Exception):
+    """The form was not taken: it came in too fast (`HURRY_MESSAGE`), or its token is missing,
+    unreadable or too old (`STALE_MESSAGE`). The door answers with the form again, as typed, a
+    fresh token and `str(exc)` as its one line. A filled honeypot raises nothing: `refused`
+    says it was dropped, and the answer stays the ordinary one."""
+
+    def __init__(self, reason: Refusal) -> None:
+        from app.i18n import _
+
+        super().__init__(_(_MESSAGE[reason]))
+        self.reason = reason
+
+
 def refused(proof: Proof | _Trusted, where: str, now: float | None = None) -> bool:
-    """True when the submission must be dropped; logs the reason, never the content."""
+    """True when the submission is dropped silently (a filled honeypot: not a person);
+    raises `NotSent` for every other reason, so the door can say so. Logs the reason either
+    way, never the content."""
     reason = refusal(proof, now)
     if reason is None:
         return False
@@ -164,4 +242,11 @@ def refused(proof: Proof | _Trusted, where: str, now: float | None = None) -> bo
         reason.value,
         ip_prefix(client_ip),
     )
-    return True
+    if reason is Refusal.HONEYPOT:
+        return True
+    raise NotSent(reason)
+
+
+#: What a service takes as the proof of its form: the visitor's, or `TRUSTED` for a caller
+#: that is not a visitor's form. One name, so mypy refuses anything else (review of #2043, B1).
+AnyProof = Proof | _Trusted

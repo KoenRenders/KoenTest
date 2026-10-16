@@ -20,7 +20,7 @@ import pytest
 
 from app.domains.auth.api import User, UserRole
 from tests._queued_mail import queued_link
-from tests.conftest import sent_to_sign_in
+from tests.conftest import form_guard_fields, sent_to_sign_in
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -87,7 +87,7 @@ def test_the_code_brings_you_to_the_admin_page(client, board_member, mail_link):
     way_back = _way_back_on_the_sign_in_page(client)
     assert way_back == PAGE
 
-    client.post("/aanmelden", data={"email": EMAIL, "terug": way_back})
+    client.post("/aanmelden", data={**form_guard_fields(), "email": EMAIL, "terug": way_back})
     done = client.post(
         "/aanmelden/code", data={"email": EMAIL, "code": "585858", "terug": way_back}
     )
@@ -97,7 +97,7 @@ def test_the_code_brings_you_to_the_admin_page(client, board_member, mail_link):
 
 def test_the_mail_link_brings_you_to_the_admin_page(client, board_member, mail_link):
     way_back = _way_back_on_the_sign_in_page(client)
-    client.post("/aanmelden", data={"email": EMAIL, "terug": way_back})
+    client.post("/aanmelden", data={**form_guard_fields(), "email": EMAIL, "terug": way_back})
 
     link = urlparse(mail_link())
     assert parse_qs(link.query)["terug"] == [PAGE]
@@ -108,7 +108,7 @@ def test_the_mail_link_brings_you_to_the_admin_page(client, board_member, mail_l
 
 @pytest.mark.parametrize("foreign", ["https://evil.example/admin", "//evil.example/admin"])
 def test_a_foreign_way_back_in_the_code_step_is_refused(client, board_member, mail_link, foreign):
-    client.post("/aanmelden", data={"email": EMAIL, "terug": foreign})
+    client.post("/aanmelden", data={**form_guard_fields(), "email": EMAIL, "terug": foreign})
     done = client.post("/aanmelden/code", data={"email": EMAIL, "code": "585858", "terug": foreign})
     # A foreign way back is dropped; the fallback is the site's landing (#1740).
     assert done.headers.get("HX-Redirect") == "/"

@@ -310,18 +310,6 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
-  "GET /admin/nieuwsbrieven/{newsletter_id:int}/invoegen/activiteit/{activity_id:int}": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
-  "GET /admin/nieuwsbrieven/{newsletter_id:int}/invoegen/afsluiting": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
-  "GET /admin/nieuwsbrieven/{newsletter_id:int}/invoegen/kalender": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
   "GET /admin/nieuwsbrieven/{newsletter_id:int}/raakje/gesprek": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"

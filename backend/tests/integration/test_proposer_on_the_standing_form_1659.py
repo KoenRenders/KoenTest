@@ -123,7 +123,7 @@ def test_the_day_of_the_second_request_comes_on_the_row_that_carries_the_hours(r
     assert "niet voorgesteld" not in html, "the hours of the form are a source"
     assert "De dag ontbreekt nog" not in html
     # the model was shown the form, not the empty stored record
-    assert "Naam: Schaatsen" in asked[0] and "Locatie: schaatsbaan" in asked[0]
+    assert "Activiteit: Schaatsen" in asked[0] and "Locatie: schaatsbaan" in asked[0]
     assert "(dag nog niet ingevuld), 10:00–12:00" in asked[0]
 
 
@@ -132,7 +132,7 @@ def test_without_the_form_the_request_reads_the_stored_record_as_before(raakje):
     (empty) record is the source, so the hours nobody gave are refused."""
     fields, html, asked = raakje(NEW, {"vraag": DAY}, WITH_DAY)
 
-    assert "Naam: \\n" in asked[0] and "Datums: (geen)" in asked[0]
+    assert "Activiteit: (leeg)" in asked[0] and "Datums: (geen)" in asked[0]
     assert "Van (10:00): niet voorgesteld" in html and "Tot (12:00): niet voorgesteld" in html
     assert {f["name"] for f in fields} == {"name", "start_date"}
 
@@ -165,7 +165,7 @@ def test_on_an_existing_activity_the_unsaved_value_is_the_base_and_nothing_is_wr
         path, {"vraag": "Laat de naam zoals hij is."} | form, _answer(name="Herfstwandeling")
     )
     assert same == [], "what the form holds already is not proposed again"
-    assert "Naam: Herfstwandeling" in asked[0] and "Naam: Wandeling" not in asked[0]
+    assert "Activiteit: Herfstwandeling" in asked[0] and "Activiteit: Wandeling" not in asked[0]
 
     changed, _html, _asked = raakje(
         path, {"vraag": "Noem het Herfsttocht."} | form, _answer(name="Herfsttocht")

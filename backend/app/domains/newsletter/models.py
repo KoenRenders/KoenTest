@@ -21,6 +21,7 @@ from typing import Optional
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
@@ -29,6 +30,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -384,7 +386,13 @@ class Newsletter(TenantMixin, SoftDeleteMixin, Base):
     """One letter: its text, its audience, and how far sending has come."""
 
     __tablename__ = "newsletters"
-    __table_args__ = {"schema": "newsletter"}
+    __table_args__ = (
+        # A letter that started to send has the body it went with (`start_sending`).
+        CheckConstraint(
+            "status = 'draft' OR sent_body_html IS NOT NULL", name="ck_newsletter_sent_has_body"
+        ),
+        {"schema": "newsletter"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     subject = Column(String(500), nullable=False, default="")
@@ -392,7 +400,16 @@ class Newsletter(TenantMixin, SoftDeleteMixin, Base):
     # letter then derives it from its own first sentence, so the inbox never
     # reads "Beste,".
     preview_text = Column(String(200), nullable=False, default="")
-    body_html = Column(Text, nullable=False, default="")
+    # The letter's text: a document of the page editor's `letter` set (CR-17 phase 7,
+    # #2023), validated against `cms/schema.py` on every save. The mail is built
+    # from it when the letter is sent; Raakje reads and writes it as text with
+    # markers (`letter_markup.py`) and nothing stores that text.
+    body_document = Column(JSONB, nullable=False, default=lambda: {"type": "doc", "content": []})
+    # The body as it went out: the rendered HTML of the document, written once when the
+    # send starts and never again, so the archive shows the letter as it left and not as
+    # the app would build it with today's data. NULL while the letter is a draft. Without
+    # the per-recipient parts (greeting, unsubscribe link).
+    sent_body_html = Column(Text, nullable=True)
     # Empty in a draft on purpose: there is no default audience (CR-05 §3.2).
     audience: Mapped[Optional[Audience]] = mapped_column(
         EnumColumn(Audience, length=20), ForeignKey("newsletter.audience_codes.code"), nullable=True

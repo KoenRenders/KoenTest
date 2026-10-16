@@ -27,12 +27,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Iterable, Mapping
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.domains.activities.fiche import FieldError
 from app.domains.activities.service import publicly_bookable_products
 from app.domains.activities.totals import has_payable_products, quote_lines
 from app.i18n import _
+from app.kernel import form_guard
 from app.kernel.codes import TechnicalEnum
 
 if TYPE_CHECKING:  # #1305
@@ -292,6 +294,45 @@ class Outcome:
     name: str = ""
     #: What is still to pay by bank transfer (`DONE`); zero when nothing is.
     transfer_amount: Any = 0
+    #: The guard did not take the form (`REFUSED`): the answer carries a fresh token for it (#2039).
+    fresh_guard: bool = False
+
+
+def answered_again(db: Session, registration: Any) -> Outcome:
+    """What a second post of a form answers: what the first one made (#1987).
+
+    The same thank-you, or the same payment page while that payment is still
+    open — never a second payment. A payment that is no longer open (paid,
+    failed, cancelled) answers with the thank-you, as the registration exists.
+    """
+    from app.domains.activities.totals import compute_registration_total
+    from app.domains.mdm.api import PaymentMethod
+    from app.domains.payment.api import (
+        PayableType,
+        PaymentStatus,
+        checkout_url_for,
+        get_records_for,
+    )
+
+    name = registration.contact_name or ""
+    if registration.payment_method == PaymentMethod.ONLINE:
+        for record in get_records_for(db, PayableType.REGISTRATION, registration.id):
+            url = checkout_url_for(db, record) if record.status == PaymentStatus.PENDING else None
+            if url:
+                return Outcome(
+                    kind=OutcomeKind.CHECKOUT,
+                    checkout_url=url,
+                    registration_id=registration.id,
+                    name=name,
+                )
+        return Outcome(kind=OutcomeKind.DONE, registration_id=registration.id, name=name)
+    total, _lines = compute_registration_total(registration)
+    return Outcome(
+        kind=OutcomeKind.DONE,
+        registration_id=registration.id,
+        name=name,
+        transfer_amount=total if registration.payment_method is not None else 0,
+    )
 
 
 def submit(
@@ -302,12 +343,18 @@ def submit(
     form: Mapping[str, Any],
     background_tasks: BackgroundTasks,
     *,
+    proof: form_guard.AnyProof,
     actor: str = "",
 ) -> Outcome:
     """Process one submitted form — the same steps for both channels.
 
     `actor` is the board member's address, for the audit trail; the public way
     records the signed-in person as it always did (`register_for_activity`).
+
+    `proof` (#2039): what the visitor's form brings to show a person sent it
+    (`form_guard.Proof`), or `form_guard.TRUSTED` for the board's own channel. A refused
+    submission gets the ordinary thanks and registers nothing, mails nothing and stores
+    nothing: no way in can skip it.
     """
     from fastapi import HTTPException
     from pydantic import ValidationError
@@ -316,6 +363,37 @@ def submit(
     from app.schemas.activity import RegistrationCreate, RegistrationItemCreate
 
     values = form_values(form)
+    try:
+        if form_guard.refused(proof, f"registration {component.id}"):
+            return Outcome(
+                kind=OutcomeKind.DONE,
+                name=(values.get("contact_name") or "").strip(),
+                transfer_amount=0,
+            )
+    except form_guard.NotSent as hurry:
+        # A person's pace (Koen, 15 October 2026): no thanks for a registration that does not
+        # exist — the form as it was typed, one line over it.
+        return Outcome(
+            kind=OutcomeKind.REFUSED, errors=[FieldError("", str(hurry))], fresh_guard=True
+        )
+    # #1987: a shown form is accepted once. Its key comes from its signed token —
+    # also on the board's channel, which skips the guard but not this. A form
+    # without a key of ours is refused once, with a fresh token; a form that
+    # already made its registration is answered with that one — here, before
+    # every rule, because the first post may have changed what a rule says (it
+    # took the last place). The unique index below decides two posts at once.
+    key = form_guard.submission_key(values)
+    if key is None:
+        return Outcome(
+            kind=OutcomeKind.REFUSED,
+            errors=[FieldError("", _(form_guard.STALE_MESSAGE))],
+            fresh_guard=True,
+        )
+    from app.domains.activities.service import registration_for_submission
+
+    earlier = registration_for_submission(db, key)
+    if earlier is not None:
+        return answered_again(db, earlier)
     quantities = form_quantities(form)
     ctx = form_context(channel, activity, component, values=values, quantities=quantities)
 
@@ -366,6 +444,7 @@ def submit(
             ],
             remarks=(values.get("remarks") or "").strip() or None,
             answers=answers,
+            submission_key=key,
         )
     except ValidationError:
         # `contact_refusal` checked that there is an address; the schema checks
@@ -385,9 +464,31 @@ def submit(
                 db, activity.id, data, background_tasks, current_member=channel.person
             )
     except HTTPException as exc:
+        # #1987 (review of dev1, finding 1): the same form posted twice within
+        # milliseconds — the first committed after this one looked its key up, so
+        # this one met the rules the first changed (it took the last place, it hit
+        # the limit per address). The registration exists: answer with it, not
+        # with the refusal.
+        earlier = registration_for_submission(db, key)
+        if earlier is not None:
+            return answered_again(db, earlier)
         # A refused answer names its question (`VeldFout`): the page marks it.
         question = getattr(exc, "veld_id", None)
         return refused(FieldError(f"f{question}" if question is not None else "", str(exc.detail)))
+    except IntegrityError as clash:
+        # #1987: the same form posted twice at the same moment. Both found no
+        # registration and both inserted; the unique key let one through, and
+        # this one waited for it. Answer with what the first one made.
+        from app.domains.activities.models import SUBMISSION_KEY_CONSTRAINT
+
+        if not form_guard.is_repeat(clash, SUBMISSION_KEY_CONSTRAINT):
+            raise
+        # `register` took its insert back to its own savepoint, and nothing was
+        # written before it: the transaction goes on, and reads the first one.
+        earlier = registration_for_submission(db, key)
+        if earlier is None:
+            raise
+        return answered_again(db, earlier)
 
     registration_id = result.get("id")
     checkout_url = result.get("checkout_url") or ""

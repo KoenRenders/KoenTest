@@ -268,13 +268,27 @@ async def inschrijf_submit(
 
     activity, component = _component_or_404(db, activity_id, component_id)
     form = await request.form()
+    from app.kernel.form_guard import Proof
+
     outcome = submit(
-        db, _channel(request, db, activity, component), activity, component, form, background_tasks
+        db,
+        _channel(request, db, activity, component),
+        activity,
+        component,
+        form,
+        background_tasks,
+        proof=Proof.from_request(request, form),
     )
     if outcome.kind is OutcomeKind.REFUSED:
         # #1589 (§3.18): the banner alone, into the form's message line — the
         # page stays as it was typed and marks the fields the banner names.
-        return refusal_response(request, outcome.errors, "#inschrijf-melding", send=True)
+        return refusal_response(
+            request,
+            outcome.errors,
+            "#inschrijf-melding",
+            send=True,
+            guard_form="#inschrijf-form" if outcome.fresh_guard else None,
+        )
     page = _page_ctx(request, db, activity, component, {"activity": activity})
     if outcome.kind is OutcomeKind.CHECKOUT:
         # Vaste UI-beslissing: harde redirect naar Mollie (nooit client-side route).

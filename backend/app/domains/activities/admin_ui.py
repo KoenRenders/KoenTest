@@ -1836,11 +1836,23 @@ async def inschrijving_nieuw_opslaan(
                 request, db, activiteit, onderdeel_id, values=values, error=str(refusal)
             ),
         )
-    outcome = submit(db, channel, activiteit, component, form, background_tasks, actor=email)
+    from app.kernel.form_guard import TRUSTED
+
+    # The board's own channel: a signed-in board member, not a visitor's form (#2039).
+    outcome = submit(
+        db, channel, activiteit, component, form, background_tasks, proof=TRUSTED, actor=email
+    )
     if outcome.kind is OutcomeKind.REFUSED:
         # #1589: the same answer as the public page — the banner, into the
-        # form's message line.
-        return refusal_response(request, outcome.errors, "#inschrijf-melding", send=True)
+        # form's message line; #1987: with a fresh token when the form had no
+        # key of ours, so the second attempt goes through.
+        return refusal_response(
+            request,
+            outcome.errors,
+            "#inschrijf-melding",
+            send=True,
+            guard_form="#inschrijf-form" if outcome.fresh_guard else None,
+        )
     response = HTMLResponse("")
     # Vaste UI-beslissing: harde redirect naar Mollie; zonder betaling naar de
     # inschrijving in het beheer.

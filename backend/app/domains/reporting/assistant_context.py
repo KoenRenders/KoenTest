@@ -148,7 +148,7 @@ def _activity(db: Session, activity_id: int, *, editing: bool = False) -> Assist
 #: What the newsletter page sends along with a question: the text as it stands
 #: in the editor, the selection and what stands before the cursor — Raakje
 #: rewrites the selection or writes for that spot (Koen, 17 September 2026).
-_NEWSLETTER_FIELDS = "#nb-inhoud"
+_NEWSLETTER_FIELDS = "#nb-editor-input"
 _NEWSLETTER_VALS = (
     'js:{selection: window.nbSelectie ? nbSelectie() : "", '
     'selection_range: window.nbBereik ? nbBereik() : "", '

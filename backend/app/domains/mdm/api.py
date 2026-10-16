@@ -70,6 +70,7 @@ from app.domains.mdm.household_doors import (  # noqa: F401
 # The one save of a household (CR-11 pilot B, #1590).
 from app.domains.mdm.household_form import household_from_form  # noqa: F401
 from app.domains.mdm.household_save import (  # noqa: F401
+    EmailRow,
     HouseholdSave,
     HouseholdSaveRefused,
     PersonRow,
@@ -441,6 +442,7 @@ __all__ = [
     "ADDED_RELATIONS",
     "MainMemberStays",
     "PersonRow",
+    "EmailRow",
     "save_household",
     "save_person",
     "actor_of",

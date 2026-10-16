@@ -37,3 +37,9 @@ def get_provider(model: str = "") -> LLMProvider:
         return build_mistral_provider(model=model)
 
     return MockProvider()
+
+
+def ocr_available() -> bool:
+    """Can the document reader's OCR run on this host: switched on, and a provider
+    with a key to read with (CR-33 F12: the key is read here and nowhere else)."""
+    return bool(settings.ocr_enabled) and bool(settings.mistral_api_key)

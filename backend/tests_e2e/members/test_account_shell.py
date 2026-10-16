@@ -3,7 +3,8 @@ C6 T14).
 
 - on a phone (390 px) the DRAWER's account menu is the navigation: it reaches
   the landing page and Mijn gezin, each item with its own icon; the page itself
-  shows no menu, and the links at its bottom reach the other pages;
+  shows no menu, and the account menu at its bottom reaches every page (#1886:
+  the same list as the header's, Uitloggen included, the open page marked);
 - on a desktop the account menu stands on the left of the page, 240 px wide,
   the content beside it, and the item of the open page is marked;
 - the title may wrap, it is never cut off, and the page is no wider than the
@@ -103,9 +104,11 @@ def test_on_a_phone_the_page_shows_no_menu_and_links_at_its_bottom(browser):
         "title"
     ]
     assert m["links"] and [href for href, _h in m["links"]] == [
+        "/mijn",
         "/mijn/gegevens",
         "/leden/gezin",
         "/mijn/inschrijvingen",
+        "/afmelden",
     ], m["links"]
     assert all(h >= 44 for _href, h in m["links"]), m["links"]
     assert m["page"][0] == m["page"][1]
@@ -128,7 +131,9 @@ def test_on_a_desktop_the_menu_stands_left_of_the_content(browser, width):
     assert m["content"][0] == m["main"] + 240 + 32, m
     rest = width - 2 * m["main"] - 240 - 32
     assert m["content"][1] == min(768, rest), f"the content is {m['content'][1]} px of {rest}"
-    assert m["current"] == ["/mijn"] and len(m["rows"]) == 4 and min(m["rows"]) >= 44, m
+    # #1886: the four pages and Uitloggen — the seeded member has no way into
+    # the back office, so no Admin.
+    assert m["current"] == ["/mijn"] and len(m["rows"]) == 5 and min(m["rows"]) >= 44, m
     assert m["links"] is None, "the bottom links show on a desktop"
     assert m["card"] and m["title"][1]
     assert m["page"][0] == m["page"][1]

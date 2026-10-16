@@ -86,9 +86,7 @@ def test_an_older_letter_with_one_list_is_read_and_not_rewritten(db_session, wor
     """The one reader takes the single list of a letter from before #1562 — and
     leaves the row as it is: reading is no reason to change a stored form."""
     ids = [world["coming"][3].id, world["past"].id, world["coming"][0].id, world["coming"][1].id]
-    letter = Newsletter(
-        created_by="s@example.org", subject="", body_html="", draft_activity_ids=ids
-    )
+    letter = Newsletter(created_by="s@example.org", subject="", draft_activity_ids=ids)
     db_session.add(letter)
     db_session.commit()
 
@@ -137,6 +135,7 @@ def test_a_sent_letter_keeps_its_choices(db_session, world):
     letter = nb.create_newsletter(db_session, created_by="s@example.org")
     letter.audience = Audience.MEMBERS
     letter.status = LetterStatus.SENT
+    letter.sent_body_html = "<div>x</div>"
     db_session.commit()
     with pytest.raises(nb.NewsletterError):
         nb.set_choice(db_session, letter, "past", world["past"].id, chosen=False)
@@ -201,19 +200,26 @@ def test_a_choice_changes_its_group_and_answers_with_the_groups(client, db_sessi
     assert len(nb.choices_of(db_session, letter).featured) == 3
 
 
-def test_activiteit_invoegen_offers_the_featured_ones(client, db_session, world):
-    """ "Activiteit invoegen" reads the same groups the page shows."""
-    _login(client)
-    letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
-    picker = client.get(f"/admin/nieuwsbrieven/{letter.id}/activiteiten?purpose=insert").text
-    offered = re.findall(r"/invoegen/activiteit/(\d+)", picker)
-    assert [int(i) for i in offered] == [a.id for a in world["coming"][:3]]
-    assert 'type="search"' not in picker, "the featured ones, no search through everything"
+def test_the_activity_dialog_offers_the_featured_ones(client, db_session, world):
+    """ "Blok invoegen › Activiteit" reads the same groups the page shows: the
+    editor's configuration carries the featured activities, and the fragment of the
+    choices tells the dialog when they change."""
+    import json
 
+    headers = _login(client)
+    letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
+    page = client.get(f"/admin/nieuwsbrieven/{letter.id}").text
+    config = json.loads(re.search(r"data-config='([^']*)'", page).group(1).replace("&#34;", '"'))
+    offered = [a["id"] for a in config["activity"]["activities"]]
+    assert offered == [a.id for a in world["coming"][:3]]
+
+    gone = None
     for activity in world["coming"][:3]:
-        nb.set_choice(db_session, letter, "featured", activity.id, chosen=False)
-    empty = client.get(f"/admin/nieuwsbrieven/{letter.id}/activiteiten?purpose=insert").text
-    assert "Nog geen uitgelichte activiteiten" in empty
+        gone = client.post(
+            f"/admin/nieuwsbrieven/{letter.id}/keuzes/featured/{activity.id}/weg",
+            headers=headers,
+        ).text
+    assert 'raak-letter-featured", []' in gone, "the dialog hears that nothing is featured"
 
 
 def test_the_preview_text_is_a_growing_field_with_its_limit(client, db_session):
@@ -222,7 +228,7 @@ def test_the_preview_text_is_a_growing_field_with_its_limit(client, db_session):
     html = client.get(f"/admin/nieuwsbrieven/{letter.id}").text
     field = re.search(r'<textarea[^>]*id="nb-voorbeeldtekst"[^>]*>', html).group(0)
     assert 'maxlength="200"' in field and 'name="preview_text"' in field
-    for name in ("subject", "preview_text", "body_html"):
+    for name in ("subject", "preview_text", "body"):
         assert f'data-field="{name}"' in html, f"{name} is a field a proposal can name"
 
 
@@ -242,7 +248,7 @@ def test_a_draft_is_a_context_of_the_panel_and_a_sent_letter_is_not(db_session, 
     assert draft.label == "over de nieuwsbrief “Het najaar”"
     assert draft.post_url == f"/admin/nieuwsbrieven/{letter.id}/raakje/vraag"
     assert draft.history_url == f"/admin/nieuwsbrieven/{letter.id}/raakje/gesprek"
-    assert draft.include == "#nb-inhoud" and "nbSelectie" in draft.vals
+    assert draft.include == "#nb-editor-input" and "nbSelectie" in draft.vals
     assert len(draft.suggestions) == 3
 
     # The list of letters and the settings are no draft: the rule of the
@@ -250,6 +256,7 @@ def test_a_draft_is_a_context_of_the_panel_and_a_sent_letter_is_not(db_session, 
     assert not ctx("/admin/nieuwsbrieven").available
     letter.audience = Audience.MEMBERS
     letter.status = LetterStatus.SENT
+    letter.sent_body_html = "<div>x</div>"
     db_session.commit()
     assert not ctx(f"/admin/nieuwsbrieven/{letter.id}").available
 
@@ -274,7 +281,7 @@ def test_the_panel_of_a_draft_sends_the_text_along_and_loads_its_conversation(
     assert panel.status_code == 200, panel.text[:200]
     form = re.search(r"<form data-raakje-form[^>]*>", panel.text, re.S).group(0)
     assert f'hx-post="/admin/nieuwsbrieven/{letter.id}/raakje/vraag"' in form
-    assert 'hx-include="#nb-inhoud"' in form and "hx-vals='js:{selection:" in form
+    assert 'hx-include="#nb-editor-input"' in form and "hx-vals='js:{selection:" in form
     talk = re.search(r"<div[^>]*data-panel-conversation[^>]*>", panel.text, re.S).group(0)
     assert f'hx-get="/admin/nieuwsbrieven/{letter.id}/raakje/gesprek"' in talk
     assert 'hx-trigger="load"' in talk
