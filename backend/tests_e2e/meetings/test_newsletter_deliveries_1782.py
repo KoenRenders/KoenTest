@@ -81,6 +81,7 @@ def letter():
             body_document=letter_doc("<div>Beste</div>"),
             audience=Audience.BOTH,
             status=LetterStatus.SENT,
+            sent_body_html="<div>Beste</div>",
         )
         db.add(sent)
         db.flush()
