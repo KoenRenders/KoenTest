@@ -5,7 +5,10 @@
 #   app.css            the CI job `css` (rebuilds it and fails on a diff)
 #   rollen-en-rechten  test_roles_document_1722 (fails while it differs from the render)
 # `union` is a built-in merge rule: no setting is needed in a clone, so it holds for
-# every CLI and for a merge made by GitHub.
+# every CLI that merges `master` into its branch locally. It does NOT hold for a merge
+# GitHub makes itself: GitHub ignores the rule (measured, #2037), so a pull request whose
+# branch has not merged `master` stays CONFLICTING there. The order for a branch:
+# merge `master`, run scripts/build-css.sh, commit and push.
 #
 # NOT here, on purpose: backend/app/domains/auth/tests/snapshots/who_gets_in.json.
 # It is a recorded decision (the test says so: recording again is a decision, never a
