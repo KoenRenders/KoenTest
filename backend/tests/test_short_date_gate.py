@@ -62,23 +62,30 @@ def test_the_short_date_is_formatted_in_one_place():
 
 def test_short_datetime_reads_as_the_hand_written_format_did():
     """The replacement changes nothing on screen: the same text as the old
-    `strftime("%d-%m-%Y %H:%M")`, for a morning and an evening, with and
-    without a time zone."""
-    from datetime import datetime, timezone
+    `strftime("%d-%m-%Y %H:%M")`, for a morning and an evening. Since #1976 the
+    moment is shown in Brussels, and a naive one is refused
+    (`tests/integration/test_brussels_clock_1976.py`), so the moments here are
+    Brussels-aware."""
+    from datetime import datetime
 
     from app.i18n import short_datetime
+    from app.kernel.clock import BELGIUM
 
-    for moment in (datetime(2026, 9, 7, 8, 5), datetime(2026, 12, 31, 23, 59, tzinfo=timezone.utc)):
+    for moment in (
+        datetime(2026, 9, 7, 8, 5, tzinfo=BELGIUM),
+        datetime(2026, 12, 31, 23, 59, tzinfo=BELGIUM),
+    ):
         assert short_datetime(moment) == moment.strftime("%d-%m-%Y %H:%M")
     assert short_datetime(None) == ""
 
 
 def test_short_date_reads_as_the_hand_written_format_did():
-    """Same for the date alone, on a date and on a datetime — the templates
+    """Same for the date alone, on a date and on a moment — the templates
     handed it both (a start date, a registration moment)."""
     from datetime import date, datetime
 
     from app.i18n import short_date
+    from app.kernel.clock import BELGIUM
 
-    for day in (date(2026, 1, 5), datetime(2026, 11, 30, 18, 0)):
+    for day in (date(2026, 1, 5), datetime(2026, 11, 30, 18, 0, tzinfo=BELGIUM)):
         assert short_date(day) == day.strftime("%d-%m-%Y")

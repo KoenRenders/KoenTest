@@ -31,7 +31,7 @@ from app.domains.mdm.api import (
     contact_change,
 )
 from app.domains.membership.api import MembershipHistory
-from app.i18n import _
+from app.i18n import _, moment_text
 from app.kernel.codes import code_label
 from app.kernel.ods import build_ods
 from app.kernel.operations import OPERATION
@@ -645,7 +645,7 @@ def build_member_changes_ods(rows: List[dict]) -> bytes:
     data = []
     for r in rows:
         ts = r["recorded_at"]
-        ts_str = ts.strftime("%Y-%m-%d %H:%M") if ts else ""
+        ts_str = moment_text(ts, "%Y-%m-%d %H:%M")
         data.append(
             [
                 ts_str,

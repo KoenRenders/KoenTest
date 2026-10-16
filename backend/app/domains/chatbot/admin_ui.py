@@ -92,10 +92,7 @@ def _shift(d: date, months: int) -> str:
 
 
 def _call_lines(db: Session, tenant: int, page: int) -> tuple[list[AiCallLine], int]:
-    from zoneinfo import ZoneInfo
-
     rows, total = list_calls(db, tenant_id=tenant, page=page, per_page=PER_PAGE)
-    brussel = ZoneInfo("Europe/Brussels")
     lines = []
     for r in rows:
         if r.cost_amount is not None and r.cost_currency:
@@ -106,7 +103,7 @@ def _call_lines(db: Session, tenant: int, page: int) -> tuple[list[AiCallLine], 
             cost = "—"
         lines.append(
             AiCallLine(
-                moment=short_datetime(r.created_at.astimezone(brussel)),
+                moment=short_datetime(r.created_at),
                 what=_what(r.surface, r.capability),
                 actor=r.actor or "—",
                 model=r.model or "—",
