@@ -1491,9 +1491,131 @@ def test_two_posts_at_once_make_one_order(client, db_session, every_module_on):
 
     assert not errors, errors
     assert len(set(outcomes)) == 1, f"two orders from one form: {outcomes}"
+    from app.domains.payment.api import PayableType
+    from app.domains.payment.models import PaymentRecord
+
     check = SessionLocal()
     try:
         assert check.query(SalesOrder).count() == 1
+        records = (
+            check.query(PaymentRecord)
+            .filter(
+                PaymentRecord.payable_type == PayableType.ORDER,
+                PaymentRecord.payable_id == outcomes[0],
+            )
+            .count()
+        )
+        assert records == 1, "two posts at once must start one payment"
     finally:
         check.close()
     _clean(variant_id, outcomes[0], location_id)
+
+
+def test_two_online_posts_at_once_start_one_payment(monkeypatch):
+    """#1987, the money half: two online posts of one form at once, a provider that
+    takes 0.3 s while the transaction is open — one order, one payment record, one
+    call to the provider, and both answers to the same checkout."""
+    import threading
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+
+    import app.domains.sales.service as sales_service
+    from app.database import SessionLocal
+    from app.domains.mdm.api import PaymentMethod
+    from app.domains.payment.api import PayableType
+    from app.domains.payment.models import PaymentRecord
+    from app.domains.payment.providers import mollie
+    from app.domains.payment.providers.base import PaymentResult
+    from app.domains.sales.api import submit_order
+    from app.domains.sales.models import SalesOrder
+    from app.domains.stock.models import StockLocation
+    from app.kernel import form_guard
+
+    variant_id = _committed_variant(stock=5)
+    setup = SessionLocal()
+    location_id = setup.query(StockLocation).filter(StockLocation.is_default.is_(True)).one().id
+    setup.close()
+
+    calls = {"provider": 0}
+
+    def slow_create(self, amount, description, redirect_url, webhook_url, metadata):
+        calls["provider"] += 1
+        time.sleep(0.3)
+        return PaymentResult(
+            provider_payment_id="tr_order_race_1987",
+            checkout_url="https://mollie.test/checkout/tr_order_race_1987",
+            status="pending",
+        )
+
+    monkeypatch.setattr(mollie.MollieProvider, "create_payment", slow_create)
+
+    form = _order_form(variant_id)
+    proof = form_guard.Proof.from_values(form)
+    real = sales_service.order_for_submission
+    barrier = threading.Barrier(2, timeout=20)
+    looks = {"n": 0}
+
+    def _lookup(db, key):
+        found = real(db, key)
+        looks["n"] += 1
+        if looks["n"] <= 2:
+            barrier.wait(timeout=20)
+        return found
+
+    outcomes: list[tuple[str | None, int]] = []
+    errors: list = []
+
+    def _post() -> None:
+        db = SessionLocal()
+        try:
+            checkout_url, order_id = submit_order(
+                db,
+                proof=proof,
+                values=form,
+                person_id=None,
+                member=False,
+                contact_name="An",
+                contact_email="an@example.com",
+                phone="0470000000",
+                method=PaymentMethod.ONLINE,
+                items=[(variant_id, 1)],
+            )
+            db.commit()
+            outcomes.append((checkout_url, order_id))
+        except Exception as exc:  # noqa: BLE001 — the assertion reports it
+            db.rollback()
+            errors.append(exc)
+        finally:
+            db.close()
+
+    sales_service.order_for_submission = _lookup
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            first = pool.submit(_post)
+            second = pool.submit(_post)
+            first.result()
+            second.result()
+    finally:
+        sales_service.order_for_submission = real
+
+    assert not errors, errors
+    assert len({order_id for _, order_id in outcomes}) == 1, f"two orders from one form: {outcomes}"
+    assert {checkout_url for checkout_url, _ in outcomes} == {
+        "https://mollie.test/checkout/tr_order_race_1987"
+    }
+    assert calls["provider"] == 1, "a second payment was started at the provider"
+    check = SessionLocal()
+    try:
+        assert check.query(SalesOrder).count() == 1
+        records = (
+            check.query(PaymentRecord)
+            .filter(
+                PaymentRecord.payable_type == PayableType.ORDER,
+                PaymentRecord.payable_id == outcomes[0][1],
+            )
+            .count()
+        )
+        assert records == 1
+    finally:
+        check.close()
+    _clean(variant_id, outcomes[0][1], location_id)
