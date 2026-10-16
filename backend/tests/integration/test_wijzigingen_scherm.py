@@ -48,10 +48,12 @@ def _wijzigingen(db, aantal):
     """
     from app.domains.mdm.api import snapshot_person
 
+    ids = []
     for i in range(aantal):
         person = Person(first_name=f"Test{i}", last_name="Wijziging")
         db.add(person)
         db.flush()
+        ids.append(person.id)
         snapshot_person(
             db,
             person,
@@ -61,6 +63,7 @@ def _wijzigingen(db, aantal):
             actor="tester@example.com",
         )
     db.commit()
+    return ids
 
 
 def test_details_staat_voor_object_actor(client, db_session):
@@ -102,21 +105,52 @@ def test_operatie_is_een_badge_zonder_rijkleur(client, db_session):
         assert f'{tint}"' not in html.split("<tbody")[1].split("</tbody>")[0]
 
 
+def _herhaalt_zijn_object(rij) -> bool:
+    """Staat het object in zijn eigen vorm — "(<object> #<id>)" — in zijn samenvatting?
+
+    Een kaal "#<id>" is geen herhaling: de samenvatting van een bestelregel noemt
+    twee *andere* objecten ("product #7 ×1 (inschrijving #7)"), en hun nummers
+    vallen bij toeval samen met dat van de regel zelf (#2077).
+    """
+    eigen = rf"\(\s*{re.escape(str(rij['entity']))}\s*#{rij['entity_id']}\s*\)"
+    return re.search(eigen, rij["summary"] or "", re.I) is not None
+
+
+def test_de_toets_ziet_een_herhaald_object_maar_geen_toevallig_gelijk_nummer():
+    """Rood-bewijs (#2077): de samenvatting die haar eigen object herhaalt faalt,
+    de bestelregel waarvan product en inschrijving hetzelfde nummer dragen als de
+    regel zelf blijft groen."""
+    herhaald = {"entity": "Persoon", "entity_id": 90, "summary": "Jan (Persoon #90) gewijzigd"}
+    toeval = {
+        "entity": "Bestelregel",
+        "entity_id": 7,
+        "summary": "product #7 ×1 (inschrijving #7)",
+    }
+    assert _herhaalt_zijn_object(herhaald)
+    assert not _herhaalt_zijn_object(toeval)
+
+
 def test_elke_rij_heeft_een_samenvatting_zonder_het_object_te_herhalen(client, db_session):
     """De regel die anders stilletjes terugkruipt: het object staat in zijn eigen
-    kolom, dus de samenvatting hoeft "(person #90)" niet te herhalen."""
+    kolom, dus de samenvatting hoeft "(Persoon #90)" niet te herhalen. Alleen de rijen
+    van deze test: wie alle rijen van vandaag leest, leest ook wat andere tests in
+    dezelfde databank achterlieten."""
     from datetime import date
 
     from app.domains.reporting.api import all_changes_since
 
-    _wijzigingen(db_session, 3)
-    rijen = all_changes_since(db_session, date.today())
-    assert rijen, "geen audit-rijen om te toetsen"
+    ids = _wijzigingen(db_session, 3)
     # all_changes_since levert dicts; Jinja verbergt dat verschil met r.summary,
     # Python niet.
-    for r in rijen:
+    eigen = [
+        r
+        for r in all_changes_since(db_session, date.today())
+        if r["entity"] == "Persoon" and r["entity_id"] in ids
+    ]
+    assert len(eigen) == len(ids), "niet elke aangemaakte persoon heeft een audit-rij"
+    for r in eigen:
         assert (r["summary"] or "").strip(), f"lege samenvatting voor {r['entity']}"
-        assert f"#{r['entity_id']}" not in (r["summary"] or ""), (
+        assert not _herhaalt_zijn_object(r), (
             "de samenvatting herhaalt het object — dat staat in de Object-kolom"
         )
 
