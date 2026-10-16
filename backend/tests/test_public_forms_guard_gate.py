@@ -56,6 +56,7 @@ NOT_TYPED = {
     "POST /nieuwsbrief/bevestigen/{token}": "works on the token of a mail somebody holds",
     "POST /nieuwsbrief/opnieuw/{token}": "works on the token of a mail somebody holds",
     "POST /nieuwsbrief/uitschrijven/{token}": "works on the token of a mail somebody holds",
+    "POST /nieuwsbrief/uitschrijven/d/{link}": "works on the signed link of a mail somebody holds; mails nothing",
     "POST /raakje/vraag": "the public chat; what it passes on goes to the board, not to a typed address",
 }
 

@@ -39,6 +39,7 @@ from app.domains.newsletter.viewmodels import (
     NewsletterComposeView,
     NewsletterConversationView,
     NewsletterListView,
+    NewsletterParticipantsView,
     NewsletterPickerView,
     NewsletterSendView,
     NewsletterSettingsView,
@@ -586,6 +587,19 @@ def _compose_view(
 
     if not module_enabled(ModuleCode.MEMBERSHIP):
         options = [(nb.Audience.BOTH.value, _("Iedereen"), str(counts.both))]
+    # CR-36: the fourth audience reads the registrations, so only a tenant with the
+    # activities module is offered it.
+    if module_enabled(ModuleCode.ACTIVITIES):
+        options.append(
+            (
+                nb.Audience.PARTICIPANTS.value,
+                code_label(nb.AUDIENCE.name, nb.Audience.PARTICIPANTS, db=db),
+                # No number on the pill: it depends on the ticks below it, which change
+                # without a page load; the sentence under the list says it.
+                "",
+            )
+        )
+    participant_offered, participant_lines, participant_notes = _participant_panel(db, letter)
     featured_options = _featured_options(db, letter)
     editor_config = schema.schema_for(
         "letter", letter_activities=[(o["id"], o["label"]) for o in featured_options]
@@ -596,6 +610,10 @@ def _compose_view(
         editor_config=editor_config,
         featured_options=featured_options,
         button_pages=_button_pages(db),
+        participants_shown=letter.audience == nb.Audience.PARTICIPANTS,
+        participant_offered=participant_offered,
+        participant_lines=participant_lines,
+        participant_notes=participant_notes,
         counts=counts,
         audience_options=options,
         audience_lines=lines,
@@ -611,6 +629,92 @@ def _compose_view(
         choices_error=choices_error,
         nav_items=admin_nav(NAV, request),
     )
+
+
+def _participant_said(db: Session, letter) -> tuple[list[AudienceLine], list[str], int]:
+    """Who a letter to *Eerdere deelnemers* goes to, in words (CR-36): the line for the
+    send screen and the panel, what was left out, and the number of recipients. The
+    numbers are the service's (`participant_recipients`); only the words are made here."""
+
+    def ngettext(one: str, many: str, n: int) -> str:
+        return _(one) if n == 1 else _(many)
+
+    _recipients, said = nb.participant_recipients(db, letter)
+    notes: list[str] = []
+    if not said.activities:
+        line = AudienceLine(
+            head=_("Eerdere deelnemers · 0 adressen"),
+            sentence=_("Kies één of meer activiteiten waarop de ontvangers waren ingeschreven."),
+        )
+    else:
+        which = ", ".join(f"{name} ({nb.short_date(day)})" for name, day in said.activities)
+        addresses = ngettext("%(num)s adres", "%(num)s adressen", said.recipients) % {
+            "num": said.recipients
+        }
+        sentence = _("%(adressen)s van mensen die waren ingeschreven op %(wat)s") % {
+            "adressen": addresses,
+            "wat": which,
+        }
+        shared = []
+        if said.as_member:
+            shared.append(
+                ngettext(
+                    "%(num)s krijgt hem al als lid",
+                    "%(num)s krijgen hem al als lid",
+                    said.as_member,
+                )
+                % {"num": said.as_member}
+            )
+        if said.as_subscriber:
+            shared.append(
+                ngettext(
+                    "%(num)s krijgt hem als abonnee",
+                    "%(num)s krijgen hem als abonnee",
+                    said.as_subscriber,
+                )
+                % {"num": said.as_subscriber}
+            )
+        if shared:
+            sentence += _(", waarvan %(wie)s") % {"wie": " en ".join(shared)}
+        line = AudienceLine(
+            head=_("Eerdere deelnemers · %(adressen)s") % {"adressen": addresses},
+            sentence=sentence + ".",
+        )
+    for name in said.dropped:
+        notes.append(
+            _(
+                "De activiteit “%(naam)s” bestaat niet meer of is geannuleerd: ze is uit de lijst gehaald."
+            )
+            % {"naam": name}
+        )
+    if said.unsubscribed:
+        notes.append(
+            ngettext(
+                "%(num)s adres heeft zich uitgeschreven en krijgt hem niet.",
+                "%(num)s adressen hebben zich uitgeschreven en krijgen hem niet.",
+                said.unsubscribed,
+            )
+            % {"num": said.unsubscribed}
+        )
+    if said.skipped:
+        notes.append(
+            ngettext(
+                "%(num)s adres is geen geldig e-mailadres en wordt overgeslagen.",
+                "%(num)s adressen zijn geen geldig e-mailadres en worden overgeslagen.",
+                said.skipped,
+            )
+            % {"num": said.skipped}
+        )
+    return [line], notes, said.recipients
+
+
+def _participant_panel(db: Session, letter) -> tuple[list, list[AudienceLine], list[str]]:
+    """The list under the audience and what it says — empty unless the letter's
+    audience is *Eerdere deelnemers*."""
+    if letter.audience != nb.Audience.PARTICIPANTS:
+        return [], [], []
+    lines, notes, _count = _participant_said(db, letter)
+    return nb.offered_activities(db, letter), lines, notes
 
 
 def _button_pages(db: Session) -> list[tuple[int, str]]:
@@ -688,6 +792,13 @@ def _archive_view(
         status_label=code_label(nb.LETTER_STATUS.name, letter.status, db=db),
         status_tone=tone(nb.LETTER_STATUS.name, letter.status),
         audience_label=code_label(nb.AUDIENCE.name, letter.audience or "", db=db),
+        audience_activities=", ".join(
+            f"{row.name or row.activity_id}"
+            + (f" ({nb.short_date(row.last_date)})" if row.last_date else "")
+            for row in nb.chosen_activities(db, letter)
+        )
+        if letter.audience == nb.Audience.PARTICIPANTS
+        else "",
         progress=progress,
         expected=short_datetime(progress.expected_finish) if progress.expected_finish else "",
         started=short_datetime(letter.send_started_at),
@@ -763,6 +874,66 @@ def newsletter_save(
     return templates.TemplateResponse(
         request, "_nb_bewaard.html", _compose_view(request, db, letter, error=error).as_context()
     )
+
+
+def _participants_response(
+    request: Request, db: Session, letter, error: Optional[str] = None, *, shown: bool = True
+):
+    """The list under *Eerdere deelnemers* as a fragment: empty when the letter's
+    audience (or the one the page is about to save) is another one."""
+    lines, notes, _count = _participant_said(db, letter) if shown else ([], [], 0)
+    return templates.TemplateResponse(
+        request,
+        "_nb_deelnemers.html",
+        NewsletterParticipantsView(
+            letter=letter,
+            participants_shown=shown,
+            participant_offered=nb.offered_activities(db, letter) if shown else [],
+            participant_lines=lines,
+            participant_notes=notes,
+            csrf_token=_csrf(request),
+            choices_error=error,
+        ).as_context(),
+    )
+
+
+@router.get("/admin/nieuwsbrieven/{newsletter_id:int}/deelnemers", response_class=HTMLResponse)
+def participants_panel(
+    newsletter_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
+    audience: str = "",
+):
+    """The list of earlier activities, loaded when the author picks *Eerdere
+    deelnemers* — before the choice is saved, so the page says which audience it asks
+    for."""
+    letter = _letter_or_404(db, newsletter_id)
+    return _participants_response(
+        request, db, letter, shown=audience == nb.Audience.PARTICIPANTS.value
+    )
+
+
+@router.post(
+    "/admin/nieuwsbrieven/{newsletter_id:int}/deelnemers",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def participants_choose(
+    newsletter_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
+    chosen: list[str] = Form([]),
+):
+    """The ticked earlier activities, as the form sends them (CR-36)."""
+    letter = _letter_or_404(db, newsletter_id)
+    error = None
+    try:
+        nb.set_participant_activities(db, letter, [int(c) for c in chosen if c.isdigit()])
+    except nb.NewsletterError as exc:
+        error = str(exc)
+    return _participants_response(request, db, letter, error)
 
 
 @router.get("/admin/nieuwsbrieven/{newsletter_id:int}/activiteiten", response_class=HTMLResponse)
@@ -880,13 +1051,9 @@ def newsletter_preview(
     """
     letter = _letter_or_404(db, newsletter_id)
     base = _base_url(db)
-    kind = (
-        nb.DeliveryKind.SUBSCRIBER
-        if letter.audience in (nb.Audience.NON_MEMBERS, nb.Audience.BOTH)
-        else nb.DeliveryKind.MEMBER
-    )
+    kind = nb.sample_kind_of(letter.audience)
     unsubscribe = (
-        f"{base}/nieuwsbrief/uitschrijven/test" if kind == nb.DeliveryKind.SUBSCRIBER else None
+        f"{base}/nieuwsbrief/uitschrijven/test" if kind != nb.DeliveryKind.MEMBER else None
     )
     return HTMLResponse(
         nb.render_mail(db, letter, kind=kind, unsubscribe_url=unsubscribe, base_url=base)
@@ -995,7 +1162,7 @@ def newsletter_delete(
 # ── Sending ──────────────────────────────────────────────────────────────────
 
 
-def _audience_said(db: Session, audience) -> tuple[list[AudienceLine], str, str, int]:
+def _audience_said(db: Session, audience, letter=None) -> tuple[list[AudienceLine], str, str, int]:
     """Who the letter goes to, in words (#1780): the lines of the first card,
     what the two lists share, the words on the send button, and the number of
     recipients. The numbers are the service's (`audience_summary`); only the
@@ -1009,6 +1176,13 @@ def _audience_said(db: Session, audience) -> tuple[list[AudienceLine], str, str,
 
     if not audience:
         return [], "", "", 0
+    if audience == nb.Audience.PARTICIPANTS:
+        # CR-36: derived from the activities the letter names, so it needs the letter.
+        lines, notes, count = _participant_said(db, letter)
+        label = ngettext(
+            "Verstuur naar %(num)s ontvanger", "Verstuur naar %(num)s ontvangers", count
+        )
+        return lines, " ".join(notes), label % {"num": count}, count
     said = nb.audience_summary(db, audience)
     # CR-19 (#1477): without the membership module there are no members, and
     # "both" is the subscribers.
@@ -1076,7 +1250,7 @@ def _send_view(
 ) -> NewsletterSendView:
     from app.kernel.tenant_config import tenant_newsletter_daily_cap
 
-    lines, overlap, send_label, count = _audience_said(db, letter.audience)
+    lines, overlap, send_label, count = _audience_said(db, letter.audience, letter)
     return NewsletterSendView(
         letter=letter,
         audience_lines=lines,

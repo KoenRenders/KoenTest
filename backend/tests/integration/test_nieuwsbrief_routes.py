@@ -298,8 +298,12 @@ def test_abonnees_beheren(client, db_session):
     )
     assert "nora@example.org" not in gefilterd.text
 
+    # Removing an address that unsubscribed keeps the opt-out (CR-36, C4.4): the row stays
+    # with its address and its status, the name and the tokens go.
     client.post(f"/admin/nieuwsbrieven/abonnees/{nora.id}/verwijderen", headers=headers)
-    assert nb.subscriber_by_email(db_session, "nora@example.org") is None
+    kept = nb.subscriber_by_email(db_session, "nora@example.org")
+    assert kept is not None and kept.status == SubscriberStatus.UNSUBSCRIBED
+    assert kept.first_name is None
 
 
 def test_de_import_via_het_scherm(client, db_session):

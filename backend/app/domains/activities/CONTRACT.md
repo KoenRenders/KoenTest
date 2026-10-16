@@ -19,6 +19,11 @@
   (§19.3): uitsluitend server-side, één plek. Ledenprijs via de
   membership-facade (`has_valid_membership`).
 - `build_component_export_ods` — deelnemerslijst + betaalblad.
+- **For the newsletter's fourth audience (CR-36, #2026):** `past_activities` (the
+  earlier activities that may be offered: published, not cancelled, every date past,
+  the last of them in or after the given year) and `registration_addresses` (per
+  activity the addresses people typed when they registered, as typed — the caller
+  normalises; deleted registrations are not there). Only this tenant's rows.
 
 ### Router
 

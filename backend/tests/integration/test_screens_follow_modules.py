@@ -186,12 +186,19 @@ def test_without_membership_the_newsletter_offers_only_iedereen(client, db_sessi
     modules(EVERY)
     assert (
         len(re.findall(r'name="audience"', client.get(f"/admin/nieuwsbrieven/{letter.id}").text))
-        == 3
+        == 4
     )
     modules(EVERY - {"membership"})
     page = client.get(f"/admin/nieuwsbrieven/{letter.id}").text
-    assert re.findall(r'name="audience" value="([^"]*)"', page) == ["both"]
+    # The lists are the subscribers ("Iedereen"); the fourth audience reads the
+    # registrations and only needs the activities module (CR-36).
+    assert re.findall(r'name="audience" value="([^"]*)"', page) == ["both", "participants"]
     assert "Iedereen" in page
+    modules(EVERY - {"activities"})
+    page = client.get(f"/admin/nieuwsbrieven/{letter.id}").text
+    assert "participants" not in re.findall(r'name="audience" value="([^"]*)"', page), (
+        "a tenant without the activities module is not offered the audience (T17)"
+    )
 
 
 def test_a_company_footer_says_partners(db_session):
