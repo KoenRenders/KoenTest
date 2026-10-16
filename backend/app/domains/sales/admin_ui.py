@@ -386,7 +386,10 @@ def shop_contact_candidates(
     _email: str = Depends(require_right(Right.SALES_MANAGE)),
 ):
     """The candidates of the contact search — every person, not only members (R41,
-    Q71); whoever is already a contact is left out."""
+    Q71); whoever is already a contact is left out. Koen, 16 October 2026, on what
+    Verkoop reads of a person here: "verkoop mag alle gegevens van een persoon
+    zien, wel niets wijzigen" — the search shows name and e-mail, and nothing here
+    changes a person."""
     from app.domains.mdm.api import search_persons
     from app.domains.sales.api import shop_contacts
 

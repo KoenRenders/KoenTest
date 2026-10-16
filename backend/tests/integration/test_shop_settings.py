@@ -285,6 +285,9 @@ def test_a_members_mail_link_signs_in_and_lands_on_his_order(client, db_session,
     link = queued_link(db_session, "an@example.com")
     assert "/login/verify?token=" in link, "the member's link is the sign-in link"
     assert f"terug=/mijn/aankopen/{order_id}" in link, "the link lands on the order"
+    assert (
+        "Deze link werkt 15 minuten" in queued_mails(db_session, "an@example.com")[-1]["body_html"]
+    ), "the mail says the link lives 15 minutes"
 
     from html import unescape
     from urllib.parse import urlparse

@@ -1029,6 +1029,14 @@ def order_confirmation_message(
             + _("Klik om je bestelling te bekijken:")
             + f' <a href="{escape(sign_in_url)}">{escape(sign_in_url)}</a></p>'
         )
+        message += (
+            "<p>"
+            + _(
+                "Deze link werkt 15 minuten. Daarna meld je je aan en vind je de "
+                "bestelling terug onder Mijn aankopen."
+            )
+            + "</p>"
+        )
 
     return dict(
         to_email=to_email,
