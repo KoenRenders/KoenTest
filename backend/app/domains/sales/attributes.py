@@ -57,6 +57,14 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
+        key="sales.sales_order.submission_key",
+        columns=("sales.sales_orders.submission_key",),
+        label=None,
+        name_en="Submission key",
+        help="The key of the shown form the order came from (#1987): a form is accepted once.",
+        ai_exposure=AiExposure.NONE,  # K1, as the answer token: a technical key
+    ),
+    Attribute(
         key="sales.sales_order_line.variant_id",
         columns=("sales.sales_order_lines.variant_id",),
         label=None,

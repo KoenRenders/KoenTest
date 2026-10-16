@@ -322,6 +322,7 @@ def test_op_bestelling_stays_after_the_first_pre_order(client, db_session, every
     """T1: one pre-order reserves below zero (`available` −1), and the tile still
     says "op bestelling" — the size reads `in_stock <= 0`, not `== 0`."""
     from app.domains.product.api import add_variant, create_product, set_status
+    from tests.conftest import form_guard_fields
 
     product = create_product(db_session, "T-shirt")
     set_status(db_session, product.id, ProductStatus.ON_SALE)
@@ -346,6 +347,7 @@ def test_op_bestelling_stays_after_the_first_pre_order(client, db_session, every
             "contact_email": "an@example.com",
             "phone": "0470000000",
             "payment_method": "transfer",
+            **form_guard_fields(),
         },
         follow_redirects=False,
     )

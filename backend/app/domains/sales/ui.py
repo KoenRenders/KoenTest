@@ -180,14 +180,18 @@ async def mandje(request: Request, db: Session = Depends(get_db)) -> Response:
     dependencies=[Depends(order_limiter)],
 )
 async def order_submit(request: Request, db: Session = Depends(get_db)) -> Response:
-    """Place the order (C4.1, C5): every price recomputed, the lines reserved, the
-    payment started, all in one transaction."""
+    """Place the order (C4.1, C5, #1987): every price recomputed, the lines reserved,
+    the payment started, all in one transaction. A shown form is accepted once —
+    a second post answers with the first order, never a second payment."""
     from app.domains.mdm.api import PaymentMethod
-    from app.domains.sales.api import SalesError
+    from app.domains.sales.api import Honeypot, SalesError
+    from app.kernel import form_guard
     from app.kernel.refusals import FieldError
     from app.ui import refusal_response
 
     form = await request.form()
+    proof = form_guard.Proof.from_request(request, form)
+
     try:
         method = PaymentMethod(str(form.get("payment_method") or "online"))
     except ValueError:
@@ -210,6 +214,8 @@ async def order_submit(request: Request, db: Session = Depends(get_db)) -> Respo
     try:
         checkout_url, order_id = submit_order(
             db,
+            proof=proof,
+            values=form,
             person_id=person_id,
             member=member,
             contact_name=contact_name,
@@ -218,14 +224,15 @@ async def order_submit(request: Request, db: Session = Depends(get_db)) -> Respo
             method=method,
             items=items,
         )
+    except Honeypot:
+        return HTMLResponse("")
+    except form_guard.NotSent as hurry:
+        return refusal_response(request, [FieldError("", str(hurry))], "#bestel-melding", send=True)
     except SalesError as exc:
         return refusal_response(request, [FieldError("", str(exc))], "#bestel-melding", send=True)
 
     response = HTMLResponse("")
-    if method == PaymentMethod.ONLINE:
-        response.headers["HX-Redirect"] = checkout_url or ""
-    else:
-        response.headers["HX-Redirect"] = f"/webshop/bedankt?order={order_id}"
+    response.headers["HX-Redirect"] = checkout_url or f"/webshop/bedankt?order={order_id}"
     return response
 
 

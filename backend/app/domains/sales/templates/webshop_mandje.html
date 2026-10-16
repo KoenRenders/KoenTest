@@ -15,6 +15,7 @@
 {% call ui.flow_card() %}{{ ui.empty_state(_("Je mandje is leeg."), _("Naar de webshop"), "/webshop") }}{% endcall %}
 {% else %}
 <form id="bestel-form" hx-post="/webshop/bestellen" hx-target="#bestel-melding" hx-swap="innerHTML">
+  {{ ui.form_guard_fields() }}
 <div data-form-flow class="form-flow">
   <div id="bestel-melding" data-form-message></div>
   {% call ui.section(_("Je mandje")) %}

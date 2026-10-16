@@ -218,6 +218,7 @@ async def add_order_submit(
     """Add a line, remove one, or save the order (R43, F18)."""
     from app.domains.mdm.api import PaymentMethod
     from app.domains.sales.api import submit_order
+    from app.kernel import form_guard
     from app.kernel.refusals import FieldError
 
     form = await request.form()
@@ -302,6 +303,8 @@ async def add_order_submit(
     try:
         _checkout, order_id = submit_order(
             db,
+            proof=form_guard.TRUSTED,
+            values=form,
             person_id=person.id,
             member=member,
             contact_name="",
@@ -314,6 +317,8 @@ async def add_order_submit(
         return refusal_response(
             request, [FieldError("", str(refusal))], "#bestel-melding", send=True
         )
+    except form_guard.NotSent as hurry:
+        return refusal_response(request, [FieldError("", str(hurry))], "#bestel-melding", send=True)
     return _redirect(request, f"/admin/verkoop/{order_id}")
 
 

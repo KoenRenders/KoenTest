@@ -147,6 +147,7 @@ def place_order(
     method: Any,
     items: list[tuple[int, int]],
     member: bool,
+    submission_key: str | None = None,
 ):
     """Place an order: every price recomputed, the lines and their reservations
     written (C4.1, C5, F1).
@@ -160,6 +161,8 @@ def place_order(
     Returns the `SalesOrder` (its lines carry the prices); the total is the sum of
     the line amounts, `total_of`.
     """
+    from sqlalchemy.exc import IntegrityError
+
     from app.domains.sales.models import SalesOrder, SalesOrderLine
     from app.domains.stock.api import NotEnoughStock
     from app.i18n import _
@@ -172,53 +175,69 @@ def place_order(
         raise SalesError(_("Je mandje is leeg."))
     max_quantity = tenant_max_item_quantity(db)
     today = belgian_today()
-    order = SalesOrder(
-        person_id=person_id,
-        guest_name=guest_name,
-        guest_email=guest_email,
-        guest_mobile=guest_mobile,
-        payment_method=method,
-    )
-    db.add(order)
-    db.flush()
-    for variant_id, quantity in items:
-        if quantity < 1 or quantity > max_quantity:
-            raise SalesError(
-                _("Ongeldig aantal: kies een waarde tussen 1 en %(max)s.") % {"max": max_quantity}
-            )
-        variant = get_variant(db, variant_id)
-        if variant is None:
-            raise SalesError(_("Dit artikel wordt niet meer aangeboden."))
-        product = get_product_in_tenant(db, variant.product_id)
-        if product is None or product.status is not ProductStatus.ON_SALE:
-            raise SalesError(_("Dit artikel wordt niet meer aangeboden."))
-        price = price_for(db, variant_id, today, member)
-        if price is None:
-            raise SalesError(_("Dit artikel wordt niet meer aangeboden."))
-        refusal = _stock_refusal(db, product, variant_id, quantity, today)
-        if refusal is not None:
-            raise SalesError(refusal)
-        open_window, _until = pre_order_window(product, today)
-        line = SalesOrderLine(
-            order_id=order.id,
-            variant_id=variant_id,
-            quantity=quantity,
-            unit_price=price,
+    # #1987: the unique submission key is the one thing that may clash when the
+    # same form is posted twice at once. A savepoint takes the failed insert back,
+    # so the caller (the door) can look the first order up and answer with it.
+    savepoint = db.begin_nested()
+    try:
+        order = SalesOrder(
+            person_id=person_id,
+            guest_name=guest_name,
+            guest_email=guest_email,
+            guest_mobile=guest_mobile,
+            payment_method=method,
+            submission_key=submission_key,
         )
-        db.add(line)
+        db.add(order)
         db.flush()
-        try:
-            call(
-                ReserveStock(
-                    order_line_id=line.id,
-                    variant_id=variant_id,
-                    quantity=quantity,
-                    allow_short=open_window,
-                ),
-                db,
+        for variant_id, quantity in items:
+            if quantity < 1 or quantity > max_quantity:
+                raise SalesError(
+                    _("Ongeldig aantal: kies een waarde tussen 1 en %(max)s.")
+                    % {"max": max_quantity}
+                )
+            variant = get_variant(db, variant_id)
+            if variant is None:
+                raise SalesError(_("Dit artikel wordt niet meer aangeboden."))
+            product = get_product_in_tenant(db, variant.product_id)
+            if product is None or product.status is not ProductStatus.ON_SALE:
+                raise SalesError(_("Dit artikel wordt niet meer aangeboden."))
+            price = price_for(db, variant_id, today, member)
+            if price is None:
+                raise SalesError(_("Dit artikel wordt niet meer aangeboden."))
+            refusal = _stock_refusal(db, product, variant_id, quantity, today)
+            if refusal is not None:
+                raise SalesError(refusal)
+            open_window, _until = pre_order_window(product, today)
+            line = SalesOrderLine(
+                order_id=order.id,
+                variant_id=variant_id,
+                quantity=quantity,
+                unit_price=price,
             )
-        except NotEnoughStock as exc:
-            raise SalesError(_("Niet genoeg voorraad.")) from exc
+            db.add(line)
+            db.flush()
+            try:
+                call(
+                    ReserveStock(
+                        order_line_id=line.id,
+                        variant_id=variant_id,
+                        quantity=quantity,
+                        allow_short=open_window,
+                    ),
+                    db,
+                )
+            except NotEnoughStock as exc:
+                raise SalesError(_("Niet genoeg voorraad.")) from exc
+    except IntegrityError:
+        # #1987: a clash on the unique submission key — roll the failed insert
+        # back and let the caller decide (form_guard.is_repeat).
+        savepoint.rollback()
+        raise
+    except Exception:
+        savepoint.rollback()
+        raise
+    savepoint.commit()
     return order
 
 
@@ -395,9 +414,15 @@ def basket_lines(
     return lines
 
 
+class Honeypot(Exception):
+    """A bot filled the honeypot: the order is dropped with no word (#1297)."""
+
+
 def submit_order(
     db: Session,
     *,
+    proof: Any,
+    values: Any,
     person_id: int | None,
     member: bool,
     contact_name: str,
@@ -406,24 +431,44 @@ def submit_order(
     method: Any,
     items: list[tuple[int, int]],
 ) -> tuple[str | None, int]:
-    """The whole placing flow (C4.1, C5): place, start the payment, publish, commit.
+    """The whole placing flow (C4.1, C5, #1987): place, start the payment, publish,
+    commit. A shown form is accepted once — a second post answers with the first
+    order, never a second payment.
 
     Returns `(checkout_url, order_id)` — `checkout_url` only for an online order.
     Raises `SalesError` for a refusal (the door answers 422, the order rolled
     back); raises `HTTPException(502)` when an online payment cannot start (the
-    order is rolled back, nothing reserved).
+    order is rolled back, nothing reserved); raises `form_guard.NotSent` when the
+    form is not ours; raises `Honeypot` for a bot.
     """
     import httpx
     from fastapi import HTTPException
+    from sqlalchemy.exc import IntegrityError
 
     from app.domains.mdm.api import PaymentMethod
     from app.domains.payment.api import PayableType
+    from app.domains.sales.models import SUBMISSION_KEY_CONSTRAINT
     from app.i18n import _
+    from app.kernel import form_guard
     from app.kernel.contracts.payment import CreatePayment
     from app.kernel.contracts.sales import SalesOrderPlaced
     from app.kernel.events import publish
     from app.kernel.ports import call
     from app.kernel.tenant_config import tenant_base_url
+
+    try:
+        if form_guard.refused(proof, "order"):
+            raise Honeypot()
+    except form_guard.NotSent:
+        raise
+    key = form_guard.submission_key(values)
+    if key is None:
+        raise form_guard.NotSent(form_guard.Refusal.BAD_TOKEN)
+
+    # #1987: before every rule — the first post may have changed what a rule says.
+    earlier = order_for_submission(db, key)
+    if earlier is not None:
+        return order_again(db, earlier)
 
     if method not in (PaymentMethod.ONLINE, PaymentMethod.TRANSFER):
         raise SalesError(_("Kies online betalen of overschrijving."))
@@ -438,10 +483,27 @@ def submit_order(
             method=method,
             items=items,
             member=member,
+            submission_key=key,
         )
     except SalesError:
         db.rollback()
+        # The same form posted twice within milliseconds — the first committed
+        # after this one looked its key up, so this one met a rule the first
+        # changed. The order exists: answer with it, not with the refusal.
+        earlier = order_for_submission(db, key)
+        if earlier is not None:
+            return order_again(db, earlier)
         raise
+    except IntegrityError as clash:
+        # #1987: the same form posted twice at the same moment. Both found no
+        # order and both inserted; the unique key let one through. `place_order`
+        # took its insert back to its savepoint, so the read sees the winner.
+        if not form_guard.is_repeat(clash, SUBMISSION_KEY_CONSTRAINT):
+            raise
+        earlier = order_for_submission(db, key)
+        if earlier is None:
+            raise
+        return order_again(db, earlier)
 
     total = total_of(order)
     checkout_url: str | None = None
@@ -491,6 +553,34 @@ def get_order(db: Session, order_id: int):
     from app.domains.sales.models import SalesOrder
 
     return db.query(SalesOrder).filter(SalesOrder.id == order_id).one_or_none()
+
+
+def order_for_submission(db: Session, key: str):
+    """The order a shown form already made, or None (#1987): the form is accepted
+    once, and a second post of it answers with this one."""
+    from app.domains.sales.models import SalesOrder
+
+    return db.query(SalesOrder).filter(SalesOrder.submission_key == key).first()
+
+
+def order_again(db: Session, order) -> tuple[str | None, int]:
+    """What a second post of a form answers: the first order (D4, #1987). The same
+    provider checkout while that payment is still pending — never a second payment —
+    else the thank-you page's order."""
+    from app.domains.mdm.api import PaymentMethod
+    from app.domains.payment.api import (
+        PayableType,
+        PaymentStatus,
+        checkout_url_for,
+        get_records_for,
+    )
+
+    if order.payment_method == PaymentMethod.ONLINE:
+        for record in get_records_for(db, PayableType.ORDER, order.id):
+            url = checkout_url_for(db, record) if record.status == PaymentStatus.PENDING else None
+            if url:
+                return url, order.id
+    return None, order.id
 
 
 def orders_of_person(db: Session, person_id: int):

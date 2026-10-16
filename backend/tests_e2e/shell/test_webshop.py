@@ -23,7 +23,12 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import htmx_afgerond, login_met_sessie, refusal_shown  # noqa: E402
+from tests_e2e.schermen import (  # noqa: E402
+    htmx_afgerond,
+    laat_de_wacht_passeren,
+    login_met_sessie,
+    refusal_shown,
+)
 
 WEBSHOP_HOST = "http://webshop.localhost:8000"
 
@@ -499,6 +504,7 @@ def test_het_mandje_wandelt_van_artikel_tot_bedankt(browser):
         page.locator('input[name="contact_email"]').fill("an@example.com")
         page.locator('input[name="phone"]').fill("0470000000")
         page.locator('input[name="payment_method"][value="transfer"]').check()
+        laat_de_wacht_passeren(page)  # the order form's guard (#2039)
         with htmx_afgerond(page):
             page.get_by_role("button", name="Bestellen en betalen").click()
         page.wait_for_url("**/webshop/bedankt?**")
@@ -783,6 +789,7 @@ def test_verkoop_toont_de_bestelling_en_levert_een_regel(webshop_page):
     page.locator('input[name="contact_email"]').fill("an@example.com")
     page.locator('input[name="phone"]').fill("0470000000")
     page.locator('input[name="payment_method"][value="transfer"]').check()
+    laat_de_wacht_passeren(page)  # the order form's guard (#2039)
     with htmx_afgerond(page):
         page.get_by_role("button", name="Bestellen en betalen").click()
     page.wait_for_url("**/webshop/bedankt?**")
@@ -957,6 +964,7 @@ def test_een_upload_leegt_noch_blokkeert_een_onbewaarde_wijziging(webshop_page):
     _open_artikel_in_bewerkmodus(page)
 
     page.locator('input[name="name"]').fill("Gewijzigde naam")
+    page.locator("[data-group-row]").first.locator('input[name^="v."]').fill("Maat XL")
     buf = BytesIO()
     Image.new("RGB", (40, 30), (10, 90, 200)).save(buf, format="PNG")
     page.locator('form[hx-post$="/fotos"] input[type="file"]').set_input_files(
@@ -968,6 +976,9 @@ def test_een_upload_leegt_noch_blokkeert_een_onbewaarde_wijziging(webshop_page):
     assert page.locator('input[name="name"]').input_value() == "Gewijzigde naam", (
         "de onbewaarde naam moet blijven staan"
     )
+    assert page.locator("[data-group-row]").first.locator('input[name^="v."]').input_value() == (
+        "Maat XL"
+    ), "de ingetikte maat moet na de upload blijven staan"
 
 
 def test_een_documenttitel_wordt_met_opslaan_bewaard(webshop_page):
@@ -1035,6 +1046,7 @@ def test_online_betalen_landt_op_de_stub(browser):
         page.locator('input[name="contact_email"]').fill("an@example.com")
         page.locator('input[name="phone"]').fill("0470000000")
         page.locator('input[name="payment_method"][value="online"]').check()
+        laat_de_wacht_passeren(page)  # the order form's guard (#2039)
         with htmx_afgerond(page):
             page.get_by_role("button", name="Bestellen en betalen").click()
         page.wait_for_url("**/betaling/stub/**")

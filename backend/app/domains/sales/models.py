@@ -18,10 +18,12 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
     Text,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -35,6 +37,10 @@ from app.soft_delete import SoftDeleteMixin
 
 def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
+
+
+#: The unique index that makes a shown order form accepted once (#1987).
+SUBMISSION_KEY_CONSTRAINT = "uq_sales_orders_submission_key"
 
 
 class SalesError(ValueError):
@@ -63,7 +69,20 @@ class SalesOrder(TenantMixin, SoftDeleteMixin, Base):
     """
 
     __tablename__ = "sales_orders"
-    __table_args__ = {"schema": "sales"}
+    __table_args__ = (
+        # #1987: a shown order form is accepted once — the database decides, so two
+        # posts at the same moment cannot both pass a check (`form_guard.is_repeat`).
+        # A deleted order frees its key (review of dev1, finding 2 of the registration's
+        # half): the key holds while the order lives, as the lookup sees it.
+        Index(
+            SUBMISSION_KEY_CONSTRAINT,
+            "tenant_id",
+            "submission_key",
+            unique=True,
+            postgresql_where=text("submission_key IS NOT NULL AND deleted_at IS NULL"),
+        ),
+        {"schema": "sales"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     person_id = Column(Integer, nullable=True, index=True)
@@ -74,6 +93,9 @@ class SalesOrder(TenantMixin, SoftDeleteMixin, Base):
         EnumColumn(PaymentMethod, length=20), nullable=True
     )
     placed_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    # #1987: the key a shown order form is accepted once by — the token's signed
+    # time and random part (`form_guard.submission_key`). Nothing else reads it.
+    submission_key = Column(String(64), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
     updated_at = Column(
         DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False

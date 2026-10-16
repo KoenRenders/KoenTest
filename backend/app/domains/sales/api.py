@@ -14,6 +14,7 @@ from app.domains.sales.models import (  # noqa: F401
 )
 from app.domains.sales.payables import order_describer  # noqa: F401
 from app.domains.sales.service import (  # noqa: F401
+    Honeypot,
     article_offer,
     basket_lines,
     board_order_person,
@@ -22,7 +23,9 @@ from app.domains.sales.service import (  # noqa: F401
     get_order,
     list_orders,
     offered_products,
+    order_again,
     order_delivery_state,
+    order_for_submission,
     order_payment_state,
     order_view,
     orders_of_person,
@@ -34,6 +37,7 @@ from app.domains.sales.service import (  # noqa: F401
 )
 
 __all__ = [
+    "Honeypot",
     "ProductHasOrderLines",
     "SalesError",
     "SalesOrder",
@@ -48,8 +52,10 @@ __all__ = [
     "get_order",
     "list_orders",
     "offered_products",
+    "order_again",
     "order_delivery_state",
     "order_describer",
+    "order_for_submission",
     "order_payment_state",
     "order_view",
     "orders_of_person",

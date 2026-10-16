@@ -1,5 +1,6 @@
 {% import "_macros.html" as ui %}
 <form id="bestel-form" hx-post="/admin/verkoop/nieuw" hx-target="#bestel-form" hx-swap="outerHTML">
+  {{ ui.form_guard_fields() }}
   <div id="bestel-melding" data-form-message></div>
   {% call ui.record_columns() %}
   <div class="form-flow">

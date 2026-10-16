@@ -12,8 +12,17 @@ import pytest
 from app.domains.pricing.api import add_prices
 from app.domains.product.api import ProductStatus, add_variant, create_product, set_status
 from app.domains.stock.api import available, receive
+from app.kernel.form_guard import TRUSTED
+from tests.conftest import form_guard_fields
 
 pytestmark = pytest.mark.ui_agnostisch
+
+
+def _guard_suffix() -> str:
+    """The guard fields as a url-encoded suffix, for a raw-body post."""
+    from urllib.parse import urlencode
+
+    return "&" + urlencode(form_guard_fields())
 
 
 def _variant_with_price_and_stock(db, *, name: str, size: str, amount: str, stock: int):
@@ -101,6 +110,7 @@ def test_posting_places_one_order_and_starts_a_transfer(client, db_session, ever
             "contact_email": "an@example.com",
             "phone": "0470000000",
             "payment_method": "transfer",
+            **form_guard_fields(),
         },
         follow_redirects=False,
     )
@@ -121,6 +131,7 @@ def _post(client, variant_id, **extra):
         "contact_email": "an@example.com",
         "phone": "0470000000",
         "payment_method": "transfer",
+        **form_guard_fields(),
         **extra,
     }
     return client.post("/webshop/bestellen", data=data, follow_redirects=False)
@@ -271,6 +282,7 @@ def test_a_guest_order_needs_name_email_and_mobile(client, db_session, every_mod
                 "contact_email": "an@example.com",
                 "phone": "0470000000",
                 "payment_method": "transfer",
+                **form_guard_fields(),
             }
             data[missing] = ""
             response = client.post("/webshop/bestellen", data=data, follow_redirects=False)
@@ -320,6 +332,7 @@ def test_a_variant_posted_twice_is_one_line(client, db_session, every_module_on)
     body = (
         f"variant_id={m.id}&variant_id={m.id}&quantity=1&quantity=2"
         "&contact_name=An&contact_email=an@example.com&phone=0470000000&payment_method=transfer"
+        + _guard_suffix()
     )
     response = client.post(
         "/webshop/bestellen",
@@ -339,6 +352,7 @@ def test_lists_that_do_not_line_up_are_refused(client, db_session, every_module_
     body = (
         f"variant_id={m.id}&quantity=1&quantity=2"
         "&contact_name=An&contact_email=an@example.com&phone=0470000000&payment_method=transfer"
+        + _guard_suffix()
     )
     response = client.post(
         "/webshop/bestellen",
@@ -455,7 +469,7 @@ def test_the_total_counts_only_the_orderable_lines(client, db_session, every_mod
 
     response = client.post(
         "/webshop/mandje",
-        content=f"variant_id={gone.id}&variant_id={ok.id}&quantity=1&quantity=1",
+        content=f"variant_id={gone.id}&variant_id={ok.id}&quantity=1&quantity=1" + _guard_suffix(),
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         follow_redirects=False,
     )
@@ -515,7 +529,8 @@ def test_a_short_line_keeps_its_stepper_and_a_gone_line_does_not(
 
     response = client.post(
         "/webshop/mandje",
-        content=f"variant_id={short.id}&variant_id={gone.id}&quantity=2&quantity=1",
+        content=f"variant_id={short.id}&variant_id={gone.id}&quantity=2&quantity=1"
+        + _guard_suffix(),
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         follow_redirects=False,
     )
@@ -642,6 +657,8 @@ def _clean(variant_id: int, order_id: int | None, location_id: int) -> None:
     """Remove exactly what this test made, in a finally — never a broad delete,
     so a red assertion still leaves the database clean for the tests after it."""
     from app.database import SessionLocal
+    from app.domains.payment.api import PayableType
+    from app.domains.payment.models import GatewayPayment, PaymentRecord, PaymentRecordHistory
     from app.domains.pricing.models import Price
     from app.domains.product.models import Product, ProductVariant
     from app.domains.sales.models import SalesOrder, SalesOrderLine
@@ -652,6 +669,27 @@ def _clean(variant_id: int, order_id: int | None, location_id: int) -> None:
         variant = db.get(ProductVariant, variant_id)
         product_id = variant.product_id if variant is not None else None
         if order_id is not None:
+            records = (
+                db.query(PaymentRecord)
+                .filter(
+                    PaymentRecord.payable_type == PayableType.ORDER,
+                    PaymentRecord.payable_id == order_id,
+                )
+                .all()
+            )
+            record_ids = [r.id for r in records]
+            gateway_ids = [r.gateway_payment_id for r in records if r.gateway_payment_id]
+            if record_ids:
+                db.query(PaymentRecordHistory).filter(
+                    PaymentRecordHistory.payment_record_id.in_(record_ids)
+                ).delete(synchronize_session=False)
+                db.query(PaymentRecord).filter(PaymentRecord.id.in_(record_ids)).delete(
+                    synchronize_session=False
+                )
+            if gateway_ids:
+                db.query(GatewayPayment).filter(GatewayPayment.id.in_(gateway_ids)).delete(
+                    synchronize_session=False
+                )
             db.query(SalesOrderLine).filter(SalesOrderLine.order_id == order_id).delete(
                 synchronize_session=False
             )
@@ -908,6 +946,8 @@ def test_cancelling_a_paid_order_leaves_the_full_refund_due(db_session, every_mo
     m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
     _checkout, order_id = submit_order(
         db_session,
+        proof=TRUSTED,
+        values=form_guard_fields(),
         person_id=None,
         member=False,
         contact_name="An",
@@ -948,6 +988,8 @@ def test_the_verkoop_list_segments_and_counter_follow_the_filter(
 
     _checkout, unpaid_id = submit_order(
         db_session,
+        proof=TRUSTED,
+        values=form_guard_fields(),
         person_id=None,
         member=False,
         contact_name="An",
@@ -958,6 +1000,8 @@ def test_the_verkoop_list_segments_and_counter_follow_the_filter(
     )
     _checkout, paid_id = submit_order(
         db_session,
+        proof=TRUSTED,
+        values=form_guard_fields(),
         person_id=None,
         member=False,
         contact_name="Bo",
@@ -1045,6 +1089,7 @@ def test_bestelling_toevoegen_hangs_on_the_typed_person_and_his_member_price(
             "variant_id": str(variant.id),
             "quantity": "1",
             "payment_method": "transfer",
+            **form_guard_fields(),
         },
         headers=headers,
         follow_redirects=False,
@@ -1076,6 +1121,7 @@ def test_bestelling_toevoegen_refuses_a_short_article(client, db_session, every_
             "variant_id": str(m.id),
             "quantity": "2",
             "payment_method": "transfer",
+            **form_guard_fields(),
         },
         headers=headers,
     )
@@ -1146,6 +1192,7 @@ def test_het_bestuur_biedt_alleen_overschrijving_aan(client, db_session, every_m
             "variant_id": str(m.id),
             "quantity": "1",
             "payment_method": "online",
+            **form_guard_fields(),
         },
         headers=headers,
     )
@@ -1200,6 +1247,7 @@ def test_een_onbekend_of_meervoudig_adres_wordt_geweigerd(client, db_session, ev
                 "variant_id": str(m.id),
                 "quantity": "1",
                 "payment_method": "transfer",
+                **form_guard_fields(),
             },
             headers=headers,
         )
@@ -1233,6 +1281,7 @@ def test_het_adres_wordt_genormaliseerd_op_hoofdletters_en_spaties(
             "variant_id": str(m.id),
             "quantity": "1",
             "payment_method": "transfer",
+            **form_guard_fields(),
         },
         headers=headers,
         follow_redirects=False,
@@ -1261,6 +1310,7 @@ def test_een_bestelling_op_een_persoon_bewaart_geen_getypt_adres(
             "variant_id": str(m.id),
             "quantity": "1",
             "payment_method": "transfer",
+            **form_guard_fields(),
         },
         headers=headers,
         follow_redirects=False,
@@ -1288,6 +1338,7 @@ def test_een_onbestaande_betaalwijze_is_een_weigering(client, db_session, every_
             "variant_id": str(m.id),
             "quantity": "1",
             "payment_method": "bitcoin",
+            **form_guard_fields(),
         },
         headers=headers,
     )
@@ -1319,3 +1370,130 @@ def test_een_account_zonder_lidmaatschap_wordt_zo_genoemd(client, db_session, ev
     assert answer.status_code == 200
     assert "bekend account" in answer.text
     assert "bestaand lid" not in answer.text
+
+
+def _order_form(variant_id: int, *, quantity: str = "1") -> dict:
+    return {
+        "variant_id": str(variant_id),
+        "quantity": quantity,
+        "contact_name": "An",
+        "contact_email": "an@example.com",
+        "phone": "0470000000",
+        "payment_method": "transfer",
+        **form_guard_fields(),
+    }
+
+
+def test_a_second_post_of_the_same_form_answers_with_the_first_order(
+    client, db_session, every_module_on
+):
+    """#1987: a shown order form is accepted once — a second post makes nothing and
+    answers with the first order."""
+    from app.domains.sales.models import SalesOrder
+
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    data = _order_form(m.id)
+
+    first = client.post("/webshop/bestellen", data=data, follow_redirects=False)
+    second = client.post("/webshop/bestellen", data=data, follow_redirects=False)
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.headers["HX-Redirect"] == first.headers["HX-Redirect"]
+    assert db_session.query(SalesOrder).count() == 1
+
+
+def test_a_repost_after_a_deleted_order_makes_a_new_one(client, db_session, every_module_on):
+    """#1987: a deleted order frees its key — a repost of the same form makes a new
+    order, as a first post does."""
+    from app.domains.sales.models import SalesOrder
+    from app.soft_delete import soft_delete
+
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    data = _order_form(m.id)
+
+    assert client.post("/webshop/bestellen", data=data, follow_redirects=False).status_code == 200
+    order = db_session.query(SalesOrder).one()
+    soft_delete(order)
+    db_session.commit()
+
+    second = client.post("/webshop/bestellen", data=data, follow_redirects=False)
+    assert second.status_code == 200
+    assert db_session.query(SalesOrder).count() == 1
+
+
+def test_two_posts_at_once_make_one_order(client, db_session, every_module_on):
+    """#1987: two posts of one form at the same moment, on two connections, are
+    decided by the database — one order, and both answers carry it."""
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    import app.domains.sales.service as sales_service
+    from app.database import SessionLocal
+    from app.domains.mdm.api import PaymentMethod
+    from app.domains.sales.api import submit_order
+    from app.domains.sales.models import SalesOrder
+    from app.domains.stock.models import StockLocation
+    from app.kernel import form_guard
+
+    variant_id = _committed_variant(stock=5)
+    setup = SessionLocal()
+    location_id = setup.query(StockLocation).filter(StockLocation.is_default.is_(True)).one().id
+    setup.close()
+
+    form = _order_form(variant_id)
+    proof = form_guard.Proof.from_values(form)
+    real = sales_service.order_for_submission
+    barrier = threading.Barrier(2, timeout=20)
+    calls = {"n": 0}
+
+    def _lookup(db, key):
+        found = real(db, key)
+        calls["n"] += 1
+        if calls["n"] <= 2:
+            barrier.wait(timeout=20)
+        return found
+
+    outcomes: list[int] = []
+    errors: list = []
+
+    def _post() -> None:
+        db = SessionLocal()
+        try:
+            _checkout, order_id = submit_order(
+                db,
+                proof=proof,
+                values=form,
+                person_id=None,
+                member=False,
+                contact_name="An",
+                contact_email="an@example.com",
+                phone="0470000000",
+                method=PaymentMethod.TRANSFER,
+                items=[(variant_id, 1)],
+            )
+            db.commit()
+            outcomes.append(order_id)
+        except Exception as exc:  # noqa: BLE001 — the assertion reports it
+            db.rollback()
+            errors.append(exc)
+        finally:
+            db.close()
+
+    sales_service.order_for_submission = _lookup
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            first = pool.submit(_post)
+            second = pool.submit(_post)
+            first.result()
+            second.result()
+    finally:
+        sales_service.order_for_submission = real
+
+    assert not errors, errors
+    assert len(set(outcomes)) == 1, f"two orders from one form: {outcomes}"
+    check = SessionLocal()
+    try:
+        assert check.query(SalesOrder).count() == 1
+    finally:
+        check.close()
+    _clean(variant_id, outcomes[0], location_id)
