@@ -310,6 +310,10 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
+  "GET /admin/nieuwsbrieven/{newsletter_id:int}/deelnemers": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
   "GET /admin/nieuwsbrieven/{newsletter_id:int}/raakje/gesprek": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
@@ -698,6 +702,10 @@
    "platform": "everyone",
    "tenant": "everyone"
   },
+  "GET /nieuwsbrief/uitschrijven/d/{link}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
   "GET /nieuwsbrief/uitschrijven/{token}": {
    "platform": "everyone",
    "tenant": "everyone"
@@ -1059,6 +1067,10 @@
    "tenant": "ADMIN OPERATOR"
   },
   "POST /admin/nieuwsbrieven/{newsletter_id:int}/bijlage": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/nieuwsbrieven/{newsletter_id:int}/deelnemers": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
@@ -1435,6 +1447,10 @@
    "tenant": "everyone"
   },
   "POST /nieuwsbrief/opnieuw/{token}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /nieuwsbrief/uitschrijven/d/{link}": {
    "platform": "everyone",
    "tenant": "everyone"
   },

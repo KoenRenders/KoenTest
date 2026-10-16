@@ -74,6 +74,48 @@ def _overlap(a: dict, b: dict) -> bool:
     )
 
 
+@pytest.fixture(scope="module", autouse=True)
+def only_this_modules_menu(request):
+    """The menu is the seed's and this module's own, whatever ran before (#1917).
+
+    In a full e2e run the page tests leave published pages in the menu, and the
+    "short" menu then wrapped to a second row at 768 px (156 px, measured: the page
+    tests, then this file, in one run). Every published page in the menu when this
+    module starts is taken out of it, and exactly those are put back afterwards —
+    by a finalizer registered BEFORE anything is hidden, so a failure halfway
+    through still restores what was hidden so far."""
+    import app.main  # noqa: F401
+    from app.database import SessionLocal
+    from app.domains.cms.api import CmsPage
+
+    hidden: list[int] = []
+
+    def restore():
+        db = SessionLocal()
+        try:
+            if hidden:
+                db.query(CmsPage).filter(CmsPage.id.in_(hidden)).update(
+                    {CmsPage.show_in_nav: True}, synchronize_session=False
+                )
+                db.commit()
+        finally:
+            db.close()
+
+    request.addfinalizer(restore)
+    db = SessionLocal()
+    try:
+        for page in (
+            db.query(CmsPage)
+            .filter(CmsPage.is_published.is_(True), CmsPage.show_in_nav.is_(True))
+            .all()
+        ):
+            page.show_in_nav = False
+            db.commit()
+            hidden.append(page.id)
+    finally:
+        db.close()
+
+
 @pytest.fixture(scope="module")
 def long_menu():
     """Fourteen pages of thirteen characters and a section with two pages, as
@@ -164,6 +206,9 @@ def test_a_short_menu_keeps_the_header_of_before(short):
     for width, (x, y) in LOGO_ON_MASTER.items():
         assert (short[width]["logo_img"]["x"], short[width]["logo_img"]["y"]) == (x, y), width
     for width, m in short.items():
+        # dev2, review of #2076: an empty link list would pass the overlap check
+        # below vacuously.
+        assert m["links"], f"no menu link measured at {width} px — is the test looking?"
         assert m["header"]["h"] == (112 if width < 1200 else 80), (width, m["header"])
         assert m["scroll"] == width
         assert not any(_overlap(link, m["account"]) for link in m["links"]), width

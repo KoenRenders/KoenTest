@@ -3000,6 +3000,41 @@ def activities_active_between(
     return _spans(db, lambda first, last: (first < end) & (last >= start), published=published_only)
 
 
+def past_activities(
+    db: Session, *, since_year: int, today: Optional[date] = None
+) -> list[ActivitySpan]:
+    """The activities a letter may name as its audience (CR-36, #2026): published,
+    not cancelled, with a date, every date before today, the last of them in
+    `since_year` or later — newest first. A soft-deleted activity or date is not
+    there (the global filter); one with no date at all is not an activity that
+    took place."""
+    today = today or date.today()
+    since = date(since_year, 1, 1)
+    spans = _spans(db, lambda first, last: (last < today) & (last >= since), published=True)
+    return sorted(spans, key=lambda s: (s.end, s.activity.id), reverse=True)
+
+
+def registration_addresses(db: Session, activity_ids: Iterable[int]) -> dict[int, set[str]]:
+    """The addresses people gave when they registered, per activity, as they were
+    typed (CR-36, #2026). Registrations that were deleted are not there; whether a
+    registration was paid is not asked (the person showed interest). The caller
+    normalises: older registrations may predate the address validator. Only this
+    tenant's rows (the global filter)."""
+    ids = sorted({int(i) for i in activity_ids})
+    found: dict[int, set[str]] = {i: set() for i in ids}
+    if not ids:
+        return found
+    rows = (
+        db.query(Registration.activity_id, Registration.contact_email)
+        .filter(Registration.activity_id.in_(ids))
+        .distinct()
+        .all()
+    )
+    for activity_id, address in rows:
+        found[activity_id].add(address)
+    return found
+
+
 def activities_from(db: Session, day: date, *, published_only: bool = False) -> list[ActivitySpan]:
     """Activities starting on or after `day` — the whole planned programme.
 

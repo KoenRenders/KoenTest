@@ -17,7 +17,13 @@ and a send of one mail per recipient in a queue under a daily cap.
 - **Subscribers:** `subscribe_public`, `confirm`, `unsubscribe`, `resubscribe`,
   `add_by_admin`, `unsubscribe_by_admin`, `erase`, `list_subscribers`,
   `subscriber_counts`, `preview_import`, `run_import`.
-- **Audiences:** `member_addresses`, `recipients_for`, `audience_counts`.
+- **Audiences:** `member_addresses`, `recipients_for`, `audience_counts`; for the
+  fourth audience *Eerdere deelnemers* (CR-36, #2026) `recipients_of` (the one place an
+  audience becomes addresses), `offered_activities`, `set_participant_activity`,
+  `chosen_activities`, `participant_recipients` (the recipients and what is said of
+  them, from one computation), `sample_kind_of`; the participant's unsubscribe link is
+  signed per delivery (`unsubscribe_link_of`, `participant_delivery_by_link`,
+  `unsubscribe_participant`; the signing helper is `kernel/signing.py`).
 - **Letters:** `create_newsletter`, `update_draft`, `set_draft_sources`,
   `copy_newsletter`, `delete_draft`, `list_newsletters`, `get_newsletter`.
   A letter's text is a document of the page editor's `letter` set

@@ -53,6 +53,12 @@ SUBSCRIBER_SOURCE_CODES = (
     CodeSeed(code="public_form", nl="Formulier", en="Form", sort_order=10),
     CodeSeed(code="import", nl="Import", en="Import", sort_order=20),
     CodeSeed(code="admin", nl="Beheer", en="Admin", sort_order=30),
+    CodeSeed(
+        code="participant",
+        nl="Via brief aan eerdere deelnemers",
+        en="Via a letter to earlier participants",
+        sort_order=40,
+    ),
 )
 
 SUBSCRIBER_SOURCE = CodeList(
@@ -70,6 +76,10 @@ AUDIENCE_CODES = (
     # Koen, 9 October 2026: "Abonnees is goed"). One word on every screen.
     CodeSeed(code="non_members", nl="Abonnees", en="Subscribers", sort_order=20),
     CodeSeed(code="both", nl="Allebei", en="Both", sort_order=30),
+    # Koen, 15 October 2026 (CR-36): "eerdere deelnemers op vraag 1 is een goed voorstel".
+    CodeSeed(
+        code="participants", nl="Eerdere deelnemers", en="Earlier participants", sort_order=40
+    ),
 )
 
 AUDIENCE = CodeList(
@@ -113,6 +123,7 @@ REPLY_TO_MODE = CodeList(
 DELIVERY_KIND_CODES = (
     CodeSeed(code="member", nl="Lid", en="Member", sort_order=10),
     CodeSeed(code="subscriber", nl="Abonnee", en="Subscriber", sort_order=20),
+    CodeSeed(code="participant", nl="Eerdere deelnemer", en="Earlier participant", sort_order=30),
 )
 
 DELIVERY_KIND = CodeList(
