@@ -1,6 +1,9 @@
 {% extends "admin_base.html" %}
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("AI-kosten — Raak beheer") }}{% endblock %}
+{# The width of the kit's list screens (#1925): the calls are a dense table, not a
+   reading column, and Model · Provider stands only on a wide one. #}
+{% block content_width %}max-w-none{% endblock %}
 {% block content %}
 {{ ui.back_link(_("Systeeminfo"), "/admin/info") }}
 {{ ui.page_header(_("AI-kosten"), _("Elke oproep naar een AI-dienst vanuit deze afdeling: wie, wat, hoe lang en wat het kostte. Wat er precies vertrok, zie je bij het antwoord zelf.")) }}

@@ -137,7 +137,6 @@ HAND_DRAWN_TILES: dict[str, int] = {
 
 #: a list that scrolls sideways (`overflow-x-auto`). 9 in 8 files.
 SIDEWAYS_SCROLLS: dict[str, int] = {
-    "domains/chatbot/templates/_ai_kosten_lijst.html": 1,
     "domains/chatbot/templates/admin_ai_kosten.html": 1,
     "domains/newsletter/templates/_nb_afleveringen.html": 1,
     "domains/reporting/templates/_rp_paneel.html": 2,

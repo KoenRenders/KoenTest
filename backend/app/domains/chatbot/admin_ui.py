@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
@@ -91,6 +91,21 @@ def _shift(d: date, months: int) -> str:
     return f"{index // 12:04d}-{index % 12 + 1:02d}"
 
 
+def _columns() -> list[dict[str, Any]]:
+    """The list's columns on the kit's table (#1925). Eight values in seven places:
+    the model and its provider share one optional column that stands on a wide
+    screen only, so the duration keeps the other (Koen, 16 October 2026, "a")."""
+    return [
+        {"key": "wat", "label": _("Onderdeel"), "cell": "name"},
+        {"key": "wie", "label": _("Wie"), "cell": "context"},
+        {"key": "status", "label": _("Status"), "cell": "status"},
+        {"key": "model", "label": _("Model"), "cell": "extra", "priority": 1},
+        {"key": "duur", "label": _("Duur"), "cell": "extra", "priority": 2},
+        {"key": "kost", "label": _("Kost"), "cell": "amount", "num": True},
+        {"key": "datum", "label": _("Datum"), "cell": "moment"},
+    ]
+
+
 def _call_lines(db: Session, tenant: int, page: int) -> tuple[list[AiCallLine], int]:
     rows, total = list_calls(db, tenant_id=tenant, page=page, per_page=PER_PAGE)
     lines = []
@@ -106,8 +121,8 @@ def _call_lines(db: Session, tenant: int, page: int) -> tuple[list[AiCallLine], 
                 moment=short_datetime(r.created_at),
                 what=_what(r.surface, r.capability),
                 actor=r.actor or "—",
-                model=r.model or "—",
-                provider=_provider(r.provider),
+                engine=" · ".join(x for x in (r.model, _provider(r.provider)) if x and x != "—")
+                or "—",
                 status_label=code_label(AI_STATUS.name, r.status),
                 status_tone=tone(AI_STATUS.name, r.status),
                 duration=(
@@ -139,7 +154,9 @@ def ai_costs(
         return templates.TemplateResponse(
             request,
             "_ai_kosten_lijst.html",
-            AiCallListView(calls=calls, page=page, per_page=PER_PAGE, total=total).as_context(),
+            AiCallListView(
+                calls=calls, columns=_columns(), page=page, per_page=PER_PAGE, total=total
+            ).as_context(),
         )
 
     eerste = _month(maand)
@@ -157,6 +174,7 @@ def ai_costs(
     ]
     view = AiCostView(
         calls=calls,
+        columns=_columns(),
         page=page,
         per_page=PER_PAGE,
         total=total,

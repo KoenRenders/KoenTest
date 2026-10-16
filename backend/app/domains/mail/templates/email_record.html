@@ -18,7 +18,11 @@
   {% endif %}
   {% call ui.section(_("Inhoud")) %}
     {% if body %}
-    <iframe data-span="full" data-mail-body sandbox title="{{ _('E-mailinhoud') }}" class="block w-full h-[32rem]" srcdoc="{{ body }}"></iframe>
+    {#- As tall as the mail: `allow-same-origin` lets this page read the frame's
+        height; without `allow-scripts` nothing runs inside it (#1925). -#}
+    <iframe data-span="full" data-mail-body sandbox="allow-same-origin" title="{{ _('E-mailinhoud') }}"
+            class="block w-full h-48" srcdoc="{{ body }}"
+            onload="this.style.height = '0px'; this.style.height = this.contentDocument.documentElement.scrollHeight + 'px'"></iframe>
     {% else %}
     <p data-span="full" class="text-sm text-ink-soft">{{ _("(geen inhoud bewaard)") }}</p>
     {% endif %}
