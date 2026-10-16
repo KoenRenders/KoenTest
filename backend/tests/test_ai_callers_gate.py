@@ -27,7 +27,18 @@ seen as well, because the import and the call decide, not the construction. In a
 3. The two idioms that were written before the register (`f"Naam: {…}"`, `f"- {id}: {name}"`) stay
    refused as well.
 
-The limit is stated: a value that reaches a caller already formatted — from another domain's
+The names are the PHYSICAL columns of each entry (`columns=`) and the register's own word, so the
+contact values (`mdm.contact_detail.email`, stored in `ContactDetail.value`) are caught as `.value`.
+The rules are also read in the modules of the caller's own domain that it imports, one level deep
+(`own_domain_helpers`): a long prompt builder split into two files is read as one. `attrgetter`
+and `_mapping` are read like `getattr`.
+
+**The limits, stated and not hidden:** (1) the layer modules of a domain — `models`, `service`,
+`api`, `ui`, `admin_ui`, `viewmodels`, `handlers`, `schema` — are not followed: they hold and move
+stored data for every reader, and a prompt composed inside one is not seen here; (2) a name that is
+public in one entry and kept back in another (`name`, `start_date`, `end_date`, `data`,
+`is_active`, `sort_order`) is not forbidden, nor are `id`, `kind`, `source`, `key`, `status`,
+`type`, `code`, `label`, `role`; (3) raw SQL text (`text("select street …")`) and a read two modules away are not seen; (4) a value that reaches a caller already formatted — from another domain's
 facade — is that facade's to classify (it is a caller of the port itself if it talks to a model, or
 its data is public), and free text a person wrote has no key and keeps the pattern guard.
 
@@ -64,23 +75,40 @@ LABEL = re.compile(r"^\s*(Naam|Locatie|Omschrijving|Datums|Onderdeel|Activiteit|
 MODEL_CALLS = {"complete", "run_chat", "run_public_chat", "json_answer", "ocr"}
 MODEL_NAMES = {"GuardedProvider", "run_chat", "run_public_chat", "json_answer"}
 #: Reads of an attribute whose name stands nowhere in the file.
-DYNAMIC_ATTRIBUTES = {"__dict__", "__table__", "columns", "model_dump"}
+DYNAMIC_ATTRIBUTES = {"__dict__", "__table__", "columns", "model_dump", "_mapping"}
 DYNAMIC_CALLS = {"vars", "asdict"}
+#: Layers that hold and move stored data and build no prompt: a caller's import of one of these is
+#: not followed (a stated limit, below); any other module of the caller's own domain it imports is.
+LAYER_MODULES = {"models", "service", "api", "ui", "admin_ui", "viewmodels", "handlers", "schema"}
 
 #: A caller may read an attribute of the forbidden kind when it is no prompt: file → name → why.
 ALLOWED_READS: dict[str, dict[str, str]] = {
     "domains/reporting/admin_ui.py": {
         "owner_email": "compares the owner of a saved report with the signed-in address; never in a prompt",
         "columns": "the columns of a report's result table, shown on the screen; no ORM metadata",
+        "value": "the `.value` of an enum member (an operator, a format, a module code) on a report screen",
         "link": "the link a blocked call offers on the screen (`SeamBlocked.link`); no stored datum",
+    },
+    "domains/reporting/assistant.py": {
+        "columns": "the columns of a report's result table; no ORM metadata",
+    },
+    "domains/reporting/assistant_answer.py": {
+        "columns": "the columns of a report's result table; no ORM metadata",
+    },
+    "domains/newsletter/drafting.py": {
+        "subject": (
+            "the letter's own subject line, which the author typed: internal in the register, "
+            "kept as free text under the pattern guard and the name scrub; the register's `none` "
+            "subject is the mail log's"
+        ),
     },
 }
 
 
-#: Names too common to say anything: the datum behind `.id`, `.kind`, `.source` or `.value` is
+#: Names too common to say anything: the datum behind `.id`, `.kind` or `.source` is
 #: classified by its entity, and an attribute of that name is read all over a caller for
 #: reasons that are no prompt. The limit is stated; the entity's own columns stay forbidden.
-GENERIC_NAMES = {"id", "kind", "source", "value", "key", "status", "type", "code", "label", "role"}
+GENERIC_NAMES = {"id", "kind", "source", "key", "status", "type", "code", "label", "role"}
 
 #: A caller that reads attributes by a name held in a variable, and why that is safe: file → why.
 ALLOWED_DYNAMIC: dict[str, str] = {
@@ -102,7 +130,11 @@ def _python():
 def _is_caller(source: str) -> bool:
     tree = ast.parse(source)
     imports_chatbot = any(
-        isinstance(n, ast.ImportFrom) and (n.module or "").startswith("app.domains.chatbot")
+        (isinstance(n, ast.ImportFrom) and (n.module or "").startswith("app.domains.chatbot"))
+        or (
+            isinstance(n, ast.Import)
+            and any(a.name.startswith("app.domains.chatbot") for a in n.names)
+        )
         for n in ast.walk(tree)
     )
     calls_model = any(
@@ -123,7 +155,15 @@ def ai_callers() -> list[Path]:
 
 
 def forbidden_attributes() -> set[str]:
-    """The names a caller may not read, from the register (rule 1)."""
+    """The names a caller may not read, from the register (rule 1).
+
+    The names are the PHYSICAL columns an entry covers (`columns=`), not the last part of its key:
+    the register calls a contact value `mdm.contact_detail.email`, but the attribute a model reads
+    is `ContactDetail.value` (review of #2053, dev4). An entry with no column of its own (a
+    composite) is named by its key. Every kept-back name must be an attribute of some mapped class,
+    except the columns of the reporting views, which are no model: a name that maps to nothing
+    would be a gate that guards a word nobody writes."""
+    from app.database import Base
     from app.domains.registry import load_all_models
     from app.kernel.attributes import AiExposure, registry
 
@@ -131,26 +171,40 @@ def forbidden_attributes() -> set[str]:
     entries = registry()
     assert len(entries) > 300, f"only {len(entries)} register entries read — is the gate looking?"
 
-    def column(key: str) -> str:
-        return key.rsplit(".", 1)[1]
+    def columns_of(entry) -> set[str]:
+        return {c.rsplit(".", 1)[1] for c in entry.columns}
 
-    kept_back = {
-        column(k)
-        for k, a in entries.items()
-        if a.ai_exposure in (AiExposure.NONE, AiExposure.TOKENISED)
+    def names(key: str, entry) -> set[str]:
+        """What a model can read for this entry: its columns, and the word the register uses."""
+        return columns_of(entry) | {key.rsplit(".", 1)[1]}
+
+    kept_back: set[str] = set()
+    people: set[str] = set()
+    public: set[str] = set()
+    for key, entry in entries.items():
+        if entry.ai_exposure is AiExposure.PUBLIC:
+            public |= names(key, entry)
+        if entry.ai_exposure in (AiExposure.NONE, AiExposure.TOKENISED):
+            kept_back |= names(key, entry)
+        if key.startswith("mdm.") and entry.ai_exposure is not AiExposure.PUBLIC:
+            people |= names(key, entry)
+    forbidden = ((kept_back | people) - public) - GENERIC_NAMES
+    mapped = {attr.key for mapper in Base.registry.mappers for attr in mapper.attrs}
+    views = {
+        n
+        for k, e in entries.items()
+        if k.startswith("reporting.") or not e.columns
+        for n in names(k, e)
     }
-    open_somewhere = {
-        column(k)
-        for k, a in entries.items()
-        if a.ai_exposure in (AiExposure.PUBLIC, AiExposure.INTERNAL)
+    physical = {
+        n
+        for k, e in entries.items()
+        if not k.startswith("reporting.") and e.ai_exposure is not AiExposure.PUBLIC
+        for n in columns_of(e)
     }
-    public_somewhere = {column(k) for k, a in entries.items() if a.ai_exposure is AiExposure.PUBLIC}
-    people = {
-        column(k)
-        for k, a in entries.items()
-        if k.startswith("mdm.") and a.ai_exposure is not AiExposure.PUBLIC
-    }
-    return ((kept_back - open_somewhere) | (people - public_somewhere)) - GENERIC_NAMES
+    unmapped = sorted(n for n in forbidden & physical if n not in mapped and n not in views)
+    assert not unmapped, f"kept-back names that no mapped class carries: {unmapped}"
+    return forbidden
 
 
 def reads(source: str, rel: str, forbidden: set[str]) -> list[tuple[int, str]]:
@@ -174,23 +228,67 @@ def reads(source: str, rel: str, forbidden: set[str]) -> list[tuple[int, str]]:
                 found.append(
                     (node.lineno, f"reads `.{node.attr}`: an attribute by a name nobody can see")
                 )
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-            if node.func.id in DYNAMIC_CALLS:
+        if isinstance(node, ast.Call):
+            callee = (
+                node.func.id
+                if isinstance(node.func, ast.Name)
+                else node.func.attr
+                if isinstance(node.func, ast.Attribute)
+                else ""
+            )
+            if callee in DYNAMIC_CALLS:
                 found.append(
-                    (node.lineno, f"`{node.func.id}(…)` reads attributes by a name nobody can see")
+                    (node.lineno, f"`{callee}(…)` reads attributes by a name nobody can see")
                 )
-            if node.func.id == "getattr" and len(node.args) >= 2:
-                name = node.args[1]
-                if not isinstance(name, ast.Constant):
-                    if rel not in ALLOWED_DYNAMIC:
-                        found.append((node.lineno, "`getattr(…)` with a name that is no constant"))
-                elif name.value in forbidden and name.value not in allowed:
-                    found.append(
-                        (
-                            node.lineno,
-                            f"reads `{name.value}` by `getattr`, which the register keeps from a model",
-                        )
-                    )
+            if callee in ("getattr", "attrgetter"):
+                names_read = node.args[1:2] if callee == "getattr" else node.args
+                for name in names_read:
+                    if not isinstance(name, ast.Constant):
+                        if rel not in ALLOWED_DYNAMIC:
+                            found.append(
+                                (node.lineno, f"`{callee}(…)` with a name that is no constant")
+                            )
+                    elif isinstance(name.value, str):
+                        for part in name.value.split("."):
+                            if part in forbidden and part not in allowed:
+                                found.append(
+                                    (
+                                        node.lineno,
+                                        f"reads `{part}` by `{callee}`, which the register keeps from a model",
+                                    )
+                                )
+    return found
+
+
+def own_domain_helpers(rel: str, source: str) -> list[str]:
+    """The modules of the caller's own domain it imports (absolute or relative), minus the layers
+    that only hold and move data: one level, the shape a long prompt builder is split into."""
+    parts = rel.split("/")
+    if parts[0] != "domains" or len(parts) < 3:
+        return []
+    domain = parts[1]
+    found: list[str] = []
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        module = node.module or ""
+        if node.level:
+            base = parts[: len(parts) - node.level]
+            target = base + (module.split(".") if module else [])
+        elif module.startswith(f"app.domains.{domain}"):
+            target = ["domains", *module.split(".")[2:]]
+        else:
+            continue
+        candidates = [target] + [target + [a.name] for a in node.names]
+        for candidate in candidates:
+            path = "/".join(candidate) + ".py"
+            if (
+                (APP / path).exists()
+                and path != rel
+                and candidate[-1] not in LAYER_MODULES
+                and path not in found
+            ):
+                found.append(path)
     return found
 
 
@@ -221,6 +319,33 @@ def idioms(source: str) -> list[tuple[int, str]]:
         ):
             found.append((node.lineno, "a line `- {id}: {name}`"))
     return found
+
+
+def test_no_helper_of_an_ai_caller_reads_what_the_register_keeps_from_a_model():
+    """A long prompt builder is split into two files: the second is read like the first (review of
+    #2053, dev4). One level, the caller's own domain, the layers that only hold data excluded."""
+    forbidden = forbidden_attributes()
+    problems, followed = [], 0
+    for p in ai_callers():
+        for helper in own_domain_helpers(_rel(p), p.read_text(encoding="utf-8")):
+            followed += 1
+            source = (APP / helper).read_text(encoding="utf-8")
+            problems += [
+                f"{helper}:{line}: {what}" for line, what in reads(source, helper, forbidden)
+            ]
+    assert followed >= 1, "no helper of any caller was followed — is the gate looking?"
+    assert not problems, "a helper of an AI caller:\n  " + "\n  ".join(problems)
+
+
+def test_the_helpers_of_a_caller_are_followed_and_the_layers_are_not(tmp_path):
+    """The shape, on the real tree: `proposer.py` imports from its own domain; a helper module is
+    followed and `models` is not."""
+    source = (APP / "domains/activities/proposer.py").read_text(encoding="utf-8")
+    followed = own_domain_helpers("domains/activities/proposer.py", source)
+    assert not any(h.endswith("/models.py") for h in followed), followed
+    synthetic = "from .prompt_context import build\nfrom .models import Activity\n"
+    names = own_domain_helpers("domains/activities/proposer.py", synthetic)
+    assert names == [] or all(n.endswith("prompt_context.py") for n in names), names
 
 
 def test_the_gate_finds_the_ai_callers():
@@ -266,8 +391,23 @@ def test_no_ai_caller_reads_what_the_register_keeps_from_a_model():
         ('prompt = "{}: {}".format("Nota", item.notes_document)', "notes_document"),
         ("prompt = str(vars(person))", "vars"),
         ('prompt = f"Huisnummer {a.house_number}"', "house_number"),
+        ('prompt = f"Contact {cd.value}"', "value"),
+        ('get = attrgetter("board_notes")', "board_notes"),
+        ("get = operator.attrgetter(field)", "no constant"),
+        ('prompt = row._mapping["street"]', "_mapping"),
     ],
-    ids=["street-fstring", "address-concat", "join-getattr", "format-notes", "vars", "number"],
+    ids=[
+        "street-fstring",
+        "address-concat",
+        "join-getattr",
+        "format-notes",
+        "vars",
+        "number",
+        "contact-value",
+        "attrgetter",
+        "attrgetter-dynamic",
+        "mapping",
+    ],
 )
 def test_the_rule_goes_red_on_the_shapes_the_old_gate_missed(source, expected):
     """The additive proofs: each of these was invisible to the label-word gate."""

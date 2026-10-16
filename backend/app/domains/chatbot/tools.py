@@ -124,6 +124,13 @@ ALLOWED_TOOLS = {spec["function"]["name"] for spec in TOOL_SPECS}
 # antwoord (een lijst, een uitkomst, een foutmelding) en het nummer van de pagina zelf.
 # Sleutels van het contract zijn paden: "" is de wortel, "x[]" is één element van lijst x.
 STRUCTURE: tuple[str, ...] = ()
+#: The ONLY names a field may carry `STRUCTURE` under: the shape of an answer and the number of
+#: the page itself. A field with any other name must name a register entry
+#: (`test_public_tool_field_contract.py` refuses it otherwise): `"organiser": STRUCTURE` is no way
+#: to skip the register.
+STRUCTURAL_NAMES: frozenset[str] = frozenset(
+    {"id", "when", "activities", "dates", "components", "products", "error", "ok", "message"}
+)
 
 _ACTIVITY = "activities.activity."
 _DATE = "activities.activity_date."

@@ -19,7 +19,8 @@ which the pattern guard scans whatever its language (`imaging.translate_scene`).
 Proven red with an ADDITIVE violation (16 October 2026): a line `KEY = settings.mistral_api_key`
 added to `media/extraction.py` fails the Mistral key test naming that file; `settings.bfl_api_key`
 added to `designstudio/service.py` fails the BFL key test; a string `"https://api.eu.bfl.ai/x"`
-added to `designstudio/handlers.py` fails the BFL address test.
+added to `designstudio/handlers.py` fails the BFL address test. The search is case-insensitive:
+`os.environ["BFL_API_KEY"]` is found as well as `settings.bfl_api_key`.
 """
 
 from pathlib import Path
@@ -62,7 +63,8 @@ def outside(needles: tuple[str, ...], places: tuple[str, ...]) -> set[str]:
     return {
         _rel(p)
         for p in _python()
-        if not _in(_rel(p), places) and any(n in p.read_text(encoding="utf-8") for n in needles)
+        if not _in(_rel(p), places)
+        and any(n in p.read_text(encoding="utf-8").lower() for n in needles)
     }
 
 
@@ -84,8 +86,8 @@ def test_the_gate_looks_at_the_vendors_place(vendor):
     spec = VENDORS[vendor]
     text = (APP / spec["must_hold"]).read_text(encoding="utf-8")
     for needle in spec["needles"]:
-        held = needle in text or any(
-            needle in p.read_text(encoding="utf-8")
+        held = needle in text.lower() or any(
+            needle in p.read_text(encoding="utf-8").lower()
             for p in _python()
             if _in(_rel(p), spec["places"])
         )

@@ -34,6 +34,7 @@ from app.domains.activities.api import Activity, ActivityDate
 from app.domains.activities.models import ActivityProduct, ActivitySubRegistration
 from app.domains.chatbot.tools import (
     PUBLIC_FIELD_CONTRACT,
+    STRUCTURAL_NAMES,
     STRUCTURE,
     declared_fields,
     execute_tool,
@@ -164,6 +165,17 @@ def test_the_contract_declares_no_field_that_is_never_emitted(db_session):
     )
 
 
+def _unexplained_structure(contract) -> list[str]:
+    """The fields declared `STRUCTURE` whose name is no structural name: a way round the register."""
+    return [
+        f"{tool}: {path or '(root)'}.{name}"
+        for tool, paths in contract.items()
+        for path, fields in paths.items()
+        for name, keys in fields.items()
+        if not keys and name not in STRUCTURAL_NAMES
+    ]
+
+
 def _non_public_keys(contract) -> list[str]:
     """The register keys a contract names that are unknown or not `publiek`, with the field."""
     from app.domains.registry import load_all_models
@@ -220,3 +232,13 @@ def test_a_contract_field_from_a_datum_that_is_not_public_is_named():
     found = _non_public_keys(added)
     assert any("street" in line and "internal" in line for line in found), found
     assert any("ghost" in line and "not in the register" in line for line in found), found
+
+
+def test_a_field_cannot_skip_the_register_by_calling_itself_structure():
+    """The contract's own fields use `STRUCTURE` only under the closed set of structural names, and
+    the gate can go red: an additive `organiser: STRUCTURE`."""
+    assert not _unexplained_structure(PUBLIC_FIELD_CONTRACT), _unexplained_structure(
+        PUBLIC_FIELD_CONTRACT
+    )
+    added = {"get_activity_detail": {"": {"organiser": STRUCTURE, "id": STRUCTURE}}}
+    assert _unexplained_structure(added) == ["get_activity_detail: (root).organiser"]

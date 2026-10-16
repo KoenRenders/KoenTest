@@ -6,7 +6,7 @@ De tekst gaat naar een **``chatbot_info``-rij** die naar het media-asset verwijs
 Strategie, in volgorde van kost:
 1. **PDF mét tekstlaag** → rechtstreeks uitlezen met ``pypdf`` (gratis, exact).
 2. **Scan-PDF zonder bruikbare tekstlaag, of een afbeelding** → **Mistral OCR**
-   (zelfde ``MISTRAL_API_KEY`` als de chatbot, EU-verwerker).
+   (dezelfde sleutel als de chatbot, EU-verwerker).
 
 Eénmalig per asset: ``update_media_extracted_text`` draait als achtergrond-taak
 na een upload. Een nieuwe upload is een nieuw record (de oude wordt hard
