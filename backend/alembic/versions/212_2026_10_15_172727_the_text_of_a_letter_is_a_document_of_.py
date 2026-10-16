@@ -12,8 +12,10 @@ document, or through the marker text derived from it (`letter_markup.py`), so no
 reader needs the old column.
 
 The conversion is `markup_to_document`: the lenient one of a page's draft (formatting
-may soften, no word is lost) with the three markers become blocks. The archive of
-a sent letter shows the letter as it went (Koen, 16 October 2026: "a"): a new column
+may soften, no word is lost) with the three markers become blocks. Measured on PROD and UAT on 16 October 2026: no picture in any
+stored letter (0 `<img` and 0 `<figure`), so the conversion has no figure to map.
+
+The archive of a sent letter shows the letter as it went (Koen, 16 October 2026: "a"): a new column
 `sent_body_html` holds the rendered body, written once when the send starts. For the
 letters sent before it, this migration fills it with the body rendered at migration
 time — the closest to what went out that still exists.
