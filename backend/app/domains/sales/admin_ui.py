@@ -340,16 +340,20 @@ def _board_order_view(
     sizes."""
     from decimal import Decimal
 
-    status, _person, member = board_order_person(db, email)
+    status, person, member = board_order_person(db, email)
     lines = basket_lines(db, member=member, items=items)
     total = sum(
         (line["price"] * line["quantity"] for line in lines if line["available"]),
         Decimal("0"),
     )
     articles = [(str(p["id"]), p["name"]) for p in offered_products(db, member=member)]
+    person_name = ""
+    if person is not None:
+        person_name = f"{person.first_name} {person.last_name}".strip()
     return BoardOrderView(
         email=email,
         status=status,
+        person_name=person_name,
         lines=lines,
         total=total,
         member_applied=member and any(line["available"] for line in lines),

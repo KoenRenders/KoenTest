@@ -1161,8 +1161,9 @@ def _as(client, email: str) -> dict:
     return {"X-CSRF-Token": csrf_token_for(value)}
 
 
-def test_de_koppeling_noemt_nooit_een_naam(client, db_session, every_module_on):
-    """A1 (CR-24 AC6): the link line says the address is known, never who it is."""
+def test_de_koppeling_noemt_de_persoon(client, db_session, every_module_on):
+    """A1 lifted (Koen, 16 October 2026): the link line names the person it found,
+    as the person search does — Verkoop reads a person, changes nothing."""
     from tests.conftest import create_test_family
 
     create_test_family(db_session, email="lid@example.com")
@@ -1174,7 +1175,7 @@ def test_de_koppeling_noemt_nooit_een_naam(client, db_session, every_module_on):
     )
     assert answer.status_code == 200
     assert "bestaand lid" in answer.text
-    assert "Persoon" not in answer.text, "the link line must not name the person"
+    assert "Test Persoon" in answer.text, "the link line names the person"
 
 
 def test_de_helpers_vragen_manage(client, db_session, every_module_on):

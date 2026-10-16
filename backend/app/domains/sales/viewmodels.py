@@ -163,11 +163,13 @@ class OrderPageView(ViewModel):
 @dataclass(frozen=True, kw_only=True)
 class BoardOrderView(ViewModel):
     """`admin_verkoop_nieuw.html` — Verkoop's "Bestelling toevoegen" (R43, F18):
-    the typed address, whether it links to a person (never the name, CR-24 AC6),
-    and the order's lines at the member price of that person, never the seller's."""
+    the typed address, whether it links to a person (named since Koen's word of
+    16 October 2026 — Verkoop reads a person, changes nothing), and the order's
+    lines at the member price of that person, never the seller's."""
 
     email: str = ""
     status: str = ""
+    person_name: str = ""
     lines: list[dict[str, Any]] = field(default_factory=list)
     total: Any = None
     member_applied: bool = False
