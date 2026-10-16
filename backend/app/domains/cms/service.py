@@ -311,6 +311,10 @@ class SectionRefused(ValueError):
     the author's sentence."""
 
 
+class MenuNameTooLong(ValueError):
+    """The menu name is longer than its column holds (#2024)."""
+
+
 def _check_section(db, page: CmsPage, parent_id: Optional[int], *, is_home: bool) -> None:
     """The menu is one level deep and a section is a page (Koen, 15 October
     2026, Q&A nr. 11: "ja"): a page stands under a page that stands under no
@@ -452,6 +456,11 @@ def _apply_page_fields(db, page: CmsPage, data) -> None:
     is_home = data.is_home if data.is_home is not None else page.is_home
     parent_id = data.parent_id if "parent_id" in data.model_fields_set else page.parent_id
     _check_section(db, page, parent_id, is_home=bool(is_home))
+    label_set = "menu_label" in data.model_fields_set
+    # The menu's word, when it differs from the title; empty is the title.
+    label = (data.menu_label or "").strip() or None
+    if label and len(label) > 80:
+        raise MenuNameTooLong(_("De naam in het menu is te lang: hooguit 80 tekens."))
     if data.is_home and not page.is_home:
         # #1477: one home page per tenant — the flag moves, it is not refused.
         # Flushed first, so the unique index never sees two at once.
@@ -462,14 +471,11 @@ def _apply_page_fields(db, page: CmsPage, data) -> None:
     for veld, waarde in velden.items():
         setattr(page, veld, waarde)
     page.parent_id = parent_id
-    if "menu_label" in data.model_fields_set:
-        # The menu's word, when it differs from the title; empty is the title.
-        label = (data.menu_label or "").strip() or None
-        if label and len(label) > 80:
-            raise SectionRefused(_("De naam in het menu is te lang: hooguit 80 tekens."))
-        for translation in db.query(CmsPageTranslation).filter(
-            CmsPageTranslation.page_id == page.id
-        ):
+    if label_set:
+        # A menu name belongs to one language: the translation being edited,
+        # the one `menu_tree` and `menu_name` read (review B4 of #2057).
+        translation = get_translation(db, page)
+        if translation is not None:
             translation.menu_label = label
     # CR-17 fase 1 (#1671): the translation row is the title's source; the
     # page column is its one-release shadow (kept in sync here so every

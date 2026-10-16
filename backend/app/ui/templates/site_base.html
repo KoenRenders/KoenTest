@@ -161,15 +161,21 @@
             opens its page; the arrow beside it opens its pages — a click, a tap or
             Enter, and Escape or a click elsewhere closes them. -#}
         {#- Near the window's right edge — the section last in a full row — the
-            pages open to the left instead, so they never leave the window. -#}
-        <div class="relative flex items-center" x-data="{ sub: false, edge: false }" data-menu-section
+            pages open to the left instead, so they never leave the window: the
+            open list is measured, its own width the one source (review B2 of
+            #2057), again when the window changes size. Tab out of the section
+            closes it, like Escape and a click elsewhere (B3). -#}
+        <div class="relative flex items-center" data-menu-section
+             x-data="{ sub: false, edge: false, place() { this.edge = false; this.$nextTick(() => { this.edge = this.$refs.pages.getBoundingClientRect().right > window.innerWidth - 16 }) } }"
+             @resize.window="if (sub) place()"
+             @focusout="if (sub && !$el.contains($event.relatedTarget)) sub = false"
              @keydown.escape="if (sub) { sub = false; $refs.sub.focus() }" @click.outside="sub = false">
           {{ navlink(_pad, "/" ~ p.slug, p.label, within=p.children|map(attribute="path")|list) }}
-          <button type="button" x-ref="sub" data-menu-section-button @click="sub = !sub; edge = $el.getBoundingClientRect().left + 256 > window.innerWidth - 16"
+          <button type="button" x-ref="sub" data-menu-section-button @click="sub = !sub; if (sub) place()"
                   class="inline-flex items-center justify-center w-8 min-h-11 -ml-2 rounded-md text-white/90 hover:bg-white/10"
                   :aria-expanded="sub.toString()" aria-expanded="false" aria-controls="menu-sectie-{{ p.id }}"
                   aria-label="{{ _("Pagina's onder %(naam)s", naam=p.label) }}">{{ ui.icon("chevron-down", 16) }}</button>
-          <div id="menu-sectie-{{ p.id }}" x-show="sub" x-cloak style="display: none" data-menu-section-pages
+          <div id="menu-sectie-{{ p.id }}" x-ref="pages" x-show="sub" x-cloak style="display: none" data-menu-section-pages
                :class="edge ? 'right-0' : 'left-0'"
                class="absolute top-full z-50 mt-1 w-64 max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-surface py-1 text-ink shadow-lg">
             {% for c in p.children %}

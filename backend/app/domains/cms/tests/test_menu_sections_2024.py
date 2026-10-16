@@ -10,7 +10,9 @@ Broken on purpose (16 October 2026), each red here: `_check_section` not called
 → the one-level and home tests; the delete guard off → both delete tests; the
 way back's `{% if %}` false → the way-back test; the menu name not written →
 four tests; the section field off the screen → the screen test; `menu_tree`
-flat → both menu tests.
+flat → both menu tests. After the review of #2057 (B4): the length checked
+after the fields are set → the too-long test; the menu name written to every
+translation → the language test.
 """
 
 import re
@@ -243,3 +245,29 @@ def test_an_offline_section_hides_its_pages_from_the_menu_only(client, db_sessio
     html = client.get("/aanmelden").text
     assert "/bestuur-2024i" not in _wide_nav(html) and "/bestuur-2024i" not in _drawer(html)
     assert client.get("/bestuur-2024i").status_code == 200, "its address keeps working (3a)"
+
+
+def test_a_menu_name_too_long_changes_nothing(db_session):
+    """Review B4 of #2057: the length is checked before any field is set."""
+    from app.domains.cms.service import MenuNameTooLong
+
+    page = _page(db_session, "lang-2024j", "Lang")
+    with pytest.raises(MenuNameTooLong):
+        update_page(db_session, page.id, CmsPageUpdate(title="Nieuw", menu_label="x" * 81))
+    assert page.title == "Lang", "the title was not set on a refused save"
+
+
+def test_the_menu_name_is_written_in_the_pages_own_language(db_session):
+    """Review B4 of #2057: a second translation keeps its own menu name."""
+    from app.domains.cms.models import CmsPageTranslation
+
+    page = _page(db_session, "taal-2024k", "Taal")
+    db_session.add(CmsPageTranslation(page_id=page.id, language="en", title="Language"))
+    db_session.commit()
+
+    update_page(db_session, page.id, CmsPageUpdate(menu_label="Talen"))
+    labels = {
+        t.language: t.menu_label
+        for t in db_session.query(CmsPageTranslation).filter(CmsPageTranslation.page_id == page.id)
+    }
+    assert labels == {"nl": "Talen", "en": None}, labels

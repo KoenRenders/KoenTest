@@ -14,6 +14,9 @@ Broken on purpose (16 October 2026): `@click="sub = !sub"` taken off the arrow �
 the drop-down never opens and the wide walk is red; `site-drawer-sub` taken out
 of the stylesheet → the drawer's indent is 0 and the phone walk is red; `or pad
 in within` taken out of `navlink` → the section is not current on its page.
+After the review of #2057: `place()` not called → the list pushed to the edge
+leaves the window (B2); the `@focusout` taken out → Tab past the last page
+leaves it open (B3).
 """
 
 import os
@@ -113,8 +116,30 @@ def test_the_arrow_opens_the_sections_pages(setup, width):
                 f"menu-sectie-{setup['section']}"
             ), "Escape gives the focus back to the arrow"
 
+            # Review B3 of #2057: Tab past the last page closes the list.
             page.keyboard.press("Enter")
             pages.wait_for(state="visible")
+            for _ in names:
+                page.keyboard.press("Tab")
+            page.keyboard.press("Tab")
+            pages.wait_for(state="hidden")
+
+            # Review B2: pushed to the window's right edge, the list opens to
+            # the left — the open list measured, not a width written twice.
+            pages.locator("xpath=..").evaluate(
+                "(el) => { el.style.marginLeft = (window.innerWidth - el.getBoundingClientRect().right - 40) + 'px' }"
+            )
+            arrow.click()
+            pages.wait_for(state="visible")
+            page.wait_for_function(
+                "(el) => el.getBoundingClientRect().right <= window.innerWidth",
+                arg=pages.element_handle(),
+            )
+            edge = pages.bounding_box()
+            print(
+                f"MEASURE {width} at the edge: drop-down x {edge['x']:.0f}..{edge['x'] + edge['width']:.0f}"
+            )
+            assert edge["x"] >= 0 and edge["x"] + edge["width"] <= width, "inside the window"
             pages.locator("a", has_text="Bestuur").click()
             page.wait_for_url(f"**/bestuur-{tag}")
             pagina_klaar(page)
