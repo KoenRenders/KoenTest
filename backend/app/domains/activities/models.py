@@ -748,6 +748,15 @@ class RegistrationHistory(TenantMixin, HistoryMixin, Base):
     # "label: value" lines, on the rows of an action that concerns them — the
     # previous such row is the old answers, this the new.
     answers = Column(Text, nullable=True)
+    # #1885: every column of the registration but its two secrets (migration 215).
+    activity_id = Column(Integer, nullable=True, index=True)
+    person_id = Column(Integer, nullable=True)
+    registered_at = Column(DateTime(timezone=True), nullable=True)
+    registration_type = Column(String(10), nullable=True)
+    team_name = Column(String(200), nullable=True)
+    payment_method = Column(String(20), nullable=True)
+    component_id = Column(Integer, nullable=True)
+    form_submission_id = Column(Integer, nullable=True)
 
 
 class ActivityHistory(TenantMixin, HistoryMixin, Base):
@@ -758,6 +767,17 @@ class ActivityHistory(TenantMixin, HistoryMixin, Base):
 
     activity_id = Column(Integer, nullable=False, index=True)
     name = Column(String(255), nullable=True)
+    # #1885: every column of the activity (migration 215).
+    slug = Column(String(255), nullable=True)
+    location = Column(String(255), nullable=True)
+    description = Column(Text, nullable=True)
+    poster_url = Column(Text, nullable=True)
+    is_cancelled = Column(Boolean, nullable=True)
+    members_only = Column(Boolean, nullable=True)
+    board_notes = Column(Text, nullable=True)
+    status = Column(String(20), nullable=True)
+    target_audience = Column(String(20), nullable=True)
+    copied_from_id = Column(Integer, nullable=True)
 
 
 class ActivityDateHistory(TenantMixin, HistoryMixin, Base):
@@ -770,6 +790,9 @@ class ActivityDateHistory(TenantMixin, HistoryMixin, Base):
     activity_id = Column(Integer, nullable=True, index=True)
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
+    # #1885 (migration 215).
+    start_time = Column(Time, nullable=True)
+    end_time = Column(Time, nullable=True)
 
 
 class ComponentHistory(TenantMixin, HistoryMixin, Base):
@@ -783,6 +806,17 @@ class ComponentHistory(TenantMixin, HistoryMixin, Base):
     name = Column(String(255), nullable=True)
     price = Column(Numeric(10, 2), nullable=True)
     member_price = Column(Numeric(10, 2), nullable=True)
+    # #1885: every column of the component (migration 215).
+    description = Column(Text, nullable=True)
+    external_register_url = Column(String(500), nullable=True)
+    external_registrations_url = Column(String(500), nullable=True)
+    info_url = Column(String(500), nullable=True)
+    registration_type_code = Column(String(10), nullable=True)
+    max_participants = Column(Integer, nullable=True)
+    registration_closes_on = Column(Date, nullable=True)
+    is_free = Column(Boolean, nullable=True)
+    team_name_required = Column(Boolean, nullable=True)
+    form_id = Column(Integer, nullable=True)
 
 
 class ProductHistory(TenantMixin, HistoryMixin, Base):
@@ -796,6 +830,11 @@ class ProductHistory(TenantMixin, HistoryMixin, Base):
     name = Column(String(255), nullable=True)
     price = Column(Numeric(10, 2), nullable=True)
     member_price = Column(Numeric(10, 2), nullable=True)
+    # #1885: every column of the product (migration 215).
+    is_free = Column(Boolean, nullable=True)
+    pay_on_site = Column(Boolean, nullable=True)
+    is_active = Column(Boolean, nullable=True)
+    max_participants = Column(Integer, nullable=True)
 
 
 class RegistrationTypeCode(Base):

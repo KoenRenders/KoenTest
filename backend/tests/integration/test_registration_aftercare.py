@@ -133,8 +133,12 @@ def _reminders(db):
 def _history(db, registration_id):
     from app.domains.activities.api import RegistrationHistory
 
+    # The registration's own first row ("registration_created", #1885) is not what
+    # these tests look at: the actions taken on it afterwards.
     return [
-        h.action for h in db.query(RegistrationHistory).filter_by(registration_id=registration_id)
+        h.action
+        for h in db.query(RegistrationHistory).filter_by(registration_id=registration_id)
+        if h.action != "registration_created"
     ]
 
 
@@ -289,8 +293,10 @@ def test_a_correction_replaces_the_answers_and_records_old_and_new(client, db_se
     rows = _answer_rows(db_session, answered)
     assert rows["Tijdslot"] == "Namiddag" and rows["Verhaal"] == "Heel braaf"
 
-    [row] = db_session.query(RegistrationHistory).filter_by(
-        registration_id=answered.registration.id
+    [row] = (
+        db_session.query(RegistrationHistory)
+        .filter_by(registration_id=answered.registration.id)
+        .filter(RegistrationHistory.action != "registration_created")
     )
     assert row.action == "answers_edited" and row.actor
     assert row.answers.splitlines() == [

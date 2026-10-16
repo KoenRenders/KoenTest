@@ -545,6 +545,7 @@ def test_het_voorbeeld_toont_de_brief_zoals_hij_aankomt(client, db_session):
     _login(client)
     rum = _activity(db_session, "Rumproefavond", date.today() + timedelta(days=10))
     rum.description = "We proeven acht rums."
+    db_session.flush()  # the seed is the test's own write, before the app commits (#1885 gate 2)
     letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
     nb.update_draft(
         db_session,

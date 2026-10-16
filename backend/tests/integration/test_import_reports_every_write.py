@@ -14,10 +14,12 @@ accounts — and holds that tally against what the run really adds:
 - a row in a history table for every write that is audited (`person_history`,
   `member_history`, `member_person_history`, `address_history`,
   `contact_detail_history`, `membership_history`);
-- for the writes that leave no history row, the table itself:
-  - `external_numbers` — a number inserted or revived has no history table;
-  - `member_persons` — a household link revived with its person (#227) is not
-    audited, so its count comes from the active rows;
+- for the writes counted in the table itself:
+  - `external_numbers` — counted in its own table here (its history table, since
+    #1885, is held by the logged gates);
+  - `member_persons` — a household link revived with its person (#227) is counted
+    from the active rows too; since #1885 it also writes its history row, so its
+    line declares a `member_person` write as well;
   - `users` and `user_roles` — an admin account is not audited here.
 
 A write without a line fails it, including one added later. And the preview must

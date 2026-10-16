@@ -478,6 +478,7 @@ def circle_new_person(
             email=person_email,
             organization_id=organization.id,
             on_day=on_day,
+            actor=_email,
         )
     except EmailAddressInUse as refusal:
         # CR-22 (#1704): the address is another person's — its own reason, not

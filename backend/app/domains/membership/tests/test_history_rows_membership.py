@@ -5,8 +5,9 @@ The snapshot functions of membership move from `audit/service.py` to their owner
 owner). The move changes no row: each function is given one fixed source and
 every column of the row it writes is compared with what the code wrote before
 the move. `EXPECTED` was recorded on the old code (9 October 2026, the functions
-still in `audit/service.py`) and has not been touched since: the move changed the import
-above and nothing below it.
+still in `audit/service.py`) and touched once since: #1885 (16 October 2026)
+gave the history tables every column of their model, so the rows gained those
+columns; every column of before kept the value it was recorded with.
 
 Proven red (9 October 2026): `valid_to=membership.valid_to` taken out of `snapshot_membership` → its row differs.
 """
@@ -52,6 +53,7 @@ def test_every_snapshot_of_membership_writes_the_row_it_wrote(db_session):
                 MembershipHistory,
                 SimpleNamespace(
                     id=884_001,
+                    tenant_id=1,
                     member_id=883_002,
                     year=2026,
                     is_active=True,

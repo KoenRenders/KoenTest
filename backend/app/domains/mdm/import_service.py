@@ -56,6 +56,7 @@ from app.domains.mdm.change_lines import (
 from app.domains.mdm.codes import CONTACT, EXTERNAL
 from app.domains.mdm.history import (
     snapshot_address,
+    snapshot_external_number,
     snapshot_member,
     snapshot_member_person,
     snapshot_person,
@@ -618,7 +619,17 @@ def _create_person(
     row["_person_id"] = person.id
 
     if row["lidnr"]:
-        db.add(ExternalNumber(person_id=person.id, source=LEGACY_SOURCE, external_id=row["lidnr"]))
+        number = ExternalNumber(person_id=person.id, source=LEGACY_SOURCE, external_id=row["lidnr"])
+        db.add(number)
+        db.flush()
+        snapshot_external_number(
+            db,
+            number,
+            operation="insert",
+            action="person_imported",
+            source=LEGACY_SOURCE,
+            actor=actor,
+        )
 
     mp = MemberPerson(member_id=member.id, person_id=person.id, relation_type=row["_relatie"])
     db.add(mp)
@@ -782,6 +793,14 @@ def _sync_family(
                     en.person = match  # zet person_id én vult match.external_numbers in-sessie
                     db.add(en)
                     db.flush()
+                    snapshot_external_number(
+                        db,
+                        en,
+                        operation="insert",
+                        action="lidnr_attached",
+                        source=LEGACY_SOURCE,
+                        actor=actor,
+                    )
                     snapshot_person(
                         db,
                         match,
@@ -813,7 +832,7 @@ def _sync_family(
                 + ("  (gezin hersteld)" if household_back else ""),
                 "person",
                 "external_number",
-                *(["member_person_revive"] if link_back else []),
+                *(["member_person_revive", "member_person"] if link_back else []),
                 *(["member"] if household_back else []),
             )
         cur_member = _current_member(existing)
@@ -1146,6 +1165,24 @@ def _revive_soft_deleted(
         report.revived[person.id] = (en.external_id, link_back, household_back)
         db.flush()
         if apply:
+            # #1885: what came back writes its row, the link and the number too.
+            snapshot_external_number(
+                db,
+                en,
+                operation="update",
+                action="number_revived",
+                source=LEGACY_SOURCE,
+                actor=actor,
+            )
+            if latest_mp is not None and link_back:
+                snapshot_member_person(
+                    db,
+                    latest_mp,
+                    operation="update",
+                    action="member_person_revived",
+                    source=LEGACY_SOURCE,
+                    actor=actor,
+                )
             snapshot_person(
                 db,
                 person,

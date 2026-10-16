@@ -106,6 +106,7 @@ def test_the_text_with_markers_round_trips_through_the_document():
 def test_every_block_of_the_letter_is_built_for_the_mail(db_session):
     activity = _activity(db_session)
     activity.description = "Een avond over vaderschap."
+    db_session.flush()  # the seed is the test's own write, before the app commits (#1885 gate 2)
     letter = _letter(
         db_session,
         _doc(

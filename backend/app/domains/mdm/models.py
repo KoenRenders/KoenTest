@@ -1241,6 +1241,8 @@ class PersonHistory(TenantMixin, HistoryMixin, Base):
     first_name = Column(String(100), nullable=True)
     date_of_birth = Column(Date, nullable=True)
     gender_code = Column(String(10), nullable=True)
+    # #1885: the person a merge folded this one into (migration 215).
+    superseded_by_id = Column(Integer, nullable=True)
 
 
 class MemberHistory(TenantMixin, HistoryMixin, Base):
@@ -1271,6 +1273,8 @@ class AddressHistory(TenantMixin, HistoryMixin, Base):
     house_number = Column(String(20), nullable=True)
     bus_number = Column(String(10), nullable=True)
     postal_code_id = Column(Integer, nullable=True)
+    # #1885 (migration 215).
+    organization_id = Column(Integer, nullable=True)
 
 
 class ContactDetailHistory(TenantMixin, HistoryMixin, Base):
@@ -1282,3 +1286,19 @@ class ContactDetailHistory(TenantMixin, HistoryMixin, Base):
     contact_type_code = Column(String(10), nullable=True)
     value = Column(String(255), nullable=True)
     is_primary = Column(Boolean, nullable=True)
+    # #1885 (migration 215).
+    organization_id = Column(Integer, nullable=True)
+
+
+class ExternalNumberHistory(TenantMixin, HistoryMixin, Base):
+    """The history of a member number from another system (#1885: Koen, 15
+    October 2026 — the national member number is logged too). Its `source`
+    stands as `number_source`: every history row has a `source` of its own."""
+
+    __tablename__ = "external_number_history"
+    __table_args__ = {"schema": "mdm"}
+
+    external_number_id = Column(Integer, nullable=False, index=True)
+    person_id = Column(Integer, nullable=True)
+    number_source = Column(String(50), nullable=True)
+    external_id = Column(String(50), nullable=True)
