@@ -27,7 +27,10 @@
   {% if hero.actions_html %}<div class="prose-hero-actions prose-raak">{{ hero.actions_html | safe }}</div>{% endif %}
 </div>
 {% else %}
-<h1 class="text-3xl font-bold text-kop mb-8">{{ page.title }}</h1>
+{# The home page opens with the membership band, as v2.16's did (#2093): its title stays
+   the page's one h1 for screen readers and search engines, and is not drawn. #}
+{% if page.is_home %}<h1 class="sr-only">{{ page.title }}</h1>
+{% else %}<h1 class="text-3xl font-bold text-kop mb-8">{{ page.title }}</h1>{% endif %}
 {% endif %}
 {# #1656 (CR-11 Q87): the title above is the page's only h1. `cms-page` gives the
    headings of a page BODY their sizes (24, 18 and 16 px, `scripts/build-css.sh`); the
