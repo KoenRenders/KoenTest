@@ -30,6 +30,7 @@ from sqlalchemy import text
 
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.reporting.tests.test_reporting_panel_ui import login
+from app.kernel.clock import belgian_today
 from app.kernel.codes import reset_label_cache
 from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, seed_postal_code
 
@@ -282,7 +283,7 @@ def test_the_payment_instructions_a_member_reads_come_from_the_organisation(clie
         {"payment_iban": "BE68 5390 0754 7034", "payment_beneficiary": "Vereniging Zevenbergen"},
     )
     member, _persoon = create_test_family(db_session, email="betaler@example.org")
-    jaar = date.today().year + 1
+    jaar = belgian_today().year + 1
     ms = Membership(
         member_id=member.id,
         year=jaar,

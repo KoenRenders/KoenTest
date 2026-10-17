@@ -19,10 +19,12 @@ Screenshots go outside the repo.
 
 import os
 import sys
-from datetime import date, time, timedelta
+from datetime import time, timedelta
 
 import pytest
 from playwright.sync_api import sync_playwright
+
+from app.kernel.clock import belgian_today
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -97,7 +99,7 @@ def _activity() -> int:
         db.add(
             ActivityDate(
                 activity_id=activity.id,
-                start_date=date.today() + timedelta(days=75),
+                start_date=belgian_today() + timedelta(days=75),
                 start_time=time(14, 0),
             )
         )

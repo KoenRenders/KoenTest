@@ -41,6 +41,7 @@ from app.domains.chatbot.api import (
 )
 from app.domains.chatbot.providers import mistral as mistral_mod
 from app.domains.chatbot.providers.mistral import MistralProvider
+from app.kernel.clock import belgian_today
 from app.kernel.tenancy import DEFAULT_TENANT_ID
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -185,7 +186,7 @@ def test_a_cost_is_stored_and_summed_for_its_own_department_only(db_session, lee
     _beeld(TENANT)
     _beeld(ANDER)
 
-    start, end = month_period(date.today())
+    start, end = month_period(belgian_today())
     [lijn] = cost_per_period(db_session, tenant_id=TENANT, start=start, end=end)
 
     assert (lijn.provider, lijn.capability, lijn.calls) == (AiProvider.BFL, AiCapability.IMAGE, 2)
@@ -197,7 +198,7 @@ def test_currencies_are_never_added_together(db_session, leeg_logboek):
     _beeld(TENANT)
     _beeld(TENANT, cost_amount=0.05, cost_currency="EUR")
 
-    start, end = month_period(date.today())
+    start, end = month_period(belgian_today())
     [lijn] = cost_per_period(db_session, tenant_id=TENANT, start=start, end=end)
     assert lijn.cost_amounts == {"USD": Decimal("0.045"), "EUR": Decimal("0.05")}
 
@@ -368,7 +369,7 @@ def test_an_ocr_call_is_logged_with_its_cost(db_session, leeg_logboek, monkeypat
     assert rij["capability"] == "ocr"
     assert (rij["cost_amount"], rij["cost_currency"]) == (Decimal("0.012000"), "USD")
 
-    start, end = month_period(date.today())
+    start, end = month_period(belgian_today())
     [lijn] = cost_per_period(db_session, tenant_id=TENANT, start=start, end=end)
     assert lijn.capability is AiCapability.OCR
     assert lijn.cost_amounts == {"USD": Decimal("0.012000")}

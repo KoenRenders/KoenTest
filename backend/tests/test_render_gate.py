@@ -22,6 +22,7 @@ from pathlib import Path
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, make_session_value
+from app.kernel.clock import belgian_today
 from app.ui import _ADMIN_NAV
 from tests.conftest import (
     PLATFORM_TEST_HOST,
@@ -129,7 +130,7 @@ def gevulde_admin(client, db_session):
     # zitten de verwijderknoppen met confirm_attrs, het toneel van #514.
     from datetime import date
 
-    jaar = date.today().year
+    jaar = belgian_today().year
     db_session.add(
         Membership(
             member_id=member.id,

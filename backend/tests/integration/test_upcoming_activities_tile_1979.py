@@ -27,6 +27,7 @@ from app.domains.reporting.api import (
     selection_of,
 )
 from app.domains.reporting.tests.test_reporting_panel_ui import ADMIN_EMAIL
+from app.kernel.clock import belgian_today
 from tests._reporting_seed import TENANT_A, seed
 
 KEY = "dashboard_upcoming_activities"
@@ -61,7 +62,7 @@ def _activity(db, name: str, **state) -> None:
         ActivityDate(
             tenant_id=TENANT_A,
             activity_id=activity.id,
-            start_date=date.today() + timedelta(days=10),
+            start_date=belgian_today() + timedelta(days=10),
         )
     )
     db.flush()
@@ -71,7 +72,7 @@ def test_the_tile_and_its_report_count_every_status_but_not_a_deleted_one(db_ses
     from app.domains.activities.api import ActivityStatus
 
     seed(db_session)
-    today = date.today()
+    today = belgian_today()
     tile_before, report_before = _both(db_session, today)
     assert tile_before == report_before
 

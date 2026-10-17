@@ -34,6 +34,7 @@ from app.domains.activities.api import (
 from app.domains.activities.models import ActiviteitFout, Activity
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import ContactDetail, Member, MemberPerson, Person
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -193,12 +194,12 @@ def _post_vinkje(client, csrf, activiteit, organiser_id, **extra):
 
 
 def test_the_public_activity_page_shows_nothing_of_this(client, db_session, activiteit):
-    from datetime import date, timedelta
+    from datetime import timedelta
 
     from app.domains.activities.api import ActivityDate
 
     db_session.add(
-        ActivityDate(activity_id=activiteit.id, start_date=date.today() + timedelta(days=30))
+        ActivityDate(activity_id=activiteit.id, start_date=belgian_today() + timedelta(days=30))
     )
     # Namen die nergens anders in een pagina voorkomen: "Els" zit toevallig in
     # "snelder" in een scriptregel, en dan meet je de paginatekst, niet het lek.

@@ -47,6 +47,7 @@ from app.domains.activities.api import (
     ActivitySubRegistration,
     Registration,
 )
+from app.kernel.clock import belgian_today
 from tests.conftest import form_guard_fields
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -351,7 +352,7 @@ def test_ook_niet_in_het_archief(client, db_session):
     a = Activity(name="Voorbije quiz", location="Miloheem", description=OMSCHRIJVING)
     db_session.add(a)
     db_session.flush()
-    db_session.add(ActivityDate(activity_id=a.id, start_date=date.today() - timedelta(days=30)))
+    db_session.add(ActivityDate(activity_id=a.id, start_date=belgian_today() - timedelta(days=30)))
     db_session.flush()
 
     html = client.get("/activiteiten/archief").text

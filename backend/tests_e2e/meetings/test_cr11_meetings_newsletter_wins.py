@@ -22,10 +22,12 @@ import os
 import re
 import secrets
 import sys
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from playwright.sync_api import sync_playwright
+
+from app.kernel.clock import belgian_today
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -50,11 +52,11 @@ def _data() -> dict:
     tag = secrets.token_hex(3)
     db = SessionLocal()
     try:
-        sent = create_meeting(db, meeting_date=date.today() - timedelta(days=3))
+        sent = create_meeting(db, meeting_date=belgian_today() - timedelta(days=3))
         sent.status = MeetingStatus.SENT
         sent.agenda_sent_at = datetime.now(timezone.utc) - timedelta(days=5)
         sent.report_sent_at = datetime.now(timezone.utc)
-        upcoming = create_meeting(db, meeting_date=date.today() + timedelta(days=9))
+        upcoming = create_meeting(db, meeting_date=belgian_today() + timedelta(days=9))
         for n in range(2):
             db.add(
                 Subscriber(

@@ -28,6 +28,7 @@ from app.domains.payment.api import (
     reconcile_charges,
     reconcile_registration_charges,
 )
+from app.kernel.clock import belgian_today
 from tests._invarianten import assert_geen_wezen, assert_saldo_klopt
 from tests.conftest import create_test_member, register_at_the_door, seed_activity_with_product
 
@@ -162,7 +163,7 @@ def test_registratie_variant_gebruikt_hetzelfde_pad(client, db_session):
 
 
 def _lidmaatschap(db, member, jaar=None):
-    jaar = jaar or date.today().year
+    jaar = jaar or belgian_today().year
     ms = Membership(
         member_id=member.id,
         year=jaar,
@@ -262,7 +263,7 @@ def test_B6_tweemaal_schrappen_is_idempotent(db_session):
 
 def test_C1_twee_betaalde_lidmaatschappen_geven_twee_terugbetalingen(db_session):
     member = create_test_member(db_session)
-    jaar = date.today().year
+    jaar = belgian_today().year
     ms1 = _lidmaatschap(db_session, member, jaar)
     ms2 = _lidmaatschap(db_session, member, jaar + 1)
     c1 = _charge(db_session, "membership", ms1.id, "35.00", amount_paid="35.00")
@@ -283,7 +284,7 @@ def test_C1_twee_betaalde_lidmaatschappen_geven_twee_terugbetalingen(db_session)
 
 def test_C2_betaald_en_onbetaald_naast_elkaar(db_session):
     member = create_test_member(db_session)
-    jaar = date.today().year
+    jaar = belgian_today().year
     betaald = _lidmaatschap(db_session, member, jaar)
     onbetaald = _lidmaatschap(db_session, member, jaar + 1)
     _charge(db_session, "membership", betaald.id, "35.00", amount_paid="35.00")

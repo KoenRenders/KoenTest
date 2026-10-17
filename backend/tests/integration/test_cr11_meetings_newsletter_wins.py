@@ -18,7 +18,7 @@ the badge, "Verstuur agenda" and "Versturen (1)", and the card in the editor.
 from __future__ import annotations
 
 import re
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -26,6 +26,7 @@ from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_va
 from app.domains.meetings.api import MeetingStatus, create_meeting
 from app.domains.newsletter import service as nb
 from app.domains.newsletter.models import Audience, Subscriber, SubscriberStatus
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -55,7 +56,7 @@ def test_w4_the_settings_are_linked_once_in_the_header(client, db_session):
 
 
 def test_w6_a_meeting_row_shows_its_status_once(client, db_session):
-    meeting = create_meeting(db_session, meeting_date=date.today() - timedelta(days=3))
+    meeting = create_meeting(db_session, meeting_date=belgian_today() - timedelta(days=3))
     meeting.status = MeetingStatus.SENT
     meeting.agenda_sent_at = datetime.now(timezone.utc) - timedelta(days=5)
     meeting.report_sent_at = datetime.now(timezone.utc)
@@ -72,7 +73,7 @@ def test_w6_a_meeting_row_shows_its_status_once(client, db_session):
 
 
 def test_w7_the_meeting_buttons_that_open_a_step_end_in_an_ellipsis(client, db_session):
-    meeting = create_meeting(db_session, meeting_date=date.today() + timedelta(days=7))
+    meeting = create_meeting(db_session, meeting_date=belgian_today() + timedelta(days=7))
     db_session.commit()
     _login(client)
 

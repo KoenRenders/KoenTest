@@ -36,6 +36,7 @@ from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.mdm.api import ContactDetail, MemberPerson
 from app.domains.membership.api import Membership
 from app.domains.payment.api import PaymentRecord
+from app.kernel.clock import belgian_today
 from tests.conftest import create_test_family, create_test_person, form_fields
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -281,7 +282,7 @@ def test_a_valid_membership_shows_in_the_success_tone_without_an_emoji(client, d
     before = _card(_page(client, "geldig@example.com", READ))
     assert "data-membership-valid" not in before and "geen geldig lidmaatschap" in before
 
-    _membership(db_session, member, year=date.today().year, active=True)
+    _membership(db_session, member, year=belgian_today().year, active=True)
     db_session.commit()
     card = _card(_page(client, "geldig@example.com", READ))
     assert "geldig tot en met" in card
@@ -294,7 +295,7 @@ def test_a_renewal_that_waits_for_a_transfer_shows_what_to_pay_in_the_card(clien
     member, _main_person, _partner = _household(db_session, "storting@example.com")
     assert "data-transfer-due" not in _card(_page(client, "storting@example.com", READ))
 
-    renewal = _membership(db_session, member, year=date.today().year + 1, active=False)
+    renewal = _membership(db_session, member, year=belgian_today().year + 1, active=False)
     db_session.add(
         PaymentRecord(
             payable_type="membership",

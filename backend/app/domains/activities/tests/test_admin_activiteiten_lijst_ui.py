@@ -7,10 +7,11 @@ KPI-rij onder een filter, en de navigatie na aanmaken en verwijderen.
 """
 
 import re
-from datetime import date, timedelta
+from datetime import timedelta
 
 from app.domains.activities.api import Activity, ActivityDate
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 
@@ -27,7 +28,7 @@ def _activiteit(db_session, naam: str, locatie: str, dagen_vooruit: int) -> Acti
     db_session.add(a)
     db_session.flush()
     db_session.add(
-        ActivityDate(activity_id=a.id, start_date=date.today() + timedelta(days=dagen_vooruit))
+        ActivityDate(activity_id=a.id, start_date=belgian_today() + timedelta(days=dagen_vooruit))
     )
     db_session.commit()
     return a

@@ -25,6 +25,7 @@ import pytest
 
 from app.domains.activities.api import Activity
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -147,12 +148,12 @@ def test_de_rail_draagt_het_afficheblok_niet_meer(client, db_session, activiteit
 
 def test_de_publieke_kant_toont_de_sprong_niet(client, db_session, activiteit):
     """Beheerderswerk. De link mag nergens in de publieke schil opduiken."""
-    from datetime import date, timedelta
+    from datetime import timedelta
 
     from app.domains.activities.api import ActivityDate
 
     db_session.add(
-        ActivityDate(activity_id=activiteit.id, start_date=date.today() + timedelta(days=14))
+        ActivityDate(activity_id=activiteit.id, start_date=belgian_today() + timedelta(days=14))
     )
     db_session.flush()
     _ontwerp(db_session, activiteit)

@@ -27,6 +27,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
+from app.kernel.clock import belgian_today
 from tests.conftest import create_test_family, form_guard_fields, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -49,7 +50,7 @@ def _paid(db, person) -> None:
 
     from app.domains.membership.api import Membership
 
-    today = date.today()
+    today = belgian_today()
     db.add(
         Membership(
             member_id=person.member_persons[0].member_id,

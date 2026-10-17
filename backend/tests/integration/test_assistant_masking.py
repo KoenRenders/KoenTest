@@ -21,6 +21,7 @@ from app.domains.reporting.assistant import (
     dispatcher,
     scrub_question,
 )
+from app.kernel.clock import belgian_today
 
 TENANT = 2
 ACHTERNAAM = "Vandenbulcke"
@@ -69,7 +70,7 @@ def _household(db, first: str, last: str, *, board_member=None, extra=0, lid=Fal
     if lid:
         from app.domains.membership.api import Membership
 
-        jaar = date.today().year
+        jaar = belgian_today().year
         db.add(
             Membership(
                 tenant_id=TENANT,

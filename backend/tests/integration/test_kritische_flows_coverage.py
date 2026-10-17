@@ -6,6 +6,7 @@ vastnagelen — geen nieuwe invarianten opleggen aan de productiecode.
 from decimal import Decimal
 
 from app.domains.mdm.api import RelationType
+from app.kernel.clock import belgian_today
 from tests.conftest import (
     board_at_the_household,
     create_test_family,
@@ -153,7 +154,7 @@ def test_totaal_rekent_ledenprijs_voor_ingelogd_lid(client, db_session):
         {"member_price": Decimal("6.00")}
     )
     member, person = create_test_family(db_session, email="lid-prijs@example.com")
-    y = date.today().year
+    y = belgian_today().year
     db_session.add(
         Membership(
             member_id=member.id,

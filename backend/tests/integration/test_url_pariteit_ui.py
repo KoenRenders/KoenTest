@@ -6,6 +6,7 @@ import io
 from PIL import Image
 
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL, sent_to_sign_in
 
 
@@ -27,12 +28,12 @@ def test_redirects_oude_paden(client):
 
 
 def test_fotos_paginas(client, db_session):
-    from datetime import date, timedelta
+    from datetime import timedelta
 
     from app.domains.activities.api import Activity, ActivityDate
     from app.domains.media.models import MediaAsset
 
-    gisteren = date.today() - timedelta(days=1)
+    gisteren = belgian_today() - timedelta(days=1)
     act = Activity(name="Dorpsfeest", is_cancelled=False)
     db_session.add(act)
     db_session.flush()

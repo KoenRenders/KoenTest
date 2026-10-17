@@ -10,7 +10,7 @@ found only in an old letter.
 """
 
 import json
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
@@ -25,6 +25,7 @@ from app.domains.newsletter.models import (
     Audience,
     LetterStatus,
 )
+from app.kernel.clock import belgian_today
 from tests._letter import letter_doc
 from tests._meeting_notes import note
 
@@ -89,7 +90,9 @@ def _activity(db, name, days_ahead=20, price=None, member_price=None):
     db.add(activity)
     db.flush()
     db.add(
-        ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=days_ahead))
+        ActivityDate(
+            activity_id=activity.id, start_date=belgian_today() + timedelta(days=days_ahead)
+        )
     )
     if price is not None:
         db.add(
@@ -152,7 +155,7 @@ def _sent_meeting_with_point(db, notes, activity=None):
         sections_of,
     )
 
-    meeting = create_meeting(db, meeting_date=date.today() - timedelta(days=10))
+    meeting = create_meeting(db, meeting_date=belgian_today() - timedelta(days=10))
     section = next(s for s in sections_of(db, meeting) if s.kind == SectionKind.EVALUATION)
     item = add_item(
         db, meeting, section, title="Vervoer", activity_id=activity.id if activity else None

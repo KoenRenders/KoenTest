@@ -29,11 +29,13 @@ import re
 import sys
 import uuid
 from contextlib import contextmanager
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
 from playwright.sync_api import expect, sync_playwright
+
+from app.kernel.clock import belgian_today
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -154,7 +156,7 @@ def test_an_activity_created_through_the_screens_is_open_for_registration(admin)
             page.fill("#name", name)
             # #1649: the create screen is the fiche itself, empty; its first date
             # row is a row of the group Datums, and the bar's Opslaan creates.
-            page.fill("#d-n1-start_date", (date.today() + timedelta(days=40)).isoformat())
+            page.fill("#d-n1-start_date", (belgian_today() + timedelta(days=40)).isoformat())
             page.locator("[data-action-bar] [data-form-save]").click()
             page.wait_for_url(re.compile(r"/admin/activiteiten/\d+$"), timeout=10_000)
             activity_id = int(page.url.rstrip("/").rsplit("/", 1)[1])

@@ -24,6 +24,8 @@ import sys
 import pytest
 from playwright.sync_api import expect, sync_playwright
 
+from app.kernel.clock import belgian_today
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.schermen import BASE, pagina_klaar  # noqa: E402
@@ -40,7 +42,7 @@ def activiteit_met_affiche():
     Dezelfde weg als `seeded_activities` in de golden flows: de e2e-backend praat
     tegen dezelfde databank, en zo blijft de gedeelde seed ongemoeid.
     """
-    from datetime import date, timedelta
+    from datetime import timedelta
     from decimal import Decimal
 
     import app.models  # noqa: F401  → alle mappers geconfigureerd
@@ -55,7 +57,7 @@ def activiteit_met_affiche():
         )
         db.add(a)
         db.flush()
-        db.add(ActivityDate(activity_id=a.id, start_date=date.today() + timedelta(days=21)))
+        db.add(ActivityDate(activity_id=a.id, start_date=belgian_today() + timedelta(days=21)))
         db.add(
             ActivitySubRegistration(
                 activity_id=a.id, name="Deelname", price=Decimal("0"), is_free=True

@@ -8,6 +8,7 @@ from odf.table import Table, TableCell, TableRow
 from odf.teletype import extractText
 
 from tests import backoffice_door
+from tests._clock import utc_today
 from tests.conftest import register_at_the_door, seed_postal_code, sign_up_at_the_door
 
 
@@ -39,7 +40,7 @@ def _create_family(client, db_session):
 
 def test_member_changes_lists_recent_changes(client, db_session):
     _create_family(client, db_session)
-    resp = backoffice_door.member_changes(client, date.today().isoformat())
+    resp = backoffice_door.member_changes(client, utc_today().isoformat())
     assert resp.status_code == 200, resp.text
     rows = resp.json()
     entities = {r["entity"] for r in rows}
@@ -54,7 +55,7 @@ def test_change_summaries_have_no_raw_ids(client, db_session):
     """De Details-kolom toont geen nietszeggende #ID's meer; een adres toont de
     gemeente i.p.v. een postcode-id."""
     _create_family(client, db_session)
-    rows = backoffice_door.member_changes(client, date.today().isoformat()).json()
+    rows = backoffice_door.member_changes(client, utc_today().isoformat()).json()
     summaries = " | ".join(r["summary"] for r in rows)
     assert "persoon #" not in summaries
     assert "gezin #" not in summaries
@@ -65,7 +66,7 @@ def test_change_summaries_have_no_raw_ids(client, db_session):
 
 def test_member_changes_respects_since_date(client, db_session):
     _create_family(client, db_session)
-    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    tomorrow = (utc_today() + timedelta(days=1)).isoformat()
     resp = backoffice_door.member_changes(client, tomorrow)
     assert resp.status_code == 200
     assert resp.json() == []
@@ -73,7 +74,7 @@ def test_member_changes_respects_since_date(client, db_session):
 
 def test_member_changes_ods_export(client, db_session):
     _create_family(client, db_session)
-    content = backoffice_door.member_changes_ods(client, date.today().isoformat())
+    content = backoffice_door.member_changes_ods(client, utc_today().isoformat())
     table = load(BytesIO(content)).getElementsByType(Table)[0]
     trs = table.getElementsByType(TableRow)
     headers = [extractText(tc) for tc in trs[0].getElementsByType(TableCell)]
@@ -97,7 +98,7 @@ def test_member_changes_enriched_with_person_and_head(client, db_session):
     )
     db_session.flush()
 
-    resp = backoffice_door.member_changes(client, date.today().isoformat())
+    resp = backoffice_door.member_changes(client, utc_today().isoformat())
     rows = resp.json()
     person_row = next(r for r in rows if r["entity"] == "Persoon")
     assert person_row["person_name"] == "An Janssens"
@@ -144,7 +145,7 @@ def test_changes_feed_enriches_payment_with_registration_person(client, db_sessi
     reg.person_id = person.id
     db_session.flush()
 
-    resp = backoffice_door.changes(client, date.today().isoformat(), group="Betalingen")
+    resp = backoffice_door.changes(client, utc_today().isoformat(), group="Betalingen")
     pay = next(r for r in resp.json()["rows"] if r["entity"] == "Betaling")
     assert pay["person_name"] == "An Janssens"
     assert pay["head_address"] == "Milostraat 40, 2400 Mol"
@@ -180,7 +181,7 @@ def test_changes_feed_matches_guest_payment_by_email(client, db_session):
     )
     assert reg_resp.status_code in (200, 201), reg_resp.text
 
-    resp = backoffice_door.changes(client, date.today().isoformat(), group="Betalingen")
+    resp = backoffice_door.changes(client, utc_today().isoformat(), group="Betalingen")
     pay = next(r for r in resp.json()["rows"] if r["entity"] == "Betaling")
     # An is zelf het hoofdlid → persoon- en hoofdlid-kolommen wijzen naar haar.
     assert pay["person_name"] == "An Janssens"
@@ -235,7 +236,7 @@ def test_changes_feed_person_and_head_columns_differ(client, db_session):
     )
     assert reg_resp.status_code in (200, 201), reg_resp.text
 
-    rows = backoffice_door.changes(client, date.today().isoformat(), group="Betalingen").json()[
+    rows = backoffice_door.changes(client, utc_today().isoformat(), group="Betalingen").json()[
         "rows"
     ]
     pay = next(r for r in rows if r["entity"] == "Betaling")
@@ -267,7 +268,7 @@ def test_changes_feed_payment_guest_shows_contact_name(client, db_session):
     )
     assert reg_resp.status_code in (200, 201), reg_resp.text
 
-    resp = backoffice_door.changes(client, date.today().isoformat(), group="Betalingen")
+    resp = backoffice_door.changes(client, utc_today().isoformat(), group="Betalingen")
     pay = next(r for r in resp.json()["rows"] if r["entity"] == "Betaling")
     assert pay["person_name"] == "Gast Zonderlid"
     assert pay["head_address"] == ""

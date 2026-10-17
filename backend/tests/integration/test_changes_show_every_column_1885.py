@@ -13,13 +13,12 @@ taken out of `_more` → the description test fails, the text standing in the li
 
 from __future__ import annotations
 
-from datetime import date
-
 import pytest
 
 from app.domains.activities.api import ActivityHistory
 from app.domains.reporting.changes import all_changes_since
 from app.kernel.logged import snapshot
+from tests._clock import utc_today
 from tests.conftest import seed_activity_with_product
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -36,7 +35,7 @@ def _update(db, obj, **changes):
 def _summary_of(db, entity: str, entity_id: int) -> str:
     rows = [
         r
-        for r in all_changes_since(db, date.today())
+        for r in all_changes_since(db, utc_today())
         if r["entity"] == entity and r["entity_id"] == entity_id and r["operation"] == "update"
     ]
     assert rows, f"no update row of {entity} #{entity_id}"

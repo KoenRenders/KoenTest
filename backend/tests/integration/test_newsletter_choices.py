@@ -21,7 +21,7 @@ draft's page gets the dimmed "Raakje kent deze gegevens nog niet").
 from __future__ import annotations
 
 import re
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
 
@@ -30,6 +30,7 @@ from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_va
 from app.domains.newsletter import api as nb
 from app.domains.newsletter.models import Audience, LetterStatus, Newsletter
 from app.domains.reporting.assistant_context import context_for
+from app.kernel.clock import belgian_today
 from app.kernel.tenancy import DEFAULT_TENANT_ID
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
@@ -40,7 +41,7 @@ def _activity(db, name: str, days: int) -> Activity:
     activity = Activity(name=name, location="Dorpsplein", slug=name.lower().replace(" ", "-"))
     db.add(activity)
     db.flush()
-    db.add(ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=days)))
+    db.add(ActivityDate(activity_id=activity.id, start_date=belgian_today() + timedelta(days=days)))
     db.flush()
     return activity
 

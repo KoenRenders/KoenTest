@@ -12,11 +12,13 @@ both widths the closed state was a badge `<span>` 20 px high beside a button of 
 import os
 import secrets
 import sys
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
 from playwright.sync_api import sync_playwright
+
+from app.kernel.clock import belgian_today
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -64,12 +66,14 @@ def _closed_activity(name: str) -> None:
         activity = Activity(name=name, location="Miloheem")
         db.add(activity)
         db.flush()
-        db.add(ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=60)))
+        db.add(
+            ActivityDate(activity_id=activity.id, start_date=belgian_today() + timedelta(days=60))
+        )
         component = ActivitySubRegistration(
             activity_id=activity.id,
             name="Deelname",
             registration_type_code="INDIVIDUAL",
-            registration_closes_on=date.today() - timedelta(days=2),
+            registration_closes_on=belgian_today() - timedelta(days=2),
             price=Decimal("0"),
             is_free=True,
         )

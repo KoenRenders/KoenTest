@@ -36,6 +36,7 @@ from app.domains.mdm.api import Member
 from app.domains.membership.api import Membership, current_membership_counts
 from app.domains.reporting.api import DASHBOARD_TEGELS, dashboard_numbers
 from app.domains.reporting.tests.test_reporting_panel_ui import ADMIN_EMAIL
+from app.kernel.clock import belgian_today
 from tests._reporting_seed import TENANT_A, seed
 
 # The tile as the dashboard defines it — derived, so this test reads whatever
@@ -90,7 +91,7 @@ def _household(db, *periods: tuple[int, date, date]) -> Member:
 
 def test_a_household_that_joined_after_the_turnover_date_counts_on_both(db_session, situation):
     """Next year's membership, valid from today: a member today."""
-    today = date.today()
+    today = belgian_today()
     kpi, tile = _kpi(db_session), _tile(db_session)
 
     _household(db_session, (today.year + 1, today, date(today.year + 1, 12, 31)))
@@ -102,7 +103,7 @@ def test_a_household_that_joined_after_the_turnover_date_counts_on_both(db_sessi
 
 
 def test_a_household_with_two_overlapping_memberships_counts_once(db_session, situation):
-    today = date.today()
+    today = belgian_today()
     kpi, tile = _kpi(db_session), _tile(db_session)
 
     # This year's membership, and next year's already paid — both cover today.
@@ -118,7 +119,7 @@ def test_a_household_with_two_overlapping_memberships_counts_once(db_session, si
 
 
 def test_the_member_list_and_the_dashboard_give_the_same_number(db_session, situation):
-    today = date.today()
+    today = belgian_today()
     # Two households that joined today for next year. Two and not one: the seed
     # holds a membership of this year without validity dates, which the old tile
     # counted and the member list does not — one joiner would cancel it out.

@@ -46,13 +46,14 @@ from app.domains.membership.api import Membership
 from app.domains.newsletter import service as nb
 from app.domains.newsletter.api import Audience
 from app.domains.newsletter.models import Newsletter, Subscriber, SubscriberStatus
+from app.kernel.clock import belgian_today
 from app.kernel.codes import code_label
 from tests._letter import letter_doc
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
 
-YEAR = date.today().year
+YEAR = belgian_today().year
 MEMBERS_SENTENCE = (
     "Elk e-mailadres van elke persoon in een gezin met een lidmaatschap voor dit werkjaar: "
     "3 adressen in 2 gezinnen. Oud-leden en gezinnen zonder lidmaatschap dit jaar krijgen hem niet."

@@ -14,6 +14,7 @@ from app.domains.auth.api import login_person_for_email
 from app.domains.membership import household_service
 from app.domains.membership.schemas_member import MembershipCreate
 from app.domains.payment.api import PayableType
+from app.kernel.clock import belgian_today
 from tests import payments_door
 from tests.conftest import renew_at_the_portal, seed_postal_code, seeded_admin, sign_up_at_the_door
 from tests.integration.test_functional_regression import _family_payload
@@ -25,12 +26,11 @@ pytestmark = pytest.mark.ui_agnostisch
 def test_admin_created_membership_is_valid(client, db_session):
     """Admin 'Lid maken' moet een geldig lidmaatschap opleveren (met
     valid_from/valid_to), anders telt het nergens als geldig (#143)."""
-    from datetime import date
 
     from app.domains.membership.api import has_valid_membership
 
     member, person = seed_household(db_session, "adminmade@example.com", with_membership=False)
-    year = date.today().year
+    year = belgian_today().year
     made = household_service.create_membership_for_family(
         db_session,
         member.id,
@@ -170,14 +170,13 @@ def test_early_renew_while_valid_targets_next_year(client, db_session, mock_moll
     """Met open hernieuwingsvenster mag een lid met een nog-geldig lidmaatschap
     vroeg hernieuwen. De nieuwe periode dekt het JAAR ná de huidige geldigheid —
     niet het lopende jaar (anders botst uq_memberships_member_year). Regressie #134-flow."""
-    from datetime import date
 
     from app.config import settings
     from app.domains.membership.api import Membership
 
     email = "early@example.com"
     member, _person = seed_household(db_session, email)  # actief, geldig dit jaar
-    this_year = date.today().year
+    this_year = belgian_today().year
 
     # Open het hernieuwingsvenster (1 januari) voor deze test.
     old = settings.membership_renewal_start_md

@@ -11,6 +11,7 @@ from decimal import Decimal
 from app.domains.activities.api import Activity, ActivityDate, ActivitySubRegistration
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.mdm.api import ContactDetail
+from app.kernel.clock import belgian_today
 from tests.conftest import create_test_family
 
 
@@ -18,7 +19,7 @@ def _members_only_activity(db):
     a = Activity(name="Ledenreis", members_only=True)
     db.add(a)
     db.flush()
-    db.add(ActivityDate(activity_id=a.id, start_date=date.today() + timedelta(days=20)))
+    db.add(ActivityDate(activity_id=a.id, start_date=belgian_today() + timedelta(days=20)))
     db.add(
         ActivitySubRegistration(
             activity_id=a.id,
@@ -50,7 +51,7 @@ def test_registration_form_prefills_email_and_mobile_for_member(client, db_sessi
     # today; without one there is no form to prefill.
     from app.domains.membership.api import Membership
 
-    today = date.today()
+    today = belgian_today()
     db_session.add(
         Membership(
             member_id=_member.id,
@@ -74,7 +75,7 @@ def test_archived_card_shows_participants_not_registration(client, db_session):
     a = Activity(name="Voorbije reis")
     db_session.add(a)
     db_session.flush()
-    db_session.add(ActivityDate(activity_id=a.id, start_date=date.today() - timedelta(days=30)))
+    db_session.add(ActivityDate(activity_id=a.id, start_date=belgian_today() - timedelta(days=30)))
     db_session.add(
         ActivitySubRegistration(
             activity_id=a.id,

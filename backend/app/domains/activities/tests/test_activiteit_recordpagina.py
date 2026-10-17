@@ -8,6 +8,7 @@ de tab navigeert naar het gewone betalingenscherm in `?activiteit=`-scope.
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -215,7 +216,7 @@ def test_deeladres_stuurt_naar_de_juiste_lijst(client, db_session):
     de golf 8-docstring aankondigde); de terug-link kiest tussen de komende
     lijst en het archief. De paginainhoud staat in
     test_golf12_activiteitspagina.py."""
-    from datetime import date, timedelta
+    from datetime import timedelta
 
     from app.domains.activities.api import Activity, ActivityDate
 
@@ -225,8 +226,8 @@ def test_deeladres_stuurt_naar_de_juiste_lijst(client, db_session):
     db_session.flush()
     db_session.add_all(
         [
-            ActivityDate(activity_id=komend.id, start_date=date.today() + timedelta(days=10)),
-            ActivityDate(activity_id=voorbij.id, start_date=date.today() - timedelta(days=10)),
+            ActivityDate(activity_id=komend.id, start_date=belgian_today() + timedelta(days=10)),
+            ActivityDate(activity_id=voorbij.id, start_date=belgian_today() - timedelta(days=10)),
         ]
     )
     db_session.flush()

@@ -23,6 +23,7 @@ from app.domains.activities.api import (
     Registration,
 )
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 
@@ -55,7 +56,7 @@ def _activity(
     db.add(
         ActivityDate(
             activity_id=activity.id,
-            start_date=date.today() + timedelta(days=days),
+            start_date=belgian_today() + timedelta(days=days),
             start_time=start,
         )
     )
@@ -192,7 +193,7 @@ def test_the_sort_follows_the_first_date_then_the_last_first_then_the_name(clien
 def test_the_year_and_the_audience_filter_the_list(client, db_session):
     """Broken on purpose: the audience comparison removed → both audiences come
     back and the last assertion fails."""
-    volgend_jaar = date.today().year + 1
+    volgend_jaar = belgian_today().year + 1
     _activity(db_session, "Dit jaar", days=2, audience="adults")
     later = _activity(db_session, "Volgend jaar", days=2, audience="children")
     db_session.add(ActivityDate(activity_id=later.id, start_date=date(volgend_jaar, 12, 30)))
@@ -233,7 +234,9 @@ def test_the_row_link_carries_the_lists_state(client, db_session):
     a = _activity(db_session, "Zomerfeest", audience="adults")
     db_session.commit()
     _login(client)
-    html = client.get("/admin/activiteiten?scope=all&q=zomer&jaar=" + str(date.today().year)).text
+    html = client.get(
+        "/admin/activiteiten?scope=all&q=zomer&jaar=" + str(belgian_today().year)
+    ).text
     link = re.search(rf'href="(/admin/activiteiten/{a.id}\?terug=[^"]+)"', html).group(1)
     assert "scope%3Dall" in link and "q%3Dzomer" in link and "jaar%3D" in link
 

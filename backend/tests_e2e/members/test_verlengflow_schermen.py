@@ -27,6 +27,8 @@ import sys
 import pytest
 from playwright.sync_api import expect, sync_playwright
 
+from app.kernel.clock import belgian_today
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.schermen import BASE, Betalingenscherm, login_met_sessie  # noqa: E402
@@ -73,12 +75,11 @@ def test_het_vernieuwde_gezin_toont_geen_vernieuwblok_meer(browser_page):
     door het lidmaatschap van dat gezin op het lopende jaar te zetten: dan staat de
     knop er weer en toont de afdruk dezelfde toestand als `leden-gezin`.
     """
-    from datetime import date
 
     from seed_e2e import MARKER_EMAIL_VERNIEUWD
 
     page = _portaal(browser_page, MARKER_EMAIL_VERNIEUWD)
-    volgend = date.today().year + 1
+    volgend = belgian_today().year + 1
     assert f"31-12-{volgend}" in page.locator("main").inner_text(), (
         "de dekking loopt niet tot eind volgend jaar; dit is de toestand ná de betaling"
     )

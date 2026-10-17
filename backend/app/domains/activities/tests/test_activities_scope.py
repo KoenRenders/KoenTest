@@ -7,11 +7,12 @@ Gemeten aan de facade die de publieke pagina's en de homepage voedt; de JSON-rou
 die dezelfde lijst gaf is weg (CR-13 fase 4b, #1251).
 """
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
 
 from app.domains.activities.api import list_activities
+from app.kernel.clock import belgian_today
 from app.kernel.tenancy import TENANT_MILLEGEM_ID, current_tenant_id
 
 
@@ -30,7 +31,7 @@ def _make_activity(db, name, day_offset):
     a = Activity(name=name)
     db.add(a)
     db.flush()
-    db.add(ActivityDate(activity_id=a.id, start_date=date.today() + timedelta(days=day_offset)))
+    db.add(ActivityDate(activity_id=a.id, start_date=belgian_today() + timedelta(days=day_offset)))
     db.flush()
     return a
 
@@ -77,8 +78,8 @@ def test_all_scope_activity_with_future_and_past_sorts_as_upcoming(client, db_se
     a = Activity(name="Reeks")
     db_session.add(a)
     db_session.flush()
-    db_session.add(ActivityDate(activity_id=a.id, start_date=date.today() - timedelta(days=20)))
-    db_session.add(ActivityDate(activity_id=a.id, start_date=date.today() + timedelta(days=5)))
+    db_session.add(ActivityDate(activity_id=a.id, start_date=belgian_today() - timedelta(days=20)))
+    db_session.add(ActivityDate(activity_id=a.id, start_date=belgian_today() + timedelta(days=5)))
     db_session.flush()
     _make_activity(db_session, "VerToekomst", 60)
     _make_activity(db_session, "Verleden", -3)
@@ -97,7 +98,7 @@ def test_activity_response_exposes_is_cancelled(client, db_session):
     a = Activity(name="Geannuleerd feest", is_cancelled=True)
     db_session.add(a)
     db_session.flush()
-    db_session.add(ActivityDate(activity_id=a.id, start_date=date.today() + timedelta(days=10)))
+    db_session.add(ActivityDate(activity_id=a.id, start_date=belgian_today() + timedelta(days=10)))
     db_session.flush()
 
     data = list_activities(db_session, "all")

@@ -29,6 +29,7 @@ from app.domains.mdm.api import ContactDetail, MemberPerson
 from app.domains.mdm.household_form import household_from_form
 from app.domains.membership.api import Membership
 from app.domains.payment.api import GatewayPayment, PaymentRecord
+from app.kernel.clock import belgian_today
 from tests.conftest import create_test_family, create_test_person, form_fields
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -245,13 +246,13 @@ def _running(db, member, *, method="transfer", gateway_payment_id=None) -> None:
     db.add(
         Membership(
             member_id=member.id,
-            year=date.today().year - 1,
+            year=belgian_today().year - 1,
             is_active=True,
-            valid_from=date(date.today().year - 1, 1, 1),
-            valid_to=date(date.today().year - 1, 12, 31),
+            valid_from=date(belgian_today().year - 1, 1, 1),
+            valid_to=date(belgian_today().year - 1, 12, 31),
         )
     )
-    year = date.today().year + 1
+    year = belgian_today().year + 1
     membership = Membership(
         member_id=member.id,
         year=year,
