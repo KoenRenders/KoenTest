@@ -14,7 +14,7 @@ import pytest
 from app.domains.activities.api import Registration
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.payment.api import get_records_for
-from tests._clock import utc_today
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL, register_at_the_door, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -117,7 +117,7 @@ def test_de_correctie_staat_in_het_auditlogboek(client, db_session):
 
     rijen = [
         r
-        for r in all_changes_since(db_session, utc_today())
+        for r in all_changes_since(db_session, belgian_today())
         if r["entity"] == "Inschrijving" and r["entity_id"] == reg_id
     ]
     assert rijen, "geen audit-rij voor de correctie"

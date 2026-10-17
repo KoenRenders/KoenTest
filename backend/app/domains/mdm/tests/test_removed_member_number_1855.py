@@ -43,7 +43,7 @@ from app.domains.mdm.api import (
     merge_persons,
 )
 from app.domains.mdm.import_service import upsert_families
-from tests._clock import utc_today
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_postal_code
 
 BOARD = SimpleNamespace(email="board@example.org")
@@ -106,7 +106,7 @@ def _board(client) -> None:
 
 def _export_lines(client) -> list[dict[str, str]]:
     """The export, downloaded through its route and read back as a file."""
-    answer = client.get(f"/admin/ledenwijzigingen/export?since={utc_today().isoformat()}")
+    answer = client.get(f"/admin/ledenwijzigingen/export?since={belgian_today().isoformat()}")
     assert answer.status_code == 200, answer.text
     rows = load(BytesIO(answer.content)).spreadsheet.getElementsByType(TableRow)
     cells = [[extractText(c) for c in r.getElementsByType(TableCell)] for r in rows]
@@ -122,7 +122,7 @@ def _person_lines(client, person_id) -> list[dict[str, str]]:
 
 
 def _screen(client) -> str:
-    answer = client.get(f"/admin/ledenwijzigingen?since={utc_today().isoformat()}&per_page=100")
+    answer = client.get(f"/admin/ledenwijzigingen?since={belgian_today().isoformat()}&per_page=100")
     assert answer.status_code == 200, answer.text
     return answer.text
 

@@ -17,7 +17,7 @@ at 00:30 in summer is not a test.
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timezone
 from zoneinfo import ZoneInfo
 
 BELGIUM = ZoneInfo("Europe/Brussels")
@@ -50,3 +50,10 @@ def belgian_today(now: datetime | None = None) -> date:
     if moment.tzinfo is None:
         raise ValueError("belgian_today() needs a timezone-aware datetime")
     return moment.astimezone(BELGIUM).date()
+
+
+def belgian_day_start(day: date) -> datetime:
+    """The moment a Brussels day begins (#2091), timezone-aware: what a filter "since
+    this day" compares a stored moment with. Midnight in Brussels is 22:00 or 23:00 UTC
+    the evening before, so a change made at 00:30 Brussels belongs to the new day."""
+    return datetime.combine(day, time.min, tzinfo=BELGIUM)

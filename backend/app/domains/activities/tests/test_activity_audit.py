@@ -4,8 +4,8 @@ schrijft, staat bij de fiche zelf (`test_fiche_save.py`,
 `test_new_activity_on_fiche_1649.py`)."""
 
 from app.domains.activities import service
+from app.kernel.clock import belgian_today
 from tests import backoffice_door
-from tests._clock import utc_today
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
 
 
@@ -14,7 +14,7 @@ def test_unified_changes_feed(client, db_session):
     objectgroep-filter."""
     activity, _component, _product = seed_activity_with_product(db_session)
     service.update_activity(db_session, activity.id, {"name": "Feeddag"}, actor=SEEDED_ADMIN_EMAIL)
-    since = utc_today().isoformat()
+    since = belgian_today().isoformat()
 
     r = backoffice_door.changes(client, since)
     assert r.status_code == 200, r.text
