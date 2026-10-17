@@ -163,7 +163,7 @@ def test_a_delivered_line_refuses_the_change_but_others_can_still_change(
     delivered.delivered_at = date.today()
     db_session.commit()
 
-    with pytest.raises(SalesError, match="al geleverd"):
+    with pytest.raises(SalesError, match="Maat M is al geleverd"):
         change_order_lines(db_session, order.id, [(large.id, 2)], actor="verkoper@example.com")
 
     # The L line alone can still change.
