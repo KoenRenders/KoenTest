@@ -39,6 +39,7 @@ GUARDED = {
     "POST /berichten": "the contact form (the forms module)",
     "POST /formulier/{share_token}": "a public form's confirmation (the forms module)",
     "POST /nieuwsbrief": "the newsletter's confirmation request",
+    "POST /webshop/bestellen": "places an order, guarded so a shown form is accepted once (#1987)",
 }
 
 #: Public POST routes that need no guard, and why.
@@ -53,11 +54,13 @@ NOT_TYPED = {
     "POST /inschrijving/{token}/vragen": "answers of an existing registration, by its token",
     "POST /mijn/e-mailadres/{contact_id}/code": "asks a signed-in session first; the address is the person's own row",
     "POST /mijn/gegevens": "asks a signed-in session first (the address change then mails a code)",
+    "POST /mijn/aankopen/{order_id}/annuleren": "the buyer's own order; the session and ownership gate it, mails nothing",
     "POST /nieuwsbrief/bevestigen/{token}": "works on the token of a mail somebody holds",
     "POST /nieuwsbrief/opnieuw/{token}": "works on the token of a mail somebody holds",
     "POST /nieuwsbrief/uitschrijven/{token}": "works on the token of a mail somebody holds",
     "POST /nieuwsbrief/uitschrijven/d/{link}": "works on the signed link of a mail somebody holds; mails nothing",
     "POST /raakje/vraag": "the public chat; what it passes on goes to the board, not to a typed address",
+    "POST /webshop/mandje": "recomputes the basket; mails nothing",
 }
 
 

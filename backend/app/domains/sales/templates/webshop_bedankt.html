@@ -1,0 +1,22 @@
+{% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Bedankt") }} · {{ site_name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(_("Bedankt")) %}{% endcall %}
+{% call ui.card() %}
+  <p class="text-ink">{{ _("Je bestelling") }} {{ order_id }} {{ _("is genoteerd.") }}</p>
+{% endcall %}
+{% if contacts %}
+{% call ui.section(_("Een vraag over je bestelling?")) %}
+  <ul class="divide-y divide-line">
+    {% for c in contacts %}
+    <li class="py-2 text-sm">
+      <span class="font-medium">{{ c.name }}</span>
+      {% if c.email %}<a href="mailto:{{ c.email }}" class="block text-blue-500 underline">{{ c.email }}</a>{% endif %}
+      {% if c.mobile %}<a href="tel:{{ c.mobile }}" class="block text-ink">{{ c.mobile|phone }}</a>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+{% endcall %}
+{% endif %}
+{% endblock %}

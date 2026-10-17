@@ -31,7 +31,9 @@ from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
 
-EVERY = frozenset(code.value for code in ModuleCode)
+# CR-21 (Q49): the shop is off by default, so an association's "full" set is
+# every module but the shop.
+EVERY = frozenset(code.value for code in ModuleCode if code is not ModuleCode.SHOP)
 
 
 @pytest.fixture
@@ -144,7 +146,9 @@ def test_every_unit_is_seeded_full_and_the_platform_with_its_own_set(db_session)
 def test_the_defaults_per_kind_and_a_new_tenant(db_session):
     """C6 test 2, the defaults: an association has everything, a company the
     three of §C2 that are modules (the workbench, its fourth, is core: #1876). A tenant made today starts as an association (the kind is #1478)."""
-    assert DEFAULTS["VERENIGING"] == frozenset(ModuleCode)
+    assert DEFAULTS["VERENIGING"] == frozenset(
+        code for code in ModuleCode if code is not ModuleCode.SHOP
+    )
     assert {c.value for c in DEFAULTS["BEDRIJF"]} == {"cms", "media", "forms"}
 
     org = create_tenant(db_session, name="Proeftenant 1475", code="proef-1475")

@@ -31,6 +31,7 @@ class EmailType(CodeEnum):
     MAGIC_LINK = "magic_link"
     MEMBER_CONTACT_NOTICE = "member_contact_notice"
     FORM_CONFIRMATION = "form_confirmation"
+    ORDER_CONFIRMATION = "order_confirmation"
     MEETING = "meeting"
     NEWSLETTER = "newsletter"
     NEWSLETTER_CONFIRMATION = "newsletter_confirmation"

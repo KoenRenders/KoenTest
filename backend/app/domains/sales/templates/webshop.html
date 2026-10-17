@@ -1,0 +1,27 @@
+{% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Webshop") }} · {{ site_name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(_("Webshop")) %}{% endcall %}
+{% if intro %}<p class="mb-4 text-sm text-ink-soft whitespace-pre-line">{{ intro }}</p>{% endif %}
+<form data-basket-form method="post" action="/webshop/mandje" class="mb-4 flex justify-end items-center gap-2">
+  {{ ui.btn_secondary(_("Mandje"), type="submit", lead_icon="shopping-cart") }}
+  <span data-basket-count class="rounded-full bg-blue-700 text-white text-xs font-semibold px-2 py-0.5">0</span>
+</form>
+{% if products %}
+<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  {% for p in products %}
+  {% call ui.card(href=path_for('/webshop/' ~ p.id)) %}
+    {% if p.thumb %}<img src="{{ p.thumb }}" alt="{{ p.name }}" class="w-full h-40 object-cover">{% endif %}
+    <div class="p-5">
+      <h2 class="text-base font-semibold text-ink">{{ p.name }}</h2>
+      {% if p.sizes %}<p class="mt-1 text-sm text-ink-soft">{{ p.sizes|join(" · ") }}</p>{% endif %}
+      <p class="mt-2 font-semibold text-ink">€ {{ p.price|geld }}</p>
+    </div>
+  {% endcall %}
+  {% endfor %}
+</div>
+{% else %}
+{{ ui.empty_state(_("Nog geen artikelen in de webshop.")) }}
+{% endif %}
+{% endblock %}

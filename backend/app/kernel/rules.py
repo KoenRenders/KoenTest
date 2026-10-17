@@ -215,3 +215,9 @@ derived_value(
     target="app.domains.payment.models.PaymentRecord.state",
     phase=2,
 )
+derived_value(
+    "order.total",
+    today="app.domains.sales.service.total_of",
+    target="app.domains.sales.models.SalesOrder.total",
+    phase=2,
+)

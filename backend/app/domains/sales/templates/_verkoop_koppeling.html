@@ -1,0 +1,17 @@
+{% if status == "linked" %}
+{% if person_name %}
+<p data-koppeling class="text-sm text-ink">{{ _("Deze bestelling wordt gekoppeld aan een bestaand lid: %(name)s.", name=person_name) }}</p>
+{% else %}
+<p data-koppeling class="text-sm text-ink">{{ _("Deze bestelling wordt gekoppeld aan een bestaand lid.") }}</p>
+{% endif %}
+{% elif status == "account" %}
+{% if person_name %}
+<p data-koppeling class="text-sm text-ink">{{ _("Deze bestelling wordt gekoppeld aan een bekend account: %(name)s.", name=person_name) }}</p>
+{% else %}
+<p data-koppeling class="text-sm text-ink">{{ _("Deze bestelling wordt gekoppeld aan een bekend account.") }}</p>
+{% endif %}
+{% elif status == "multiple" %}
+<p data-koppeling class="text-sm text-red-700">{{ _("Dit adres hoort bij meerdere personen; vraag een ander adres.") }}</p>
+{% elif email and "@" in email %}
+<p data-koppeling class="text-sm text-red-700">{{ _("Dit e-mailadres is bij niemand gekend.") }}</p>
+{% endif %}

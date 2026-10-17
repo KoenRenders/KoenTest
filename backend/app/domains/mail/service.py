@@ -968,6 +968,82 @@ def activity_confirmation_message(
     )
 
 
+def order_confirmation_message(
+    db,
+    to_email: str,
+    name: str,
+    order,
+    transfer=None,
+    contacts=None,
+    sign_in_url=None,
+) -> dict:
+    """The confirmation of a webshop order, as a finished message for `queue_mail`
+    (CR-21 phase 2, commit 7). The contact persons (R41) stand after the payment
+    information; a member gets a sign-in link to his order (F13/Q26), a guest none."""
+    from app.domains.product.api import get_variant, size_of
+    from app.domains.sales.api import total_of
+    from app.kernel.geld import bedrag
+
+    regels = []
+    for line in order.lines:
+        variant = get_variant(db, line.variant_id)
+        label = ""
+        if variant is not None:
+            label = variant.product.name if variant.product else _("Artikel")
+            size = size_of(variant)
+            if size:
+                label += f" · {_('maat')} {size}"
+        regels.append(
+            f"<li>{escape(label or _('Artikel'))} × {line.quantity} "
+            f"({_('€ %(price)s per stuk') % {'price': bedrag(line.unit_price)}})</li>"
+        )
+    total = bedrag(total_of(order))
+
+    message = (
+        f"<p>Je bestelling <strong>{order.id}</strong> is bevestigd.</p>"
+        f"<ul>{''.join(regels)}</ul>"
+        f"<p><strong>{_('Totaal')}:</strong> <strong>€ {total}</strong></p>"
+    )
+    message += _transfer_instructions_html(transfer)
+
+    if contacts:
+        rows = "".join(
+            f"<li><strong>{escape(c['name'])}</strong>"
+            + (f" — {escape(c['email'])}" if c.get("email") else "")
+            + (f" · {escape(readable_phone(c['mobile']))}" if c.get("mobile") else "")
+            + "</li>"
+            for c in contacts
+            if c.get("name")
+        )
+        message += (
+            "<h4 style='margin-top:12px;margin-bottom:4px'>"
+            + _("Een vraag over je bestelling?")
+            + f"</h4><ul>{rows}</ul>"
+        )
+
+    if sign_in_url:
+        message += (
+            "<p style='margin-top:12px'>"
+            + _("Klik om je bestelling te bekijken:")
+            + f' <a href="{escape(sign_in_url)}">{escape(sign_in_url)}</a></p>'
+        )
+        message += (
+            "<p>"
+            + _(
+                "Deze link werkt 15 minuten. Daarna meld je je aan en vind je de "
+                "bestelling terug onder Mijn aankopen."
+            )
+            + "</p>"
+        )
+
+    return dict(
+        to_email=to_email,
+        email_type="order_confirmation",
+        subject=_("Bestelling %(nr)s bevestigd") % {"nr": order.id},
+        body_html=f"<p>Beste {escape(name)},</p>{message}<p>Met vriendelijke groeten,<br>{_display_name()}</p>",
+    )
+
+
 def form_confirmation_message(
     form_title: str,
     name: Optional[str] = None,

@@ -2384,6 +2384,7 @@ DERIVED_SHAPES = {
     "registration.balance": _is_paid_sum,
     "payment_record.state": _is_record_state_decision,
     "registration.state": _is_deadline_decision,
+    "order.total": _is_total_shape,
 }
 
 

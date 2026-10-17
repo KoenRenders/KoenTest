@@ -1,0 +1,53 @@
+{% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Je mandje") }} · {{ site_name }}{% endblock %}
+{% block content %}
+{% call ui.public_form_page(_("Je mandje"), back_href="/webshop", back_label=_("Verder winkelen")) %}
+{% if error %}
+{% call ui.flow_card() %}
+  {{ ui.error_banner(error) }}
+  <div class="mt-4 flex gap-2">
+    {{ ui.btn_secondary(_("Leeg mandje"), type="button", attrs='data-empty-basket') }}
+    {{ ui.btn_primary(_("Naar de webshop"), href="/webshop") }}
+  </div>
+{% endcall %}
+{% elif not lines %}
+{% call ui.flow_card() %}{{ ui.empty_state(_("Je mandje is leeg."), _("Naar de webshop"), "/webshop") }}{% endcall %}
+{% else %}
+<form id="bestel-form" hx-post="/webshop/bestellen" hx-target="#bestel-melding" hx-swap="innerHTML">
+  {{ ui.form_guard_fields() }}
+<div data-form-flow class="form-flow">
+  <div id="bestel-melding" data-form-message></div>
+  {% call ui.section(_("Je mandje")) %}
+    {% for l in lines %}
+    <div data-basket-line data-span="full" class="flex items-center justify-between gap-x-3{% if not l.available %} opacity-60{% endif %}">
+      <div class="text-sm min-w-0">
+        {% if l.name %}<span class="font-medium">{{ l.name }}{% if l.size %} · {{ _("maat") }} {{ l.size }}{% endif %}</span>{% endif %}
+        {% if l.price is not none %}<span class="block text-gray-500">€ {{ l.price|geld }}</span>{% endif %}
+        {% if l.note %}<span class="block text-red-700">{{ l.note }}</span>{% endif %}
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        {% if l.available %}<input type="hidden" name="variant_id" value="{{ l.variant_id }}">{% endif %}
+        {% if l.editable %}{{ ui.quantity("quantity", "quantity-" ~ l.variant_id, l.quantity, product_name=l.name or "", min=1, max=l.max, attrs='data-line-quantity data-variant-id="' ~ l.variant_id ~ '"') }}{% endif %}
+        {{ ui.btn_secondary("", size="sm", lead_icon="x", aria_label=_("Verwijderen"), attrs='data-line-remove data-variant-id="' ~ l.variant_id ~ '"') }}
+      </div>
+    </div>
+    {% endfor %}
+    <p data-span="full" class="text-[13px] text-ink-soft">{{ _("De artikelen worden voor je gereserveerd zodra je bestelt.") }}</p>
+  {% endcall %}
+  {{ ui.total_line(total, note=_("(ledenprijs)") if member_applied else "") }}
+  {% call ui.section(_("Contact")) %}
+    {{ ui.field("contact_name", attribute="sales.sales_order.guest_name", required=True, value=contact_name) }}
+    {{ ui.field("contact_email", attribute="sales.sales_order.guest_email", kind="email", required=True, value=contact_email) }}
+    {{ ui.field("phone", attribute="sales.sales_order.guest_mobile", kind="phone", required=True, value=phone) }}
+  {% endcall %}
+  {% call ui.section(_("Betalen")) %}
+    {{ ui.payment_choice("online") }}
+  {% endcall %}
+  {{ ui.action_bar(save_label=_("Bestellen en betalen"), busy_label=_("Bestellen…"), form="bestel-form", cancel_href="/webshop", send=True) }}
+</div>
+</form>
+<form data-basket-form method="post" action="/webshop/mandje" hidden></form>
+{% endif %}
+{% endcall %}
+{% endblock %}

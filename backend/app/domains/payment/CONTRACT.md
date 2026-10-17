@@ -37,6 +37,10 @@ component.
   phase 1): `handlers.reconcile_registration_on_order_change` brings a
   registration's charges to the event's `total_due` (#185), in the publisher's
   transaction. It never commits.
+- Subscribes to `SalesOrderChanged` (`app.kernel.contracts.sales`, CR-21 phase
+  2): `handlers.reconcile_order_on_change` brings a webshop order's charges to
+  the event's `total_due` (D4, R16); a cancelled order is a change to 0 (Q61).
+  It never commits.
 
 *Counted in the code on 13 October 2026:* the facade exports 56 names (42 functions, 10 classes, 4 values); events it owns (`kernel/contracts/`): `PaymentReceived`, `RefundDue`; ports it offers: none.
 
