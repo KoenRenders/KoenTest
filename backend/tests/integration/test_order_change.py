@@ -397,3 +397,38 @@ def test_the_x_posts_one_line_only(client, db_session, every_module_on):
     assert answer.status_code == 200, answer.text[:300]
     assert "maat M · 2 ×" in answer.text, "the other half stays on the form"
     assert "maat M · 1 ×" not in answer.text, "the removed half is gone"
+
+
+def test_the_x_removes_the_line_verkoop_clicked(client, db_session, every_module_on):
+    """B5, the measured defect: the form renders a variant's lines by id, while the
+    handler used to sort them by quantity — the × then removed the wrong line. The
+    form is rendered first and its hidden lines posted back as rendered; the × on the
+    2 × line (whose 1 × twin sorts before it) removes the 2 × line."""
+    import re
+
+    from tests.conftest import board_session
+
+    headers = board_session(client)
+    m = _variant(db_session, size="M", amount="15.00", stock=5)
+    order = _order(db_session, [(m.id, 2)])
+    change_order_lines(db_session, order.id, [(m.id, 2), (m.id, 1)], actor="verkoper@example.com")
+
+    page = client.get(f"/admin/verkoop/{order.id}/wijzigen")
+    assert page.status_code == 200
+    variants = re.findall(r'name="variant_id" value="(\d+)"', page.text)
+    quantities = re.findall(r'name="quantity" value="(\d+)"', page.text)
+    assert variants == [str(m.id), str(m.id)]
+    assert quantities == ["2", "1"], "the form renders the kept 2 × before the added 1 ×"
+
+    answer = client.post(
+        f"/admin/verkoop/{order.id}/wijzigen",
+        data={
+            "variant_id": [int(v) for v in variants],
+            "quantity": quantities,
+            "remove_index": "0",
+        },
+        headers=headers,
+    )
+    assert answer.status_code == 200, answer.text[:300]
+    assert "maat M · 1 ×" in answer.text, "the 2 × line is removed and the 1 × stays"
+    assert "maat M · 2 ×" not in answer.text

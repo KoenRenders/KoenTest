@@ -715,7 +715,10 @@ def parse_items(form) -> tuple[list[tuple[int, int]], str | None]:
 
 def parse_lines(form) -> tuple[list[tuple[int, int]], str | None]:
     """The `(variant_id, quantity)` pairs the change form posts, kept apart — two
-    lines of one variant stay two lines, so a line can be split (F7, Q30)."""
+    lines of one variant stay two lines, so a line can be split (F7, Q30). The
+    posted order is kept, never sorted: the form's × posts a line's position, so
+    the order here must be the order the form renders (B5); the service sorts its
+    own target."""
     from app.i18n import _
 
     try:
@@ -725,7 +728,7 @@ def parse_lines(form) -> tuple[list[tuple[int, int]], str | None]:
         return [], _("Ongeldig aantal.")
     if len(variant_ids) != len(quantities):
         return [], _("Ongeldig aantal.")
-    return sorted(zip(variant_ids, quantities)), None
+    return list(zip(variant_ids, quantities)), None
 
 
 def order_delivery_state(db: Session, order) -> str:
