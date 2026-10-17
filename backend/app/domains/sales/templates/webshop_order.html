@@ -5,6 +5,7 @@
 {{ ui.back_link(_("Mijn aankopen"), path_for('/mijn/aankopen')) }}
 {% call ui.page_header(_("Bestelling") ~ " " ~ order.id) %}{% endcall %}
 {% call ui.card() %}
+  <div id="order-melding" data-form-message></div>
   {% include "_order_detail.html" %}
 {% endcall %}
 {% if contacts %}

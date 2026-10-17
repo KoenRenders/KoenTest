@@ -54,6 +54,7 @@ NOT_TYPED = {
     "POST /inschrijving/{token}/vragen": "answers of an existing registration, by its token",
     "POST /mijn/e-mailadres/{contact_id}/code": "asks a signed-in session first; the address is the person's own row",
     "POST /mijn/gegevens": "asks a signed-in session first (the address change then mails a code)",
+    "POST /mijn/aankopen/{order_id}/annuleren": "the buyer's own order; the session and ownership gate it, mails nothing",
     "POST /nieuwsbrief/bevestigen/{token}": "works on the token of a mail somebody holds",
     "POST /nieuwsbrief/opnieuw/{token}": "works on the token of a mail somebody holds",
     "POST /nieuwsbrief/uitschrijven/{token}": "works on the token of a mail somebody holds",

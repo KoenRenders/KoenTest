@@ -1454,6 +1454,10 @@
    "platform": "everyone",
    "tenant": "everyone"
   },
+  "POST /mijn/aankopen/{order_id}/annuleren": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
   "POST /mijn/e-mailadres/{contact_id}/code": {
    "platform": "everyone",
    "tenant": "everyone"
