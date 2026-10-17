@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from app.kernel.clock import belgian_today
 from tests.conftest import register_at_the_door
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -51,8 +52,8 @@ def test_eerste_jaarkop_valt_weg_maar_een_jaarwissel_blijft(client, db_session):
     # in NEXT year — the same year as `volgend_jaar` — and the two assertions
     # below contradicted each other: red every December, on the calendar alone.
     # Measured with the suite's clock shifted to 31 December 2026.
-    dit_jaar = date.today()
-    volgend_jaar = date(date.today().year + 1, 3, 1)
+    dit_jaar = belgian_today()
+    volgend_jaar = date(belgian_today().year + 1, 3, 1)
     for naam, dag in (("Ditjaar-test", dit_jaar), ("Volgendjaar-test", volgend_jaar)):
         a = Activity(name=naam, location="Miloheem")
         db_session.add(a)

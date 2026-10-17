@@ -2,8 +2,6 @@
 betalingen (en registraties) aan hangen mag de financiële overzichten en de
 ledenwijzigingen-export niet breken, en mag geen weesbetalingen achterlaten (#82-context)."""
 
-from datetime import date
-
 import pytest
 
 from app.domains.mdm.api import ExternalNumber, Member, delete_household
@@ -15,6 +13,7 @@ from app.domains.payment.api import (
     PaymentStatus,
     PaymentType,
 )
+from app.kernel.clock import belgian_today
 from tests import backoffice_door, payments_door
 from tests.conftest import seed_postal_code, seeded_admin, sign_up_at_the_door
 
@@ -90,7 +89,7 @@ def test_delete_family_with_membership_payment(client, db_session):
     assert openstaand is None, "een onbetaalde vordering hoort mee op te ruimen (#619)"
 
     # De verwijdering van het gezin staat wél in de ledenwijzigingen-export.
-    changes = backoffice_door.member_changes(client, date.today().isoformat()).json()
+    changes = backoffice_door.member_changes(client, belgian_today().isoformat()).json()
     assert any(c["operation_label"] == "Verwijderd" for c in changes)
 
 

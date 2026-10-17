@@ -8,7 +8,7 @@ public side — sign up, confirm, unsubscribe — without a login.
 
 import json
 import re
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
 
@@ -23,6 +23,7 @@ from app.domains.newsletter.models import (
     Subscriber,
     SubscriberStatus,
 )
+from app.kernel.clock import belgian_today
 from tests._letter import letter_doc
 from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields
 
@@ -102,7 +103,7 @@ def test_de_hele_weg_van_een_nieuwsbrief(client, db_session, mailbox):
     """List → new draft → text and audience → insert → test mail → send → archive."""
     headers = _login(client)
     _subscriber(db_session, "piet@example.org")
-    rum = _activity(db_session, "Rumproefavond", date.today() + timedelta(days=20))
+    rum = _activity(db_session, "Rumproefavond", belgian_today() + timedelta(days=20))
 
     # 1. The list, and the menu item.
     lijst = client.get("/admin/nieuwsbrieven")
@@ -543,7 +544,7 @@ def test_het_voorbeeld_toont_de_brief_zoals_hij_aankomt(client, db_session):
     de rauwe markering en deze test faalt.
     """
     _login(client)
-    rum = _activity(db_session, "Rumproefavond", date.today() + timedelta(days=10))
+    rum = _activity(db_session, "Rumproefavond", belgian_today() + timedelta(days=10))
     rum.description = "We proeven acht rums."
     db_session.flush()  # the seed is the test's own write, before the app commits (#1885 gate 2)
     letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
@@ -574,8 +575,8 @@ def test_de_kalender_is_de_kalendergroep_van_de_brief(client, db_session):
     ignores the group and this test fails on the activity that was taken out.
     """
     headers = _login(client)
-    dichtbij = _activity(db_session, "Rumproefavond", date.today() + timedelta(days=10))
-    ver = _activity(db_session, "Kerstmarkt", date.today() + timedelta(days=120))
+    dichtbij = _activity(db_session, "Rumproefavond", belgian_today() + timedelta(days=10))
+    ver = _activity(db_session, "Kerstmarkt", belgian_today() + timedelta(days=120))
     letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
 
     calendar = {"type": "doc", "content": [{"type": "calendar"}]}

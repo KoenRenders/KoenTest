@@ -12,9 +12,11 @@ de gemeten uitlijning van de kaartacties in
 `tests_e2e/test_publieke_kaart_uitlijning.py`.
 """
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
+
+from app.kernel.clock import belgian_today
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -33,7 +35,7 @@ def _activiteit(db, naam="Paginaproef", slug=None, dagen=21, closes_on=None, des
     a = Activity(name=naam, slug=slug, location="Miloheem", description=description)
     db.add(a)
     db.flush()
-    db.add(ActivityDate(activity_id=a.id, start_date=date.today() + timedelta(days=dagen)))
+    db.add(ActivityDate(activity_id=a.id, start_date=belgian_today() + timedelta(days=dagen)))
     if closes_on is not None:
         db.add(
             ActivitySubRegistration(
@@ -113,7 +115,7 @@ def test_klokregel_bovenaan_zonder_jaartal_en_oranje_in_de_laatste_week(client, 
     activiteitsbreed en valt dus onder de kopregel-tak van #1053."""
     from app.i18n import long_date_no_year
 
-    datum = date.today() + timedelta(days=30)
+    datum = belgian_today() + timedelta(days=30)
     ver = _activiteit(db_session, "Verweg", dagen=60, closes_on=datum)
     html = client.get(f"/activiteiten/{ver.id}").text
     # #1053: de opmaak komt uit `long_date_no_year`, dezelfde bron als de filter in
@@ -124,7 +126,7 @@ def test_klokregel_bovenaan_zonder_jaartal_en_oranje_in_de_laatste_week(client, 
     assert str(datum.year) not in label
     assert "text-orange-600" not in html
 
-    gauw = _activiteit(db_session, "Bijna", dagen=10, closes_on=date.today() + timedelta(days=3))
+    gauw = _activiteit(db_session, "Bijna", dagen=10, closes_on=belgian_today() + timedelta(days=3))
     html = client.get(f"/activiteiten/{gauw.id}").text
     assert "Inschrijven t/m" in html and "text-orange-600" in html
 
@@ -137,7 +139,7 @@ def test_geen_klokregel_na_de_deadline(client, db_session):
 
     activity, component, _product = seed_activity_with_product(db_session)
     # #1053: de datum staat op het onderdeel — en dát onderdeel draagt ook de badge.
-    component.registration_closes_on = date.today() - timedelta(days=1)
+    component.registration_closes_on = belgian_today() - timedelta(days=1)
     db_session.commit()
 
     html = client.get(f"/activiteiten/{activity.id}").text

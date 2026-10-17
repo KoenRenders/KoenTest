@@ -46,11 +46,12 @@ from __future__ import annotations
 import io
 import re
 import zipfile
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_postal_code, sign_up_at_the_door
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -170,7 +171,7 @@ def test_na_een_filterwissel_draagt_de_knop_de_nieuwe_periode(client, db_session
     _login(client)
     pagina = client.get("/admin/ledenwijzigingen")
     assert pagina.status_code == 200
-    standaard = (date.today() - timedelta(days=30)).isoformat()
+    standaard = (belgian_today() - timedelta(days=30)).isoformat()
     assert _exportlinks(pagina.text) == [f"/admin/ledenwijzigingen/export?since={standaard}"], (
         "de paginakop hoort de standaardperiode te dragen"
     )
@@ -202,7 +203,7 @@ def test_het_bestand_bevat_de_rijen_van_de_gekozen_periode(client, db_session):
 
     # En de tegenhanger: een korte periode laat de oude rij WEG. Zonder deze
     # helft zou een export die alles teruggeeft ook groen staan.
-    kort = _exportlinks(_filterwissel(client, date.today().isoformat()))
+    kort = _exportlinks(_filterwissel(client, belgian_today().isoformat()))
     assert kort, "geen exportlink in het fragment na de wissel naar vandaag"
     smal = client.get(kort[0])
     assert smal.status_code == 200, smal.text

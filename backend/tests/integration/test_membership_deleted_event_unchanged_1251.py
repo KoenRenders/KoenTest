@@ -18,7 +18,6 @@ again, character for character (`tests/_snapshot.py`).
 
 from __future__ import annotations
 
-from datetime import date
 from pathlib import Path
 
 import pytest
@@ -28,6 +27,7 @@ from app.domains.mdm.api import Address, ContactDetail, Member, MemberPerson, Pe
 from app.domains.membership.api import Membership
 from app.domains.payment.api import PayableType, PaymentRecord
 from app.domains.payment.models import PaymentRecordHistory
+from app.kernel.clock import belgian_today
 from tests import payments_door
 from tests._snapshot import compare, fixed_ids, normalise
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_postal_code, sign_up_at_the_door
@@ -135,7 +135,7 @@ def _rows(db, membership_id: int) -> str:
 
 
 def _record_case(name: str, response, db, membership_id: int) -> None:
-    today = date.today()
+    today = belgian_today()
     moving = {today.isoformat(): "<TODAY>", str(today.year): "<YEAR>"}
     got = normalise(f"{response.status_code}\n--- rows ---\n{_rows(db, membership_id)}", {}, moving)
     compare(SNAPSHOTS, name, got, BEFORE)

@@ -28,7 +28,7 @@ Broken on purpose, each restored after:
 """
 
 import json
-from datetime import date, time, timedelta
+from datetime import time, timedelta
 
 from app.domains.activities.api import Activity, ActivityDate
 from app.domains.activities.models import ActivityProduct, ActivitySubRegistration
@@ -39,6 +39,7 @@ from app.domains.chatbot.tools import (
     declared_fields,
     execute_tool,
 )
+from app.kernel.clock import belgian_today
 
 
 def _seeded_activity(db):
@@ -57,8 +58,8 @@ def _seeded_activity(db):
     db.add(
         ActivityDate(
             activity_id=a.id,
-            start_date=date.today() + timedelta(days=7),
-            end_date=date.today() + timedelta(days=7),
+            start_date=belgian_today() + timedelta(days=7),
+            end_date=belgian_today() + timedelta(days=7),
             start_time=time(14, 0),
             end_time=time(18, 0),
         )

@@ -39,11 +39,13 @@ Proven red (each on this branch, restored after):
 
 import os
 import sys
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
 from playwright.sync_api import sync_playwright
+
+from app.kernel.clock import belgian_today
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -129,7 +131,7 @@ def activity() -> str:
         made = Activity(name="Tabbladentest")  # short: the head keeps one line on a phone
         db.add(made)
         db.flush()
-        db.add(ActivityDate(activity_id=made.id, start_date=date.today() + timedelta(days=45)))
+        db.add(ActivityDate(activity_id=made.id, start_date=belgian_today() + timedelta(days=45)))
         component = ActivitySubRegistration(
             activity_id=made.id,
             name="Etentje",

@@ -10,11 +10,12 @@ behouden: élke activiteit staat in de lijst — ook die zonder media, want dat 
 de hele reden voor `scope="all"` (#476) — en het jaar dat erbij staat.
 """
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
 
 from app.domains.activities.api import activity_options
+from app.kernel.clock import belgian_today
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -29,7 +30,7 @@ def _activiteit(db, naam: str, *dagen_offsets: int):
     for offset in dagen_offsets:
         db.add(
             ActivityDate(
-                activity_id=activiteit.id, start_date=date.today() + timedelta(days=offset)
+                activity_id=activiteit.id, start_date=belgian_today() + timedelta(days=offset)
             )
         )
     db.flush()
@@ -68,7 +69,7 @@ def test_het_jaar_is_de_vroegste_datum_niet_de_eerstvolgende(db_session):
 
     optie = next(o for o in activity_options(db_session) if o.id == meerjarig.id)
 
-    assert optie.first_date == date.today() - timedelta(days=400)
+    assert optie.first_date == belgian_today() - timedelta(days=400)
 
 
 def test_voorbije_activiteiten_houden_hetzelfde_jaar_als_voorheen(db_session):
@@ -78,7 +79,7 @@ def test_voorbije_activiteiten_houden_hetzelfde_jaar_als_voorheen(db_session):
 
     optie = next(o for o in activity_options(db_session) if o.id == voorbij.id)
 
-    assert optie.first_date == date.today() - timedelta(days=400)
+    assert optie.first_date == belgian_today() - timedelta(days=400)
 
 
 def test_meest_recente_eerst(db_session):

@@ -40,6 +40,7 @@ import pytest
 
 from app.domains.activities.api import Registration
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from app.kernel.clock import belgian_today
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     create_test_family,
@@ -68,7 +69,7 @@ def member(db_session):
     from app.domains.membership.api import Membership
 
     household, person = create_test_family(db_session, email=MEMBER)
-    year = date.today().year
+    year = belgian_today().year
     db_session.add(
         Membership(
             member_id=household.id,

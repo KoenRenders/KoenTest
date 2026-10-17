@@ -33,7 +33,6 @@ scripts/test-local.sh):
     is precies waarom hij er staat.
 """
 
-from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -41,6 +40,7 @@ import pytest
 from app.domains.membership.api import Membership
 from app.domains.payment.api import PaymentRecord, PaymentStatus
 from app.domains.payment.service import confirm_manual_payment, create_refund, derived_status
+from app.kernel.clock import belgian_today
 from tests.conftest import create_test_member
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -49,7 +49,7 @@ pytestmark = pytest.mark.ui_agnostisch
 def _lidmaatschap(db) -> Membership:
     """Een nog niet actief lidmaatschap met een openstaande vordering van € 35,00."""
     member = create_test_member(db)
-    jaar = date.today().year
+    jaar = belgian_today().year
     ms = Membership(member_id=member.id, year=jaar, is_active=False)
     db.add(ms)
     db.flush()

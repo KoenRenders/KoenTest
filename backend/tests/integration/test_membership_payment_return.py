@@ -23,6 +23,7 @@ import pytest
 
 from app.domains.mdm.api import ContactDetail, MemberPerson
 from app.domains.membership.api import Membership
+from app.kernel.clock import belgian_today
 from tests.conftest import signup_fields
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -101,7 +102,7 @@ def test_the_newest_membership_decides_not_a_year_that_was_paid_before(
     client.post("/api/v1/payment-gateway/webhooks/mollie", data={"id": "tr_test_123"})
     assert household_payment_state(db_session, member_id) == "settled"
 
-    year = date.today().year + 5
+    year = belgian_today().year + 5
     renewal = Membership(
         member_id=member_id,
         year=year,

@@ -24,12 +24,13 @@ from app.domains.newsletter.models import (
     SubscriberSource,
     SubscriberStatus,
 )
+from app.kernel.clock import belgian_today
 from tests.conftest import person_proof
 
 pytestmark = pytest.mark.ui_serverrendered
 
 BASE = "https://raak.example"
-YEAR = date.today().year
+YEAR = belgian_today().year
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -751,7 +752,7 @@ def test_de_regel_van_een_activiteit_zoals_het_bestuur_ze_schreef(db_session):
     """
     from datetime import time
 
-    vandaag = date.today()
+    vandaag = belgian_today()
     dag = vandaag + timedelta(days=10)
     kroeg = _dated_activity(
         db_session,
@@ -806,7 +807,7 @@ def test_de_datum_leest_zoals_het_bestuur_ze_schrijft():
 
 
 def test_extern_inschrijven_en_zonder_inschrijving(db_session):
-    vandaag = date.today()
+    vandaag = belgian_today()
     dag = vandaag + timedelta(days=10)
     brood = _dated_activity(db_session, "Brood en Spelen", dag, component=False)
     comedy = _dated_activity(
@@ -846,7 +847,7 @@ def test_de_kalender_is_een_opsomming_met_een_bolletje_per_activiteit(db_session
 
     Broken on purpose: de `<li>` terug naar een `<div>` → deze test faalt.
     """
-    vandaag = date.today()
+    vandaag = belgian_today()
     _dated_activity(db_session, "Eerste", vandaag + timedelta(days=3))
     _dated_activity(db_session, "Tweede", vandaag + timedelta(days=6))
 
@@ -889,7 +890,7 @@ def test_het_blok_draagt_titel_beeld_omschrijving_en_een_inschrijflink(db_sessio
     Broken on purpose: `description` left off `ActivityFacts` → the sentence
     disappears from the block and this test fails.
     """
-    vandaag = date.today()
+    vandaag = belgian_today()
     activity = _dated_activity(
         db_session,
         "Rumproefavond",
@@ -912,7 +913,7 @@ def test_het_blok_draagt_titel_beeld_omschrijving_en_een_inschrijflink(db_sessio
 
 
 def test_een_blok_zonder_beeld_of_omschrijving_houdt_geen_lege_plek_over(db_session):
-    vandaag = date.today()
+    vandaag = belgian_today()
     activity = _dated_activity(db_session, "Wandeling", vandaag + timedelta(days=20))
 
     blok = _block(db_session, activity, vandaag)
@@ -925,7 +926,7 @@ def test_een_blok_zonder_beeld_of_omschrijving_houdt_geen_lege_plek_over(db_sess
 def test_een_pdf_affiche_zonder_afbeelding_levert_geen_gebroken_beeld(db_session):
     """`/thumb` van een PDF zonder rendering antwoordt met de PDF zelf — dat zou
     in een mail een gebroken beeld geven. Media beslist dat, niet de brief."""
-    vandaag = date.today()
+    vandaag = belgian_today()
     activity = _dated_activity(db_session, "Quiz", vandaag + timedelta(days=25))
     _poster(db_session, activity, content_type="application/pdf")
     db_session.flush()
@@ -934,7 +935,7 @@ def test_een_pdf_affiche_zonder_afbeelding_levert_geen_gebroken_beeld(db_session
 
 
 def test_een_voorbije_activiteit_vraagt_geen_inschrijving(db_session):
-    vandaag = date.today()
+    vandaag = belgian_today()
     voorbij = vandaag - timedelta(days=20)
     activity = _dated_activity(db_session, "Zomerbar", voorbij)
 
@@ -953,7 +954,7 @@ def test_de_brief_draagt_een_verwijzing_en_de_mail_het_blok(db_session):
     Broken on purpose: the `activity` block taken out of `mail_blocks` → the mail
     arrives without the block and this test fails.
     """
-    vandaag = date.today()
+    vandaag = belgian_today()
     activity = _dated_activity(
         db_session, "Zo vader zo zoon", vandaag + timedelta(days=10), location="Miloheem"
     )
@@ -1006,7 +1007,7 @@ def test_de_opmaak_komt_er_pas_bij_het_versturen_op(db_session, mailbox):
     Broken on purpose: `with_inline_styles` taken out of `render_mail` → the
     block arrives without styling and this test fails.
     """
-    vandaag = date.today()
+    vandaag = belgian_today()
     activity = _dated_activity(db_session, "Rumproefavond", vandaag + timedelta(days=12))
     letter = _letter(
         db_session, audience=Audience.MEMBERS, body=f"<div>[[activiteit:{activity.id}]]</div>"
@@ -1060,7 +1061,7 @@ def test_de_mail_draagt_ook_een_tekstversie(db_session):
     Broken on purpose: `body_text` left empty in `render_test` → this test fails;
     not passed on by the door → the recording of #1251 fails.
     """
-    vandaag = date.today()
+    vandaag = belgian_today()
     activity = _dated_activity(db_session, "Rumproefavond", vandaag + timedelta(days=10))
     letter = _letter(
         db_session,

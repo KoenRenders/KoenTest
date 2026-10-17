@@ -43,6 +43,8 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
+from app.kernel.clock import belgian_today
+
 TENANT = 2
 
 STREETS = (("Dorpsstraat", 4), ("Kerkstraat", 3), ("Molenweg", 2))
@@ -76,7 +78,7 @@ def seed(db) -> dict:
     from app.domains.membership.api import Membership
     from app.domains.payment.api import PaymentRecord
 
-    jaar = date.today().year
+    jaar = belgian_today().year
     postal = db.query(PostalCode).filter(PostalCode.postal_code == "2400").first()
     if postal is None:
         postal = PostalCode(postal_code="2400", municipality="Mol")

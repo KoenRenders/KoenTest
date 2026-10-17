@@ -7,7 +7,7 @@ kan overnemen. Bevat persoonsdata: admin-only, nooit in de repo.
 (verhuisd uit app/services/member_changes.py, #444)
 """
 
-from datetime import date, datetime, time, timezone
+from datetime import date
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
@@ -32,6 +32,7 @@ from app.domains.mdm.api import (
 )
 from app.domains.membership.api import MembershipHistory
 from app.i18n import _, moment_text
+from app.kernel.clock import belgian_day_start
 from app.kernel.codes import code_label
 from app.kernel.ods import build_ods
 from app.kernel.operations import OPERATION
@@ -470,7 +471,7 @@ def _with_more(summary: str, db: Session, h) -> str:
 
 def member_changes_since(db: Session, since: date) -> List[dict]:
     """Alle ledendata-wijzigingen met recorded_at >= since, nieuw → oud."""
-    since_dt = datetime.combine(since, time.min, tzinfo=timezone.utc)
+    since_dt = belgian_day_start(since)
     rows: List[dict] = []
     subj = _SubjectResolver(db)
 
@@ -711,7 +712,7 @@ def all_changes_since(
     # a cycle that only held because of the order the imports stood in.
     from app.domains.payment.api import PaymentRecordHistory
 
-    since_dt = datetime.combine(since, time.min, tzinfo=timezone.utc)
+    since_dt = belgian_day_start(since)
     rows: List[dict] = list(member_changes_since(db, since))  # groep "Leden"
     subj = _SubjectResolver(db)
 

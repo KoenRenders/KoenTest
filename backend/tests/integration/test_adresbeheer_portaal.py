@@ -29,6 +29,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Person
+from app.kernel.clock import belgian_today
 from tests.conftest import create_test_family, household_fields
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -225,7 +226,7 @@ def test_de_export_zegt_dat_het_hoofdadres_verplaatst_is(client, db_session, lid
     Tegenproef: de markering-tak uit `changes.py` → de samenvatting is dan
     `EMAIL: tweede@example.com` en deze test faalt op de ontbrekende zin.
     """
-    from datetime import date, timedelta
+    from datetime import timedelta
 
     from app.domains.reporting.api import member_changes_since
 
@@ -237,7 +238,7 @@ def test_de_export_zegt_dat_het_hoofdadres_verplaatst_is(client, db_session, lid
     fields[f"e_primary.{person.id}"] = str(_rij_id(db_session, person, TWEEDE))
     assert _save(client, csrf, fields).status_code == 200
 
-    regels = member_changes_since(db_session, date.today() - timedelta(days=1))
+    regels = member_changes_since(db_session, belgian_today() - timedelta(days=1))
     samenvattingen = [r["summary"] for r in regels if r["entity"] == "Contact"]
 
     assert any("is nu het hoofdadres" in s and TWEEDE in s for s in samenvattingen), (
@@ -254,7 +255,7 @@ def test_een_gewone_adreswijziging_blijft_lezen_zoals_ze_was(db_session):
     Verandert de WAARDE, dan hoort er nog altijd "oud → nieuw" te staan. Zonder
     deze test zou een markering die altijd meekomt ook groen staan.
     """
-    from datetime import date, timedelta
+    from datetime import timedelta
 
     from app.domains.mdm.api import upsert_primary_contact
     from app.domains.reporting.api import member_changes_since
@@ -276,7 +277,7 @@ def test_een_gewone_adreswijziging_blijft_lezen_zoals_ze_was(db_session):
     )
     db_session.commit()
 
-    regels = member_changes_since(db_session, date.today() - timedelta(days=1))
+    regels = member_changes_since(db_session, belgian_today() - timedelta(days=1))
     samenvattingen = [r["summary"] for r in regels if r["entity"] == "Contact"]
     assert any(f"{HOOFD} → {TWEEDE}" in s for s in samenvattingen), (
         f"de oud → nieuw-regel is verdwenen: {samenvattingen}"

@@ -6,7 +6,7 @@ SAVEPOINT (`begin_nested`), zodat de IntegrityError netjes teruggerold wordt en
 de gedeelde sessie bruikbaar blijft.
 """
 
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
@@ -19,6 +19,7 @@ from app.domains.activities.api import (
     Registration,
     RegistrationItem,
 )
+from app.kernel.clock import belgian_today
 from tests.conftest import seed_activity_with_product
 
 
@@ -40,7 +41,7 @@ def test_sub_registration_price_non_negative(db_session):
     db_session.add(activity)
     db_session.flush()
     db_session.add(
-        ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=10))
+        ActivityDate(activity_id=activity.id, start_date=belgian_today() + timedelta(days=10))
     )
     db_session.flush()
     _expect_violation(
@@ -62,7 +63,7 @@ def test_sub_registration_member_price_non_negative(db_session):
     db_session.add(activity)
     db_session.flush()
     db_session.add(
-        ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=10))
+        ActivityDate(activity_id=activity.id, start_date=belgian_today() + timedelta(days=10))
     )
     db_session.flush()
     _expect_violation(
@@ -186,7 +187,7 @@ def test_sub_registration_max_participants_positive(db_session):
     db_session.add(activity)
     db_session.flush()
     db_session.add(
-        ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=10))
+        ActivityDate(activity_id=activity.id, start_date=belgian_today() + timedelta(days=10))
     )
     db_session.flush()
     _expect_violation(

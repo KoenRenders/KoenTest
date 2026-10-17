@@ -26,6 +26,7 @@ from app.domains.reporting.assistant import (
     dispatcher,
     scope_for_activity,
 )
+from app.kernel.clock import belgian_today
 from tests._assistant_seed import TENANT, seed
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
@@ -297,14 +298,13 @@ def test_the_route_answers_about_this_activity_only(client, db_session, situatie
 
 
 def test_an_activity_of_another_tenant_is_not_found(client, db_session, situatie, aan):
-    from datetime import date
 
     from app.domains.activities.api import Activity, ActivityDate
 
     vreemd = Activity(tenant_id=3, name="Elders")
     db_session.add(vreemd)
     db_session.flush()
-    db_session.add(ActivityDate(tenant_id=3, activity_id=vreemd.id, start_date=date.today()))
+    db_session.add(ActivityDate(tenant_id=3, activity_id=vreemd.id, start_date=belgian_today()))
     db_session.flush()
 
     kop = _login(client)

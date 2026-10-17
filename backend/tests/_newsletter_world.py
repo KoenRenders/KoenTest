@@ -10,8 +10,9 @@ from app.domains.activities.models import Activity, ActivityDate, Registration
 from app.domains.mdm.api import ContactDetail, Member, MemberPerson, Person
 from app.domains.membership.api import Membership
 from app.domains.newsletter.models import Subscriber, SubscriberStatus
+from app.kernel.clock import belgian_today
 
-YEAR = date.today().year
+YEAR = belgian_today().year
 
 
 class Mailbox:
@@ -53,7 +54,7 @@ def past_activity(
     activity = Activity(name=name, location="Dorpsplein", is_cancelled=cancelled, **extra)
     db.add(activity)
     db.flush()
-    day = date.today() - timedelta(days=days_ago)
+    day = belgian_today() - timedelta(days=days_ago)
     db.add(ActivityDate(activity_id=activity.id, start_date=day, **extra))
     db.flush()
     return activity

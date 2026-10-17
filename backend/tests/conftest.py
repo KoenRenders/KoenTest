@@ -12,6 +12,8 @@ elkaar niet beïnvloeden ondanks de `db.commit()` in de endpoints.
 
 import os
 
+from app.kernel.clock import belgian_today
+
 # Moet vóór het importeren van app-modules gezet worden: app.database leest deze
 # bij import. We gebruiken een aparte testdatabase.
 BASE_DATABASE_URL = os.environ.get(
@@ -832,7 +834,7 @@ def person_proof():
 
 def seed_activity_with_product(db, price="10.00", is_free=False, max_participants=None):
     """Maak een activiteit met één onderdeel en één (betalend) product."""
-    from datetime import date, timedelta
+    from datetime import timedelta
     from decimal import Decimal
 
     from app.domains.activities.api import (
@@ -845,7 +847,7 @@ def seed_activity_with_product(db, price="10.00", is_free=False, max_participant
     activity = Activity(name="Testactiviteit")
     db.add(activity)
     db.flush()
-    db.add(ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=30)))
+    db.add(ActivityDate(activity_id=activity.id, start_date=belgian_today() + timedelta(days=30)))
     db.flush()
     comp = ActivitySubRegistration(
         activity_id=activity.id,

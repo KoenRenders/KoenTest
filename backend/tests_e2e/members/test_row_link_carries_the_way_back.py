@@ -26,6 +26,8 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 from playwright.sync_api import expect, sync_playwright
 
+from app.kernel.clock import belgian_today
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.schermen import BASE, login_als_admin, pagina_klaar  # noqa: E402
@@ -54,7 +56,7 @@ def households():
     from app.soft_delete import soft_delete
 
     tag = uuid.uuid4().hex[:8]
-    year = date.today().year
+    year = belgian_today().year
     db = SessionLocal()
     ids: list[int] = []
     try:

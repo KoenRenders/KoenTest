@@ -12,6 +12,7 @@ import sys
 import pytest
 
 import app.models  # noqa: F401  — the app first: the test process keeps the e2e database
+from app.kernel.clock import belgian_today
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -27,7 +28,7 @@ PHONE = 390
 
 @pytest.fixture(scope="module", autouse=True)
 def past_activities():
-    from datetime import date, timedelta
+    from datetime import timedelta
 
     from app.database import SessionLocal
     from app.domains.activities.models import Activity, ActivityDate, Registration
@@ -44,7 +45,7 @@ def past_activities():
             db.flush()
             db.add(
                 ActivityDate(
-                    activity_id=activity.id, start_date=date.today() - timedelta(days=days)
+                    activity_id=activity.id, start_date=belgian_today() - timedelta(days=days)
                 )
             )
             for address in addresses:

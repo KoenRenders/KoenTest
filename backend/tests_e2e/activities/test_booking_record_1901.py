@@ -39,11 +39,13 @@ from __future__ import annotations
 import os
 import sys
 import uuid
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
 from playwright.sync_api import expect, sync_playwright
+
+from app.kernel.clock import belgian_today
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -88,7 +90,9 @@ def _seed() -> dict:
         activity = Activity(name=f"Boekingen 1901 {TAG}")
         db.add(activity)
         db.flush()
-        db.add(ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=40)))
+        db.add(
+            ActivityDate(activity_id=activity.id, start_date=belgian_today() + timedelta(days=40))
+        )
         component = ActivitySubRegistration(
             activity_id=activity.id,
             name="Etentje",

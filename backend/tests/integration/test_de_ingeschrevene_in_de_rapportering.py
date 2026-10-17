@@ -33,6 +33,7 @@ from app.domains.reporting.assistant import (
     scan_names,
     scrub_question,
 )
+from app.kernel.clock import belgian_today
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -46,7 +47,7 @@ def _activiteit_met_twee_soorten(db):
     gekoppelde persoon zou elke test hieronder groen laten terwijl het gewone
     geval stuk is.
     """
-    from datetime import date, timedelta
+    from datetime import timedelta
 
     from app.domains.activities.api import Activity, ActivityDate, Registration
     from app.domains.mdm.api import Person
@@ -56,7 +57,9 @@ def _activiteit_met_twee_soorten(db):
     db.flush()
     db.add(
         ActivityDate(
-            tenant_id=TENANT, activity_id=activiteit.id, start_date=date.today() + timedelta(days=7)
+            tenant_id=TENANT,
+            activity_id=activiteit.id,
+            start_date=belgian_today() + timedelta(days=7),
         )
     )
 

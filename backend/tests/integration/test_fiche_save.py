@@ -55,9 +55,10 @@ from app.domains.activities.models import (
 )
 from app.domains.mdm.api import Member, MemberPerson, Person
 from app.domains.media.api import MediaAsset
+from app.kernel.clock import belgian_today
 from tests.conftest import seed_activity_with_product, seed_question_form
 
-SOON = date.today() + timedelta(days=30)
+SOON = belgian_today() + timedelta(days=30)
 
 PNG = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"

@@ -6,6 +6,10 @@ Two ways to lose that, each refused here:
 - **`date.today()` in `app/`** outside test code: on the server it is the UTC day,
   so a rule about a day is two hours late in summer between midnight and 02:00.
   The day is `belgian_today()`, and the day of a stored moment is `belgian_day()`;
+- **`date.today()` in a test** (#2091): a test that asks the container's clock for
+  "today" expects the UTC day while the app answers with the Brussels day, so it
+  went red between 22:00 and 24:00 UTC (nine tests on 16 October 2026). A test asks
+  the clock the app asks: `belgian_today()`;
 - **a `DateTime` column in a `models.py` without `timezone=True`**: such a column
   hands a moment back naive, and a naive moment has no day to speak of.
 
@@ -16,7 +20,9 @@ Broken on purpose (16 October 2026, each by adding a line, each put back):
 - a line holding `date.today()` in `app/domains/media/service.py` → the first test
   failed naming that line;
 - a line `DateTime()` in `app/domains/media/models.py` → the second failed naming
-  that line.
+  that line;
+- (17 October 2026, #2091) a line `date.today()` added to `tests/test_health_version.py`
+  → the third failed naming that line.
 """
 
 from __future__ import annotations
@@ -25,7 +31,7 @@ import ast
 import re
 from pathlib import Path
 
-from tests._bestanden import is_app_test
+from tests._bestanden import bestanden, is_app_test
 
 APP = Path(__file__).resolve().parents[1] / "app"
 
@@ -49,6 +55,44 @@ def test_nothing_in_the_app_takes_the_day_from_the_container():
             if _TODAY.search(line):
                 found.append(f"{path.relative_to(APP.parent)}:{number}: {line.strip()}")
     assert not found, "use belgian_today() / belgian_day():\n" + "\n".join(found)
+
+
+def _test_files():
+    tests = Path(__file__).resolve().parent
+    return bestanden(
+        tests.glob("**/*.py"),
+        (tests.parent / "tests_e2e").glob("**/*.py"),
+        APP.glob("domains/*/tests/**/*.py"),
+        wat="the test modules of the backend",
+        minstens=500,
+        met_tests=True,
+    )
+
+
+def _container_day_calls(path: Path) -> list[int]:
+    """Lines that call `date.today()` or `datetime.today()` — calls, so a docstring or
+    a comment that names the rule is not one."""
+    return [
+        node.lineno
+        for node in ast.walk(ast.parse(path.read_text()))
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "today"
+        and isinstance(node.func.value, (ast.Name, ast.Attribute))
+        and getattr(node.func.value, "id", getattr(node.func.value, "attr", ""))
+        in {"date", "datetime"}
+    ]
+
+
+def test_no_test_takes_the_day_from_the_container():
+    found = [
+        f"{path.relative_to(APP.parent)}:{number}"
+        for path in _test_files()
+        for number in _container_day_calls(path)
+    ]
+    assert not found, "ask belgian_today() (app.kernel.clock), as the app does:\n" + "\n".join(
+        found
+    )
 
 
 def _datetime_columns():

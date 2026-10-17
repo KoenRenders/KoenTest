@@ -41,6 +41,7 @@ from app.domains.meetings.api import (
     participants_of,
     recipients_for,
 )
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -91,7 +92,7 @@ def test_a_start_before_the_meeting_puts_the_person_in_it(client, db_session):
     late = _person(db_session, "Laat", "Kringlid")
     meeting = create_meeting(db_session, meeting_date=MEETING_DAY)
 
-    for person, start in ((early, "2026-09-01"), (late, date.today().isoformat())):
+    for person, start in ((early, "2026-09-01"), (late, belgian_today().isoformat())):
         answer = client.post(
             "/admin/vergaderingen/kring",
             data={"person_id": person.id, "start_date": start},
@@ -112,7 +113,7 @@ def test_the_start_date_can_be_changed_afterwards(client, db_session):
     meeting = create_meeting(db_session, meeting_date=MEETING_DAY)
     client.post("/admin/vergaderingen/kring", data={"person_id": person.id}, headers=headers)
     relation = _relation_of(db_session, person)
-    assert relation.start_date == date.today(), "no start date given: today"
+    assert relation.start_date == belgian_today(), "no start date given: today"
     assert participants_of(db_session, meeting) == []
 
     answer = client.post(
@@ -199,8 +200,8 @@ def test_the_same_day_in_and_out_is_allowed(db_session):
             person_id=person.id,
             organization_id=organization.id,
             relation_type="BOARD_MEETING",
-            start_date=date.today(),
-            end_date=date.today(),
+            start_date=belgian_today(),
+            end_date=belgian_today(),
         )
     )
     db_session.flush()
@@ -210,7 +211,7 @@ def test_taking_out_someone_who_has_not_started_yet_ends_on_the_start(db_session
     """A start in the future is possible now; ending today would precede it."""
     person = _person(db_session, "Nog", "Niet")
     organization = db_session.query(Organization).first()
-    start = date.today() + timedelta(days=10)
+    start = belgian_today() + timedelta(days=10)
     relation = OrganizationPerson(
         person_id=person.id,
         organization_id=organization.id,

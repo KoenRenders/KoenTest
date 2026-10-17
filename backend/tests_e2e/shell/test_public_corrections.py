@@ -24,11 +24,13 @@ the token, not the picture.
 
 import os
 import sys
-from datetime import date, timedelta
+from datetime import timedelta
 from io import BytesIO
 
 import pytest
 from playwright.sync_api import sync_playwright
+
+from app.kernel.clock import belgian_today
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -57,7 +59,7 @@ def album():
         activity = Activity(name=NAME)
         db.add(activity)
         db.flush()
-        day = ActivityDate(activity_id=activity.id, start_date=date.today() - timedelta(days=60))
+        day = ActivityDate(activity_id=activity.id, start_date=belgian_today() - timedelta(days=60))
         photo = MediaAsset(
             kind="activity_photo",
             activity_id=activity.id,

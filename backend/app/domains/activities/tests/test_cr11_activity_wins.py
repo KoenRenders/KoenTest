@@ -13,7 +13,7 @@ in its docstring).
 """
 
 import re
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from app.domains.activities.api import (
@@ -23,6 +23,7 @@ from app.domains.activities.api import (
     Registration,
 )
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 
@@ -34,7 +35,7 @@ def _activity(db, name, *, poster_url=None):
     a = Activity(name=name, location="Zaal", poster_url=poster_url)
     db.add(a)
     db.flush()
-    db.add(ActivityDate(activity_id=a.id, start_date=date.today() + timedelta(days=20)))
+    db.add(ActivityDate(activity_id=a.id, start_date=belgian_today() + timedelta(days=20)))
     db.flush()
     return a
 
@@ -129,7 +130,7 @@ def test_a_card_counts_registrations_only_when_there_is_a_component(client, db_s
     the component-less row says 0 instead of "—" and the first assertion fails."""
     _activity(db_session, "Zonder onderdeel W12")
     closed = _activity(db_session, "Gesloten onderdeel W12")
-    c = _component(db_session, closed, registration_closes_on=date.today() - timedelta(days=1))
+    c = _component(db_session, closed, registration_closes_on=belgian_today() - timedelta(days=1))
     for i in range(3):
         db_session.add(
             Registration(

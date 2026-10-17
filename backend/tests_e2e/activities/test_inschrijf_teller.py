@@ -32,6 +32,8 @@ import pytest
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
 from playwright.sync_api import sync_playwright
 
+from app.kernel.clock import belgian_today
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.schermen import BASE, open_registration  # noqa: E402
@@ -54,7 +56,7 @@ def tellerspel():
     hebt en selecteer op de `hx-get` van precies dat onderdeel. Eén product is
     hier bovendien een VOORWAARDE en geen toeval — #1172 gaat er net over.
     """
-    from datetime import date, timedelta
+    from datetime import timedelta
     from decimal import Decimal
 
     import app.models  # noqa: F401  configureert alle mappers
@@ -70,7 +72,7 @@ def tellerspel():
     activiteit = Activity(name="E2E Tellerspel")
     db.add(activiteit)
     db.flush()
-    db.add(ActivityDate(activity_id=activiteit.id, start_date=date.today() + timedelta(days=30)))
+    db.add(ActivityDate(activity_id=activiteit.id, start_date=belgian_today() + timedelta(days=30)))
     onderdeel = ActivitySubRegistration(
         activity_id=activiteit.id, name="Tellerdeelname", price=Decimal("0"), is_free=True
     )

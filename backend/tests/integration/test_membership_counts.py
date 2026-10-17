@@ -9,13 +9,14 @@ admin-dashboard, dus die mogen elkaar niet tegenspreken.
 from datetime import date, timedelta
 
 from app.domains.membership.api import current_membership_counts
+from app.kernel.clock import belgian_today
 
 
 def _household(db, n_persons=1, *, is_active=True, valid_from=None, valid_to=None):
     from app.domains.mdm.api import Member, MemberPerson, Person
     from app.domains.membership.api import Membership
 
-    today = date.today()
+    today = belgian_today()
     member = Member()
     db.add(member)
     db.flush()
@@ -45,7 +46,7 @@ def _household(db, n_persons=1, *, is_active=True, valid_from=None, valid_to=Non
 
 def test_counts_only_today_valid_memberships(db_session):
     db = db_session
-    today = date.today()
+    today = belgian_today()
     _household(db, 2)  # geldig heel jaar → telt
     _household(db, 1)  # geldig heel jaar → telt
     _household(
@@ -65,7 +66,7 @@ def test_counts_exclude_soft_deleted_person(db_session):
     from app.soft_delete import soft_delete
 
     db = db_session
-    today = date.today()
+    today = belgian_today()
     _member, persons = _household(db, 2)
     soft_delete(persons[0])
     db.flush()
@@ -80,7 +81,7 @@ def test_counts_exclude_soft_deleted_membership(db_session):
     from app.soft_delete import soft_delete
 
     db = db_session
-    today = date.today()
+    today = belgian_today()
     member, _persons = _household(db, 2)
     ms = db.query(Membership).filter(Membership.member_id == member.id).one()
     soft_delete(ms)
@@ -94,7 +95,7 @@ def test_counts_exclude_soft_deleted_membership(db_session):
 def test_counts_boundary_dates_inclusive(db_session):
     """valid_from == vandaag en valid_to == vandaag tellen mee (grenzen inclusief)."""
     db = db_session
-    today = date.today()
+    today = belgian_today()
     _household(db, 1, valid_from=today, valid_to=today)
     households, persons = current_membership_counts(db, today)
     assert households == 1

@@ -21,6 +21,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.meetings.api import Meeting
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 TYPED = {"meeting_date": "morgen", "start_time": "19:30", "location": "Gemeentezaal"}
@@ -52,7 +53,7 @@ def _made(client, headers, day: date, time: str, place: str) -> int:
 
 def test_a_refused_new_meeting_comes_back_with_what_was_typed(client, db_session):
     headers = _board(client)
-    previous = _made(client, headers, date.today() - timedelta(days=30), "10:15", "Oude plek")
+    previous = _made(client, headers, belgian_today() - timedelta(days=30), "10:15", "Oude plek")
     # "Previous" is the last meeting whose report went out (`previous_meeting`).
     db_session.get(Meeting, previous).report_sent_at = datetime.now(timezone.utc)
     db_session.commit()

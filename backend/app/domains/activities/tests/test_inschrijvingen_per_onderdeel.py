@@ -30,6 +30,7 @@ import pytest
 
 from app.domains.activities.api import ActivitySubRegistration, Registration
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -102,7 +103,7 @@ def test_het_overzicht_draagt_geen_inschrijvingenknoppen_meer(client, db_session
 
 def test_zonder_onderdelen_geen_kaart_wel_een_lege_toestand(client, db_session):
     """Geval (b): de gemelde spookkaart is weg en de sectie legt zichzelf uit."""
-    from datetime import date, timedelta
+    from datetime import timedelta
 
     from app.domains.activities.api import Activity, ActivityDate
 
@@ -110,7 +111,7 @@ def test_zonder_onderdelen_geen_kaart_wel_een_lege_toestand(client, db_session):
     db_session.add(activity)
     db_session.flush()
     db_session.add(
-        ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=10))
+        ActivityDate(activity_id=activity.id, start_date=belgian_today() + timedelta(days=10))
     )
     db_session.flush()
     _login(client)
@@ -122,7 +123,7 @@ def test_zonder_onderdelen_geen_kaart_wel_een_lege_toestand(client, db_session):
 def test_inschrijving_zonder_onderdeel_blijft_bereikbaar(client, db_session):
     """Geval (c): precies wat een naïeve fix stukmaakt. De tab draagt een groep
     "Zonder onderdeel" zodra zulke inschrijvingen bestaan."""
-    from datetime import date, timedelta
+    from datetime import timedelta
 
     from app.domains.activities.api import Activity, ActivityDate
 
@@ -130,7 +131,7 @@ def test_inschrijving_zonder_onderdeel_blijft_bereikbaar(client, db_session):
     db_session.add(activity)
     db_session.flush()
     db_session.add(
-        ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=10))
+        ActivityDate(activity_id=activity.id, start_date=belgian_today() + timedelta(days=10))
     )
     db_session.flush()
     _inschrijving(db_session, activity, "WeesWillem")

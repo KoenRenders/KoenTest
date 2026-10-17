@@ -41,7 +41,7 @@ met wat er werkelijk omviel:
   hint — dat is geen ruis maar dezelfde bevinding langs twee wegen.
 """
 
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
@@ -53,6 +53,7 @@ from app.domains.activities.api import (
     ActivitySubRegistration,
 )
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -74,7 +75,7 @@ def activiteit_met_product(db_session):
     a = Activity(name="Bowlen met een product", location="Miloheem", slug="bowlen-met-product")
     db_session.add(a)
     db_session.flush()
-    db_session.add(ActivityDate(activity_id=a.id, start_date=date.today() + timedelta(days=21)))
+    db_session.add(ActivityDate(activity_id=a.id, start_date=belgian_today() + timedelta(days=21)))
     onderdeel = ActivitySubRegistration(
         activity_id=a.id, name="Deelname", price=Decimal("0"), is_free=True
     )
