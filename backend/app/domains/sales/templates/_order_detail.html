@@ -32,11 +32,11 @@
       {% if is_admin and order.cancellable %}
       {{ ui.btn_secondary(_("Wijzigen"), href="/admin/verkoop/" ~ order.id ~ "/wijzigen", size="sm") }}
       <form hx-post="/admin/verkoop/{{ order.id }}/annuleren">
-        {{ ui.btn_danger(_("Verwijderen"), size="sm", confirm=(_("De betaalde € %(bedrag)s wordt terugbetaald.", bedrag=order.total|geld) if order.payment == "settled" else _("De bestelling wordt verwijderd."))) }}
+        {{ ui.btn_danger(_("Verwijderen"), "submit", size="sm", confirm=(_("De betaalde € %(bedrag)s wordt terugbetaald.", bedrag=order.total|geld) if order.payment == "settled" else _("De bestelling wordt verwijderd."))) }}
       </form>
       {% elif not is_admin and order.cancellable %}
       <form hx-post="/mijn/aankopen/{{ order.id }}/annuleren">
-        {{ ui.btn_danger(_("Bestelling annuleren"), size="sm", confirm=(_("Bestelling %(id)s annuleren? De artikelen komen weer vrij. Je krijgt € %(bedrag)s terug.", id=order.id, bedrag=order.total|geld) if order.payment == "settled" else _("Bestelling %(id)s annuleren? De artikelen komen weer vrij. Je hebt nog niets betaald.", id=order.id))) }}
+        {{ ui.btn_danger(_("Bestelling annuleren"), "submit", size="sm", confirm=(_("Bestelling %(id)s annuleren? De artikelen komen weer vrij. Je krijgt € %(bedrag)s terug.", id=order.id, bedrag=order.total|geld) if order.payment == "settled" else _("Bestelling %(id)s annuleren? De artikelen komen weer vrij.", id=order.id))) }}
       </form>
       {% endif %}
     </div>

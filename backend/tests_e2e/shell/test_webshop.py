@@ -1161,3 +1161,42 @@ def test_het_contact_wordt_vooraf_ingevuld_voor_een_lid(webshop_page):
 
     assert page.locator('input[name="contact_name"]').input_value() == "Webshop Lid"
     assert page.locator('input[name="contact_email"]').input_value() == "webshop.lid@example.com"
+
+
+def test_de_koper_annuleert_zijn_bestelling(webshop_page):
+    """R23, at 390 px: a signed-in buyer cancels his own order and lands on Mijn
+    aankopen, not on a page nested inside the order card."""
+    from app.domains.auth.api import make_session_value
+
+    page = webshop_page
+    login_met_sessie(page, make_session_value("webshop.lid@example.com"), WEBSHOP_HOST)
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.evaluate("localStorage.removeItem('raak_basket')")
+
+    _voeg_de_maat_toe_aan_het_mandje(page)
+    with htmx_afgerond(page):
+        page.locator("form[data-basket-form] button[type=submit]").click()
+    page.wait_for_url("**/webshop/mandje")
+    page.locator('input[name="phone"]').fill("0470000000")
+    page.locator('input[name="payment_method"][value="transfer"]').check()
+    laat_de_wacht_passeren(page)
+    with htmx_afgerond(page):
+        page.get_by_role("button", name="Bestellen en betalen").click()
+    page.wait_for_url("**/webshop/bedankt?**")
+
+    page.goto("/mijn/aankopen")
+    order_link = page.locator("main a[href^='/mijn/aankopen/']").first
+    order_id = order_link.get_attribute("href").rstrip("/").split("/")[-1]
+    order_link.click()
+    page.wait_for_url(f"**/mijn/aankopen/{order_id}")
+    assert "Bestelling annuleren" in page.locator("main").inner_text()
+
+    page.get_by_role("button", name="Bestelling annuleren").click()
+    ok = page.locator("[data-dialog] [data-dialog-ok]")
+    ok.wait_for(state="visible")
+    with htmx_afgerond(page):
+        ok.click()
+    page.wait_for_url("**/mijn/aankopen")
+    assert f"Bestelling {order_id}" not in page.locator("main").inner_text(), (
+        "the cancelled order is gone"
+    )

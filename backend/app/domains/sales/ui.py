@@ -285,18 +285,18 @@ def my_order(request: Request, order_id: int, db: Session = Depends(get_db)):
 def cancel_my_order(request: Request, order_id: int, db: Session = Depends(get_db)):
     """The buyer cancels his own order (R23, R25, F8): whoever may see the order may
     cancel it — the person and his household (Koen's "1a"). Another person's order is
-    a 404, a signed-out visitor is sent to sign in, and a delivered order is refused."""
+    a 404, a signed-out visitor is sent to sign in and back to the order page, and a
+    delivered order is refused."""
     from fastapi.responses import RedirectResponse
 
     from app.domains.auth.api import SESSION_COOKIE, read_session_value, require_csrf
     from app.domains.sales.api import SalesError, cancel_order
     from app.kernel.refusals import FieldError
     from app.ui import refusal_response
-    from app.ui.account_ui import to_sign_in
 
     person_id, _is_member = _buyer(request, db)
     if person_id is None:
-        return to_sign_in(request)
+        return RedirectResponse(f"/aanmelden?terug=/mijn/aankopen/{order_id}", status_code=302)
     if owned_order(db, order_id, person_id) is None:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
     require_csrf(request)
@@ -305,4 +305,6 @@ def cancel_my_order(request: Request, order_id: int, db: Session = Depends(get_d
         cancel_order(db, order_id, actor=actor)
     except SalesError as refusal:
         return refusal_response(request, [FieldError("", str(refusal))], "#order-melding")
+    if request.headers.get("HX-Request"):
+        return Response(status_code=204, headers={"HX-Redirect": "/mijn/aankopen"})
     return RedirectResponse("/mijn/aankopen", status_code=303)

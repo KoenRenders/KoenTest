@@ -57,7 +57,8 @@ def _sign_in(client, email: str) -> dict[str, str]:
 
 def test_a_buyer_cancels_their_own_order(client, db_session, every_module_on):
     """AC13: the signed-in buyer cancels before delivery — the order leaves the list
-    and the stock is free again."""
+    and the stock is free again. The answer is an `HX-Redirect` (the form posts with
+    htmx), so the list page is not swapped into the form."""
     from app.domains.sales.api import get_order
     from app.domains.stock.api import available
     from tests.conftest import create_test_family
@@ -67,12 +68,12 @@ def test_a_buyer_cancels_their_own_order(client, db_session, every_module_on):
     order = _order(db_session, [(m.id, 1)], person_id=owner_person.id)
     assert available(db_session, m.id) == 4
 
-    headers = _sign_in(client, "eigenaar@example.com")
+    headers = {**_sign_in(client, "eigenaar@example.com"), "HX-Request": "true"}
     answer = client.post(
         f"/mijn/aankopen/{order.id}/annuleren", headers=headers, follow_redirects=False
     )
-    assert answer.status_code == 303, answer.text[:300]
-    assert answer.headers["location"] == "/mijn/aankopen"
+    assert answer.status_code == 204, answer.text[:300]
+    assert answer.headers["HX-Redirect"] == "/mijn/aankopen"
 
     db_session.expire_all()
     assert get_order(db_session, order.id) is None, "the order leaves the lists"
@@ -103,7 +104,8 @@ def test_another_persons_order_is_a_404_and_nothing_is_cancelled(
 
 
 def test_a_signed_out_visitor_is_sent_to_sign_in(client, db_session, every_module_on):
-    """T2: a signed-out visitor is sent to sign in before anything is touched."""
+    """T2: a signed-out visitor is sent to sign in, and back to the order page (not
+    the POST-only address)."""
     from tests.conftest import create_test_family
 
     m = _variant(db_session, stock=5)
@@ -112,7 +114,7 @@ def test_a_signed_out_visitor_is_sent_to_sign_in(client, db_session, every_modul
 
     answer = client.post(f"/mijn/aankopen/{order.id}/annuleren", follow_redirects=False)
     assert answer.status_code == 302
-    assert answer.headers["location"].startswith("/aanmelden?terug=")
+    assert answer.headers["location"] == f"/aanmelden?terug=/mijn/aankopen/{order.id}"
 
 
 def test_a_household_member_can_cancel(client, db_session, every_module_on):
@@ -133,11 +135,11 @@ def test_a_household_member_can_cancel(client, db_session, every_module_on):
     db_session.flush()  # the partner is the test's own seed, before the app commits (#1885)
     order = _order(db_session, [(m.id, 1)], person_id=owner_person.id)
 
-    headers = _sign_in(client, "partner@example.com")
+    headers = {**_sign_in(client, "partner@example.com"), "HX-Request": "true"}
     answer = client.post(
         f"/mijn/aankopen/{order.id}/annuleren", headers=headers, follow_redirects=False
     )
-    assert answer.status_code == 303, answer.text[:300]
+    assert answer.status_code == 204, answer.text[:300]
 
     db_session.expire_all()
     assert get_order(db_session, order.id) is None, "the household member cancels the order"
@@ -215,13 +217,65 @@ def test_cancelling_a_paid_order_makes_the_refund_due(client, db_session, every_
     )
     db_session.commit()
 
-    headers = _sign_in(client, "eigenaar@example.com")
+    headers = {**_sign_in(client, "eigenaar@example.com"), "HX-Request": "true"}
     answer = client.post(
         f"/mijn/aankopen/{order_id}/annuleren", headers=headers, follow_redirects=False
     )
-    assert answer.status_code == 303
+    assert answer.status_code == 204
 
     db_session.expire_all()
     records = get_records_for(db_session, PayableType.ORDER, order_id)
     refunds = [r for r in records if r.type == PaymentType.REFUND]
     assert [r.amount for r in refunds] == [Decimal("-15.00")], "the paid order leaves a refund due"
+
+
+def test_a_cancel_without_csrf_is_refused_and_nothing_changes(client, db_session, every_module_on):
+    """B1: the owner's POST without the CSRF header answers 403 and cancels nothing."""
+    from app.domains.auth.api import SESSION_COOKIE, make_session_value
+    from app.domains.sales.api import get_order
+    from tests.conftest import create_test_family
+
+    m = _variant(db_session, stock=5)
+    _owner, owner_person = create_test_family(db_session, email="eigenaar@example.com")
+    order = _order(db_session, [(m.id, 1)], person_id=owner_person.id)
+
+    client.cookies.set(SESSION_COOKIE, make_session_value("eigenaar@example.com"))
+    answer = client.post(f"/mijn/aankopen/{order.id}/annuleren", follow_redirects=False)
+    assert answer.status_code == 403
+
+    db_session.expire_all()
+    assert get_order(db_session, order.id) is not None, "nothing is cancelled"
+
+
+def test_a_partly_paid_order_does_not_claim_nothing_was_paid(client, db_session, every_module_on):
+    """A2: on a partly paid order the cancel confirm says nothing about payment, so it
+    cannot claim the buyer paid nothing."""
+    from app.domains.payment.api import PayableType, confirm_manual_payment, get_records_for
+    from app.domains.sales.api import submit_order
+    from app.kernel.form_guard import TRUSTED
+    from tests.conftest import create_test_family, form_guard_fields
+
+    m = _variant(db_session, stock=5)
+    _owner, owner_person = create_test_family(db_session, email="eigenaar@example.com")
+    _checkout, order_id, _key = submit_order(
+        db_session,
+        proof=TRUSTED,
+        values=form_guard_fields(),
+        person_id=owner_person.id,
+        member=False,
+        contact_name="",
+        contact_email="",
+        phone="",
+        method=PaymentMethod.TRANSFER,
+        items=[(m.id, 2)],
+    )
+    (record,) = get_records_for(db_session, PayableType.ORDER, order_id)
+    confirm_manual_payment(
+        db_session, record.id, amount_paid=Decimal("15.00"), actor="penning@example.com"
+    )
+    db_session.commit()
+
+    _sign_in(client, "eigenaar@example.com")
+    page = client.get(f"/mijn/aankopen/{order_id}")
+    assert "Bestelling annuleren" in page.text
+    assert "nog niets betaald" not in page.text
