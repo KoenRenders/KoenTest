@@ -332,7 +332,7 @@ def test_the_form_and_the_save_give_one_total(db_session, every_module_on):
     db_session.commit()
 
     target = [(m.id, 1), (large.id, 1)]
-    kept_prices, _create, _remove = change_plan(db_session, order, target)
+    kept_prices, _remove = change_plan(db_session, order, target)
     form_lines = basket_lines(db_session, member=False, items=target, kept_prices=kept_prices)
     form_total = sum((line["price"] * line["quantity"] for line in form_lines), Decimal("0"))
 
@@ -340,7 +340,7 @@ def test_the_form_and_the_save_give_one_total(db_session, every_module_on):
     db_session.expire_all()
     changed = db_session.query(type(order)).get(order.id)
 
-    assert kept_prices[(m.id, 1)] == Decimal("10.00"), "the kept line keeps its old price"
+    assert kept_prices[0] == Decimal("10.00"), "the kept line keeps its old price"
     assert form_total == total_of(changed) == Decimal("30.00"), "the form and the save agree"
 
 
@@ -432,3 +432,50 @@ def test_the_x_removes_the_line_verkoop_clicked(client, db_session, every_module
     assert answer.status_code == 200, answer.text[:300]
     assert "maat M · 1 ×" in answer.text, "the 2 × line is removed and the 1 × stays"
     assert "maat M · 2 ×" not in answer.text
+
+
+def test_two_identical_kept_lines_each_keep_their_price(db_session, every_module_on):
+    """Two identical kept lines at two prices keep each its own price on the form and
+    in the save (the kept prices are per line, not per variant and quantity)."""
+    from app.domains.sales.api import basket_lines, change_plan
+
+    m = _variant(db_session, size="M", amount="15.00", stock=5)
+    order = _order(db_session, [(m.id, 1), (m.id, 1)])
+    order.lines[0].unit_price = Decimal("10.00")
+    order.lines[1].unit_price = Decimal("11.00")
+    db_session.commit()
+
+    target = [(m.id, 1), (m.id, 1)]
+    kept_prices, _remove = change_plan(db_session, order, target)
+    form_lines = basket_lines(db_session, member=False, items=target, kept_prices=kept_prices)
+    assert [line["price"] for line in form_lines] == [Decimal("10.00"), Decimal("11.00")]
+
+    change_order_lines(db_session, order.id, target, actor="verkoper@example.com")
+    db_session.expire_all()
+    changed = db_session.query(type(order)).get(order.id)
+    assert sorted(line.unit_price for line in changed.lines) == [
+        Decimal("10.00"),
+        Decimal("11.00"),
+    ]
+
+
+def test_two_delivered_twins_refuse_a_change_that_drops_one(db_session, every_module_on):
+    """Two delivered twins count as two: a change that keeps only one of them is
+    refused, naming the size."""
+    import pytest
+
+    from app.domains.sales.api import SalesError
+
+    m = _variant(db_session, size="M", amount="15.00", stock=5)
+    order = _order(db_session, [(m.id, 1), (m.id, 1)])
+    order.lines[0].delivered_at = date.today()
+    order.lines[1].delivered_at = date.today()
+    db_session.commit()
+
+    with pytest.raises(SalesError, match="Maat M is al geleverd"):
+        change_order_lines(db_session, order.id, [(m.id, 1)], actor="verkoper@example.com")
+
+    change_order_lines(db_session, order.id, [(m.id, 1), (m.id, 1)], actor="verkoper@example.com")
+    db_session.expire_all()
+    changed = db_session.query(type(order)).get(order.id)
+    assert [line.quantity for line in changed.lines] == [1, 1]

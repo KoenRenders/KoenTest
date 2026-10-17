@@ -335,12 +335,13 @@ def _board_order_view(
     items: list[tuple[int, int]],
     product_id: str = "",
     member_override: bool | None = None,
-    kept_prices: dict | None = None,
+    kept_prices: list | None = None,
 ) -> BoardOrderView:
     """The "Bestelling toevoegen" view-model (R43): the lines at the member price
     of the typed person, the articles for the picker, and the chosen article's
     sizes. `member_override` prices as the order's person, for the change form;
-    `kept_prices` shows a kept line at the price the save will write (A6)."""
+    `kept_prices` (aligned with the sorted items) shows a kept line at the price
+    the save will write (A6)."""
     from decimal import Decimal
 
     status, person, member = board_order_person(db, email)
@@ -529,12 +530,13 @@ def _change_order_view(
 
     order = get_order(db, order_id)
     member = order_person_member(db, order)
-    kept_prices, _to_create, _to_remove = change_plan(db, order, items)
+    target = sorted(items, key=lambda item: item[0])
+    kept_prices, _to_remove = change_plan(db, order, target)
     vm = _board_order_view(
         db,
         request,
         email=email,
-        items=items,
+        items=target,
         member_override=member,
         kept_prices=kept_prices,
     )

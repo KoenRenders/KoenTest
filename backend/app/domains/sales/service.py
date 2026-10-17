@@ -395,17 +395,17 @@ def basket_lines(
     line can still be ordered (Koen's "ja op beide"): a line no longer offered
     keeps only "Verwijderen"; a line that is only too many keeps its stepper,
     bounded by what can be ordered; the rest of the basket stays orderable. Only a
-    quantity below 1 is a refusal. `kept_prices` maps a `(variant_id, quantity)`
-    the change leaves alone to the price it already has (A6), so the change form
-    shows the price the save will write."""
+    quantity below 1 is a refusal. `kept_prices` is a list aligned with the sorted
+    items — the price of each kept line, `None` for a new one (A6) — so the change
+    form shows the price the save will write."""
     from app.i18n import _
     from app.kernel.tenant_config import tenant_max_item_quantity
 
     today = belgian_today()
     max_quantity = tenant_max_item_quantity(db)
-    kept = kept_prices or {}
+    kept = kept_prices or []
     lines: list[dict[str, Any]] = []
-    for variant_id, quantity in sorted(items, key=lambda item: item[0]):
+    for index, (variant_id, quantity) in enumerate(sorted(items, key=lambda item: item[0])):
         if quantity < 1:
             raise SalesError(_("Ongeldig aantal."))
         lines.append(
@@ -416,7 +416,7 @@ def basket_lines(
                 member=member,
                 today=today,
                 max_quantity=max_quantity,
-                kept_price=kept.get((variant_id, quantity)),
+                kept_price=kept[index] if index < len(kept) else None,
             )
         )
     return lines
@@ -849,26 +849,29 @@ def cancel_order(db: Session, order_id: int, *, actor: str | None) -> None:
 
 def change_plan(
     db: Session, order, target: list[tuple[int, int]]
-) -> tuple[dict[tuple[int, int], Decimal], list[tuple[int, int]], list]:
-    """Split a change's target against the order's lines: `kept_prices` maps a kept
-    `(variant_id, quantity)` to the price it already has, `to_create` is what is
-    left of the target after the kept lines are matched, and `to_remove` the
-    undelivered lines the target drops. Delivered lines are matched first (B3), so
-    a delivered line keeps its slot and an identical undelivered line is the one
-    removed — the order never ends with a dangling delivered line."""
-
-    to_create = list(target)
-    kept_prices: dict[tuple[int, int], Decimal] = {}
+) -> tuple[list[Decimal | None], list]:
+    """Split a change's target against the order's lines. `kept_prices` is a list
+    aligned with the sorted target — the price of each kept line at its position,
+    `None` for a line the change creates — so two identical kept lines each keep
+    their own price. `to_remove` is the undelivered lines the target drops.
+    Delivered lines are matched first (B3), so a delivered line keeps its slot and
+    an identical undelivered line is the one removed."""
+    target = sorted(target, key=lambda item: item[0])
+    kept_prices: list[Decimal | None] = [None] * len(target)
+    matched = [False] * len(target)
     to_remove: list = []
     ordered = sorted(order.lines, key=lambda line: line.delivered_at is None)
     for line in ordered:
         key = (line.variant_id, line.quantity)
-        if key in to_create:
-            to_create.remove(key)
-            kept_prices[key] = line.unit_price
-        elif line.delivered_at is None:
-            to_remove.append(line)
-    return kept_prices, to_create, to_remove
+        for index, item in enumerate(target):
+            if item == key and not matched[index]:
+                matched[index] = True
+                kept_prices[index] = line.unit_price
+                break
+        else:
+            if line.delivered_at is None:
+                to_remove.append(line)
+    return kept_prices, to_remove
 
 
 def change_order_lines(
@@ -909,29 +912,37 @@ def change_order_lines(
                 _("Ongeldig aantal: kies een waarde tussen 1 en %(max)s.") % {"max": max_quantity}
             )
 
-    # A delivered line the target no longer keeps is refused, naming the size.
-    for line in order.lines:
-        if line.delivered_at is None:
-            continue
-        if (line.variant_id, line.quantity) not in target:
-            variant = get_variant(db, line.variant_id)
+    # A delivered line the target no longer keeps is refused, naming the size: the
+    # target must keep at least as many of each delivered line as the order holds
+    # (two delivered twins count as two).
+    from collections import Counter
+
+    delivered_counts = Counter(
+        (line.variant_id, line.quantity) for line in order.lines if line.delivered_at is not None
+    )
+    target_counts = Counter(target)
+    for key, count in delivered_counts.items():
+        if target_counts.get(key, 0) < count:
+            variant = get_variant(db, key[0])
             size = size_of(variant) if variant is not None else ""
             raise SalesError(
                 _("Maat %(size)s is al geleverd en kan niet gewijzigd worden.")
-                % {"size": size or str(line.variant_id)}
+                % {"size": size or str(key[0])}
             )
 
     # The lines the target keeps — delivered or not — stay; the undelivered ones it
-    # does not keep are released and soft-deleted. `to_create` is what is left of
-    # the target after the kept lines are matched (delivered first).
-    _kept_prices, to_create, to_remove = change_plan(db, order, target)
+    # does not keep are released and soft-deleted. `kept_prices` marks which target
+    # positions are kept (their price and reservation stay) and which are new.
+    kept_prices, to_remove = change_plan(db, order, target)
 
     savepoint = db.begin_nested()
     try:
         for line in to_remove:
             call(ReleaseStock(order_line_id=line.id), db)
             soft_delete(line)
-        for variant_id, quantity in to_create:
+        for index, (variant_id, quantity) in enumerate(target):
+            if kept_prices[index] is not None:
+                continue  # a kept line: its price and its reservation stay
             variant = get_variant(db, variant_id)
             if variant is None:
                 raise SalesError(_("Dit artikel wordt niet meer aangeboden."))
