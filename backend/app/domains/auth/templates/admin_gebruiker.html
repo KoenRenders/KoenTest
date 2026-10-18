@@ -1,0 +1,40 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ user.email }} — {{ _("Raak beheer") }}{% endblock %}
+{% block content %}
+{# The account's record (#2114, CR-11 fase 5; end state §2.2, §5.2) on the record
+   layout: the head with Bewerken and Acties, the summary card beside the form column,
+   and the cards Account and the roles — one card per workspace on the platform.
+
+   READ first; `?bewerken=1` is the edit mode with ONE "Opslaan" in the action bar,
+   which writes the address, active and the roles in one request. Nothing on the page
+   saves on its own. `#gu-record` is what a good answer replaces. #}
+<div id="gu-record">
+{{ ui.record_header(record_head.title, badges=record_head.badges, facts=record_head.facts,
+                    primary=record_head.primary, actions=record_head.actions, back=way_back,
+                    editing=edit) }}
+{% set _card %}{{ ui.summary_card(summary.state, summary.figures) }}{% endset %}
+{% call ui.record_columns(aside=_card|trim) %}
+<div data-form-flow data-mode="{{ 'edit' if edit else 'read' }}" class="form-flow">
+  <div id="gu-melding" data-form-message></div>
+  {% if edit %}
+  <form id="gu-form" class="contents" data-record-form data-message="#gu-melding" novalidate
+        hx-post="/admin/gebruikers/{{ user_id }}"
+        hx-target="#gu-record" hx-select="#gu-record"
+        hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap">
+  {% endif %}
+  {% call ui.section(_("Account"), id="gu-section-account") %}
+    {{ ui.field("email", attribute="auth.user.email", kind="email", value=user.email, edit=edit, required=True, id="gu-email") }}
+    {{ ui.field("is_active", _("Actief"), kind="switch", value=user.is_active, edit=edit, id="gu-actief") }}
+  {% endcall %}
+  {% include "_gu_rollen_kaarten.html" %}
+  {% if edit %}
+  </form>
+  {{ ui.action_bar(record=True, form="gu-form", cancel_href=cancel_href, delete_attrs=delete_attrs, delete_confirm=delete_confirm) }}
+  {% endif %}
+</div>
+{% endcall %}
+</div>
+{# The toast lands in the shell's host, outside what the answer replaces. #}
+{% if saved %}{{ ui.toast_oob() }}{% endif %}
+{% endblock %}

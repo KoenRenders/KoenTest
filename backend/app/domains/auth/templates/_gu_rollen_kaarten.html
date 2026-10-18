@@ -1,0 +1,28 @@
+{% import "_macros.html" as ui %}
+{# The roles of an account (#2114), as the kit's cards: on the platform ONE CARD PER
+   WORKSPACE with the workspace's name as its title (so a new tenant's first users
+   are made from there, and an operator manages them on behalf of the departments),
+   plus the platform-wide role for who is an operator himself; in a workspace one
+   card "Rollen" for that workspace — without OPERATOR, which is given on the
+   platform only. A role stands with its label from the code list, never its code
+   (CR-24). The same cards stand in the create page (`edit`) and in the record.
+   Context: edit, op_platform, werkruimtes, role_pairs, toon_operator, operator_label,
+   sel (a set — or {workspace id: set} on the platform) and operator_aan. #}
+{% if op_platform %}
+  {% for wid, wnaam in werkruimtes %}
+  {% call ui.section(wnaam, id="gu-werkruimte-" ~ wid) %}
+    {{ ui.field("rollen_" ~ wid, _("Rollen"), kind="checkbox_group", value=sel.get(wid, [])|list, options=role_pairs, edit=edit, id="gu-rollen-" ~ wid) }}
+  {% endcall %}
+  {% endfor %}
+  {% if toon_operator %}
+  {% call ui.section(_("Platformbreed"), id="gu-platformbreed") %}
+    {{ ui.field("operator", operator_label, kind="switch", value=operator_aan, edit=edit, id="gu-operator") }}
+  {% endcall %}
+  {% endif %}
+{% else %}
+  {% call ui.section(_("Rollen"), id="gu-rollen") %}
+    {{ ui.field("role_codes", _("Rollen"), kind="checkbox_group", value=sel|list, options=role_pairs, edit=edit, id="gu-rollen-hier") }}
+    {# #1500: a platform-wide role holds here too; it is shown, not edited here. #}
+    {% if operator_aan %}<p data-span="full" class="text-sm leading-[21px] text-ink">{{ ui.badge(_("%(role)s · alle werkruimtes", role=operator_label), "blue") }}</p>{% endif %}
+  {% endcall %}
+{% endif %}

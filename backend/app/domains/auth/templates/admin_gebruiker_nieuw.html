@@ -4,7 +4,8 @@
 {% block content %}
 {# Aanmaakscherm als volledige pagina (#627, §2.8): geen modal. Sinds #2110 op de
    kit, zoals Nieuw lid: kitkop, de velden als `ui.field` in een `ui.section`, de
-   actiebalk met één Opslaan. #}
+   actiebalk met één Opslaan. Sinds #2114 staan de rollen er als de kaarten van het
+   record (`_gu_rollen_kaarten.html`). #}
 {% call ui.public_form_page(_("Nieuwe gebruiker"), shell="admin",
                             back_href="/admin/gebruikers", back_label=_("Gebruikers"),
                             intro=_("Inloggen gebeurt met een e-mailcode — er zijn geen wachtwoorden.")) %}
@@ -20,17 +21,10 @@
    rendert — en dat hoort dus op deze pagina te landen, zodat de foutbanner op
    zijn plek verschijnt. Zelfde keuze als `admin_tenant_nieuw.html`. #}
 <form id="gebruiker-nieuw-form" class="contents" hx-post="/admin/gebruikers" hx-target="body" hx-swap="innerHTML">
-  <input type="hidden" name="q" value="{{ q }}">
-  <input type="hidden" name="rol" value="{{ rol }}">
-  <input type="hidden" name="actief" value="{{ actief }}">
   {% call ui.section(_("Gebruiker")) %}
-  {{ ui.field("email", attribute="auth.user.email", kind="email", id="gu-email", required=True) }}
-  <div data-span="full" class="flex flex-wrap gap-4 text-sm">
-    {% with sel = {}, operator_aan = False %}
-    {% include "_gu_rollen_velden.html" %}
-    {% endwith %}
-  </div>
+  {{ ui.field("email", attribute="auth.user.email", kind="email", value=email, id="gu-email", required=True) }}
   {% endcall %}
+  {% include "_gu_rollen_kaarten.html" %}
 </form>
 {{ ui.action_bar(record=True, form="gebruiker-nieuw-form", cancel_href="/admin/gebruikers") }}
 </div>
