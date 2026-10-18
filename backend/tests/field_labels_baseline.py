@@ -94,6 +94,10 @@ TYPED_LABELS: dict[str, dict[str, int]] = {
     "domains/workflow/templates/werkbank_taak.html": {
         "Besluit": 1,
     },
+    # #2110: the files of an upload are no datum of the register.
+    "domains/media/templates/admin_media_nieuw.html": {
+        "Bestanden (afbeeldingen)": 1,
+    },
     "ui/templates/admin_organisatie.html": {
         "BIC": 1,
         "Begunstigde": 1,
@@ -113,6 +117,13 @@ TYPED_LABELS: dict[str, dict[str, int]] = {
         "Telefoon": 1,
         "TikTok": 1,
         "Website": 1,
+    },
+    # #2110: "Account" is the tenant's parent organisation, a foreign key to a table that is
+    # no code list, so technical and with no register entry; "Canonieke URL" is a tenant setting
+    # (`tenant_settings`), not a datum of the register. The tenant editor types both the same way.
+    "ui/templates/admin_tenant_nieuw.html": {
+        "Account": 1,
+        "Canonieke URL": 1,
     },
     "ui/templates/admin_tenant.html": {
         "Account": 1,

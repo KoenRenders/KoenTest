@@ -162,7 +162,7 @@ def test_a_page_created_through_the_screen_opens_and_saves(setup):
         pagina_klaar(page)
         page.fill("#title", "E2e aanmaak")
         page.fill("#slug", f"e2e-aanmaak-{tag}")
-        page.locator('form[hx-post="/admin/paginas"] button[type="submit"]').click()
+        page.locator("[data-action-bar] button[data-form-save]").click()
         page.wait_for_url(_re.compile(r"/admin/paginas/\d+"), timeout=15000)
         pagina_klaar(page)
         page.wait_for_selector(f"{EDITOR} .tiptap")

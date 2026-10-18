@@ -131,7 +131,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="mdm.organization.code",
         columns=("mdm.organizations.code",),
-        label=None,
+        label="Code",
         name_en="Code",
         help="The code of the organization.",
         ai_exposure=AiExposure.INTERNAL,  # K9
@@ -139,7 +139,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="mdm.organization.name",
         columns=("mdm.organizations.name",),
-        label=None,
+        label="Naam",
         name_en="Name",
         help="The name of the organization.",
         ai_exposure=AiExposure.INTERNAL,  # K9
@@ -171,7 +171,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="mdm.organization.kind",
         columns=("mdm.organizations.kind",),
-        label=None,
+        label="Type",
         name_en="Kind",
         help="The kind of the organization, a code of its code list.",
         ai_exposure=AiExposure.INTERNAL,  # K0
