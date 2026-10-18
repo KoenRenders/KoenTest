@@ -15,6 +15,7 @@
         hx-post="{{ post_url }}" hx-swap="none">
     {% call ui.section(_("Terugbetaling"), id="terugbetaling") %}
       <p data-span="full" data-refund-received class="text-sm leading-[21px] text-ink">{{ ui.label_fact(_("Ontvangen"), received) }}</p>
+      {# promise walked by: test_a_refund_without_an_amount_is_refused #}
       {{ ui.field("amount", _("Terug te betalen bedrag"), kind="number", unit="€", required=True, id="bk-refund-amount",
                   placeholder="0.00", attrs='step="0.01" min="0" autofocus') }}
       {{ ui.field("note", _("Reden"), id="bk-refund-note", long=True) }}
