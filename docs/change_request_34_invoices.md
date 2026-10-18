@@ -113,7 +113,7 @@ flowchart LR
 
 *What to see: the new blue steps are "Issue the invoice", "Mail the invoice", "Follow the open invoices" and "Hand the invoices over"; the buyer's first step gains one question.*
 
-- **"Order" gains a choice and an address:** for myself or on behalf of an organisation (CR-26).
+- **"Order" gains a choice, and this change an address step:** for myself or on behalf of an organisation (CR-26, which asks nobody an address: the buyer copy takes it from the party when it has one, and stays empty for a guest); the address is asked here, only where an invoice is issued to a buyer whose party holds none.
 - **"Issue the invoice" is new:** the portal numbers the invoice, calculates the VAT and writes the payment text. Online and paid: "voldaan". Transfer: the OGM and a due date.
 - **"Hand the invoices to the bookkeeper" is new:** the portal produces the set, so nobody retypes it.
 
@@ -467,7 +467,7 @@ Measured on master @ `ff5eeb3a` and on the build branch of CR-21 @ `508ee052` on
 | Item | Answer |
 |---|---|
 | Reporting views, saved reports | `f_invoices` is new; `f_payments` unchanged |
-| Existing tests, e2e flows, screenshots | the checkout flow of CR-21 changes (the address, and CR-26's choice); its e2e and 390 px screenshots are redone |
+| Existing tests, e2e flows, screenshots | the checkout flow of CR-21 changes (the address step this change adds, and CR-26's choice); its e2e and 390 px screenshots are redone |
 | Fixed UI decisions, `AGENTS.md` | none bent; the invoice text says what an invoice is, not what other domains do |
 | Design-system documentation | the invoice document and the Facturen list get a section |
 | Code lists | tax scheme, category, class; invoice type; `ModuleCode.INVOICES` |
