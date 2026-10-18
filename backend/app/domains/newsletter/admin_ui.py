@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import logging
 from typing import Optional
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -45,10 +46,21 @@ from app.domains.newsletter.viewmodels import (
     NewsletterSettingsView,
     SubscriberImportView,
     SubscriberListView,
+    SubscriberNewView,
 )
 from app.i18n import _, local_moment, short_datetime
 from app.kernel.codes import code_label, code_labels, code_of, register_tones, tone
-from app.ui import admin_nav, delete_question, is_fragment_request, templates
+from app.kernel.refusals import FieldError
+from app.ui import (
+    PER_PAGE_OPTIONS,
+    admin_nav,
+    delete_question,
+    filterparams,
+    is_fragment_request,
+    per_page_from,
+    refusal_response,
+    templates,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -201,25 +213,74 @@ def newsletter_create(
 # so "abonnees" can never be read as a letter.
 
 
+SUBSCRIBERS = "/admin/nieuwsbrieven/abonnees"
+SUBSCRIBERS_LIST = SUBSCRIBERS + "/lijst"
+
+
+def _subscriber_state(request: Request) -> dict:
+    """The list's state from the URL (the toolbar's form pushes it; a row's
+    mutation reads it back from the current URL, so Uitschrijven keeps the filter)."""
+    stand = filterparams(request)
+    status = (stand.get("status") or "").strip()
+    sort = (stand.get("sort") or "").strip()
+    try:
+        page = max(1, int(stand.get("page") or 1))
+    except ValueError:
+        page = 1
+    return {
+        "q": (stand.get("q") or "").strip(),
+        "status": status if status in {m.value for m in nb.SubscriberStatus} else "",
+        "sort": sort if sort.lstrip("-") == "since" else "",
+        "page": page,
+        "per_page": per_page_from(stand.get("per_page")),
+    }
+
+
+def _subscriber_figures(counts: dict[str, int]) -> list[dict]:
+    """The figures of the title row (§5.1; Koen, CR-11 Q28: the figure is acted on weekly)."""
+    return [
+        {
+            "value": str(counts["confirmed"]),
+            "label": _("Bevestigd"),
+            "title": _("Adressen die hun inschrijving bevestigden."),
+        },
+        {
+            "value": str(counts["pending"]),
+            "label": _("Wachten"),
+            "title": _("Adressen die hun inschrijving nog moeten bevestigen."),
+        },
+        {
+            "value": str(counts["unsubscribed"]),
+            "label": _("Uitgeschreven"),
+            "title": _("Adressen die zich uitschreven."),
+        },
+    ]
+
+
 def _subscriber_view(
-    request: Request,
-    db: Session,
-    q: str = "",
-    status: str = "",
-    error: Optional[str] = None,
-    notice: Optional[str] = None,
+    request: Request, db: Session, error: Optional[str] = None, **extra
 ) -> SubscriberListView:
-    rows = nb.list_subscribers(db, query=q, status=status)
+    s = _subscriber_state(request)
+    oldest_first = s["sort"] == "since"
+    rows = nb.list_subscribers(
+        db,
+        query=s["q"],
+        status=s["status"],
+        oldest_first=oldest_first,
+        page=s["page"],
+        per_page=s["per_page"],
+    )
+    total = nb.count_subscribers(db, query=s["q"], status=s["status"])
     post = 'hx-target="#nb-abonnees" hx-swap="innerHTML" hx-post="/admin/nieuwsbrieven/abonnees'
     row_controls = {
-        s.id: {
+        s_.id: {
             "action": {
                 "label": _("Uitschrijven"),
-                "attrs": f'{post}/{s.id}/uitschrijven"',
+                "attrs": f'{post}/{s_.id}/uitschrijven"',
                 "confirm": _("%(adres)s uitschrijven? Het adres krijgt geen nieuwsbrief meer.")
-                % {"adres": s.email},
+                % {"adres": s_.email},
             }
-            if s.status is not nb.SubscriberStatus.UNSUBSCRIBED
+            if s_.status is not nb.SubscriberStatus.UNSUBSCRIBED
             else None,
             # Verwijderen wist het adres helemaal — ook in het archief (recht op
             # vergetelheid). Uitschrijven bewaart de keuze; verwijderen bewaart niets.
@@ -227,17 +288,30 @@ def _subscriber_view(
                 {
                     "kind": "delete",
                     "label": _("Verwijderen"),
-                    "attrs": f'{post}/{s.id}/verwijderen"',
-                    "confirm": delete_question(_("Adres"), s.email),
+                    "attrs": f'{post}/{s_.id}/verwijderen"',
+                    "confirm": delete_question(_("Adres"), s_.email),
                 }
             ],
         }
-        for s in rows
+        for s_ in rows
     }
+    counts = nb.subscriber_counts(db)
+    filters = {k: s[k] for k in ("q", "status") if s[k]}
+    way = {**filters, "per_page": s["per_page"]}
+    next_sort = "" if s["sort"] == "since" else "since"
+    since_query = urlencode({**way, "sort": next_sort})
     return SubscriberListView(
         subscribers=rows,
-        counts=nb.subscriber_counts(db),
-        status_options=code_labels(nb.SUBSCRIBER_STATUS.name, db=db),
+        counts=counts,
+        figures=_subscriber_figures(counts),
+        # In the order and the words of §5.1 (the code list's own order and label —
+        # "Wacht op bevestiging" — are for the badge of a row).
+        segments=[
+            {"value": "", "label": _("Alle")},
+            {"value": nb.SubscriberStatus.CONFIRMED.value, "label": _("Bevestigd")},
+            {"value": nb.SubscriberStatus.PENDING.value, "label": _("Wachten")},
+            {"value": nb.SubscriberStatus.UNSUBSCRIBED.value, "label": _("Uitgeschreven")},
+        ],
         columns=[
             {"key": "email", "label": _("Adres"), "cell": "name"},
             # Koen, 16 October 2026 ("b"): on a wide screen Bron before Voornaam —
@@ -245,43 +319,85 @@ def _subscriber_view(
             {"key": "first_name", "label": _("Voornaam"), "cell": "extra", "priority": 1},
             {"key": "source", "label": _("Bron"), "cell": "extra", "priority": 2},
             {"key": "status", "label": _("Status"), "cell": "status"},
-            {"key": "since", "label": _("Sinds"), "cell": "moment"},
+            {
+                "key": "since",
+                "label": _("Sinds"),
+                "cell": "moment",
+                "sort_url": f"{SUBSCRIBERS_LIST}?{since_query}",
+                "sort_page_url": f"{SUBSCRIBERS}?{since_query}",
+                "sorted": "asc" if oldest_first else "desc",
+            },
             {"key": "actions", "label": _("Acties"), "cell": "actions"},
         ],
         row_controls=row_controls,
         source_labels={
-            s.id: (
-                _("import %(d)s") % {"d": nb.short_date(local_moment(s.imported_at).date())}
-                if s.source == nb.SubscriberSource.IMPORT and s.imported_at
-                else code_label(nb.SUBSCRIBER_SOURCE.name, s.source, db=db)
+            s_.id: (
+                _("import %(d)s") % {"d": nb.short_date(local_moment(s_.imported_at).date())}
+                if s_.source == nb.SubscriberSource.IMPORT and s_.imported_at
+                else code_label(nb.SUBSCRIBER_SOURCE.name, s_.source, db=db)
             )
-            for s in rows
+            for s_ in rows
         },
-        moments={s.id: short_datetime(s.confirmed_at or s.created_at) for s in rows},
-        q=q,
-        status=status,
+        moments={s_.id: short_datetime(s_.confirmed_at or s_.created_at) for s_ in rows},
+        q=s["q"],
+        status=s["status"],
+        sort=s["sort"],
+        sort_options=[("", _("Recentste eerst")), ("since", _("Oudste eerst"))],
+        page=s["page"],
+        per_page=s["per_page"],
+        total=total,
+        page_sizes=list(PER_PAGE_OPTIONS),
+        pager_url=f"{SUBSCRIBERS_LIST}?{urlencode({**way, 'sort': s['sort']})}",
+        empty_reason=_("Geen abonnees die hierbij passen.")
+        if filters
+        else _("Er zijn nog geen abonnees."),
         csrf_token=_csrf(request),
         error=error,
-        notice=notice,
-        nav_items=admin_nav(NAV, request),
+        **extra,
     )
 
 
-@router.get("/admin/nieuwsbrieven/abonnees", response_class=HTMLResponse)
+@router.get(SUBSCRIBERS, response_class=HTMLResponse)
 def subscriber_list(
     request: Request,
     db: Session = Depends(get_db),
     _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
-    q: str = "",
-    status: str = "",
+    toegevoegd: str = "",
 ):
-    view = _subscriber_view(request, db, q=q, status=status)
-    template = "_nb_abonnees.html" if is_fragment_request(request) else "admin_abonnees.html"
-    return templates.TemplateResponse(request, template, view.as_context())
+    notice = _("%(adres)s staat op de lijst.") % {"adres": toegevoegd} if toegevoegd else None
+    view = _subscriber_view(request, db, notice=notice, nav_items=admin_nav(NAV, request))
+    return templates.TemplateResponse(request, "admin_abonnees.html", view.as_context())
+
+
+@router.get(SUBSCRIBERS_LIST, response_class=HTMLResponse)
+def subscriber_fragment(
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
+):
+    """The list alone: the toolbar swaps this fragment, so the search field is not
+    replaced under the fingers."""
+    view = _subscriber_view(request, db, oob=True)
+    return templates.TemplateResponse(request, "_nb_abonnees.html", view.as_context())
+
+
+@router.get(SUBSCRIBERS + "/nieuw", response_class=HTMLResponse)
+def subscriber_new(
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
+):
+    return templates.TemplateResponse(
+        request, "admin_abonnee_nieuw.html", _subscriber_new_view(request).as_context()
+    )
+
+
+def _subscriber_new_view(request: Request) -> SubscriberNewView:
+    return SubscriberNewView(csrf_token=_csrf(request), nav_items=admin_nav(NAV, request))
 
 
 @router.post(
-    "/admin/nieuwsbrieven/abonnees",
+    SUBSCRIBERS,
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
 )
@@ -292,14 +408,18 @@ def subscriber_add(
     subscriber_email: str = Form(""),
     first_name: str = Form(""),
 ):
+    """The page "+ Adres" opens: on success back to the list, with the address named;
+    on a refusal its reason in the page's message line."""
     try:
         row = nb.add_by_admin(db, subscriber_email, first_name)
-        view = _subscriber_view(
-            request, db, notice=_("%(adres)s staat op de lijst.") % {"adres": row.email}
-        )
     except nb.NewsletterError as exc:
-        view = _subscriber_view(request, db, error=str(exc))
-    return templates.TemplateResponse(request, "_nb_abonnees.html", view.as_context())
+        return refusal_response(
+            request, [FieldError("subscriber_email", str(exc))], "#abonnee-melding", send=True
+        )
+    return Response(
+        status_code=204,
+        headers={"HX-Redirect": f"{SUBSCRIBERS}?{urlencode({'toegevoegd': row.email})}"},
+    )
 
 
 @router.post(
@@ -315,7 +435,7 @@ def subscriber_unsubscribe(
 ):
     nb.unsubscribe_by_admin(db, subscriber_id)
     return templates.TemplateResponse(
-        request, "_nb_abonnees.html", _subscriber_view(request, db).as_context()
+        request, "_nb_abonnees.html", _subscriber_view(request, db, oob=True).as_context()
     )
 
 
@@ -333,7 +453,7 @@ def subscriber_erase(
     """The right to erasure: the address disappears, also from the archive."""
     nb.erase(db, subscriber_id)
     return templates.TemplateResponse(
-        request, "_nb_abonnees.html", _subscriber_view(request, db).as_context()
+        request, "_nb_abonnees.html", _subscriber_view(request, db, oob=True).as_context()
     )
 
 
@@ -408,6 +528,7 @@ def subscriber_import_run(
         db,
         notice=_("%(n)s adressen toegevoegd. Gekende en uitgeschreven adressen bleven ongewijzigd.")
         % {"n": len(result.new)},
+        nav_items=admin_nav(NAV, request),
     )
     if request.headers.get("HX-Request"):
         return Response(status_code=204, headers={"HX-Redirect": "/admin/nieuwsbrieven/abonnees"})

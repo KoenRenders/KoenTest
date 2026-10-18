@@ -1,16 +1,11 @@
 {% import "_macros.html" as ui %}
 {% if error %}{{ ui.error_banner(error) }}{% endif %}
-{% if notice %}{{ ui.success_banner(notice) }}{% endif %}
-
-<p class="text-sm text-ink-soft mb-3">
-  {{ _("%(b)s bevestigd · %(w)s wachten op bevestiging · %(u)s uitgeschreven",
-       b=counts["confirmed"], w=counts["pending"], u=counts["unsubscribed"]) }}
-</p>
 
 {# The kit's table (#1925; Koen, 16 October 2026, "7 ja"): a subscriber has no
    record of its own, so the address is the row's name without a link; the one
    visible action is "Uitschrijven", "Verwijderen" stands behind ⋯. #}
-{% call ui.data_table(columns, caption=_("Abonnees")) %}
+{% if subscribers %}
+{% call ui.data_table(columns, hx_target="#nb-abonnees", caption=_("Abonnees")) %}
   <tbody>
   {% for s in subscribers %}
     <tr data-row class="align-middle" data-subscriber-row>
@@ -25,22 +20,14 @@
       <td data-cell="moment" class="border-b border-line px-3 py-2 text-ink-soft whitespace-nowrap">{{ moments[s.id] }}</td>
       <td data-cell="actions" class="border-b border-line px-3 py-2">{{ ui.row_actions_cell(row_controls[s.id].action, row_controls[s.id].menu, label=s.email) }}</td>
     </tr>
-  {% else %}
-    <tr><td colspan="6" class="px-3 py-4 text-ink-soft">{{ _("Geen abonnees die hierbij passen.") }}</td></tr>
   {% endfor %}
   </tbody>
 {% endcall %}
-
-<div class="bg-surface border border-line rounded-2xl p-5 mt-4">
-  <h2 class="font-semibold text-blue-700">{{ _("Adres toevoegen") }}</h2>
-  <p class="text-sm text-ink-soft mt-0.5">{{ _("Voor iemand die het je persoonlijk vroeg. Wie zich uitschreef, kan zich alleen zelf opnieuw inschrijven.") }}</p>
-  <form class="mt-3 flex flex-wrap items-center gap-2" hx-post="/admin/nieuwsbrieven/abonnees"
-        hx-target="#nb-abonnees" hx-swap="innerHTML">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    {{ ui.input_control("subscriber_email", id="nb-nieuw-adres", type="email", cls="w-full sm:w-72",
-                        placeholder=_("naam@voorbeeld.be"), required=True, aria_label=_("E-mail")) }}
-    {{ ui.input_control("first_name", id="nb-nieuw-voornaam", cls="w-full sm:w-40",
-                        placeholder=_("Voornaam (niet verplicht)"), aria_label=_("Voornaam")) }}
-    {{ ui.btn_primary(_("Toevoegen"), type="submit", size="sm", lead_icon="plus") }}
-  </form>
-</div>
+{{ ui.pager(page, per_page=per_page, total=total, hx_get=pager_url, hx_target="#nb-abonnees", count=False, push=True) }}
+{% else %}
+{{ ui.empty_state(empty_reason) }}
+{% endif %}
+{% if oob %}
+{{ ui.toolbar_oob("nb-filter", page=page, per_page=per_page, total=total, sort=sort) }}
+<div id="list-figures" hx-swap-oob="innerHTML">{{ ui.figures(figures) }}</div>
+{% endif %}

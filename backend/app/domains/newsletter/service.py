@@ -99,7 +99,7 @@ def subscriber_by_email(db: Session, email: str) -> Optional[Subscriber]:
     return db.query(Subscriber).filter(Subscriber.email == email).first()
 
 
-def list_subscribers(db: Session, *, query: str = "", status: str = "") -> list[Subscriber]:
+def _subscriber_query(db: Session, *, query: str = "", status: str = ""):
     q = db.query(Subscriber)
     if status:
         q = q.filter(Subscriber.status == status)
@@ -107,7 +107,34 @@ def list_subscribers(db: Session, *, query: str = "", status: str = "") -> list[
     if needle:
         like = f"%{needle}%"
         q = q.filter((Subscriber.email.ilike(like)) | (Subscriber.first_name.ilike(like)))
-    return q.order_by(Subscriber.created_at.desc(), Subscriber.id.desc()).all()
+    return q
+
+
+def list_subscribers(
+    db: Session,
+    *,
+    query: str = "",
+    status: str = "",
+    oldest_first: bool = False,
+    page: int = 1,
+    per_page: int | None = None,
+) -> list[Subscriber]:
+    """The subscribers matching the search and the status, newest first (by the
+    moment the list shows — confirmed, else created) or oldest first; one page of
+    `per_page` when given, all of them otherwise."""
+    since = func.coalesce(Subscriber.confirmed_at, Subscriber.created_at)
+    order = (
+        (since.asc(), Subscriber.id.asc()) if oldest_first else (since.desc(), Subscriber.id.desc())
+    )
+    q = _subscriber_query(db, query=query, status=status).order_by(*order)
+    if per_page is not None:
+        q = q.offset((max(1, page) - 1) * per_page).limit(per_page)
+    return q.all()
+
+
+def count_subscribers(db: Session, *, query: str = "", status: str = "") -> int:
+    """How many subscribers match the search and the status (the toolbar's count)."""
+    return _subscriber_query(db, query=query, status=status).count()
 
 
 def subscriber_counts(db: Session) -> dict[str, int]:

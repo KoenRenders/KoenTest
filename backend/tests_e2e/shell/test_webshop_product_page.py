@@ -102,13 +102,53 @@ def _article(name: str, pictures: int, sizes: list[str]) -> int:
         db.close()
 
 
+def _remove(product_ids: list[int]) -> None:
+    """Take the articles away again, with everything made for them, so the shop's
+    tenant is as the seed left it: `test_webshop.py` walks the seeded articles and
+    reads the first of a list, whichever file runs first (master CLI, 18 October
+    2026: the order of the files may not decide)."""
+    import app.models  # noqa: F401
+    from app.database import SessionLocal
+    from app.domains.mdm.api import tenant_codes
+    from app.domains.media.api import MediaAsset
+    from app.domains.pricing.models import Price
+    from app.domains.product.api import ProductAttachment
+    from app.domains.product.models import Product, ProductVariant
+    from app.domains.stock.models import StockMovement
+    from app.kernel.tenancy import current_tenant_id
+
+    db = SessionLocal()
+    token = current_tenant_id.set(tenant_codes(db)["winkel"])
+    try:
+        attachments = db.query(ProductAttachment).filter(
+            ProductAttachment.product_id.in_(product_ids)
+        )
+        asset_ids = [a.media_asset_id for a in attachments]
+        attachments.delete(synchronize_session=False)
+        db.query(MediaAsset).filter(MediaAsset.id.in_(asset_ids)).delete(synchronize_session=False)
+        variants = db.query(ProductVariant).filter(ProductVariant.product_id.in_(product_ids))
+        variant_ids = [v.id for v in variants]
+        db.query(StockMovement).filter(StockMovement.variant_id.in_(variant_ids)).delete(
+            synchronize_session=False
+        )
+        db.query(Price).filter(Price.product_id.in_(product_ids)).delete(synchronize_session=False)
+        variants.delete(synchronize_session=False)
+        db.query(Product).filter(Product.id.in_(product_ids)).delete(synchronize_session=False)
+        db.commit()
+    finally:
+        current_tenant_id.reset(token)
+        db.close()
+
+
 @pytest.fixture(scope="module")
 def articles():
     tag = secrets.token_hex(3)
-    return {
+    made = {
         "four": _article(f"Webshop Trui {tag}", 4, SIZES),
         "one": _article(f"Webshop Pet {tag}", 1, ["M", "L", "XL"]),
     }
+    yield made
+    _remove(list(made.values()))
 
 
 @pytest.fixture(scope="module")
