@@ -221,6 +221,8 @@ def list_users(db: Session, _admin=None):
 
 
 def create_user(body: UserCreate, db: Session, _admin=None):
+    if not (body.email or "").strip():
+        raise UserRefused(_("E-mailadres is verplicht."), field="email")
     if db.query(User).filter(User.email == body.email).first():
         raise UserRefused(_("E-mailadres is al in gebruik."), field="email")
     _validate_role_codes(db, body.role_codes)

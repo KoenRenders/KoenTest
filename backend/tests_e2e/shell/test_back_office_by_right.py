@@ -153,7 +153,11 @@ def test_gebruikers_ticks_roles_by_their_label(page, sessions):
     login_met_sessie(page, sessions["ADMIN"])
     page.goto(BASE + "/admin/gebruikers")
     pagina_klaar(page)
-    row = page.locator("#gu-lijst form").first
+    # #2114: a user is a record; the roles stand to tick in its editor.
+    href = page.locator("#gu-lijst a[data-row-link]").first.get_attribute("href")
+    page.goto(BASE + href + "&bewerken=1")
+    pagina_klaar(page)
+    row = page.locator("#gu-form")
     expect(row).to_be_visible()
     labels = [
         t.strip() for t in row.locator('label:has(input[name="role_codes"])').all_inner_texts()

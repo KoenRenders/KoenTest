@@ -178,7 +178,7 @@ SCHERMEN = [
     ("/admin/rapporten", {"q", "owner", "shared"}),
     # #1527: the tree chooses the kind and the activity; the row keeps the search.
     ("/admin/media", {"q"}),
-    ("/admin/gebruikers", {"q", "rol", "actief"}),
+    # Gebruikers is a `list_page` with the kit toolbar since #2114: `test_three_lists_2109.py` style.
 ]
 
 
@@ -221,7 +221,6 @@ def test_het_zoekveld_wint_de_restbreedte(client, db_session):
             "domains/forms/templates/admin_formulieren.html",
             "domains/reporting/templates/admin_rapporten.html",
             "domains/media/templates/admin_media.html",
-            "domains/auth/templates/admin_gebruikers.html",
         )
     ]
     for pad in balken:

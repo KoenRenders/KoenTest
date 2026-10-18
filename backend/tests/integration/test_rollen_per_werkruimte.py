@@ -339,3 +339,19 @@ def test_migratie_plaatst_account_admin_bij_raak_vzw_en_platform(db_session):
     assert platform is not None
     assert {t for c, t in rijen if c == "ACCOUNT_ADMIN"} == {1, platform}
     assert {t for c, t in rijen if c == "ADMIN"} == {1, 2, 3}
+
+
+def test_on_the_platform_every_workspace_is_a_card_with_its_name_2114(
+    client, db_session, platform_host
+):
+    """#2114: the record of an account on the platform has a card per workspace, its name
+    as the title, and the platform-wide role for an operator."""
+    doel = _user(db_session, "platform-2114@example.com", ("ADMIN", TENANT_MILLEGEM_ID))
+    db_session.commit()
+    _login(client)
+    html = client.get(
+        f"/admin/gebruikers/{doel.id}?bewerken=1", headers={"host": platform_host}
+    ).text
+    for workspace in (TENANT_MILLEGEM_ID, TENANT_VOORBEELD_ID):
+        assert f'id="gu-werkruimte-{workspace}"' in html and f'name="rollen_{workspace}"' in html
+    assert 'name="operator"' in html, "the platform-wide role, for an operator"

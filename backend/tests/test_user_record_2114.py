@@ -26,8 +26,6 @@ from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
 
-PLATFORM_HOST = "platform.example.test"
-
 
 def _login(client, email=SEEDED_ADMIN_EMAIL):
     value = make_session_value(email)
@@ -51,17 +49,6 @@ def _roles_of(db, user_id):
         (row.role_code.value, row.tenant_id)
         for row in db.query(UserRole).filter(UserRole.user_id == user_id)
     }
-
-
-@pytest.fixture
-def platform_host(monkeypatch):
-    from app.config import settings
-    from app.domains.mdm.api import invalidate_tenant_codes
-
-    monkeypatch.setattr(settings, "platform_hosts", PLATFORM_HOST)
-    invalidate_tenant_codes()
-    yield PLATFORM_HOST
-    invalidate_tenant_codes()
 
 
 def test_the_list_opens_a_record_and_edits_nothing_inline(client, db_session):
@@ -145,17 +132,6 @@ def test_a_workspace_without_the_account_does_not_open_it(client, db_session):
     doel = _user(db_session, "elders-2114@example.com", ("ADMIN", TENANT_VOORBEELD_ID))
     _login(client)
     assert client.get(f"/admin/gebruikers/{doel.id}").status_code == 404
-
-
-def test_on_the_platform_every_workspace_is_a_card_with_its_name(client, db_session, platform_host):
-    doel = _user(db_session, "platform-2114@example.com", ("ADMIN", TENANT_MILLEGEM_ID))
-    _login(client)
-    html = client.get(
-        f"/admin/gebruikers/{doel.id}?bewerken=1", headers={"host": platform_host}
-    ).text
-    for workspace in (TENANT_MILLEGEM_ID, TENANT_VOORBEELD_ID):
-        assert f'id="gu-werkruimte-{workspace}"' in html and f'name="rollen_{workspace}"' in html
-    assert 'name="operator"' in html, "the platform-wide role, for an operator"
 
 
 def test_deleting_from_the_record_goes_back_to_the_list(client, db_session):

@@ -355,12 +355,6 @@ async def gebruiker_aanmaken(
 
     form = await request.form()
     nieuw_email = str(form.get("email") or "").strip().lower()
-    if not nieuw_email:
-        return templates.TemplateResponse(
-            request,
-            "admin_gebruiker_nieuw.html",
-            _create_ctx(request, db, email, error=_("E-mailadres is verplicht.")),
-        )
     try:
         if is_platform_workspace(db):
             # Aanscherping 16 sep: vanaf het platform krijgt een nieuwe
@@ -489,7 +483,7 @@ def _redirect(request: Request, url: str) -> Response:
 
 
 @router.get("/admin/gebruikers/{user_id}", response_class=HTMLResponse)
-def gebruiker_record(
+def user_record(
     user_id: int,
     request: Request,
     db: Session = Depends(get_db),

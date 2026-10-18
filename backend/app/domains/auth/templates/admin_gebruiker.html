@@ -25,7 +25,7 @@
   {% endif %}
   {% call ui.section(_("Account"), id="gu-section-account") %}
     {{ ui.field("email", attribute="auth.user.email", kind="email", value=user.email, edit=edit, required=True, id="gu-email") }}
-    {{ ui.field("is_active", _("Actief"), kind="switch", value=user.is_active, edit=edit, id="gu-actief") }}
+    {{ ui.field("is_active", attribute="auth.user.is_active", kind="switch", value=user.is_active, edit=edit, id="gu-actief") }}
   {% endcall %}
   {% include "_gu_rollen_kaarten.html" %}
   {% if edit %}

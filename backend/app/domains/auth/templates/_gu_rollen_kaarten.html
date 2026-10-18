@@ -11,7 +11,7 @@
 {% if op_platform %}
   {% for wid, wnaam in werkruimtes %}
   {% call ui.section(wnaam, id="gu-werkruimte-" ~ wid) %}
-    {{ ui.field("rollen_" ~ wid, _("Rollen"), kind="checkbox_group", value=sel.get(wid, [])|list, options=role_pairs, edit=edit, id="gu-rollen-" ~ wid) }}
+    {{ ui.field("rollen_" ~ wid, attribute="auth.user_role.role_code", kind="checkbox_group", value=sel.get(wid, [])|list, options=role_pairs, edit=edit, id="gu-rollen-" ~ wid) }}
   {% endcall %}
   {% endfor %}
   {% if toon_operator %}
@@ -21,7 +21,7 @@
   {% endif %}
 {% else %}
   {% call ui.section(_("Rollen"), id="gu-rollen") %}
-    {{ ui.field("role_codes", _("Rollen"), kind="checkbox_group", value=sel|list, options=role_pairs, edit=edit, id="gu-rollen-hier") }}
+    {{ ui.field("role_codes", attribute="auth.user_role.role_code", kind="checkbox_group", value=sel|list, options=role_pairs, edit=edit, id="gu-rollen-hier") }}
     {# #1500: a platform-wide role holds here too; it is shown, not edited here. #}
     {% if operator_aan %}<p data-span="full" class="text-sm leading-[21px] text-ink">{{ ui.badge(_("%(role)s · alle werkruimtes", role=operator_label), "blue") }}</p>{% endif %}
   {% endcall %}
