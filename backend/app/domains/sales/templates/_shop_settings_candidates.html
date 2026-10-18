@@ -1,0 +1,17 @@
+{% import "_macros.html" as ui %}
+{% if candidates %}
+<ul class="divide-y divide-line">
+  {% for c in candidates %}
+  <li class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+    <span class="min-w-0 [overflow-wrap:anywhere]">{{ c.name }}{% if c.email %} <span class="text-ink-soft">· {{ c.email }}</span>{% endif %}</span>
+    <form hx-post="/admin/verkoop/instellingen" hx-target="body" hx-swap="innerHTML">
+      <input type="hidden" name="action" value="add_contact">
+      <input type="hidden" name="person_id" value="{{ c.id }}">
+      {{ ui.btn_secondary(_("Toevoegen"), "submit", size="sm") }}
+    </form>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="text-sm text-ink-soft">{{ _("Geen personen gevonden.") }}</p>
+{% endif %}

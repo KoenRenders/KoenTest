@@ -398,6 +398,26 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
+  "GET /admin/prijzen": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/prijzen/{product_id}": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/producten": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/producten/nieuw": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/producten/{product_id}": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
   "GET /admin/profiel": {
    "platform": "ADMIN FINANCE OPERATOR",
    "tenant": "ADMIN FINANCE OPERATOR"
@@ -489,6 +509,54 @@
   "GET /admin/vergaderingen/{meeting_id}/verstuur": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/verkoop": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/verkoop/instellingen": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/verkoop/instellingen/personen": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/verkoop/lijst": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/verkoop/nieuw": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/verkoop/{order_id}": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/verkoop/{order_id}/wijzigen": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/voorraad": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/voorraad/correctie": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/voorraad/lijst": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/voorraad/ontvangst": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/voorraad/{variant_id}": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
   },
   "GET /admin/werkbank": {
    "platform": "ADMIN FINANCE OPERATOR",
@@ -614,6 +682,14 @@
    "platform": "everyone",
    "tenant": "everyone"
   },
+  "GET /mijn/aankopen": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /mijn/aankopen/{order_id}": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
   "GET /mijn/e-mailadres/{contact_id}/bevestigen": {
    "platform": "everyone",
    "tenant": "everyone"
@@ -667,6 +743,18 @@
    "tenant": "everyone"
   },
   "GET /sitemap.xml": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /webshop": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /webshop/bedankt": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "GET /webshop/{product_id}": {
    "platform": "everyone",
    "tenant": "everyone"
   },
@@ -1126,6 +1214,38 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
+  "POST /admin/prijzen/{product_id}": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/producten": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/producten/{product_id}": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/producten/{product_id}/bijlage/{attachment_id}/verwijderen": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/producten/{product_id}/documenten": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/producten/{product_id}/fotos": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/producten/{product_id}/status": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/producten/{product_id}/verwijderen": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
   "POST /admin/rapporten": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
@@ -1246,6 +1366,46 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
+  "POST /admin/verkoop/instellingen": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/verkoop/nieuw": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/verkoop/nieuw/koppeling": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/verkoop/nieuw/maten": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/verkoop/{order_id}/annuleren": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/verkoop/{order_id}/lijn/{line_id}/leveren": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/verkoop/{order_id}/wijzigen": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/verkoop/{order_id}/wijzigen/maten": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/voorraad/correctie": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "POST /admin/voorraad/ontvangst": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
   "POST /admin/werkbank/taken/{task_id}/afgehandeld": {
    "platform": "ADMIN FINANCE OPERATOR",
    "tenant": "ADMIN FINANCE OPERATOR"
@@ -1294,6 +1454,10 @@
    "platform": "everyone",
    "tenant": "everyone"
   },
+  "POST /mijn/aankopen/{order_id}/annuleren": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
   "POST /mijn/e-mailadres/{contact_id}/code": {
    "platform": "everyone",
    "tenant": "everyone"
@@ -1323,6 +1487,14 @@
    "tenant": "everyone"
   },
   "POST /raakje/vraag": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /webshop/bestellen": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /webshop/mandje": {
    "platform": "everyone",
    "tenant": "everyone"
   }

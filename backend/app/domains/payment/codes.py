@@ -61,6 +61,7 @@ PAYMENT_TYPE = CodeList(
 PAYABLE_TYPE_CODES = (
     CodeSeed(code="registration", nl="Inschrijving", en="Registration", sort_order=10),
     CodeSeed(code="membership", nl="Lidmaatschap", en="Membership", sort_order=20),
+    CodeSeed(code="order", nl="Bestelling", en="Order", sort_order=30),
 )
 
 PAYABLE_TYPE = CodeList(

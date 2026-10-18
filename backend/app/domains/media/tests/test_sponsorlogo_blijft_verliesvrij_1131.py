@@ -117,7 +117,7 @@ def test_een_activiteitsfoto_wordt_nog_altijd_hercodeerd():
 
 
 def test_de_uitzonderingslijst_blijft_een_uitzondering():
-    """Vier soorten, en geen van de twee foto-soorten erbij.
+    """Vijf soorten, en geen van de twee foto-soorten erbij.
 
     Een lijst die groeit tot ze alles bevat, is geen uitzondering meer. Deze
     assert is de rem: wie er een soort bij zet, leest hier waarom dat een
@@ -128,6 +128,12 @@ def test_de_uitzonderingslijst_blijft_een_uitzondering():
     afweging is dezelfde als hierboven — bytes tegen leesbaarheid — en ze valt
     dezelfde kant op omdat het er een handvol zijn, geen album.
 
+    `product_document` is er met CR-21 bij gekomen, en hoort in diezelfde
+    familie: een maattabel die als afbeelding opgeslagen wordt is letterwerk
+    (cijfers en streepjes), net als een schermafdruk. Een PDF gaat sowieso
+    ongewijzigd door de documentdeur; deze vermelding geldt voor de
+    afbeeldingsvorm van zo'n document.
+
     `site_icon` (CR-32 R6) volgt het logo: een favicon is een klein merkteken,
     lijnwerk bij uitstek, en er is er één per tenant.
     """
@@ -137,6 +143,7 @@ def test_de_uitzonderingslijst_blijft_een_uitzondering():
         "tenant_logo",
         "site_icon",
         "page_image",
+        "product_document",
     }, LOSSLESS_KINDS
     assert MediaKind.ACTIVITY_PHOTO not in LOSSLESS_KINDS
     assert MediaKind.DESIGN_IMAGE not in LOSSLESS_KINDS, (

@@ -1,10 +1,12 @@
-"""Events the payment component publishes (contract, see payment/CONTRACT.md)."""
+"""Events the payment component publishes (contract, see payment/CONTRACT.md), and
+the port it handles for starting a payment."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 from app.kernel.events import KernelEvent
+from app.kernel.ports import Port
 
 
 @dataclass(frozen=True)
@@ -44,3 +46,34 @@ class RefundDue(KernelEvent):
     payable_type: str
     payable_id: int
     amount: str
+
+
+@dataclass(frozen=True)
+class PaymentStarted:
+    """The outcome of `CreatePayment`: the record, and for an online payment the
+    checkout url the caller redirects to."""
+
+    payment_record_id: str
+    checkout_url: str = ""
+
+
+@dataclass(frozen=True)
+class CreatePayment(Port):
+    """Start a payment for an order, as a registration starts one (CR-21 Q64).
+
+    Handled by payment. `amount` is a Decimal as a string — ports are plain data.
+    For an online payment the provider is called here, in the caller's
+    transaction. The handler lets through, by name, the payment seam's refusal:
+    `ValueError` (a missing key, a refusal or an error answer of the provider) and
+    `httpx.HTTPError` (the provider could not be reached, a timeout); the caller's
+    door rolls the whole order back on those. Nothing is committed here.
+    """
+
+    payable_type: str
+    payable_id: int
+    amount: str
+    method: str
+    redirect_url: str = ""
+    description: str = ""
+    audit_source: str = "system"
+    audit_actor: str | None = None

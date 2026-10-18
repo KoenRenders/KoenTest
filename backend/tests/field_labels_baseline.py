@@ -70,6 +70,27 @@ TYPED_LABELS: dict[str, dict[str, int]] = {
         "Reden": 1,
         "Terug te betalen bedrag": 1,
     },
+    "domains/pricing/templates/admin_prijs.html": {
+        "Maten": 1,
+    },
+    "domains/product/templates/_product_bijlagen.html": {
+        "Document toevoegen": 1,
+        "Foto toevoegen": 1,
+    },
+    "domains/sales/templates/_verkoop_nieuw_form.html": {
+        "Artikel": 1,
+        "E-mailadres van de koper": 1,
+    },
+    "domains/sales/templates/_verkoop_wijzig_form.html": {
+        "Artikel": 1,
+    },
+    "domains/stock/templates/admin_correctie.html": {
+        "Artikel en maat": 1,
+        "Richting": 1,
+    },
+    "domains/stock/templates/admin_ontvangst.html": {
+        "Artikel en maat": 1,
+    },
     "domains/workflow/templates/werkbank_taak.html": {
         "Besluit": 1,
     },

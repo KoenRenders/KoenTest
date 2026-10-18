@@ -1,0 +1,60 @@
+"""Public facade of the stock domain (CR-21).
+
+Everything another module may use lives here. The ORM classes are exported for
+other domains' services, not for screens; the layer gate holds that line.
+"""
+
+from app.domains.stock.codes import MOVEMENT_REASON, RESERVATION_STATUS  # noqa: F401
+from app.domains.stock.models import (  # noqa: F401
+    MovementReason,
+    NotEnoughStock,
+    ProductHasMovements,
+    ReservationStatus,
+    StockError,
+    StockLocation,
+    StockMovement,
+    StockReservation,
+)
+from app.domains.stock.service import (  # noqa: F401
+    apply_correction,
+    available,
+    book_receipt,
+    correct,
+    issue,
+    lock_key,
+    movements_of,
+    on_hand,
+    open_reservation_lines,
+    receive,
+    release,
+    reserve,
+    reserved,
+    waiting,
+)
+
+__all__ = [
+    "MOVEMENT_REASON",
+    "RESERVATION_STATUS",
+    "MovementReason",
+    "NotEnoughStock",
+    "ProductHasMovements",
+    "ReservationStatus",
+    "StockError",
+    "StockLocation",
+    "StockMovement",
+    "StockReservation",
+    "apply_correction",
+    "available",
+    "book_receipt",
+    "correct",
+    "issue",
+    "lock_key",
+    "movements_of",
+    "on_hand",
+    "open_reservation_lines",
+    "receive",
+    "release",
+    "reserve",
+    "reserved",
+    "waiting",
+]

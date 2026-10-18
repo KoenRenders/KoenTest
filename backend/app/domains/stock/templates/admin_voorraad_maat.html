@@ -1,0 +1,28 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ product_name }} {{ size }} — {{ _("Voorraadbeheer") }}{% endblock %}
+{% block content %}
+{# The movements of one size (AC16): a receipt and a correction stand apart,
+   each with its reason. #}
+{{ ui.record_header(product_name ~ " · " ~ size,
+    back={"label": _("Voorraadbeheer"), "href": "/admin/voorraad"}) }}
+{% call ui.data_table([
+    {"key": "datum", "label": _("Wanneer"), "cell": "moment"},
+    {"key": "wat", "label": _("Wat"), "cell": "status"},
+    {"key": "aantal", "label": _("Aantal"), "cell": "amount", "num": True},
+    {"key": "reden", "label": _("Reden"), "cell": "text"},
+], caption=_("Bewegingen")) %}
+<tbody>
+  {% for m in movements %}
+  <tr class="align-middle">
+    <td data-cell="moment" class="border-b border-line px-3 py-2 whitespace-nowrap text-ink-soft">{{ m.occurred|short_datetime }}</td>
+    <td data-cell="status" class="border-b border-line px-3 py-2 font-medium">{{ m.reason | code_label("movement_reason") }}</td>
+    <td data-cell="amount" class="border-b border-line px-3 py-2 text-right tabular-nums">{{ ("+" ~ m.quantity) if m.quantity > 0 else m.quantity }}</td>
+    <td data-cell="text" class="border-b border-line px-3 py-2 text-ink-soft">{{ m.note or "" }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="4" class="px-3 py-4 text-ink-soft">{{ _("Nog geen bewegingen.") }}</td></tr>
+  {% endfor %}
+</tbody>
+{% endcall %}
+{% endblock %}

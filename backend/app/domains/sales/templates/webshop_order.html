@@ -1,0 +1,24 @@
+{% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Bestelling") }} {{ order.id }} · {{ site_name }}{% endblock %}
+{% block content %}
+{{ ui.back_link(_("Mijn aankopen"), path_for('/mijn/aankopen')) }}
+{% call ui.page_header(_("Bestelling") ~ " " ~ order.id) %}{% endcall %}
+{% call ui.card() %}
+  <div id="order-melding" data-form-message></div>
+  {% include "_order_detail.html" %}
+{% endcall %}
+{% if contacts %}
+{% call ui.section(_("Een vraag over je bestelling?")) %}
+  <ul class="divide-y divide-line">
+    {% for c in contacts %}
+    <li class="py-2 text-sm">
+      <span class="font-medium">{{ c.name }}</span>
+      {% if c.email %}<a href="mailto:{{ c.email }}" class="block text-blue-500 underline">{{ c.email }}</a>{% endif %}
+      {% if c.mobile %}<a href="tel:{{ c.mobile }}" class="block text-ink">{{ c.mobile|phone }}</a>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+{% endcall %}
+{% endif %}
+{% endblock %}

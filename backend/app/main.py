@@ -77,7 +77,21 @@ from app.domains.payment.handlers import (  # noqa: F401 - event-abonnementen (C
 from app.domains.payment.router import router as payment_router
 from app.domains.payment.stub_router import include_stub_routes
 from app.domains.payment.ui import router as payment_ui_router
+from app.domains.pricing.admin_ui import router as pricing_admin_ui_router
+from app.domains.pricing.handlers import (  # noqa: F401 - event subscription (CR-21)
+    drop_prices_of_deleted_product,
+)
+from app.domains.product.admin_ui import router as product_admin_ui_router
 from app.domains.reporting.admin_ui import router as reporting_admin_ui_router
+from app.domains.sales.admin_ui import router as sales_admin_ui_router
+from app.domains.sales.handlers import (  # noqa: F401 - event subscription (CR-21)
+    refuse_delete_with_order_lines,
+)
+from app.domains.sales.ui import router as sales_ui_router
+from app.domains.stock.admin_ui import router as stock_admin_ui_router
+from app.domains.stock.handlers import (  # noqa: F401 - event subscription (CR-21)
+    refuse_delete_with_movements,
+)
 from app.domains.workflow import (
     handlers as workflow_handlers,  # noqa: F401 - event-abonnementen (#398)
 )
@@ -139,9 +153,11 @@ async def _lifespan(app: FastAPI):
 from app.domains.activities.api import registration_describer  # noqa: E402
 from app.domains.membership.api import membership_describer  # noqa: E402
 from app.domains.payment.api import PayableType, register_describer  # noqa: E402
+from app.domains.sales.api import order_describer  # noqa: E402
 
 register_describer(PayableType.REGISTRATION, registration_describer())
 register_describer(PayableType.MEMBERSHIP, membership_describer())
+register_describer(PayableType.ORDER, order_describer())
 
 
 app = FastAPI(
@@ -228,6 +244,11 @@ app.include_router(tenants_ui_router)
 app.include_router(email_log_ui_router)
 app.include_router(mdm_ui_router, dependencies=_module(M.MEMBERSHIP))
 app.include_router(payment_ui_router, dependencies=_module(M.PAYMENT))
+app.include_router(product_admin_ui_router, dependencies=_module(M.SHOP))
+app.include_router(pricing_admin_ui_router, dependencies=_module(M.SHOP))
+app.include_router(stock_admin_ui_router, dependencies=_module(M.SHOP))
+app.include_router(sales_ui_router, dependencies=_module(M.SHOP))
+app.include_router(sales_admin_ui_router, dependencies=_module(M.SHOP))
 app.include_router(reporting_admin_ui_router, dependencies=_module(M.REPORTING))
 app.include_router(meetings_admin_ui_router, dependencies=_module(M.MEETINGS))
 app.include_router(designstudio_admin_ui_router, dependencies=_module(M.DESIGNSTUDIO))
