@@ -77,7 +77,17 @@ MAX_BATCH = 20
 
 class MediaFout(ValueError):
     """Een invoerfout die het scherm toont. Geen HTTPException: de service kent
-    geen HTTP."""
+    geen HTTP.
+
+    `field` is the form's name of the field the refusal is about, so the screen
+    can mark it (#2142); "" — the default — is the form as a whole."""
+
+    field: str = ""
+
+    def __init__(self, *args: object, field: str = ""):
+        super().__init__(*args)
+        if field:
+            self.field = field
 
 
 @dataclass(frozen=True)
@@ -213,17 +223,14 @@ def list_media(
     kind: MediaKind | str | None = None,
     activity_id: Optional[int] = None,
 ) -> list[dict]:
-    """The pictures of a kind, of an activity — or, with `WITHOUT_ACTIVITY`, of
-    none (#1527)."""
+    """The pictures of a kind, or of a kind and an activity."""
     query = db.query(MediaAsset)
     if kind:
         soort = as_media_kind(kind)
         if soort is None:
             return []
         query = query.filter(MediaAsset.kind == soort)
-    if activity_id == WITHOUT_ACTIVITY:
-        query = query.filter(MediaAsset.activity_id.is_(None))
-    elif activity_id is not None:
+    if activity_id is not None:
         query = query.filter(MediaAsset.activity_id == activity_id)
     rijen = query.order_by(MediaAsset.sort_order.asc(), MediaAsset.id.desc()).all()
     return [meta(a) for a in rijen]
@@ -630,14 +637,16 @@ def _image_target(db, kind: MediaKind | str, activity_id: Optional[int]):
         raise MediaFout(_("Een render wordt door de Design Studio gemaakt en niet opgeladen."))
     if media_kind not in UPLOADABLE_KINDS:
         raise MediaFout("Ongeldige 'kind'")
-    # #1005: een design-beeld hangt óók aan een activiteit, maar hoeft het niet —
-    # de Design Studio maakt eerst het beeld en koppelt het daarna.
+    # #2142: a design picture belongs to an activity, as an activity photo does —
+    # the Design Studio ties every design to one and gives its pictures that
+    # activity; an upload in Media without one made the empty branch "Zonder
+    # activiteit" (Koen, 18 October 2026: "ja, doe dat maar").
     if media_kind in (MediaKind.ACTIVITY_PHOTO, DESIGN_IMAGE_KIND):
-        if activity_id is None and media_kind is MediaKind.ACTIVITY_PHOTO:
+        if activity_id is None:
             # #696: v1.14 zei "Kies eerst een activiteit." en dat is wat de
             # gebruiker moet doen; "activity_id vereist" is de naam van een
-            # kolom. Deze tekst komt in de foutbanner op het uploadscherm.
-            raise MediaFout(_("Kies eerst een activiteit."))
+            # kolom. #2142: at the activity field of the upload screen.
+            raise MediaFout(_("Kies eerst een activiteit."), field="activity_id")
         if (
             activity_id is not None
             and not db.query(Activity).filter(Activity.id == activity_id).first()
@@ -1250,10 +1259,6 @@ KIND_GROUPS: tuple[tuple[str, tuple[MediaKind, ...]], ...] = (
     ("logos", (MediaKind.SPONSOR, MediaKind.TENANT_LOGO, MediaKind.SITE_ICON)),
     ("pages", (MediaKind.PAGE_IMAGE,)),
 )
-#: Design pictures are a branch per activity, like posters (Koen, #1527):
-#: Ontwerpbeelden › year › activity, and this "activity" for the ones of none —
-#: "Zonder activiteit". No activity has id 0.
-WITHOUT_ACTIVITY = 0
 #: Every kind with a branch of its own, derived from `KIND_GROUPS`.
 KIND_BRANCHES = tuple(kind for _key, kinds in KIND_GROUPS for kind in kinds)
 PICK_PAGE_SIZE = 60
@@ -1400,9 +1405,8 @@ def pick_options(
     if posters_of is not None:
         rows = [r for r in rows if r.activity_id == posters_of]
     elif designs_of is not None:
-        # #1527: Ontwerpbeelden › an activity, or "Zonder activiteit".
-        wanted = None if designs_of == WITHOUT_ACTIVITY else designs_of
-        rows = [r for r in rows if r.activity_id == wanted]
+        # #1527: Ontwerpbeelden › an activity.
+        rows = [r for r in rows if r.activity_id == designs_of]
     elif photos_of is not None:
         rows = [
             r

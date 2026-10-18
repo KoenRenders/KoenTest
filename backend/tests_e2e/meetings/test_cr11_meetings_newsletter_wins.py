@@ -120,18 +120,20 @@ def test_w4_one_link_to_the_settings_in_the_header(phone):
     links = page.evaluate(
         """() => [...document.querySelectorAll('a[href="/admin/vergaderingen/kring"]')]
              .map(a => ({text: a.textContent.trim(),
-                         inHeader: !!a.closest('[data-page-header]'),
-                         visible: !!a.offsetHeight}))"""
+                         inToolbarMenu: !!a.closest('[data-toolbar] [data-more-menu]'),
+                         inHeader: !!a.closest('[data-list-head]')}))"""
     )
     print("MEASURE W4", links)
+    # #2123: the settings stand under the toolbar's menu, not beside the title.
     assert len(links) == 1, links
-    assert links[0]["text"] == "Instellingen" and links[0]["inHeader"] and links[0]["visible"]
+    assert links[0]["text"] == "Instellingen" and links[0]["inToolbarMenu"]
+    assert not links[0]["inHeader"]
 
 
 def test_w6_the_status_once_per_row(phone):
     page, data = phone
     _open(page, "/admin/vergaderingen", "w4-w6-vergaderingen")
-    row = page.locator(f'a[href="/admin/vergaderingen/{data["sent"]}"]').inner_text()
+    row = page.locator(f'tr[data-meeting="{data["sent"]}"]').inner_text()
     print("MEASURE W6", repr(row))
     assert row.lower().count("verslag verstuurd") == 1, row
     assert "agenda verstuurd" not in row.lower()

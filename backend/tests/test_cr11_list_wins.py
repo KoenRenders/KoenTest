@@ -18,28 +18,27 @@ from pathlib import Path
 
 APP = Path(__file__).resolve().parents[1] / "app"
 
-CARD_LISTS = {
-    "domains/forms/templates/_fb_kaarten.html": "Bewerken",
-    "domains/cms/templates/_cp_kaarten.html": "Bewerken",
-}
+LISTS = (
+    "domains/forms/templates/_fb_kaarten.html",
+    "domains/cms/templates/_cp_kaarten.html",
+)
 
 
-def test_the_cards_lose_the_edit_label_and_keep_a_bare_chevron():
-    for rel, word in CARD_LISTS.items():
+def test_the_lists_are_tables_whose_row_link_is_the_way_in():
+    """#2123: Formulieren and Pagina's are rows of the kit's table, no longer cards with a
+    chevron — the title is the row's link (`ui.row_link`), its click area covers the row."""
+    for rel in LISTS:
         text = (APP / rel).read_text()
-        assert f'{{{{ _("{word}") }}}} ›' not in text, f"{rel}: the label is back"
-        assert 'aria-hidden="true">›</span>' in text, f"{rel}: no bare chevron"
+        assert "ui.data_table(" in text and "ui.row_link(" in text, f"{rel}: not the kit's table"
+        assert "Bewerken" not in text and "›" not in text, f"{rel}: the card's label is back"
 
 
-def test_the_pages_card_is_one_stretched_link_with_the_arrows_above_it():
+def test_the_pages_row_has_the_arrows_in_a_column_of_their_own_at_44_px():
     text = (APP / "domains/cms/templates/_cp_kaarten.html").read_text()
-    assert 'class="absolute inset-0 rounded-xl"' in text
-    # Only the arrows get a layer above the link. A z-10 on their whole wrapper
-    # (measured: a click 20 px from the card's edge landed on the wrapper and
-    # opened nothing) swallowed the clicks meant for the card.
-    assert '<div class="relative z-10">{{ ui.reorder(' in text
-    assert '<div class="shrink-0 flex items-center gap-3">' in text
-    assert text.count('href="/admin/paginas/{{ p.id }}"') == 1
+    assert "ui.reorder(" in text and "touch=True" in text, "44 px arrows on a phone"
+    assert '<td data-cell="actions"' in text, "the arrows have a column of their own"
+    # The arrows are buttons beside the row's link, never inside it (#745).
+    assert text.count('href="/admin/paginas/') == 0 and text.count("ui.row_link(") == 1
 
 
 def test_the_contact_name_is_plain_text_and_details_is_the_way_in():

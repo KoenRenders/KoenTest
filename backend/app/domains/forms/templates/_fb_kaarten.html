@@ -1,39 +1,33 @@
 {% import "_macros.html" as ui %}
-{# Alleen de kaarten (#585). De filterbalk swapt dít fragment en niet de hele
-   pagina: anders wordt het zoekveld onder je vingers vervangen en verlies je de
-   focus midden in een zoekterm. #}
+{# The list of forms on the kit's table (#2123): the name as the way in to the builder,
+   the status, how many submissions came in and when the last did. "Deellink kopiëren"
+   stands under the row's ⋯ (it was the card's copy button, #689). The link is chosen in
+   the route, not here (#928): the readable one once there is a slug, else the key URL;
+   `path_for` puts the tenant's prefix in front (#889). The toolbar swaps this fragment;
+   the count and the segments' counts travel out-of-band. #}
 {% if forms %}
-<div class="space-y-3">
-  {% for f in forms %}
-  {# #689: de kaart blijft één grote link, maar de kopieerknop moet erbinnen
-     klikbaar zijn — en een <button> in een <a> is ongeldige HTML. Vandaar de
-     uitgerekte link: de <a> dekt de hele kaart als absolute laag, en alleen wat
-     zélf gepositioneerd is (de knop, met z-10) ligt erboven. #}
-  <div class="relative bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
-    <a href="/admin/formulieren/{{ f.id }}" class="absolute inset-0 rounded-xl"
-       aria-label="{{ f.title }}"></a>
-    <div class="flex items-start justify-between gap-3">
-      <div>
-        <div class="font-semibold text-ink">{{ f.title }}</div>
-        <div class="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
-          {{ ui.badge(f.status | code_label("form_status") | lower,
-                      f.status | tone("form_status")) }}
-          {# De leesbare link zodra er een slug is, anders de sleutel-URL (#928) —
-             gekozen in de route, niet hier. `path_for` zet er de tenant-prefix
-             voor wanneer de afdeling via een pad-prefix bereikt wordt: zonder dat
-             deelt een beheerder op een platform-host een link die bij de
-             verkeerde afdeling uitkomt (#889, dezelfde val als bij de foto's). #}
-          {% set deellink = path_for(share_paths[f.id]) %}
-          <span class="font-mono text-xs text-ink-soft"
-                data-copy-bron="{{ deellink }}">{{ deellink }}</span>
-          {{ ui.copy_button(deellink, _("Deellink kopiëren")) }}
-        </div>
-      </div>
-      <span class="shrink-0 text-sm text-ink-soft" aria-hidden="true">›</span>
-    </div>
-  </div>
-  {% endfor %}
-</div>
+{% call ui.data_table(columns, hx_target="#fb-lijst", caption=_("Formulieren")) %}
+  <tbody>
+    {% for f in forms %}
+    {% set deellink = path_for(share_paths[f.id]) %}
+    <tr data-row data-form="{{ f.id }}" class="align-middle">
+      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">{{ ui.row_link(f.title, "/admin/formulieren/" ~ f.id) }}</td>
+      <td data-cell="status" class="border-b border-line px-3 py-2">{{ ui.badge(f.status | code_label("form_status"),
+                                        f.status | tone("form_status")) }}</td>
+      <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right tabular-nums">{{ submission_counts[f.id] }}</td>
+      <td data-cell="date" data-p="2" class="border-b border-line px-3 py-2 text-ink-soft">{{ last_submissions[f.id] }}</td>
+      <td data-cell="actions" class="border-b border-line px-3 py-2">
+        {#- A block, not a `~` chain: `_()` is Markup, and a plain string joined to it is
+            escaped (the quotes of the attributes). -#}
+        {% set copy_attrs %}data-copy="{{ deellink }}" data-label="{{ _("Deellink kopiëren") }}" x-data="{ ok: false }" x-text="ok ? '{{ _("Gekopieerd") }}' : $el.dataset.label" @click="ok = await raakKopieer($el.dataset.copy); setTimeout(() => { ok = false; open = false }, 1200)"{% endset %}
+        {{ ui.row_actions_cell(None, [{"label": _("Deellink kopiëren"), "attrs": copy_attrs}], label=f.title) }}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+{% endcall %}
+{{ ui.pager(page, per_page=per_page, total=total, hx_get=pager_url, hx_target="#fb-lijst", count=False, push=True) }}
 {% else %}
-{{ ui.empty_state(_("Geen formulieren gevonden.") if gefilterd else _("Nog geen formulieren.")) }}
+{{ ui.empty_state(empty_reason) }}
 {% endif %}
+{% if oob %}{{ ui.toolbar_oob("fb-filter", segments=segments, page=page, per_page=per_page, total=total) }}{% endif %}

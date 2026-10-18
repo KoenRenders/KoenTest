@@ -23,6 +23,7 @@ Twee lagen domeinlogica:
 import logging
 import re
 import secrets
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Dict, List, Optional
 
@@ -1120,6 +1121,23 @@ def submission_count(db, form_id: int) -> int:
     from app.domains.forms.models import FormSubmission
 
     return db.query(FormSubmission).filter(FormSubmission.form_id == form_id).count()
+
+
+def submission_stats(db) -> dict[int, tuple[int, Optional[datetime]]]:
+    """Per form id, how many submissions it has and when the last came in — the
+    list's two columns (#2123), in one query for the whole list."""
+    from app.domains.forms.models import FormSubmission
+
+    rows = (
+        db.query(
+            FormSubmission.form_id,
+            func.count(FormSubmission.id),
+            func.max(FormSubmission.submitted_at),
+        )
+        .group_by(FormSubmission.form_id)
+        .all()
+    )
+    return {form_id: (count, last) for form_id, count, last in rows}
 
 
 def list_submissions(db, form_id: int):

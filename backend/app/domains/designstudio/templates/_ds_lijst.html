@@ -1,23 +1,39 @@
 {% import "_macros.html" as ui %}
+{# The list of designs on the kit's table (#2123): the poster in small in front of the
+   activity's name — it is in the cell itself, the kit has no image column — with the
+   activity's first date under it; the status, with Gepubliceerd and Verouderd as badges
+   beside it; the layout; the number of versions; when it was changed. The row is the way
+   in to the editor. The toolbar swaps this fragment; the count and the segments' counts
+   travel out-of-band. #}
 {% if error %}{{ ui.error_banner(error) }}{% endif %}
-{% if not rows %}
-  {{ ui.empty_state(_("Nog geen ontwerpen. Maak er een voor een activiteit; de affiche staat er meteen.")) }}
+{% if rows %}
+{% call ui.data_table(columns, hx_target="#ds-lijst", caption=_("Ontwerpen")) %}
+  <tbody>
+    {% for row in rows %}
+    <tr data-row data-design="{{ row.id }}" class="align-middle">
+      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">
+        <div class="flex items-center gap-3">
+          <img src="{{ row.preview_url }}" alt="" width="32" height="44" loading="lazy" data-design-preview
+               class="h-11 w-8 shrink-0 rounded border border-line bg-surface-2 object-cover">
+          <div class="min-w-0">{{ ui.row_link(row.activity_name, "/admin/ontwerpen/" ~ row.id, sub=row.activity_date, sub_mono=False) }}</div>
+        </div>
+      </td>
+      <td data-cell="context" class="border-b border-line px-3 py-2">
+        <span class="flex flex-wrap items-center gap-1">
+          {{ ui.badge(row.status_label, row.status_tone) }}
+          {% if row.published %}{{ ui.badge(_("Gepubliceerd"), "blue") }}{% endif %}
+          {% if row.stale %}{{ ui.badge(_("Verouderd"), "red") }}{% endif %}
+        </span>
+      </td>
+      <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-ink-soft">{{ row.preset_label }}</td>
+      <td data-cell="extra" data-p="2" class="border-b border-line px-3 py-2 text-right tabular-nums text-ink-soft">{{ row.version_count }}</td>
+      <td data-cell="moment" class="border-b border-line px-3 py-2 text-ink-soft whitespace-nowrap">{{ row.updated }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+{% endcall %}
+{{ ui.pager(page, per_page=per_page, total=total, hx_get=pager_url, hx_target="#ds-lijst", count=False, push=True) }}
 {% else %}
-<div class="space-y-2">
-  {% for row in rows %}
-  <a href="/admin/ontwerpen/{{ row.id }}"
-     class="block bg-surface border border-line rounded-2xl px-5 py-4 hover:bg-surface-2 transition-colors">
-    <div class="flex items-center gap-3 flex-wrap">
-      <span class="font-semibold text-ink">{{ row.activity_name }}</span>
-      {{ ui.badge(row.status_label, row.status_tone) }}
-      {% if row.published %}{{ ui.badge(_("Gepubliceerd"), "blue") }}{% endif %}
-      {% if row.stale %}{{ ui.badge(_("Verouderd"), "red") }}{% endif %}
-      <span class="text-sm text-ink-soft">{{ row.preset_label }}</span>
-      <span class="text-sm text-ink-soft ml-auto">
-        {% if row.version_count %}{{ _("%(n)s versie(s)", n=row.version_count) }} · {% endif %}{{ row.updated }}
-      </span>
-    </div>
-  </a>
-  {% endfor %}
-</div>
+{{ ui.empty_state(empty_reason) }}
 {% endif %}
+{% if oob %}{{ ui.toolbar_oob("ds-filter", segments=segments, page=page, per_page=per_page, total=total) }}{% endif %}

@@ -28,6 +28,9 @@ class DesignRow:
     published: bool
     stale: bool
     updated: str
+    #: The poster in small, for the name cell (#2123), and the activity's first date.
+    preview_url: str = ""
+    activity_date: str = ""
 
 
 @dataclass(frozen=True)
@@ -76,12 +79,26 @@ class GenerationRow:
 
 @dataclass(frozen=True, kw_only=True)
 class DesignListView(ViewModel):
-    """`admin_ontwerpen.html` and its fragment `_ds_lijst.html`."""
+    """`admin_ontwerpen.html` and its fragment `_ds_lijst.html`: the kit's list page (#2123)."""
 
     rows: list[DesignRow]
+    columns: list[dict[str, Any]]
+    #: Alle, Gepubliceerd and Verouderd, each with its count.
+    segments: list[dict[str, Any]]
+    status: str
     q: str = ""
+    #: The activity the list is narrowed to (the jump from the activity screen), or "".
+    activity_id: str = ""
+    page: int = 1
+    per_page: int = 50
+    total: int = 0
+    page_sizes: list[int] = field(default_factory=list)
+    pager_url: str = ""
+    empty_reason: str = ""
     csrf_token: str
     error: Optional[str] = None
+    #: The fragment carries the toolbar's count and segment counts out-of-band.
+    oob: bool = False
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 
 

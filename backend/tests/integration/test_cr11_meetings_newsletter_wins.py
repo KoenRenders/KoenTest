@@ -45,9 +45,10 @@ def test_w4_the_settings_are_linked_once_in_the_header(client, db_session):
 
     links = re.findall(r'href="/admin/vergaderingen/kring"', html)
     assert len(links) == 1, f"one link to the circle page, found {len(links)}"
-    button = re.search(r'<a href="/admin/vergaderingen/kring"[^>]*>(.*?)</a>', html, re.S)
+    # #2123: the settings stand under the toolbar's menu, with the gear.
+    button = re.search(r'<a[^>]*href="/admin/vergaderingen/kring"[^>]*>(.*?)</a>', html, re.S)
     assert button and "Instellingen" in button.group(1)
-    assert "<svg" in button.group(1), "with the gear (lead_icon settings)"
+    assert "<svg" in button.group(1), "with the gear (icon settings)"
     assert "Beheer de kring" not in html and "Vergaderkring" not in html
 
     page = client.get("/admin/vergaderingen/kring").text
@@ -65,7 +66,7 @@ def test_w6_a_meeting_row_shows_its_status_once(client, db_session):
 
     html = client.get("/admin/vergaderingen").text
 
-    row = re.search(rf'<a href="/admin/vergaderingen/{meeting.id}".*?</a>', html, re.S)
+    row = re.search(rf'<tr data-row data-meeting="{meeting.id}".*?</tr>', html, re.S)
     assert row, "the meeting's row is in the list"
     text = row.group(0).lower()
     assert text.count("verslag verstuurd") == 1, "the status once, as the badge"

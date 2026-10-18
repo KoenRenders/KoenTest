@@ -11,7 +11,8 @@ or the sentence of the refusal with what the code did before the ports.
 `EXPECTED` was recorded on the old code (9 October 2026: `store_activity_poster`,
 `store_component_info`, `add_document`, `store_uploads`, `remove_media` and the
 two `drop_…` functions called directly). The three functions under *The way in*
-are the only thing that changed since; the cases and `EXPECTED` did not.
+are the only thing that changed since; the cases and `EXPECTED` did not —
+but for one, on purpose: #2142 refuses a design image without an activity.
 """
 
 from __future__ import annotations
@@ -104,7 +105,6 @@ STORES = [
     ),
     ("an attachment of a letter", "newsletter_file", "bijlage.pdf", "application/pdf", _pdf, None),
     ("a design image for an activity", "design_image", "ai-7.png", "image/png", _png, "activity"),
-    ("a design image without an activity", "design_image", "foto.png", "image/png", _png, None),
 ]
 
 REFUSALS = [
@@ -156,7 +156,8 @@ REFUSALS = [
         "f.gif",
         "image/gif",
         lambda: b"x",
-        None,
+        # #2142: with its activity, so it is refused for its content.
+        "activity",
     ),
     (
         "a design image that is no image",
@@ -164,8 +165,12 @@ REFUSALS = [
         "f.png",
         "image/png",
         lambda: b"not a png",
-        None,
+        # #2142: with its activity, so it is refused for its content.
+        "activity",
     ),
+    # #2142 (Koen, 18 October 2026: "ja, doe dat maar"): a design picture needs
+    # an activity now. Recorded as stored until then; the one case that changed.
+    ("a design image without an activity", "design_image", "foto.png", "image/png", _png, None),
     (
         "a design image for an activity that is not there",
         "design_image",
@@ -289,20 +294,6 @@ EXPECTED: dict[str, object] = {
         "picture": "image/jpeg",
         "extraction started": False,
     },
-    "a design image without an activity": {
-        "kind": "design_image",
-        "title": "foto.png",
-        "content_type": "image/jpeg",
-        "activity": None,
-        "component": None,
-        "sort_order": 1,
-        "is_active": True,
-        "link_url": None,
-        "size": (60, 40),
-        "has_bytes": True,
-        "picture": "image/jpeg",
-        "extraction started": False,
-    },
     "a poster of a type media does not take": "Niet-ondersteund bestandstype: affiche.txt",
     "a poster that is empty": "affiche.pdf: Leeg bestand",
     "an info document of a type media does not take": "Niet-ondersteund bestandstype: r.txt",
@@ -315,6 +306,7 @@ EXPECTED: dict[str, object] = {
     "a design image of a type media does not take": "f.gif: Geen geldige afbeelding",
     "a design image that is no image": "f.png: Geen geldige afbeelding",
     "a design image for an activity that is not there": "Activiteit niet gevonden",
+    "a design image without an activity": "Kies eerst een activiteit.",
     "a second poster takes the first one's place": 1,
     "renders are kept beside each other": 3,
     "the poster and the info document removed": (0, 0),
