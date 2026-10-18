@@ -135,7 +135,6 @@ SHELL_EXTENDED_DIRECTLY: dict[str, int] = {
     "domains/reporting/templates/admin_rapport_paneel.html": 1,
     "ui/templates/admin_dashboard.html": 1,
     "ui/templates/admin_info.html": 1,
-    "ui/templates/admin_profiel.html": 1,
     "ui/templates/admin_werkruimte_wisselen.html": 1,
     "ui/templates/list_page.html": 1,
     "ui/templates/no_access.html": 1,
