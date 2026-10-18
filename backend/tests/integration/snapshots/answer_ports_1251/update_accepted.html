@@ -1,5 +1,5 @@
 200
-<div class="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-2 text-sm"
+<div data-registration-detail class="bg-surface-2 border border-gray-200 rounded-lg p-3 mt-2 text-sm"
  x-data="{ edit: false }">
 <div class="flex flex-wrap items-start justify-between gap-2">
 <div class="min-w-0 break-words">
@@ -31,7 +31,7 @@
 </div>
 <div x-show="edit" x-cloak class="mt-3 space-y-3">
 <form id="insch-form-884001" class="space-y-3" hx-post="/admin/inschrijvingen/884001/opslaan"
- hx-target="closest .bg-gray-50" hx-swap="outerHTML">
+ hx-target="closest [data-registration-detail]" hx-swap="outerHTML">
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
 <div><label for="reg-naam-884001" class="block text-sm font-medium text-gray-700 mb-1">Naam <span class="text-red-600">*</span></label>
 <input type="text" name="contact_name" id="reg-naam-884001" value="Ward Poort"
@@ -97,7 +97,7 @@
 </div>
 </form>
 <form class="space-y-3 border-t border-gray-200 pt-3" hx-post="/admin/inschrijvingen/884001/antwoorden"
- hx-target="closest .bg-gray-50" hx-swap="outerHTML">
+ hx-target="closest [data-registration-detail]" hx-swap="outerHTML">
 <div>
 <h3 class="text-xl font-bold text-kop mb-2">Sint <YEAR></h3>
 </div>

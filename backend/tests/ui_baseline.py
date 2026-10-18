@@ -25,9 +25,6 @@ INCLUDED_BY_THE_PILOT_NOT_RENDERED_THERE: dict[str, str] = {
 
 #: B7 test 8 — raw <label>, <select>, <textarea>, visible <input>. 60 in 17 files.
 RAW_FORM_ELEMENTS: dict[str, int] = {
-    "domains/activities/templates/admin_activiteit_kopieren.html": 10,
-    "domains/auth/templates/_sign_in_code.html": 1,
-    "domains/auth/templates/_sign_in_email.html": 1,
     "domains/auth/templates/_gu_lijst.html": 2,
     "domains/auth/templates/_gu_rollen_velden.html": 6,
     "domains/designstudio/templates/admin_ontwerp.html": 2,
@@ -46,7 +43,6 @@ RAW_FORM_ELEMENTS: dict[str, int] = {
 
 #: B7 test 9 — raw type="checkbox". 16 in 8 files.
 RAW_CHECKBOXES: dict[str, int] = {
-    "domains/activities/templates/admin_activiteit_kopieren.html": 1,
     "domains/auth/templates/_gu_lijst.html": 1,
     "domains/auth/templates/_gu_rollen_velden.html": 3,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
@@ -58,9 +54,6 @@ RAW_CHECKBOXES: dict[str, int] = {
 
 #: B7 test 8 — margin/padding/gap/space class on a raw form element. 50 in 16 files.
 SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
-    "domains/activities/templates/admin_activiteit_kopieren.html": 14,
-    "domains/auth/templates/_sign_in_code.html": 1,
-    "domains/auth/templates/_sign_in_email.html": 1,
     "domains/auth/templates/_gu_lijst.html": 1,
     "domains/auth/templates/_gu_rollen_velden.html": 3,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
@@ -78,19 +71,10 @@ SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
 
 #: B7 test 8 — bg-white, bg-gray-50, bg-gray-100 written by the template. 53 in 24 files.
 RAW_SURFACES: dict[str, int] = {
-    "domains/activities/templates/_inschrijving_detail.html": 4,
-    "domains/activities/templates/admin_activiteit_kopieren.html": 1,
     "domains/auth/templates/_gu_lijst.html": 1,
-    "domains/auth/templates/login_verlopen.html": 1,
-    "domains/chatbot/templates/_ai_context_lijst.html": 2,
-    "domains/chatbot/templates/_raakje_ballon.html": 1,
-    "domains/chatbot/templates/_raakje_controls.html": 1,
-    "domains/cms/templates/_cp_kaarten.html": 1,
     "domains/forms/templates/_fb_builder.html": 6,
     "domains/forms/templates/_fb_kaarten.html": 1,
     "domains/forms/templates/_fb_resultaten.html": 1,
-    "domains/mdm/templates/_leden_import_resultaat.html": 1,
-    "domains/mdm/templates/leden_import.html": 1,
     "domains/media/templates/_me_boom.html": 1,
     "domains/media/templates/_me_lijst.html": 3,
     "domains/media/templates/_media_picker.html": 1,
@@ -98,9 +82,6 @@ RAW_SURFACES: dict[str, int] = {
     "domains/reporting/templates/_rp_kaarten.html": 2,
     "domains/reporting/templates/_rp_paneel.html": 14,
     "domains/reporting/templates/_rp_raakje_antwoord.html": 1,
-    "ui/templates/admin_dashboard.html": 1,
-    "ui/templates/admin_info.html": 4,
-    "ui/templates/admin_werkruimte_wisselen.html": 1,
 }
 
 #: B7 test 17 — a header button that is neither the create nor "Instellingen". 18 in 10 files.
@@ -140,7 +121,6 @@ CHECKBOX_GROUPS_IN_TOOLBARS: dict[str, int] = {}
 
 #: B7 test 1 — an admin page on the shell itself, no layout and no record head. 38 in 38 files.
 SHELL_EXTENDED_DIRECTLY: dict[str, int] = {
-    "domains/activities/templates/admin_activiteit_kopieren.html": 1,
     "domains/activities/templates/admin_inschrijving.html": 1,
     "domains/auth/templates/admin_gebruikers.html": 1,
     "domains/auth/templates/admin_gebruikers_overzicht.html": 1,

@@ -41,7 +41,7 @@
     </button>
     <div x-show="show" x-cloak class="mt-1">
       {% if info and info.extracted_text %}
-      <pre class="whitespace-pre-wrap break-words bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs text-gray-700 max-h-64 overflow-y-auto">{{ info.extracted_text }}</pre>
+      <pre class="whitespace-pre-wrap break-words bg-surface-2 border border-gray-200 rounded-lg p-2 text-xs text-gray-700 max-h-64 overflow-y-auto">{{ info.extracted_text }}</pre>
       {% if info.text_override %}
       <p class="text-xs text-yellow-700 mt-1">{{ _("Er is een vervangende tekst ingesteld — die (niet deze gelezen tekst) gaat naar Raakje.") }}</p>
       {% else %}
@@ -56,7 +56,7 @@
   {# One panel, two forms: a note's and a source's, each with its own address —
      the promise gate reads a form's address and cannot follow a branch in it. #}
   {% if base %}
-  <div x-show="edit" x-cloak class="mt-3 bg-gray-50 rounded-lg p-3">
+  <div x-show="edit" x-cloak class="mt-3 bg-surface-2 rounded-lg p-3">
   {% if soort == "notitie" %}
   <form class="space-y-2"
         hx-post="/admin/ai-context/{{ info.id }}/bewerken"
