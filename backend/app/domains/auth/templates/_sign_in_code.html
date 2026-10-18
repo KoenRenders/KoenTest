@@ -8,9 +8,8 @@
   <input type="hidden" name="email" value="{{ email }}">
   {% if terug %}<input type="hidden" name="terug" value="{{ terug }}">{% endif %}
   {% if new_account %}<input type="hidden" name="nieuw" value="1">{% endif %}
-  <div>
-    <label for="code" class="block text-sm font-medium text-gray-700 mb-1">{{ _("Code uit de e-mail") }}</label>
-    {{ ui.input_control("code", required=True, cls="w-full", attrs='inputmode="numeric" autocomplete="one-time-code"') }}
-  </div>
-  {{ ui.btn_primary(_('Bevestigen') if new_account else _('Inloggen')) }}
+  {% call ui.form_grid() %}
+    {{ ui.field("code", attribute="auth.login_token.otp_code", required=True, span="full", attrs='inputmode="numeric" autocomplete="one-time-code"') }}
+  {% endcall %}
+  <div class="mt-6">{{ ui.btn_primary(_('Bevestigen') if new_account else _('Inloggen')) }}</div>
 </form>

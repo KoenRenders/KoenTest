@@ -11,7 +11,7 @@
   {% for tegel in tegels %}
   {# F12 (#996): dezelfde neutrale kaart voor elk kengetal; kleur is voor
      links en betekenisvolle statussen, niet om categorieën te kleuren. #}
-  <div class="rounded-card bg-white border border-gray-200 shadow-sm p-5 transition hover:shadow-md">
+  <div class="rounded-card bg-surface border border-gray-200 shadow-sm p-5 transition hover:shadow-md">
     <a href="{{ tegel.href }}" class="block hover:brightness-95">
       <div class="text-3xl font-extrabold font-brand">{{ tegel.waarde }}</div>
       <div class="text-sm font-medium mt-1">{{ tegel.label }}</div>

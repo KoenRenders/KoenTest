@@ -192,7 +192,9 @@ def test_editing_has_the_one_row(browser, setup, registration, width):
     try:
         page.goto(f"/admin/inschrijvingen/{registration}")
         pagina_klaar(page)
-        panel = page.locator("div.bg-gray-50.border", has=page.locator('form[id^="insch-form-"]'))
+        panel = page.locator(
+            "div[data-registration-detail]", has=page.locator('form[id^="insch-form-"]')
+        )
         panel.first.get_by_role("button", name="Bewerken").first.click()
         rows = _check_rows(page, f"edit @{width}")
         # #1494: every product is a counter row; no "Verwijderen" beside it.
