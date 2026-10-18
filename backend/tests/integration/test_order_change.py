@@ -10,6 +10,7 @@ from app.domains.mdm.api import PaymentMethod
 from app.domains.pricing.api import add_prices
 from app.domains.product.api import ProductStatus, add_variant, create_product, set_status
 from app.domains.sales.api import change_order_lines, place_order, total_of
+from app.kernel.clock import belgian_today
 
 
 def _variant(db_session, *, name="T-shirt", size="M", amount="15.00", stock=5):
@@ -160,7 +161,7 @@ def test_a_delivered_line_refuses_the_change_but_others_can_still_change(
     large = _variant(db_session, size="L", amount="20.00", stock=5)
     order = _order(db_session, [(m.id, 1), (large.id, 1)])
     delivered = order.lines[0]
-    delivered.delivered_at = date.today()
+    delivered.delivered_at = belgian_today()
     db_session.commit()
 
     with pytest.raises(SalesError, match="Maat M is al geleverd"):
@@ -350,7 +351,7 @@ def test_a_delivered_twin_is_kept_and_the_undelivered_one_removed(db_session, ev
     delivered line."""
     m = _variant(db_session, size="M", amount="15.00", stock=5)
     order = _order(db_session, [(m.id, 1), (m.id, 1)])
-    order.lines[0].delivered_at = date.today()  # the delivered twin
+    order.lines[0].delivered_at = belgian_today()  # the delivered twin
     db_session.commit()
 
     change_order_lines(db_session, order.id, [(m.id, 1)], actor="verkoper@example.com")
@@ -468,8 +469,8 @@ def test_two_delivered_twins_refuse_a_change_that_drops_one(db_session, every_mo
 
     m = _variant(db_session, size="M", amount="15.00", stock=5)
     order = _order(db_session, [(m.id, 1), (m.id, 1)])
-    order.lines[0].delivered_at = date.today()
-    order.lines[1].delivered_at = date.today()
+    order.lines[0].delivered_at = belgian_today()
+    order.lines[1].delivered_at = belgian_today()
     db_session.commit()
 
     with pytest.raises(SalesError, match="Maat M is al geleverd"):

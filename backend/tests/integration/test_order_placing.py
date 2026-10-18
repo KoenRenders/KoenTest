@@ -12,6 +12,7 @@ import pytest
 from app.domains.pricing.api import add_prices
 from app.domains.product.api import ProductStatus, add_variant, create_product, set_status
 from app.domains.stock.api import available, receive
+from app.kernel.clock import belgian_today
 from app.kernel.form_guard import TRUSTED
 from tests.conftest import form_guard_fields
 
@@ -1067,7 +1068,7 @@ def test_bestelling_toevoegen_hangs_on_the_typed_person_and_his_member_price(
     from tests.conftest import board_session, create_test_family
 
     member, person = create_test_family(db_session, email="lid@example.com")
-    today = date.today()
+    today = belgian_today()
     membership = Membership(
         member_id=member.id,
         year=today.year,

@@ -146,7 +146,7 @@ def test_a_visitor_pays_the_regular_price_and_a_member_the_member_price(
     assert "15,00" in page.text
     assert "12,00" not in page.text
 
-    _signed_in_member(db_session, MEMBER_EMAIL, valid_to=date(date.today().year, 12, 31))
+    _signed_in_member(db_session, MEMBER_EMAIL, valid_to=date(belgian_today().year, 12, 31))
     client.cookies.set(SESSION_COOKIE, make_session_value(MEMBER_EMAIL))
 
     page = client.get("/webshop")

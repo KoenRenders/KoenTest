@@ -14,6 +14,7 @@ from decimal import Decimal
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from app.domains.pricing.api import Price, PriceType, prices_of
 from app.domains.product.api import ProductStatus, add_variant, create_product, set_status
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 
@@ -88,7 +89,7 @@ def test_geldt_is_per_size_and_type(client, db_session, every_module_on):
     _operator(client, db_session, every_module_on)
     product = create_product(db_session, "T-shirt Raak")
     medium = add_variant(db_session, product.id, "M")
-    today = date.today()
+    today = belgian_today()
     db_session.add_all(
         [
             Price(
