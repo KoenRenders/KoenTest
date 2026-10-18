@@ -322,7 +322,7 @@ def test_a_sold_out_size_is_refused_in_words(client, db_session, every_module_on
     m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=0)
     response = _post(client, m.id)
     assert response.status_code == 422
-    assert "voorraad" in response.text
+    assert "Uitverkocht." in response.text
 
 
 def test_a_variant_posted_twice_is_one_line(client, db_session, every_module_on):
@@ -447,7 +447,8 @@ def test_a_gone_line_stays_in_the_basket_marked(client, db_session, every_module
 
 def test_a_sold_out_line_stays_in_the_basket_marked(client, db_session, every_module_on):
     """Koen's "ja op beide": a size without enough stock stays on its own line
-    with its sentence ("Nog … op voorraad"), not a refusal of the whole basket."""
+    with its sentence ("Nog … op voorraad, maximaal … bestelbaar."), not a refusal
+    of the whole basket."""
     m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=1)
     response = client.post(
         "/webshop/mandje",
@@ -455,7 +456,58 @@ def test_a_sold_out_line_stays_in_the_basket_marked(client, db_session, every_mo
         follow_redirects=False,
     )
     assert response.status_code == 200
-    assert "Nog 1 op voorraad" in response.text
+    assert "Nog 1 op voorraad, maximaal 1 bestelbaar." in response.text
+
+
+def test_a_short_line_names_the_stock_and_the_orderable_max(client, db_session, every_module_on):
+    """#2104: 3 in stock, 5 asked — the basket and the refused order both say how
+    many can be ordered, in the one sentence of the rule they share (Q1)."""
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=3)
+    sentence = "Nog 3 op voorraad, maximaal 3 bestelbaar."
+
+    basket = client.post(
+        "/webshop/mandje",
+        data={"variant_id": str(m.id), "quantity": "5"},
+        follow_redirects=False,
+    )
+    assert basket.status_code == 200
+    assert sentence in basket.text
+
+    placed = _post(client, m.id, quantity="5")
+    assert "HX-Redirect" not in placed.headers, "the order is refused"
+    assert sentence in placed.text
+
+
+def test_a_line_without_stock_reads_sold_out(client, db_session, every_module_on):
+    """#2104: no stock — the line says "Uitverkocht.", not "Nog 0 op voorraad"."""
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=0)
+    basket = client.post(
+        "/webshop/mandje",
+        data={"variant_id": str(m.id), "quantity": "1"},
+        follow_redirects=False,
+    )
+    assert basket.status_code == 200
+    assert "Uitverkocht." in basket.text
+    assert "op voorraad" not in basket.text
+
+
+def test_the_orderable_max_is_the_tenant_maximum_below_the_stock(
+    db_session, every_module_on, monkeypatch
+):
+    """#2104: `max` is the stepper's bound — the stock capped at the tenant's
+    maximum. The basket and the order refuse a quantity above that maximum before
+    they ask the stock, so this is measured on the rule itself."""
+    from app.config import settings
+    from app.domains.product.api import get_product
+    from app.domains.sales.service import _stock_refusal
+    from app.kernel.clock import belgian_today
+
+    monkeypatch.setattr(settings, "max_item_quantity", 2)
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=3)
+    refusal = _stock_refusal(
+        db_session, get_product(db_session, m.product_id), m.id, 5, belgian_today()
+    )
+    assert refusal == "Nog 3 op voorraad, maximaal 2 bestelbaar."
 
 
 def test_the_total_counts_only_the_orderable_lines(client, db_session, every_module_on):
@@ -507,7 +559,7 @@ def test_a_pre_order_article_without_stock_stays_orderable(client, db_session, e
         follow_redirects=False,
     )
     assert basket.status_code == 200
-    assert "Nog 0 op voorraad" not in basket.text
+    assert "Uitverkocht." not in basket.text
 
     placed = _post(client, variant.id, quantity="2")
     assert placed.status_code == 200
@@ -1144,7 +1196,7 @@ def test_bestelling_toevoegen_refuses_a_short_article(client, db_session, every_
         headers=headers,
     )
     assert response.status_code == 422
-    assert "voorraad" in response.text
+    assert "Nog 1 op voorraad, maximaal 1 bestelbaar." in response.text
 
 
 def _board_user(db, role: str, email: str) -> str:

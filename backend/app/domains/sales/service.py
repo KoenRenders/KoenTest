@@ -254,18 +254,27 @@ def _stock_refusal(
 ) -> str | None:
     """None when a line of `quantity` can be reserved — enough stock, or the
     article's pre-order window is open (R39, `allow_short`) — else the sentence
-    naming the shortfall. The one rule the basket and the order share (Q1): a line
-    the basket marks must be a line the order refuses, and the reverse."""
+    naming the shortfall: the stock and what can be ordered today (the stepper's
+    bound), or "Uitverkocht." without stock (#2104). The one rule the basket and the
+    order share (Q1): a line the basket marks must be a line the order refuses, and
+    the reverse."""
     from app.domains.stock.api import available
     from app.i18n import _
+    from app.kernel.tenant_config import tenant_max_item_quantity
 
     open_window, _until = pre_order_window(product, today)
     if open_window:
         return None
     in_stock = available(db, variant_id)
-    if in_stock < quantity:
-        return _("Nog %(aantal)s op voorraad.") % {"aantal": in_stock}
-    return None
+    if in_stock >= quantity:
+        return None
+    if in_stock <= 0:
+        return _("Uitverkocht.")
+    orderable = _orderable_max(db, product, variant_id, today, tenant_max_item_quantity(db))
+    return _("Nog %(aantal)s op voorraad, maximaal %(max)s bestelbaar.") % {
+        "aantal": in_stock,
+        "max": orderable,
+    }
 
 
 def _orderable_max(
