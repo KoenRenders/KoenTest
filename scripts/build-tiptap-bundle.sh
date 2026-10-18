@@ -89,7 +89,7 @@ cat > package.json <<'JSON'
 }
 JSON
 cat > entry.js <<'JS'
-import { Editor, Extension, Node, mergeAttributes } from '@tiptap/core'
+import { Editor, Extension, Mark, Node, mergeAttributes } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import { StarterKit } from '@tiptap/starter-kit'
@@ -98,7 +98,7 @@ import { Image } from '@tiptap/extension-image'
 import { Link } from '@tiptap/extension-link'
 import { Placeholder } from '@tiptap/extension-placeholder'
 export {
-  Editor, Extension, Node, mergeAttributes, StarterKit, TableKit, Image, Link, Placeholder,
+  Editor, Extension, Mark, Node, mergeAttributes, StarterKit, TableKit, Image, Link, Placeholder,
   Plugin, PluginKey, Decoration, DecorationSet,
 }
 JS

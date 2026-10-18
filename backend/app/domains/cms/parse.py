@@ -51,6 +51,7 @@ from html.parser import HTMLParser
 from typing import Any, Optional
 
 from app.domains.cms.render import (
+    LARGE_CLASS,
     _blocks_html,
     headings_one_level_down,
     image_attributes_from_attachment,
@@ -393,8 +394,15 @@ class _Builder:
     def mark(self, tag: str, attrs: dict[str, str]) -> None:
         if tag == "a":
             self.marks.append({"type": "link", "attrs": {"href": attrs.get("href", "")}})
+        elif tag == "span":
+            self.marks.append({"type": "large"})
         else:
             self.marks.append({"type": _MARK_FOR[tag]})
+
+
+def _is_large(tag: str, attrs: dict[str, str]) -> bool:
+    """The one span the document knows: the mark "Groot" (#2095)."""
+    return tag == "span" and attrs.get("class") == LARGE_CLASS
 
 
 class _DocumentParser(HTMLParser):
@@ -403,10 +411,17 @@ class _DocumentParser(HTMLParser):
     def __init__(self, builder: _Builder) -> None:
         super().__init__(convert_charrefs=True)
         self.builder = builder
+        self.large_spans: list[bool] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, Optional[str]]]) -> None:
         attrd = {k: v or "" for k, v in attrs}
-        if tag in _MARK_FOR or tag == "a":
+        if tag == "span":
+            # One entry per span, so the end tag of a span that is not the mark
+            # (refused below) does not close the mark of the one around it.
+            self.large_spans.append(_is_large(tag, attrd))
+        if _is_large(tag, attrd):
+            self.builder.mark(tag, attrd)
+        elif tag in _MARK_FOR or tag == "a":
             self.builder.mark(tag, attrd)
         elif tag in _BLOCK_TAGS:
             self.builder.open_block(tag, attrd)
@@ -414,7 +429,10 @@ class _DocumentParser(HTMLParser):
             self.builder.refuse(tag)
 
     def handle_endtag(self, tag: str) -> None:
-        if tag in _MARK_FOR or tag == "a":
+        if tag == "span" and self.large_spans and self.large_spans.pop():
+            if self.builder.marks:
+                self.builder.marks.pop()
+        elif tag in _MARK_FOR or tag == "a":
             if self.builder.marks:
                 self.builder.marks.pop()
         elif tag in _BLOCK_TAGS:
