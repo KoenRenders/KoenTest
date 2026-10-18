@@ -1,11 +1,11 @@
 {% import "_macros.html" as ui %}
-{# Every call, newest first, on the kit's table (#1925): what, who, the status, the
+{# Every call of the month, newest first or oldest first, on the kit's table (#1925, #2109): what, who, the status, the
    model with its provider and the duration (the two optional columns, the model
    only on a wide screen — Koen, 16 October 2026, "a"), the cost and the moment.
    A call has no page of its own, so the name is plain text. On a phone a call is
    a card. #}
 {% if calls %}
-{% call ui.data_table(columns, caption=_("AI-oproepen")) %}
+{% call ui.data_table(columns, hx_target="#ai-oproepen", caption=_("AI-oproepen")) %}
   <tbody>
   {% for c in calls %}
     <tr data-row data-ai-call class="align-middle">
@@ -20,7 +20,8 @@
   {% endfor %}
   </tbody>
 {% endcall %}
-{{ ui.pager(page, per_page, total, hx_get="/admin/info/ai-kosten", hx_target="#ai-oproepen") }}
+{{ ui.pager(page, per_page=per_page, total=total, hx_get=pager_url, hx_target="#ai-oproepen", count=False, push=True) }}
 {% else %}
-{{ ui.empty_state(_("Nog geen AI-oproepen in deze afdeling.")) }}
+{{ ui.empty_state(empty_reason) }}
 {% endif %}
+{% if oob %}{{ ui.toolbar_oob("ai-filter", page=page, per_page=per_page, total=total, sort=sort) }}{% endif %}

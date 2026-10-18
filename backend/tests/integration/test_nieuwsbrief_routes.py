@@ -279,7 +279,13 @@ def test_abonnees_beheren(client, db_session):
         headers=headers,
         data={"subscriber_email": "Nora@example.org", "first_name": "Nora"},
     )
-    assert "nora@example.org staat op de lijst" in toegevoegd.text
+    # #2109: "+ Adres" is a page of its own; success goes back to the list, naming the address.
+    assert toegevoegd.status_code == 204
+    assert toegevoegd.headers["HX-Redirect"] == (
+        "/admin/nieuwsbrieven/abonnees?toegevoegd=nora%40example.org"
+    )
+    terug = client.get(toegevoegd.headers["HX-Redirect"])
+    assert "nora@example.org staat op de lijst" in terug.text
     nora = nb.subscriber_by_email(db_session, "nora@example.org")
 
     dubbel = client.post(
@@ -287,14 +293,15 @@ def test_abonnees_beheren(client, db_session):
         headers=headers,
         data={"subscriber_email": "nora@example.org"},
     )
-    assert "staat al op de lijst" in dubbel.text
+    assert dubbel.status_code == 422 and "staat al op de lijst" in dubbel.text
+    assert dubbel.headers["HX-Retarget"] == "#abonnee-melding"
 
     client.post(f"/admin/nieuwsbrieven/abonnees/{nora.id}/uitschrijven", headers=headers)
     db_session.refresh(nora)
     assert nora.status == SubscriberStatus.UNSUBSCRIBED
 
     gefilterd = client.get(
-        "/admin/nieuwsbrieven/abonnees?status=confirmed",
+        "/admin/nieuwsbrieven/abonnees/lijst?status=confirmed",
         headers={"HX-Request": "true", "X-Raak-Filter": "1"},
     )
     assert "nora@example.org" not in gefilterd.text
@@ -608,3 +615,36 @@ def test_de_kalender_is_de_kalendergroep_van_de_brief(client, db_session):
     )
     assert "Kerstmarkt" in rendered()
     assert dichtbij.id in nb.choices_of(db_session, letter).calendar
+
+
+def test_de_abonneeslijst_staat_op_de_kit(client, db_session):
+    """#2109 (§5.1): drie cijfers in de titelrij, vier segmenten, zoeken op adres en
+    voornaam, sorteren op 'sinds', een pagina van vijftig, en het toevoegformulier
+    onder de tabel is weg — '+ Adres' opent een eigen pagina."""
+    headers = _login(client)
+    for i in range(52):
+        _subscriber(db_session, f"lijst{i:02d}@example.org")
+    _subscriber(db_session, "wacht@example.org", status=SubscriberStatus.PENDING)
+    _subscriber(db_session, "weg@example.org", status=SubscriberStatus.UNSUBSCRIBED)
+    pagina = client.get("/admin/nieuwsbrieven/abonnees").text
+    assert "data-list-page" in pagina and "Adres toevoegen" not in pagina
+    assert "/admin/nieuwsbrieven/abonnees/nieuw" in pagina and "Lijst importeren" in pagina
+    for woord in ("Bevestigd", "Wachten", "Uitgeschreven"):
+        assert f">{woord}<" in pagina, woord
+    balk = pagina.split("data-status-filter", 1)[1].split("</fieldset>", 1)[0]
+    assert [x.strip() for x in re.findall(r"<span[^>]*>([^<]+)</span>", balk)] == [
+        "Alle",
+        "Bevestigd",
+        "Wachten",
+        "Uitgeschreven",
+    ]
+    assert pagina.count("data-subscriber-row") == 50, "one page of fifty"
+    hx = {**headers, "HX-Request": "true"}
+    tweede = client.get("/admin/nieuwsbrieven/abonnees/lijst?page=2", headers=hx).text
+    assert 0 < tweede.count("data-subscriber-row") <= 50
+    wacht = client.get("/admin/nieuwsbrieven/abonnees/lijst?status=pending", headers=hx).text
+    assert "wacht@example.org" in wacht and "lijst00@example.org" not in wacht
+    zoek = client.get("/admin/nieuwsbrieven/abonnees/lijst?q=lijst07", headers=hx).text
+    assert "lijst07@example.org" in zoek and "lijst08@example.org" not in zoek
+    nieuw = client.get("/admin/nieuwsbrieven/abonnees/nieuw")
+    assert nieuw.status_code == 200 and 'name="subscriber_email"' in nieuw.text

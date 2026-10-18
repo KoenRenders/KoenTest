@@ -67,15 +67,26 @@ def _wijzigingen(db, aantal):
     return ids
 
 
-def test_details_staat_voor_object_actor(client, db_session):
-    """De kern van #620-1: Details mag niet als eerste buiten beeld vallen."""
+def test_de_kolomvolgorde_is_die_van_het_eindbeeld(client, db_session):
+    """#2109 (§5.1): Tijdstip · Wijziging · Onderdeel · Persoon · Record · Uitgevoerd
+    door · Details — Details hoort het eerst uit beeld te gaan, dan Uitgevoerd door
+    (de prioriteiten 1 en 2 van de kit), en dat kan alleen als ze achteraan staan."""
     _wijzigingen(db_session, 2)
     _login(client)
-    koppen = _koppen(client.get("/admin/ledenwijzigingen").text)
-
-    assert "Details" in koppen
-    for later in ("Object", "Actor"):
-        assert koppen.index("Details") < koppen.index(later), f"Details hoort vóór {later} te staan"
+    html = client.get("/admin/ledenwijzigingen").text
+    assert _koppen(html) == [
+        "Tijdstip",
+        "Wijziging",
+        "Onderdeel",
+        "Persoon",
+        "Record",
+        "Uitgevoerd door",
+        "Details",
+    ]
+    assert re.search(r'<th[^>]*data-p="1"[^>]*>\s*Details', html), "Details is prioriteit 1"
+    assert re.search(r'<th[^>]*data-p="2"[^>]*>\s*<a[^>]*>\s*Uitgevoerd door', html), (
+        "Actor is prioriteit 2"
+    )
 
 
 def test_persoon_staat_voor_details(client, db_session):
@@ -167,3 +178,66 @@ def test_paginering_toont_vijftig_per_pagina_en_behoudt_de_filters(client, db_se
     tweede = client.get("/admin/ledenwijzigingen?since=2000-01-01&page=2").text
     assert 0 < tweede.count("<tr") - 1 <= PER_PAGE
     assert "since=2000-01-01" in tweede, "de filterstand hoort mee te gaan bij het bladeren"
+
+
+def _rijen(html: str) -> list[str]:
+    """De namen in de Persoon-kolom van de tabel, in volgorde."""
+    return re.findall(r'<td data-cell="name"[^>]*><div[^>]*>([^<]*)</div>', html)
+
+
+def test_de_segmenten_zijn_leden_activiteiten_betalingen_zonder_aantallen(client, db_session):
+    """#2109 (§5.1): Alle | Leden | Activiteiten | Betalingen, geen tellingen; een
+    segment versmalt de rijen. Rood te maken door `group` uit `_state` te laten
+    vallen: het tweede en derde antwoord tonen dan allebei de personen."""
+    _wijzigingen(db_session, 2)
+    _login(client)
+    pagina = client.get("/admin/ledenwijzigingen?since=2000-01-01").text
+    balk = pagina.split("data-status-filter", 1)[1].split("</fieldset>", 1)[0]
+    labels = [
+        re.sub(r"<[^>]+>", "", b).strip() for b in re.findall(r"<span[^>]*>(.*?)</span>", balk)
+    ]
+    assert [x for x in labels if x] == ["Alle", "Leden", "Activiteiten", "Betalingen"]
+    assert "tabular-nums" not in balk, "geen aantallen in de segmenten"
+
+    hx = {"HX-Request": "true"}
+    leden = client.get("/admin/ledenwijzigingen/lijst?since=2000-01-01&group=Leden", headers=hx)
+    assert "Test0" in leden.text and "Test1" in leden.text
+    andere = client.get(
+        "/admin/ledenwijzigingen/lijst?since=2000-01-01&group=Activiteiten", headers=hx
+    )
+    assert "Test0" not in andere.text and "Geen wijzigingen sinds" in andere.text
+
+
+def test_het_zoekveld_zoekt_op_wie_het_deed_en_de_datum_filtert(client, db_session):
+    _wijzigingen(db_session, 2)
+    _login(client)
+    hx = {"HX-Request": "true"}
+    mijn = client.get(
+        "/admin/ledenwijzigingen/lijst?since=2000-01-01&q=tester@example.com", headers=hx
+    )
+    assert "Test0" in mijn.text
+    niemand = client.get("/admin/ledenwijzigingen/lijst?since=2000-01-01&q=niemand", headers=hx)
+    assert "Test0" not in niemand.text
+    morgen = (belgian_today().replace(year=belgian_today().year + 1)).isoformat()
+    assert (
+        "Test0" not in client.get(f"/admin/ledenwijzigingen/lijst?since={morgen}", headers=hx).text
+    )
+
+
+def test_de_kolomkoppen_sorteren_en_de_datumkop_keert_de_volgorde_om(client, db_session):
+    """Standaard nieuwste eerst; `sort=wanneer` is de oudste eerst; `sort=-persoon` is
+    Z–A. De sortering zit in de route, dus de volgorde is wat het scherm toont."""
+    _wijzigingen(db_session, 3)
+    _login(client)
+    hx = {"HX-Request": "true"}
+    basis = "/admin/ledenwijzigingen/lijst?since=2000-01-01"
+    auf = _rijen(client.get(basis + "&sort=persoon", headers=hx).text)
+    af = _rijen(client.get(basis + "&sort=-persoon", headers=hx).text)
+    eigen_auf = [n for n in auf if n.startswith("Test")]
+    eigen_af = [n for n in af if n.startswith("Test")]
+    assert len(eigen_auf) == 3 and eigen_auf == sorted(eigen_auf)
+    assert eigen_af == sorted(eigen_af, reverse=True)
+    nieuw = client.get(basis, headers=hx).text
+    oud = client.get(basis + "&sort=wanneer", headers=hx).text
+    assert 'aria-sort="descending"' in nieuw and 'aria-sort="ascending"' in oud
+    assert nieuw != oud
