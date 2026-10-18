@@ -172,10 +172,10 @@ def _seed(db):
 # Per scherm: het pad, en élke filter-control die erop hoort te staan. De namen
 # staan er expliciet bij en niet als "wat we toevallig vinden" — verdwijnt er een
 # filter, dan hoort deze test dat te melden en niet mee te schuiven.
+#
+# Pagina's, Formulieren and Rapporten left this list with #2123: they are the kit's
+# toolbar now, whose search, segments and Filters are one form by construction.
 SCHERMEN = [
-    ("/admin/paginas", {"q", "status"}),
-    ("/admin/formulieren", {"q", "status"}),
-    ("/admin/rapporten", {"q", "owner", "shared"}),
     # #1527: the tree chooses the kind and the activity; the row keeps the search.
     ("/admin/media", {"q"}),
     ("/admin/gebruikers", {"q", "rol", "actief"}),
@@ -217,9 +217,6 @@ def test_het_zoekveld_wint_de_restbreedte(client, db_session):
     balken = [
         app / p
         for p in (
-            "domains/cms/templates/admin_paginas.html",
-            "domains/forms/templates/admin_formulieren.html",
-            "domains/reporting/templates/admin_rapporten.html",
             "domains/media/templates/admin_media.html",
             "domains/auth/templates/admin_gebruikers.html",
         )

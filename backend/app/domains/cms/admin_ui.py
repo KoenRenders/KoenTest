@@ -67,11 +67,8 @@ def _lijst_ctx(request: Request, db: Session, *, oob: bool = False) -> dict:
         "published": sum(1 for p in found if p.is_published),
         "draft": sum(1 for p in found if not p.is_published),
     }
-    shown = found
-    if state.status == "published":
-        shown = [p for p in shown if p.is_published]
-    elif state.status == "draft":
-        shown = [p for p in shown if not p.is_published]
+    segment = {"published": lambda p: p.is_published, "draft": lambda p: not p.is_published}
+    shown = [p for p in found if not state.status or segment[state.status](p)]
     pages, total, page = page_of(shown, state)
     for row in pages:
         row.concept_gewijzigd = gewijzigd.get(row.id, False)

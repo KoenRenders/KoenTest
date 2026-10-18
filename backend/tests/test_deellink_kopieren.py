@@ -83,36 +83,37 @@ def test_er_is_een_terugval_zonder_secure_context(client):
 
 
 def test_de_knop_liegt_niet_bij_een_mislukte_kopie(client):
-    """`raakKopieer` geeft false terug bij mislukking, en het vinkje hangt aan die
-    uitkomst. Een knop die altijd bevestigt is erger dan een knop die niets doet:
-    dan denk je dat de link op je klembord staat."""
+    """`raakKopieer` geeft false terug bij mislukking, en de bevestiging ("Gekopieerd")
+    hangt aan die uitkomst. Een item dat altijd bevestigt is erger dan een item dat niets
+    doet: dan denk je dat de link op je klembord staat."""
+    _formulier(client)
     _login(client)
     html = client.get("/admin/formulieren").text
 
     assert "ok = await raakKopieer" in html, (
-        "het vinkje hangt niet aan de uitkomst van de kopieerpoging"
+        "de bevestiging hangt niet aan de uitkomst van de kopieerpoging"
     )
+    assert "Gekopieerd" in html
 
 
 # ── Toegankelijkheid en geldige opmaak ───────────────────────────────────────
 
 
-def test_de_knop_draagt_een_aria_label(client):
-    """Alleen een icoon, dus verplicht (§2.6) — de lint-gate bewaakt dit ook, maar
-    hier staat het bij het component zelf."""
+def test_het_item_draagt_zijn_label(client):
+    """#2123: "Deellink kopiëren" is een item van het rijmenu en heeft dus tekst (geen
+    icoonknop met een aria-label): de tekst is het label."""
     _formulier(client)
     _login(client)
 
     html = client.get("/admin/formulieren").text
-    knop_start = html.index('data-copy="/formulier/')
-    knop = html[html.rindex("<button", 0, knop_start) : html.index(">", knop_start)]
-    assert "aria-label=" in knop, knop
+    start = html.index('data-copy="/formulier/')
+    item = html[html.rindex("<button", 0, start) : html.index("</button>", start)]
+    assert 'role="menuitem"' in item and "Deellink kopiëren" in item, item
 
 
-def test_de_kaart_zet_geen_knop_in_een_anchor(client):
-    """Een `<button>` in een `<a>` is ongeldige HTML. De kaart blijft één grote link
-    via het uitgerekte-link-patroon: de <a> dekt de kaart als absolute laag en
-    alleen de knop ligt erboven."""
+def test_het_item_staat_niet_in_de_rijlink(client):
+    """Een `<button>` in een `<a>` is ongeldige HTML. De rij is een tabelrij en haar link
+    (`ui.row_link`) staat in de eerste cel; het menu staat in de laatste."""
     form = _formulier(client)
     _login(client)
     html = client.get("/admin/formulieren").text
@@ -120,9 +121,4 @@ def test_de_kaart_zet_geen_knop_in_een_anchor(client):
     anchor = html.index(f'href="/admin/formulieren/{form["id"]}"')
     knop = html.index('data-copy="/formulier/')
     assert anchor < knop, "onverwachte volgorde; de check hieronder klopt dan niet"
-    assert "</a>" in html[anchor:knop], (
-        "de kopieerknop staat binnen de kaart-anchor — ongeldige HTML"
-    )
-    assert 'class="absolute inset-0' in html[anchor - 200 : knop], (
-        "de uitgerekte link ontbreekt; dan is de kaart geen link meer"
-    )
+    assert "</a>" in html[anchor:knop], "het kopieeritem staat binnen de rijlink — ongeldige HTML"

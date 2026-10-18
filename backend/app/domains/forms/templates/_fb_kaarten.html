@@ -16,9 +16,12 @@
                                         f.status | tone("form_status")) }}</td>
       <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right tabular-nums">{{ submission_counts[f.id] }}</td>
       <td data-cell="date" data-p="2" class="border-b border-line px-3 py-2 text-ink-soft">{{ last_submissions[f.id] }}</td>
-      <td data-cell="actions" class="border-b border-line px-3 py-2">{{ ui.row_actions_cell(None, [
-          {"label": _("Deellink kopiëren"), "attrs": 'data-copy="' ~ deellink ~ '" @click="raakKopieer($el.dataset.copy); open = false"'}
-        ], label=f.title) }}</td>
+      <td data-cell="actions" class="border-b border-line px-3 py-2">
+        {#- A block, not a `~` chain: `_()` is Markup, and a plain string joined to it is
+            escaped (the quotes of the attributes). -#}
+        {% set copy_attrs %}data-copy="{{ deellink }}" data-label="{{ _("Deellink kopiëren") }}" x-data="{ ok: false }" x-text="ok ? '{{ _("Gekopieerd") }}' : $el.dataset.label" @click="ok = await raakKopieer($el.dataset.copy); setTimeout(() => { ok = false; open = false }, 1200)"{% endset %}
+        {{ ui.row_actions_cell(None, [{"label": _("Deellink kopiëren"), "attrs": copy_attrs}], label=f.title) }}
+      </td>
     </tr>
     {% endfor %}
   </tbody>

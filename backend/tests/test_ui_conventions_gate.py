@@ -488,7 +488,10 @@ def test_lijstschermen_zetten_de_actie_in_de_kop():
         pad = per_naam.get(naam)
         if pad is None:
             continue
-        if "{% call ui.page_header" not in _zonder_commentaar(pad):
+        tekst = _zonder_commentaar(pad)
+        # #2123: a list on the kit's list page has its head in `list_page.html`, where the
+        # primary action is the `list_primary` block — the same place by another door.
+        if "{% call ui.page_header" not in tekst and '{% extends "list_page.html" %}' not in tekst:
             fouten.append(f"{pad.relative_to(APP)}: gebruikt ui.page_header() zonder call-blok")
     assert not fouten, (
         "Zet de primaire actie in de kop via {% call ui.page_header(…) %}:\n  "

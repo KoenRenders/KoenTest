@@ -224,14 +224,10 @@ def _list_view(
         )
     needle = state.q.lower()
     shown = [r for r in everyone if not needle or needle in r.activity_name.lower()]
-    counts = {
-        "pub": sum(1 for r in shown if r.published),
-        "stale": sum(1 for r in shown if r.stale),
-    }
-    if state.status == "pub":
-        shown = [r for r in shown if r.published]
-    elif state.status == "stale":
-        shown = [r for r in shown if r.stale]
+    segment = {"pub": lambda r: r.published, "stale": lambda r: r.stale}
+    counts = {key: sum(1 for r in shown if test(r)) for key, test in segment.items()}
+    if state.status:
+        shown = [r for r in shown if segment[state.status](r)]
     rows, total, page = page_of(shown, state)
     extra = {"activity_id": activity_id or ""}
     return DesignListView(
@@ -609,26 +605,18 @@ def design_preview(
 ):
     design = _design_or_404(db, design_id)
     chosen = _layout_or_404(layout)
-    if klein:
-        # The list's thumbnail (#2123): a poster the size of a name cell, and a minute of
-        # cache, because a list of fifty designs asks fifty of them at once.
-        try:
-            png, _problems = preview_png(db, design, chosen, width_px=PREVIEW_SMALL_PX)
-        except (DesignError, RenderError) as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
-        return Response(
-            content=png, media_type="image/png", headers={"Cache-Control": "private, max-age=60"}
-        )
     try:
         # "Groot bekijken" renders at print resolution so a phone camera can
         # read the QR code off the screen (Koen, 20 September 2026). It takes
         # several seconds, which is why the panel's own picture does not.
-        png, _problems = preview_png(
-            db, design, chosen, width_px=PREVIEW_LARGE_PX if groot else PREVIEW_PX
-        )
+        # The list's thumbnail (#2123) is a poster the size of a name cell, and cached for a
+        # minute, because a list of fifty designs asks fifty of them at once.
+        width = PREVIEW_SMALL_PX if klein else (PREVIEW_LARGE_PX if groot else PREVIEW_PX)
+        png, _problems = preview_png(db, design, chosen, width_px=width)
     except (DesignError, RenderError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return Response(content=png, media_type="image/png", headers={"Cache-Control": "no-store"})
+    cache = "private, max-age=60" if klein else "no-store"
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": cache})
 
 
 @router.get("/admin/ontwerpen/{design_id}/voorbeeld.pdf")

@@ -175,15 +175,12 @@ def _list_view(
             for m in everyone
             if zoek in long_date(m.meeting_date).lower() or zoek in (m.location or "").lower()
         ]
-    counts = {
-        "komend": sum(1 for m in everyone if m.meeting_date >= today),
-        "voorbij": sum(1 for m in everyone if m.meeting_date < today),
+    segment = {
+        "komend": lambda m: m.meeting_date >= today,
+        "voorbij": lambda m: m.meeting_date < today,
     }
-    shown = everyone
-    if state.status == "komend":
-        shown = [m for m in shown if m.meeting_date >= today]
-    elif state.status == "voorbij":
-        shown = [m for m in shown if m.meeting_date < today]
+    counts = {key: sum(1 for m in everyone if test(m)) for key, test in segment.items()}
+    shown = [m for m in everyone if not state.status or segment[state.status](m)]
     meetings, total, page = page_of(shown, state)
     return MeetingListView(
         meetings=meetings,
