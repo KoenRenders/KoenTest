@@ -27,7 +27,7 @@
     <p>{{ _("Zodra de betaalprovider ze bevestigt, krijg je een e-mail.") }}</p>
   {% endcall %}
   {% endif %}
-  <p>{{ ui.btn_secondary(_("Terug naar de startpagina"), href="/") }}</p>
+  <p>{{ ui.btn_secondary(_("Terug naar de startpagina"), href="/", lead_icon="chevron-left") }}</p>
 </div>
 {% endcall %}
 {% else %}
@@ -39,7 +39,7 @@
   {% endcall %}
   <p class="flex flex-wrap gap-2">
     {{ ui.btn_primary(_("Opnieuw proberen"), href="/") }}
-    {{ ui.btn_secondary(_("Terug naar de startpagina"), href="/") }}
+    {{ ui.btn_secondary(_("Terug naar de startpagina"), href="/", lead_icon="chevron-left") }}
   </p>
 </div>
 {% endcall %}

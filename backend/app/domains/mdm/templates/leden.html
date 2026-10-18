@@ -10,7 +10,7 @@
    outside the list fragment. #}
 {% block list_title %}{{ _("Leden") }}{% endblock %}
 {% block list_figures %}{{ ui.figures(figures) }}{% endblock %}
-{% block list_primary %}{{ ui.btn_primary(_("+ Nieuw lid"), href="/admin/leden/nieuw") }}{% endblock %}
+{% block list_primary %}{{ ui.btn_primary(_("Nieuw lid"), href="/admin/leden/nieuw", lead_icon="plus") }}{% endblock %}
 {% block list_toolbar %}
 {% call ui.toolbar("/admin/leden/lijst", "#leden-lijst", "leden-filter",
                    segments=segments, status_name="status", status_current=status, status_legend=_("Lidmaatschap"),

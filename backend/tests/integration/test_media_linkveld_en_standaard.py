@@ -165,7 +165,8 @@ def test_het_linkveld_volgt_de_soortkeuze(client, db_session):
     _login(client)
     html = client.get("/admin/media/nieuw?kind=sponsor").text
     start = html.index('id="me-link"')
-    blok = html[html.rindex("<div", 0, start) : start]
+    # #2110: the field sits in a wrapper that carries the `x-show`.
+    blok = html[html.rindex("x-show=", 0, start) : start]
     assert "soort === 'sponsor'" in blok, blok
 
 

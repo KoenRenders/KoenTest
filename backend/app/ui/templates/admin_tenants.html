@@ -10,7 +10,7 @@
    toolbar stands outside the list fragment. #}
 {% block list_title %}{{ _("Tenants") }}{% endblock %}
 {% block list_figures %}{{ ui.figures(figures) }}{% endblock %}
-{% block list_primary %}{{ ui.btn_primary(_("+ Nieuwe tenant"), href="/admin/tenants/nieuw") }}{% endblock %}
+{% block list_primary %}{{ ui.btn_primary(_("Nieuwe tenant"), href="/admin/tenants/nieuw", lead_icon="plus") }}{% endblock %}
 {% block list_toolbar %}
 {{ ui.error_banner(error) }}
 {% if created %}{{ ui.success_banner(_("Tenant aangemaakt.")) }}{% endif %}

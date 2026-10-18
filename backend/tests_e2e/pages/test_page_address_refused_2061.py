@@ -90,7 +90,8 @@ def test_the_new_page_form_shows_the_reason(setup):
         pagina_klaar(page)
         line = page.locator("#pagina-nieuw-melding")
         empty = line.bounding_box()
-        assert empty["height"] == 0, f"the empty message line takes room: {empty}"
+        # #2110: on the kit's form flow an empty line is not drawn at all (None).
+        assert empty is None or empty["height"] == 0, f"the empty message line takes room: {empty}"
         page.locator("#title").fill("Botsing")
         page.locator("#slug").fill("activiteiten")
         page.get_by_role("button", name="Opslaan").first.click()

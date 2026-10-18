@@ -14,7 +14,7 @@
                                                                  "__HREF__": "/admin/leden/gezin/" ~ organiser_households.get(match.person.id, ""),
                                                                  "__PERSON__": match.person.id|string,
                                                                  "__EMAIL__": organiser_own.get((match.person.id, own_email_code)) or _("geen e-mailadres op de fiche"),
-                                                                 "__MOBILE__": (organiser_own.get((match.person.id, own_mobile_code))|phone) or _("geen nummer op de fiche")}|tojson|forceescape) ~ ('"'|safe)) }}
+                                                                 "__MOBILE__": (organiser_own.get((match.person.id, own_mobile_code))|phone) or _("geen nummer op de fiche")}|tojson|forceescape) ~ ('"'|safe), lead_icon="plus") }}
   </li>
   {% else %}
   <li class="py-2 text-sm text-ink-soft">{{ _("Geen leden gevonden.") }}</li>

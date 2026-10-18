@@ -30,6 +30,9 @@ class DesignSystemView(ViewModel):
     radii: list[tuple[str, str]]
     #: De namen uit de `paths`-tabel van `ui.icon()`.
     iconen: list[str]
+    #: The verb → glyph table of §1.4, from `kit/verbs.py` — the one source the UI gate
+    #: reads (#2106).
+    werkwoorden: tuple[Any, ...] = ()
     #: Eén voorbeeldveld per soort uit `FIELD_TYPES` (#811), gerenderd door dezelfde
     #: `veld()`-macro als het publieke formulier.
     velden: list[Any]

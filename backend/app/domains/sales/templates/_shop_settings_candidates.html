@@ -7,7 +7,7 @@
     <form hx-post="/admin/verkoop/instellingen" hx-target="body" hx-swap="innerHTML">
       <input type="hidden" name="action" value="add_contact">
       <input type="hidden" name="person_id" value="{{ c.id }}">
-      {{ ui.btn_secondary(_("Toevoegen"), "submit", size="sm") }}
+      {{ ui.btn_secondary(_("Toevoegen"), "submit", size="sm", lead_icon="plus") }}
     </form>
   </li>
   {% endfor %}

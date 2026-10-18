@@ -149,7 +149,7 @@ def test_the_list_opens_on_actief_on_the_kit_table(browser, households, width, h
     expect(
         page.locator('#leden-filter [data-more-menu] a[href="/admin/leden-import"]')
     ).to_have_count(1)
-    expect(page.get_by_role("link", name="+ Nieuw lid")).to_be_visible()
+    expect(page.get_by_role("link", name="Nieuw lid", exact=True)).to_be_visible()
     page.close()
 
 

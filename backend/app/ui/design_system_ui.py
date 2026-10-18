@@ -41,6 +41,7 @@ from fastapi.responses import HTMLResponse
 from app.domains.auth.api import Right, require_right
 from app.kernel.tenant_config import SITE_COLOR_DEFAULTS
 from app.ui import admin_nav, templates
+from app.ui.kit.verbs import VERBS
 from app.ui.viewmodels import DesignSystemView
 
 router = APIRouter(include_in_schema=False)
@@ -437,6 +438,7 @@ def design_system(request: Request, email: str = Depends(require_right(Right.SET
         demo_colours=dict(SITE_COLOR_DEFAULTS),
         radii=_radii(),
         iconen=_iconen(),
+        werkwoorden=VERBS,
         velden=_voorbeeldvelden(),
         # A real date, because the date format is the one that cannot be written
         # as a literal in the template (#875).

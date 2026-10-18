@@ -20,6 +20,7 @@ niet onder die uit het lijstfilter.
 """
 
 import io
+import re
 
 import pytest
 
@@ -79,7 +80,8 @@ def test_het_uploadscherm_laat_de_soort_kiezen(client, db_session, filterstand):
     html = client.get(f"/admin/media/nieuw?kind={filterstand}").text
 
     assert 'name="kind"' in html
-    assert '<select name="kind"' in html, "de soort staat nog als verborgen veld"
+    # #2110: the kit's select writes its attributes in its own order.
+    assert re.search(r'<select\b[^>]*\bname="kind"', html), "de soort staat nog als verborgen veld"
     for waarde in ("sponsor", "activity_photo"):
         assert f'value="{waarde}"' in html, f"{waarde} ontbreekt in de keuzelijst"
 

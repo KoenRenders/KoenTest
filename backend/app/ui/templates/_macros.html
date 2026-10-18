@@ -1275,7 +1275,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   {% if current_url %}
   <div class="flex flex-wrap items-center gap-2">
     <a href="{{ current_url }}" target="_blank" rel="noopener" class="text-sm text-link underline">{{ huidig_label or _("Huidige bijlage bekijken") }}</a>
-    {% if delete_attrs %}{{ btn_danger(_("Verwijderen"), size="sm", attrs=delete_attrs, confirm=delete_confirm) }}{% endif %}
+    {% if delete_attrs %}{{ btn_danger(_("Verwijderen"), size="sm", attrs=delete_attrs, confirm=delete_confirm, lead_icon="trash-2") }}{% endif %}
   </div>
   {% endif %}
   {% if hint %}<p class="text-xs text-ink-soft">{{ hint }}</p>{% endif %}

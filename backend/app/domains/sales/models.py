@@ -44,7 +44,17 @@ SUBMISSION_KEY_CONSTRAINT = "uq_sales_orders_submission_key"
 
 
 class SalesError(ValueError):
-    """A rule of this domain was violated. One class for the domain, English."""
+    """A rule of this domain was violated. One class for the domain, English.
+
+    `field` is the form's name of the field the refusal is about, so the door can
+    mark it (#2121); "" — the default — is the form as a whole."""
+
+    field: str = ""
+
+    def __init__(self, *args: object, field: str = ""):
+        super().__init__(*args)
+        if field:
+            self.field = field
 
 
 class ProductHasOrderLines(SalesError):

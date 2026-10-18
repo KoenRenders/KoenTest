@@ -238,7 +238,9 @@ async def order_submit(request: Request, db: Session = Depends(get_db)) -> Respo
     except form_guard.NotSent as hurry:
         return refusal_response(request, [FieldError("", str(hurry))], "#bestel-melding", send=True)
     except SalesError as exc:
-        return refusal_response(request, [FieldError("", str(exc))], "#bestel-melding", send=True)
+        return refusal_response(
+            request, [FieldError(exc.field, str(exc))], "#bestel-melding", send=True
+        )
 
     response = HTMLResponse("")
     response.headers["HX-Redirect"] = checkout_url or f"/webshop/bedankt?key={secret_key}"
