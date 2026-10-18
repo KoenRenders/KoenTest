@@ -1,0 +1,77 @@
+"""Public facade of the product domain (CR-21).
+
+Everything another module may use lives here. The ORM classes are exported for
+other domains' services, not for screens; the layer gate holds that line.
+"""
+
+from app.domains.product.codes import PRODUCT_STATUS  # noqa: F401
+from app.domains.product.models import (  # noqa: F401
+    Product,
+    ProductAttachment,
+    ProductError,
+    ProductStatus,
+    ProductVariant,
+    SizeNameRefusal,
+)
+from app.domains.product.service import (  # noqa: F401
+    add_attachment,
+    add_variant,
+    attachment_cards,
+    attachment_word_refusal,
+    attachments_of,
+    create_product,
+    delete_product,
+    delete_variant,
+    get_product,
+    get_product_in_tenant,
+    get_variant,
+    is_on_sale,
+    list_products,
+    pre_order_window,
+    references_to_media,
+    remove_attachment,
+    rename_variant,
+    save_product,
+    set_attachment_text,
+    set_pre_order,
+    set_status,
+    size_of,
+    sync_variants,
+    update_product,
+    variants_of,
+)
+
+__all__ = [
+    "PRODUCT_STATUS",
+    "Product",
+    "ProductAttachment",
+    "ProductError",
+    "ProductStatus",
+    "ProductVariant",
+    "SizeNameRefusal",
+    "add_attachment",
+    "add_variant",
+    "attachment_cards",
+    "attachment_word_refusal",
+    "attachments_of",
+    "create_product",
+    "delete_product",
+    "delete_variant",
+    "get_product",
+    "get_product_in_tenant",
+    "get_variant",
+    "is_on_sale",
+    "list_products",
+    "pre_order_window",
+    "references_to_media",
+    "remove_attachment",
+    "rename_variant",
+    "save_product",
+    "set_attachment_text",
+    "set_pre_order",
+    "set_status",
+    "size_of",
+    "sync_variants",
+    "update_product",
+    "variants_of",
+]

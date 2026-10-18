@@ -1,0 +1,20 @@
+{% extends "list_page.html" %}
+{% import "_macros.html" as ui %}
+{% block list_title %}{{ _("Verkoop") }}{% endblock %}
+{% block list_primary %}
+<div class="flex items-center gap-2">
+  {{ ui.btn_secondary(_("Webshop-instellingen"), href="/admin/verkoop/instellingen") }}
+  {{ ui.btn_primary(_("Bestelling toevoegen"), href="/admin/verkoop/nieuw") }}
+</div>
+{% endblock %}
+{% block list_toolbar %}
+{{ ui.toolbar("/admin/verkoop/lijst", "#verkoop-lijst", "verkoop-filter",
+              segments=segments, status_name="segment", status_current=segment, status_legend=_("Status"),
+              q=q, search_placeholder=_("Zoek op bestelling of koper…"),
+              total=total, per_page=total) }}
+{% endblock %}
+{% block list_body %}
+<div id="verkoop-lijst" hx-include="#verkoop-filter">
+  {% include "_verkoop_lijst.html" %}
+</div>
+{% endblock %}

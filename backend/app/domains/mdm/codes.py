@@ -78,10 +78,14 @@ PAYMENT_METHOD = CodeList(
     codes=PaymentMethodCode,
     labels=PaymentMethodLabel,
     enum=PaymentMethod,
-    # The two columns that store a payment method, in two different schemas.
+    # The columns that store a payment method, in three different schemas.
     # This is the cross-schema foreign key §B2.4 allows, and the reason the
     # list sits in `mdm` rather than in `payment`.
-    fk_from=("payment.payment_records.method", "activities.registrations.payment_method"),
+    fk_from=(
+        "payment.payment_records.method",
+        "activities.registrations.payment_method",
+        "sales.sales_orders.payment_method",
+    ),
 )
 
 

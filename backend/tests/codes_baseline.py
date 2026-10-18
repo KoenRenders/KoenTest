@@ -68,6 +68,10 @@ FK_NOT_OUR_LIST: dict[str, str] = {
         "net matches on the `_code` suffix and cannot tell a code list from a "
         "secret."
     ),
+    "sales.sales_order_lines.unit_code": (
+        "A UN/ECE unit of measure ('C62' = piece), a standard list somebody else "
+        "owns (B3a) — not our vocabulary."
+    ),
 }
 
 #: `*_LABELS` dictionaries whose values are not labels at all (§B4.10). The

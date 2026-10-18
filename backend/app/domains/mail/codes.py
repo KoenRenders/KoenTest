@@ -25,6 +25,7 @@ EMAIL_TYPE_CODES = (
     CodeSeed(code="idea_board", nl="Idee (bestuur)", en="Idea (board)", sort_order=40),
     CodeSeed(code="magic_link", nl="Inloglink", en="Login link", sort_order=50),
     CodeSeed(code="member_contact_notice", nl="Contactbericht", en="Contact notice", sort_order=60),
+    CodeSeed(code="order_confirmation", nl="Bestelling", en="Order", sort_order=65),
     CodeSeed(
         code="form_confirmation",
         nl="Formulier (bevestiging)",

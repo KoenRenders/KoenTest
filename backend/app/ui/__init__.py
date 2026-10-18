@@ -635,6 +635,17 @@ _ADMIN_NAV_LAYOUT: list[tuple[str | None, list[str | tuple[str, str]]]] = [
             "/admin/formulieren",
         ],
     ),
+    # CR-21: the webshop's own group, after Werking and before Inhoud (Koen,
+    # 10 October 2026: "b na werken, voor inhoud"). Verkoop joins it in phase 2.
+    (
+        "Webshop",
+        [
+            "/admin/producten",
+            "/admin/prijzen",
+            "/admin/voorraad",
+            "/admin/verkoop",
+        ],
+    ),
     (
         "Inhoud",
         [
@@ -729,6 +740,10 @@ _ADMIN_NAV_ICONS: dict[str, str] = {
     "/admin/paginas": "panels-top-left",
     "/admin/media": "image",
     "/admin/ai-context": "book-open",
+    "/admin/producten": "package",
+    "/admin/prijzen": "tag",
+    "/admin/voorraad": "warehouse",
+    "/admin/verkoop": "receipt-text",
     "/admin/betalingen": "wallet",
     "/admin/vergaderingen": "presentation",
     "/admin/nieuwsbrieven": "newspaper",
@@ -1461,6 +1476,9 @@ def site_context(db, request=None) -> dict:
         # with the tenant's own switch for the public site on; one rule
         # (`tenant_public_chat_enabled`), which the chat endpoints read too.
         "chat_enabled": tenant_public_chat_enabled(db) and module_enabled(ModuleCode.CHATBOT),
+        # CR-21: the webshop's basket script loads only where the shop is on —
+        # one conditional line in the shell (Koen, 13 October 2026: "1a").
+        "shop_enabled": module_enabled(ModuleCode.SHOP),
         "stt_mode": settings.stt_mode,  # spraakinvoer in de widget (#567)
         # #1251: the longest question the public Raakje takes — the field's
         # `maxlength`, from the setting its route refuses above.

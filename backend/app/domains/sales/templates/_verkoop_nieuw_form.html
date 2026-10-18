@@ -1,0 +1,39 @@
+{% import "_macros.html" as ui %}
+<form id="bestel-form" hx-post="/admin/verkoop/nieuw" hx-target="#bestel-form" hx-swap="outerHTML">
+  {{ ui.form_guard_fields() }}
+  <div id="bestel-melding" data-form-message></div>
+  {% call ui.record_columns() %}
+  <div class="form-flow">
+    {% call ui.section(_("Contact")) %}
+      {{ ui.field("email", _("E-mailadres van de koper"), kind="email", value=email, required=True,
+                 attrs='hx-post="/admin/verkoop/nieuw/koppeling" hx-include="closest form" hx-target="#bestel-form" hx-swap="outerHTML" hx-trigger="input changed delay:400ms"') }}
+      <div id="koppeling" data-span="full">{% include "_verkoop_koppeling.html" %}</div>
+    {% endcall %}
+    {% call ui.section(_("Artikelen")) %}
+      {% if lines %}
+      <div data-span="full" class="space-y-1">
+        {% for l in lines %}
+        <div class="flex items-center justify-between gap-3 text-sm">
+          <span class="min-w-0">{{ l.name }}{% if l.size %} · {{ _("maat") }} {{ l.size }}{% endif %} · {{ l.quantity }} ×</span>
+          <span class="flex items-center gap-2 shrink-0">
+            <span class="font-medium">€ {{ (l.price * l.quantity)|geld }}</span>
+            {{ ui.btn_secondary("", type="submit", size="sm", lead_icon="x", aria_label=_("Verwijderen"), attrs='name="remove_variant_id" value="' ~ l.variant_id ~ '" formnovalidate') }}
+          </span>
+        </div>
+        <input type="hidden" name="variant_id" value="{{ l.variant_id }}">
+        <input type="hidden" name="quantity" value="{{ l.quantity }}">
+        {% endfor %}
+      </div>
+      {% endif %}
+      {{ ui.field("product_id", _("Artikel"), kind="select", value=product_id, options=articles,
+                 attrs='hx-post="/admin/verkoop/nieuw/maten" hx-include="[name=email]" hx-target="#maten" hx-swap="innerHTML" hx-trigger="change"') }}
+      <div id="maten" data-span="full">{% include "_verkoop_maten.html" %}</div>
+    {% endcall %}
+    {% call ui.section(_("Betalen")) %}
+      <p data-span="full" class="text-sm text-ink">{{ _("De koper betaalt per overschrijving.") }}</p>
+      <input type="hidden" name="payment_method" value="transfer">
+    {% endcall %}
+    {{ ui.total_line(total, note=_("(ledenprijs)") if member_applied else "") }}
+  </div>
+  {% endcall %}
+</form>

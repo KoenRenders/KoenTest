@@ -78,12 +78,14 @@ from tests._bestanden import bestanden
 APP = Path(__file__).resolve().parents[1] / "app"
 
 # De domeinen die een payable-model bezitten. Geverifieerd tegen de code (alleen
-# "membership" en "registration" komen voor als payable_type) en de databank.
-PAYABLE_DOMEINEN = ("membership", "activities")
+# "membership", "registration" en "order" komen voor als payable_type) en de
+# databank.
+PAYABLE_DOMEINEN = ("membership", "activities", "sales")
 
 PAYABLE_MODELLEN = {
     "app.domains.membership.models.Membership",
     "app.domains.activities.models.Registration",
+    "app.domains.sales.models.SalesOrder",
 }
 
 # (bestand, functie) → reden. Leeg is het doel; een uitzondering staat hier

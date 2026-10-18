@@ -17,6 +17,7 @@ from app.domains.auth.login import (  # noqa: F401
     Consumed,
     consume_code,
     consume_link,
+    sign_in_link,
     start_account,
     start_login,
 )
@@ -72,6 +73,7 @@ __all__ = [
     "list_assignable_roles",
     "role_options",
     "start_login",
+    "sign_in_link",
     "find_persons_by_email",
     "login_person_for_email",
     "resolve_household",

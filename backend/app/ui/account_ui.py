@@ -69,9 +69,15 @@ def signed_in_person(request: Request, db: Session):
     return True, login_person_for_email(db, email)
 
 
-def to_sign_in(request: Request) -> RedirectResponse:
-    """Ask to sign in, and come back to this page (#1437)."""
-    here = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+def to_sign_in(request: Request, *, path: str | None = None) -> RedirectResponse:
+    """Ask to sign in, and come back to this page (#1437). `path` names another
+    page to return to — a POST route that has no page of its own hands the order
+    page, so the visitor is not sent back to an address only a POST answers."""
+    here = (
+        path
+        if path is not None
+        else request.url.path + (f"?{request.url.query}" if request.url.query else "")
+    )
     return RedirectResponse(f"/aanmelden?terug={quote(here, safe='/')}", status_code=302)
 
 
