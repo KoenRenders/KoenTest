@@ -126,9 +126,6 @@ def test_a_large_amount_inside_an_ordinary_line(setup, width):
             assert measured["span"] > measured["paragraph"], measured
             assert measured["h1s"] == 1 and not measured["inHeading"], "the mark is no heading"
             assert measured["lines"] == 1, f"the short line wraps at {width}: {measured}"
-            shot = os.environ.get("GROOT_SHOT")
-            if shot and width == 390:
-                public.screenshot(path=shot, clip={"x": 0, "y": 0, "width": 390, "height": 400})
         finally:
             public.close()
     finally:
