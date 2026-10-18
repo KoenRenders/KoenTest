@@ -82,7 +82,7 @@
     card's link) shares it. WCAG 2.2.2: movement that starts by itself and lasts over
     five seconds can be paused. `moving` is false under prefers-reduced-motion: then
     nothing moves and the button is not shown. -#}
-<div data-photo-moving x-data='{ frames: {{ frames|tojson }}, i: 0, paused: false, moving: false, t: null, get f() { return this.frames[this.i] }, init() { if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return; this.moving = true; this.t = setInterval(() => { if (!this.paused) this.i = (this.i + 1) % this.frames.length }, {{ interval * 1000 }}) }, destroy() { clearInterval(this.t) } }'>
+<div data-photo-moving class="relative" x-data='{ frames: {{ frames|tojson }}, i: 0, paused: false, moving: false, t: null, get f() { return this.frames[this.i] }, init() { if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return; this.moving = true; this.t = setInterval(() => { if (!this.paused) this.i = (this.i + 1) % this.frames.length }, {{ interval * 1000 }}) }, destroy() { clearInterval(this.t) } }'>
 {%- endif %}
 {% call ui.card(href=href, attrs=_attrs) %}
   <div class="aspect-video bg-surface-2 overflow-hidden">
@@ -95,9 +95,14 @@
   </div>
 {% endcall %}
 {%- if cycling %}
-  <div class="mt-2" x-show="moving" x-cloak>
-    {{ ui.btn_outline(_("Pauzeer"), size="sm", aria_label=_("Beweging van de albumkaart pauzeren of hervatten"), attrs='@click="paused = !paused" :aria-pressed="paused" x-text="paused ? \'Hervat\' : \'Pauzeer\'"') }}
-  </div>
+  {#- A sibling of the card's link, laid over the picture's top-right corner: a 44 px
+      hit area (the whole button) around a 32 px dark disc, so the icon reads on any photo.
+      The card's border is 1 px, hence top-px / right-px. -#}
+  <button type="button" data-photo-pause x-show="moving" x-cloak class="group absolute top-px right-px w-11 h-11 flex items-center justify-center rounded-full focus:outline-none" aria-label="{{ _("Beweging van de albumkaart pauzeren of hervatten") }}" aria-pressed="false" :aria-pressed="paused" @click="paused = !paused">
+    <span class="w-8 h-8 flex items-center justify-center rounded-full bg-black/60 text-white group-focus-visible:ring-2 group-focus-visible:ring-white group-hover:bg-black/75">
+      <span x-show="!paused">{{ ui.icon("pause", 16) }}</span><span x-show="paused" x-cloak>{{ ui.icon("play", 16) }}</span>
+    </span>
+  </button>
 </div>
 {%- endif %}
 {%- endmacro %}
