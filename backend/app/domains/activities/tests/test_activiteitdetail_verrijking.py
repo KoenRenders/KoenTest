@@ -10,12 +10,13 @@ Een kale query was niet de oplossing: het scherm heeft de verrijking wél nodig.
 Deze tests bewaken precies dat — dat de doorgang lichter is én evenveel toont.
 """
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
 
 from app.domains.activities.api import ActivityDate, get_activity_detail
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -33,8 +34,8 @@ def test_het_detail_toont_ook_voorbije_datums(client, db_session):
     niets, er staat gewoon minder.
     """
     activity, _c, _p = seed_activity_with_product(db_session)
-    verleden = date.today() - timedelta(days=60)
-    toekomst = date.today() + timedelta(days=60)
+    verleden = belgian_today() - timedelta(days=60)
+    toekomst = belgian_today() + timedelta(days=60)
     db_session.add(ActivityDate(activity_id=activity.id, start_date=verleden))
     db_session.add(ActivityDate(activity_id=activity.id, start_date=toekomst))
     db_session.flush()

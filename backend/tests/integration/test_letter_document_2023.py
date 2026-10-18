@@ -10,7 +10,7 @@ text out of the conversion → the migration test fails.
 
 import importlib.util
 import json
-from datetime import date, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
@@ -23,6 +23,7 @@ from app.domains.newsletter.letter_markup import (
     markup_to_document,
 )
 from app.domains.newsletter.models import Audience, DeliveryKind
+from app.kernel.clock import belgian_today
 from tests._letter import letter_doc
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -37,7 +38,7 @@ def _activity(db, name="Zomerfeest", days=10):
     activity = Activity(name=name, location="Dorpsplein", slug=name.lower())
     db.add(activity)
     db.flush()
-    db.add(ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=days)))
+    db.add(ActivityDate(activity_id=activity.id, start_date=belgian_today() + timedelta(days=days)))
     db.flush()
     return activity
 

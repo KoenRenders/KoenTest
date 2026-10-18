@@ -33,6 +33,7 @@ from app.domains.reporting.api import (
     selection_of,
 )
 from app.domains.reporting.tests.test_reporting_panel_ui import ADMIN_EMAIL, login
+from app.kernel.clock import belgian_today
 from tests._reporting_seed import TENANT_A, seed
 
 # builtin_key -> the key of the one measure the report returns. Derived from the
@@ -74,7 +75,6 @@ def _old_stats(db):
     where the context variable is unset and the query quietly counts every
     tenant. Setting it here is what makes the comparison a comparison.
     """
-    from datetime import date
 
     from sqlalchemy import func
 
@@ -87,7 +87,7 @@ def _old_stats(db):
 
     token = current_tenant_id.set(TENANT_A)
     try:
-        today = date.today()
+        today = belgian_today()
         households, persons = current_membership_counts(db, today)
         return {
             "members": db.query(func.count(Member.id)).scalar(),

@@ -3,6 +3,7 @@ en de import-wizard (sessie + CSRF, zelfde patroon als werkbank/e-maillog)."""
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Address
+from app.kernel.clock import belgian_today
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     create_test_family,
@@ -77,12 +78,11 @@ def test_delete_knoppen_hx_post_niet_geescaped(client, db_session):
     hx-post/target/swap NIET ge-escaped krijgen. De macro→Markup-concatenatie
     `attrs='hx-post=\"…\" ' ~ confirm_attrs(…)` escapete de quotes (→ `&#34;`),
     waardoor htmx die attributen niet las en de delete niets deed."""
-    from datetime import date
 
     from app.domains.membership.api import Membership
 
     member, _person = _family_with_address(db_session)
-    db_session.add(Membership(member_id=member.id, year=date.today().year, is_active=True))
+    db_session.add(Membership(member_id=member.id, year=belgian_today().year, is_active=True))
     db_session.commit()
     _login(client)
 

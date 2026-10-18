@@ -24,7 +24,6 @@ and its sentence.
 from __future__ import annotations
 
 import re
-from datetime import date
 from pathlib import Path
 
 import pytest
@@ -46,6 +45,7 @@ from app.domains.mdm.api import (
 )
 from app.domains.membership.api import Membership, MembershipHistory
 from app.domains.payment.api import PaymentRecord
+from app.kernel.clock import belgian_today
 from tests._snapshot import compare, fixed_ids, normalise
 from tests.conftest import SEEDED_ADMIN_EMAIL, new_household_form, sign_up_at_the_door
 
@@ -136,7 +136,7 @@ def _rows(db) -> str:
 
 
 def _record(name: str, status: int, said: str, db) -> None:
-    today = date.today()
+    today = belgian_today()
     moving = {today.isoformat(): "<TODAY>", str(today.year): "<YEAR>"}
     # A field's example address is copy, not data — and no address outside the
     # reserved domains may stand in a test file of this public repository.

@@ -13,6 +13,8 @@ import time
 import pytest
 from playwright.sync_api import expect, sync_playwright
 
+from app.kernel.clock import belgian_today
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.schermen import (  # noqa: E402
@@ -72,7 +74,7 @@ def seeded_activities():
     activiteit met een ploegnaam-onderdeel en één met een betalend product.
     De tenant-default (Millegem) matcht de host-resolutie op localhost, dus de
     activiteiten verschijnen op de publieke site."""
-    from datetime import date, timedelta
+    from datetime import timedelta
     from decimal import Decimal
 
     import app.models  # noqa: F401  triggert load_all_models() → alle mappers geconfigureerd
@@ -85,7 +87,7 @@ def seeded_activities():
     )
 
     db = SessionLocal()
-    toekomst = date.today() + timedelta(days=30)
+    toekomst = belgian_today() + timedelta(days=30)
 
     team = Activity(name="E2E Ploegenspel")
     db.add(team)

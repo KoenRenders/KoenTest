@@ -35,6 +35,7 @@ from pathlib import Path
 import pytest
 
 from app.domains.media.api import MediaAsset
+from app.kernel.clock import belgian_today
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -51,7 +52,7 @@ BLOKBREEDTE = "calc(var(--leesbreedte)_+_var(--tussenruimte)_+_var(--affiche))"
 
 
 def _activiteit(db, naam: str, *, met_affiche: bool, omschrijving: str = "Tekst."):
-    from datetime import date, timedelta
+    from datetime import timedelta
     from decimal import Decimal
 
     from app.domains.activities.api import Activity, ActivityDate, ActivitySubRegistration
@@ -59,7 +60,7 @@ def _activiteit(db, naam: str, *, met_affiche: bool, omschrijving: str = "Tekst.
     a = Activity(name=naam, description=omschrijving)
     db.add(a)
     db.flush()
-    db.add(ActivityDate(activity_id=a.id, start_date=date.today() + timedelta(days=14)))
+    db.add(ActivityDate(activity_id=a.id, start_date=belgian_today() + timedelta(days=14)))
     db.add(
         ActivitySubRegistration(
             activity_id=a.id,

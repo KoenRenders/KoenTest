@@ -2,8 +2,6 @@
 reads gefilterd maar blijven in de DB; partiële uniciteit laat heraanmaak toe;
 de history (en dus de #82-export) toont de verwijdering nog steeds."""
 
-from datetime import date
-
 import pytest
 
 from app.domains.activities import service as activities_service
@@ -14,6 +12,7 @@ from app.domains.membership import household_service
 from app.domains.membership.api import Membership
 from app.domains.membership.schemas_member import MembershipCreate
 from app.domains.payment.api import PayableType, PaymentRecord
+from app.kernel.clock import belgian_today
 from tests import backoffice_door, payments_door
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
@@ -110,7 +109,7 @@ def test_recreate_membership_for_same_member_year_after_soft_delete(client, db_s
 def test_soft_delete_still_recorded_in_member_changes(client, db_session):
     member = _create_family(client, db_session)
     delete_household(db_session, member.id, admin=seeded_admin(db_session))
-    changes = backoffice_door.member_changes(client, date.today().isoformat()).json()
+    changes = backoffice_door.member_changes(client, belgian_today().isoformat()).json()
     assert any(c["operation_label"] == "Verwijderd" for c in changes)
 
 

@@ -10,10 +10,11 @@ betaalrecord) **als de bevestigingsmail**:
                              type correct
 """
 
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from app.domains.payment.api import PayableType
+from app.kernel.clock import belgian_today
 from tests.conftest import register_at_the_door
 
 
@@ -30,7 +31,7 @@ def _seed(db, products):
     act = Activity(name="Wijnbezoek")
     db.add(act)
     db.flush()
-    db.add(ActivityDate(activity_id=act.id, start_date=date.today() + timedelta(days=30)))
+    db.add(ActivityDate(activity_id=act.id, start_date=belgian_today() + timedelta(days=30)))
     db.flush()
     comp = ActivitySubRegistration(
         activity_id=act.id,

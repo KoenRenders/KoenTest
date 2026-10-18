@@ -1,10 +1,11 @@
 """Ronde 2 (#476), derde lichting: jaargroepering op de activiteitenlijst +
 bewerkbaar gebruikers-e-mailadres."""
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 from app.domains.activities.api import Activity, ActivityDate
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 
@@ -24,8 +25,8 @@ def _activity(db, name, start):
 
 
 def test_year_headers_on_activiteiten(client, db_session):
-    y1 = date.today().replace(month=1, day=10) + timedelta(days=400)
-    y2 = date.today().replace(month=1, day=10) + timedelta(days=800)
+    y1 = belgian_today().replace(month=1, day=10) + timedelta(days=400)
+    y2 = belgian_today().replace(month=1, day=10) + timedelta(days=800)
     _activity(db_session, "Volgend jaar", y1)
     _activity(db_session, "Jaar erna", y2)
     db_session.commit()

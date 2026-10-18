@@ -22,7 +22,6 @@ Proven red (9 October 2026), one edit each, put back:
 from __future__ import annotations
 
 import re
-from datetime import date
 from types import SimpleNamespace
 
 import pytest
@@ -36,6 +35,7 @@ from app.domains.auth.api import (
 )
 from app.domains.mdm.api import ExternalNumber, MemberPerson, Person
 from app.domains.mdm.import_service import upsert_families
+from app.kernel.clock import belgian_today
 from app.kernel.tenancy import TENANT_MILLEGEM_ID
 from tests.conftest import seed_postal_code
 
@@ -123,7 +123,7 @@ def test_masterdata_alone_changes_a_household_and_its_memberships(client, db_ses
     from app.domains.membership.api import Membership
     from tests.conftest import record_fields, save_record
 
-    year = date.today().year
+    year = belgian_today().year
     membership = Membership(member_id=world.member, year=year - 5, is_active=True)
     db_session.add(membership)
     db_session.commit()

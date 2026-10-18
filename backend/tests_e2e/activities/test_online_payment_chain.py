@@ -32,6 +32,8 @@ import time
 import pytest
 from playwright.sync_api import expect, sync_playwright
 
+from app.kernel.clock import belgian_today
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.schermen import (
@@ -52,7 +54,7 @@ CHECKOUT = re.compile(r"/betaling/stub/(stub_[0-9a-f]+)$")
 def paid_activity():
     """An open activity with one paid product, through the same database as the
     running server."""
-    from datetime import date, timedelta
+    from datetime import timedelta
     from decimal import Decimal
 
     import app.models  # noqa: F401
@@ -68,7 +70,7 @@ def paid_activity():
     activity = Activity(name=f"E2E Online betalen {int(time.time())}")
     db.add(activity)
     db.flush()
-    db.add(ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=30)))
+    db.add(ActivityDate(activity_id=activity.id, start_date=belgian_today() + timedelta(days=30)))
     component = ActivitySubRegistration(
         activity_id=activity.id, name="Deelname", price=Decimal("0"), is_free=True
     )
@@ -283,7 +285,6 @@ def _valid_to(membership_id: int):
 
 
 def test_word_lid_is_paid_online(visitor, admin):
-    from datetime import date
 
     from app.domains.payment.api import membership_valid_period
 
@@ -307,4 +308,4 @@ def test_word_lid_is_paid_online(visitor, admin):
     assert "Actief" in after and "Wacht op betaling" not in after, after
     # And it runs as long as the domain's own rule says a payment today buys —
     # through the end of next year after 1 September (`membership_valid_period`).
-    assert _valid_to(membership_id) == membership_valid_period(date.today())[1]
+    assert _valid_to(membership_id) == membership_valid_period(belgian_today())[1]

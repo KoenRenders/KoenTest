@@ -40,6 +40,8 @@ from decimal import Decimal
 import pytest
 from playwright.sync_api import sync_playwright
 
+from app.kernel.clock import belgian_today
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.schermen import (  # noqa: E402
@@ -67,7 +69,7 @@ def setup():
     product.member_price = Decimal("6.00")
     member_email = f"e2e-lid-1284-{secrets.token_hex(3)}@example.org"
     household, _person = create_test_family(db, email=member_email)
-    year = date.today().year
+    year = belgian_today().year
     db.add(
         Membership(
             member_id=household.id,

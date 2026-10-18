@@ -16,7 +16,7 @@ made. A new notion has no older behaviour to assert against.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
 from fastapi import HTTPException
@@ -33,11 +33,12 @@ from app.domains.activities.api import (
     public_registrations,
 )
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields, register_at_the_door
 
 pytestmark = pytest.mark.ui_serverrendered
 
-SOON = date.today() + timedelta(days=30)
+SOON = belgian_today() + timedelta(days=30)
 
 
 def _activity(db, name: str, status: ActivityStatus = ActivityStatus.DRAFT) -> Activity:
@@ -118,8 +119,10 @@ def test_the_public_chatbot_and_the_newsletter_do_not_know_a_draft_a_meeting_doe
     assert "Gepubliceerd voor Raakje" in names and "Concept voor Raakje" not in names
     assert "error" in get_activity_detail(db_session, draft.id)
 
-    letter = {s.activity.id for s in activities_from(db_session, date.today(), published_only=True)}
-    meeting = {s.activity.id for s in activities_from(db_session, date.today())}
+    letter = {
+        s.activity.id for s in activities_from(db_session, belgian_today(), published_only=True)
+    }
+    meeting = {s.activity.id for s in activities_from(db_session, belgian_today())}
     assert published.id in letter and draft.id not in letter
     assert {draft.id, published.id} <= meeting, "the board's meeting discusses drafts too"
 

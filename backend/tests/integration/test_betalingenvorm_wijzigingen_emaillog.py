@@ -27,11 +27,12 @@ het stukje dat stil kapotgaat.
   `test_de_paginagrootte_overleeft_een_kop_klik` viel om op het e-maillog.
 """
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, make_session_value
+from app.kernel.clock import belgian_today
 from app.ui import PER_PAGE_DEFAULT, PER_PAGE_OPTIONS
 from tests.conftest import SEEDED_ADMIN_EMAIL
 from tests.integration.test_filterbalk_op_een_regel import meet
@@ -265,7 +266,7 @@ def test_het_vanaf_veld_staat_standaard_op_dertig_dagen_geleden(client, db_sessi
     _login(client, db_session)
     veld = re.search(r'<input[^>]*id="lw-since"[^>]*>', client.get(WIJZIGINGEN).text).group(0)
 
-    verwacht = (date.today() - timedelta(days=30)).isoformat()
+    verwacht = (belgian_today() - timedelta(days=30)).isoformat()
     assert f'value="{verwacht}"' in veld, veld
 
 

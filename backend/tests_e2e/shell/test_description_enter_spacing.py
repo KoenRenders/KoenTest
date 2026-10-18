@@ -15,10 +15,12 @@ tells them apart.
 
 import os
 import sys
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
 from playwright.sync_api import sync_playwright
+
+from app.kernel.clock import belgian_today
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -64,7 +66,7 @@ def activity():
     row = Activity(name="Wandeling met regels 1688", location="Dorpsplein", description=DESCRIPTION)
     db.add(row)
     db.flush()
-    db.add(ActivityDate(activity_id=row.id, start_date=date.today() + timedelta(days=30)))
+    db.add(ActivityDate(activity_id=row.id, start_date=belgian_today() + timedelta(days=30)))
     db.commit()
     activity_id = row.id
     db.close()

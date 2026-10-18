@@ -19,6 +19,7 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Member, RelationType
 from app.domains.membership.api import Membership, not_renewed_count, renewal_years
+from app.kernel.clock import belgian_today
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     create_test_member,
@@ -161,10 +162,10 @@ def test_jaardropdown_is_datagedreven_en_filtert(client, db_session):
     is no "Alle" any more, so a household of 2024 alone is found under Opgezegd)."""
     _login(client)
     _gezin_met_lidmaatschap(db_session, "Oudlid", [2024])
-    _gezin_met_lidmaatschap(db_session, "Nieuwlid", [date.today().year])
+    _gezin_met_lidmaatschap(db_session, "Nieuwlid", [belgian_today().year])
 
     pagina = client.get("/admin/leden").text
-    assert "Lid in 2024" in pagina and f"Lid in {date.today().year}" in pagina
+    assert "Lid in 2024" in pagina and f"Lid in {belgian_today().year}" in pagina
 
     op_2024 = client.get("/admin/leden/lijst", params={"status": "opgezegd", "jaar": "2024"}).text
     assert "Oudlid" in op_2024 and "Nieuwlid" not in op_2024
@@ -174,7 +175,7 @@ def test_jaardropdown_is_datagedreven_en_filtert(client, db_session):
 
 def test_statusfilter_scheidt_actief_van_opgezegd(client, db_session):
     _login(client)
-    dit_jaar = date.today().year
+    dit_jaar = belgian_today().year
     _gezin_met_lidmaatschap(db_session, "Actiefnu", [dit_jaar])
     _gezin_met_lidmaatschap(db_session, "Gestopt", [dit_jaar - 3])
 
@@ -209,7 +210,7 @@ def test_nieuw_lid_maakt_gezin_met_hoofdlid_en_opent_de_editor(client, db_sessio
 
 def test_a_row_opens_the_households_record(client, db_session):
     _login(client)
-    member = _gezin_met_lidmaatschap(db_session, "Klikbaar", [date.today().year])
+    member = _gezin_met_lidmaatschap(db_session, "Klikbaar", [belgian_today().year])
 
     lijst = client.get("/admin/leden").text
     # #1940: the row names the list as it stands in the one key `terug`.
@@ -287,7 +288,7 @@ def test_the_segments_count_what_the_click_yields(client, db_session):
     within the search. Goes red on a count taken outside the search."""
     _login(client)
     referentiejaar, _doeljaar = renewal_years()
-    dit_jaar = date.today().year
+    dit_jaar = belgian_today().year
     for name in ("Telmee", "Telook"):
         _gezin_met_lidmaatschap(db_session, name, [dit_jaar])
     _gezin_met_lidmaatschap(db_session, "Anders", [dit_jaar])
@@ -324,7 +325,7 @@ def test_opgezegd_is_the_rest_and_carries_no_count(client, db_session):
             year=referentiejaar,
             is_active=True,
             valid_from=date(referentiejaar, 1, 1),
-            valid_to=min(date(referentiejaar, 12, 31), date.today() - timedelta(days=1)),
+            valid_to=min(date(referentiejaar, 12, 31), belgian_today() - timedelta(days=1)),
         )
     )
     db_session.commit()
@@ -341,7 +342,7 @@ def test_the_list_sorts_on_the_household_name_both_ways(client, db_session):
     """The Gezin column sorts; the list opens A–Z. Goes red on a sort that the
     query does not apply."""
     _login(client)
-    dit_jaar = date.today().year
+    dit_jaar = belgian_today().year
     for name in ("Zwaan", "Adelaar", "Merel"):
         _gezin_met_lidmaatschap(db_session, name, [dit_jaar])
     ours = {"Zwaan Test", "Adelaar Test", "Merel Test"}
@@ -361,7 +362,7 @@ def test_a_row_is_the_household_its_address_its_persons_and_its_badge(client, db
     """No Gemeente column and no actions column (#1899): the address stands under
     the name, and a household is deleted on its record."""
     _login(client)
-    dit_jaar = date.today().year
+    dit_jaar = belgian_today().year
     member = _gezin_met_lidmaatschap(db_session, "Rijtje", [dit_jaar])
     html = client.get("/admin/leden/lijst", params={"q": "Rijtje"}).text
     row = re.search(rf'<tr data-row data-household="{member.id}".*?</tr>', html, re.S)

@@ -9,7 +9,7 @@ lid*; the banner taken back out of the shell → the contact thank-you is gone o
 page that is not `home.html`.
 """
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
 
@@ -17,6 +17,7 @@ from app.domains.cms.models import CmsPage
 from app.domains.cms.render import render_document
 from app.domains.cms.schema import InvalidShape, schema_for
 from app.domains.cms.service import save_draft
+from app.kernel.clock import belgian_today
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -34,7 +35,7 @@ def _upcoming(db, names):
         db.flush()
         db.add(
             ActivityDate(
-                activity_id=activity.id, start_date=date.today() + timedelta(days=10 + index)
+                activity_id=activity.id, start_date=belgian_today() + timedelta(days=10 + index)
             )
         )
     db.flush()

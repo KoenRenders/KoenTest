@@ -24,6 +24,7 @@ import io
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -44,14 +45,14 @@ def _png() -> bytes:
 
 
 def _activiteit(db, naam):
-    from datetime import date, timedelta
+    from datetime import timedelta
 
     from app.domains.activities.api import Activity, ActivityDate
 
     a = Activity(name=naam)
     db.add(a)
     db.flush()
-    db.add(ActivityDate(activity_id=a.id, start_date=date.today() + timedelta(days=7)))
+    db.add(ActivityDate(activity_id=a.id, start_date=belgian_today() + timedelta(days=7)))
     db.flush()
     return a
 

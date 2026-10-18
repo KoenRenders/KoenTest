@@ -9,7 +9,7 @@ Proven red (15 October 2026), each by an additive or reversing edit:
 - the registration's address not normalised → T12 fails (a mixed-case address is mailed).
 """
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
 from sqlalchemy import text
@@ -26,6 +26,7 @@ from app.domains.newsletter.models import (
     SubscriberSource,
     SubscriberStatus,
 )
+from app.kernel.clock import belgian_today
 from tests._newsletter_world import (
     Mailbox,
     household,
@@ -460,7 +461,7 @@ def test_the_chosen_activities_reach_raakje_with_name_and_date_and_no_address(db
     sources = drafting.gather_sources(db_session, letter, instruction="Schrijf.", names=set())
     from app.domains.newsletter import service as nb
 
-    day = nb.short_date(date.today() - timedelta(days=300))
+    day = nb.short_date(belgian_today() - timedelta(days=300))
     assert sources.earlier == [f"Quiz van vorig jaar ({day})"]
     text = "\n".join(text for text, _place in drafting._sections(sources))
     assert "Quiz van vorig jaar" in text and "geheim@example.org" not in text

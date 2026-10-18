@@ -35,6 +35,7 @@ import pytest
 
 from app.domains.reporting.api import list_saved_reports
 from app.domains.reporting.tests.test_reporting_panel_ui import ADMIN_EMAIL, login
+from app.kernel.clock import belgian_today
 from tests._reporting_seed import TENANT_A
 
 MARK = " 1445"
@@ -144,7 +145,7 @@ def test_this_year_ticked_beside_next_year_means_both(client, db_session):
     """On the real clock: this is the one place "dit jaar" must move with it."""
     from app.domains.activities.api import Activity, ActivityDate
 
-    this_year = date.today().year
+    this_year = belgian_today().year
     for year in (this_year - 1, this_year, this_year + 1):
         activity = Activity(tenant_id=TENANT_A, name=f"Programma {year}{MARK}")
         db_session.add(activity)

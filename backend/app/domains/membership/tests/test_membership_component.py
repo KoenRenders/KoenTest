@@ -4,6 +4,7 @@ de is_member-facade voor andere componenten."""
 from datetime import date
 
 from app.domains.membership.api import is_member, renewal_available, renewal_open
+from app.kernel.clock import belgian_today
 from tests.conftest import create_test_family
 
 
@@ -39,10 +40,10 @@ def test_is_member_facade(db_session, monkeypatch):
     db_session.add(
         Membership(
             member_id=member.id,
-            year=date.today().year,
+            year=belgian_today().year,
             is_active=True,
-            valid_from=date(date.today().year, 1, 1),
-            valid_to=date(date.today().year, 12, 31),
+            valid_from=date(belgian_today().year, 1, 1),
+            valid_to=date(belgian_today().year, 12, 31),
         )
     )
     db_session.flush()

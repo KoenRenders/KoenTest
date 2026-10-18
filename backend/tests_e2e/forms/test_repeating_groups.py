@@ -27,6 +27,8 @@ from decimal import Decimal
 import pytest
 from playwright.sync_api import sync_playwright
 
+from app.kernel.clock import belgian_today
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.schermen import BASE, login_met_sessie, pagina_klaar  # noqa: E402
@@ -79,7 +81,7 @@ def _seed() -> int:
         activity = Activity(name=NAME, location="Parochiezaal")
         db.add(activity)
         db.flush()
-        start = date.today() + timedelta(days=80)
+        start = belgian_today() + timedelta(days=80)
         for offset in (0, 7, 14):
             db.add(
                 ActivityDate(
@@ -303,7 +305,7 @@ def test_rows_are_added_moved_duplicated_and_removed_in_the_page_and_saved_once(
     page.click("#aa-group-dates [data-group-add]")
     assert page.locator("#aa-group-dates > [data-group-rows] > [data-group-row]").count() == 4
     assert page.evaluate("document.activeElement.type") == "date"
-    new_date = (date.today() + timedelta(days=200)).isoformat()
+    new_date = (belgian_today() + timedelta(days=200)).isoformat()
     page.keyboard.type(
         new_date.replace("-", "")[4:] + new_date[:4]
     )  # mm dd yyyy, as the control takes it

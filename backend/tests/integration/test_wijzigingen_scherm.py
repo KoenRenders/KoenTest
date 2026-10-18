@@ -12,6 +12,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Person
+from app.kernel.clock import belgian_today
 from app.ui import PER_PAGE_DEFAULT as PER_PAGE
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
@@ -135,7 +136,6 @@ def test_elke_rij_heeft_een_samenvatting_zonder_het_object_te_herhalen(client, d
     kolom, dus de samenvatting hoeft "(Persoon #90)" niet te herhalen. Alleen de rijen
     van deze test: wie alle rijen van vandaag leest, leest ook wat andere tests in
     dezelfde databank achterlieten."""
-    from datetime import date
 
     from app.domains.reporting.api import all_changes_since
 
@@ -144,7 +144,7 @@ def test_elke_rij_heeft_een_samenvatting_zonder_het_object_te_herhalen(client, d
     # Python niet.
     eigen = [
         r
-        for r in all_changes_since(db_session, date.today())
+        for r in all_changes_since(db_session, belgian_today())
         if r["entity"] == "Persoon" and r["entity_id"] in ids
     ]
     assert len(eigen) == len(ids), "niet elke aangemaakte persoon heeft een audit-rij"

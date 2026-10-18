@@ -28,6 +28,7 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.membership.api import Membership, open_renewal_payment
 from app.domains.payment.api import GatewayPayment, PaymentRecord
+from app.kernel.clock import belgian_today
 from tests.conftest import create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -47,7 +48,7 @@ def _was_a_paid_member(db, member) -> None:
     """A renewal presupposes a membership that was paid before (#1730): without
     one this household would be paying its FIRST membership, with other words.
     Last year's, so it is not valid any more."""
-    year = date.today().year - 1
+    year = belgian_today().year - 1
     if db.query(Membership).filter_by(member_id=member.id, year=year).first() is None:
         db.add(
             Membership(
@@ -64,7 +65,7 @@ def _was_a_paid_member(db, member) -> None:
 def _openstaande_vernieuwing(db, member, method="transfer", gateway_payment_id=None):
     """Een niet-betaalde vernieuwing, zoals de renew-flow ze achterlaat."""
     _was_a_paid_member(db, member)
-    jaar = date.today().year + 1
+    jaar = belgian_today().year + 1
     ms = Membership(
         member_id=member.id,
         year=jaar,

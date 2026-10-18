@@ -3,9 +3,8 @@
 Een formulier stuurt alle velden mee; onveranderde velden/contacten mogen geen
 history-rij maken (anders 3 rijen voor één mobiel-wijziging)."""
 
-from datetime import date
-
 from app.domains.mdm.api import CONTACT, ContactDetailHistory, Person, PersonHistory
+from app.kernel.clock import belgian_today
 from tests import backoffice_door
 from tests.conftest import board_at_the_household, seed_postal_code, sign_up_at_the_door
 
@@ -81,7 +80,7 @@ def test_contact_change_shows_old_to_new(client, db_session):
         person.id,
         json={"email": "suske@suske.be", "mobile": "0470222222"},
     )
-    resp = backoffice_door.member_changes(client, date.today().isoformat())
+    resp = backoffice_door.member_changes(client, belgian_today().isoformat())
     rows = resp.json()
     mobile = [
         r
@@ -102,7 +101,7 @@ def test_person_name_change_shows_old_to_new(client, db_session):
         client, "update_person", person.id, json={"first_name": "Suske", "last_name": "Vandersteen"}
     )
     assert r.status_code == 200, r.text
-    resp = backoffice_door.member_changes(client, date.today().isoformat())
+    resp = backoffice_door.member_changes(client, belgian_today().isoformat())
     rows = resp.json()
     naam = [row for row in rows if row["entity"] == "Persoon" and "→" in row["summary"]]
     assert naam, rows

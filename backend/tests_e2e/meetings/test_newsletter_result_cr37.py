@@ -14,10 +14,11 @@ characters is made for this file and removed again.
 
 import os
 import sys
-from datetime import date
 
 import pytest
 from playwright.sync_api import sync_playwright
+
+from app.kernel.clock import belgian_today
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -84,7 +85,7 @@ def letters():
         long = LetterLink(newsletter_id=sent.id, url=LONG)
         db.add_all([short, long])
         db.flush()
-        today = date.today()
+        today = belgian_today()
         for code, link in (("a", None), ("b", None), ("a", short.id)):
             db.add(
                 LetterEvent(

@@ -13,6 +13,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from app.domains.payment.api import PayableType
+from app.kernel.clock import belgian_today
 from tests.conftest import register_at_the_door
 
 
@@ -38,7 +39,7 @@ def seed_household(
     )
     db.flush()
     if with_membership:
-        today = date.today()
+        today = belgian_today()
         db.add(
             Membership(
                 member_id=member.id,
@@ -63,7 +64,7 @@ def seed_activity_with_member_product(db, price="20.00", member_price="12.00"):
     activity = Activity(name="Ledenprijs-activiteit")
     db.add(activity)
     db.flush()
-    db.add(ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=30)))
+    db.add(ActivityDate(activity_id=activity.id, start_date=belgian_today() + timedelta(days=30)))
     db.flush()
     comp = ActivitySubRegistration(
         activity_id=activity.id,
@@ -128,7 +129,7 @@ def test_member_without_valid_membership_pays_regular_price(client, db_session):
     """Lidmaatschap verlopen (valid_to gisteren): gewone prijs, maar de
     inschrijving blijft aan de persoon gekoppeld (#112)."""
     email = "verlopenlid@example.com"
-    yesterday = date.today() - timedelta(days=1)
+    yesterday = belgian_today() - timedelta(days=1)
     seed_household(db_session, email, valid_from=date(2000, 1, 1), valid_to=yesterday)
     activity, comp, product = seed_activity_with_member_product(db_session, "20.00", "12.00")
 
@@ -211,6 +212,6 @@ def test_has_valid_membership_service(db_session):
     assert has_valid_membership(None) is False
 
     _m, person = seed_household(db_session, "svc@example.com")
-    assert has_valid_membership(person, date.today()) is True
+    assert has_valid_membership(person, belgian_today()) is True
     # Buiten de periode
-    assert has_valid_membership(person, date.today() - timedelta(days=10000)) is False
+    assert has_valid_membership(person, belgian_today() - timedelta(days=10000)) is False

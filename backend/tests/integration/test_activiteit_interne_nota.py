@@ -28,12 +28,13 @@ gemeten:
   waar dit issue op herschreven moest worden.
 """
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
 
 from app.domains.activities.api import Activity, ActivityDate
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -53,7 +54,7 @@ def activiteit(db_session):
     )
     db_session.add(a)
     db_session.flush()
-    db_session.add(ActivityDate(activity_id=a.id, start_date=date.today() + timedelta(days=21)))
+    db_session.add(ActivityDate(activity_id=a.id, start_date=belgian_today() + timedelta(days=21)))
     db_session.flush()
     return a
 

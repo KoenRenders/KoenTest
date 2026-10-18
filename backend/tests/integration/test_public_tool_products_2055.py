@@ -21,11 +21,12 @@ list test red.
 """
 
 import json
-from datetime import date, timedelta
+from datetime import timedelta
 
 from app.domains.activities.api import Activity, ActivityDate
 from app.domains.activities.models import ActivityProduct, ActivitySubRegistration
 from app.domains.chatbot.tools import execute_tool
+from app.kernel.clock import belgian_today
 
 
 def _activity(db) -> Activity:
@@ -34,7 +35,7 @@ def _activity(db) -> Activity:
     a = Activity(name="Kaartavond 2055", location="De Zaal", description="Kaarten.")
     db.add(a)
     db.flush()
-    db.add(ActivityDate(activity_id=a.id, start_date=date.today() + timedelta(days=9)))
+    db.add(ActivityDate(activity_id=a.id, start_date=belgian_today() + timedelta(days=9)))
     component = ActivitySubRegistration(activity_id=a.id, name="Deelname", is_free=True)
     db.add(component)
     db.flush()

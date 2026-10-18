@@ -25,6 +25,7 @@ from html.parser import HTMLParser
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, make_session_value
+from app.kernel.clock import belgian_today
 from app.ui import templates
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
@@ -137,7 +138,7 @@ def _seed(db):
     ontbreken — dan toetst de rij ze niet en blijft de test groen terwijl de
     control naar een tweede regel verhuisd kan zijn.
     """
-    from datetime import date, timedelta
+    from datetime import timedelta
 
     from app.domains.activities.api import Activity, ActivityDate
     from app.domains.media.api import MediaAsset
@@ -146,14 +147,14 @@ def _seed(db):
 
     # Leden: `jaar` verschijnt alleen als er lidmaatschapsjaren in de data zitten.
     member, _persoon = create_test_family(db)
-    db.add(Membership(member_id=member.id, year=date.today().year))
+    db.add(Membership(member_id=member.id, year=belgian_today().year))
 
     # Media: `activity_id` verschijnt alleen bij activiteitenfoto's van een
     # activiteit die al media heeft.
     activiteit = Activity(name="Fotoactiviteit")
     db.add(activiteit)
     db.flush()
-    db.add(ActivityDate(activity_id=activiteit.id, start_date=date.today() + timedelta(days=30)))
+    db.add(ActivityDate(activity_id=activiteit.id, start_date=belgian_today() + timedelta(days=30)))
     db.add(
         MediaAsset(
             kind="activity_photo",

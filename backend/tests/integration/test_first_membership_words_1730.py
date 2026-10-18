@@ -52,6 +52,7 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.membership.api import Membership, is_first_membership
 from app.domains.payment.api import PaymentRecord
+from app.kernel.clock import belgian_today
 from tests.conftest import create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -105,16 +106,16 @@ def _membership(db, member, *, year: int, paid: bool, method="transfer", status=
 def test_the_service_tells_a_first_membership_from_a_renewal(db_session):
     never, _p = create_test_family(db_session, email="nooit-1730@example.org")
     assert is_first_membership(db_session, never)
-    _membership(db_session, never, year=date.today().year, paid=False)
+    _membership(db_session, never, year=belgian_today().year, paid=False)
     assert is_first_membership(db_session, never), "a membership that waits is not a paid one"
     before, _q = create_test_family(db_session, email="vroeger-1730@example.org")
-    _membership(db_session, before, year=date.today().year - 2, paid=True)
+    _membership(db_session, before, year=belgian_today().year - 2, paid=True)
     assert not is_first_membership(db_session, before), "an expired paid membership counts"
 
 
 def test_a_first_membership_by_transfer_reads_as_a_renewal_does(client, db_session):
     member, _person = create_test_family(db_session, email="eerste-1730@example.org")
-    _membership(db_session, member, year=date.today().year, paid=False)
+    _membership(db_session, member, year=belgian_today().year, paid=False)
     _sign_in(client, "eerste-1730@example.org")
     card = _card(client.get(HOUSEHOLD).text)
     assert REGISTERED in card and not any(old in card for old in GONE)
@@ -126,7 +127,7 @@ def test_a_first_membership_by_transfer_reads_as_a_renewal_does(client, db_sessi
 
 def test_a_first_membership_with_an_open_online_payment_has_no_renewal_button(client, db_session):
     member, _person = create_test_family(db_session, email="online-1730@example.org")
-    _membership(db_session, member, year=date.today().year, paid=False, method="online")
+    _membership(db_session, member, year=belgian_today().year, paid=False, method="online")
     _sign_in(client, "online-1730@example.org")
     card = _card(client.get(HOUSEHOLD).text)
     assert "data-renewal-online" in card
@@ -136,7 +137,7 @@ def test_a_first_membership_with_an_open_online_payment_has_no_renewal_button(cl
 def test_a_first_payment_that_failed_offers_lidmaatschap_betalen(client, db_session):
     member, _person = create_test_family(db_session, email="mislukt-1730@example.org")
     _membership(
-        db_session, member, year=date.today().year, paid=False, method="online", status="failed"
+        db_session, member, year=belgian_today().year, paid=False, method="online", status="failed"
     )
     _sign_in(client, "mislukt-1730@example.org")
     card = _card(client.get(HOUSEHOLD).text)
@@ -147,12 +148,12 @@ def test_a_first_payment_that_failed_offers_lidmaatschap_betalen(client, db_sess
 
 def test_a_household_that_was_a_paid_member_keeps_vernieuwen(client, db_session):
     member, _person = create_test_family(db_session, email="lid-1730@example.org")
-    _membership(db_session, member, year=date.today().year - 1, paid=True)
+    _membership(db_session, member, year=belgian_today().year - 1, paid=True)
     _sign_in(client, "lid-1730@example.org")
     card = _card(client.get(HOUSEHOLD).text)
     assert RENEW in card and PAY not in card
 
-    _membership(db_session, member, year=date.today().year, paid=False)
+    _membership(db_session, member, year=belgian_today().year, paid=False)
     running = _card(client.get(HOUSEHOLD).text)
     assert REGISTERED in running and not any(old in running for old in GONE)
 
@@ -168,7 +169,7 @@ def _household(db, kind: str, email: str):
     paid membership of last year ran out (`before`)."""
     member, _person = create_test_family(db, email=email)
     if kind == "before":
-        _membership(db, member, year=date.today().year - 1, paid=True)
+        _membership(db, member, year=belgian_today().year - 1, paid=True)
     return member
 
 
@@ -176,7 +177,7 @@ def _household(db, kind: str, email: str):
 def test_an_open_transfer_reads_the_same_for_everyone(client, db_session, kind):
     email = f"overschrijving-{kind}-1737@example.com"
     member = _household(db_session, kind, email)
-    _membership(db_session, member, year=date.today().year, paid=False)
+    _membership(db_session, member, year=belgian_today().year, paid=False)
     _sign_in(client, email)
     card = _card(client.get(HOUSEHOLD).text)
     assert RUNNING in card and REGISTERED in card
@@ -188,7 +189,7 @@ def test_an_open_transfer_reads_the_same_for_everyone(client, db_session, kind):
 def test_an_open_online_payment_reads_the_same_for_everyone(client, db_session, kind):
     email = f"online-{kind}-1737@example.com"
     member = _household(db_session, kind, email)
-    _membership(db_session, member, year=date.today().year, paid=False, method="online")
+    _membership(db_session, member, year=belgian_today().year, paid=False, method="online")
     _sign_in(client, email)
     card = _card(client.get(HOUSEHOLD).text)
     assert RUNNING in card and "De betaling is nog niet afgerond." in card

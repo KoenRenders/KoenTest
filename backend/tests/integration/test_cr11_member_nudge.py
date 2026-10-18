@@ -17,7 +17,7 @@ Proven red: the `{% if not (gebruiker and gebruiker.is_member) %}` guard removed
 sign-in → the return test fails; `veilige_terug` bypassed → the //evil test fails.
 """
 
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 from urllib.parse import quote
 
@@ -25,6 +25,7 @@ import pytest
 
 from app.domains.activities.api import Activity, ActivityDate, ActivitySubRegistration
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
+from app.kernel.clock import belgian_today
 from tests.conftest import create_test_family, form_guard_fields
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -36,7 +37,7 @@ def _registration_page(db):
     a = Activity(name="Kwis W17", location="Zaal")
     db.add(a)
     db.flush()
-    db.add(ActivityDate(activity_id=a.id, start_date=date.today() + timedelta(days=14)))
+    db.add(ActivityDate(activity_id=a.id, start_date=belgian_today() + timedelta(days=14)))
     c = ActivitySubRegistration(
         activity_id=a.id, name="Ploeg", registration_type_code="INDIVIDUAL", price=Decimal("0")
     )

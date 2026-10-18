@@ -32,6 +32,7 @@ from app.domains.auth.api import (
     csrf_token_for,
     make_session_value,
 )
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -107,14 +108,14 @@ def test_een_pagina_openen_bevestigt_niets(client, db_session):
 
 
 def _activiteit(client, db):
-    from datetime import date, timedelta
+    from datetime import timedelta
 
     from app.domains.activities.api import Activity, ActivityDate
 
     activity = Activity(name="Toastactiviteit")
     db.add(activity)
     db.flush()
-    db.add(ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=30)))
+    db.add(ActivityDate(activity_id=activity.id, start_date=belgian_today() + timedelta(days=30)))
     db.commit()
     return activity.id
 

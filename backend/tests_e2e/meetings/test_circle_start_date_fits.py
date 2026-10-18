@@ -14,6 +14,8 @@ from datetime import date
 import pytest
 from playwright.sync_api import expect, sync_playwright
 
+from app.kernel.clock import belgian_today
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.schermen import BASE, htmx_stil, login_als_admin  # noqa: E402
@@ -69,7 +71,7 @@ def _add_to_circle(first: str, last: str) -> None:
                 person_id=person.id,
                 organization_id=db.query(Organization).first().id,
                 relation_type="BOARD_MEETING",
-                start_date=date.today(),
+                start_date=belgian_today(),
             )
         )
         db.commit()

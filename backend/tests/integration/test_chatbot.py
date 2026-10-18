@@ -9,12 +9,13 @@ Bewaakt de invarianten die ertoe doen:
 """
 
 import json
-from datetime import date, timedelta
+from datetime import timedelta
 
 from app.domains.activities.api import Activity, ActivityDate
 from app.domains.chatbot.context import build_system_prompt
 from app.domains.chatbot.tools import ALLOWED_TOOLS, execute_tool
 from app.domains.forms.models import FormSubmission
+from app.kernel.clock import belgian_today
 
 # ── Security-grens van de tools ──────────────────────────────────────────────
 
@@ -210,8 +211,8 @@ def _activity(db, name, when, *, cancelled=False):
 def test_upcoming_excludes_past_and_marks_cancelled(db_session):
     """#2055 (Koen, 16 October 2026, "1a"): a cancelled activity stands in the
     answer marked `cancelled`, as the public list shows it "Geannuleerd"."""
-    future = date.today() + timedelta(days=10)
-    past = date.today() - timedelta(days=10)
+    future = belgian_today() + timedelta(days=10)
+    past = belgian_today() - timedelta(days=10)
     _activity(db_session, "Toekomstfeest", future)
     _activity(db_session, "Oud feest", past)
     _activity(db_session, "Afgelast feest", future, cancelled=True)
@@ -227,7 +228,7 @@ def test_upcoming_excludes_past_and_marks_cancelled(db_session):
 
 
 def test_past_returns_only_past_most_recent_first(db_session):
-    today = date.today()
+    today = belgian_today()
     _activity(db_session, "Toekomstfeest", today + timedelta(days=10))
     _activity(db_session, "Lang geleden", today - timedelta(days=300))
     _activity(db_session, "Recent voorbij", today - timedelta(days=5))
@@ -243,7 +244,7 @@ def test_past_returns_only_past_most_recent_first(db_session):
 
 
 def test_past_respects_limit(db_session):
-    today = date.today()
+    today = belgian_today()
     for i in range(25):
         _activity(db_session, f"Verleden {i}", today - timedelta(days=i + 1))
     out = json.loads(execute_tool("get_activities", {"when": "past"}, db_session))
@@ -257,7 +258,7 @@ def test_system_prompt_includes_today(db_session):
     """De prompt geeft de datum van vandaag mee, zodat het model verleden/toekomst
     kan onderscheiden en geen voorbije datum als 'eerstvolgende' verzint."""
     prompt = build_system_prompt(db_session)
-    assert date.today().isoformat() in prompt
+    assert belgian_today().isoformat() in prompt
     assert "Bereken zelf geen concrete datums" in prompt
 
 
@@ -286,7 +287,7 @@ def test_submit_idea_lands_in_werkbank(db_session):
 def test_activity_detail_marks_empty_fields_as_unspecified(db_session):
     """Laag 2: lege velden komen expliciet als 'niet vermeld' terug, zodat de bot
     de afwezigheid als feit ziet i.p.v. te verzinnen."""
-    a = _activity(db_session, "Kale activiteit", date.today() + timedelta(days=5))
+    a = _activity(db_session, "Kale activiteit", belgian_today() + timedelta(days=5))
     out = json.loads(execute_tool("get_activity_detail", {"activity_id": a.id}, db_session))
     # #1028: hier stond `notes`. Die kolom is weg — ze heette intern en ging
     # tegelijk integraal naar het model. De publieke omschrijving nam haar plaats
@@ -416,7 +417,7 @@ def test_chat_endpoint_mock_runs_tool_loop(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "chat_enabled", True)
     monkeypatch.setattr(settings, "chat_llm_provider", "mock")
     # Een activiteit zodat de tool data heeft.
-    _activity(db_session, "Quiz", date.today() + timedelta(days=5))
+    _activity(db_session, "Quiz", belgian_today() + timedelta(days=5))
 
     r = client.post("/raakje/vraag", data={"vraag": "Welke activiteiten zijn er?"})
     assert r.status_code == 200

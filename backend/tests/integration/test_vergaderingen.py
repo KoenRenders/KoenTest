@@ -52,6 +52,7 @@ from app.domains.meetings.api import (
     send_meeting_mail,
     set_attendance,
 )
+from app.kernel.clock import belgian_today
 from tests._meeting_notes import note
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
@@ -1087,7 +1088,7 @@ def _first_membership(db, household) -> None:
 
     from app.domains.membership.api import Membership
 
-    today = date.today()
+    today = belgian_today()
     db.add(
         Membership(
             member_id=household.id,
@@ -1121,7 +1122,7 @@ def test_de_genoteerde_wijkmeester_staat_in_het_document(db_session):
     )
     _first_membership(db_session, gezin)
 
-    meeting = create_meeting(db_session, meeting_date=date.today())
+    meeting = create_meeting(db_session, meeting_date=belgian_today())
     sectie = next(s for s in document_of(db_session, meeting) if s.kind == SectionKind.MEMBERS)
     assert sectie.items, "het nieuwe gezin hoort automatisch op de agenda te staan"
     punt = sectie.items[0]
@@ -1204,7 +1205,7 @@ def test_de_wijkmeester_staat_op_papier(client, db_session):
     )
     _first_membership(db_session, gezin)
 
-    meeting = create_meeting(db_session, meeting_date=date.today())
+    meeting = create_meeting(db_session, meeting_date=belgian_today())
     sectie = next(s for s in document_of(db_session, meeting) if s.kind == SectionKind.MEMBERS)
     set_noted_steward(db_session, meeting, sectie.items[0].id, wijkmeester.id)
 
@@ -1293,10 +1294,10 @@ def test_een_niet_lid_kan_in_de_vergaderkring(client, db_session):
     assert koppelingen == [], "een niet-lid hoort aan geen enkel gezin te hangen"
 
     # #1449: on the clock that started her membership. `add_to_circle` dates the
-    # start `date.today()`, and `recipients_for` reads the circle ON the meeting
+    # start `belgian_today()`, and `recipients_for` reads the circle ON the meeting
     # day — a fixed 1 October lay in the past from 2 October 2026 on, when she
     # was not in the circle yet, and the test went red on the calendar alone.
-    meeting = create_meeting(db_session, meeting_date=date.today())
+    meeting = create_meeting(db_session, meeting_date=belgian_today())
     assert "lies@raak-nationaal.example" in recipients_for(db_session, meeting).emails
 
 
@@ -1419,7 +1420,7 @@ def test_een_vertrokken_deelnemer_blijft_in_het_oude_verslag(client, db_session)
     _login(client)
     persoon = _person(db_session, "Kris", "Vermeulen", "kris@example.org")
     relatie = _in_circle(db_session, persoon)
-    meeting = create_meeting(db_session, meeting_date=date.today())
+    meeting = create_meeting(db_session, meeting_date=belgian_today())
     set_attendance(db_session, meeting, person_id=persoon.id, status=Attendance.PRESENT)
 
     end_circle_relation(db_session, relatie.id)

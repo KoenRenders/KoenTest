@@ -24,12 +24,13 @@ line in `_page_ctx` (additive) → the thank-you test alone.
 from __future__ import annotations
 
 import re
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
 
 from app.domains.activities.api import ActivityProduct, ActivitySubRegistration
+from app.kernel.clock import belgian_today
 from tests.conftest import form_guard_fields, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -46,7 +47,7 @@ def two_components(db_session):
         registration_type_code="INDIVIDUAL",
         price=Decimal("0"),
         is_free=True,
-        registration_closes_on=date.today() - timedelta(days=1),
+        registration_closes_on=belgian_today() - timedelta(days=1),
         sort_order=1,
     )
     db_session.add(closed)

@@ -44,6 +44,7 @@ from sqlalchemy import event, text
 
 from app.database import engine
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
+from app.kernel.clock import belgian_today
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     create_test_family,
@@ -134,10 +135,10 @@ def _vul(
         db_session.add(extra)
         db_session.flush()
         db_session.add(
-            ActivityDate(activity_id=extra.id, start_date=date.today() - timedelta(days=30 * i))
+            ActivityDate(activity_id=extra.id, start_date=belgian_today() - timedelta(days=30 * i))
         )
 
-    jaar = date.today().year
+    jaar = belgian_today().year
     for i in range(vanaf, vanaf + gezinnen):
         member, _person = create_test_family(db_session, email=f"budget{i}@example.com")
         membership = Membership(

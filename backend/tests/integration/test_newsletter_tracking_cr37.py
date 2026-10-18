@@ -10,7 +10,7 @@ Proven red (16 October 2026), each by an additive or reversing edit:
 """
 
 import re
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
 from sqlalchemy import inspect, text
@@ -25,6 +25,7 @@ from app.domains.newsletter.models import (
     LetterLink,
     Newsletter,
 )
+from app.kernel.clock import belgian_today
 from tests._newsletter_world import Mailbox, subscriber
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -145,7 +146,7 @@ def test_every_external_link_of_a_letter_with_blocks_goes_through_the_portal(db_
     db_session.add(activity)
     db_session.flush()
     db_session.add(
-        ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=10))
+        ActivityDate(activity_id=activity.id, start_date=belgian_today() + timedelta(days=10))
     )
     db_session.add(
         ActivitySubRegistration(
@@ -246,7 +247,9 @@ def test_one_code_opening_twice_counts_one_and_two_codes_count_two(client, db_se
         assert client.get(f"/nieuwsbrief/o/{code}.gif").status_code == 200
     assert db_session.query(LetterEvent).filter_by(newsletter_id=letter.id).count() == 2
     assert tracking.results_of(db_session, [letter.id])[letter.id].opened == 2
-    db_session.add(LetterEvent(newsletter_id=letter.id, code=first, link_id=None, day=date.today()))
+    db_session.add(
+        LetterEvent(newsletter_id=letter.id, code=first, link_id=None, day=belgian_today())
+    )
     with pytest.raises(IntegrityError):
         db_session.flush()
     db_session.rollback()

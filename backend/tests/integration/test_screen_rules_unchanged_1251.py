@@ -23,7 +23,6 @@ stored — so a function that refuses everything cannot pass.
 from __future__ import annotations
 
 import re
-from datetime import date
 from pathlib import Path
 
 import pytest
@@ -36,6 +35,7 @@ from app.domains.activities.api import (
 )
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Address, ContactDetail, Member, Person, PostalCode
+from app.kernel.clock import belgian_today
 from tests._snapshot import compare, fixed_ids, main_region, normalise
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
@@ -72,7 +72,7 @@ def _answer(response, names: dict[int, str]) -> str:
     answer where it is a fragment or a refusal. Today and this year are masked:
     the screens prefill them."""
     body = main_region(response.text) if "<main" in response.text else response.text
-    today = date.today()
+    today = belgian_today()
     moving = {today.isoformat(): "<TODAY>", str(today.year): "<YEAR>"}
     # A field's example address is copy, not data — and no address outside the
     # reserved domains may stand in a test file of this public repository.

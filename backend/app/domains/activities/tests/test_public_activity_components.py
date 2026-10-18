@@ -21,6 +21,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.kernel.clock import belgian_today
 from app.ui import templates
 from tests.conftest import register_at_the_door
 
@@ -166,7 +167,9 @@ def _activity(db, name, days, *, components=("Onderdeel",), **fields):
     db.flush()
     for offset in days:
         db.add(
-            ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=offset))
+            ActivityDate(
+                activity_id=activity.id, start_date=belgian_today() + timedelta(days=offset)
+            )
         )
     made = []
     for order, (component, extra) in enumerate(
@@ -200,7 +203,7 @@ def _cards(html: str) -> dict[str, str]:
 
 @pytest.fixture
 def world(db_session):
-    yesterday = date.today() - timedelta(days=1)
+    yesterday = belgian_today() - timedelta(days=1)
     one, _ = _activity(db_session, "Meet een datum", [20])
     three, _ = _activity(db_session, "Meet drie datums", [21, 22, 28], location="Voorbeeldzaal")
     twelve, _ = _activity(
@@ -298,7 +301,7 @@ def test_an_empty_list_says_so_and_draws_no_part(client, db_session):
     """The archive of a database in which no activity is over."""
     from app.domains.activities.api import ActivityDate
 
-    over = db_session.query(ActivityDate).filter(ActivityDate.start_date < date.today()).count()
+    over = db_session.query(ActivityDate).filter(ActivityDate.start_date < belgian_today()).count()
     assert over == 0, "this test needs a database without an activity that is over"
     html = client.get("/archief").text
     main = html[html.index('<main id="main"') : html.index("</main>")]

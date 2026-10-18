@@ -30,6 +30,7 @@ from decimal import Decimal
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
+from app.kernel.clock import belgian_today
 from tests.conftest import create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -51,7 +52,7 @@ def _gezin_met_lopende_vernieuwing(db, method: str):
     from app.domains.payment.api import PaymentRecord
 
     member, person = create_test_family(db, email=LID)
-    jaar = date.today().year
+    jaar = belgian_today().year
     db.add(
         Membership(
             member_id=member.id,

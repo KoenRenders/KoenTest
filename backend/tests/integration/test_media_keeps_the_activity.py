@@ -20,14 +20,13 @@ Derde keer deze maand dat een met de hand samengesteld adres context laat vallen
 (#922 verloor de tenant-prefix, #928 de slug).
 """
 
-from datetime import date
-
 import pytest
 
 from app.domains.activities.api import Activity, ActivityDate
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.media.admin_ui import _filterstand
 from app.domains.media.api import MediaAsset
+from app.kernel.clock import belgian_today
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 
@@ -57,7 +56,7 @@ def activiteit(db_session):
     a = Activity(tenant_id=2, name="Zomerfeest")
     db_session.add(a)
     db_session.flush()
-    db_session.add(ActivityDate(tenant_id=2, activity_id=a.id, start_date=date.today()))
+    db_session.add(ActivityDate(tenant_id=2, activity_id=a.id, start_date=belgian_today()))
     # Eén foto, want de filterdropdown toont enkel activiteiten die media hebben.
     db_session.add(
         MediaAsset(

@@ -16,7 +16,6 @@ both ports: a refusal must come through the port as it came from the function.
 
 from __future__ import annotations
 
-from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -39,6 +38,7 @@ from app.domains.forms.models import (
     FormSubmission,
     FormSubmissionAnswer,
 )
+from app.kernel.clock import belgian_today
 from tests._snapshot import compare, fixed_ids, normalise
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
@@ -141,7 +141,7 @@ def _rows(db, s) -> str:
 
 
 def _record(name: str, answer: str, db, s) -> None:
-    today = date.today()
+    today = belgian_today()
     moving = {today.isoformat(): "<TODAY>", str(today.year): "<YEAR>"}
     got = normalise(f"{answer}\n--- rows ---\n{_rows(db, s)}", {}, moving)
     compare(SNAPSHOTS, name, got, BEFORE)

@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import PaymentMethod, Person
 from app.domains.payment.api import PayableType
+from app.kernel.clock import belgian_today
 from tests.conftest import create_test_family, household_fields
 
 
@@ -101,7 +102,7 @@ def test_coverage_telt_al_betaald_volgend_jaar(db_session):
     )
 
     member, person = create_test_family(db_session, email="cov@example.com")
-    y = date.today().year
+    y = belgian_today().year
     db_session.add(
         Membership(
             member_id=member.id,

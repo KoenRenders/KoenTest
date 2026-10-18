@@ -24,10 +24,12 @@ everything from there on — the conversation, Toepassen, the form — is real.
 
 import os
 import sys
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
 from playwright.sync_api import expect, sync_playwright
+
+from app.kernel.clock import belgian_today
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -67,7 +69,9 @@ def _seed() -> dict:
             db.add(activity)
             db.flush()
             db.add(
-                ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=n))
+                ActivityDate(
+                    activity_id=activity.id, start_date=belgian_today() + timedelta(days=n)
+                )
             )
         db.commit()
         letters = []
