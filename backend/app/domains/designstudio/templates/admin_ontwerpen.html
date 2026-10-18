@@ -1,17 +1,20 @@
-{% extends "admin_base.html" %}
+{% extends "list_page.html" %}
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Design Studio — Raak beheer") }}{% endblock %}
-{% block content %}
-{# Records-lijst (design-system C1): titel met duidingsregel, de primaire actie
-   rechts in de kop, daaronder de kit-filterbalk. #}
-{% call ui.page_header(_("Design Studio"), _("Affiches en sociale beelden uit een activiteit, in de huisstijl. Een ontwerp bewaart wat jij kiest; de feiten komen van de activiteit."), list_page=True) %}
-    {{ ui.btn_primary(_("Nieuw ontwerp"), href="/admin/ontwerpen/nieuw", lead_icon="plus") }}
-  {% endcall %}
-
-{% call ui.filter_bar("/admin/ontwerpen", "#ds-lijst") %}
-  <div>{{ ui.search(value=q, placeholder=_('Zoek op activiteit…'), standalone=False) }}</div>
-{% endcall %}
-
+{# Design Studio on the kit's list page (#2123; end state §2.1, §5.1): the title with
+   the one primary button, the toolbar (Gepubliceerd and Verouderd as the segments, the
+   search on the activity, the page size) and the kit's table. No tiles. The toolbar
+   stands outside the list fragment. #}
+{% block list_title %}{{ _("Design Studio") }}{% endblock %}
+{% block list_primary %}{{ ui.btn_primary(_("Nieuw ontwerp"), href="/admin/ontwerpen/nieuw", lead_icon="plus") }}{% endblock %}
+{% block list_toolbar %}
+{{ ui.toolbar("/admin/ontwerpen", "#ds-lijst", "ds-filter",
+              segments=segments, status_name="status", status_current=status, status_legend=_("Status"),
+              q=q, search_placeholder=_("Zoek op activiteit…"),
+              page=page, per_page=per_page, total=total, page_sizes=page_sizes,
+              hidden=[("activity_id", activity_id)] if activity_id else []) }}
+{% endblock %}
+{% block list_body %}
 <div id="ds-lijst">
   {% include "_ds_lijst.html" %}
 </div>

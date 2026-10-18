@@ -1,30 +1,30 @@
-{% extends "admin_base.html" %}
+{% extends "list_page.html" %}
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Rapporten — Raak beheer") }}{% endblock %}
-{% block content %}
-{# Lijst-index (design-system C1): paginatitel → "+ Nieuw rapport" (los, geen
-   blauwe balk) → zoeken → filters → record-kaarten. Een kaart opent het paneel
-   met die selectie. #}
-{% call ui.page_header(_("Rapporten"), _("Stel zelf een rapport samen uit de gegevens die er al zijn, bewaar het onder een naam en neem het mee als spreadsheet."), list_page=True) %}
-  {{ ui.btn_primary(_("Nieuw rapport"), href="/admin/rapporten/nieuw", lead_icon="plus") }}
+{# Rapporten on the kit's list page (#2123; end state §2.1, §5.1): the title with the one
+   primary button, the toolbar (the search on the name and the description, the page size,
+   and behind Filters the owner and shared or private) and the kit's table. No tiles, and
+   no AI buttons in the head: Raakje is the shell's button (end state, row 32). A row opens
+   the panel with that selection. The toolbar stands outside the list fragment. #}
+{% block list_title %}{{ _("Rapporten") }}{% endblock %}
+{% block list_primary %}{{ ui.btn_primary(_("Nieuw rapport"), href="/admin/rapporten/nieuw", lead_icon="plus") }}{% endblock %}
+{% block list_toolbar %}
+{% call ui.toolbar("/admin/rapporten", "#rp-lijst", "rp-filter",
+                   q=q, search_placeholder=_("Zoek op naam of omschrijving…"),
+                   page=page, per_page=per_page, total=total, page_sizes=page_sizes) %}
+  {% call ui.select_control("owner", aria_label=_("Eigenaar")) %}
+    <option value="all" {% if owner == "all" %}selected{% endif %}>{{ _("Alle eigenaars") }}</option>
+    <option value="mine" {% if owner == "mine" %}selected{% endif %}>{{ _("Van mij") }}</option>
+    <option value="builtin" {% if owner == "builtin" %}selected{% endif %}>{{ _("Meegeleverd") }}</option>
+  {% endcall %}
+  {% call ui.select_control("shared", aria_label=_("Gedeeld")) %}
+    <option value="all" {% if shared == "all" %}selected{% endif %}>{{ _("Gedeeld en privé") }}</option>
+    <option value="shared" {% if shared == "shared" %}selected{% endif %}>{{ _("Gedeeld") }}</option>
+    <option value="private" {% if shared == "private" %}selected{% endif %}>{{ _("Privé") }}</option>
+  {% endcall %}
 {% endcall %}
-
-{% call ui.filter_bar("/admin/rapporten/lijst", "#rp-lijst") %}
-  <div class="flex flex-wrap gap-3 items-center">
-    <div class="flex-1 min-w-[14rem]">{{ ui.search(value=q, placeholder=_('Zoek op naam of omschrijving…'), standalone=False) }}</div>
-    {% call ui.select_control("owner", aria_label=_("Eigenaar")) %}
-      <option value="all" {% if owner == "all" %}selected{% endif %}>{{ _("Alle eigenaars") }}</option>
-      <option value="mine" {% if owner == "mine" %}selected{% endif %}>{{ _("Van mij") }}</option>
-      <option value="builtin" {% if owner == "builtin" %}selected{% endif %}>{{ _("Meegeleverd") }}</option>
-    {% endcall %}
-    {% call ui.select_control("shared", aria_label=_("Gedeeld")) %}
-      <option value="all" {% if shared == "all" %}selected{% endif %}>{{ _("Gedeeld en privé") }}</option>
-      <option value="shared" {% if shared == "shared" %}selected{% endif %}>{{ _("Gedeeld") }}</option>
-      <option value="private" {% if shared == "private" %}selected{% endif %}>{{ _("Privé") }}</option>
-    {% endcall %}
-  </div>
-{% endcall %}
-
+{% endblock %}
+{% block list_body %}
 <div id="rp-lijst">
   {% include "_rp_kaarten.html" %}
 </div>

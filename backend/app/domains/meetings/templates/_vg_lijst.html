@@ -1,21 +1,26 @@
 {% import "_macros.html" as ui %}
+{# The list of meetings on the kit's table (#2123): the date as the way in to the document,
+   with the hour under it, the status badge from the code list (CR-11 W6, #1391: it is the
+   status, a hand-written "agenda verstuurd" beside it said the same thing twice), the
+   place, and the number of points of the agenda. The toolbar swaps this fragment; the
+   count and the segments' counts travel out-of-band. #}
 {% if error %}{{ ui.error_banner(error) }}{% endif %}
-{% if not meetings %}
-  {{ ui.empty_state(_("Nog geen vergaderingen. Maak er een aan; de agenda wordt meteen ingevuld.")) }}
+{% if meetings %}
+{% call ui.data_table(columns, hx_target="#vg-lijst", caption=_("Vergaderingen")) %}
+  <tbody>
+    {% for meeting in meetings %}
+    <tr data-row data-meeting="{{ meeting.id }}" class="align-middle">
+      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">{{ ui.row_link(dates[meeting.id], "/admin/vergaderingen/" ~ meeting.id, sub=times[meeting.id], sub_mono=False) }}</td>
+      <td data-cell="status" class="border-b border-line px-3 py-2">{{ ui.badge(meeting.status | code_label("meeting_status"),
+                                        meeting.status | tone("meeting_status")) }}</td>
+      <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-ink-soft">{{ meeting.location or "—" }}</td>
+      <td data-cell="extra" data-p="2" class="border-b border-line px-3 py-2 text-right tabular-nums text-ink-soft">{{ point_counts[meeting.id] }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+{% endcall %}
+{{ ui.pager(page, per_page=per_page, total=total, hx_get=pager_url, hx_target="#vg-lijst", count=False, push=True) }}
 {% else %}
-<div class="space-y-2">
-  {% for meeting in meetings %}
-  <a href="/admin/vergaderingen/{{ meeting.id }}"
-     class="block bg-surface border border-line rounded-2xl px-5 py-4 hover:bg-surface-2 transition-colors">
-    <div class="flex items-center gap-3 flex-wrap">
-      <span class="font-semibold text-ink">{{ dates[meeting.id] }}</span>
-      {{ ui.badge(meeting.status | code_label("meeting_status"),
-                  meeting.status | tone("meeting_status")) }}
-      {% if meeting.location %}<span class="text-sm text-ink-soft">{{ meeting.location }}</span>{% endif %}
-      {# CR-11 W6 (#1391): the badge from the code list is the status; a
-         hand-written "agenda verstuurd" beside it said the same thing twice. #}
-    </div>
-  </a>
-  {% endfor %}
-</div>
+{{ ui.empty_state(empty_reason) }}
 {% endif %}
+{% if oob %}{{ ui.toolbar_oob("vg-filter", segments=segments, page=page, per_page=per_page, total=total) }}{% endif %}

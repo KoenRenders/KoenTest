@@ -1684,17 +1684,13 @@ def test_de_ondertekening_staat_onderaan_het_kringscherm(client, db_session):
 
 
 def test_de_lijstkop_volgt_de_conventie_van_de_andere_schermen(client, db_session):
-    """Titel links, acties rechts — secundair eerst, de primaire knop uiterst rechts.
-
-    Dezelfde `page_header`-macro als Pagina's en Formulieren, dus dezelfde
-    afstanden en dezelfde volgorde; het scherm mag geen eigen knoppenrij bouwen.
-    Gemeten door de twee knoppen om te wisselen: dan faalt de volgordeassertie.
-    """
+    """Titel links en één hoofdknop (#2123): de lijstpagina van de kit, zoals Organisaties.
+    "Instellingen" staat onder het ⋯ van de balk en niet naast de titel; het scherm bouwt
+    geen eigen knoppenrij."""
     _login(client)
     html = client.get("/admin/vergaderingen").text
 
-    # De macro zelf: titelrij met de acties rechts uitgelijnd.
-    assert "<div data-page-header" in html, "de kop komt niet uit page_header"
-    assert html.index("Instellingen") < html.index("Nieuwe vergadering"), (
-        "de primaire knop hoort uiterst rechts te staan, dus als laatste"
-    )
+    head = html[html.index("data-list-head") : html.index("data-toolbar")]
+    assert "Nieuwe vergadering" in head and "Instellingen" not in head
+    menu = html[html.index("data-more-menu") :]
+    assert 'href="/admin/vergaderingen/kring"' in menu[: menu.index("</form>")]

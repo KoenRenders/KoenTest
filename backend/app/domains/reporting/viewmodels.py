@@ -38,6 +38,17 @@ class ReportListView(ViewModel):
     owner: str
     shared: str
 
+    #: The kit table's columns and the toolbar's paging (#2123).
+    columns: list[dict[str, Any]] = field(default_factory=list)
+    page: int = 1
+    per_page: int = 50
+    total: int = 0
+    page_sizes: list[int] = field(default_factory=list)
+    pager_url: str = ""
+    empty_reason: str = ""
+    #: The fragment carries the toolbar's count out-of-band.
+    oob: bool = False
+
     csrf_token: str
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 

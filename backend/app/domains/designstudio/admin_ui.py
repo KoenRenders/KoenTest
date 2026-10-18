@@ -91,16 +91,18 @@ from app.domains.designstudio.viewmodels import (
     ImageOption,
     VersionRow,
 )
-from app.i18n import _, short_datetime
+from app.i18n import _, short_date, short_datetime
 from app.kernel.clock import belgian_today
 from app.kernel.codes import code_label, code_labels, code_of, register_tones, tone
-from app.ui import admin_nav, is_fragment_request, templates
+from app.ui import admin_nav, filterparams, is_fragment_request, templates
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(include_in_schema=False)
 
 NAV = "/admin/ontwerpen"
+#: The width of the thumbnail in the list (#2123), in pixels.
+PREVIEW_SMALL_PX = 160
 
 DUO_LABELS = {
     "dark_green-golden_yellow": "Donkergroen · Geel",
@@ -180,23 +182,29 @@ def _redirect(request: Request, target: str):
 def _list_view(
     request: Request,
     db: Session,
-    q: str = "",
     error: Optional[str] = None,
-    activity_id: Optional[int] = None,
+    oob: bool = False,
 ) -> DesignListView:
+    """Design Studio on the kit's list page (#2123): the segments Gepubliceerd and
+    Verouderd with their counts, the search on the activity, the table. `?activity_id=`
+    narrows the list to one activity — the jump from the activity screen."""
     from app.domains.activities.api import get_activity
+    from app.ui import PER_PAGE_OPTIONS
+    from app.ui.list_state import page_of, read_state, segments_of
 
-    rows = []
-    needle = (q or "").strip().lower()
+    state = read_state(request, ("pub", "stale"))
+    raw_activity = (filterparams(request).get("activity_id") or "").strip()
+    activity_id = int(raw_activity) if raw_activity.isdigit() else None
+
+    everyone = []
     for design in list_designs(db):
         if activity_id is not None and design.activity_id != activity_id:
             continue
         activity = get_activity(db, design.activity_id)
         name = activity.name if activity is not None else _("(activiteit verwijderd)")
-        if needle and needle not in name.lower():
-            continue
         published = next((v for v in design.versions if v.id == design.published_version_id), None)
-        rows.append(
+        dates = [d.start_date for d in (activity.dates if activity is not None else [])]
+        everyone.append(
             DesignRow(
                 id=design.id,
                 activity_id=design.activity_id,
@@ -210,10 +218,56 @@ def _list_view(
                     published is not None and activity is not None and is_stale(db, published)
                 ),
                 updated=short_datetime(design.updated_at) if design.updated_at else "",
+                preview_url=f"{NAV}/{design.id}/voorbeeld.png?klein=1",
+                activity_date=short_date(min(dates)) if dates else "",
             )
         )
+    needle = state.q.lower()
+    shown = [r for r in everyone if not needle or needle in r.activity_name.lower()]
+    counts = {
+        "pub": sum(1 for r in shown if r.published),
+        "stale": sum(1 for r in shown if r.stale),
+    }
+    if state.status == "pub":
+        shown = [r for r in shown if r.published]
+    elif state.status == "stale":
+        shown = [r for r in shown if r.stale]
+    rows, total, page = page_of(shown, state)
+    extra = {"activity_id": activity_id or ""}
     return DesignListView(
-        rows=rows, q=q, csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV, request)
+        rows=rows,
+        columns=[
+            {"key": "naam", "label": _("Ontwerp"), "cell": "name"},
+            {"key": "status", "label": _("Status"), "cell": "context"},
+            {"key": "opmaak", "label": _("Opmaak"), "cell": "extra", "priority": 1},
+            {"key": "versies", "label": _("Versies"), "cell": "extra", "priority": 2, "num": True},
+            {"key": "bijgewerkt", "label": _("Bijgewerkt"), "cell": "moment"},
+        ],
+        segments=segments_of(
+            [("pub", _("Gepubliceerd")), ("stale", _("Verouderd"))],
+            counts,
+            sum(1 for r in everyone if not needle or needle in r.activity_name.lower()),
+            _("Alle"),
+        ),
+        status=state.status,
+        q=state.q,
+        activity_id=str(activity_id or ""),
+        page=page,
+        per_page=state.per_page,
+        total=total,
+        page_sizes=list(PER_PAGE_OPTIONS),
+        pager_url=f"{NAV}?{state.query(**extra)}",
+        empty_reason=(
+            _("Geen ontwerpen gevonden.")
+            if (state.q or state.status or activity_id)
+            else _(
+                "Nog geen ontwerpen. Maak er een voor een activiteit; de affiche staat er meteen."
+            )
+        ),
+        csrf_token=_csrf(request),
+        error=error,
+        oob=oob,
+        nav_items=[] if oob else admin_nav(NAV, request),
     )
 
 
@@ -222,13 +276,10 @@ def design_list(
     request: Request,
     db: Session = Depends(get_db),
     _email: str = Depends(require_right(Right.DESIGN_VIEW)),
-    q: str = "",
-    activity_id: Optional[int] = None,
 ):
-    """`?activity_id=` narrows the list to one activity — the target of the
-    jump from the activity screen."""
-    view = _list_view(request, db, q=q, activity_id=activity_id)
-    template = "_ds_lijst.html" if is_fragment_request(request) else "admin_ontwerpen.html"
+    fragment = is_fragment_request(request)
+    view = _list_view(request, db, oob=fragment)
+    template = "_ds_lijst.html" if fragment else "admin_ontwerpen.html"
     return templates.TemplateResponse(request, template, view.as_context())
 
 
@@ -554,9 +605,20 @@ def design_preview(
     _email: str = Depends(require_right(Right.DESIGN_VIEW)),
     layout: str = "print_a",
     groot: bool = False,
+    klein: bool = False,
 ):
     design = _design_or_404(db, design_id)
     chosen = _layout_or_404(layout)
+    if klein:
+        # The list's thumbnail (#2123): a poster the size of a name cell, and a minute of
+        # cache, because a list of fifty designs asks fifty of them at once.
+        try:
+            png, _problems = preview_png(db, design, chosen, width_px=PREVIEW_SMALL_PX)
+        except (DesignError, RenderError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return Response(
+            content=png, media_type="image/png", headers={"Cache-Control": "private, max-age=60"}
+        )
     try:
         # "Groot bekijken" renders at print resolution so a phone camera can
         # read the QR code off the screen (Koen, 20 September 2026). It takes
