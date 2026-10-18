@@ -394,6 +394,28 @@
   /* The value of CR-32 (R19): an inline atom holding a code of the closed list.
      The editor shows a chip with the value it has now (read at edit time, the
      configuration carries it) and the page renders it from the settings. */
+  /* The mark "Groot" (#2095): words large inside an ordinary line, a span with
+     one class — never a heading. Where the set offers it, a value may carry it
+     too (the server's schema: the amount large in "Lidgeld €35 per gezin"). */
+  function largeMark(RaakTiptap) {
+    return RaakTiptap.Mark.create({
+      name: "large",
+      parseHTML: function () {
+        return [{ tag: "span.prose-large" }];
+      },
+      renderHTML: function () {
+        return ["span", { class: "prose-large" }, 0];
+      },
+      addCommands: function () {
+        return {
+          toggleLarge: function () {
+            return function (props) { return props.commands.toggleMark("large"); };
+          },
+        };
+      },
+    });
+  }
+
   function valueNode(RaakTiptap, config) {
     var known = {};
     (config.values || []).forEach(function (v) { known[v.code] = v; });
@@ -402,6 +424,7 @@
       group: "inline",
       inline: true,
       atom: true,
+      marks: (config.marks || []).indexOf("large") !== -1 ? "large" : "",
       addAttributes: function () {
         return { code: { default: "" } };
       },
@@ -985,6 +1008,7 @@
     if (id === "bold") return { command: "toggleBold", active: "bold" };
     if (id === "italic") return { command: "toggleItalic", active: "italic" };
     if (id === "strike") return { command: "toggleStrike", active: "strike" };
+    if (id === "large") return { command: "toggleLarge", active: "large" };
     if (id === "link") return { command: "toggleLink", active: "link" };
     return null;
   }
@@ -1679,6 +1703,9 @@
       breakWithoutMarks(RaakTiptap),
       RaakTiptap.StarterKit.configure(starterOptions),
     ];
+    if ((config.marks || []).indexOf("large") !== -1) {
+      extensions.push(largeMark(RaakTiptap));
+    }
     if (withSection) {
       extensions = extensions.concat(sectionNode(RaakTiptap, config));
     }

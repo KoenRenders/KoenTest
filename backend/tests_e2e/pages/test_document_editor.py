@@ -90,6 +90,7 @@ def test_the_editor_opens_with_the_page_sets_toolbar(setup, width):
             {"text": "B", "aria": "Vet"},
             {"text": "I", "aria": "Cursief"},
             {"text": "S", "aria": "Doorgehaald"},
+            {"text": "Groot", "aria": None},
             {"text": "Link", "aria": None},
             {"text": "•", "aria": "Lijst"},
             {"text": "1.", "aria": "Genummerde lijst"},
