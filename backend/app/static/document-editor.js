@@ -132,7 +132,7 @@
      stored `align` is derived by the server's save adapter, so the editor
      writes "top" and lets the adapter decide. The phone's stack order is
      the site's (css); the editor shows the grid of the two columns. */
-  function columnsNode(RaakTiptap) {
+  function columnsNode(RaakTiptap, config) {
     var columns = RaakTiptap.Node.create({
       name: "columns",
       group: "block",
@@ -142,7 +142,17 @@
          honest on what is stored. */
       content: "column+",
       addAttributes: function () {
-        return { align: { default: "top" } };
+        /* `ratio`: the fixed choice of #2101, written on the site as a modifier class. */
+        return {
+          align: { default: "top" },
+          ratio: {
+            default: "equal",
+            parseHTML: function (el) {
+              var found = /prose-columns--(wide-narrow|narrow-wide)/.exec(el.className || "");
+              return found ? found[1] : "equal";
+            },
+          },
+        };
       },
       parseHTML: function () {
         return [{ tag: "div.prose-columns" }];
@@ -150,12 +160,15 @@
       renderHTML: function (props) {
         var cls = "prose-columns";
         if (props.node.attrs.align === "middle") cls += " prose-columns--middle";
+        if (props.node.attrs.ratio && props.node.attrs.ratio !== "equal") cls += " prose-columns--" + props.node.attrs.ratio;
         return ["div", { class: cls }, 0];
       },
     });
     var column = RaakTiptap.Node.create({
       name: "column",
-      content: "block+",
+      /* The data blocks too (#2101): the server's rule keeps them to a columns block
+         at the root, and the insert menu puts them only there. */
+      content: "(block" + ((config && config.dataBlocks) || []).map(function (n) { return " | " + n; }).join("") + ")+",
       parseHTML: function () {
         return [{ tag: "div.prose-column" }];
       },
@@ -1103,6 +1116,17 @@
       bar.appendChild(el);
     });
 
+    /* Where a data block goes (#2101): at the end of the column the cursor stands in,
+       when that column belongs to a columns block at the root (the server's rule), else
+       at the document's end. */
+    function dataBlockPos(ed) {
+      var here = ed.state.selection.$from;
+      for (var d = here.depth; d >= 1; d--) {
+        if (here.node(d).type.name === "column" && d === 2) return here.after(d) - 1;
+      }
+      return ed.state.doc.content.size;
+    }
+
     var insertable = (config.toolbar.insert || []).filter(function (item) {
       return (
         item.id === "table" ||
@@ -1162,7 +1186,7 @@
             editor
               .chain()
               .focus()
-              .insertContentAt(editor.state.doc.content.size, { type: "activities", attrs: { count: 12 } })
+              .insertContentAt(dataBlockPos(editor), { type: "activities", attrs: { count: 12 } })
               .run();
           } else if (item.id === "albums") {
             /* Another data block at the root: the document's end; the three numbers are
@@ -1170,7 +1194,7 @@
             editor
               .chain()
               .focus()
-              .insertContentAt(editor.state.doc.content.size, {
+              .insertContentAt(dataBlockPos(editor), {
                 type: "albums",
                 attrs: { albums: 3, photos: 4, interval: 3 },
               })
@@ -1329,6 +1353,46 @@
       };
       editor.on("transaction", tableVisible);
       tableVisible();
+    }
+
+    /* The ratio of the columns (#2101): a choice shown while the cursor stands in a
+       columns block, whatever its place. */
+    if (config.columns && config.columns.ratios) {
+      var ratioSelect = document.createElement("select");
+      ratioSelect.className = "de-btn de-ratio";
+      ratioSelect.style.display = "none"; /* the style, not `hidden`: `.de-btn` sets a display */
+      ratioSelect.setAttribute("aria-label", config.columns.ratioLabel);
+      config.columns.ratios.forEach(function (r) {
+        var option = document.createElement("option");
+        option.value = r.id;
+        option.textContent = r.label;
+        ratioSelect.appendChild(option);
+      });
+      var columnsDepth = function () {
+        var at = editor.state.selection.$from;
+        for (var d = at.depth; d >= 1; d--) {
+          if (at.node(d).type.name === "columns") return d;
+        }
+        return 0;
+      };
+      ratioSelect.addEventListener("change", function () {
+        var d = columnsDepth();
+        if (!d) return;
+        var at = editor.state.selection.$from;
+        var node = at.node(d);
+        editor.view.dispatch(
+          editor.state.tr.setNodeMarkup(at.before(d), undefined, Object.assign({}, node.attrs, { ratio: ratioSelect.value }))
+        );
+        editor.view.focus();
+      });
+      bar.appendChild(ratioSelect);
+      var ratioVisible = function () {
+        var d = columnsDepth();
+        ratioSelect.style.display = d ? "" : "none";
+        if (d) ratioSelect.value = editor.state.selection.$from.node(d).attrs.ratio || "equal";
+      };
+      editor.on("transaction", ratioVisible);
+      ratioVisible();
     }
 
     /* The cards menu (CR-17, C4.9): what the author does to the card she
@@ -1720,7 +1784,7 @@
       extensions.push(figureNode(RaakTiptap, config, figureLabel));
     }
     if ((config.insert || []).indexOf("columns") !== -1) {
-      extensions = extensions.concat(columnsNode(RaakTiptap));
+      extensions = extensions.concat(columnsNode(RaakTiptap, config));
     }
     if ((config.insert || []).indexOf("button") !== -1) {
       extensions.push(buttonNode(RaakTiptap, config));

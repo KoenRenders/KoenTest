@@ -824,7 +824,14 @@ body[data-shell="site"]>main{padding-bottom:24px}
    inside — no title, icon or colour stripe. */
 .prose-columns{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start;margin:.5rem 0}
 .prose-columns--middle{align-items:center}
-.prose-raak .prose-column>*:first-child{margin-top:0}
+.prose-raak .prose-column>*:first-child,.prose-column>.prose-raak>*:first-child{margin-top:0}
+/* CR-32 #2101: a columns block that holds a data block is drawn by the page template
+   (outside the prose, with this same grid); a column's data block starts on its top. */
+.prose-column>.page-data:first-child{margin-top:0}
+/* The ratio of the two columns: a fixed choice, `equal` being the absent attribute. Under
+   640 px the columns stack in source order whatever the ratio. */
+.prose-columns--wide-narrow{grid-template-columns:minmax(0,3fr) minmax(0,2fr)}
+.prose-columns--narrow-wide{grid-template-columns:minmax(0,2fr) minmax(0,3fr)}
 @media (max-width:639.98px){
   /* stretch, not the grid's align-items:start: in a column flex that
      start means "shrink to content", and a stacked column must take
@@ -897,7 +904,7 @@ body[data-shell="site"]>main{padding-bottom:24px}
    remembering her. On a phone the viewport minus her gutters (the shell's
    <main> gives them). */
 .doc-page{width:100%;max-width:1024px;margin-left:auto;margin-right:auto}
-.doc-page>:not(.prose-raak):not(.prose-hero):not(.page-data){max-width:768px}
+.doc-page>:not(.prose-raak):not(.prose-hero):not(.page-data):not(.prose-columns){max-width:768px}
 /* A data block of a module (the activity list) stands beside the prose, in the
    container's full width, outside the prose rules (CR-32 phase 5). */
 .page-data{margin:1rem 0}

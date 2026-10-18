@@ -68,6 +68,10 @@ TONES: tuple[str, ...] = ("plain", "tint", "accent")
 #: where that module is on (`service._check_references`).
 DATA_BLOCKS: tuple[str, ...] = ("activities", "albums")
 
+#: The fixed ratios of a columns block (CR-32 #2101): equal, wide then narrow (3fr 2fr),
+#: narrow then wide (2fr 3fr). The first is what an absent attribute means.
+COLUMN_RATIOS: tuple[str, ...] = ("equal", "wide-narrow", "narrow-wide")
+
 #: Where a button and a card may lead: the four destinations, of which a
 #: node carries exactly one (`_one_destination`).
 _DESTINATION_ATTRS: dict[str, Any] = {
@@ -146,8 +150,16 @@ NODES: dict[str, dict[str, Any]] = {
             "height": "int?",
         },
     },
-    "columns": {"group": "block", "content": "column{1,2}", "attrs": {"align": ("top", "middle")}},
-    "column": {"content": "block+"},
+    "columns": {
+        "group": "block",
+        "content": "column{1,2}",
+        # The ratio of the two columns (CR-32 #2101): a name, written on the site as a
+        # class (the sanitiser lets no data attributes through). Absent: equal.
+        "attrs": {"align": ("top", "middle"), "ratio": (*COLUMN_RATIOS, None)},
+    },
+    # A column holds blocks and, in a columns block at the root, the data blocks
+    # (#2101; the rule is in `_validate_node`: nowhere deeper).
+    "column": {"content": "(block | " + " | ".join(DATA_BLOCKS) + ")+"},
     # Where a button (and a card) may lead (Koen, 11 October 2026: "c, maar
     # enkel \"lid worden\" als onderdeel van deze CR"): a page of the site
     # (page_id — a reference that survives a slug change), an outside
@@ -763,6 +775,10 @@ def _validate_node(node: Any, path: str) -> None:
             # The design review's B5 (#1679): a column holds blocks, not a
             # second columns block that breaks out of her column.
             raise InvalidShape("Onjuiste plaats: kolommen in een kolom")
+        if node_type == "column" and child_type in DATA_BLOCKS and path != "doc/doc/columns":
+            # #2101: a data block stands at the root, or in a column of a columns
+            # block that stands at the root — not in a section, a quotation or a cell.
+            raise InvalidShape(f"Onjuiste plaats: {child_type} onder kolom buiten de wortel")
         _validate_node(child, f"{path}/{node_type}")
     if len(children) < minimum:
         raise InvalidShape(f"Leeg blok: {node_type}")
@@ -975,6 +991,22 @@ def schema_for(
                 "eyebrowLabel": _("Bovenkopje"),
             }
             if "section" in BLOCK_SETS[set_name]["insert"]
+            else None
+        ),
+        # The ratio choice of a columns block (#2101), in words.
+        "columns": (
+            {
+                "ratios": [
+                    {"id": ratio, "label": label}
+                    for ratio, label in zip(
+                        COLUMN_RATIOS,
+                        (_("Gelijk"), _("Breed – smal"), _("Smal – breed")),
+                        strict=True,
+                    )
+                ],
+                "ratioLabel": _("Verhouding van de kolommen"),
+            }
+            if "columns" in BLOCK_SETS[set_name]["insert"]
             else None
         ),
         "nodes": sorted(NODES),

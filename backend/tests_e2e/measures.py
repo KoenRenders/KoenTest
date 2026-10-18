@@ -184,6 +184,8 @@ PUBLIC_HOOKS: dict[str, str] = {
     "hero": "[data-hero]",
     "hero title": "[data-hero-title]",
     "page body": "[data-page-body]",
+    # CR-32 #2101: a columns block that holds a data block, drawn by the page template.
+    "page columns": "[data-page-columns]",
     "bell": "[data-raakje-bell]",
 }
 
@@ -486,6 +488,14 @@ SCREENS: tuple[Screen, ...] = (
         "public-sectie-pagina",
         "/meetbasis-sectie",
         ("brand", "content", "hero", "hero title", "page body", "legal line"),
+    ),
+    # CR-32 #2101: the activities left and the album card right, in the ratio wide-narrow
+    # (3 : 2) at 1100 px, stacked at 390; `measure_seed` makes the page.
+    Screen(
+        "public-kolommen-pagina",
+        "/meetbasis-kolommen",
+        ("brand", "content", "page columns", "card title", "photo card", "legal line"),
+        widths=(PHONE, (1100, 900)),
     ),
     # Without a poster: the page is not centred, one component.
     Screen(

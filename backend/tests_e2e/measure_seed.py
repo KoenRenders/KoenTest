@@ -122,6 +122,53 @@ def _sections_page(db) -> None:
     db.flush()
 
 
+def _columns_page(db) -> None:
+    """A page with the activities left and the album card right in two columns of the
+    ratio wide-narrow (CR-32 #2101), for the measurement of the columns: made through
+    cms's own door. The card stands still (interval 0), so a measurement does not wait
+    on a timer."""
+    from app.domains.cms.api import publish, save_document
+    from app.domains.cms.service import create_page
+    from app.schemas.cms import CmsPageCreate
+
+    page = create_page(
+        db,
+        CmsPageCreate(
+            title="Meetbasis kolommenpagina", slug="meetbasis-kolommen", show_in_nav=False
+        ),
+    )
+    save_document(
+        db,
+        page.id,
+        {
+            "type": "doc",
+            "content": [
+                {
+                    "type": "columns",
+                    "attrs": {"align": "top", "ratio": "wide-narrow"},
+                    "content": [
+                        {
+                            "type": "column",
+                            "content": [{"type": "activities", "attrs": {"count": 4}}],
+                        },
+                        {
+                            "type": "column",
+                            "content": [
+                                {
+                                    "type": "albums",
+                                    "attrs": {"albums": 1, "photos": 2, "interval": 0},
+                                }
+                            ],
+                        },
+                    ],
+                }
+            ],
+        },
+    )
+    publish(db, page.id)
+    db.flush()
+
+
 def main() -> None:
     if os.environ.get("E2E_SEED") != "1":
         sys.exit("measure_seed: refused, set E2E_SEED=1 to make this data")
@@ -164,6 +211,7 @@ def main() -> None:
             )
 
         _sections_page(db)
+        _columns_page(db)
 
         ahead = Activity(
             name=AHEAD,
