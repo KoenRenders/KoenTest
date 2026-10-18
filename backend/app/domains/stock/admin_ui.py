@@ -231,7 +231,9 @@ def correction_create(
     try:
         apply_correction(db, variant, amount, note=note, actor=_email)
     except StockError as refusal:
-        return refusal_response(request, [FieldError("", str(refusal))], "#correctie-melding")
+        return refusal_response(
+            request, [FieldError(refusal.field, str(refusal))], "#correctie-melding"
+        )
     return _redirect(request, "/admin/voorraad")
 
 

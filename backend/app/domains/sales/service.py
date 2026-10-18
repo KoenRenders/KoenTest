@@ -487,6 +487,12 @@ def submit_order(
 
     if method not in (PaymentMethod.ONLINE, PaymentMethod.TRANSFER):
         raise SalesError(_("Kies online betalen of overschrijving."))
+    # #2121: the basket asks the buyer's mobile, so the buyer's own order carries
+    # one — signed in or not (a guest's is also the aggregate's rule, `check()`).
+    # The board's order has no phone field and promises none: it comes through
+    # the trusted door and keeps the person's own details.
+    if proof is not form_guard.TRUSTED and not phone.strip():
+        raise SalesError(_("Vul je mobiele nummer in."), field="phone")
 
     try:
         order = place_order(
