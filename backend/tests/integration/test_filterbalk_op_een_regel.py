@@ -220,7 +220,8 @@ def test_het_zoekveld_wint_de_restbreedte(client, db_session):
             "domains/cms/templates/admin_paginas.html",
             "domains/forms/templates/admin_formulieren.html",
             "domains/reporting/templates/admin_rapporten.html",
-            "domains/media/templates/admin_media.html",
+            # #2130: Media left the filter bar for the kit's toolbar, whose search
+            # takes the rest of the row itself (`data-toolbar-search`).
             "domains/auth/templates/admin_gebruikers.html",
         )
     ]

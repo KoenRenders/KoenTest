@@ -120,10 +120,15 @@ def test_at_390_nothing_breaks(browser_and_tag):
     _b, _s, tag_id, _mark = browser_and_tag
     page = _page(browser_and_tag, 390, f"/admin/media?tag={tag_id}")
     m = page.evaluate(_LAYOUT)
-    page.locator("#me-lijst details summary").first.click()
-    open_ok = page.evaluate("() => document.querySelector('#me-lijst details').open")
-    print("MEASURE 390", m, "tag choice opens:", open_ok)
     _shot(page, "390-boom-boven-kaarten")
+    # #2130: the tag choice moved from the card to the picture's record, in its
+    # edit mode; it opens there at 390 px.
+    record = page.locator("#me-lijst [data-row-link]").first.get_attribute("href")
+    page.goto(BASE + record + "&bewerken=1")
+    pagina_klaar(page)
+    page.locator("main details summary").first.click()
+    open_ok = page.evaluate("() => document.querySelector('main details').open")
+    print("MEASURE 390", m, "tag choice opens:", open_ok)
     page.close()
 
     assert m["page"][0] == m["page"][1], f"no horizontal scroll: {m}"

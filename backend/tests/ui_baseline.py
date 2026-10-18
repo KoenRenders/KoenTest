@@ -23,14 +23,13 @@ INCLUDED_BY_THE_PILOT_NOT_RENDERED_THERE: dict[str, str] = {
 }
 
 
-#: B7 test 8 — raw <label>, <select>, <textarea>, visible <input>. 60 in 17 files.
+#: B7 test 8 — raw <label>, <select>, <textarea>, visible <input>. 55 in 16 files.
 RAW_FORM_ELEMENTS: dict[str, int] = {
     "domains/auth/templates/_gu_lijst.html": 2,
     "domains/auth/templates/_gu_rollen_velden.html": 6,
     "domains/designstudio/templates/admin_ontwerp.html": 2,
     "domains/forms/templates/_fb_builder.html": 12,
     "domains/forms/templates/_formulier_veld.html": 4,
-    "domains/media/templates/_me_lijst.html": 5,
     "domains/meetings/templates/_vg_document.html": 1,
     "domains/meetings/templates/_vg_kring.html": 1,
     "domains/newsletter/templates/_nb_gesprek.html": 2,
@@ -41,25 +40,23 @@ RAW_FORM_ELEMENTS: dict[str, int] = {
     "domains/reporting/templates/_rp_paneel.html": 4,
 }
 
-#: B7 test 9 — raw type="checkbox". 16 in 8 files.
+#: B7 test 9 — raw type="checkbox". 14 in 7 files.
 RAW_CHECKBOXES: dict[str, int] = {
     "domains/auth/templates/_gu_lijst.html": 1,
     "domains/auth/templates/_gu_rollen_velden.html": 3,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/forms/templates/_fb_builder.html": 6,
-    "domains/media/templates/_me_lijst.html": 2,
     "domains/newsletter/templates/_nb_gesprek.html": 1,
     "domains/reporting/templates/_rp_paneel.html": 1,
 }
 
-#: B7 test 8 — margin/padding/gap/space class on a raw form element. 50 in 16 files.
+#: B7 test 8 — margin/padding/gap/space class on a raw form element. 47 in 15 files.
 SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
     "domains/auth/templates/_gu_lijst.html": 1,
     "domains/auth/templates/_gu_rollen_velden.html": 3,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/forms/templates/_fb_builder.html": 7,
     "domains/forms/templates/_formulier_veld.html": 2,
-    "domains/media/templates/_me_lijst.html": 3,
     "domains/meetings/templates/_vg_document.html": 3,
     "domains/meetings/templates/_vg_kring.html": 3,
     "domains/newsletter/templates/_nb_gesprek.html": 2,
@@ -69,14 +66,13 @@ SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
     "domains/reporting/templates/_rp_paneel.html": 2,
 }
 
-#: B7 test 8 — bg-white, bg-gray-50, bg-gray-100 written by the template. 53 in 24 files.
+#: B7 test 8 — bg-white, bg-gray-50, bg-gray-100 written by the template. 50 in 23 files.
 RAW_SURFACES: dict[str, int] = {
     "domains/auth/templates/_gu_lijst.html": 1,
     "domains/forms/templates/_fb_builder.html": 6,
     "domains/forms/templates/_fb_kaarten.html": 1,
     "domains/forms/templates/_fb_resultaten.html": 1,
     "domains/media/templates/_me_boom.html": 1,
-    "domains/media/templates/_me_lijst.html": 3,
     "domains/media/templates/_media_picker.html": 1,
     "domains/payment/templates/_bt_boven.html": 1,
     "domains/reporting/templates/_rp_kaarten.html": 2,
@@ -119,7 +115,7 @@ WIDENED_ROWS: dict[str, int] = {
 #: B7 test 23 — a `checkbox_group` in a toolbar or filter bar. 0 in 0 files.
 CHECKBOX_GROUPS_IN_TOOLBARS: dict[str, int] = {}
 
-#: B7 test 1 — an admin page on the shell itself, no layout and no record head. 38 in 38 files.
+#: B7 test 1 — an admin page on the shell itself, no layout and no record head. 37 in 37 files.
 SHELL_EXTENDED_DIRECTLY: dict[str, int] = {
     "domains/activities/templates/admin_inschrijving.html": 1,
     "domains/auth/templates/admin_gebruikers.html": 1,
@@ -134,7 +130,6 @@ SHELL_EXTENDED_DIRECTLY: dict[str, int] = {
     "domains/forms/templates/admin_formulier_resultaten.html": 1,
     "domains/forms/templates/admin_formulieren.html": 1,
     "domains/mdm/templates/leden_import.html": 1,
-    "domains/media/templates/admin_media.html": 1,
     "domains/meetings/templates/admin_vergadering.html": 1,
     "domains/meetings/templates/admin_vergadering_nieuw.html": 1,
     "domains/meetings/templates/admin_vergadering_verstuur.html": 1,
