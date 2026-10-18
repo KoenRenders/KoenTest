@@ -13,7 +13,7 @@
 # app/static/vendor/tiptap-3.31.4.LICENSES (all 47 are MIT).
 #
 # sha256 of app/static/vendor/tiptap-3.31.4.min.js:
-47bdb9961661d2ef89a67a90427a1f28669ff8c991b9de8769f9e684dedc3f2b  app/static/vendor/tiptap-3.31.4.min.js
+898445c6eb01e9dad7dfa4d5fdc70844e95d927076c9ed65b2afb4d4992c8068  app/static/vendor/tiptap-3.31.4.min.js
 #
 # The rebuild of 13 October 2026 — five more names exported, nothing else.
 # Until that day the checksum began with 60b08c1bfad4b5dc and ended with
@@ -49,6 +49,16 @@
 # Still open, by the same decision ("c met v2.19"): pinning the packages by
 # their content in this manifest, where today they are pinned by version and
 # by the checksum of the result.
+#
+# The rebuild of 18 October 2026 (#2095) — one more name exported, `Mark`,
+# nothing else: the editor's mark "Groot" is a mark of its own, and a mark is
+# built from that class as the nodes are from `Node`. Decided by Koen on
+# 18 October 2026, to "Mag dev1 het editorpakket opnieuw bouwen, keuze (a)?":
+# "a" (as the master CLI recorded it). The same two steps: the script
+# unchanged with the network on printed "OK" for the previous checksum; then
+# the entry file with `Mark` added, `--offline`, refused with the checksum
+# above, this line set to it, `--offline --update`. Same tiptap version, no
+# package added.
 #
 # Build inputs, pinned:
 #   node image:  node@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 (v22.23.3, alpine)

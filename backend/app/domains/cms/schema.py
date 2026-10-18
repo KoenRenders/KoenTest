@@ -78,7 +78,7 @@ _DESTINATION_ATTRS: dict[str, Any] = {
 }
 
 #: Every node a document may hold, with its attributes (F1). Marks on ``text``:
-#: bold, italic, strike, link. Every node here is one the renderer walks
+#: bold, italic, strike, large, link. Every node here is one the renderer walks
 #: (`test_every_node_of_the_schema_renders`): the schema holds what a stored
 #: document may hold today, not the shapes of a later phase.
 NODES: dict[str, dict[str, Any]] = {
@@ -217,9 +217,21 @@ NODES: dict[str, dict[str, Any]] = {
             "interval": (0, *range(2, 11)),
         }
     },
-    "value": {"group": "inline", "inline": True, "atom": True, "attrs": {"code": VALUE_CODES}},
+    # A value may be large (#2095): "Lidgeld €35 per gezin" with only the amount
+    # large. The one mark a value carries; bold and the rest stay on text.
+    "value": {
+        "group": "inline",
+        "inline": True,
+        "atom": True,
+        "attrs": {"code": VALUE_CODES},
+        "marks": ("large",),
+    },
     "hardBreak": {"group": "inline", "inline": True},
-    "text": {"group": "inline", "text": True, "marks": ("bold", "italic", "strike", "link")},
+    "text": {
+        "group": "inline",
+        "text": True,
+        "marks": ("bold", "italic", "strike", "large", "link"),
+    },
 }
 
 #: How a page opens (CR-32 F4, B8.11): the title line, or a hero — the title
@@ -357,7 +369,7 @@ BLOCK_SETS: dict[str, dict[str, Any]] = {
     # inserts the node (a chip with the current value) and the migration turned
     # the typed `{{code}}` of every stored document into one.
     "page": {
-        "marks": ("bold", "italic", "strike", "link"),
+        "marks": ("bold", "italic", "strike", "large", "link"),
         "headings": HEADING_LEVELS,
         "lists": ("bulletList", "orderedList"),
         # A block the toolbar turns on and off, as a list (#1985).
@@ -672,13 +684,14 @@ def _validate_node(node: Any, path: str) -> None:
 
             if attrs["icon"] not in icon_names():
                 raise UnknownAttribute(f"card.icon={attrs['icon']!r}")
-    if spec.get("text"):
-        # A text node carries words: the key is there and the string is not
-        # empty (review A3, #1699) — an empty text node renders nothing and
-        # means nothing.
-        text = node.get("text")
-        if not isinstance(text, str) or not text:
-            raise InvalidShape("Tekst zonder inhoud")
+    if spec.get("text") or spec.get("marks"):
+        if spec.get("text"):
+            # A text node carries words: the key is there and the string is not
+            # empty (review A3, #1699) — an empty text node renders nothing and
+            # means nothing.
+            text = node.get("text")
+            if not isinstance(text, str) or not text:
+                raise InvalidShape("Tekst zonder inhoud")
         raw_marks = node.get("marks")
         if raw_marks is None:
             marks: list[Any] = []
@@ -719,7 +732,7 @@ def _validate_node(node: Any, path: str) -> None:
         # mistake a hand-rolled client makes; refuse it as a place, not a
         # name — the block itself is known.
         raise InvalidShape(f"Onjuiste plaats: tekst in {node_type}")
-    if node.get("marks") and not spec.get("text"):
+    if node.get("marks") and not (spec.get("text") or spec.get("marks")):
         raise UnknownAttribute(f"{node_type}.marks")
     # The shape half (B1): every child where its parent allows it, and the
     # parent holding what her expression demands. The child's own name is
@@ -766,6 +779,7 @@ def _toolbar_label(command_id: str) -> str:
         "bold": _("Vet"),
         "italic": _("Cursief"),
         "strike": _("Doorgehaald"),
+        "large": _("Groot"),
         "link": _("Link"),
         "bulletList": _("Lijst"),
         "orderedList": _("Genummerde lijst"),

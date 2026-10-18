@@ -38,7 +38,7 @@ def test_schema_for_names_exactly_the_page_set():
         "value",
     ]
     assert [h["level"] for h in config["headings"]] == [2, 3, 4]
-    assert set(config["marks"]) == {"bold", "italic", "strike", "link"}
+    assert set(config["marks"]) == {"bold", "italic", "strike", "large", "link"}
     assert config["nodes"] == sorted(schema.NODES)
 
 
