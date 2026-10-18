@@ -232,12 +232,12 @@ def test_tenants_knop_is_primair_en_htmx_geeft_het_fragment(client, platform_wor
     pagina = client.get("/admin/tenants")
     assert pagina.status_code == 200
     # primaire knop = merkblauw gevuld; de outline-variant is de secundaire
-    knop = pagina.text.split("+ Nieuwe tenant")[0]
+    knop = pagina.text.split("Nieuwe tenant")[0]
     assert "bg-blue-700" in knop.rsplit("<button", 1)[-1]
 
     fragment = client.get("/admin/tenants", params={"q": "raak"}, headers=HX)
     assert "<html" not in fragment.text.lower()
-    assert "+ Nieuwe tenant" not in fragment.text
+    assert "Nieuwe tenant" not in fragment.text
 
 
 # ── C1-gelijktrekking (#621) ─────────────────────────────────────────────────

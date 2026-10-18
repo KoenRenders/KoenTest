@@ -9,7 +9,7 @@
    (#623), not a modal. The toolbar stands outside the list fragment. #}
 {% block list_title %}{{ _("Activiteiten") }}{% endblock %}
 {% block list_figures %}{{ ui.figures(figures) }}{% endblock %}
-{% block list_primary %}{{ ui.btn_primary(_("+ Nieuwe activiteit"), href="/admin/activiteiten/nieuw") }}{% endblock %}
+{% block list_primary %}{{ ui.btn_primary(_("Nieuwe activiteit"), href="/admin/activiteiten/nieuw", lead_icon="plus") }}{% endblock %}
 {% block list_toolbar %}
 {% call ui.toolbar("/admin/activiteiten", "#aa-lijst", "aa-filter",
                    segments=segments, status_name="scope", status_current=scope, status_legend=_("Periode"),

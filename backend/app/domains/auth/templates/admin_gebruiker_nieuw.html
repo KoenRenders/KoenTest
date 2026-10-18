@@ -2,37 +2,37 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Nieuwe gebruiker — Raak beheer") }}{% endblock %}
 {% block content %}
-{# Aanmaakscherm als volledige pagina (#627, §2.8): geen modal. Dezelfde kaartvorm
-   als het scherm waarin je daarna werkt, dus er is geen tweede lay-out om te
-   onderhouden. #}
-{{ ui.page_header(_("Nieuwe gebruiker"), _("Inloggen gebeurt met een e-mailcode — er zijn geen wachtwoorden.")) }}
-
+{# Aanmaakscherm als volledige pagina (#627, §2.8): geen modal. Sinds #2110 op de
+   kit, zoals Nieuw lid: kitkop, de velden als `ui.field` in een `ui.section`, de
+   actiebalk met één Opslaan. #}
+{% call ui.public_form_page(_("Nieuwe gebruiker"), shell="admin",
+                            back_href="/admin/gebruikers", back_label=_("Gebruikers"),
+                            intro=_("Inloggen gebeurt met een e-mailcode — er zijn geen wachtwoorden.")) %}
+<div data-form-flow data-mode="edit" class="form-flow">
 {{ ui.error_banner(error|default(None)) }}
-<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
 {# #695: `hx-target="body"` en niet het lijstelement. Dat stond hier sinds #627,
-         toen dit formulier van bóven de lijst naar een eigen pagina verhuisde: het
-         doel bleef achter. htmx zoekt het doel vóórdat hij verstuurt, dus met een
-         onvindbaar doel vertrekt het verzoek nooit — Opslaan en Annuleren deden
-         allebei helemaal niets, en de link erfde het doel van de vorm.
+   toen dit formulier van bóven de lijst naar een eigen pagina verhuisde: het
+   doel bleef achter. htmx zoekt het doel vóórdat hij verstuurt, dus met een
+   onvindbaar doel vertrekt het verzoek nooit.
 
-         Het geslaagde pad heeft sowieso geen lijstdoel nodig: dat antwoordt met
-         `HX-Redirect`. Wat overblijft is het foutpad, dat dit scherm opnieuw
-         rendert — en dat hoort dus op deze pagina te landen, zodat de foutbanner op
-         zijn plek verschijnt. Zelfde keuze als `admin_tenant_nieuw.html`. #}
-    <form class="space-y-3" hx-post="/admin/gebruikers" hx-target="body" hx-swap="innerHTML"
-         >
-      {# Golf 6, kop-herziening: alles bovenaan. #}
-      {{ ui.action_bar(cancel_href="/admin/gebruikers") }}
-      <input type="hidden" name="q" value="{{ q }}">
-      <input type="hidden" name="rol" value="{{ rol }}">
-      <input type="hidden" name="actief" value="{{ actief }}">
-      <div>{{ ui.label(_("E-mail"), "gu-email", required=True) }}
-        <input type="email" name="email" id="gu-email" required class="w-full"></div>
-      <div class="flex flex-wrap gap-4 text-sm">
-        {% with sel = {}, operator_aan = False %}
-        {% include "_gu_rollen_velden.html" %}
-        {% endwith %}
-      </div>
-    </form>
+   Het geslaagde pad heeft sowieso geen lijstdoel nodig: dat antwoordt met
+   `HX-Redirect`. Wat overblijft is het foutpad, dat dit scherm opnieuw
+   rendert — en dat hoort dus op deze pagina te landen, zodat de foutbanner op
+   zijn plek verschijnt. Zelfde keuze als `admin_tenant_nieuw.html`. #}
+<form id="gebruiker-nieuw-form" class="contents" hx-post="/admin/gebruikers" hx-target="body" hx-swap="innerHTML">
+  <input type="hidden" name="q" value="{{ q }}">
+  <input type="hidden" name="rol" value="{{ rol }}">
+  <input type="hidden" name="actief" value="{{ actief }}">
+  {% call ui.section(_("Gebruiker")) %}
+  {{ ui.field("email", attribute="auth.user.email", kind="email", id="gu-email", required=True) }}
+  <div data-span="full" class="flex flex-wrap gap-4 text-sm">
+    {% with sel = {}, operator_aan = False %}
+    {% include "_gu_rollen_velden.html" %}
+    {% endwith %}
+  </div>
+  {% endcall %}
+</form>
+{{ ui.action_bar(record=True, form="gebruiker-nieuw-form", cancel_href="/admin/gebruikers") }}
 </div>
+{% endcall %}
 {% endblock %}

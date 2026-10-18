@@ -67,7 +67,7 @@ def _inside(locator) -> dict:
 def test_the_board_adds_a_registration_on_a_phone(page, setup):
     page.goto(f"/admin/activiteiten/{setup['activity']}/inschrijvingen")
     pagina_klaar(page)
-    toevoegen = page.get_by_role("link", name="+ Inschrijving toevoegen")
+    toevoegen = page.get_by_role("link", name="Inschrijving toevoegen", exact=True)
     _inside(toevoegen)
     toevoegen.click()
     pagina_klaar(page)

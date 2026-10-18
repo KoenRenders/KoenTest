@@ -8,7 +8,7 @@
   {% call ui.form_grid() %}
     {{ ui.field("email", attribute="mdm.contact_detail.email", kind="email", required=True, span="full", value=email|default("")) }}
   {% endcall %}
-  <div class="mt-6">{{ ui.btn_primary(_('Stuur inloginfo')) }}</div>
+  <div class="mt-6">{{ ui.btn_primary(_('Stuur inloginfo'), lead_icon="send") }}</div>
 </form>
 {# CR-22 (#1708, R1): the second door. The page to return to travels with it. #}
 <p data-create-account class="mt-6 text-sm text-ink-soft">{{ _("Nog geen account?") }}

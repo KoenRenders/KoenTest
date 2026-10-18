@@ -2,90 +2,80 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Media uploaden — Raak beheer") }}{% endblock %}
 {% block content %}
-{# Aanmaakscherm als volledige pagina (#627, §2.8): geen modal. Dezelfde kaartvorm
-   als het scherm waarin je daarna werkt, dus er is geen tweede lay-out om te
-   onderhouden. #}
-{{ ui.page_header(_("Media uploaden"), _("Na het uploaden sta je terug in de lijst.")) }}
-
+{# Aanmaakscherm als volledige pagina (#627, §2.8): geen modal. Sinds #2110 op de
+   kit, zoals Nieuw lid: kitkop, de velden als `ui.field` in een `ui.section`, de
+   actiebalk met één knop. #}
+{% call ui.public_form_page(_("Media uploaden"), shell="admin",
+                            back_href="/admin/media", back_label=_("Media"),
+                            intro=_("Na het uploaden sta je terug in de lijst.")) %}
+<div data-form-flow data-mode="edit" class="form-flow">
 {{ ui.error_banner(error|default(None)) }}
-<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-    <form class="space-y-3" enctype="multipart/form-data"
-          x-data="{ soort: '{{ upload_kind }}' }"
-          hx-post="/admin/media" hx-encoding="multipart/form-data"
-          hx-target="body" hx-swap="innerHTML">
-      {# Golf 6, kop-herziening: alles bovenaan. #}
-      {{ ui.action_bar(save_label=_("Uploaden"), cancel_href="/admin/media") }}
-      {# #695: `hx-target="body"` en niet het lijstelement. Dat stond hier sinds #627,
-         toen dit formulier van bóven de lijst naar een eigen pagina verhuisde: het
-         doel bleef achter. htmx zoekt het doel vóórdat hij verstuurt, dus met een
-         onvindbaar doel vertrekt het verzoek nooit — Uploaden en Annuleren deden
-         allebei helemaal niets, en de link erfde het doel van de vorm.
+{# #695: `hx-target="body"` en niet het lijstelement. Dat stond hier sinds #627,
+   toen dit formulier van bóven de lijst naar een eigen pagina verhuisde: het
+   doel bleef achter. htmx zoekt het doel vóórdat hij verstuurt, dus met een
+   onvindbaar doel vertrekt het verzoek nooit.
 
-         Het geslaagde pad heeft sowieso geen lijstdoel nodig: dat antwoordt met
-         `HX-Redirect`. Wat overblijft is het foutpad, dat dit scherm opnieuw
-         rendert — en dat hoort dus op deze pagina te landen, zodat de foutbanner op
-         zijn plek verschijnt. Zelfde keuze als `admin_tenant_nieuw.html`. #}
-      {# #696: de SOORT is hier een eigenschap van wat je uploadt, geen filter.
-         Ze stond als verborgen veld met de filterstand erin, dus stond je op het
-         sponsorfilter, dan kón je enkel een sponsor uploaden en verscheen de
-         activiteitendropdown nooit — zonder weg terug op dit scherm. De filterstand
-         is nu de BEGINWAARDE van een echte keuze, niet de eindbeslissing.
-
-         In v1.14 stonden de twee tabbladen op dezelfde pagina als het formulier en
-         was omschakelen één klik; deze select geeft dat terug. #}
-      <input type="hidden" name="q" value="{{ q }}">
-      {# #1527: the branch you came from, to return to after the upload. The
-         fields below start from it — kind, activity, tag — and stay yours to
-         change. #}
-      <input type="hidden" name="filter_kind" value="{{ tak.kind }}">
-      <input type="hidden" name="filter_activity_id" value="{{ tak.activity_id }}">
-      <input type="hidden" name="filter_tag" value="{{ tak.tag }}">
-      <input type="hidden" name="filter_year" value="{{ tak.year }}">
-      <div class="max-w-xs">{{ ui.label(_("Soort"), "me-kind", required=True) }}
-        {% call ui.select_control("kind", cls="w-full", attrs='id="me-kind" x-model="soort"') %}
-          {# Uit `kind_options` en niet met de hand opgesomd (#258): de soorten
-             stonden hier hardgecodeerd, dus een nieuwe soort verscheen wél in het
-             filter van de lijst maar niet in deze keuzelijst — en was daardoor niet
-             te uploaden. Nu is er één bron: VALID_KINDS. #}
-          {% for waarde, label in upload_kind_options %}
-          <option value="{{ waarde }}" {% if upload_kind == waarde %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        {% endcall %}</div>
-      {# De dropdown volgt de keuze in plaats van de filterstand. `:required` en niet
-         een vast `required`: een verborgen veld met required laat de browser bij
-         verzenden falen met "An invalid form control is not focusable" en het
-         verzenden mislukt geruisloos — dezelfde val als bij #688. De server
-         controleert het hoe dan ook. #}
-      {# #1527: a design picture can belong to an activity too (optional). #}
-      <div class="max-w-xs" x-show="soort === 'activity_photo' || soort === 'design_image'" x-cloak>
-        {{ ui.label(_("Activiteit"), "me-activity", required=True) }}
-        {% call ui.select_control("activity_id", cls="w-full", attrs='id="me-activity" :required="soort === \'activity_photo\'"') %}
-          <option value="">{{ _("— Kies een activiteit —") }}</option>
-          {% for a in alle_activiteiten %}<option value="{{ a.id }}" {% if a.id == activity_id %}selected{% endif %}>{{ a.naam }}{% if a.jaar %} ({{ a.jaar }}){% endif %}</option>{% endfor %}
-        {% endcall %}</div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>{{ ui.label(_("Titel"), "me-title") }}
-          {{ ui.input_control("title", id="me-title", cls="w-full") }}</div>
-      {# #1470: an upload can carry one or more tags at once. #}
-      {% if tag_opties %}<div class="max-w-xs">{{ ui.label(_("Tags"), "me-tags") }}
-        {{ ui.multiselect("tag_ids", labelled=tag_opties, current=[tag|string] if tag else [],
-                          aria_label=_("Tags"), empty_label=_("Geen tags")) }}</div>{% endif %}
-        {# #707: de doorklik hoort bij een sponsorlogo. Bij een activiteitenfoto
-           wordt ze bewaard en nooit gebruikt — dan is het geen instelling maar
-           rommel. De server negeert een meegestuurde waarde hoe dan ook; dit veld
-           verbergen is de vriendelijke helft, niet de regel. #}
-        <div x-show="soort === 'sponsor'" x-cloak>{{ ui.label(_("Link (optioneel)"), "me-link") }}
-          {{ ui.input_control("link_url", id="me-link", cls="w-full") }}</div>
-      </div>
-      {# #708: de bestanden staan ONDERAAN, vlak boven de knop. De volgorde volgt de
-         handeling: eerst zeggen wát je uploadt (soort, activiteit, titel), dan pas
-         kiezen wélke bestanden. Andersom kies je bestanden en moet je daarna weer
-         omhoog scrollen om te zeggen waar ze bij horen. #}
-      <div>{{ ui.label(_("Bestanden (afbeeldingen)"), "me-files", required=True) }}
-        {# promise walked by: test_the_media_upload_refuses_a_post_without_a_file #}
-        <input type="file" name="files" id="me-files" accept="image/*" multiple required class="block text-sm" aria-describedby="me-files-hint">
-        {# #989: said here because the server refuses it for every other kind. #}
-        <p id="me-files-hint" x-show="soort === 'tenant_logo' || soort === 'site_icon'" style="display: none" class="text-xs text-ink-soft mt-1">{{ _("Een logo of favicon mag ook een SVG-bestand zijn: scherp op elk scherm. Voor e-mail maken we er zelf een PNG van.") }}</p></div>
-    </form>
+   Het geslaagde pad heeft sowieso geen lijstdoel nodig: dat antwoordt met
+   `HX-Redirect`. Wat overblijft is het foutpad, dat dit scherm opnieuw
+   rendert — en dat hoort dus op deze pagina te landen, zodat de foutbanner op
+   zijn plek verschijnt. Zelfde keuze als `admin_tenant_nieuw.html`. #}
+<form id="media-nieuw-form" class="contents" enctype="multipart/form-data"
+      x-data="{ soort: '{{ upload_kind }}' }"
+      hx-post="/admin/media" hx-encoding="multipart/form-data"
+      hx-target="body" hx-swap="innerHTML">
+  {# #696: de SOORT is hier een eigenschap van wat je uploadt, geen filter.
+     Ze stond als verborgen veld met de filterstand erin, dus stond je op het
+     sponsorfilter, dan kón je enkel een sponsor uploaden en verscheen de
+     activiteitendropdown nooit — zonder weg terug op dit scherm. De filterstand
+     is nu de BEGINWAARDE van een echte keuze, niet de eindbeslissing. #}
+  <input type="hidden" name="q" value="{{ q }}">
+  {# #1527: the branch you came from, to return to after the upload. The
+     fields below start from it — kind, activity, tag — and stay yours to
+     change. #}
+  <input type="hidden" name="filter_kind" value="{{ tak.kind }}">
+  <input type="hidden" name="filter_activity_id" value="{{ tak.activity_id }}">
+  <input type="hidden" name="filter_tag" value="{{ tak.tag }}">
+  <input type="hidden" name="filter_year" value="{{ tak.year }}">
+  {% call ui.section(_("Media")) %}
+  {# Uit `upload_kind_options` en niet met de hand opgesomd (#258): één bron,
+     VALID_KINDS, voor het filter van de lijst én voor deze keuzelijst. #}
+  {{ ui.field("kind", attribute="media.media_asset.kind", kind="select", id="me-kind", required=True, value=upload_kind,
+              options=upload_kind_options, attrs='x-model="soort"') }}
+  {# De dropdown volgt de keuze in plaats van de filterstand. `:required` en niet
+     een vast `required`: een verborgen veld met required laat de browser bij
+     verzenden falen met "An invalid form control is not focusable" en het
+     verzenden mislukt geruisloos — dezelfde val als bij #688. De server
+     controleert het hoe dan ook. #1527: a design picture can belong to an
+     activity too (optional). #}
+  {% set activity_options = [("", _("— Kies een activiteit —"))] %}
+  {% for a in alle_activiteiten %}{% set _ = activity_options.append((a.id, a.naam ~ (" (" ~ a.jaar ~ ")" if a.jaar else ""))) %}{% endfor %}
+  <div data-span="half" class="min-w-0" x-show="soort === 'activity_photo' || soort === 'design_image'" x-cloak>
+    {{ ui.field("activity_id", attribute="media.media_asset.activity_id", kind="select", id="me-activity", value=activity_id,
+                options=activity_options, attrs=':required="soort === \'activity_photo\'"') }}
+  </div>
+  {{ ui.field("title", attribute="media.media_asset.title", id="me-title") }}
+  {# #1470: an upload can carry one or more tags at once. #}
+  {% if tag_opties %}<div data-span="half" class="min-w-0">{{ ui.label(_("Tags"), "me-tags") }}
+    {{ ui.multiselect("tag_ids", labelled=tag_opties, current=[tag|string] if tag else [],
+                      aria_label=_("Tags"), empty_label=_("Geen tags")) }}</div>{% endif %}
+  {# #707: de doorklik hoort bij een sponsorlogo. Bij een activiteitenfoto
+     wordt ze bewaard en nooit gebruikt — dan is het geen instelling maar
+     rommel. De server negeert een meegestuurde waarde hoe dan ook; dit veld
+     verbergen is de vriendelijke helft, niet de regel. #}
+  <div data-span="half" class="min-w-0" x-show="soort === 'sponsor'" x-cloak>
+    {{ ui.field("link_url", attribute="media.media_asset.link_url", id="me-link") }}
+  </div>
+  {# #708: de bestanden staan ONDERAAN, vlak boven de knop. De volgorde volgt de
+     handeling: eerst zeggen wát je uploadt (soort, activiteit, titel), dan pas
+     kiezen wélke bestanden. #}
+  {# promise walked by: test_the_media_upload_refuses_a_post_without_a_file #}
+  {{ ui.field("files", _("Bestanden (afbeeldingen)"), kind="upload", id="me-files", required=True,
+              accept="image/*", attrs='multiple aria-describedby="me-files-hint"') }}
+  {# #989: said here because the server refuses it for every other kind. #}
+  <p id="me-files-hint" data-span="full" x-show="soort === 'tenant_logo' || soort === 'site_icon'" style="display: none" class="text-[13px] text-ink-soft">{{ _("Een logo of favicon mag ook een SVG-bestand zijn: scherp op elk scherm. Voor e-mail maken we er zelf een PNG van.") }}</p>
+  {% endcall %}
+</form>
+{{ ui.action_bar(record=True, send=True, save_label=_("Uploaden"), busy_label=_("Uploaden…"), form="media-nieuw-form", cancel_href="/admin/media") }}
 </div>
+{% endcall %}
 {% endblock %}

@@ -6,7 +6,7 @@
    blauwe balk) → zoeken → filters → record-kaarten. Een kaart opent het paneel
    met die selectie. #}
 {% call ui.page_header(_("Rapporten"), _("Stel zelf een rapport samen uit de gegevens die er al zijn, bewaar het onder een naam en neem het mee als spreadsheet."), list_page=True) %}
-  {{ ui.btn_primary(_("+ Nieuw rapport"), href="/admin/rapporten/nieuw") }}
+  {{ ui.btn_primary(_("Nieuw rapport"), href="/admin/rapporten/nieuw", lead_icon="plus") }}
 {% endcall %}
 
 {% call ui.filter_bar("/admin/rapporten/lijst", "#rp-lijst") %}

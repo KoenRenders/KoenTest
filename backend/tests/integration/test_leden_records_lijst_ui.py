@@ -143,7 +143,7 @@ def test_kpi_rij_noemt_het_doeljaar_in_het_label(client, db_session):
 def test_lijst_heeft_nieuw_lid_import_zoek_en_filters(client, db_session):
     _login(client)
     html = client.get("/admin/leden").text
-    assert "+ Nieuw lid" in html and "Leden importeren" in html
+    assert "Nieuw lid" in html and "Leden importeren" in html
     assert 'type="search"' in html
     # #1899: three segments and no "Alle" — a list opens on a status.
     assert re.findall(r'<input type="radio" name="status" value="([^"]*)"', html) == [
@@ -227,12 +227,12 @@ def test_a_row_opens_the_households_record(client, db_session):
 
 
 def test_acties_staan_op_de_titelregel_boven_de_kpi_rij(client, db_session):
-    """#1899: the title row carries ONE primary button, "+ Nieuw lid"; the import
+    """#1899: the title row carries ONE primary button, "Nieuw lid"; the import
     is a secondary action and lives under the toolbar's `⋯`, not in the title row."""
     _login(client)
     html = client.get("/admin/leden").text
     head = html[html.index("data-list-head") : html.index("data-toolbar")]
-    assert "+ Nieuw lid" in head and "Leden importeren" not in head
+    assert "Nieuw lid" in head and "Leden importeren" not in head
     menu = html[html.index("data-more-menu") :]
     assert 'href="/admin/leden-import"' in menu[: menu.index("</form>")]
 

@@ -67,8 +67,8 @@ def test_zonder_losse_velden_staat_er_geen_lege_kaart(client):
     # F16 (#996): een LEEG formulier toont de lege staat die bij de eerste
     # vraag begint; de losse knop hoort daar niet naast (twee ingangen voor
     # hetzelfde). Hij verschijnt pas zodra er secties zijn.
-    assert "+ Eerste vraag toevoegen" in html
-    assert "+ Vraag (zonder sectie)" not in html
+    assert "Eerste vraag toevoegen" in html
+    assert "Vraag (zonder sectie)" not in html
 
 
 def test_met_losse_velden_blijft_de_kaart(client):
@@ -79,7 +79,7 @@ def test_met_losse_velden_blijft_de_kaart(client):
     assert "Velden zonder sectie" in html
     assert "Los" in html
     # De knop staat dan ín de kaart, zoals bij "+ Vraag in deze sectie".
-    assert "+ Vraag in deze sectie" in html
+    assert "Vraag in deze sectie" in html
 
 
 # ── 2. Eén naam voor één begrip ────────────────────────────────────────────
@@ -162,7 +162,7 @@ def test_de_sectieknop_staat_niet_meer_los_tussen_de_kaarten(client):
     _login(client)
     html = _bouwer(client, form["id"])
 
-    assert "+ Sectie toevoegen" in html
+    assert "Sectie toevoegen" in html
     assert 'placeholder="Nieuwe sectie"' not in html, "de oude invoerbalk staat er nog"
 
 

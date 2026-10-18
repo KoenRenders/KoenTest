@@ -83,7 +83,7 @@ def test_een_activiteit_invoegen_en_bewaren(admin_page):
     """New letter → subject and audience → insert an activity block through the
     editor's menu → autosave → after a reload the block is still there."""
     page = admin_page
-    page.get_by_role("button", name="+ Nieuwe nieuwsbrief").click()
+    page.get_by_role("button", name="Nieuwe nieuwsbrief", exact=True).click()
     page.wait_for_selector("#nb-editor .ProseMirror", timeout=10_000)
     _klikbaar(page, "#nb-onderwerp")
     adres = page.url
@@ -212,7 +212,7 @@ def test_een_voorstel_komt_op_de_cursor_of_over_de_selectie(admin_page):
     blocks the editor takes over, and the positions are the editor's own.
     """
     page = admin_page
-    page.get_by_role("button", name="+ Nieuwe nieuwsbrief").click()
+    page.get_by_role("button", name="Nieuwe nieuwsbrief", exact=True).click()
     page.wait_for_selector("#nb-editor .ProseMirror", timeout=10_000)
     _klikbaar(page, "#nb-editor .ProseMirror")
     page.evaluate(
@@ -270,7 +270,7 @@ def test_the_audience_card_holds_its_content_and_the_editor_has_the_full_width(a
     desktop and at 390 px.
     """
     page = admin_page
-    page.get_by_role("button", name="+ Nieuwe nieuwsbrief").click()
+    page.get_by_role("button", name="Nieuwe nieuwsbrief", exact=True).click()
     page.wait_for_selector("#nb-editor .ProseMirror", timeout=10_000)
     _klikbaar(page, "#nb-onderwerp")
 

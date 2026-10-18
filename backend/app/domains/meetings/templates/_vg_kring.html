@@ -76,7 +76,7 @@
         <span class="block text-sm">{{ person.first_name }} {{ person.last_name }}</span>
         <span class="block text-sm break-all {{ 'text-ink-soft' if person.email else 'text-brand-danger' }}">{{ person.email or _("geen e-mailadres") }}</span>
       </span>
-      <span class="ml-auto shrink-0">{{ ui.btn_outline(_("Toevoegen"), type="submit", size="sm") }}</span>
+      <span class="ml-auto shrink-0">{{ ui.btn_outline(_("Toevoegen"), type="submit", size="sm", lead_icon="plus") }}</span>
     </form>
     {% else %}
     <p class="text-sm text-ink-soft py-2">{{ _("Niemand gevonden die nog niet in de kring zit.") }}</p>
@@ -108,7 +108,7 @@
     {% call ui.inline_label(_("vanaf"), "vg-kring-nieuw-start", text_cls="text-sm text-ink-soft") %}
       {{ ui.input_control("start_date", id="vg-kring-nieuw-start", type="date", value=today, cls="w-40") }}
     {% endcall %}
-    {{ ui.btn_secondary(_("Toevoegen aan de kring"), type="submit", size="sm") }}
+    {{ ui.btn_secondary(_("Toevoegen aan de kring"), type="submit", size="sm", lead_icon="plus") }}
   </form>
 </div>
 

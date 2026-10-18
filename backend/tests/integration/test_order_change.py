@@ -345,6 +345,91 @@ def test_the_form_and_the_save_give_one_total(db_session, every_module_on):
     assert form_total == total_of(changed) == Decimal("30.00"), "the form and the save agree"
 
 
+def _form_amounts(html: str) -> tuple[list[Decimal], Decimal]:
+    """The change form's line amounts and its total, as the board reads them."""
+    import re
+
+    def amount(text: str) -> Decimal:
+        return Decimal(text.replace(".", "").replace(",", "."))
+
+    lines = re.findall(r'<span class="font-medium">€ ([\d.,]+)</span>', html)
+    total = re.findall(r"Totaal: €([\d.,]+)", html)
+    assert lines, "the form shows its lines"
+    assert len(total) == 1, "the form shows one total"
+    return [amount(text) for text in lines], amount(total[0])
+
+
+def _price_change_after_ordering(db_session, items_of):
+    """An order at € 10, then today's price raised to € 15 (A6: the form side)."""
+    m = _variant(db_session, size="M", amount="10.00", stock=5)
+    order = _order(db_session, items_of(m))
+    add_prices(
+        db_session,
+        product_id=m.product_id,
+        variant_id=m.id,
+        valid_from=belgian_today(),
+        amount=Decimal("15.00"),
+        member_amount=None,
+    )
+    db_session.commit()
+    return m, order
+
+
+def test_the_form_shows_the_kept_price_for_a_lower_quantity(client, db_session, every_module_on):
+    """A6, the form side: three at € 10, today € 15, changed to two — the form shows
+    € 20 for the line and as total, and the save writes the same € 20."""
+    from tests.conftest import board_session
+
+    headers = board_session(client)
+    m, order = _price_change_after_ordering(db_session, lambda m: [(m.id, 3)])
+
+    form = client.post(
+        f"/admin/verkoop/{order.id}/wijzigen",
+        data={"variant_id": [m.id], "quantity": ["2"], "action": "add"},
+        headers=headers,
+    )
+    assert form.status_code == 200, form.text[:300]
+    lines, total = _form_amounts(form.text)
+    assert lines == [Decimal("20.00")], "the line reads the old price"
+    assert total == Decimal("20.00")
+
+    saved = client.post(
+        f"/admin/verkoop/{order.id}/wijzigen",
+        data={"variant_id": [m.id], "quantity": ["2"]},
+        headers=headers,
+    )
+    assert saved.status_code in (200, 303), saved.text[:300]
+    db_session.expire_all()
+    changed = db_session.get(type(order), order.id)
+    assert [line.quantity for line in changed.lines] == [2], "the save went through"
+    assert total_of(changed) == total, "the form and the save agree"
+
+
+def test_the_form_shows_the_kept_price_for_a_split(client, db_session, every_module_on):
+    """A6, the form side: three at € 10, today € 15, split into one and two — the form
+    shows € 10 and € 20 and a total of € 30, and the save writes the same € 30."""
+    from tests.conftest import board_session
+
+    headers = board_session(client)
+    m, order = _price_change_after_ordering(db_session, lambda m: [(m.id, 3)])
+    split = {"variant_id": [m.id, m.id], "quantity": ["1", "2"]}
+
+    form = client.post(
+        f"/admin/verkoop/{order.id}/wijzigen", data={**split, "action": "add"}, headers=headers
+    )
+    assert form.status_code == 200, form.text[:300]
+    lines, total = _form_amounts(form.text)
+    assert lines == [Decimal("10.00"), Decimal("20.00")], "both halves read the old price"
+    assert total == Decimal("30.00")
+
+    saved = client.post(f"/admin/verkoop/{order.id}/wijzigen", data=split, headers=headers)
+    assert saved.status_code in (200, 303), saved.text[:300]
+    db_session.expire_all()
+    changed = db_session.get(type(order), order.id)
+    assert sorted(line.quantity for line in changed.lines) == [1, 2], "the save went through"
+    assert total_of(changed) == total, "the form and the save agree"
+
+
 def test_a_delivered_twin_is_kept_and_the_undelivered_one_removed(db_session, every_module_on):
     """B3: two identical lines, one delivered — a change to one of them keeps the
     delivered line and removes the undelivered one, never leaving a dangling

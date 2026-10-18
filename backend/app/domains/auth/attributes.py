@@ -75,7 +75,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="auth.user.email",
         columns=("auth.users.email",),
-        label=None,
+        label="E-mail",
         name_en="Email",
         help="The email of the user.",
         ai_exposure=AiExposure.NONE,  # K1

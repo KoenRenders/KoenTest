@@ -1695,6 +1695,6 @@ def test_de_lijstkop_volgt_de_conventie_van_de_andere_schermen(client, db_sessio
 
     # De macro zelf: titelrij met de acties rechts uitgelijnd.
     assert "<div data-page-header" in html, "de kop komt niet uit page_header"
-    assert html.index("Instellingen") < html.index("+ Nieuwe vergadering"), (
+    assert html.index("Instellingen") < html.index("Nieuwe vergadering"), (
         "de primaire knop hoort uiterst rechts te staan, dus als laatste"
     )

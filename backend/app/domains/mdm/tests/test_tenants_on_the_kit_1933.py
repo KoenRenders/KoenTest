@@ -88,7 +88,7 @@ def test_the_list_is_the_kits_table_with_its_five_columns(client, platform_works
     row = page[page.index(f'data-tenant="{unit.id}"') :]
     row = row[: row.index("</tr>")]
     assert ">/lijst-1933</small>" in row and "Inactief" not in row, "an active tenant is quiet"
-    assert "data-toolbar" in page and "+ Nieuwe tenant" in page
+    assert "data-toolbar" in page and "Nieuwe tenant" in page
     assert "Deactiveren" not in page and "Activeren" not in page
     fragment = client.get("/admin/tenants", headers=headers).text
     assert "<html" not in fragment and f'data-tenant="{unit.id}"' in fragment

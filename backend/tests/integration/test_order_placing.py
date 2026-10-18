@@ -322,7 +322,7 @@ def test_a_sold_out_size_is_refused_in_words(client, db_session, every_module_on
     m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=0)
     response = _post(client, m.id)
     assert response.status_code == 422
-    assert "voorraad" in response.text
+    assert "Uitverkocht." in response.text
 
 
 def test_a_variant_posted_twice_is_one_line(client, db_session, every_module_on):
@@ -447,7 +447,8 @@ def test_a_gone_line_stays_in_the_basket_marked(client, db_session, every_module
 
 def test_a_sold_out_line_stays_in_the_basket_marked(client, db_session, every_module_on):
     """Koen's "ja op beide": a size without enough stock stays on its own line
-    with its sentence ("Nog … op voorraad"), not a refusal of the whole basket."""
+    with its sentence ("Nog … op voorraad, maximaal … bestelbaar."), not a refusal
+    of the whole basket."""
     m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=1)
     response = client.post(
         "/webshop/mandje",
@@ -455,7 +456,58 @@ def test_a_sold_out_line_stays_in_the_basket_marked(client, db_session, every_mo
         follow_redirects=False,
     )
     assert response.status_code == 200
-    assert "Nog 1 op voorraad" in response.text
+    assert "Nog 1 op voorraad, maximaal 1 bestelbaar." in response.text
+
+
+def test_a_short_line_names_the_stock_and_the_orderable_max(client, db_session, every_module_on):
+    """#2104: 3 in stock, 5 asked — the basket and the refused order both say how
+    many can be ordered, in the one sentence of the rule they share (Q1)."""
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=3)
+    sentence = "Nog 3 op voorraad, maximaal 3 bestelbaar."
+
+    basket = client.post(
+        "/webshop/mandje",
+        data={"variant_id": str(m.id), "quantity": "5"},
+        follow_redirects=False,
+    )
+    assert basket.status_code == 200
+    assert sentence in basket.text
+
+    placed = _post(client, m.id, quantity="5")
+    assert "HX-Redirect" not in placed.headers, "the order is refused"
+    assert sentence in placed.text
+
+
+def test_a_line_without_stock_reads_sold_out(client, db_session, every_module_on):
+    """#2104: no stock — the line says "Uitverkocht.", not "Nog 0 op voorraad"."""
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=0)
+    basket = client.post(
+        "/webshop/mandje",
+        data={"variant_id": str(m.id), "quantity": "1"},
+        follow_redirects=False,
+    )
+    assert basket.status_code == 200
+    assert "Uitverkocht." in basket.text
+    assert "op voorraad" not in basket.text
+
+
+def test_the_orderable_max_is_the_tenant_maximum_below_the_stock(
+    db_session, every_module_on, monkeypatch
+):
+    """#2104: `max` is the stepper's bound — the stock capped at the tenant's
+    maximum. The basket and the order refuse a quantity above that maximum before
+    they ask the stock, so this is measured on the rule itself."""
+    from app.config import settings
+    from app.domains.product.api import get_product
+    from app.domains.sales.service import _stock_refusal
+    from app.kernel.clock import belgian_today
+
+    monkeypatch.setattr(settings, "max_item_quantity", 2)
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=3)
+    refusal = _stock_refusal(
+        db_session, get_product(db_session, m.product_id), m.id, 5, belgian_today()
+    )
+    assert refusal == "Nog 3 op voorraad, maximaal 2 bestelbaar."
 
 
 def test_the_total_counts_only_the_orderable_lines(client, db_session, every_module_on):
@@ -507,7 +559,7 @@ def test_a_pre_order_article_without_stock_stays_orderable(client, db_session, e
         follow_redirects=False,
     )
     assert basket.status_code == 200
-    assert "Nog 0 op voorraad" not in basket.text
+    assert "Uitverkocht." not in basket.text
 
     placed = _post(client, variant.id, quantity="2")
     assert placed.status_code == 200
@@ -1144,7 +1196,7 @@ def test_bestelling_toevoegen_refuses_a_short_article(client, db_session, every_
         headers=headers,
     )
     assert response.status_code == 422
-    assert "voorraad" in response.text
+    assert "Nog 1 op voorraad, maximaal 1 bestelbaar." in response.text
 
 
 def _board_user(db, role: str, email: str) -> str:
@@ -1704,3 +1756,71 @@ def test_a_line_is_removed_with_the_trash_can_not_a_cross_2105(client, db_sessio
     buttons = _remove_buttons(sale.text)
     assert len(buttons) == 1 and _is_the_kit_delete(buttons[0]), buttons
     assert f'name="remove_variant_id" value="{shirt.id}"' in buttons[0]
+
+
+def _orders_count(db_session) -> int:
+    from app.domains.sales.models import SalesOrder
+
+    db_session.expire_all()
+    return db_session.query(SalesOrder).count()
+
+
+def test_a_signed_in_buyer_without_a_phone_is_refused(client, db_session, every_module_on):
+    """#2121: the basket asks the mobile with an asterisk, so the server refuses an
+    order without one — also from a signed-in buyer, whom the aggregate's guest rule
+    does not cover — at the field, and saves nothing. With a phone it is saved."""
+    from tests.conftest import create_test_family
+
+    create_test_family(db_session, email="koper@example.com")
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    db_session.commit()
+    _as(client, "koper@example.com")
+    before = _orders_count(db_session)
+
+    refused = _post(client, m.id, phone="  ")
+    assert refused.status_code == 422
+    assert "Vul je mobiele nummer in." in refused.text
+    assert 'data-error-for="phone"' in refused.text, "the refusal marks the field"
+    assert _orders_count(db_session) == before, "no order is saved"
+
+    placed = _post(client, m.id)
+    assert "HX-Redirect" in placed.headers, placed.text[:300]
+    assert _orders_count(db_session) == before + 1
+
+
+def test_a_guest_without_a_phone_is_refused_at_the_field(client, db_session, every_module_on):
+    """#2121: a guest's empty phone is refused with the same sentence, at the field."""
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    before = _orders_count(db_session)
+    refused = _post(client, m.id, phone="")
+    assert refused.status_code == 422
+    assert 'data-error-for="phone"' in refused.text
+    assert _orders_count(db_session) == before
+
+
+def test_the_board_order_without_a_phone_goes_through(client, db_session, every_module_on):
+    """#2121, the other side: "Bestelling toevoegen" has no phone field and promises
+    none — the board's order of a member is saved without a phone."""
+    from tests.conftest import create_test_family
+
+    create_test_family(db_session, email="lid@example.com")
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    db_session.commit()
+    headers = _as(client, _board_user(db_session, "SALES", "verkoper@example.com"))
+    before = _orders_count(db_session)
+
+    answer = client.post(
+        "/admin/verkoop/nieuw",
+        data={
+            "action": "save",
+            "email": "lid@example.com",
+            "variant_id": str(m.id),
+            "quantity": "1",
+            "payment_method": "transfer",
+            **form_guard_fields(),
+        },
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert answer.status_code in (204, 303), answer.text[:300]
+    assert _orders_count(db_session) == before + 1
