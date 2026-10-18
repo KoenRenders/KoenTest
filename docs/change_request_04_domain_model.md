@@ -16,6 +16,7 @@
 
 **Project:** Web Portal "Raak Millegem"
 **Status:** Proposal / discussion — not scheduled. Phased, each phase independently shippable and revertible.
+**Tracking issue:** #2148 — the one place where what is open stands; this document is the design, the issue is the status
 **Apply to:** `backend/app/` (models, services, domains) and, as a parallel track, `frontend/src/`.
 
 ---

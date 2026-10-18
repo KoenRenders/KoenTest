@@ -2,7 +2,7 @@
 
 **Project:** Web Portal "Raak Millegem"
 **Status:** reserved on 7 October 2026 · left lying for a while (Koen) · nothing is built; not on a release
-**Tracking issue:** none yet — the one place where what is open stands; this document is the design, the issue is the status
+**Tracking issue:** #2150 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** payment (manual confirmation of transfers, structured communication), the workbench; related to CR-21
 **Reading:** A <n> words · B <n> · C <n> — measured with the word count per part; A ≤ 1 500, B ≤ 2 500
 

@@ -2,7 +2,7 @@
 
 **Project:** Web Portal "Raak Millegem"
 **Status:** split off CR-21 on 8 October 2026 · its content was shaped and decided inside CR-21 (Q15, Q17, Q36, Q38, Q47, Q50) · nothing is built; not on a release
-**Tracking issue:** none yet — the one place where what is open stands; this document is the design, the issue is the status
+**Tracking issue:** #2151 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** workflow (due date, a subject for an order, the definition of two steps), payment (an event for a failed online payment), sales (CR-21: starting and closing the runs); depends on CR-21 and CR-24
 **Reading:** A <n> words · B <n> · C <n> — measured with the word count per part; A ≤ 1 500, B ≤ 2 500
 
