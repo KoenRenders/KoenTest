@@ -1,8 +1,8 @@
 # Change Request 40 — Reports and Forms on the kit
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** outlined on 18 October 2026 at Koen's request, after he took the form builder and the reports panel out of CR-11 phase 5 ("Dat zijn volgens mij de meest complexe schermen") · **an outline, not shaped**: Part A needs Koen's own words, no concept is drawn, no build read has been asked · on hold · not assigned to a release · nothing is built
-**Tracking issue:** to be created by the master CLI — the one place where what is open stands; this document is the design, the issue is the status
+**Status:** outlined on 18 October 2026 at Koen's request, after he took the form builder and the reports panel out of CR-11 phase 5 ("Dat zijn volgens mij de meest complexe schermen") · **an outline, not shaped**: Part A needs Koen's own words, no concept is drawn, no build read has been asked · on hold (#2137: on no release, with no dev) · not assigned to a release · nothing is built
+**Tracking issue:** #2137 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the form builder (`forms/templates/_fb_builder.html`) and the field of somebody's own form (`_formulier_veld.html`); the reports panel (`reporting/templates/_rp_paneel.html` and the page that holds it)
 **Reading:** not measured — an outline
 
