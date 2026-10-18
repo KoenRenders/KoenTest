@@ -332,15 +332,15 @@ def test_the_form_and_the_save_give_one_total(db_session, every_module_on):
     db_session.commit()
 
     target = [(m.id, 1), (large.id, 1)]
-    kept_prices, _remove = change_plan(db_session, order, target)
-    form_lines = basket_lines(db_session, member=False, items=target, kept_prices=kept_prices)
+    prices, _kept, _remove = change_plan(db_session, order, target)
+    form_lines = basket_lines(db_session, member=False, items=target, kept_prices=prices)
     form_total = sum((line["price"] * line["quantity"] for line in form_lines), Decimal("0"))
 
     change_order_lines(db_session, order.id, target, actor="verkoper@example.com")
     db_session.expire_all()
     changed = db_session.query(type(order)).get(order.id)
 
-    assert kept_prices[0] == Decimal("10.00"), "the kept line keeps its old price"
+    assert prices[0] == Decimal("10.00"), "the kept line keeps its old price"
     assert form_total == total_of(changed) == Decimal("30.00"), "the form and the save agree"
 
 
@@ -446,8 +446,8 @@ def test_two_identical_kept_lines_each_keep_their_price(db_session, every_module
     db_session.commit()
 
     target = [(m.id, 1), (m.id, 1)]
-    kept_prices, _remove = change_plan(db_session, order, target)
-    form_lines = basket_lines(db_session, member=False, items=target, kept_prices=kept_prices)
+    prices, _kept, _remove = change_plan(db_session, order, target)
+    form_lines = basket_lines(db_session, member=False, items=target, kept_prices=prices)
     assert [line["price"] for line in form_lines] == [Decimal("10.00"), Decimal("11.00")]
 
     change_order_lines(db_session, order.id, target, actor="verkoper@example.com")
@@ -479,3 +479,92 @@ def test_two_delivered_twins_refuse_a_change_that_drops_one(db_session, every_mo
     db_session.expire_all()
     changed = db_session.query(type(order)).get(order.id)
     assert [line.quantity for line in changed.lines] == [1, 1]
+
+
+def test_a_changed_quantity_down_keeps_the_old_price(db_session, every_module_on):
+    """Koen's "b": 3 × M at 10, price now 15 — down to 2 × M keeps 10, not 15."""
+    m = _variant(db_session, amount="15.00", stock=5)
+    order = _order(db_session, [(m.id, 3)])
+    for line in order.lines:
+        line.unit_price = Decimal("10.00")
+    db_session.commit()
+
+    change_order_lines(db_session, order.id, [(m.id, 2)], actor="verkoper@example.com")
+    db_session.expire_all()
+    changed = db_session.query(type(order)).get(order.id)
+    assert [(line.variant_id, line.quantity, line.unit_price) for line in changed.lines] == [
+        (m.id, 2, Decimal("10.00"))
+    ]
+    assert total_of(changed) == Decimal("20.00")
+
+
+def test_a_changed_quantity_up_keeps_the_old_price(db_session, every_module_on):
+    """Koen's "b": 1 × M at 10, price now 15 — up to 2 × M keeps 10 for both, so the
+    second is not priced today."""
+    m = _variant(db_session, amount="15.00", stock=5)
+    order = _order(db_session, [(m.id, 1)])
+    for line in order.lines:
+        line.unit_price = Decimal("10.00")
+    db_session.commit()
+
+    change_order_lines(db_session, order.id, [(m.id, 2)], actor="verkoper@example.com")
+    db_session.expire_all()
+    changed = db_session.query(type(order)).get(order.id)
+    assert [(line.variant_id, line.quantity, line.unit_price) for line in changed.lines] == [
+        (m.id, 2, Decimal("10.00"))
+    ]
+    assert total_of(changed) == Decimal("20.00")
+
+
+def test_a_split_keeps_the_old_price(db_session, every_module_on):
+    """Koen's "b": 3 × M at 10, price now 15 — split into 1 + 2 keeps 10 on both."""
+    m = _variant(db_session, amount="15.00", stock=5)
+    order = _order(db_session, [(m.id, 3)])
+    for line in order.lines:
+        line.unit_price = Decimal("10.00")
+    db_session.commit()
+
+    change_order_lines(db_session, order.id, [(m.id, 1), (m.id, 2)], actor="verkoper@example.com")
+    db_session.expire_all()
+    changed = db_session.query(type(order)).get(order.id)
+    assert sorted((line.quantity, line.unit_price) for line in changed.lines) == [
+        (1, Decimal("10.00")),
+        (2, Decimal("10.00")),
+    ]
+    assert total_of(changed) == Decimal("30.00")
+
+
+def test_a_changed_size_takes_todays_price(db_session, every_module_on):
+    """A different variant (another size) takes today's price, not the old line's."""
+    m = _variant(db_session, size="M", amount="15.00", stock=5)
+    large = _variant(db_session, size="L", amount="20.00", stock=5)
+    order = _order(db_session, [(m.id, 1)])
+    for line in order.lines:
+        line.unit_price = Decimal("10.00")
+    db_session.commit()
+
+    change_order_lines(db_session, order.id, [(large.id, 1)], actor="verkoper@example.com")
+    db_session.expire_all()
+    changed = db_session.query(type(order)).get(order.id)
+    assert [(line.variant_id, line.quantity, line.unit_price) for line in changed.lines] == [
+        (large.id, 1, Decimal("20.00"))
+    ]
+
+
+def test_a_new_line_takes_todays_price(db_session, every_module_on):
+    """A new line beside a kept one takes today's price; the kept one keeps its own."""
+    m = _variant(db_session, size="M", amount="15.00", stock=5)
+    large = _variant(db_session, size="L", amount="20.00", stock=5)
+    order = _order(db_session, [(m.id, 1)])
+    for line in order.lines:
+        line.unit_price = Decimal("10.00")
+    db_session.commit()
+
+    change_order_lines(
+        db_session, order.id, [(m.id, 1), (large.id, 1)], actor="verkoper@example.com"
+    )
+    db_session.expire_all()
+    changed = db_session.query(type(order)).get(order.id)
+    prices = {line.variant_id: line.unit_price for line in changed.lines}
+    assert prices[m.id] == Decimal("10.00")
+    assert prices[large.id] == Decimal("20.00")

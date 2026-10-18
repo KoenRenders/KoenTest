@@ -849,41 +849,60 @@ def cancel_order(db: Session, order_id: int, *, actor: str | None) -> None:
 
 def change_plan(
     db: Session, order, target: list[tuple[int, int]]
-) -> tuple[list[Decimal | None], list]:
-    """Split a change's target against the order's lines. `kept_prices` is a list
-    aligned with the sorted target — the price of each kept line at its position,
-    `None` for a line the change creates — so two identical kept lines each keep
-    their own price. `to_remove` is the undelivered lines the target drops.
+) -> tuple[list[Decimal | None], list[bool], list]:
+    """Split a change's target against the order's lines.
+
+    - `prices` is a list aligned with the sorted target: the price each line will
+      get. A variant that already stands in the order keeps its price — a changed
+      quantity and a split keep it too (Koen's "b") — and a new variant is `None`,
+      to be priced today.
+    - `kept` is True where the target is the same line (same variant and quantity),
+      so its line object and its reservation stay.
+    - `to_remove` is the undelivered lines the target drops.
+
     Delivered lines are matched first (B3), so a delivered line keeps its slot and
     an identical undelivered line is the one removed."""
     target = sorted(target, key=lambda item: item[0])
-    kept_prices: list[Decimal | None] = [None] * len(target)
+    ordered = sorted(order.lines, key=lambda line: line.delivered_at is None)
+
+    prices: list[Decimal | None] = [None] * len(target)
+    kept = [False] * len(target)
     matched = [False] * len(target)
     to_remove: list = []
-    ordered = sorted(order.lines, key=lambda line: line.delivered_at is None)
     for line in ordered:
         key = (line.variant_id, line.quantity)
         for index, item in enumerate(target):
             if item == key and not matched[index]:
                 matched[index] = True
-                kept_prices[index] = line.unit_price
+                kept[index] = True
+                prices[index] = line.unit_price  # its own price, a twin included
                 break
         else:
             if line.delivered_at is None:
                 to_remove.append(line)
-    return kept_prices, to_remove
+
+    # A line that is not the same line but whose variant stays — a changed quantity
+    # or a split — keeps the variant's old price (Koen's "b").
+    variant_prices: dict[int, Decimal] = {}
+    for line in ordered:
+        variant_prices.setdefault(line.variant_id, line.unit_price)
+    for index, (variant_id, _quantity) in enumerate(target):
+        if not kept[index]:
+            prices[index] = variant_prices.get(variant_id)
+
+    return prices, kept, to_remove
 
 
 def change_order_lines(
     db: Session, order_id: int, items: list[tuple[int, int]], *, actor: str | None
 ) -> None:
-    """Replace the order's lines (R15, R16, F7): a line the change leaves alone —
-    same variant, same quantity — keeps its price and its reservation; only a new or
-    changed line takes today's price (Koen, "2a"). The old reservations release first,
-    then the new lines reserve, in one savepoint, so a change that keeps the order's
-    own last unit is not refused for it and a refusal leaves the old lines as they
-    were. A delivered line cannot be changed (a return is by hand, R25): a change that
-    touches one is refused, naming it; the other lines of that order can still change.
+    """Replace the order's lines (R15, R16, F7): a line whose variant stays — the
+    same line, a changed quantity, or a split — keeps its price (Koen, "b"); only a
+    new variant takes today's price. The old reservations release first, then the new
+    lines reserve, in one savepoint, so a change that keeps the order's own last unit
+    is not refused for it and a refusal leaves the old lines as they were. A delivered
+    line cannot be changed (a return is by hand, R25): a change that touches one is
+    refused, naming it; the other lines of that order can still change.
     `SalesOrderChanged` lets payment recalculate."""
     from app.domains.sales.models import SalesOrder, SalesOrderLine
     from app.domains.stock.api import NotEnoughStock
@@ -931,9 +950,10 @@ def change_order_lines(
             )
 
     # The lines the target keeps — delivered or not — stay; the undelivered ones it
-    # does not keep are released and soft-deleted. `kept_prices` marks which target
-    # positions are kept (their price and reservation stay) and which are new.
-    kept_prices, to_remove = change_plan(db, order, target)
+    # does not keep are released and soft-deleted. `kept` marks which target positions
+    # are the same line (their price and reservation stay); a line that only changes
+    # quantity or is split keeps its variant's price (`prices`).
+    prices, kept, to_remove = change_plan(db, order, target)
 
     savepoint = db.begin_nested()
     try:
@@ -941,15 +961,17 @@ def change_order_lines(
             call(ReleaseStock(order_line_id=line.id), db)
             soft_delete(line)
         for index, (variant_id, quantity) in enumerate(target):
-            if kept_prices[index] is not None:
-                continue  # a kept line: its price and its reservation stay
+            if kept[index]:
+                continue  # the same line: its price and its reservation stay
             variant = get_variant(db, variant_id)
             if variant is None:
                 raise SalesError(_("Dit artikel wordt niet meer aangeboden."))
             product = get_product_in_tenant(db, variant.product_id)
             if product is None or product.status is not ProductStatus.ON_SALE:
                 raise SalesError(_("Dit artikel wordt niet meer aangeboden."))
-            price = price_for(db, variant_id, today, member)
+            price = prices[index]
+            if price is None:
+                price = price_for(db, variant_id, today, member)
             if price is None:
                 raise SalesError(_("Dit artikel wordt niet meer aangeboden."))
             refusal = _stock_refusal(db, product, variant_id, quantity, today)

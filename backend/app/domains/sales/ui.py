@@ -293,10 +293,11 @@ def cancel_my_order(request: Request, order_id: int, db: Session = Depends(get_d
     from app.domains.sales.api import SalesError, cancel_order
     from app.kernel.refusals import FieldError
     from app.ui import refusal_response
+    from app.ui.account_ui import to_sign_in
 
     person_id, _is_member = _buyer(request, db)
     if person_id is None:
-        return RedirectResponse(f"/aanmelden?terug=/mijn/aankopen/{order_id}", status_code=302)
+        return to_sign_in(request, path=f"/mijn/aankopen/{order_id}")
     if owned_order(db, order_id, person_id) is None:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
     require_csrf(request)

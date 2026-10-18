@@ -531,14 +531,14 @@ def _change_order_view(
     order = get_order(db, order_id)
     member = order_person_member(db, order)
     target = sorted(items, key=lambda item: item[0])
-    kept_prices, _to_remove = change_plan(db, order, target)
+    prices, _kept, _to_remove = change_plan(db, order, target)
     vm = _board_order_view(
         db,
         request,
         email=email,
         items=target,
         member_override=member,
-        kept_prices=kept_prices,
+        kept_prices=prices,
     )
     vm = replace(vm, form_url=f"/admin/verkoop/{order_id}/wijzigen", order_id=order_id)
     if vm.product_id == "" and vm.articles:

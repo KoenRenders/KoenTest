@@ -1200,3 +1200,46 @@ def test_de_koper_annuleert_zijn_bestelling(webshop_page):
     assert f"Bestelling {order_id}" not in page.locator("main").inner_text(), (
         "the cancelled order is gone"
     )
+
+
+def test_verkoop_verwijdert_een_bestelling(webshop_page):
+    """Q61/F8, at 390 px: Verkoop's "Verwijderen" asks, and the order leaves the list.
+    Walks the button so a dead one (a type lost) is caught, as the buyer's was."""
+    from app.domains.auth.api import make_session_value
+    from tests.conftest import SEEDED_ADMIN_EMAIL
+
+    page = webshop_page
+    login_met_sessie(page, make_session_value(SEEDED_ADMIN_EMAIL), WEBSHOP_HOST)
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.evaluate("localStorage.removeItem('raak_basket')")
+
+    # The second seeded article: the shirt's stock is used by the earlier walks.
+    page.goto("/webshop")
+    card = page.locator('main a[href^="/webshop/"]').filter(has_text="Webshop Zak").first
+    page.goto(card.get_attribute("href"))
+    page.locator("main [data-tile]").first.click()
+    page.locator("[data-add-to-basket]").click()
+
+    with htmx_afgerond(page):
+        page.locator("form[data-basket-form] button[type=submit]").click()
+    page.wait_for_url("**/webshop/mandje")
+    page.locator('input[name="contact_name"]').fill("An")
+    page.locator('input[name="contact_email"]').fill("an@example.com")
+    page.locator('input[name="phone"]').fill("0470000000")
+    page.locator('input[name="payment_method"][value="transfer"]').check()
+    laat_de_wacht_passeren(page)
+    with htmx_afgerond(page):
+        page.get_by_role("button", name="Bestellen en betalen").click()
+    page.wait_for_url("**/webshop/bedankt?**")
+
+    page.goto("/admin/verkoop")
+    page.locator("a[data-row-link]").first.click()
+    page.wait_for_selector("[data-record-head]")
+    assert "Verwijderen" in page.locator("main").inner_text()
+
+    page.get_by_role("button", name="Verwijderen").click()
+    ok = page.locator("[data-dialog] [data-dialog-ok]")
+    ok.wait_for(state="visible")
+    with htmx_afgerond(page):
+        ok.click()
+    page.wait_for_url("**/admin/verkoop")
