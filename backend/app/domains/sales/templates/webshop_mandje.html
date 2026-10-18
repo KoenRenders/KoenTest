@@ -20,17 +20,19 @@
   <div id="bestel-melding" data-form-message></div>
   {% call ui.section(_("Je mandje")) %}
     {% for l in lines %}
-    <div data-basket-line data-span="full" class="flex items-center justify-between gap-x-3{% if not l.available %} opacity-60{% endif %}">
-      <div class="text-sm min-w-0">
+    <div data-basket-line data-span="full" class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1{% if not l.available %} opacity-60{% endif %}">
+      <div class="flex-1 text-sm min-w-0">
         {% if l.name %}<span class="font-medium">{{ l.name }}{% if l.size %} · {{ _("maat") }} {{ l.size }}{% endif %}</span>{% endif %}
         {% if l.price is not none %}<span class="block text-gray-500">€ {{ l.price|geld }}</span>{% endif %}
-        {% if l.note %}<span class="block text-red-700">{{ l.note }}</span>{% endif %}
       </div>
       <div class="flex items-center gap-2 shrink-0">
         {% if l.available %}<input type="hidden" name="variant_id" value="{{ l.variant_id }}">{% endif %}
         {% if l.editable %}{{ ui.quantity("quantity", "quantity-" ~ l.variant_id, l.quantity, product_name=l.name or "", min=1, max=l.max, attrs='data-line-quantity data-variant-id="' ~ l.variant_id ~ '"') }}{% endif %}
         {{ ui.btn_danger("", size="sm", lead_icon="trash-2", aria_label=_("Verwijderen"), attrs='data-line-remove data-variant-id="' ~ l.variant_id ~ '"') }}
       </div>
+      {# #2125: the line's sentence over its full width, under the quantity and the
+         delete button — not in the narrow column under the name. #}
+      {% if l.note %}<p data-line-note class="basis-full text-sm text-red-700">{{ l.note }}</p>{% endif %}
     </div>
     {% endfor %}
     <p data-span="full" class="text-[13px] text-ink-soft">{{ _("De artikelen worden voor je gereserveerd zodra je bestelt.") }}</p>
