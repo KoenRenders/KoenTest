@@ -1,0 +1,23 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Nieuwe notitie") }} — {{ _("AI-context") }}{% endblock %}
+{% block content %}
+{# A new note for Raakje (#2124): the form the list carried under its notes, now
+   behind "+ Notitie". Saving opens the note's record. #}
+{{ ui.record_header(_("Nieuwe notitie"), back=way_back, editing=True) }}
+<div id="ai-context-melding" data-form-message></div>
+{% call ui.record_columns() %}
+<div class="form-flow">
+  <form id="ai-context-form" data-record-form data-message="#ai-context-melding" class="form-flow" novalidate
+        hx-post="/admin/ai-context/notities">
+    {% call ui.section(_("Notitie")) %}
+      <div data-span="full" class="min-w-0">{{ ui.label(_("Titel"), "note-title", required=True) }}
+        {{ ui.input_control("title", id="note-title", required=True, cls="w-full") }}</div>
+      <div data-span="full" class="min-w-0">{{ ui.label(_("Tekst"), "note-text", required=True) }}
+        {{ ui.textarea_control("text_addition", id="note-text", rows=5, required=True, cls="w-full") }}</div>
+    {% endcall %}
+  </form>
+  {{ ui.action_bar(record=True, form="ai-context-form", cancel_href=way_back.href) }}
+</div>
+{% endcall %}
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ title }} — {{ _("AI-context") }}{% endblock %}
+{% block content %}
+{# One item of what Raakje knows (#2124): a document, a page or a note, with what
+   the row's disclosure showed and did — nothing new. Read first; "Bewerken" puts
+   the texts in edit mode. Aan/uit, Opnieuw lezen and Verwijderen stand under
+   Acties, each where the row had it. A document or a page without a row of its
+   own opens too: looking makes no row (the master CLI, 18 October 2026, option 1). #}
+{{ ui.record_header(title, badges=badges, facts=facts, primary=primary, actions=actions,
+                    back=way_back, editing=editing) }}
+<div id="ai-context-melding" data-form-message></div>
+{% macro _read(label, value) %}
+<div data-span="full" class="min-w-0">
+  <p class="text-sm font-medium leading-[21px] text-ink mb-1">{{ label }}</p>
+  <p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">{{ value or "—" }}</p>
+</div>
+{% endmacro %}
+{% call ui.record_columns() %}
+<div class="form-flow">
+  {% if kind == "document" %}
+  {# #522: what the reading took from the poster or PDF, so the administrator sees
+     the source instead of overwriting it blind. #}
+  {% call ui.section(_("Gelezen tekst")) %}
+    <div data-span="full" data-read-text class="min-w-0 text-sm">
+    {% if info and info.extracted_text %}
+      {% if info.text_override %}
+      <p class="text-yellow-700 mb-2">{{ _("Er is een vervangende tekst ingesteld — die (niet deze gelezen tekst) gaat naar Raakje.") }}</p>
+      {% else %}
+      <p class="text-ink-soft mb-2">{{ _("Deze gelezen tekst gaat naar Raakje (plus eventuele extra tekst).") }}</p>
+      {% endif %}
+      <pre class="whitespace-pre-wrap break-words bg-surface-2 border border-line rounded-lg p-2 text-xs text-ink max-h-96 overflow-y-auto">{{ info.extracted_text }}</pre>
+    {% else %}
+      <p class="text-ink-soft">— {{ _("nog niets gelezen") }} —</p>
+    {% endif %}
+    </div>
+  {% endcall %}
+  {% endif %}
+
+  {% if not editing %}
+  {% if kind == "note" %}
+  {% call ui.section(_("Notitie")) %}
+    {{ _read(_("Titel"), info.title) }}
+    {{ _read(_("Tekst"), info.text_addition) }}
+  {% endcall %}
+  {% elif kind == "page" or info %}
+  {% call ui.section(_("Voor Raakje")) %}
+    {{ _read(_("Vervangende tekst (leeg = automatisch gelezen tekst gebruiken)"), info.text_override if info else "") }}
+    {{ _read(_("Extra tekst (toegevoegd aan de bron)"), info.text_addition if info else "") }}
+  {% endcall %}
+  {% endif %}
+  {% else %}
+  {# One form per kind, each with its own address — the promise gate reads a
+     form's address and cannot follow a branch in it. #}
+  {% if kind == "note" %}
+  <form id="ai-context-form" data-record-form data-message="#ai-context-melding" class="form-flow" novalidate
+        hx-post="/admin/ai-context/{{ info.id }}/bewerken">
+    {% call ui.section(_("Notitie")) %}
+      <div data-span="full" class="min-w-0">{{ ui.label(_("Titel"), "edit-title") }}
+        {{ ui.input_control("title", id="edit-title", value=info.title or "", cls="w-full") }}</div>
+      <div data-span="full" class="min-w-0">{{ ui.label(_("Tekst"), "edit-add", required=True) }}
+        {{ ui.textarea_control("text_addition", id="edit-add", rows=5, value=info.text_addition or "", required=True, cls="w-full") }}</div>
+    {% endcall %}
+  </form>
+  {% else %}
+  <form id="ai-context-form" data-record-form data-message="#ai-context-melding" class="form-flow" novalidate
+        hx-post="{{ form_url }}">
+    {% call ui.section(_("Voor Raakje")) %}
+      <div data-span="full" class="min-w-0">{{ ui.label(_("Vervangende tekst (leeg = automatisch gelezen tekst gebruiken)"), "edit-over") }}
+        {{ ui.textarea_control("text_override", id="edit-over", rows=5, value=(info.text_override if info else "") or "", cls="w-full") }}</div>
+      <div data-span="full" class="min-w-0">{{ ui.label(_("Extra tekst (toegevoegd aan de bron)"), "edit-add2") }}
+        {{ ui.textarea_control("text_addition", id="edit-add2", rows=3, value=(info.text_addition if info else "") or "", cls="w-full") }}</div>
+    {% endcall %}
+  </form>
+  {% endif %}
+  {{ ui.action_bar(record=True, form="ai-context-form", cancel_href=record_url) }}
+  {% endif %}
+</div>
+{% endcall %}
+{% endblock %}

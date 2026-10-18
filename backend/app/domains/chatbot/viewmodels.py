@@ -67,3 +67,51 @@ class AiCostView(AiCallListView):
     provider_options: list[tuple[str, str]]
     page_sizes: list[int]
     nav_items: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True, kw_only=True)
+class AiContextListView(ViewModel):
+    """`ai_context.html` and its fragment `_ai_context_lijst.html` (#2124): what
+    Raakje knows on the kit's list, one segment at a time."""
+
+    columns: list[dict[str, Any]]
+    rows: list[dict[str, Any]]
+    segment: str
+    segments: list[dict[str, Any]]
+    q: str
+    total: int
+    empty_reason: str
+    oob: bool = False
+    nav_items: list[Any] = field(default_factory=list)
+
+
+@dataclass(frozen=True, kw_only=True)
+class AiContextRecordView(ViewModel):
+    """`ai_context_item.html` (#2124): one document, page or note, read or edited —
+    what the row's disclosure showed and did, on a page of its own."""
+
+    kind: str
+    title: str
+    badges: list[dict[str, str]]
+    facts: list[dict[str, str]]
+    primary: dict[str, str] | None
+    actions: list[dict[str, Any]]
+    way_back: dict[str, str]
+    editing: bool
+    #: The item as `context_item` gives it; `info` is its row, or None.
+    item: dict[str, Any]
+    info: dict[str, Any] | None
+    form_url: str
+    record_url: str
+    csrf_token: str
+    nav_items: list[Any] = field(default_factory=list)
+
+
+@dataclass(frozen=True, kw_only=True)
+class AiContextNoteNewView(ViewModel):
+    """`ai_context_notitie_nieuw.html` (#2124): a new note, the form the list
+    carried under its notes."""
+
+    way_back: dict[str, str]
+    csrf_token: str
+    nav_items: list[Any] = field(default_factory=list)

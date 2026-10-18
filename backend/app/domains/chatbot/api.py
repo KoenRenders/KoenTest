@@ -30,6 +30,7 @@ from app.domains.chatbot.fields import (  # noqa: F401
 from app.domains.chatbot.info_service import (  # noqa: F401
     InfoRefused,
     add_note,
+    context_item,
     create_note,
     delete_row,
     edit_page,
@@ -144,6 +145,7 @@ __all__ = [
     "create_note",
     "delete_row",
     "get_row",
+    "context_item",
     "list_chatbot_info",
     "toggle_page",
     "edit_page",

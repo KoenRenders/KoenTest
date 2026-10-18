@@ -111,12 +111,11 @@ WIDENED_ROWS: dict[str, int] = {
 #: B7 test 23 — a `checkbox_group` in a toolbar or filter bar. 0 in 0 files.
 CHECKBOX_GROUPS_IN_TOOLBARS: dict[str, int] = {}
 
-#: B7 test 1 — an admin page on the shell itself, no layout and no record head. 37 in 37 files.
+#: B7 test 1 — an admin page on the shell itself, no layout and no record head. 26 in 26 files.
 SHELL_EXTENDED_DIRECTLY: dict[str, int] = {
     "domains/activities/templates/admin_inschrijving.html": 1,
     "domains/auth/templates/admin_gebruikers.html": 1,
     "domains/auth/templates/admin_gebruikers_overzicht.html": 1,
-    "domains/chatbot/templates/ai_context.html": 1,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/designstudio/templates/admin_ontwerp_nieuw.html": 1,
     "domains/forms/templates/admin_formulier_builder.html": 1,
