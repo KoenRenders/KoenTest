@@ -227,9 +227,8 @@ def correction_create(
     aantal = _parse_quantity(quantity)
     if isinstance(aantal, FieldError):
         return refusal_response(request, [aantal], "#correctie-melding")
-    amount = -aantal if direction == "down" else aantal
     try:
-        apply_correction(db, variant, amount, note=note, actor=_email)
+        apply_correction(db, variant, aantal, direction=direction, note=note, actor=_email)
     except StockError as refusal:
         return refusal_response(
             request, [FieldError(refusal.field, str(refusal))], "#correctie-melding"

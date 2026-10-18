@@ -17,6 +17,7 @@
   <p class="text-lg font-semibold text-ink">{% if from_price %}{{ _("vanaf") }} {% endif %}€ {{ price|geld }}</p>
   {% set size_options = [] %}{% set unavailable = {} %}
   {% for s in sizes %}{% if s.pre_order %}{% set __ = size_options.append([s.id, s.name, _("op bestelling")]) %}{% else %}{% set __ = size_options.append([s.id, s.name]) %}{% endif %}{% if not s.available %}{% set __ = unavailable.update({s.id: _("uitverkocht")}) %}{% endif %}{% endfor %}
+  {# promise walked by: test_the_basket_page_holds_no_line_without_a_size #}
   {{ ui.field("variant_id", attribute="product.product_variant.properties", kind="tiles", options=size_options, unavailable=unavailable, required=True) }}
   <p id="variant_id-message" data-tiles-message hidden class="text-sm text-red-700" role="alert">{{ _("Kies een maat.") }}</p>
   {# #2108: the quantity and "In mandje" on one row — one action. #}
