@@ -390,3 +390,62 @@ def test_the_page_of_a_deleted_article_is_not_found(client, db_session, every_mo
     db_session.commit()
 
     assert client.get(f"/webshop/{product.id}").status_code == 404
+
+
+def _with_photos(db, product, count: int) -> None:
+    from app.domains.media.api import MediaAsset, MediaKind
+    from app.domains.product.api import ProductAttachment
+
+    for n in range(1, count + 1):
+        asset = MediaAsset(
+            kind=MediaKind.PRODUCT_PHOTO, title=f"foto-{n}.png", data=b"x", content_type="image/png"
+        )
+        db.add(asset)
+        db.flush()
+        db.add(
+            ProductAttachment(
+                product_id=product.id,
+                media_asset_id=asset.id,
+                description=f"Foto {n}",
+                sort_order=n,
+            )
+        )
+    db.commit()
+
+
+def test_the_article_page_shows_one_picture_with_arrows_and_a_counter(
+    client, db_session, every_module_on
+):
+    """#2108 (CR-21 Q68): four pictures — the first shown, the others hidden until
+    the arrows step to them, a counter "1 / 4", each picture keeping its alt."""
+    import re
+
+    product = _on_sale_with_price(db_session, "T-shirt Raak", amount="15.00")
+    _with_photos(db_session, product, 4)
+
+    page = client.get(f"/webshop/{product.id}")
+    assert page.status_code == 200, page.text[-2000:]
+    buttons = re.findall(r"<button[^>]*data-carousel-photo[^>]*>", page.text)
+    assert len(buttons) == 4
+    classes = [re.search(r'\sclass="([^"]*)"', b).group(1).split() for b in buttons]
+    assert "hidden" not in classes[0], "the first is shown"
+    assert all("hidden" in c for c in classes[1:]), "the others wait"
+    assert 'aria-label="Vorige foto"' in page.text
+    assert 'aria-label="Volgende foto"' in page.text
+    assert re.search(r"data-carousel-counter[^>]*>1 / 4<", page.text)
+    for n in range(1, 5):
+        assert f'alt="Foto {n}"' in page.text
+
+
+def test_one_picture_has_no_arrows_and_no_counter(client, db_session, every_module_on):
+    """#2108: one picture — no arrows, no counter."""
+    product = _on_sale_with_price(db_session, "T-shirt Raak", amount="15.00")
+    _with_photos(db_session, product, 1)
+
+    page = client.get(f"/webshop/{product.id}")
+    assert page.status_code == 200, page.text[-2000:]
+    import re
+
+    assert len(re.findall(r"<button[^>]*data-carousel-photo", page.text)) == 1
+    assert not re.search(r"<button[^>]*data-carousel-(previous|next)", page.text)
+    assert not re.search(r"<span[^>]*data-carousel-counter", page.text)
