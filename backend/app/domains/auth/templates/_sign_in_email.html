@@ -5,11 +5,10 @@
   {% if terug %}<input type="hidden" name="terug" value="{{ terug }}">{% endif %}
   {# #2039: the guard of every public form that mails a typed address (`kernel/form_guard.py`). #}
   {{ ui.form_guard_fields() }}
-  <div>
-    <label for="email" class="block text-sm font-medium text-gray-700 mb-1">{{ _("E-mail") }}</label>
-    {{ ui.input_control("email", type="email", value=email|default(""), required=True, cls="w-full") }}
-  </div>
-  {{ ui.btn_primary(_('Stuur inloginfo')) }}
+  {% call ui.form_grid() %}
+    {{ ui.field("email", attribute="mdm.contact_detail.email", kind="email", required=True, span="full", value=email|default("")) }}
+  {% endcall %}
+  <div class="mt-6">{{ ui.btn_primary(_('Stuur inloginfo')) }}</div>
 </form>
 {# CR-22 (#1708, R1): the second door. The page to return to travels with it. #}
 <p data-create-account class="mt-6 text-sm text-ink-soft">{{ _("Nog geen account?") }}

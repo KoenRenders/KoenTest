@@ -10,7 +10,7 @@
   <div>
     {{ ui.label(_("Ledenrapport"), "file", required=True) }}
     {# promise walked by: test_the_import_with_an_empty_file_is_refused #}
-    {{ ui.input_control("file", type="file", required=True, cls="bg-white", attrs='accept=".xls,.ods"') }}
+    {{ ui.input_control("file", type="file", required=True, cls="bg-surface", attrs='accept=".xls,.ods"') }}
   </div>
   {{ ui.btn_primary(_("Controleer bestand")) }}
   {{ ui.loading(_("Bestand controleren…")) }}

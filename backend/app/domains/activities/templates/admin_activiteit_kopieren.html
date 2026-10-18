@@ -4,71 +4,59 @@
 {% block content %}
 {# #1397: the step before a copy. One choice, where the first date goes; every
    other date moves by the same number of days. The two suggestions fill in the
-   same field and stay editable. #}
-{{ ui.back_link(activity.name, "/admin/activiteiten/" ~ activity.id) }}
-{{ ui.page_header(_("Activiteit kopiëren"), activity.name) }}
-
-<div id="aa-kopieer" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 max-w-xl">
+   same field and stay editable. On the kit since #2111, like Nieuw lid: the
+   kit's form page, every field a `ui.field` in a `ui.section`, the action bar. #}
+{% call ui.public_form_page(_("Activiteit kopiëren"), shell="admin",
+                            back_href="/admin/activiteiten/" ~ activity.id, back_label=activity.name,
+                            intro=activity.name) %}
+<div id="aa-kopieer" data-form-flow data-mode="edit" class="form-flow">
   {{ ui.error_banner(error) }}
-  <form class="space-y-4" hx-post="/admin/activiteiten/{{ activity.id }}/kopieren"
+  <form id="kopieer-form" class="contents" hx-post="/admin/activiteiten/{{ activity.id }}/kopieren"
         hx-target="#aa-kopieer" hx-select="#aa-kopieer" hx-swap="outerHTML"
         x-data="{ datum: '{{ same_weekday.isoformat() if same_weekday else '' }}', keuze: 'weekdag' }">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% call ui.section(_("Begindatum")) %}
     {% if first_date %}
     {# Koen, 1 October 2026: two choices as radio buttons, the date field always
        visible under them. A choice fills the field; typing in it overrides the
-       suggestion, and then neither choice is ticked. #}
-    <fieldset>
-      <legend class="text-sm text-ink-soft">{{ _("Nu begint ze op %(datum)s.", datum=first_date|langedatum) }}</legend>
-      <div class="mt-2 space-y-1 text-sm">
-        <label class="flex items-start gap-2 min-h-11 py-1">
-          <input type="radio" name="voorstel" value="weekdag" x-model="keuze" class="mt-1"
-                 @change="datum = '{{ same_weekday.isoformat() }}'">
-          <span>{{ _("Zelfde weekdag, 52 weken later") }} <span class="text-ink-soft">· {{ same_weekday|langedatum }}</span></span>
-        </label>
-        <label class="flex items-start gap-2 min-h-11 py-1">
-          <input type="radio" name="voorstel" value="datum" x-model="keuze" class="mt-1"
-                 @change="datum = '{{ same_date.isoformat() }}'">
-          <span>{{ _("Zelfde datum, een jaar later") }} <span class="text-ink-soft">· {{ same_date|langedatum }}</span></span>
-        </label>
-      </div>
-    </fieldset>
-    <div>
-      {{ ui.label(_("Nieuwe begindatum"), "start_date", required=True) }}
-      {{ ui.input_control("start_date", id="start_date", type="date", required=True,
-                          cls="w-full sm:w-auto", attrs='x-model="datum" @input="keuze = \'\'"') }}
-      <p class="text-xs text-ink-soft mt-1">{{ _("Elke datum schuift evenveel dagen op; de uren blijven gelijk.") }}</p>
+       suggestion, and then neither choice is ticked. The kit's radio group has no
+       hook per option, so the group's wrapper listens: `change` fills the date,
+       and the ticks follow `keuze`. #}
+    <div data-span="full" class="min-w-0"
+         @change="if ($event.target.name === 'voorstel') { keuze = $event.target.value; datum = keuze === 'weekdag' ? '{{ same_weekday.isoformat() }}' : '{{ same_date.isoformat() }}'; }"
+         x-effect="$el.querySelectorAll('input[name=voorstel]').forEach(r => r.checked = (r.value === keuze))">
+      {{ ui.field("voorstel", _("Nu begint ze op %(datum)s.", datum=first_date|langedatum), kind="radio_group", value="weekdag",
+                  options=[("weekdag", _("Zelfde weekdag, 52 weken later") ~ " · " ~ (same_weekday|langedatum)),
+                           ("datum", _("Zelfde datum, een jaar later") ~ " · " ~ (same_date|langedatum))]) }}
     </div>
+    {{ ui.field("start_date", _("Nieuwe begindatum"), kind="date", id="start_date", required=True,
+                attrs='x-model="datum" @input="keuze = \'\'"',
+                help=_("Elke datum schuift evenveel dagen op; de uren blijven gelijk.")) }}
     {% else %}
-    <p class="text-sm text-ink-soft">{{ _("Deze activiteit heeft nog geen datum; de kopie krijgt er ook geen.") }}</p>
+    <p data-span="full" class="text-sm text-ink-soft">{{ _("Deze activiteit heeft nog geen datum; de kopie krijgt er ook geen.") }}</p>
     {% endif %}
+    {% endcall %}
 
-    <div class="text-sm space-y-1">
+    {% call ui.section(_("De kopie")) %}
+    <div data-span="full" class="text-sm space-y-1">
       <p><strong>{{ _("Gaat mee:") }}</strong> {{ _("de activiteit met al haar teksten, de datums en de organisatoren.") }}</p>
       <p><strong>{{ _("Gaat nooit mee:") }}</strong> {{ _("inschrijvingen, betalingen, de affiche en de links.") }}</p>
     </div>
-
     {# #1428: the copy's status, draft by default — next year's programme is
        prepared before it goes on the site. #}
-    <fieldset>
-      <legend class="text-sm font-medium text-ink">{{ _("Status van de kopie") }}</legend>
-      <div class="mt-1 space-y-1 text-sm">
-        <label class="flex items-start gap-2 min-h-11 py-1"><input type="radio" name="status" value="draft" checked class="mt-1">
-          <span>{{ _("Concept") }} <span class="block text-xs text-ink-soft">{{ _("Nog niet op de site; je publiceert ze later vanop de activiteit.") }}</span></span></label>
-        <label class="flex items-start gap-2 min-h-11 py-1"><input type="radio" name="status" value="published" class="mt-1">
-          <span>{{ _("Gepubliceerd") }} <span class="block text-xs text-ink-soft">{{ _("Meteen op de agenda.") }}</span></span></label>
-      </div>
-    </fieldset>
-
+    {{ ui.field("status", _("Status van de kopie"), kind="radio_group", value="draft",
+                options=[("draft", _("Concept"), _("Nog niet op de site; je publiceert ze later vanop de activiteit.")),
+                         ("published", _("Gepubliceerd"), _("Meteen op de agenda."))]) }}
     {# Koen, 1 October 2026: off by default — the board usually sets components up
        months ahead with that year's prices. #}
-    <label class="flex items-start gap-2 text-sm min-h-11">
-      <input type="checkbox" name="with_components" value="true" class="mt-1">
-      <span>{{ _("Ook onderdelen en producten kopiëren") }}
-        <span class="block text-xs text-ink-soft">{{ _("Met hun prijzen en het formulier met vragen; de uiterste inschrijfdatum schuift mee. Zonder dit vinkje staat de kopie op de agenda zonder inschrijfknop tot je een onderdeel toevoegt.") }}</span></span>
-    </label>
-
-    {{ ui.action_bar(cancel_href="/admin/activiteiten/" ~ activity.id, save_label=_("Kopie maken")) }}
+    <div data-span="full" class="min-w-0">
+      {{ ui.field("with_components", _("Ook onderdelen en producten kopiëren"), kind="switch", value=False,
+                  help=_("Met hun prijzen en het formulier met vragen; de uiterste inschrijfdatum schuift mee. Zonder dit vinkje staat de kopie op de agenda zonder inschrijfknop tot je een onderdeel toevoegt.")) }}
+    </div>
+    {% endcall %}
   </form>
+  {{ ui.action_bar(record=True, send=True, form="kopieer-form", cancel_href="/admin/activiteiten/" ~ activity.id,
+                   save_label=_("Kopie maken"), busy_label=_("Kopiëren…")) }}
 </div>
+{% endcall %}
 {% endblock %}
