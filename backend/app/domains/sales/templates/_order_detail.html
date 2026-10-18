@@ -30,9 +30,9 @@
     <span class="text-sm font-semibold text-ink">{{ _("Totaal") }}: € {{ order.total|geld }}</span>
     <div class="flex items-center gap-2">
       {% if is_admin and order.cancellable %}
-      {{ ui.btn_secondary(_("Wijzigen"), href="/admin/verkoop/" ~ order.id ~ "/wijzigen", size="sm") }}
+      {{ ui.btn_secondary(_("Wijzigen"), href="/admin/verkoop/" ~ order.id ~ "/wijzigen", size="sm", lead_icon="pencil") }}
       <form hx-post="/admin/verkoop/{{ order.id }}/annuleren">
-        {{ ui.btn_danger(_("Verwijderen"), "submit", size="sm", confirm=(_("De betaalde € %(bedrag)s wordt terugbetaald.", bedrag=order.total|geld) if order.payment == "settled" else _("De bestelling wordt verwijderd."))) }}
+        {{ ui.btn_danger(_("Verwijderen"), "submit", size="sm", confirm=(_("De betaalde € %(bedrag)s wordt terugbetaald.", bedrag=order.total|geld) if order.payment == "settled" else _("De bestelling wordt verwijderd.")), lead_icon="trash-2") }}
       </form>
       {% elif not is_admin and order.cancellable %}
       <form hx-post="/mijn/aankopen/{{ order.id }}/annuleren">

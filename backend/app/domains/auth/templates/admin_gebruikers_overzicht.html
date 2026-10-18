@@ -6,7 +6,7 @@
    de operator. Platformbrede rollen staan als "Alle werkruimtes". Wijzigen
    gebeurt in Gebruikers van de werkruimte zelf (of op het platform). #}
 {% call ui.page_header(_("Toegang over alle werkruimtes"), _("Elk account, elke werkruimte, elke rol. Alleen-lezen: rollen wijzig je in Gebruikers van de werkruimte.")) %}
-  {{ ui.btn_secondary(_("Terug naar Gebruikers"), href="/admin/gebruikers") }}
+  {{ ui.btn_secondary(_("Terug naar Gebruikers"), href="/admin/gebruikers", lead_icon="chevron-left") }}
 {% endcall %}
 {# #2015: on the kit's list table (CR-11 roll-out, #1927), so on a phone it is
    the stacked list every other list is: the account, its workspace, the

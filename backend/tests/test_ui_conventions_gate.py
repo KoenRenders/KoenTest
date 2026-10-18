@@ -1906,3 +1906,207 @@ def test_een_sluittag_draagt_geen_attributen():
         "de attributen die volgen, belanden op een sluittag waar ze niets doen "
         "(#1101):\n  " + "\n  ".join(fouten)
     )
+
+
+# ── #2106: every kit button carries the glyph of its verb ────────────────────
+#
+# The table (verb → glyph) is `app/ui/kit/verbs.py`; the design-system page renders
+# it and this rule reads it. Two directions: a button whose label begins with a verb
+# of the table carries that verb's glyph (and for delete the danger style), and a
+# glyph of the table stands only on a button of its own verb.
+
+_KITKNOPPEN = ("btn_primary", "btn_secondary", "btn_danger", "btn_outline", "button")
+_STIJL = {
+    "btn_primary": "primary",
+    "btn_secondary": "secondary",
+    "btn_danger": "danger",
+    "btn_outline": "outline",
+}
+
+
+def _argumenten(tekst: str) -> tuple[list[str], dict[str, str]]:
+    """The positional and the keyword arguments of one call, split on the commas of
+    its own level (a string, a nested call and a list keep theirs)."""
+    delen, huidig, diepte, aanhalingsteken = [], "", 0, None
+    for teken in tekst:
+        if aanhalingsteken:
+            aanhalingsteken = None if teken == aanhalingsteken else aanhalingsteken
+        elif teken in "\"'":
+            aanhalingsteken = teken
+        elif teken in "([{":
+            diepte += 1
+        elif teken in ")]}":
+            diepte -= 1
+        elif teken == "," and diepte == 0:
+            delen.append(huidig)
+            huidig = ""
+            continue
+        huidig += teken
+    delen.append(huidig)
+    trefwoorden = {}
+    plaats = []
+    for deel in delen:
+        sleutel = re.match(r"\s*(\w+)\s*=(?!=)\s*(.*)$", deel, re.S)
+        if sleutel:
+            trefwoorden[sleutel.group(1)] = sleutel.group(2).strip()
+        elif deel.strip():
+            plaats.append(deel.strip())
+    return plaats, trefwoorden
+
+
+def _letterlijk(argument: str | None) -> str | None:
+    """The text of a literal argument — `"Opslaan"` or `_("Opslaan")` — else None
+    (a variable has no label this gate can read)."""
+    gevonden = re.fullmatch(r"""(?:_\(\s*)?(["'])(.*?)\1\s*\)?""", (argument or "").strip(), re.S)
+    return gevonden.group(2) if gevonden else None
+
+
+def _knop_fouten(rel: str, tekst: str) -> tuple[list[str], int, int]:
+    """(offences, kit buttons read, of those with a verb of the table) in one template."""
+    from app.ui.kit.verbs import gated_glyphs, verb_of, verbs_in
+
+    fouten, gelezen, met_werkwoord = [], 0, 0
+    for macro in _KITKNOPPEN:
+        for regel, argumenten in _oproepen(tekst, macro):
+            if "macro " in tekst.splitlines()[regel - 1]:  # the definition, not a call
+                continue
+            plaats, trefwoorden = _argumenten(argumenten)
+            label = _letterlijk(trefwoorden.get("label") or (plaats[0] if plaats else None))
+            tekstlabel = label or _letterlijk(trefwoorden.get("aria_label"))
+            if not tekstlabel:
+                continue
+            gelezen += 1
+            lead = _letterlijk(trefwoorden.get("lead_icon"))
+            if not label and plaats:
+                # A label that is the glyph itself (`ui.icon("send")`) is the lead glyph.
+                als_glyph = re.fullmatch(
+                    r"""(?:ui\.)?icon\(\s*["']([a-z0-9-]+)["'].*\)""", plaats[0], re.S
+                )
+                lead = als_glyph.group(1) if als_glyph else lead
+            stijl = _STIJL.get(macro) or _letterlijk(plaats[1] if len(plaats) > 1 else None)
+            werkwoord = verb_of(tekstlabel)
+            wat = f"{rel}:{regel} {macro}({tekstlabel!r})"
+            if werkwoord:
+                met_werkwoord += 1
+                if lead != werkwoord.glyph:
+                    fouten.append(
+                        f"{wat} — the verb {werkwoord.meaning} carries `{werkwoord.glyph}`, not {lead!r}"
+                    )
+                if werkwoord.variant and stijl != werkwoord.variant:
+                    fouten.append(f"{wat} — {werkwoord.meaning} is always {werkwoord.variant}")
+            elif lead in gated_glyphs() and verbs_in(tekstlabel) - {lead}:
+                fouten.append(f"{wat} — `{lead}` stands on a label that names another verb")
+    return fouten, gelezen, met_werkwoord
+
+
+_RAUWE_GLYPH = re.compile(r"""(?<!lead_)icon\(\s*["']([a-z0-9-]+)["']""")
+
+
+def _rauwe_glyph_fouten(rel: str, tekst: str) -> tuple[list[str], int]:
+    """(offences, glyphs of the table found on a hand-made button or link): a glyph
+    of the table on an element whose label names ANOTHER verb of the table."""
+    from app.ui.kit.verbs import gated_glyphs, verbs_in
+
+    fouten, gevonden = [], 0
+    for treffer in _RAUWE_GLYPH.finditer(tekst):
+        glyph = treffer.group(1)
+        if glyph not in gated_glyphs():
+            continue
+        begin = max(
+            tekst.rfind("<button", 0, treffer.start()), tekst.rfind("<a ", 0, treffer.start())
+        )
+        if begin < 0:
+            continue
+        einde = min(
+            (
+                i
+                for i in (tekst.find("</button>", treffer.end()), tekst.find("</a>", treffer.end()))
+                if i >= 0
+            ),
+            default=-1,
+        )
+        if (
+            einde < 0
+            or "</button>" in tekst[begin : treffer.start()]
+            or "</a>" in tekst[begin : treffer.start()]
+        ):
+            continue
+        element = tekst[begin:einde]
+        gevonden += 1
+        aria = re.search(r"""aria-label="\{\{\s*_\(\s*["'](.*?)["']""", element)
+        zichtbaar = re.sub(
+            r"\{\{.*?\}\}|\{%.*?%\}|<[^>]*>", " ", element[element.find(">") + 1 :], flags=re.S
+        )
+        label = (aria.group(1) if aria else "") + " " + zichtbaar
+        ander = verbs_in(label) - {glyph}
+        if ander:
+            fouten.append(
+                f"{rel}:{tekst[: treffer.start()].count(chr(10)) + 1} `{glyph}` on {label.strip()[:40]!r} — a verb of {sorted(ander)}"
+            )
+    return fouten, gevonden
+
+
+def test_every_kit_button_carries_the_glyph_of_its_verb():
+    """Refuses a kit button without the glyph of its verb, a table glyph on a button of another verb, and a delete that is not red (#2106).
+
+    A label begins with a verb of `app/ui/kit/verbs.py` (a leading "+" is *toevoegen*):
+    the button carries that verb's `lead_icon`, and *verwijderen* is `btn_danger`. A
+    kit button, or a hand-made one, whose glyph is one of the table stands on a label
+    that names no OTHER verb of the table (the close glyph on a "Bijlage
+    verwijderen"). A hand-made button is read in this direction only: its label
+    cannot be read for a verb with any certainty.
+
+    Proven additively (18 October 2026): a `btn_danger("Verwijderen", lead_icon="x")`
+    and a `btn_secondary("Toevoegen", lead_icon="pencil")` added to a template each
+    fail with their own sentence (`test_the_verb_gate_is_red_on_an_offender`, which
+    builds both in the test itself).
+    """
+    fouten, gelezen, met_werkwoord = [], 0, 0
+    for pad in TEMPLATES:
+        rel = str(pad.relative_to(APP))
+        f, g, w = _knop_fouten(rel, _zonder_commentaar(pad))
+        fouten += f
+        gelezen += g
+        met_werkwoord += w
+    assert gelezen >= 120 and met_werkwoord >= 40, (
+        f"read {gelezen} kit buttons, {met_werkwoord} with a verb — the search misses buttons, "
+        "and a gate that finds nothing guards nothing"
+    )
+    for pad in TEMPLATES:
+        f, _ = _rauwe_glyph_fouten(str(pad.relative_to(APP)), _zonder_commentaar(pad))
+        fouten += f
+    assert not fouten, "One meaning per glyph (§1.4, #2106):\n  " + "\n  ".join(fouten)
+
+
+def test_the_verb_gate_is_red_on_an_offender():
+    """The gate, given a template with one offender in each direction, names both; given the right buttons, none."""
+    fout, _, _ = _knop_fouten("x.html", '{{ ui.btn_danger(_("Verwijderen"), lead_icon="x") }}')
+    assert fout and "trash-2" in fout[0]
+    fout, _, _ = _knop_fouten(
+        "x.html", '{{ ui.btn_secondary(_("Gast verwijderen"), lead_icon="x") }}'
+    )
+    assert fout and "another verb" in fout[0]
+    fout, _, _ = _knop_fouten(
+        "x.html", '{{ ui.btn_secondary(_("Toevoegen"), lead_icon="pencil") }}'
+    )
+    assert fout and "plus" in fout[0]
+    fout, _, _ = _knop_fouten(
+        "x.html", '{{ ui.btn_secondary(_("Verwijderen"), lead_icon="trash-2") }}'
+    )
+    assert fout and "always danger" in fout[0]
+    fout, _, _ = _knop_fouten(
+        "x.html", '{{ ui.btn_danger(_("Verwijderen"), lead_icon="trash-2") }}'
+    )
+    assert not fout
+    fout, _, _ = _knop_fouten(
+        "x.html", '{{ ui.btn_secondary(_("+ Nieuwe pagina"), lead_icon="plus") }}'
+    )
+    assert not fout
+    fout, _ = _rauwe_glyph_fouten(
+        "x.html", '<button aria-label="{{ _("Gast verwijderen") }}">{{ ui.icon("x", 13) }}</button>'
+    )
+    assert fout and "trash-2" in fout[0]
+    fout, _ = _rauwe_glyph_fouten(
+        "x.html", '<button aria-label="{{ _("Menu sluiten") }}">{{ ui.icon("x", 13) }}</button>'
+    )
+    assert not fout

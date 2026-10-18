@@ -11,7 +11,7 @@
     {# CR-11 W4 (#1391): the settings of the module, with the circle as their
        section; the address stays until phase 5 renames it. #}
     {{ ui.btn_secondary(_("Instellingen"), href="/admin/vergaderingen/kring", lead_icon="settings") }}
-    {{ ui.btn_primary(_("+ Nieuwe vergadering"), href="/admin/vergaderingen/nieuw") }}
+    {{ ui.btn_primary(_("Nieuwe vergadering"), href="/admin/vergaderingen/nieuw", lead_icon="plus") }}
   {% endcall %}
 
 {% call ui.filter_bar("/admin/vergaderingen", "#vg-lijst") %}
