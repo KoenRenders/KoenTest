@@ -157,7 +157,7 @@ def test_gebruikers_ticks_roles_by_their_label(page, sessions):
     href = page.locator("#gu-lijst a[data-row-link]").first.get_attribute("href")
     page.goto(BASE + href + "&bewerken=1")
     pagina_klaar(page)
-    row = page.locator("#gu-form")
+    row = page.locator("#gu-record")
     expect(row).to_be_visible()
     labels = [
         t.strip() for t in row.locator('label:has(input[name="role_codes"])').all_inner_texts()
