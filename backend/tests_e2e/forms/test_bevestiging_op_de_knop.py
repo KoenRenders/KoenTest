@@ -67,7 +67,7 @@ def importkaart(browser):
     login_als_admin(page, email, make_session_value(email))
     page.goto("/admin/formulieren/nieuw")
     page.fill("#f-title", "E2E bevestiging")
-    page.locator("form[hx-post='/admin/formulieren'] button[type=submit]").click()
+    page.locator("[data-action-bar] button[data-form-save]").click()
     page.wait_for_url(re.compile(r".*/admin/formulieren/\d+$"), timeout=10_000)
     page.get_by_role("button", name="Definitie importeren (JSON)…").click()
     # CR-11 W18 (#1391): the import takes a file only; the paste box is gone.

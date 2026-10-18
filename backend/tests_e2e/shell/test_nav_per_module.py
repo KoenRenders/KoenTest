@@ -90,7 +90,7 @@ def browser_and_company():
         with page.expect_response(
             lambda r: r.url.endswith("/admin/tenants") and r.request.method == "POST"
         ) as made:
-            page.locator("form[hx-post='/admin/tenants'] button[type=submit]").click()
+            page.locator("[data-action-bar] button[data-form-save]").click()
         assert made.value.status == 200, made.value.status
         page.close()
         yield b, code

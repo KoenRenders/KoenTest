@@ -2,22 +2,22 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Nieuwe pagina — Raak beheer") }}{% endblock %}
 {% block content %}
-{# Aanmaakscherm als volledige pagina (#627, §2.8): geen modal. Dezelfde kaartvorm
-   als het scherm waarin je daarna werkt, dus er is geen tweede lay-out om te
-   onderhouden. #}
-{{ ui.page_header(_("Nieuwe pagina"), _("Na het aanmaken open je meteen de editor; de inhoud vul je daar aan.")) }}
-
-<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-    <form class="space-y-3" hx-post="/admin/paginas">
-      {# Golf 6, kop-herziening: alles bovenaan. #}
-      {{ ui.action_bar(cancel_href="/admin/paginas") }}
-      <div id="pagina-nieuw-melding" data-form-message></div>
-      <div>{{ ui.label(_("Titel"), "title", required=True) }}
-        <input name="title" id="title" required class="w-full"></div>
-      <div>{{ ui.label(_("Slug"), "slug", required=True) }}
-        <input name="slug" id="slug" required pattern="[a-z0-9-]+" class="w-full">
-        <p class="text-xs text-ink-soft mt-1">{{ _("Alleen kleine letters, cijfers en streepjes — wordt de URL (/slug).") }}</p></div>
-      <p class="text-xs text-ink-soft">{{ _("Na het aanmaken open je meteen de editor; de inhoud vul je daar aan.") }}</p>
-    </form>
+{# Aanmaakscherm als volledige pagina (#627, §2.8): geen modal. Sinds #2110 op de
+   kit, zoals Nieuw lid: kitkop, de velden als `ui.field` in een `ui.section`, de
+   actiebalk met één Opslaan. #}
+{% call ui.public_form_page(_("Nieuwe pagina"), shell="admin",
+                            back_href="/admin/paginas", back_label=_("Pagina's"),
+                            intro=_("Na het aanmaken open je meteen de editor; de inhoud vul je daar aan.")) %}
+<div data-form-flow data-mode="edit" class="form-flow">
+<div id="pagina-nieuw-melding" data-form-message></div>
+<form id="pagina-nieuw-form" class="contents" hx-post="/admin/paginas">
+  {% call ui.section(_("Pagina")) %}
+  {{ ui.field("title", _("Titel"), id="title", required=True) }}
+  {{ ui.field("slug", _("Slug"), id="slug", required=True, attrs='pattern="[a-z0-9-]+"',
+              help=_("Alleen kleine letters, cijfers en streepjes — wordt de URL (/slug).")) }}
+  {% endcall %}
+</form>
+{{ ui.action_bar(record=True, form="pagina-nieuw-form", cancel_href="/admin/paginas") }}
 </div>
+{% endcall %}
 {% endblock %}
