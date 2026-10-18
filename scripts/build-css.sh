@@ -756,6 +756,7 @@ body[data-shell="site"]>main{padding-bottom:24px}
    stack) live in `prose-figures.css` — ONE source with the editor. */
 .prose-raak h1{font-size:1.5rem;font-weight:700;color:var(--brand-ocean);margin:1rem 0 .5rem}
 .prose-raak h2{font-size:1.25rem;font-weight:700;color:var(--brand-ocean);margin:1rem 0 .5rem}
+.prose-raak .prose-large{font-size:1.25rem;font-weight:700;line-height:1.3}
 .prose-raak h3{font-size:1.1rem;font-weight:600;margin:.75rem 0 .25rem}
 .prose-raak h4{font-weight:600;margin:.5rem 0 .25rem}
 /* The editor's surface shows the three heading levels at the sizes it showed

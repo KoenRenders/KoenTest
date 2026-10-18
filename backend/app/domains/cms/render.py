@@ -443,6 +443,10 @@ def render_cms_content(content: Optional[str], db=None, *, on_page: bool = False
 # pixels — the prose rules do.
 
 
+#: The one class the mark "Groot" writes, and the one span the parser reads back.
+LARGE_CLASS = "prose-large"
+
+
 def _mark_html(mark: dict) -> tuple[str, str]:
     """The open and close tag of one mark. `del` and not `s`: the stored pages
     carry Trix' spelling, so the round trip holds; `em`/`strong` for the same
@@ -450,6 +454,10 @@ def _mark_html(mark: dict) -> tuple[str, str]:
     if mark["type"] == "link":
         href = escape(mark.get("attrs", {}).get("href", ""), quote=True)
         return f'<a href="{href}">', "</a>"
+    if mark["type"] == "large":
+        # A span with one class, never a heading: the page keeps its one `h1`
+        # (#1656) and the size is the prose rules' (#2095).
+        return f'<span class="{LARGE_CLASS}">', "</span>"
     tag = {"bold": "strong", "italic": "em", "strike": "del"}[mark["type"]]
     return f"<{tag}>", f"</{tag}>"
 
@@ -479,7 +487,11 @@ def _inline_html(nodes: "list[dict] | None") -> str:
                 # typed `{{tenants}}` (the cards are built in code, #1543).
                 parts.append("{{tenants}}")
             else:
-                parts.append(escape(_values().get(code, ""), quote=False))
+                value_html = escape(_values().get(code, ""), quote=False)
+                for mark in node.get("marks") or []:
+                    open_tag, close_tag = _mark_html(mark)
+                    value_html = f"{open_tag}{value_html}{close_tag}"
+                parts.append(value_html)
         else:
             raise ValueError(f"unknown inline node: {kind}")
     return "".join(parts)
