@@ -1756,3 +1756,71 @@ def test_a_line_is_removed_with_the_trash_can_not_a_cross_2105(client, db_sessio
     buttons = _remove_buttons(sale.text)
     assert len(buttons) == 1 and _is_the_kit_delete(buttons[0]), buttons
     assert f'name="remove_variant_id" value="{shirt.id}"' in buttons[0]
+
+
+def _orders_count(db_session) -> int:
+    from app.domains.sales.models import SalesOrder
+
+    db_session.expire_all()
+    return db_session.query(SalesOrder).count()
+
+
+def test_a_signed_in_buyer_without_a_phone_is_refused(client, db_session, every_module_on):
+    """#2121: the basket asks the mobile with an asterisk, so the server refuses an
+    order without one — also from a signed-in buyer, whom the aggregate's guest rule
+    does not cover — at the field, and saves nothing. With a phone it is saved."""
+    from tests.conftest import create_test_family
+
+    create_test_family(db_session, email="koper@example.com")
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    db_session.commit()
+    _as(client, "koper@example.com")
+    before = _orders_count(db_session)
+
+    refused = _post(client, m.id, phone="  ")
+    assert refused.status_code == 422
+    assert "Vul je mobiele nummer in." in refused.text
+    assert 'data-error-for="phone"' in refused.text, "the refusal marks the field"
+    assert _orders_count(db_session) == before, "no order is saved"
+
+    placed = _post(client, m.id)
+    assert "HX-Redirect" in placed.headers, placed.text[:300]
+    assert _orders_count(db_session) == before + 1
+
+
+def test_a_guest_without_a_phone_is_refused_at_the_field(client, db_session, every_module_on):
+    """#2121: a guest's empty phone is refused with the same sentence, at the field."""
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    before = _orders_count(db_session)
+    refused = _post(client, m.id, phone="")
+    assert refused.status_code == 422
+    assert 'data-error-for="phone"' in refused.text
+    assert _orders_count(db_session) == before
+
+
+def test_the_board_order_without_a_phone_goes_through(client, db_session, every_module_on):
+    """#2121, the other side: "Bestelling toevoegen" has no phone field and promises
+    none — the board's order of a member is saved without a phone."""
+    from tests.conftest import create_test_family
+
+    create_test_family(db_session, email="lid@example.com")
+    m = _variant_with_price_and_stock(db_session, name="T-shirt", size="M", amount="15.00", stock=5)
+    db_session.commit()
+    headers = _as(client, _board_user(db_session, "SALES", "verkoper@example.com"))
+    before = _orders_count(db_session)
+
+    answer = client.post(
+        "/admin/verkoop/nieuw",
+        data={
+            "action": "save",
+            "email": "lid@example.com",
+            "variant_id": str(m.id),
+            "quantity": "1",
+            "payment_method": "transfer",
+            **form_guard_fields(),
+        },
+        headers=headers,
+        follow_redirects=False,
+    )
+    assert answer.status_code in (204, 303), answer.text[:300]
+    assert _orders_count(db_session) == before + 1

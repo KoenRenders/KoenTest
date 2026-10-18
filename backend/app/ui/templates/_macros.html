@@ -3603,6 +3603,8 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    segment's count — is refreshed out-of-band by `toolbar_oob`.
 
    * `segments` / `status_*`: the status filter; a change sends the form.
+   * `search=False` (a list the end state gives no search, AI-kosten): no field;
+     the toolbar then has the filters, the count and the `⋯`.
    * the search: the magnifier is its submit, typing sends after a pause
      (`input`, so a paste and the field's own clear count too; its `change` on
      leaving the field is not a second request).
@@ -3631,7 +3633,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
      a field `kol_<key>` of the form, so the choice lives in the URL. #}
 {% macro toolbar(hx_get, hx_target, id, segments=[], status_name="status", status_current="", status_legend="",
                  q="", search_placeholder="", page=1, per_page=50, total=0, page_sizes=[], menu=[], hidden=[], cls="",
-                 sort=None, sort_options=[], columns=[]) -%}
+                 sort=None, sort_options=[], columns=[], search=True) -%}
 {% set _filters = caller() if caller is defined else "" %}
 <form id="{{ id }}" data-toolbar class="relative mb-3 flex flex-wrap items-center gap-2 min-w-0{% if cls %} {{ cls }}{% endif %}"
       hx-get="{{ hx_get }}" hx-target="{{ hx_target }}" hx-swap="innerHTML"
@@ -3640,10 +3642,12 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   {% if segments %}
   <div class="basis-full md:basis-auto min-w-0">{{ status_filter(status_name, segments, status_current, status_legend, id=id) }}</div>
   {% endif %}
+  {% if search %}
   <div data-toolbar-search class="relative basis-full md:basis-[180px] md:min-w-[180px] md:max-w-[480px] flex-1">
     <input type="search" name="q" value="{{ q }}" placeholder="{{ search_placeholder }}" aria-label="{{ search_placeholder }}" class="w-full pl-10">
     <button type="submit" class="absolute inset-y-0 left-0 grid w-10 place-items-center rounded-l-lg text-ink-soft hover:text-ink" aria-label="{{ _('Zoeken') }}">{{ icon('search') }}</button>
   </div>
+  {% endif %}
   {% if _filters | trim %}
   <div class="relative" x-data="{ open: false }" @keydown.escape="open = false">
     <button type="button" data-filters-button class="{{ btn_class('secondary', 'sm') }} h-11 md:h-9 inline-flex items-center gap-2" @click="open = !open" :aria-expanded="open" aria-haspopup="dialog">{{ icon('filter') }}{{ _("Filters") }}</button>

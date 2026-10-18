@@ -130,22 +130,40 @@ class CallRow:
 
 
 def list_calls(
-    db: Session, *, tenant_id: int, page: int = 1, per_page: int = 50
+    db: Session,
+    *,
+    tenant_id: int,
+    page: int = 1,
+    per_page: int = 50,
+    start: Optional[datetime] = None,
+    end: Optional[datetime] = None,
+    capability: Optional[AiCapability] = None,
+    provider: Optional[AiProvider] = None,
+    oldest_first: bool = False,
 ) -> tuple[list[CallRow], int]:
-    """Newest first. Returns the page and the tenant's number of calls.
+    """Newest first, or oldest first. Returns the page and the number of calls
+    that match: the tenant's, within `[start, end)` when given, of one capability
+    and one provider when given.
 
     Counted since #1391 (CR-11 W8): the pager says "x–y van n" on every list,
     and "one row extra" could only say "page n".
     """
     page = max(1, page)
     kolommen = [getattr(AiCallLog, f) for f in CallRow.__dataclass_fields__]
-    total = db.query(AiCallLog.id).filter(AiCallLog.tenant_id == tenant_id).count()
-    rows = (
-        db.query(*kolommen)
-        .filter(AiCallLog.tenant_id == tenant_id)
-        .order_by(AiCallLog.created_at.desc(), AiCallLog.id.desc())
-        .offset((page - 1) * per_page)
-        .limit(per_page)
-        .all()
+    query = db.query(*kolommen).filter(AiCallLog.tenant_id == tenant_id)
+    if start is not None:
+        query = query.filter(AiCallLog.created_at >= start)
+    if end is not None:
+        query = query.filter(AiCallLog.created_at < end)
+    if capability is not None:
+        query = query.filter(AiCallLog.capability == capability)
+    if provider is not None:
+        query = query.filter(AiCallLog.provider == provider)
+    total = query.with_entities(AiCallLog.id).count()
+    order = (
+        (AiCallLog.created_at.asc(), AiCallLog.id.asc())
+        if oldest_first
+        else (AiCallLog.created_at.desc(), AiCallLog.id.desc())
     )
+    rows = query.order_by(*order).offset((page - 1) * per_page).limit(per_page).all()
     return [CallRow(*r) for r in rows], total

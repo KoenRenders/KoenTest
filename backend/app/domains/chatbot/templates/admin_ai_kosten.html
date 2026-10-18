@@ -1,53 +1,64 @@
-{% extends "admin_base.html" %}
+{% extends "list_page.html" %}
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("AI-kosten — Raak beheer") }}{% endblock %}
-{# The width of the kit's list screens (#1925): the calls are a dense table, not a
-   reading column, and Model · Provider stands only on a wide one. #}
-{% block content_width %}max-w-none{% endblock %}
-{% block content %}
-{{ ui.back_link(_("Systeeminfo"), "/admin/info") }}
-{{ ui.page_header(_("AI-kosten"), _("Elke oproep naar een AI-dienst vanuit deze afdeling: wie, wat, hoe lang en wat het kostte. Wat er precies vertrok, zie je bij het antwoord zelf.")) }}
-
+{# AI-kosten on the kit's list layout (#2109; end state §5.1): the title, the month's
+   totals as a table of their own, the toolbar — the month by its ‹ › above, the
+   Filters with the component and the provider, the sort on the date, no search —
+   and the calls on the kit's table with the pager. Every call of a month, newest
+   first; a call has no page of its own. The toolbar stands outside the list
+   fragment. #}
+{% block list_title %}{{ _("AI-kosten") }}{% endblock %}
+{% block list_toolbar %}
 <section class="bg-surface border border-line rounded-2xl p-4 mb-6" aria-labelledby="ai-totaal-kop">
   <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
     <h2 id="ai-totaal-kop" class="font-semibold text-blue-700">{{ _("Totaal in %(maand)s", maand=month_label) }}</h2>
     <div class="flex gap-1">
-      {{ ui.btn_secondary(_("‹ Vorige maand"), href="/admin/info/ai-kosten?maand=" ~ prev_month, size="sm") }}
-      {{ ui.btn_secondary(_("Volgende maand ›"), href="/admin/info/ai-kosten?maand=" ~ next_month, size="sm") }}
+      {{ ui.btn_secondary(_("‹ Vorige maand"), href=prev_month_url, size="sm") }}
+      {{ ui.btn_secondary(_("Volgende maand ›"), href=next_month_url, size="sm") }}
     </div>
   </div>
   {% if totals %}
-  <div class="overflow-x-auto">
-  <table class="w-full text-sm">
-    <thead><tr class="text-left text-ink-soft border-b border-line">
-      <th scope="col" class="px-3 py-2 font-semibold">{{ _("Onderdeel") }}</th>
-      <th scope="col" class="px-3 py-2 font-semibold">{{ _("Provider") }}</th>
-      <th scope="col" class="px-3 py-2 font-semibold text-right">{{ _("Oproepen") }}</th>
-      <th scope="col" class="px-3 py-2 font-semibold text-right">{{ _("Tokens") }}</th>
-      <th scope="col" class="px-3 py-2 font-semibold text-right">{{ _("Credits") }}</th>
-      <th scope="col" class="px-3 py-2 font-semibold text-right">{{ _("Kost") }}</th>
-    </tr></thead>
-    <tbody class="divide-y divide-line">
+  {% call ui.data_table(totals_columns, caption=_("Totaal per onderdeel")) %}
+    <tbody>
     {% for t in totals %}
-      <tr>
-        <td class="px-3 py-2">{{ t.what }}</td>
-        <td class="px-3 py-2 text-ink-soft">{{ t.provider }}</td>
-        <td class="px-3 py-2 text-right tabular-nums">{{ t.calls }}</td>
-        <td class="px-3 py-2 text-right tabular-nums">{{ t.tokens }}</td>
-        <td class="px-3 py-2 text-right tabular-nums">{{ t.credits }}</td>
-        <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap">{{ t.amount }}</td>
+      <tr data-row data-ai-total class="align-middle">
+        <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2 text-ink">{{ t.what }}
+          <small data-stacked-only class="block text-xs text-ink-soft">{{ _("%(n)s oproepen · %(t)s tokens", n=t.calls, t=t.tokens) }}</small></td>
+        <td data-cell="context" class="border-b border-line px-3 py-2 text-ink-soft">{{ t.provider }}</td>
+        <td data-cell="extra" class="border-b border-line px-3 py-2 text-right tabular-nums">{{ t.calls }}</td>
+        <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right tabular-nums">{{ t.tokens }}</td>
+        <td data-cell="extra" data-p="2" class="border-b border-line px-3 py-2 text-right tabular-nums">{{ t.credits }}</td>
+        <td data-cell="amount" class="border-b border-line px-3 py-2 text-right tabular-nums whitespace-nowrap">{{ t.amount }}</td>
       </tr>
     {% endfor %}
     </tbody>
-  </table>
-  </div>
+  {% endcall %}
   <p class="text-xs text-ink-soft mt-2">{{ _("Een kost staat er alleen als de provider ze meldt. Mistral meldt tokens, geen bedrag; die omrekening komt later.") }}</p>
   {% else %}
   {{ ui.empty_state(_("Geen AI-oproepen in deze maand.")) }}
   {% endif %}
 </section>
 
-<h2 class="font-semibold text-blue-700 mb-2">{{ _("Alle oproepen") }}</h2>
+{% call ui.toolbar("/admin/info/ai-kosten/lijst", "#ai-oproepen", "ai-filter", search=False,
+                   page=page, per_page=per_page, total=total, page_sizes=page_sizes,
+                   sort=sort, sort_options=sort_options, hidden=[("maand", month)]) %}
+  <div class="flex flex-col gap-1">
+    {{ ui.label(_("Onderdeel"), "ai-capability") }}
+    {% call ui.select_control("capability", cls="w-full", attrs='id="ai-capability"') %}
+      <option value="">{{ _("Alle onderdelen") }}</option>
+      {% for value, word in capability_options %}<option value="{{ value }}"{% if value == capability %} selected{% endif %}>{{ word }}</option>{% endfor %}
+    {% endcall %}
+  </div>
+  <div class="flex flex-col gap-1">
+    {{ ui.label(_("Provider"), "ai-provider") }}
+    {% call ui.select_control("provider", cls="w-full", attrs='id="ai-provider"') %}
+      <option value="">{{ _("Alle providers") }}</option>
+      {% for value, word in provider_options %}<option value="{{ value }}"{% if value == provider %} selected{% endif %}>{{ word }}</option>{% endfor %}
+    {% endcall %}
+  </div>
+{% endcall %}
+{% endblock %}
+{% block list_body %}
 <div id="ai-oproepen">
   {% include "_ai_kosten_lijst.html" %}
 </div>
