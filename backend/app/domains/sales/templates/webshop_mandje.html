@@ -41,6 +41,7 @@
   {% call ui.section(_("Contact")) %}
     {{ ui.field("contact_name", attribute="sales.sales_order.guest_name", required=True, value=contact_name) }}
     {{ ui.field("contact_email", attribute="sales.sales_order.guest_email", kind="email", required=True, value=contact_email) }}
+    {# promise walked by: test_a_signed_in_buyer_without_a_phone_is_refused #}
     {{ ui.field("phone", attribute="sales.sales_order.guest_mobile", kind="phone", required=True, value=phone) }}
   {% endcall %}
   {% call ui.section(_("Betalen")) %}

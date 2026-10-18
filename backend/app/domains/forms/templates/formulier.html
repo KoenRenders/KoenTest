@@ -46,7 +46,9 @@
         hx-disinherit="hx-select hx-swap" hx-push-url="false">
     {% if show_submitter %}
     {% call ui.section(_("Contact")) %}
+      {# promise walked by: test_without_a_name_or_an_address_the_form_is_refused_at_the_field #}
       {{ ui.field("submitter_name", _("Naam"), required=True, value=submitter_name, attrs='autocomplete="name"') }}
+      {# promise walked by: test_without_a_name_or_an_address_the_form_is_refused_at_the_field #}
       {{ ui.field("submitter_email", _("E-mail"), kind="email", required=True, value=submitter_email, attrs='autocomplete="email"') }}
     {% endcall %}
     {% endif %}
