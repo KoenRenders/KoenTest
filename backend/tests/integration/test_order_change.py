@@ -569,3 +569,30 @@ def test_a_new_line_takes_todays_price(db_session, every_module_on):
     prices = {line.variant_id: line.unit_price for line in changed.lines}
     assert prices[m.id] == Decimal("10.00")
     assert prices[large.id] == Decimal("20.00")
+
+
+def test_the_change_form_removes_a_line_with_the_trash_can_2105(
+    client, db_session, every_module_on
+):
+    """#2105: Verkoop's change form draws the remove button as the kit's delete (red
+    `trash-2`, path `M3 6h18`), not the `x` that means close; it still posts
+    `remove_index`. Red before: `btn_secondary` with `lead_icon="x"`."""
+    import re
+
+    from tests.conftest import board_session
+
+    headers = board_session(client)
+    m = _variant(db_session, size="M", amount="15.00", stock=5)
+    order = _order(db_session, [(m.id, 3)])
+    change_order_lines(db_session, order.id, [(m.id, 1), (m.id, 2)], actor="verkoper@example.com")
+
+    page = client.get(f"/admin/verkoop/{order.id}/wijzigen", headers=headers)
+    buttons = [
+        b
+        for b in re.findall(r"<button\b[^>]*>.*?</button>", page.text, re.S)
+        if 'aria-label="Verwijderen"' in b
+    ]
+    assert len(buttons) == 2, "one remove button per line"
+    for index, button in enumerate(buttons):
+        assert "bg-red-600" in button and "M3 6h18" in button, button
+        assert f'name="remove_index" value="{index}"' in button

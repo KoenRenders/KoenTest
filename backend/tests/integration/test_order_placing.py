@@ -4,6 +4,7 @@ T7)."""
 
 from __future__ import annotations
 
+import re
 from datetime import date
 from decimal import Decimal
 
@@ -1648,3 +1649,58 @@ def test_two_online_posts_at_once_start_one_payment(monkeypatch):
             check.close()
     finally:
         _clean_orders(variant_id, location_id, {order_id for _, order_id in outcomes})
+
+
+def _remove_buttons(html: str) -> list[str]:
+    return [
+        b
+        for b in re.findall(r"<button\b[^>]*>.*?</button>", html, re.S)
+        if 'aria-label="Verwijderen"' in b
+    ]
+
+
+def _is_the_kit_delete(button: str) -> bool:
+    """The kit's danger button drawing `trash-2` (its path starts `M3 6h18`)."""
+    return "bg-red-600" in button and "M3 6h18" in button and "M18 6" not in button
+
+
+def test_a_line_is_removed_with_the_trash_can_not_a_cross_2105(client, db_session, every_module_on):
+    """#2105: the basket and Verkoop's new order draw the remove button as the kit's
+    delete (red `trash-2`), never the `x` that means close; the label and the
+    attributes the scripts and the route read stay.
+
+    Red before: both buttons were `btn_secondary` with `lead_icon="x"`.
+    """
+    from tests.conftest import create_test_family
+
+    create_test_family(db_session, email="lid@example.com")
+    shirt = _variant_with_price_and_stock(
+        db_session, name="T-shirt", size="M", amount="15.00", stock=5
+    )
+    zak = _variant_with_price_and_stock(db_session, name="Zak", size="M", amount="8.00", stock=5)
+    db_session.commit()
+
+    basket = client.post(
+        "/webshop/mandje",
+        data={"variant_id": [str(shirt.id), str(zak.id)], "quantity": ["1", "1"]},
+        follow_redirects=False,
+    )
+    assert basket.status_code == 200
+    buttons = _remove_buttons(basket.text)
+    assert len(buttons) == 2, "one remove button per line"
+    assert all(_is_the_kit_delete(b) and "data-line-remove" in b for b in buttons), buttons
+
+    headers = _as(client, _board_user(db_session, "SALES", "verkoper@example.com"))
+    sale = client.post(
+        "/admin/verkoop/nieuw",
+        content=(
+            "email=lid@example.com"
+            f"&variant_id={shirt.id}&variant_id={zak.id}&quantity=1&quantity=1"
+            f"&remove_variant_id={zak.id}"
+        ),
+        headers={"Content-Type": "application/x-www-form-urlencoded", **headers},
+    )
+    assert sale.status_code == 200
+    buttons = _remove_buttons(sale.text)
+    assert len(buttons) == 1 and _is_the_kit_delete(buttons[0]), buttons
+    assert f'name="remove_variant_id" value="{shirt.id}"' in buttons[0]
