@@ -200,13 +200,15 @@ def test_the_pause_button_stops_and_resumes_the_card(setup):
         page.goto(f"/{slug}")
         pagina_klaar(page)
         button = page.get_by_role("button", name="Beweging van de albumkaart pauzeren of hervatten")
-        assert button.is_visible() and button.inner_text() == "Pauzeer"
+        assert button.is_visible() and button.get_attribute("aria-pressed") == "false"
+        assert button.inner_text() == "", "the pause button is an icon, no text"
         button.click()
-        assert button.inner_text() == "Hervat"
+        assert button.get_attribute("aria-pressed") == "true"
         held = page.evaluate(_STATE)
         page.clock.run_for(5000)
         assert page.evaluate(_STATE) == held, "the card moved while paused"
         button.click()
+        assert button.get_attribute("aria-pressed") == "false"
         page.clock.run_for(5000)
         assert page.evaluate(_STATE)["src"] != held["src"], "the card did not resume"
     finally:
@@ -226,3 +228,49 @@ def test_with_reduced_motion_there_is_nothing_to_pause(setup):
         assert not page.locator("[data-photo-moving] button").is_visible()
     finally:
         context.close()
+
+
+def test_the_pause_button_lies_on_the_picture_and_leaves_the_link_alone(setup):
+    """#2097: the icon sits inside the picture's box with a hit area of at least 44 x 44 px
+    (measured from the DOM at 390 px); a click on it does not open the album, a click on
+    the picture elsewhere does. Broken on purpose: the button put back under the card →
+    the inside-the-picture assertion fails."""
+    b, _id, slug, _ids, _session = setup
+    page = b.new_page(base_url=BASE, viewport={"width": 390, "height": 844})
+    try:
+        page.clock.install()
+        page.goto(f"/{slug}")
+        pagina_klaar(page)
+        boxes = page.evaluate(
+            """() => {
+              const r = (e) => { const b = e.getBoundingClientRect(); return {x: b.x, y: b.y, w: b.width, h: b.height}; };
+              const card = document.querySelector('[data-photo-card]');
+              return {
+                picture: r(card.querySelector('img').parentElement),
+                button: r(document.querySelector('[data-photo-pause]')),
+                disc: r(document.querySelector('[data-photo-pause] span')),
+                insideLink: !!document.querySelector('[data-photo-card] button'),
+                top: document.elementFromPoint(
+                  r(document.querySelector('[data-photo-pause]')).x + 22,
+                  r(document.querySelector('[data-photo-pause]')).y + 22
+                ).closest('[data-photo-pause]') !== null,
+              };
+            }"""
+        )
+        p, bt = boxes["picture"], boxes["button"]
+        assert not boxes["insideLink"], "a button inside the card's link"
+        assert bt["w"] >= 44 and bt["h"] >= 44, boxes
+        assert p["x"] <= bt["x"] and p["y"] <= bt["y"], boxes
+        assert bt["x"] + bt["w"] <= p["x"] + p["w"] and bt["y"] + bt["h"] <= p["y"] + p["h"], boxes
+        assert boxes["top"], "something lies over the button"
+        if os.environ.get("E2E_PRINT_DIR"):
+            page.locator("[data-photo-moving]").screenshot(
+                path=os.path.join(os.environ["E2E_PRINT_DIR"], "pauze-390.png")
+            )
+        url = page.url
+        page.locator("[data-photo-pause]").click()
+        assert page.url == url, "the pause button opened the album"
+        page.locator("[data-photo-card] .font-semibold").click()
+        page.wait_for_url("**/activiteiten/**", timeout=8000)
+    finally:
+        page.close()
