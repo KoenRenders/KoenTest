@@ -46,7 +46,7 @@
         <option value="">{{ _("Bovenaan") }}</option>
         {% for waarde, pad in tag_opties %}<option value="{{ waarde }}">{{ pad }}</option>{% endfor %}
       {% endcall %}
-      {{ ui.btn_secondary(_("+ Tag"), type="submit", size="sm") }}
+      {{ ui.btn_secondary(_("Tag"), type="submit", size="sm", lead_icon="plus") }}
     </form>
   </div>
 </nav>

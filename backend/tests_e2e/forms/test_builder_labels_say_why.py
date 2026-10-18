@@ -126,7 +126,7 @@ def _measure(page, line: str, box: str, rule: str, name: str) -> None:
 
 def test_a_new_question_of_spaces_says_why_in_its_form(page, form):
     _open(page, form)
-    page.get_by_role("button", name="+ Vraag in deze sectie").click()
+    page.get_by_role("button", name="Vraag in deze sectie", exact=True).click()
     new = page.locator(f'form[hx-post$="/admin/formulieren/{form["id"]}/velden"]').first
     new.locator('[name="label"]').fill("   ")
     new.locator('[name="help_text"]').fill("Kies wat je aankan.")
@@ -142,7 +142,7 @@ def test_a_new_question_of_spaces_says_why_in_its_form(page, form):
 
 def test_a_new_option_of_spaces_says_why_in_its_row(page, form):
     _open(page, form)
-    page.get_by_role("button", name="+ Optie toevoegen").click()
+    page.get_by_role("button", name="Optie toevoegen", exact=True).click()
     row = page.locator(f'form[hx-post$="/velden/{form["field"]}/opties"]')
     row.locator('[name="label"]').fill("   ")
     row.locator('[name="is_other"]').check()
@@ -156,7 +156,7 @@ def test_a_new_option_of_spaces_says_why_in_its_row(page, form):
 def test_an_option_that_loses_its_label_says_why_and_leaves_the_others(page, form):
     _open(page, form)
     # Something unsaved in ANOTHER form of the builder: the new-option row.
-    page.get_by_role("button", name="+ Optie toevoegen").click()
+    page.get_by_role("button", name="Optie toevoegen", exact=True).click()
     other = page.locator(f'form[hx-post$="/velden/{form["field"]}/opties"]')
     other.locator('[name="label"]').fill("10 km")
     row = page.locator(f'form[hx-post$="/opties/{form["option"]}"]')

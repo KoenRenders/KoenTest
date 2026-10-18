@@ -478,7 +478,7 @@
     <div class="mt-3 flex flex-wrap items-center gap-2">
       {% if report_id %}
       {{ ui.btn_secondary(_("Kopiëren"), size="sm",
-           attrs='hx-post="/admin/rapporten/' ~ report_id ~ '/kopieren"') }}
+           attrs='hx-post="/admin/rapporten/' ~ report_id ~ '/kopieren"', lead_icon="copy") }}
       {% endif %}
       {% if chosen %}
       {{ ui.btn_outline(_("Exporteren (.ods)"), size="sm", lead_icon="download",

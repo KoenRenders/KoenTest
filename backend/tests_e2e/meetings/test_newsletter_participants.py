@@ -78,7 +78,7 @@ def past_activities():
 def test_the_list_follows_the_audience_and_a_tick_changes_the_sentence(admin_page):  # noqa: F811
     page = admin_page
     page.set_viewport_size({"width": PHONE, "height": 1400})
-    page.get_by_role("button", name="+ Nieuwe nieuwsbrief").click()
+    page.get_by_role("button", name="Nieuwe nieuwsbrief", exact=True).click()
     page.wait_for_selector("#nb-editor .ProseMirror", timeout=10_000)
     _klikbaar(page, "#nb-onderwerp")
     adres = page.url

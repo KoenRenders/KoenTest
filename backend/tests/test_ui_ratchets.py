@@ -30,6 +30,7 @@ from pathlib import Path
 
 import pytest
 
+from app.ui.kit.verbs import CREATE_GLYPHS, verb_of
 from tests import ui_baseline as baseline
 from tests._bestanden import bestanden
 
@@ -149,15 +150,17 @@ def raw_surfaces(text: str) -> int:
 
 def header_extras(text: str) -> int:
     """B7 test 17. A button in a `page_header` call slot that is neither the
-    create ("+ …") nor "Instellingen"; everything else is an action passed as
-    data, or belongs on the page.
+    create (a label of a verb that makes something new, `CREATE_GLYPHS`; it
+    was a typed "+ …" until #2106) nor "Instellingen"; everything else is an
+    action passed as data, or belongs on the page.
 
     Proven red by adding a `page_header` call with `ui.btn_secondary(_("Exporteren"))`
     to `betalingen.html`."""
     count = 0
     for body in _HEADER.findall(text):
         for label in _BUTTON.findall(body):
-            if not (label.startswith("+ ") or label.startswith("Instellingen")):
+            verb = verb_of(label)
+            if not (verb and verb.glyph in (*CREATE_GLYPHS, "settings")):
                 count += 1
     return count
 

@@ -12,6 +12,7 @@ from pathlib import Path
 
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.ui import templates
+from app.ui.kit.verbs import CREATE_GLYPHS, verb_of
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 APP = Path(__file__).resolve().parents[1] / "app"
@@ -97,8 +98,8 @@ def test_an_empty_call_block_is_no_actions():
 
 
 def test_the_list_pages_are_the_headers_with_a_create_button():
-    """`list_page=True` exactly where the call block carries a "+ …" create
-    button: the W10 rule is for list pages, and that button is how one is
+    """`list_page=True` exactly where the call block carries a create button
+    (a label of the verb *toevoegen* / *nieuw*, #2106): the W10 rule is for list pages, and that button is how one is
     recognised. A new list page that forgets the flag, or a record page that
     takes it, fails here."""
     import re
@@ -111,7 +112,10 @@ def test_the_list_pages_are_the_headers_with_a_create_button():
             scanned += 1
             call = m.group(0)
             head = call[: call.index("%}")]
-            has_create = bool(re.search(r"""["']\+ """, call))
+            has_create = any(
+                (verb := verb_of(label)) and verb.glyph in CREATE_GLYPHS
+                for label in re.findall(r"""btn_\w+\(\s*_\(\s*["']([^"']+)["']""", call)
+            )
             if has_create != ("list_page=True" in head):
                 wrong.append(str(path.relative_to(APP)))
     assert scanned > 20, f"the scan found only {scanned} headers"

@@ -9,7 +9,7 @@
    whole screen. A unit still comes from "Nieuwe tenant"; no address book of
    outside organisations (#971). The toolbar stands outside the list fragment. #}
 {% block list_title %}{{ _("Organisaties") }}{% endblock %}
-{% block list_primary %}{{ ui.btn_primary(_("+ Nieuw account"), href="/admin/organisaties/nieuw") }}{% endblock %}
+{% block list_primary %}{{ ui.btn_primary(_("Nieuw account"), href="/admin/organisaties/nieuw", lead_icon="plus") }}{% endblock %}
 {% block list_toolbar %}
 {{ ui.toolbar("/admin/organisaties", "#org-lijst", "org-filter",
               segments=segments, status_name="org_type", status_current=kind, status_legend=_("Soort"),
