@@ -450,7 +450,7 @@ UNIVERSE_ENTRIES: tuple[Attribute, ...] = (
         columns=(),
         label="Waarvoor",
         name_en="Payment payable label",
-        help="Voor wie en waarvoor deze betaling is — de inschrijver en de activiteit, of het hoofdlid en het lidmaatschapsjaar.",
+        help="Voor wie en waarvoor deze betaling is — de inschrijver en de activiteit, het hoofdlid en het lidmaatschapsjaar, of de koper en het bestelnummer.",
         ai_exposure=AiExposure.NONE,
     ),
     Attribute(
