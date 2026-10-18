@@ -210,17 +210,17 @@ def test_wijzigingen_heeft_geen_toon_knop_meer_en_filtert_live(client):
     pagina = client.get("/admin/ledenwijzigingen")
     assert pagina.status_code == 200
     assert ">Toon<" not in pagina.text
-    # actor is het zoekveld geworden, met de kit-debounce van de filterbalk
-    assert 'type="search"' in pagina.text and 'name="actor"' in pagina.text
+    # #2109: de actor is het zoekveld van de werkbalk (`q`), met de debounce van de kit
+    assert 'type="search"' in pagina.text and 'name="q"' in pagina.text
     assert "delay:" in pagina.text
     assert "/admin/ledenwijzigingen/export" in pagina.text
 
     fragment = client.get(
-        "/admin/ledenwijzigingen", params={"actor": "niemand@example.com"}, headers=HX
+        "/admin/ledenwijzigingen/lijst", params={"q": "niemand@example.com"}, headers=HX
     )
     assert fragment.status_code == 200
     assert "<html" not in fragment.text.lower()
-    assert "Audit-logboek" in fragment.text  # de lijst zelf komt terug
+    assert "Geen wijzigingen sinds" in fragment.text  # de lijst zelf komt terug
     assert 'type="search"' not in fragment.text  # het zoekveld blijft staan
 
 

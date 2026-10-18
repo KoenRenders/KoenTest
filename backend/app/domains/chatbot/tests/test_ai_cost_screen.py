@@ -123,3 +123,59 @@ def test_the_calls_stand_on_the_kits_table(client, leeg_logboek):
     assert "mistral-medium · Mistral" in html, "the model with its provider, one cell"
     calls = html.split('id="ai-oproepen"', 1)[1]
     assert ">Provider<" not in calls, "no column of its own for the provider in the list"
+
+
+def test_the_toolbar_filters_the_calls_by_component_and_provider(client, leeg_logboek):
+    """#2109: Onderdeel and Provider narrow the list — and only the list: the totals
+    above it are the month's. Broken to see it red: `capability=` dropped from the
+    `list_calls` call → the first assertion fails."""
+    _oproep(DEFAULT_TENANT_ID, model="rapport-model")
+    _oproep(DEFAULT_TENANT_ID, provider="bfl", capability="image", model="beeld-model")
+    _login(client)
+    fragment = {"HX-Request": "true"}
+    both = client.get("/admin/info/ai-kosten/lijst", headers=fragment).text
+    assert "rapport-model" in both and "beeld-model" in both
+    by_component = client.get("/admin/info/ai-kosten/lijst?capability=image", headers=fragment).text
+    assert "beeld-model" in by_component and "rapport-model" not in by_component
+    by_provider = client.get("/admin/info/ai-kosten/lijst?provider=mistral", headers=fragment).text
+    assert "rapport-model" in by_provider and "beeld-model" not in by_provider
+    nothing = client.get("/admin/info/ai-kosten/lijst?provider=mistral&capability=image").text
+    assert "Geen AI-oproepen voor deze filter" in nothing
+    page = client.get("/admin/info/ai-kosten?capability=image").text
+    assert "rapport-model" not in page and "Totaal in" in page
+    assert 'name="q"' not in page, "AI-kosten has no search (§5.1)"
+    assert "Beeld" in page and "ai-capability" in page and "ai-provider" in page
+
+
+def test_the_month_arrows_and_the_date_sort_move_the_list(client, leeg_logboek):
+    """#2109: ‹ › change the month of the totals AND of the calls; the date column
+    sorts newest or oldest first and keeps the month."""
+    _oproep(DEFAULT_TENANT_ID, model="eerste-model")
+    _oproep(DEFAULT_TENANT_ID, model="tweede-model")
+    eigen = SessionLocal()
+    try:
+        eigen.execute(
+            sql_text(
+                "UPDATE ai.ai_call_log SET created_at = '2026-03-10 12:00+00' "
+                "WHERE model = 'eerste-model'"
+            )
+        )
+        eigen.execute(
+            sql_text(
+                "UPDATE ai.ai_call_log SET created_at = '2026-03-20 12:00+00' "
+                "WHERE model = 'tweede-model'"
+            )
+        )
+        eigen.commit()
+    finally:
+        eigen.close()
+    _login(client)
+    maart = client.get("/admin/info/ai-kosten?maand=2026-03").text
+    assert "eerste-model" in maart and "tweede-model" in maart
+    assert "maand=2026-02" in maart and "maand=2026-04" in maart, "the ‹ › links"
+    assert "eerste-model" not in client.get("/admin/info/ai-kosten?maand=2026-04").text
+    newest = client.get("/admin/info/ai-kosten/lijst?maand=2026-03").text
+    assert newest.index("tweede-model") < newest.index("eerste-model")
+    oldest = client.get("/admin/info/ai-kosten/lijst?maand=2026-03&sort=datum").text
+    assert oldest.index("eerste-model") < oldest.index("tweede-model")
+    assert 'aria-sort="ascending"' in oldest

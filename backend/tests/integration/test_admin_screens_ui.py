@@ -159,7 +159,7 @@ def test_ledenwijzigingen_en_info(client):
     # aparte, altijd-zichtbare "Ledendata-wijzigingen"-tabel is weg — de ledendata
     # voor Raak Nationaal zit nog enkel achter de .ods-exportknop.
     assert resp.status_code == 200
-    assert "Audit-logboek" in resp.text
+    assert "data-list-page" in resp.text and "Wijzigingen" in resp.text
     assert "/admin/ledenwijzigingen/export" in resp.text
     assert "Ledendata-wijzigingen" not in resp.text
 

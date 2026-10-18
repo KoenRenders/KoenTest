@@ -43,6 +43,7 @@ from app.domains.newsletter.viewmodels import (
     NewsletterSettingsView,
     SubscriberImportView,
     SubscriberListView,
+    SubscriberNewView,
 )
 from app.domains.payment.viewmodels import BetalingenView
 from app.domains.reporting.viewmodels import ReportListView, ReportPanelView
@@ -88,6 +89,7 @@ VIEWMODELS = {
     "admin_abonnees.html": SubscriberListView,
     "_nb_abonnees.html": SubscriberListView,
     "admin_abonnees_import.html": SubscriberImportView,
+    "admin_abonnee_nieuw.html": SubscriberNewView,
     "_nb_import.html": SubscriberImportView,
     "admin_ontwerpen.html": DesignListView,
     "_ds_lijst.html": DesignListView,

@@ -50,3 +50,29 @@ class DesignSystemView(ViewModel):
     #: bindt de context bij `{% from … with context %}`.
     values: dict[str, Any] = field(default_factory=dict)
     nav_items: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True, kw_only=True)
+class ChangesView(ViewModel):
+    """`admin_ledenwijzigingen.html` and its fragment `_lw_inhoud.html` (#2109):
+    the audit log on the kit's list page — the segments per group, the search on
+    the actor, the from-date under Filters, sortable columns, a pager."""
+
+    rows: list[dict[str, Any]]
+    columns: list[dict[str, Any]]
+    segments: list[dict[str, str]]
+    group: str
+    q: str
+    since: str
+    sort: str
+    sort_options: list[tuple[str, str]]
+    menu: list[dict[str, Any]]
+    page: int
+    per_page: int
+    total: int
+    page_sizes: list[int]
+    pager_url: str
+    empty_reason: str
+    csrf_token: str
+    oob: bool = False
+    nav_items: list[Any] | None = None

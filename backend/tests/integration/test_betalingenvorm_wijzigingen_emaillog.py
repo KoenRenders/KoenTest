@@ -2,7 +2,9 @@
 
 Since #1925 the e-mail log stands on the kit's list (`list_page`, the toolbar,
 the table and the pager), which the kit's own tests hold; this file keeps
-Wijzigingen, the screen that still has the hand-built form.
+Wijzigingen's width, page size and period. Since #2109 Wijzigingen stands on the list
+page too: the tests of its hand-built form (the scroll container, the meta line, the
+inline label, the one-row filter bar) went with it — the kit's own tests hold those.
 
 Vier dingen gaan hier naar de referentie van §2.3: volle breedte, een dichte
 tabel, een meta-regel boven die tabel (hoeveel regels, in welke volgorde) en de
@@ -35,7 +37,6 @@ from app.domains.auth.api import SESSION_COOKIE, User, UserRole, make_session_va
 from app.kernel.clock import belgian_today
 from app.ui import PER_PAGE_DEFAULT, PER_PAGE_OPTIONS
 from tests.conftest import SEEDED_ADMIN_EMAIL
-from tests.integration.test_filterbalk_op_een_regel import meet
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -108,48 +109,7 @@ def test_beide_schermen_gebruiken_de_volle_breedte(client, db_session, pad):
         assert grens not in html, f"{pad}: draagt nog de begrensde kolom {grens}"
 
 
-@pytest.mark.parametrize("pad", [WIJZIGINGEN])
-def test_de_tabel_zit_in_haar_eigen_schuifcontainer(client, db_session, pad):
-    """Volle breedte mag de PAGINA niet breed maken (§2.3).
-
-    Een dichte tabel is op een telefoon breder dan het scherm; die breedte hoort
-    in de container rond de tabel te blijven, niet in de pagina te lekken. Op de
-    volgorde getoetst — de `overflow-x-auto` moet vóór de `<table>` komen en in
-    hetzelfde blok — want "de klasse staat ergens in de pagina" zou ook groen
-    blijven bij een wrapper die ergens anders hangt.
-    """
-    _wijzigingen(db_session, 2)
-    _emails(db_session, 2)
-    _login(client, db_session)
-    html = client.get(pad).text
-
-    opening = html.find("<table")
-    assert opening != -1, f"{pad}: geen tabel gevonden"
-    blok = html[:opening]
-    wrapper = blok.rfind("overflow-x-auto")
-    assert wrapper != -1 and blok.rfind("<div", wrapper - 200, wrapper) != -1, (
-        f"{pad}: de tabel staat niet in een overflow-x-auto-container"
-    )
-
-
 # ── 2. De meta-regel boven de tabel ──────────────────────────────────────────
-
-
-def test_de_meta_regel_van_wijzigingen_telt_en_benoemt_de_volgorde(client, db_session):
-    """§2.3: hoeveel regels en waarom deze bovenaan staat, zonder de koppen af te gaan."""
-    _wijzigingen(db_session, 3)
-    _login(client, db_session)
-
-    standaard = client.get(WIJZIGINGEN, params={"since": "2000-01-01"}).text
-    assert "wijzigingen · nieuwste eerst" in standaard
-
-    # Een andere sortering hoort een ANDERE zin te geven — anders is de regel
-    # opsmuk die altijd hetzelfde zegt.
-    op_actor = client.get(
-        WIJZIGINGEN, params={"since": "2000-01-01", "sort": "actor", "richting": "asc"}
-    ).text
-    assert "op Actor, oplopend" in op_actor
-    assert "nieuwste eerst" not in op_actor
 
 
 # ── 3. Hoeveel rijen op een pagina ───────────────────────────────────────────
@@ -170,7 +130,8 @@ def test_de_keuze_biedt_precies_de_toegestane_maten(client, db_session, pad, for
 
     for n in PER_PAGE_OPTIONS:
         assert f'<option value="{n}"' in html, f"{pad}: maat {n} ontbreekt"
-    assert f'form="{form_id}"' in html, f"{pad}: de keuzelijst hangt niet aan de filterbalk"
+    # Since #2109 the size is a field of the toolbar's own form (`data-page-size`).
+    assert "data-page-size" in html, f"{pad}: de keuzelijst staat niet in de werkbalk"
 
 
 def test_een_kleinere_pagina_toont_ook_echt_minder_rijen(client, db_session):
@@ -180,7 +141,7 @@ def test_een_kleinere_pagina_toont_ook_echt_minder_rijen(client, db_session):
 
     def rijen(**params):
         html = client.get(WIJZIGINGEN, params={"since": "2000-01-01", **params}).text
-        return html.count('<tr class="border-t border-gray-100 align-middle')
+        return html.count("data-change")
 
     assert rijen() == PER_PAGE_DEFAULT
     assert rijen(per_page=25) == 25
@@ -219,31 +180,6 @@ def test_de_paginagrootte_reist_mee_bij_het_bladeren(client, db_session):
 # ── 4. Het veld *Vanaf* blijft, met een zichtbaar label ERNAAST ──────────────
 
 
-def test_het_vanaf_label_staat_naast_het_veld_niet_erboven(client, db_session):
-    """Het label keert terug (Koen, 20 sep) — maar niet als blok-label.
-
-    `ui.label` rendert `block … mb-1` bóven het veld; die kolom is dan hoger dan
-    een kaal invoerveld en dwingt de rij terug naar `items-end`. Dat is precies
-    waarom het label in #1079 wegviel. Een blok-label verandert de STRUCTUUR van
-    de filterbalk niet — de rij-test van #1079 zou er groen bij blijven — dus
-    toetst deze test de vorm van het label zelf.
-    """
-    import re
-
-    _login(client, db_session)
-    html = client.get(WIJZIGINGEN).text
-
-    labels = re.findall(r'<label[^>]*for="lw-since"[^>]*>(.*?)</label>', html, re.S)
-    assert len(labels) == 1, f"verwacht één label voor lw-since, gevonden {len(labels)}"
-    assert "Vanaf" in labels[0]
-
-    tag = re.search(r'<label[^>]*for="lw-since"[^>]*>', html).group(0)
-    assert "block" not in tag, f"het label draagt `block` en staat dus bóven het veld: {tag}"
-
-    # De rij blijft één regel: dezelfde uitlijning als de tien andere filterbalken.
-    assert "items-center" in html
-
-
 def test_het_vanaf_veld_draagt_geen_dubbel_label(client, db_session):
     """Een `aria-label` NAAST een echt `<label for=…>` laat een schermlezer het
     veld twee keer voorlezen. Het `aria_label` uit #1079 hoort dus te vervallen."""
@@ -271,22 +207,3 @@ def test_het_vanaf_veld_staat_standaard_op_dertig_dagen_geleden(client, db_sessi
 
 
 # ── De filterregel van #1079 blijft staan ────────────────────────────────────
-
-
-@pytest.mark.parametrize(
-    "pad,verwacht",
-    [
-        (WIJZIGINGEN, {"actor", "since", "group"}),
-    ],
-)
-def test_de_filterregel_blijft_een_rij(client, db_session, pad, verwacht):
-    """#1079 mag hier niet sneuvelen: de keuzelijst voor de paginagrootte hangt
-    via `form=` aan de balk, maar staat er BUITEN — ze hoort dus geen tweede
-    regel in de filterbalk te worden."""
-    _login(client, db_session)
-    controls = meet(client.get(pad).text)
-
-    assert {naam for _k, naam, _s in controls} == verwacht
-    assert len({kind for kind, _n, _s in controls}) == 1, (
-        f"{pad}: de filterbalk heeft meer dan één directe kind: {sorted(controls)}"
-    )

@@ -206,14 +206,17 @@ class NewsletterSendView(ViewModel):
 
 @dataclass(frozen=True, kw_only=True)
 class SubscriberListView(ViewModel):
-    """`admin_abonnees.html` and its fragment `_nb_abonnees.html`."""
+    """`admin_abonnees.html` and its fragment `_nb_abonnees.html`: the list page of
+    the kit (#2109)."""
 
     subscribers: list[Any]
     counts: dict[str, int]
-    #: `(code, label)` of the active statuses, for the filter — from the code
-    #: list, so the order is the list's and the option value is the code
-    #: (CR-12 phase 3). The badge per row uses the `code_label`/`tone` filters.
-    status_options: list[tuple[str, str]]
+    #: The three figures of the title row (`ui.figures`).
+    figures: list[dict[str, Any]]
+    #: The status segments `{value, label}`, Alle first — from the code list, so the
+    #: order is the list's and the value is the code (CR-12 phase 3). The badge per
+    #: row uses the `code_label`/`tone` filters.
+    segments: list[dict[str, str]]
     #: The kit table's columns and, per subscriber id, its row controls — the
     #: status decides here whether "Uitschrijven" stands, because a template
     #: does not compare codes (§B4.7) —
@@ -225,9 +228,26 @@ class SubscriberListView(ViewModel):
     moments: dict[int, str]
     q: str
     status: str
+    sort: str
+    sort_options: list[tuple[str, str]]
+    page: int
+    per_page: int
+    total: int
+    page_sizes: list[int]
+    pager_url: str
+    empty_reason: str
     csrf_token: str
     error: Optional[str] = None
     notice: Optional[str] = None
+    oob: bool = False
+    nav_items: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True, kw_only=True)
+class SubscriberNewView(ViewModel):
+    """`admin_abonnee_nieuw.html` — the page "+ Adres" opens."""
+
+    csrf_token: str
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 
 
