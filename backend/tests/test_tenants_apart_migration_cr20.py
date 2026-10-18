@@ -15,7 +15,8 @@ up to 312, writes the cases the seed lacks, runs 313 and reads what it left:
 - settings, modules and roles keep their values and gain the key (test 8); a
   role or a setting on an account is removed (Koen, 18 October 2026: "1a");
 - the four reporting views list the tenants (test 12);
-- an organisation's address in the seam is still accepted (test 14).
+- an organisation's address in the seam is still accepted (test 14);
+- every site renders what it rendered before 313 (test 11).
 
 Proven red (put back each time): step 7 of the migration without its
 `UPDATE mdm.organizations SET deleted_at` → the borrowed row stays live and the
@@ -25,7 +26,12 @@ soft-delete assertion fails; step 6 without its `UPDATE … organization_persons
 
 from __future__ import annotations
 
+import json
 import os
+import re
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 from alembic import command
@@ -95,6 +101,15 @@ def _write_the_cases(conn) -> None:
         {"firm": firm},
     )
     brand = _one(conn, "SELECT id FROM mdm.organizations WHERE code = 'merk-cr20'")
+    # A site under no account: "Overige" in the sites placeholder before 313,
+    # its own account after (Koen, 18 October 2026: "2a").
+    conn.execute(
+        text(
+            "INSERT INTO mdm.organizations (org_type, code, name, kind, site_name, is_active, "
+            "created_at, updated_at) VALUES ('UNIT', 'los-cr20', 'Losse Vereniging', "
+            "'VERENIGING', 'Los Twintig', true, now(), now())"
+        )
+    )
     # An account with no tenant, made last: the highest organisation id is no
     # tenant's, so the tenants' sequence must start past it.
     conn.execute(
@@ -165,7 +180,7 @@ def _write_the_cases(conn) -> None:
         text(
             "INSERT INTO mdm.organization_persons (tenant_id, organization_id, person_id, "
             "relation_type, start_date) VALUES (2, :platform, :person, 'BOARD_MEETING', "
-            "current_date)"
+            "'2026-01-01')"
         ),
         {"platform": platform, "person": person},
     )
@@ -174,8 +189,18 @@ def _write_the_cases(conn) -> None:
             "INSERT INTO cms.cms_pages (tenant_id, title, slug, content, is_published, "
             "show_in_nav, is_home, sort_order, created_at, updated_at) VALUES "
             "(2, 'Sites', 'sites-cr20', '<p>{{tenants:firma-cr20}}</p>', true, false, false, "
+            "0, now(), now()), "
+            "(2, 'Alle sites', 'alle-sites-cr20', '<p>{{tenants}}</p>', true, false, false, "
             "0, now(), now())"
         )
+    )
+    # Test 11 reads the circles of the two departments as this user.
+    conn.execute(
+        text(
+            "INSERT INTO auth.user_roles (user_id, role_code, tenant_id, created_at) "
+            "VALUES (:user, 'ADMIN', 2, now()), (:user, 'ADMIN', 3, now())"
+        ),
+        {"user": user},
     )
 
 
@@ -333,7 +358,8 @@ def test_the_reporting_views_list_the_tenants(migrated_url):
 
 
 def test_an_organisation_address_in_the_seam_is_still_accepted(migrated_url):
-    with migrated_url.begin() as conn:
+    # Rolled back on leaving: test 11 reads the firm's footer after this.
+    with migrated_url.connect() as conn:
         firm = _one(conn, "SELECT id FROM mdm.organizations WHERE name = 'Firma Twintig'")
         postal = _one(conn, "SELECT id FROM mdm.postal_codes ORDER BY id LIMIT 1")
         conn.execute(
@@ -344,3 +370,81 @@ def test_an_organisation_address_in_the_seam_is_still_accepted(migrated_url):
             ),
             {"firm": firm, "pc": postal},
         )
+
+
+#: Koen, 18 October 2026: "2a" — a site under no account becomes its own
+#: account, so "Overige" goes: its card stands under its organisation's name.
+OVERIGE_BECOMES = {"Los Twintig": "Losse Vereniging"}
+_GROUP = re.compile(r'  <h3>(.*?)</h3>\n  <div class="grid[^"]*">\n    (.*?)\n  </div>\n  \n')
+_CARD = re.compile(r"<a [^>]*data-site-card.*?</a>")
+
+
+def _groups(html: str) -> tuple[str, list[tuple[str, str]], str]:
+    """The sites placeholder's cards as (heading, cards) per group, with the
+    page around them."""
+    first = _GROUP.search(html)
+    groups = [(m.group(1), m.group(2)) for m in _GROUP.finditer(html)]
+    last = list(_GROUP.finditer(html))[-1]
+    return html[: first.start()], groups, html[last.end() :]
+
+
+def _without_overige(html: str) -> str:
+    """What the page rendered before 313, with "Overige" as Koen's "2a" says:
+    each card under the name of its own organisation, the groups by name."""
+    before, groups, after = _groups(html)
+    renamed = [g for g in groups if g[0] != "Overige"]
+    for heading, cards in groups:
+        if heading == "Overige":
+            for card in _CARD.findall(cards):
+                name = re.search(r'font-semibold !text-ink">(.*?)</span>', card).group(1)
+                renamed.append((OVERIGE_BECOMES[name], card))
+    renamed.sort(key=lambda group: group[0].casefold())
+    return (
+        before
+        + "".join(
+            f'  <h3>{heading}</h3>\n  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3 mb-8">\n'
+            f"    {cards}\n  </div>\n  \n"
+            for heading, cards in renamed
+        )
+        + after
+    )
+
+
+def test_every_site_renders_as_before(migrated_url, tmp_path):
+    """C6 test 11: per tenant the header and footer of the site shell, both
+    sites placeholders and the meeting circle render after 313 what the code
+    before 313 rendered on the same cases, with one exception named: "Overige"
+    (Koen's "2a"). The platform without an account of its own stays out of the
+    sites placeholder, as before (R4).
+
+    `cr20_rendered_before.json` is the code before 313 (commit 7c389256, the
+    merge-base of #2155) rendering this file's cases on revision 312, through
+    `tests/_cr20_render.py`, the same file that renders the after here. To make
+    it again: a worktree of that commit with these two files copied in, the chain
+    to its head, `_write_the_cases`, then `python -m tests._cr20_render <url> <file>`.
+
+    Proven red, additively (put back): a step in migration 313 appending "X" to
+    the brand's `site_name` → its header differs (a trailing space is not
+    enough: the shell strips it); the platform let through when it is its own
+    account → the all-sites page gains its card.
+    """
+    url = migrated_url.url.render_as_string(hide_password=False)
+    subprocess.run(
+        [sys.executable, "-m", "tests._cr20_render", url, str(tmp_path / "after.json")],
+        cwd=Path(__file__).resolve().parents[1],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    after = json.loads((tmp_path / "after.json").read_text())
+    before = json.loads((Path(__file__).parent / "cr20_rendered_before.json").read_text())
+
+    assert sorted(after) == sorted(before)
+    assert "Kring Lid" in after["raakmillegem"]["circle"], "the circle renders its member"
+    assert "Firma Twintig" in after["merk-cr20"]["footer"], "the brand shows the firm's data"
+    for code, parts in before.items():
+        for part, html in parts.items():
+            if (code, part) == ("raakmillegem", "alle-sites-cr20"):
+                assert "<h3>Overige</h3>" in html, "the snapshot holds the exception"
+                html = _without_overige(html)
+            assert after[code][part] == html, (code, part)

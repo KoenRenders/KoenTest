@@ -654,9 +654,11 @@ def active_sites_by_account(db):
     A list of ``(account, sites)``: ``account`` an organisation, or None for the
     tenants whose account is inactive — a live tenant must not vanish from the
     list. Since CR-20 every tenant has an account (F1); until then a tenant
-    without one stood in the None group and the platform without one was left
-    out — measured on UAT and PROD on 18 October 2026, every tenant and the
-    platform had one. The groups follow the account's name, the None group last;
+    without one stood in the None group — measured on UAT and PROD on 18
+    October 2026, every tenant and the platform had one. The platform is listed
+    only under a live account other than its own party: without an account it
+    was left out before CR-20, and the migration made it its own account (R4,
+    the same sites per account as before). The groups follow the account's name, the None group last;
     the sites within a group are sorted by the caller, which knows their display
     names.
     """
@@ -672,6 +674,10 @@ def active_sites_by_account(db):
         )
     }
     for site in active:
+        if site.is_platform and (
+            site.account_id not in live or site.account_id == site.organization_id
+        ):
+            continue
         groups.setdefault(site.account_id if site.account_id in live else None, []).append(site)
     named = sorted(
         ((live[k], sites) for k, sites in groups.items() if k is not None),

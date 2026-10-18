@@ -194,12 +194,17 @@ def test_each_site_is_a_card_that_is_a_link_as_a_whole(client, db_session):
     )
 
 
-def test_the_placeholder_lists_the_platform_under_its_account(client, db_session):
-    """CR-20 F1: every tenant has an account, the platform too (measured on UAT
-    and PROD on 18 October 2026: it already had one). Until CR-20 a platform
-    without an account was left out; that case no longer exists."""
+def test_the_placeholder_leaves_the_platform_out_without_an_account(client, db_session):
+    """#1542, kept by CR-20 (R4, the same sites per account as before): the
+    platform stands in the list only under an account other than its own party.
+    The migration makes a platform without an account its own account, as the
+    seed's is; it stays out (measured on UAT and PROD on 18 October 2026: there
+    it hangs under an account)."""
+    platform = _platform(db_session)
+    assert platform.account_id == platform.organization_id, "the seed's platform is its own account"
     _department_page(db_session, "<p>{{tenants}}</p><p>{{tenants:bestaat-niet}}</p>")
     html = client.get("/onze-netwerk-1543").text
     names = [name for group in _groups(html).values() for name in group]
-    assert _platform(db_session).name in names
+    assert names, "the placeholder rendered sites"
+    assert platform.name not in names
     assert "{{tenants" not in html, "an unknown tenant code renders nothing, not the code"
