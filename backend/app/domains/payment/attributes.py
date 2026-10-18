@@ -77,7 +77,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         columns=("payment.payment_records.payable_type",),
         label="Soort",
         name_en="Payable type",
-        help="Waarvoor betaald wordt: lidgeld of een activiteit.",
+        help="Waarvoor betaald wordt: lidgeld, een activiteit of een bestelling.",
         ai_exposure=AiExposure.INTERNAL,  # K9
     ),
     Attribute(
