@@ -820,7 +820,7 @@
                display=None, help_in_read=False, preview_url=None, delete_name=None,
                beside_field=False, help_lines=False, label_hidden=False,
                fallback=None, fallback_note=None, beside_switch=False, unavailable={},
-               attribute=None) -%}
+               attribute=None, multiple=False) -%}
 {#- CR-33: `attribute=` reads the label from the register (`kernel/attributes.py`); a typed
     `label` stays for a field that is no datum (a search box). Both at once is refused. -#}
 {%- set label = attribute_label(attribute, label) -%}
@@ -931,7 +931,13 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   <div data-upload class="flex flex-wrap items-center gap-3" x-data="{ chosen: '', drop: false }">
     <label class="relative inline-flex items-center gap-2 min-h-11 md:min-h-10 px-3 rounded-md border border-control-line bg-surface text-sm font-medium text-ink cursor-pointer hover:bg-surface-2 has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-focus">
       {{ icon("upload", 16) }}<span>{{ _("Bestand kiezen") }}</span>
+      {#- #2130: `multiple` takes several files at once and then says how many were
+          chosen; without it the field is as it was, byte for byte. -#}
+      {%- if multiple %}
+      <input type="file" accept="{{ accept }}" multiple class="absolute inset-0 h-full w-full opacity-0 cursor-pointer" @change="const n = $event.target.files.length; chosen = n > 1 ? n + ' {{ _('bestanden gekozen') }}' : (n ? $event.target.files[0].name : '')" {{ _common }}>
+      {%- else %}
       <input type="file" accept="{{ accept }}" class="absolute inset-0 h-full w-full opacity-0 cursor-pointer" @change="chosen = $event.target.files.length ? $event.target.files[0].name : ''" {{ _common }}>
+      {%- endif %}
     </label>
     <span data-upload-chosen class="min-w-0 text-[13px] text-ink-soft [overflow-wrap:anywhere]" x-text="chosen" x-show="chosen" x-cloak></span>
     {% if current_url %}

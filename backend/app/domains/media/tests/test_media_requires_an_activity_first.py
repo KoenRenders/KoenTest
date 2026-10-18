@@ -106,8 +106,10 @@ def test_an_activity_without_photos_gives_the_empty_state_and_not_an_error(clien
 
 
 def test_the_filter_survives_a_mutation(client, db_session):
-    """Bestaand gedrag dat hier niet mag sneuvelen: het filter wordt als verborgen veld
-    meegestuurd, zodat het na een mutatie blijft staan."""
+    """Bestaand gedrag dat hier niet mag sneuvelen: na een mutatie staat het filter
+    er nog. #2130: the edit moved from the card to the picture's record, which
+    carries the list it came from (`terug`) — saving returns to the record with it,
+    and its way back leads to the album, not to the starting point."""
     from app.domains.auth.api import csrf_token_for
 
     _login(client, db_session)
@@ -115,22 +117,21 @@ def test_the_filter_survives_a_mutation(client, db_session):
     # #1348: sign the cookie the client carries. A second `make_session_value`
     # differed from it whenever a second boundary fell between the two calls.
     waarde = client.cookies.get(SESSION_COOKIE)
+    album = "/admin/media?kind=activity_photo&activity_id=13"
 
     resp = client.post(
         f"/admin/media/{foto.id}",
         headers={"X-CSRF-Token": csrf_token_for(waarde)},
-        data={
-            "kind": "activity_photo",
-            "title": "hernoemd",
-            "link_url": "",
-            "is_active": "1",
-            "q": "",
-            "filter_activity_id": "13",
-        },
+        data={"title": "hernoemd", "link_url": "", "is_active": "1", "terug": album},
     )
 
-    assert resp.status_code == 200, resp.text[:200]
-    assert "hernoemd" in resp.text, "de lijst toont het album niet meer na de mutatie"
-    assert "Kies eerst een activiteit" not in resp.text, (
-        "het filter is weggevallen na het opslaan, dus je staat weer op het beginpunt"
+    assert resp.status_code == 204, resp.text[:200]
+    record = resp.headers["HX-Redirect"]
+    assert record.startswith(f"/admin/media/{foto.id}?terug=")
+    page = client.get(record).text
+    assert "hernoemd" in page
+    assert 'href="/admin/media?kind=activity_photo&amp;activity_id=13"' in page, (
+        "the way back lost the album, so you would be back at the starting point"
     )
+    lijst = client.get(album).text
+    assert "hernoemd" in lijst and "Kies eerst een activiteit" not in lijst

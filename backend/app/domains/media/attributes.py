@@ -115,7 +115,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="media.media_asset.is_active",
         columns=("media.media_assets.is_active",),
-        label=None,
+        label="Actief",
         name_en="Is active",
         help="The is active of the media asset.",
         ai_exposure=AiExposure.PUBLIC,  # K4
@@ -123,7 +123,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="media.media_asset.show_in_footer",
         columns=("media.media_assets.show_in_footer",),
-        label=None,
+        label="Toon onder de publieke pagina's",
         name_en="Show in footer",
         help="The show in footer of the media asset.",
         ai_exposure=AiExposure.PUBLIC,  # K4
