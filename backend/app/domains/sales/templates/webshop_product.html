@@ -1,18 +1,30 @@
 {% extends "site_base.html" %}
 {% import "_macros.html" as ui %}
+{% import "_public_macros.html" as pub %}
 {% block title %}{{ name }} · {{ site_name }}{% endblock %}
 {% block content %}
 {{ ui.back_link(_("Webshop"), path_for('/webshop')) }}
 {% call ui.page_header(name, subtitle=description) %}{% endcall %}
 {% call ui.flow_card() %}
-<div class="grid gap-4">
+{# #2108: from 1 024 px the picture left and the buy box right, so "In mandje"
+   stands in the first screen; on a phone they stack, the picture first. #}
+<div data-product-layout class="grid gap-4 lg:grid-cols-2 lg:gap-8 lg:items-start">
   {% if photos %}
-  <div data-product-photos class="grid gap-3 sm:grid-cols-2">
-    {% for p in photos %}
-    <img src="{{ p.url }}" alt="{{ p.alt }}" class="w-full rounded-lg border border-line object-cover">
-    {% endfor %}
-  </div>
+  <div data-product-photos>{{ pub.photo_carousel(photos) }}</div>
   {% endif %}
+  <div class="grid gap-4">
+  <div data-shop-buy class="grid gap-4">
+  <p class="text-lg font-semibold text-ink">{% if from_price %}{{ _("vanaf") }} {% endif %}€ {{ price|geld }}</p>
+  {% set size_options = [] %}{% set unavailable = {} %}
+  {% for s in sizes %}{% if s.pre_order %}{% set __ = size_options.append([s.id, s.name, _("op bestelling")]) %}{% else %}{% set __ = size_options.append([s.id, s.name]) %}{% endif %}{% if not s.available %}{% set __ = unavailable.update({s.id: _("uitverkocht")}) %}{% endif %}{% endfor %}
+  {{ ui.field("variant_id", attribute="product.product_variant.properties", kind="tiles", options=size_options, unavailable=unavailable, required=True) }}
+  <p id="variant_id-message" data-tiles-message hidden class="text-sm text-red-700" role="alert">{{ _("Kies een maat.") }}</p>
+  {# #2108: the quantity and "In mandje" on one row — one action. #}
+  <div data-buy-row class="flex items-center gap-3">
+    {{ ui.quantity("quantity", "quantity", 1, product_name=name, min=1, max=99, touch=True) }}
+    {{ ui.btn_primary(_("In mandje"), type="button", attrs='data-add-to-basket', cls="flex-1") }}
+  </div>
+  </div>
   {% if documents %}
   <div data-product-documents class="flex flex-col gap-1">
     {% for d in documents %}
@@ -20,17 +32,6 @@
     {% endfor %}
   </div>
   {% endif %}
-  <div data-shop-buy class="grid gap-4">
-  <p class="text-lg font-semibold text-ink">{% if from_price %}{{ _("vanaf") }} {% endif %}€ {{ price|geld }}</p>
-  {% set size_options = [] %}{% set unavailable = {} %}
-  {% for s in sizes %}{% if s.pre_order %}{% set __ = size_options.append([s.id, s.name, _("op bestelling")]) %}{% else %}{% set __ = size_options.append([s.id, s.name]) %}{% endif %}{% if not s.available %}{% set __ = unavailable.update({s.id: _("uitverkocht")}) %}{% endif %}{% endfor %}
-  {{ ui.field("variant_id", attribute="product.product_variant.properties", kind="tiles", options=size_options, unavailable=unavailable, required=True) }}
-  <p id="variant_id-message" data-tiles-message hidden class="text-sm text-red-700" role="alert">{{ _("Kies een maat.") }}</p>
-  <div class="flex items-center justify-between gap-3">
-    <span class="text-sm font-medium text-gray-700">{{ _("Aantal") }}</span>
-    {{ ui.quantity("quantity", "quantity", 1, product_name=name, min=1, max=99, touch=True) }}
-  </div>
-  {{ ui.btn_primary(_("In mandje"), type="button", attrs='data-add-to-basket') }}
   <form data-basket-form method="post" action="/webshop/mandje" class="text-center">
     {{ ui.btn_secondary(_("Mandje"), type="submit", lead_icon="shopping-cart") }}
     <span data-basket-count class="ml-2 rounded-full bg-blue-700 text-white text-xs font-semibold px-2 py-0.5 align-middle">0</span>

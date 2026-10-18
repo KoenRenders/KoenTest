@@ -181,6 +181,55 @@
 </div>
 {%- endmacro %}
 
+{# One picture at a time (#2108; CR-21 Q68): an article's pictures, square on a
+   phone and 4 : 3 from 1 024 px (so the picture and its counter fit the first
+   screen beside the buy box), the
+   whole picture shown (`object-contain`). Previous and next are the lightbox's
+   44 px buttons with the kit's 24 px icons on a dark disc, hidden at the first
+   and the last picture — no carousel that runs on; the counter "1 / 4" stands
+   on the picture's bottom-right corner and is read out when it changes. A tap
+   on the picture opens the lightbox on that picture. One picture: no arrows and
+   no counter. `photos` is a list of `{url, alt}`; the picture's button carries
+   no label of its own, so its name is the picture's `alt`.
+
+   Visibility is a class binding (object syntax, which also removes the class
+   the server wrote), as in the lightbox: the server renders the first picture
+   and the next arrow, so the page reads right before Alpine starts. When an
+   arrow hides under the focus, the focus moves to the other one. #}
+{% macro photo_carousel(photos) -%}
+{%- set count = photos | length -%}
+{% call lightbox(photos | map(attribute="url") | list) %}
+<div data-photo-carousel class="relative"
+     x-data="{ i: 0, n: {{ count }},
+       go(d, el) { const n = this.i + d; if (n < 0 || n >= this.n) return; this.i = n;
+               const box = el.closest('[data-photo-carousel]');
+               this.$nextTick(() => { const a = document.activeElement;
+                 if (box.contains(a) && a.offsetParent === null) {
+                   const other = box.querySelector(d > 0 ? '[data-carousel-previous]' : '[data-carousel-next]');
+                   if (other && other.offsetParent !== null) other.focus() } }) } }">
+  {% for p in photos %}
+  <button type="button" data-carousel-photo @click="show({{ loop.index0 }}, $el)"
+          :class="{ 'hidden': i !== {{ loop.index0 }} }"
+          class="{% if not loop.first %}hidden {% endif %}block w-full aspect-square lg:aspect-[4/3] bg-surface-2 rounded-lg border border-line overflow-hidden">
+    <img src="{{ p.url }}" alt="{{ p.alt }}" class="w-full h-full object-contain"{% if not loop.first %} loading="lazy"{% endif %}>
+  </button>
+  {% endfor %}
+  {% if count > 1 %}
+  <button type="button" data-carousel-previous @click="go(-1, $el)" :class="{ 'hidden': i === 0 }" aria-label="{{ _('Vorige foto') }}"
+          class="hidden group absolute left-1 top-1/2 -translate-y-1/2 grid place-items-center w-11 h-11 rounded-full focus:outline-none">
+    <span class="grid place-items-center w-8 h-8 rounded-full bg-black/60 text-white group-hover:bg-black/75 group-focus-visible:ring-2 group-focus-visible:ring-white">{{ ui.icon("chevron-left", 24) }}</span>
+  </button>
+  <button type="button" data-carousel-next @click="go(1, $el)" :class="{ 'hidden': i === n - 1 }" aria-label="{{ _('Volgende foto') }}"
+          class="group absolute right-1 top-1/2 -translate-y-1/2 grid place-items-center w-11 h-11 rounded-full focus:outline-none">
+    <span class="grid place-items-center w-8 h-8 rounded-full bg-black/60 text-white group-hover:bg-black/75 group-focus-visible:ring-2 group-focus-visible:ring-white">{{ ui.icon("chevron-right", 24) }}</span>
+  </button>
+  <span data-carousel-counter aria-live="polite" x-text="(i + 1) + ' / ' + n"
+        class="absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-0.5 text-xs font-semibold text-white">1 / {{ count }}</span>
+  {% endif %}
+</div>
+{% endcall %}
+{%- endmacro %}
+
 {# ── The account pages (CR-22 S3 — #1706; R14, Q16, Q35) ───────────────────────
 
    `account_page(title, nav, active)`: the layout every page under "Mijn <site>"
