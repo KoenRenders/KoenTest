@@ -2026,7 +2026,7 @@ OBJECTS: tuple[UniverseObject, ...] = (
     UniverseObject(
         key="payment_payable_type",
         attribute="payment.payment_record.payable_type",
-        note="Hiermee splits je de geldvragen in hun twee stromen.",
+        note="Hiermee splits je de geldvragen in hun stromen.",
         klass="Betalingen",
         kind=ObjectKind.DIMENSION,
         view="f_payments",

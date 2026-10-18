@@ -17,12 +17,13 @@
    status, search, filters, page, page size — lives in the URL: the toolbar and
    the pager mark their requests, and the route reads the state back on load.
 
-   On a phone the title and the primary button stand side by side and the
-   figures take the line under them; from `md` it is one row. #}
+   On a phone the title takes the whole row and the primary button stands under it, so a
+   title is never cut beside a button (#2126; the verb's glyph made the button 22 px
+   wider, #2106); from `md` it is one row. #}
 {% block content_width %}max-w-none{% endblock %}
 {% block content %}
 <div data-list-head data-list-page class="mb-5 flex flex-wrap items-center gap-x-5 gap-y-3">
-  <h1 tabindex="-1" class="order-1 min-w-0 text-3xl font-bold text-kop">{% block list_title %}{% endblock %}</h1>
+  <h1 tabindex="-1" class="order-1 min-w-0 basis-full text-3xl font-bold text-kop md:basis-auto">{% block list_title %}{% endblock %}</h1>
   <div id="list-figures" class="order-3 basis-full min-w-0 md:order-2 md:basis-auto empty:hidden">{% block list_figures %}{% endblock %}</div>
   <div data-list-primary class="order-2 ml-auto md:order-3 empty:hidden">{% block list_primary %}{% endblock %}</div>
 </div>
