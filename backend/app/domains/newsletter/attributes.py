@@ -203,7 +203,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="newsletter.subscriber.email",
         columns=("newsletter.subscribers.email",),
-        label=None,
+        label="E-mail",
         name_en="Email",
         help="The email of the subscriber.",
         ai_exposure=AiExposure.NONE,  # K1
@@ -211,7 +211,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="newsletter.subscriber.first_name",
         columns=("newsletter.subscribers.first_name",),
-        label=None,
+        label="Voornaam",
         name_en="First name",
         help="The first name of the subscriber.",
         ai_exposure=AiExposure.NONE,  # K1

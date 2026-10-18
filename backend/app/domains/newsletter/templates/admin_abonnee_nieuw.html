@@ -1,0 +1,27 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Adres toevoegen — Raak beheer") }}{% endblock %}
+{% block content %}
+{# "+ Adres" of the subscribers list (#2109): the form that stood under the table is a
+   page of its own, in the kit's form page of the admin shell — no modal (#627, §2.8).
+   Success goes back to the list with the address named; a refusal answers its reason
+   in the page's message line and keeps what was typed. #}
+{% call ui.public_form_page(_("Adres toevoegen"), shell="admin",
+        intro=_("Voor iemand die het je persoonlijk vroeg. Wie zich uitschreef, kan zich alleen zelf opnieuw inschrijven."),
+        back_href="/admin/nieuwsbrieven/abonnees", back_label=_("Abonnees")) %}
+<div data-form-flow data-mode="edit" class="form-flow">
+  <div id="abonnee-melding" data-form-message></div>
+  <form id="abonnee-form" class="contents" data-record-form data-message="#abonnee-melding" novalidate
+        hx-post="/admin/nieuwsbrieven/abonnees" hx-swap="none">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% call ui.section(_("Adres"), id="abonnee") %}
+      {{ ui.field("subscriber_email", attribute="newsletter.subscriber.email", kind="email", required=True, id="nb-nieuw-adres",
+                  placeholder=_("naam@voorbeeld.be"), attrs="autofocus") }}
+      {{ ui.field("first_name", attribute="newsletter.subscriber.first_name", id="nb-nieuw-voornaam") }}
+    {% endcall %}
+  </form>
+  {{ ui.action_bar(record=True, send=True, form="abonnee-form", cancel_href="/admin/nieuwsbrieven/abonnees",
+                   save_label=_("Toevoegen"), busy_label=_("Bezig…")) }}
+</div>
+{% endcall %}
+{% endblock %}
