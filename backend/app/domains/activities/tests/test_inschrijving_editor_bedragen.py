@@ -47,7 +47,7 @@ def test_attributen_zijn_niet_geescaped(client, db_session):
     html = client.get(f"/admin/inschrijvingen/{reg_id}").text
 
     assert "hx-target=&#34;" not in html and "hx-swap=&#34;" not in html
-    assert 'hx-target="closest .bg-gray-50"' in html
+    assert 'hx-target="closest [data-registration-detail]"' in html
     assert 'hx-swap="outerHTML"' in html
 
 

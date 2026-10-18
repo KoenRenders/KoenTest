@@ -437,7 +437,7 @@ class Betalingenscherm:
             # her-resolven bij elke actie, en zodra Bewerken geklikt is verbergt
             # x-show hem — een has=Bewerken-paneel lost dan op naar niets.
             paneel = self.page.locator(
-                "div.bg-gray-50.border", has=self.page.locator('form[id^="insch-form-"]')
+                "div[data-registration-detail]", has=self.page.locator('form[id^="insch-form-"]')
             ).first
             if paneel.count() and paneel.get_by_role("button", name="Bewerken").count():
                 return paneel

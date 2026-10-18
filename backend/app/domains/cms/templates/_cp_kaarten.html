@@ -13,7 +13,7 @@
   {# #1391 (CR-11 W11): the whole card opens the page — a stretched link, as on
      the forms list (#689): the <a> covers the card as an absolute layer, and
      only what is positioned itself (the arrows, z-10) lies above it. #}
-  <div class="relative bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
+  <div class="relative bg-surface border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
     <a href="/admin/paginas/{{ p.id }}" class="absolute inset-0 rounded-xl" aria-label="{{ p.title }}"></a>
     <div class="flex items-start justify-between gap-3">
       <div class="flex-1 min-w-0">
