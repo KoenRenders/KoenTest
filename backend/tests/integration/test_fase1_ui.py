@@ -1,5 +1,7 @@
 """Fase 1 (#399): server-rendered schermen — aanmelden (htmx) en e-maillog."""
 
+import re
+
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mail.models import EmailLog
 from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields, sent_to_sign_in
@@ -16,7 +18,9 @@ def _login(client):
 
 def test_aanmelden_page_renders(client):
     resp = client.get("/aanmelden")
-    assert resp.status_code == 200 and ">E-mail</label>" in resp.text
+    assert resp.status_code == 200 and re.search(
+        r">E-mail\s*<span[^>]*>\*</span></label>", resp.text
+    )
 
 
 def test_aanmelden_flow_sets_session_cookie(client, monkeypatch):

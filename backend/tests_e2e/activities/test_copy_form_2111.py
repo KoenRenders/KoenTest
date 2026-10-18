@@ -18,13 +18,14 @@ import os
 import re
 import secrets
 import sys
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
 from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from app.kernel.clock import belgian_today  # noqa: E402
 from tests_e2e.schermen import BASE, login_met_sessie, pagina_klaar  # noqa: E402
 
 
@@ -40,7 +41,9 @@ def _activity() -> int:
         )
         db.add(activity)
         db.flush()
-        db.add(ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=30)))
+        db.add(
+            ActivityDate(activity_id=activity.id, start_date=belgian_today() + timedelta(days=30))
+        )
         db.commit()
         return activity.id
     finally:
