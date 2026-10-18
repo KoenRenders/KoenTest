@@ -140,3 +140,62 @@ def test_a_section_saved_from_the_editor_reaches_the_visitor_as_a_band(client, d
     assert published.status_code in (200, 204)
     site = client.get("/sectie-cr32").text
     assert '<div class="prose-section prose-section--tint"><p>In de band</p></div>' in site
+
+
+def _order(screen: str) -> list[str]:
+    """The headings of the form's sections and the closed one, in page order."""
+    found = re.findall(
+        r"<h2[^>]*>(Gegevens|Inhoud)</h2>|(<details data-rare-settings[^>]*>)", screen
+    )
+    return [a or "rare" for a, b in found]
+
+
+def test_the_opening_closes_at_the_bottom_after_the_text_2096(client, db_session):
+    """#2096: Gegevens, Inhoud, then the opening as the kit's closed rare section.
+
+    Red before: the opening was a `section` between Gegevens and Inhoud.
+    """
+    _login(client)
+    page = _page(db_session, "opening-onderaan-2096")
+    screen = client.get(f"/admin/paginas/{page.id}").text
+    assert _order(screen) == ["Gegevens", "Inhoud", "rare"]
+    tag = re.search(r"<details data-rare-settings[^>]*>", screen).group(0)
+    assert " open" not in tag, "the opening starts closed"
+    assert screen.index("Opening van de pagina") > screen.index('id="cp-document"')
+    assert 'id="cp-form"' in screen and screen.index('id="cp-form"') < screen.index(tag)
+    assert screen.index(tag) < screen.index("</form>")
+
+
+def _summary(screen: str) -> str:
+    return " ".join(
+        re.search(r"data-rare-summary[^>]*>(.*?)</span>", screen, re.S).group(1).split()
+    )
+
+
+def test_the_summary_names_the_title_line_or_the_hero_and_its_tint_2096(client, db_session):
+    session = _login(client)
+    plain = _page(db_session, "opening-samenvatting-a-2096")
+    assert _summary(client.get(f"/admin/paginas/{plain.id}").text) == "Titelregel"
+    hero = _page(db_session, "opening-samenvatting-b-2096")
+    _post(client, session, hero, **HERO_FIELDS)
+    assert _summary(client.get(f"/admin/paginas/{hero.id}").text) == "Hero · Accent"
+
+
+def test_a_refused_opening_comes_back_with_its_fields_in_the_form_2096(client, db_session):
+    session = _login(client)
+    page = _page(db_session, "opening-weigering-2096")
+    response = _post(client, session, page, **{**HERO_FIELDS, "hero_b1_destination": ""})
+    assert response.status_code == 200
+    tag = re.search(r"<details data-rare-settings[^>]*>", response.text).group(0)
+    assert " open" in tag, "the refusal names the hero's fields: the section must be open"
+    assert 'name="hero_b1_label"' in response.text
+
+
+def test_an_address_refusal_leaves_the_opening_closed_2096(client, db_session):
+    session = _login(client)
+    _page(db_session, "opening-adres-bezet-2096")
+    page = _page(db_session, "opening-adres-2096")
+    response = _post(client, session, page, slug="opening-adres-bezet-2096")
+    assert response.status_code == 200
+    tag = re.search(r"<details data-rare-settings[^>]*>", response.text).group(0)
+    assert " open" not in tag
