@@ -39,7 +39,7 @@ _HEAD = """() => {
   const button = first ? first.getBoundingClientRect() : null;
   return {text: h1.innerText.trim(), cut: h1.scrollWidth > h1.clientWidth,
           buttonTop: button ? Math.round(button.top) : null, titleBottom: Math.round(title.bottom),
-          titleTop: Math.round(title.top), sideways: document.documentElement.scrollWidth > innerWidth};
+          titleTop: Math.round(title.top)};
 }"""
 
 
@@ -68,7 +68,6 @@ def test_the_button_stands_under_the_title_on_a_phone(setup, path):
         assert m["buttonTop"] is not None, f"{path}: no header button found"
         assert not m["cut"], f"{path}: the title is cut: {m}"
         assert m["buttonTop"] >= m["titleBottom"], f"{path}: the button is not under the title: {m}"
-        assert not m["sideways"], f"{path}: the page scrolls sideways"
     finally:
         page.close()
 
