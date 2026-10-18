@@ -137,6 +137,8 @@ def test_the_author_builds_a_section_and_a_hero_through_the_screens(setup):
             in page.locator(f"{EDITOR} .tiptap .prose-section").inner_text()
         ), "the section does not hold the paragraph she was made around"
 
+        # #2096: the opening is the closed last section; the author opens it.
+        page.locator("details[data-rare-settings] > summary").click()
         page.select_option("select[name=opening]", "hero")
         page.select_option("select[name=hero_tone]", "tint")
         page.fill("input[name=hero_eyebrow]", "Over ons")
