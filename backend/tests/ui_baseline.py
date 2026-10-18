@@ -76,13 +76,12 @@ SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
     "domains/reporting/templates/_rp_paneel.html": 2,
 }
 
-#: B7 test 8 — bg-white, bg-gray-50, bg-gray-100 written by the template. 53 in 24 files.
+#: B7 test 8 — bg-white, bg-gray-50, bg-gray-100 written by the template. 51 in 23 files.
 RAW_SURFACES: dict[str, int] = {
     "domains/activities/templates/_inschrijving_detail.html": 4,
     "domains/activities/templates/admin_activiteit_kopieren.html": 1,
     "domains/auth/templates/_gu_lijst.html": 1,
     "domains/auth/templates/login_verlopen.html": 1,
-    "domains/chatbot/templates/_ai_context_lijst.html": 2,
     "domains/chatbot/templates/_raakje_ballon.html": 1,
     "domains/chatbot/templates/_raakje_controls.html": 1,
     "domains/cms/templates/_cp_kaarten.html": 1,
@@ -138,13 +137,12 @@ WIDENED_ROWS: dict[str, int] = {
 #: B7 test 23 — a `checkbox_group` in a toolbar or filter bar. 0 in 0 files.
 CHECKBOX_GROUPS_IN_TOOLBARS: dict[str, int] = {}
 
-#: B7 test 1 — an admin page on the shell itself, no layout and no record head. 38 in 38 files.
+#: B7 test 1 — an admin page on the shell itself, no layout and no record head. 37 in 37 files.
 SHELL_EXTENDED_DIRECTLY: dict[str, int] = {
     "domains/activities/templates/admin_activiteit_kopieren.html": 1,
     "domains/activities/templates/admin_inschrijving.html": 1,
     "domains/auth/templates/admin_gebruikers.html": 1,
     "domains/auth/templates/admin_gebruikers_overzicht.html": 1,
-    "domains/chatbot/templates/ai_context.html": 1,
     "domains/cms/templates/admin_paginas.html": 1,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/designstudio/templates/admin_ontwerp_nieuw.html": 1,

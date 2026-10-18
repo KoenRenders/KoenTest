@@ -9,8 +9,11 @@
 
 from __future__ import annotations
 
+from typing import Any
+from urllib.parse import quote
+
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -23,7 +26,7 @@ from app.domains.auth.api import (
     require_right,
 )
 from app.domains.chatbot.render import render_answer_markdown
-from app.i18n import _
+from app.i18n import _, short_date
 from app.kernel.tenant_config import tenant_public_chat_enabled
 from app.limiter import chat_limiter
 from app.ui import admin_nav, templates
@@ -121,45 +124,285 @@ def raakje_vraag(request: Request, db: Session = Depends(get_db), vraag: str = F
 
 
 # ── Admin: ai-context ──────────────────────────────────────────────────────────
+#
+# #2124 (CR-11 phase 5, track 2, round 3): the list on the kit's list page, one
+# segment at a time, and a record per item in place of the row's disclosure —
+# the same actions, nothing new. A record is addressed by its source (the
+# document's asset, the page, the note's row), so a document or a page without a
+# row of its own opens too and looking at it makes none.
+
+PAGE = "/admin/ai-context"
+LIST = PAGE + "/lijst"
+
+#: The three kinds, as segments of the list (the concept's tabs).
+SEGMENTS = [
+    {"value": "documenten", "label": _("Documenten")},
+    {"value": "paginas", "label": _("Pagina's")},
+    {"value": "notities", "label": _("Notities")},
+]
+#: Segment → the kind `context_item` reads, and the record's path part.
+KINDS = {"documenten": "document", "paginas": "page", "notities": "note"}
 
 
-def _context_ctx(request: Request, db: Session, email: str) -> dict:
+def _redirect(request: Request, url: str) -> Response:
+    """The shell carries hx-boost: `HX-Redirect` lets the browser really navigate."""
+    if request.headers.get("HX-Request"):
+        return Response(status_code=204, headers={"HX-Redirect": url})
+    return RedirectResponse(url, status_code=303)
+
+
+def _segment(value: str) -> str:
+    return value if value in KINDS else "documenten"
+
+
+def _status(info: dict | None) -> dict[str, str]:
+    """The item's status as a badge: on, off, or on by default without a row."""
+    if info is None:
+        return {"label": _("Standaard"), "tone": "blue"}
+    if info["is_active"]:
+        return {"label": _("Actief"), "tone": "green"}
+    return {"label": _("Uit"), "tone": "gray"}
+
+
+def _items(db: Session, segment: str) -> list[dict]:
+    """The segment's items as (label, record href, info, read at)."""
     from app.domains.chatbot.api import list_chatbot_info
 
     data = list_chatbot_info(db)
-    return {
-        "csrf_token": csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),
-        **data,
-    }
+    if segment == "paginas":
+        return [
+            {"label": c["title"], "href": f"{PAGE}/{segment}/{c['page_id']}", "info": c["info"]}
+            for c in data["cms"]
+        ]
+    if segment == "notities":
+        return [
+            {
+                "label": n["title"] or _("Notitie #%(id)s") % {"id": n["id"]},
+                "href": f"{PAGE}/{segment}/{n['id']}",
+                "info": n,
+            }
+            for n in data["notes"]
+        ]
+    return [
+        {
+            "label": d["label"],
+            "href": f"{PAGE}/{segment}/{d['asset_id']}",
+            "info": d["info"],
+            "read_at": (d["info"] or {}).get("extracted_at"),
+        }
+        for d in data["documents"]
+    ]
+
+
+def _list_view(
+    request: Request, db: Session, segment: str, q: str, *, oob: bool = False, nav_items=None
+):
+    from app.domains.chatbot.viewmodels import AiContextListView
+    from app.ui import list_return
+
+    items = _items(db, segment)
+    if q.strip():
+        needle = q.strip().casefold()
+        items = [i for i in items if needle in (i["label"] or "").casefold()]
+    way = list_return(PAGE, segment=segment, q=q.strip())
+    head, empty = _words(segment)
+    columns: list[dict[str, Any]] = [
+        {"key": "naam", "label": head, "cell": "name"},
+        {"key": "status", "label": _("Status"), "cell": "status"},
+    ]
+    if segment == "documenten":
+        columns.append(
+            {"key": "gelezen", "label": _("Gelezen op"), "cell": "moment", "priority": 1}
+        )
+    rows = [
+        {
+            "label": i["label"],
+            "href": f"{i['href']}?terug={quote(way, safe='/')}",
+            "badge": _status(i["info"]),
+            "read_at": short_date(i["read_at"]) if i.get("read_at") else "",
+        }
+        for i in items
+    ]
+    return AiContextListView(
+        columns=columns,
+        rows=rows,
+        segment=segment,
+        segments=SEGMENTS,
+        q=q,
+        total=len(rows),
+        empty_reason=_("Niets gevonden voor deze zoekopdracht.") if q.strip() else empty,
+        oob=oob,
+        nav_items=nav_items or [],
+    )
+
+
+def _words(segment: str) -> tuple[str, str]:
+    """The first column's head and the empty list's sentence of a segment."""
+    if segment == "paginas":
+        return _("Pagina"), _("Geen pagina's.")
+    if segment == "notities":
+        return _("Notitie"), _("Nog geen notities.")
+    return _("Document"), _("Geen documenten.")
 
 
 @router.get("/admin/ai-context", response_class=HTMLResponse)
 def ai_context_page(
     request: Request,
+    segment: str = "documenten",
+    q: str = "",
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.SETTINGS_VIEW)),
 ):
-    return templates.TemplateResponse(
-        request,
-        "ai_context.html",
-        {"nav_items": admin_nav("/admin/ai-context", request), **_context_ctx(request, db, email)},
-    )
+    view = _list_view(request, db, _segment(segment), q, nav_items=admin_nav(PAGE, request))
+    return templates.TemplateResponse(request, "ai_context.html", view.as_context())
 
 
 @router.get("/admin/ai-context/lijst", response_class=HTMLResponse)
 def ai_context_lijst(
     request: Request,
+    segment: str = "documenten",
+    q: str = "",
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.SETTINGS_VIEW)),
 ):
-    return templates.TemplateResponse(
-        request, "_ai_context_lijst.html", _context_ctx(request, db, email)
+    """The list alone: the toolbar swaps this fragment, so the search field is not
+    replaced under the fingers."""
+    view = _list_view(request, db, _segment(segment), q, oob=True)
+    return templates.TemplateResponse(request, "_ai_context_lijst.html", view.as_context())
+
+
+def _record_view(
+    request: Request, db: Session, segment: str, item_id: int, terug: str, editing: bool
+):
+    """One document, page or note: what the row showed — its status, the read text
+    of a document, the texts for Raakje or the note — and what the row did:
+    Bewerken, Aan/uit, Opnieuw lezen and Verwijderen, each where the row had it.
+    A document without a row has only Opnieuw lezen, as before; a page without a
+    row has Bewerken and Aan/uit, which make its row at their first use (#1791)."""
+    from app.domains.chatbot.api import context_item
+    from app.domains.chatbot.viewmodels import AiContextRecordView
+    from app.ui import delete_question, way_back
+
+    kind = KINDS[segment]
+    item = context_item(db, kind, item_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
+    info = item if kind == "note" else item["info"]
+    record_url = f"{PAGE}/{segment}/{item_id}"
+    back = way_back(db, terug, f"{PAGE}?segment={segment}")
+    keep = f"?terug={quote(terug, safe='/')}" if terug else ""
+
+    if kind == "document":
+        title = item["label"]
+        facts = [{"text": _("Document")}]
+        if info and info.get("extracted_at"):
+            facts.append(
+                {"text": _("gelezen op %(datum)s") % {"datum": short_date(info["extracted_at"])}}
+            )
+        row_base = f"{PAGE}/{info['id']}" if info else ""
+        form_url = f"{row_base}/bewerken" if info else ""
+    elif kind == "page":
+        title = item["title"]
+        facts = [{"text": _("Pagina")}]
+        row_base = f"{PAGE}/paginas/{item_id}"
+        form_url = f"{row_base}/bewerken"
+    else:
+        title = item["title"] or _("Notitie #%(id)s") % {"id": item_id}
+        facts = [{"text": _("Notitie")}]
+        row_base = f"{PAGE}/{item_id}"
+        form_url = f"{row_base}/bewerken"
+
+    actions: list[dict] = []
+    if row_base:
+        on = info is None or info["is_active"]
+        actions.append(
+            {
+                "kind": "record",
+                "verb": "state",
+                "label": _("Zet uit") if on else _("Zet aan"),
+                "attrs": f'hx-post="{row_base}/toggle"',
+            }
+        )
+    if kind == "document":
+        actions.append(
+            {
+                "kind": "tool",
+                "label": _("Opnieuw lezen"),
+                "attrs": f'hx-post="{PAGE}/documenten/{item_id}/opnieuw-lezen"',
+                "confirm": _("De tekst van dit document opnieuw inlezen?"),
+            }
+        )
+    if info:
+        actions.append(
+            {
+                "kind": "delete",
+                "label": _("Verwijderen"),
+                "attrs": f'hx-post="{PAGE}/{info["id"]}/verwijderen"'
+                + f' hx-vals=\'{{"segment": "{segment}"}}\'',
+                "confirm": delete_question(_("Contextrij"), title),
+            }
+        )
+    editable = bool(form_url)
+    return AiContextRecordView(
+        kind=kind,
+        title=title,
+        badges=[_status(info)],
+        facts=facts,
+        primary={
+            "label": _("Bewerken"),
+            "href": f"{record_url}?bewerken=1"
+            + (f"&terug={quote(terug, safe='/')}" if terug else ""),
+        }
+        if editable and not editing
+        else None,
+        actions=actions if not editing else [],
+        way_back=back,
+        editing=editing and editable,
+        item=item,
+        info=info,
+        form_url=form_url,
+        record_url=record_url + keep,
+        csrf_token=csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),
+        nav_items=admin_nav(PAGE, request),
     )
 
 
-@router.post(
-    "/admin/ai-context/notities", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
-)
+@router.get("/admin/ai-context/notities/nieuw", response_class=HTMLResponse)
+def note_new(
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.SETTINGS_VIEW)),
+):
+    """A new note: the form the list carried under its notes (#2124). Shown to who
+    may see the list, as the form was; saving asks `settings.manage`."""
+    from app.domains.chatbot.viewmodels import AiContextNoteNewView
+    from app.ui import way_back
+
+    view = AiContextNoteNewView(
+        way_back=way_back(db, "", f"{PAGE}?segment=notities"),
+        csrf_token=csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),
+        nav_items=admin_nav(PAGE, request),
+    )
+    return templates.TemplateResponse(request, "ai_context_notitie_nieuw.html", view.as_context())
+
+
+@router.get("/admin/ai-context/{segment}/{item_id}", response_class=HTMLResponse)
+def ai_context_record(
+    request: Request,
+    segment: str,
+    item_id: int,
+    terug: str = "",
+    bewerken: str = "",
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.SETTINGS_VIEW)),
+):
+    if segment not in KINDS:
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
+    view = _record_view(request, db, segment, item_id, terug, editing=bool(bewerken))
+    return templates.TemplateResponse(request, "ai_context_item.html", view.as_context())
+
+
+@router.post("/admin/ai-context/notities", dependencies=[Depends(require_csrf)])
 def notitie_toevoegen(
     request: Request,
     db: Session = Depends(get_db),
@@ -168,21 +411,29 @@ def notitie_toevoegen(
     text_addition: str = Form(""),
 ):
     from app.domains.chatbot.api import InfoRefused, add_note
+    from app.kernel.refusals import FieldError
+    from app.ui import refusal_response
 
     try:
-        add_note(db, title=title, text=text_addition)
+        note = add_note(db, title=title, text=text_addition)
     except InfoRefused as refusal:
-        raise HTTPException(status_code=400, detail=str(refusal)) from refusal
-    return templates.TemplateResponse(
-        request, "_ai_context_lijst.html", _context_ctx(request, db, email)
-    )
+        return refusal_response(request, [FieldError("", str(refusal))], "#ai-context-melding")
+    return _redirect(request, f"{PAGE}/notities/{note['id']}")
 
 
-@router.post(
-    "/admin/ai-context/{row_id}/bewerken",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
+def _record_of_row(db: Session, row_id: int) -> str:
+    """The record a row belongs to: its document, its page, or the note itself."""
+    from app.domains.chatbot.api import get_row
+
+    row = get_row(db, row_id)
+    if row.media_asset_id is not None:
+        return f"{PAGE}/documenten/{row.media_asset_id}"
+    if row.cms_page_id is not None:
+        return f"{PAGE}/paginas/{row.cms_page_id}"
+    return f"{PAGE}/notities/{row.id}"
+
+
+@router.post("/admin/ai-context/{row_id}/bewerken", dependencies=[Depends(require_csrf)])
 def rij_bewerken(
     row_id: int,
     request: Request,
@@ -210,16 +461,10 @@ def rij_bewerken(
             sort_order=ci.sort_order,
         ),
     )
-    return templates.TemplateResponse(
-        request, "_ai_context_lijst.html", _context_ctx(request, db, email)
-    )
+    return _redirect(request, _record_of_row(db, row_id))
 
 
-@router.post(
-    "/admin/ai-context/paginas/{page_id}/toggle",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
+@router.post("/admin/ai-context/paginas/{page_id}/toggle", dependencies=[Depends(require_csrf)])
 def page_toggle(
     page_id: int,
     request: Request,
@@ -234,16 +479,10 @@ def page_toggle(
         toggle_page(db, page_id)
     except LookupError:
         raise HTTPException(status_code=404, detail=_("Pagina niet gevonden"))
-    return templates.TemplateResponse(
-        request, "_ai_context_lijst.html", _context_ctx(request, db, email)
-    )
+    return _redirect(request, f"{PAGE}/paginas/{page_id}")
 
 
-@router.post(
-    "/admin/ai-context/paginas/{page_id}/bewerken",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
+@router.post("/admin/ai-context/paginas/{page_id}/bewerken", dependencies=[Depends(require_csrf)])
 def page_edit(
     page_id: int,
     request: Request,
@@ -258,15 +497,11 @@ def page_edit(
         edit_page(db, page_id, text_override=text_override, text_addition=text_addition)
     except LookupError:
         raise HTTPException(status_code=404, detail=_("Pagina niet gevonden"))
-    return templates.TemplateResponse(
-        request, "_ai_context_lijst.html", _context_ctx(request, db, email)
-    )
+    return _redirect(request, f"{PAGE}/paginas/{page_id}")
 
 
 @router.post(
-    "/admin/ai-context/documenten/{asset_id}/opnieuw-lezen",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
+    "/admin/ai-context/documenten/{asset_id}/opnieuw-lezen", dependencies=[Depends(require_csrf)]
 )
 def document_opnieuw_lezen(
     asset_id: int,
@@ -282,38 +517,29 @@ def document_opnieuw_lezen(
         read_document_again(db, asset_id)
     except LookupError:
         raise HTTPException(status_code=404, detail=_("Document niet gevonden"))
-    return templates.TemplateResponse(
-        request, "_ai_context_lijst.html", _context_ctx(request, db, email)
-    )
+    return _redirect(request, f"{PAGE}/documenten/{asset_id}")
 
 
-@router.post(
-    "/admin/ai-context/{row_id}/verwijderen",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
+@router.post("/admin/ai-context/{row_id}/verwijderen", dependencies=[Depends(require_csrf)])
 def rij_verwijderen(
     row_id: int,
     request: Request,
+    segment: str = Form(""),
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.SETTINGS_MANAGE)),
 ):
+    """Delete a row — for a document or a page that is back to its default, for a
+    note the note — and back to the list of its kind."""
     from app.domains.chatbot.api import delete_row
 
     try:
         delete_row(db, row_id)
     except LookupError:
         raise HTTPException(status_code=404, detail=_("Rij niet gevonden"))
-    return templates.TemplateResponse(
-        request, "_ai_context_lijst.html", _context_ctx(request, db, email)
-    )
+    return _redirect(request, f"{PAGE}?segment={_segment(segment)}")
 
 
-@router.post(
-    "/admin/ai-context/{row_id}/toggle",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
+@router.post("/admin/ai-context/{row_id}/toggle", dependencies=[Depends(require_csrf)])
 def rij_toggle(
     row_id: int,
     request: Request,
@@ -326,6 +552,4 @@ def rij_toggle(
         toggle_row(db, row_id)
     except LookupError:
         raise HTTPException(status_code=404, detail=_("Rij niet gevonden"))
-    return templates.TemplateResponse(
-        request, "_ai_context_lijst.html", _context_ctx(request, db, email)
-    )
+    return _redirect(request, _record_of_row(db, row_id))

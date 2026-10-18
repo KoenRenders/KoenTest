@@ -436,10 +436,12 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `POST /admin/gebruikers/{user_id}`
 - `POST /admin/gebruikers/{user_id}/verwijderen`
 
-### `settings.view` — 13 routes
+### `settings.view` — 15 routes
 
 - `GET /admin/ai-context`
 - `GET /admin/ai-context/lijst`
+- `GET /admin/ai-context/notities/nieuw`
+- `GET /admin/ai-context/{segment}/{item_id}`
 - `GET /admin/design-system`
 - `GET /admin/e-maillog`
 - `GET /admin/e-maillog/lijst`

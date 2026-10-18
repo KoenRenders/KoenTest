@@ -167,5 +167,6 @@ def test_the_screen_shows_the_services_refusal_in_the_same_words(client, db_sess
         data={"title": "Toon", "text_addition": ""},
         headers={"X-CSRF-Token": csrf_token_for(value)},
     )
-    assert answer.status_code == 400
-    assert answer.json()["detail"] == "Titel en tekst zijn verplicht."
+    # #2124: the refusal stands on the new note's page, in the service's words.
+    assert answer.status_code == 422
+    assert "Titel en tekst zijn verplicht." in answer.text

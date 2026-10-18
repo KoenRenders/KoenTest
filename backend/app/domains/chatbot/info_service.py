@@ -148,6 +148,25 @@ def list_chatbot_info(db: Session, _admin=None):
     return {"documents": documents, "cms": cms, "notes": notes}
 
 
+def context_item(db: Session, kind: str, item_id: int) -> Optional[dict]:
+    """One item of what Raakje knows, as the list shows it (#2124): a document by
+    its asset, a page by its page, a note by its row — `kind` is "document",
+    "page" or "note". None when it is not there.
+
+    Taken from `list_chatbot_info`, so the record and the list read one source. A
+    document or a page without a row of its own is returned without one: looking
+    at it makes none (the row is made where it is made today — by the reading
+    job, or at a page's first switch or text)."""
+    data = list_chatbot_info(db)
+    if kind == "document":
+        return next((d for d in data["documents"] if d["asset_id"] == item_id), None)
+    if kind == "page":
+        return next((c for c in data["cms"] if c["page_id"] == item_id), None)
+    if kind == "note":
+        return next((n for n in data["notes"] if n["id"] == item_id), None)
+    return None
+
+
 def _apply_edit(ci: ChatbotInfo, data: ChatbotInfoEdit) -> None:
     if data.title is not None:
         ci.title = data.title

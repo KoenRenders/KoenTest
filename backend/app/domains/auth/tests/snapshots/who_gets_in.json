@@ -122,6 +122,14 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
+  "GET /admin/ai-context/notities/nieuw": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/ai-context/{segment}/{item_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
   "GET /admin/betalingen": {
    "platform": "ADMIN FINANCE OPERATOR",
    "tenant": "ADMIN FINANCE OPERATOR"
