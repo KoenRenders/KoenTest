@@ -86,6 +86,7 @@
   {% call ui.section(_("Activiteit"), id="aa-section-activity") %}
     {% if _edit %}
     {#- P2: on a new record attention goes to the first field. -#}
+    {# promise walked by: test_an_empty_name_is_refused_at_the_field_and_nothing_exists #}
     {{ ui.field("name", _("Naam"), value=a.name, edit=True, required=True, attrs=("autofocus" if _new else "")) }}
     {# #884: the friendly URL does NOT follow the name — one is proposed at
        creation, after that it stays. The help says why. #}

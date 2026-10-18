@@ -39,6 +39,7 @@
     {{ ui.field("valid_from", attribute="pricing.price.valid_from", kind="date", required=True) }}
     {{ ui.field("variant_id", _("Maten"), kind="select", value="", options=options) }}
     {{ ui.field("amount", attribute="pricing.price.amount", kind="number", unit="€", required=True, attrs='step="0.01" min="0"') }}
+    {# promise walked by: test_a_price_is_refused_with_a_negative_member_price #}
     {{ ui.field("member_amount", attribute="pricing.price.member_amount", kind="number", unit="€", attrs='step="0.01" min="0"', help=_("Leeg: leden betalen de gewone prijs.")) }}
   </form>
   {% endcall %}

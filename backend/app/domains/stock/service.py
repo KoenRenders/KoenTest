@@ -435,17 +435,32 @@ def book_receipt(
     return movement
 
 
+#: The two ways a correction goes (#2118).
+CORRECTION_DIRECTIONS = ("up", "down")
+
+
 def apply_correction(
     db: Session,
     variant_id: int,
     quantity: int,
     *,
+    direction: str,
     note: str,
     actor: str | None = None,
     location_id: int | None = None,
 ) -> StockMovement:
-    """The screen's door for a correction (R36): one request, one transaction."""
+    """The screen's door for a correction (R36): one request, one transaction.
+
+    `quantity` is the number as the screen asks it, and `direction` says which way:
+    "up" adds, "down" takes away. Any other word — none, or one nobody offered — is
+    refused at its field (#2118): the screen's "Richting" is required, and a missing
+    one used to book the correction upwards without a word."""
+    if direction not in CORRECTION_DIRECTIONS:
+        from app.i18n import _
+
+        raise StockError(_("Kies een richting."), field="direction")
     _require_existing_variant(db, variant_id)
-    movement = correct(db, variant_id, quantity, note=note, actor=actor, location_id=location_id)
+    signed = -quantity if direction == "down" else quantity
+    movement = correct(db, variant_id, signed, note=note, actor=actor, location_id=location_id)
     db.commit()
     return movement

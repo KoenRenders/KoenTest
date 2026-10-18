@@ -14,7 +14,7 @@
    `edit_open` houdt het paneel open na een bewerking (#613-3): het fragment
    vervangt zichzelf via outerHTML, dus zonder dit kwam het na elke actie terug in
    lees-modus en voelde het alsof er niets gebeurd was. #}
-<div class="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-2 text-sm"
+<div data-registration-detail class="bg-surface-2 border border-gray-200 rounded-lg p-3 mt-2 text-sm"
      {% if editable %}x-data="{ edit: {{ 'true' if edit_open else 'false' }} }"{% endif %}>
   {{ ui.error_banner(error|default(None)) }}
   {# #1367: the row wraps — without room the buttons drop under the name — and the
@@ -60,7 +60,7 @@
     {# CR-14 phase 3 (§B4.8): the answer link, by mail to the contact address. #}
     {% if link_actie and editable %}
     <div class="mt-2">{{ ui.btn_secondary(_("Link opnieuw sturen") if link_actie == "opnieuw" else _("Link naar de vragen sturen"), size="sm",
-        attrs='hx-post="/admin/inschrijvingen/' ~ reg.id ~ '/antwoordlink" hx-target="closest .bg-gray-50" hx-swap="outerHTML"') }}</div>
+        attrs='hx-post="/admin/inschrijvingen/' ~ reg.id ~ '/antwoordlink" hx-target="closest [data-registration-detail]" hx-swap="outerHTML"') }}</div>
     {% endif %}
   </div>
 
@@ -75,7 +75,7 @@
        bewaard werd. "Toevoegen" en "Verwijder" blijven aparte acties — die wijzigen
        wélke regels er zijn, niet hun waarden. #}
     <form id="insch-form-{{ reg.id }}" class="space-y-3" hx-post="{{ _base }}/opslaan"
-          hx-target="closest .bg-gray-50" hx-swap="outerHTML">
+          hx-target="closest [data-registration-detail]" hx-swap="outerHTML">
       {# Contactgegevens corrigeerbaar (#624). Een tikfout in het e-mailadres betekende
          dat de bevestiging niet aankwam, en dat was alleen recht te zetten door de
          inschrijving te verwijderen en opnieuw in te voeren — met een nieuwe betaling
@@ -146,7 +146,7 @@
        of what the member said is not saved along with the quantities. #}
     {% from "_formulier_vragen.html" import vragen_kop, vragen_kaarten with context %}
     <form class="space-y-3 border-t border-gray-200 pt-3" hx-post="/admin/inschrijvingen/{{ reg.id }}/antwoorden"
-          hx-target="closest .bg-gray-50" hx-swap="outerHTML">
+          hx-target="closest [data-registration-detail]" hx-swap="outerHTML">
       {# #1380: the form's own question block. #}
       <div>{{ vragen_kop(vraagformulier, heading="h3", compact=True) }}</div>
       {{ vragen_kaarten(vraag_groepen, vraag_los, vraag_fout=vraag_fout) }}
