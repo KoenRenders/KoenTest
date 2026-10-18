@@ -1,28 +1,29 @@
-{% extends "admin_base.html" %}
+{% extends "list_page.html" %}
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Pagina's — Raak beheer") }}{% endblock %}
-{% block content %}
-{# Records-lijst (design-system C1, #587): titel → duidingsregel → primaire
-   "+ Nieuwe pagina" (los, aanmaken in een modal) → zoeken → statusfilter →
-   klikbare kaarten die de pagina-editor openen. De editor-scripts staan op die
-   editorpagina, niet hier: deze lijst heeft geen editor. #}
-
-{# De primaire actie is een LINK naar het aanmaakscherm (#627, §2.8): aanmaken
-   opent een volledige-pagina-editor, geen modal. Je werkt na het aanmaken toch
-   verder in de editor, en de velden uit een dialoogje maken het object zelden
-   compleet. #}
-{% call ui.page_header(_("Pagina's"), _("Een kaart opent de pagina-editor: inhoud, publicatie en navigatie."), list_page=True) %}
-    {{ ui.btn_primary(_("Nieuwe pagina"), href="/admin/paginas/nieuw", lead_icon="plus") }}
+{# Pagina's on the kit's list page (#2123; end state §2.1, §5.1): the title with the one
+   primary button, the toolbar (Gepubliceerd and Concept as the segments with their
+   counts, In navigatie behind Filters, the search on the title and the address, the page size) and the
+   kit's table, with the order arrows as a column of their own — 44 px on a phone, no drag
+   handle. No tiles. A row opens the page editor. The primary action is a LINK to the
+   creation screen (#627, §2.8). The editor's scripts stand on the editor page, not here.
+   The toolbar stands outside the list fragment. #}
+{% block list_title %}{{ _("Pagina's") }}{% endblock %}
+{% block list_primary %}{{ ui.btn_primary(_("Nieuwe pagina"), href="/admin/paginas/nieuw", lead_icon="plus") }}{% endblock %}
+{% block list_toolbar %}
+{% call ui.toolbar("/admin/paginas", "#cp-lijst", "cp-filter",
+                   segments=segments, status_name="status", status_current=status, status_legend=_("Pagina's"),
+                   q=q, search_placeholder=_("Zoek op titel of adres…"),
+                   page=page, per_page=per_page, total=total, page_sizes=page_sizes) %}
+  {# "In navigatie" is a filter and not a fourth segment: four segments with their counts
+     are wider than a phone (measured at 390 px). #}
+  {% call ui.select_control("nav", aria_label=_("Menu")) %}
+    <option value="">{{ _("Alle pagina's") }}</option>
+    <option value="in_nav"{% if in_nav %} selected{% endif %}>{{ _("In navigatie") }}</option>
   {% endcall %}
-
-
-{% call ui.filter_bar("/admin/paginas", "#cp-lijst") %}
-  <div class="flex flex-wrap gap-3 items-center">
-    <div class="flex-1 min-w-[14rem]">{{ ui.search(value=q, placeholder=_('Zoek op titel of slug…'), standalone=False) }}</div>
-    {{ ui.chips("status", [("", _("Alles")), ("published", _("Gepubliceerd")), ("draft", _("Concept")), ("in_nav", _("In navigatie"))], status) }}
-  </div>
 {% endcall %}
-
+{% endblock %}
+{% block list_body %}
 <div id="cp-lijst">
   {% include "_cp_kaarten.html" %}
 </div>

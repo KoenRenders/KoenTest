@@ -119,7 +119,8 @@ def test_the_list_pages_are_the_headers_with_a_create_button():
             )
             if has_create != ("list_page=True" in head):
                 wrong.append(str(path.relative_to(APP)))
-    assert scanned > 20, f"the scan found only {scanned} headers"
+    # 15 since #2123: six lists left `page_header` for the kit's list page (18 headers stand).
+    assert scanned > 15, f"the scan found only {scanned} headers"
     assert not wrong, wrong
 
 
@@ -150,7 +151,7 @@ def test_the_reports_header_links_to_no_other_module(client, db_session):
     assert moved.status_code == 301 and moved.headers["location"] == "/admin/rapporten"
 
     html = client.get("/admin/rapporten").text
-    header = _element(html, "<div data-page-header")
+    header = _element(html, "<div data-list-head")
     assert "Nieuw rapport" in header, "the measurement found the wrong header"
     links = re.findall(r'href="([^"]*)"', header)
     assert links == ["/admin/rapporten/nieuw"], links

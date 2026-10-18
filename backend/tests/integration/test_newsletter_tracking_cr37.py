@@ -456,8 +456,10 @@ def test_the_archive_list_percentages_equal_the_counts_of_the_events(client, db_
     assert (result.opened_pct, result.clicked_pct) == (50, 25)
     _admin(client)
     page = client.get("/admin/nieuwsbrieven")
-    line = page.text.split("data-letter-result", 1)[1].split("</div>", 1)[0]
-    assert "50\u00a0%" in line and "25\u00a0%" in line and "1 link" in line
+    # #2123: the kit's table shows the two shares in a column of their own ("Geopend ·
+    # geklikt"); the link count stays on the letter's own result block.
+    line = page.text.split("data-letter-result", 1)[1].split("</span>", 1)[0]
+    assert "50\u00a0% · 25\u00a0%" in line.replace("&nbsp;", "\u00a0")
 
 
 def test_a_letter_that_was_not_sent_shows_no_result(client, db_session):
