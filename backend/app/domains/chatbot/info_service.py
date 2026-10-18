@@ -25,7 +25,7 @@ from app.domains.cms.api import CmsPage
 # Een module-level import hier zou EXTRACTABLE_KINDS opvragen terwijl
 # media/api.py nog aan het initialiseren is.
 from app.i18n import _
-from app.kernel.codes import code_of
+from app.kernel.codes import code_label, code_of
 from app.kernel.contracts.media import ReadTextAgain
 from app.kernel.ports import call
 from app.schemas.chatbot_info import ChatbotInfoEdit, NoteCreate
@@ -74,7 +74,11 @@ def _row(ci: Optional[ChatbotInfo]) -> Optional[dict]:
 
 
 def _document_label(db: Session, asset: "MediaAsset") -> str:
-    from app.domains.media.api import MediaKind
+    """A document's name on the AI context's list and record: an activity's
+    poster and a component's info by what they belong to; any other document by
+    its own title, else by its kind's word from the code list — never the code
+    (#2144)."""
+    from app.domains.media.api import MEDIA_KIND, MediaKind
 
     if asset.kind is MediaKind.ACTIVITY_POSTER and asset.activity_id:
         a = db.query(Activity).filter(Activity.id == asset.activity_id).first()
@@ -89,7 +93,7 @@ def _document_label(db: Session, asset: "MediaAsset") -> str:
             an = c.activity.name if c.activity else "activiteit"
             return f"{an} — {c.name} (info)"
         return "reglement"
-    return code_of(asset.kind) or ""
+    return (asset.title or "").strip() or code_label(MEDIA_KIND.name, asset.kind, db=db)
 
 
 def list_chatbot_info(db: Session, _admin=None):
