@@ -11,7 +11,7 @@
 <div data-form-flow data-mode="edit" class="form-flow">
 <form id="formulier-nieuw-form" class="contents" hx-post="/admin/formulieren">
   {% call ui.section(_("Formulier")) %}
-  {{ ui.field("title", _("Naam"), id="f-title", required=True, placeholder=_("bv. Inschrijving zomerkamp"),
+  {{ ui.field("title", attribute="forms.form.title", id="f-title", required=True, placeholder=_("bv. Inschrijving zomerkamp"),
               help=_("Na het aanmaken open je meteen de form-builder; de naam kan je daar nog wijzigen.")) }}
   {% endcall %}
 </form>

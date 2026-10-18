@@ -11,7 +11,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="media.media_asset.kind",
         columns=("media.media_assets.kind",),
-        label=None,
+        label="Soort",
         name_en="Kind",
         help="The kind of the media asset, a code of its code list.",
         ai_exposure=AiExposure.INTERNAL,  # K0
@@ -19,7 +19,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="media.media_asset.activity_id",
         columns=("media.media_assets.activity_id",),
-        label=None,
+        label="Activiteit",
         name_en="Activity id",
         help="The activity id of the media asset.",
         ai_exposure=AiExposure.PUBLIC,  # K4
@@ -91,7 +91,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="media.media_asset.title",
         columns=("media.media_assets.title",),
-        label=None,
+        label="Titel",
         name_en="Title",
         help="The title of the media asset.",
         ai_exposure=AiExposure.PUBLIC,  # K4
@@ -99,7 +99,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="media.media_asset.link_url",
         columns=("media.media_assets.link_url",),
-        label=None,
+        label="Link",
         name_en="Link url",
         help="The link url of the media asset.",
         ai_exposure=AiExposure.PUBLIC,  # K4

@@ -39,7 +39,7 @@
   {% call ui.section(_("Media")) %}
   {# Uit `upload_kind_options` en niet met de hand opgesomd (#258): één bron,
      VALID_KINDS, voor het filter van de lijst én voor deze keuzelijst. #}
-  {{ ui.field("kind", _("Soort"), kind="select", id="me-kind", required=True, value=upload_kind,
+  {{ ui.field("kind", attribute="media.media_asset.kind", kind="select", id="me-kind", required=True, value=upload_kind,
               options=upload_kind_options, attrs='x-model="soort"') }}
   {# De dropdown volgt de keuze in plaats van de filterstand. `:required` en niet
      een vast `required`: een verborgen veld met required laat de browser bij
@@ -50,10 +50,10 @@
   {% set activity_options = [("", _("— Kies een activiteit —"))] %}
   {% for a in alle_activiteiten %}{% set _ = activity_options.append((a.id, a.naam ~ (" (" ~ a.jaar ~ ")" if a.jaar else ""))) %}{% endfor %}
   <div data-span="half" class="min-w-0" x-show="soort === 'activity_photo' || soort === 'design_image'" x-cloak>
-    {{ ui.field("activity_id", _("Activiteit"), kind="select", id="me-activity", value=activity_id,
+    {{ ui.field("activity_id", attribute="media.media_asset.activity_id", kind="select", id="me-activity", value=activity_id,
                 options=activity_options, attrs=':required="soort === \'activity_photo\'"') }}
   </div>
-  {{ ui.field("title", _("Titel"), id="me-title") }}
+  {{ ui.field("title", attribute="media.media_asset.title", id="me-title") }}
   {# #1470: an upload can carry one or more tags at once. #}
   {% if tag_opties %}<div data-span="half" class="min-w-0">{{ ui.label(_("Tags"), "me-tags") }}
     {{ ui.multiselect("tag_ids", labelled=tag_opties, current=[tag|string] if tag else [],
@@ -63,7 +63,7 @@
      rommel. De server negeert een meegestuurde waarde hoe dan ook; dit veld
      verbergen is de vriendelijke helft, niet de regel. #}
   <div data-span="half" class="min-w-0" x-show="soort === 'sponsor'" x-cloak>
-    {{ ui.field("link_url", _("Link (optioneel)"), id="me-link") }}
+    {{ ui.field("link_url", attribute="media.media_asset.link_url", id="me-link") }}
   </div>
   {# #708: de bestanden staan ONDERAAN, vlak boven de knop. De volgorde volgt de
      handeling: eerst zeggen wát je uploadt (soort, activiteit, titel), dan pas

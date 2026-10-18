@@ -12,10 +12,10 @@
 <form id="tenant-nieuw-form" class="contents" hx-post="/admin/tenants" hx-target="body" hx-swap="innerHTML">
   {% call ui.section(_("Tenant")) %}
   {# CR-19 (#1478): chosen once — it gives the modules the tenant starts with. #}
-  {{ ui.field("kind", _("Type"), kind="segmented", id="t-kind", required=True, value="VERENIGING", options=kind_options,
+  {{ ui.field("kind", attribute="mdm.organization.kind", kind="segmented", id="t-kind", required=True, value="VERENIGING", options=kind_options,
               help=_("Bepaalt met welke modules de tenant start; die pas je nadien aan in de tenant.")) }}
-  {{ ui.field("name", _("Naam"), id="t-name", required=True) }}
-  {{ ui.field("code", _("Code (slug)"), id="t-code", required=True, placeholder="raaknieuw",
+  {{ ui.field("name", attribute="mdm.organization.name", id="t-name", required=True) }}
+  {{ ui.field("code", attribute="mdm.organization.code", id="t-code", required=True, placeholder="raaknieuw",
               attrs='pattern="[a-z0-9-]+"',
               help=_("Kleine letters, cijfers, streepjes — wordt de pad-prefix (/code/…) en de organizations.code.")) }}
   {% if accounts %}

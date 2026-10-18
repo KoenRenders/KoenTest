@@ -12,8 +12,8 @@
 <div id="pagina-nieuw-melding" data-form-message></div>
 <form id="pagina-nieuw-form" class="contents" hx-post="/admin/paginas">
   {% call ui.section(_("Pagina")) %}
-  {{ ui.field("title", _("Titel"), id="title", required=True) }}
-  {{ ui.field("slug", _("Slug"), id="slug", required=True, attrs='pattern="[a-z0-9-]+"',
+  {{ ui.field("title", attribute="cms.cms_page.title", id="title", required=True) }}
+  {{ ui.field("slug", attribute="cms.cms_page.slug", id="slug", required=True, attrs='pattern="[a-z0-9-]+"',
               help=_("Alleen kleine letters, cijfers en streepjes — wordt de URL (/slug).")) }}
   {% endcall %}
 </form>

@@ -12,8 +12,8 @@
 {{ ui.error_banner(error) }}
 <form id="organisatie-nieuw-form" class="contents" hx-post="/admin/organisaties" hx-target="body" hx-swap="innerHTML">
   {% call ui.section(_("Account")) %}
-  {{ ui.field("name", _("Naam"), id="a-name", value=name, required=True) }}
-  {{ ui.field("code", _("Code"), id="a-code", value=code, required=True, placeholder="nieuwaccount",
+  {{ ui.field("name", attribute="mdm.organization.name", id="a-name", value=name, required=True) }}
+  {{ ui.field("code", attribute="mdm.organization.code", id="a-code", value=code, required=True, placeholder="nieuwaccount",
               attrs='pattern="[a-z0-9-]+"',
               help=_("Kleine letters, cijfers, streepjes — uniek over alle organisaties, net als een tenantcode.")) }}
   {% endcall %}

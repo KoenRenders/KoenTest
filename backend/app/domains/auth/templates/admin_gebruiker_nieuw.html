@@ -24,7 +24,7 @@
   <input type="hidden" name="rol" value="{{ rol }}">
   <input type="hidden" name="actief" value="{{ actief }}">
   {% call ui.section(_("Gebruiker")) %}
-  {{ ui.field("email", _("E-mail"), kind="email", id="gu-email", required=True) }}
+  {{ ui.field("email", attribute="auth.user.email", kind="email", id="gu-email", required=True) }}
   <div data-span="full" class="flex flex-wrap gap-4 text-sm">
     {% with sel = {}, operator_aan = False %}
     {% include "_gu_rollen_velden.html" %}

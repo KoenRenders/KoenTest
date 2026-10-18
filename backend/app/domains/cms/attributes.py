@@ -11,7 +11,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="cms.cms_page.title",
         columns=("cms.cms_pages.title",),
-        label=None,
+        label="Titel",
         name_en="Title",
         help="The title of the cms page.",
         ai_exposure=AiExposure.PUBLIC,  # K4
@@ -19,7 +19,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="cms.cms_page.slug",
         columns=("cms.cms_pages.slug",),
-        label=None,
+        label="Webadres",
         name_en="Slug",
         help="The slug of the cms page.",
         ai_exposure=AiExposure.PUBLIC,  # K4

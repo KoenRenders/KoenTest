@@ -2533,6 +2533,38 @@ _MACRO_PROMISE = re.compile(
     r"ui\.(?:input_control|select_control|textarea_control|input|select|textarea)"
     r'\(\s*"(?P<name>[a-z_0-9]+)"(?P<rest>[^\n]*)'
 )
+_UI_FIELD = re.compile(r'\bui\.field\(\s*"(?P<name>[a-z_0-9]+)"')
+
+
+def _call_arguments(text: str, start: int) -> str:
+    """The text of a call from just after its opening parenthesis (here: after the
+    field's name) to the matching one, strings respected."""
+    depth, i, quote = 1, start, None
+    while i < len(text) and depth:
+        ch = text[i]
+        if quote:
+            if ch == "\\":
+                i += 1
+            elif ch == quote:
+                quote = None
+        elif ch in "\"'":
+            quote = ch
+        elif ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        i += 1
+    return text[start : i - 1]
+
+
+def _field_promises(body: str, kind: str) -> bool:
+    """`required=True` as a keyword of the call, or `pattern=`/`min=` inside its `attrs`."""
+    if kind == "required":
+        return bool(re.search(r"\brequired\s*=\s*True\b", body))
+    attrs = re.search(r"\battrs\s*=\s*(.*)", body, re.S)
+    return bool(attrs and re.search(rf"(?<![-\w]){kind}\s*=", attrs.group(1)))
+
+
 _RAW_INPUT = re.compile(r"<(?:input|select|textarea)\b(?P<attrs>[^>]*)>", re.S)
 _FORM_TARGET = re.compile(r'<form\b[^>]*?(?:hx-post|action)="([^"]+)"', re.S)
 _PROMISE_KINDS = ("required", "pattern", "min")
@@ -2553,8 +2585,27 @@ def _declared_walkers(text: str, position: int) -> tuple[str, ...]:
     return tuple(name for name in re.split(r"[,\s]+", found.group(1)) if name)
 
 
-def _template_promises(text: str):
-    """Yield `(line, field, kinds, form path, declared walkers)` for every promising input."""
+#: Templates whose `ui.field` promises the walk follows too (#2110). The walk read
+#: `input_control` and raw inputs only, so a field moved onto `ui.field` left it; these six
+#: pages moved with #2110 and keep their promises proven. Every other template on `ui.field`
+#: is #2118's, and the list grows as a screen's promises are walked — never past what is walked.
+#: Proven red additively (18 October 2026): `ui.field("note", "Notitie", required=True)` added to
+#: `admin_pagina_nieuw.html` → "cannot be walked: route `pagina_aanmaken` does not read `note`".
+UI_FIELD_PROMISES = frozenset(
+    {
+        "domains/auth/templates/admin_gebruiker_nieuw.html",
+        "domains/cms/templates/admin_pagina_nieuw.html",
+        "domains/forms/templates/admin_formulier_nieuw.html",
+        "domains/media/templates/admin_media_nieuw.html",
+        "ui/templates/admin_organisatie_nieuw.html",
+        "ui/templates/admin_tenant_nieuw.html",
+    }
+)
+
+
+def _template_promises(text: str, *, fields: bool = False):
+    """Yield `(line, field, kinds, form path, declared walkers)` for every promising input.
+    `fields=True` reads the kit's `ui.field` calls too (`UI_FIELD_PROMISES`)."""
     forms = [(m.start(), m.group(1)) for m in _FORM_TARGET.finditer(text)]
 
     def form_for(position: int) -> str | None:
@@ -2564,6 +2615,20 @@ def _template_promises(text: str):
     for m in _MACRO_PROMISE.finditer(text):
         rest = m.group("rest")
         kinds = [k for k in _PROMISE_KINDS if re.search(rf"\b{k}\s*=\s*(True|\")", rest)]
+        if kinds:
+            yield (
+                text.count("\n", 0, m.start()) + 1,
+                m.group("name"),
+                kinds,
+                form_for(m.start()),
+                _declared_walkers(text, m.start()),
+            )
+    # #2110: the kit's own field. `ui.field("name", …, required=True)` and a `pattern`/`min`
+    # in its `attrs` promise exactly what a raw input promises; the walk followed only
+    # `input_control` and raw inputs, so every field moved onto `ui.field` left the walk.
+    for m in _UI_FIELD.finditer(text) if fields else ():
+        body = _call_arguments(text, m.end())
+        kinds = [k for k in _PROMISE_KINDS if _field_promises(body, k)]
         if kinds:
             yield (
                 text.count("\n", 0, m.start()) + 1,
@@ -2769,7 +2834,9 @@ def collect_promises() -> tuple[dict[str, str], dict[str, str]]:
     unwalkable: dict[str, str] = {}
     seen = 0
     for template in templates:
-        for line, name, kinds, form_path, walkers in _template_promises(template.read_text()):
+        for line, name, kinds, form_path, walkers in _template_promises(
+            template.read_text(), fields=_rel(template) in UI_FIELD_PROMISES
+        ):
             seen += 1
             key = f"{_rel(template)}::{name}::{'/'.join(kinds)}"
             where = f"{_rel(template)}:{line}"
