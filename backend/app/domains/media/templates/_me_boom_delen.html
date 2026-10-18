@@ -18,8 +18,7 @@
   {% endfor %}
 </ul>
 {%- endmacro %}
-{#- `los`: one more link after the years — Ontwerpbeelden' "Zonder activiteit" (#1527). -#}
-{% macro tak(titel, jaren, leeg, target=None, los=None) -%}
+{% macro tak(titel, jaren, leeg, target=None) -%}
 <details class="group" open>
   <summary class="cursor-pointer list-none text-xs font-semibold uppercase tracking-wide text-ink-soft [&::-webkit-details-marker]:hidden">{{ titel }}</summary>
   {% if jaren %}
@@ -35,10 +34,9 @@
     </li>
     {% endfor %}
   </ul>
-  {% elif not los %}
+  {% else %}
   <p class="mt-1 px-2 text-sm text-ink-soft">{{ leeg }}</p>
   {% endif %}
-  {% if los %}<div class="mt-1">{{ link(los.naam, los.href, los.actief, target=target) }}</div>{% endif %}
 </details>
 {%- endmacro %}
 {#- #1527: the branches of the kinds that hang off no activity — Logo's,

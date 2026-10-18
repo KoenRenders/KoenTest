@@ -32,7 +32,7 @@
   {{ boomdelen.link(_("Alles"), alles_href, alles_actief) }}
   {{ boomdelen.tak(_("Activiteiten"), boom.activiteiten, _("Niets in dit jaar.") if year else _("Nog niets.")) }}
   {{ boomdelen.tak(_("Affiches"), boom.affiches, _("Niets in dit jaar.") if year else _("Nog niets.")) }}
-  {{ boomdelen.tak(_("Ontwerpbeelden"), boom.ontwerpen, _("Niets in dit jaar.") if year else _("Nog niets."), los=boom.ontwerpen_los) }}
+  {{ boomdelen.tak(_("Ontwerpbeelden"), boom.ontwerpen, _("Niets in dit jaar.") if year else _("Nog niets.")) }}
   {{ boomdelen.soorten(boom.soorten) }}
   <div>
     <p class="text-xs font-semibold uppercase tracking-wide text-ink-soft">{{ _("Tags") }}</p>

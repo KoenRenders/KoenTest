@@ -72,6 +72,20 @@ def _upload(client, csrf, kind, bytes_, naam="beeld.jpg", type_="image/jpeg", ti
     )
 
 
+def _activity(db) -> str:
+    """#2142: a design picture belongs to an activity."""
+    from datetime import date
+
+    from app.domains.activities.api import Activity, ActivityDate
+
+    activity = Activity(name="Ontwerpfeest", location="Miloheem")
+    db.add(activity)
+    db.flush()
+    db.add(ActivityDate(activity_id=activity.id, start_date=date(2027, 6, 1)))
+    db.commit()
+    return str(activity.id)
+
+
 def _asset(db, titel):
     db.expire_all()
     return db.query(MediaAsset).filter(MediaAsset.title == titel).one_or_none()
@@ -98,7 +112,17 @@ def test_the_route_passes_the_kind_along(client, db_session):
     """Via de route, want daar wordt de grens echt gebruikt."""
     csrf = _login(client)
 
-    assert _upload(client, csrf, "design_image", _jpeg(), titel="ontwerp-groot").status_code == 204
+    assert (
+        _upload(
+            client,
+            csrf,
+            "design_image",
+            _jpeg(),
+            titel="ontwerp-groot",
+            activity_id=_activity(db_session),
+        ).status_code
+        == 204
+    )
     assert _upload(
         client, csrf, "activity_photo", _jpeg(), titel="foto-groot", activity_id=""
     ).status_code in (200, 204)
@@ -163,7 +187,15 @@ def test_the_type_comes_from_the_content_and_not_from_the_name(client, db_sessio
 
     # PNG-bytes onder een .jpg-naam: Pillow leest de inhoud, en de uitvoer is
     # wat de inhoud toelaat (transparantie → PNG).
-    resp = _upload(client, csrf, "design_image", _png(), naam="zogezegd.jpg", titel="inhoud-wint")
+    resp = _upload(
+        client,
+        csrf,
+        "design_image",
+        _png(),
+        naam="zogezegd.jpg",
+        titel="inhoud-wint",
+        activity_id=_activity(db_session),
+    )
     assert resp.status_code == 204
     assert _asset(db_session, "inhoud-wint").content_type == "image/png"
 
@@ -175,8 +207,18 @@ def test_html_that_claims_to_be_an_image_is_refused(client, db_session):
     with pytest.raises(ImageError):
         process_image(rommel, kind="design_image")
 
-    resp = _upload(client, csrf, "design_image", rommel, naam="doe-alsof.jpg", titel="geen-beeld")
+    # #2142: with an activity, so it is refused for its content and not for that.
+    resp = _upload(
+        client,
+        csrf,
+        "design_image",
+        rommel,
+        naam="doe-alsof.jpg",
+        titel="geen-beeld",
+        activity_id=_activity(db_session),
+    )
     assert resp.status_code == 200, "de upload hoort geweigerd te worden"
+    assert "Kies eerst een activiteit" not in resp.text, "refused for its content"
     assert _asset(db_session, "geen-beeld") is None
 
 
