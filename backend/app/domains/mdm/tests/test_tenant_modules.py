@@ -24,9 +24,10 @@ from app import main
 from app.config import settings
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.mdm import tenant_lookup
-from app.domains.mdm.api import create_tenant, enabled_modules, invalidate_tenant_codes
+from app.domains.mdm.api import enabled_modules, invalidate_tenant_codes
 from app.kernel.modules import DEFAULTS, ModuleCode
 from app.kernel.tenancy import TENANT_MILLEGEM_ID
+from tests._sites import new_site
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -123,24 +124,29 @@ def test_signing_in_works_without_the_membership_module(client, modules_of):
 def test_every_unit_is_seeded_full_and_the_platform_with_its_own_set(db_session):
     """C6 test 2, the seed: every UNIT has every module; an ACCOUNT has none — it
     never serves a request. The PLATFORM had every module too, until #1523 gave
-    it its own kind and set (migration 191, `DEFAULTS["PLATFORM"]`)."""
+    it its own kind and set (migration 191, `DEFAULTS["PLATFORM"]`). Since CR-20
+    the modules hang on `mdm.tenants`; an organisation carries none."""
     rows = db_session.execute(
         sql(
-            "SELECT o.org_type, o.id, array_agg(m.module_code ORDER BY m.module_code) "
-            "FROM mdm.organizations o LEFT JOIN mdm.tenant_modules m ON m.tenant_id = o.id "
-            "GROUP BY o.org_type, o.id"
+            "SELECT t.kind, t.id, array_agg(m.module_code ORDER BY m.module_code) "
+            "FROM mdm.tenants t LEFT JOIN mdm.tenant_modules m ON m.tenant_id = t.id "
+            "GROUP BY t.kind, t.id"
         )
     ).all()
-    assert {r.org_type for r in rows} >= {"UNIT", "ACCOUNT"}
-    for org_type, org_id, codes in rows:
+    assert {r.kind for r in rows} >= {"VERENIGING", "PLATFORM"}
+    for kind, tenant_id, codes in rows:
         got = frozenset(c for c in codes if c)
-        if org_type == "UNIT":
-            assert got == EVERY, f"{org_type} {org_id}: {sorted(got)}"
-        elif org_type == "PLATFORM":
+        if kind == "PLATFORM":
             platform = frozenset(code.value for code in DEFAULTS["PLATFORM"])
-            assert got == platform, f"{org_type} {org_id}: {sorted(got)}"
+            assert got == platform, f"{kind} {tenant_id}: {sorted(got)}"
         else:
-            assert got == frozenset(), f"{org_type} {org_id}: {sorted(got)}"
+            assert got == EVERY, f"{kind} {tenant_id}: {sorted(got)}"
+    named = db_session.execute(
+        sql(
+            "SELECT count(*) FROM mdm.tenant_modules WHERE tenant_id NOT IN (SELECT id FROM mdm.tenants)"
+        )
+    ).scalar()
+    assert named == 0, "a module on an organisation that is no tenant"
 
 
 def test_the_defaults_per_kind_and_a_new_tenant(db_session):
@@ -151,7 +157,7 @@ def test_the_defaults_per_kind_and_a_new_tenant(db_session):
     )
     assert {c.value for c in DEFAULTS["BEDRIJF"]} == {"cms", "media", "forms"}
 
-    org = create_tenant(db_session, name="Proeftenant 1475", code="proef-1475")
+    org = new_site(db_session, name="Proeftenant 1475", code="proef-1475")
     assert enabled_modules(org.id, db=db_session) == EVERY
 
 
@@ -192,15 +198,11 @@ def test_site_context_compares_the_kind_of_organisation_with_the_member(db_sessi
     """C6 test 11: `site_context` asks "is this the platform?" with the enum
     member. On master it compared a CodeEnum with the string "PLATFORM" — never
     equal — so the platform offered a newsletter it does not send."""
-    from app.domains.mdm.api import Organization, OrganizationType
+    from app.domains.mdm.api import Tenant, TenantKind
     from app.kernel import tenant_config
     from app.ui import site_context
 
-    platform = Organization(
-        org_type=OrganizationType.PLATFORM, code="platform-1475", name="Platform", is_active=True
-    )
-    db_session.add(platform)
-    db_session.flush()
+    platform = db_session.query(Tenant).filter(Tenant.kind == TenantKind.PLATFORM).one()
 
     monkeypatch.setattr(tenant_config, "_actieve_tenant", lambda _t: platform.id)
     assert site_context(db_session)["nieuwsbrief_inschrijven"] is False

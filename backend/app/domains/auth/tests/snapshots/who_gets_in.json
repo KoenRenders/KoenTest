@@ -498,6 +498,10 @@
    "platform": "OPERATOR",
    "tenant": "OPERATOR"
   },
+  "GET /admin/tenants/nieuw/getoond": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
   "GET /admin/tenants/{tenant_id}": {
    "platform": "OPERATOR",
    "tenant": "OPERATOR"

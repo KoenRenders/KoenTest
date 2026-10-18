@@ -10,7 +10,7 @@ The reserved words are read from the route table when the check runs
 test adds one and finds it refused.
 
 Broken on purpose (15 October 2026, put back): the check taken out of
-`_check_code` → seven tests fail: the four tenant codes, the account's, the
+`_check_code` → six tests fail: the four tenant codes, the
 route added in the test, and the screen, which no longer shows the sentence.
 """
 
@@ -20,7 +20,8 @@ import logging
 
 import pytest
 
-from app.domains.mdm.api import TenantFout, create_tenant
+from app.domains.mdm.api import TenantFout
+from tests._sites import new_site
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -28,18 +29,11 @@ pytestmark = pytest.mark.ui_agnostisch
 @pytest.mark.parametrize("code", ["admin", "api", "activiteiten", "static"])
 def test_a_code_that_is_a_route_is_refused(db_session, code):
     with pytest.raises(TenantFout, match=f"/{code}/"):
-        create_tenant(db_session, name="Botsing", code=code)
-
-
-def test_an_account_code_that_is_a_route_is_refused(db_session):
-    from app.domains.mdm.api import create_account
-
-    with pytest.raises(TenantFout, match="/lid-worden/"):
-        create_account(db_session, name="Botsing", code="lid-worden")
+        new_site(db_session, name="Botsing", code=code)
 
 
 def test_an_ordinary_code_is_accepted(db_session):
-    org = create_tenant(db_session, name="Raak Proef", code="raakproef-1951")
+    org = new_site(db_session, name="Raak Proef", code="raakproef-1951")
     assert org.code == "raakproef-1951"
 
 
@@ -54,7 +48,7 @@ def test_a_route_added_later_is_reserved_by_existing(db_session):
     try:
         assert "proefroute-1951" in reserved_segments()
         with pytest.raises(TenantFout, match="/proefroute-1951/"):
-            create_tenant(db_session, name="Botsing", code="proefroute-1951")
+            new_site(db_session, name="Botsing", code="proefroute-1951")
     finally:
         app.router.routes.pop()
     assert "proefroute-1951" not in reserved_segments()

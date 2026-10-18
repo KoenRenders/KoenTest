@@ -467,7 +467,7 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `POST /admin/e-maillog/{log_id}/verwijderen`
 - `POST /admin/instellingen`
 
-### `platform.view` — 7 routes
+### `platform.view` — 8 routes
 
 - `GET /admin/gebruikers/alle-werkruimtes`
 - `GET /admin/organisaties`
@@ -475,6 +475,7 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `GET /admin/organisaties/{organization_id}`
 - `GET /admin/tenants`
 - `GET /admin/tenants/nieuw`
+- `GET /admin/tenants/nieuw/getoond`
 - `GET /admin/tenants/{tenant_id}`
 
 ### `platform.manage` — 4 routes

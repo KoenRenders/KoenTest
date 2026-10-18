@@ -424,13 +424,13 @@ def organization_details(db, organization_id: int) -> dict[str, str]:
 
 
 def organization_options(db) -> list[dict]:
-    """Élke organisatie, ook die geen tenant is.
+    """Every organisation — every party (CR-20: a tenant is no organisation any
+    more), by name.
 
-    Dat laatste is de reden dat deze functie bestaat. `list_units` en
-    `list_manageable_tenants` geven de organisaties die een SITE draaien; de
-    ACCOUNT-organisatie doet dat niet en viel daardoor overal buiten — haar naam,
-    rechtsvorm en ondernemingsnummer waren nergens te bewerken, terwijl zij nu net
-    de vzw met een ondernemingsnummer is.
+    Until CR-20 this was "every organisation, the ones that are no tenant too":
+    `list_units` and `list_manageable_tenants` gave the rows that run a SITE,
+    and the ACCOUNT organisation fell outside them — its name, legal form and
+    enterprise number were nowhere to be edited.
 
     Platte dicts en geen ORM-rijen: de UI krijgt van de facade geen modelklassen
     (`test_layer_gate`).
@@ -440,21 +440,15 @@ def organization_options(db) -> list[dict]:
     rijen = (
         db.query(Organization)
         .filter(Organization.deleted_at.is_(None))
-        .order_by(Organization.org_type, Organization.name)
+        .order_by(Organization.name, Organization.id)
         .execution_options(include_all_tenants=True)
         .all()
     )
     return [
         {
             "id": r.id,
-            "code": r.code,
             "name": r.name,
-            # The code, not the member: these are plain dicts for a screen,
-            # and a member equals no string it is compared with (CR-12 phase 2).
-            "org_type": code_of(r.org_type),
             "is_active": r.is_active,
-            # #1550: the tenant editor offers the organisations of one account.
-            "parent_id": r.parent_id,
             "legal_form": r.legal_form or "",
         }
         for r in rijen

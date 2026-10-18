@@ -36,7 +36,6 @@ Broken on purpose to check that these tests can go red:
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
-from app.domains.mdm.api import OrganizationType
 from tests._queued_mail import newest_queued_mail
 from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields
 
@@ -70,18 +69,16 @@ def _operator(client, db, email="operator@example.com"):
 
 def test_the_migration_created_exactly_one_platform_row(db_session):
     """The floor under everything below: without this row the rest is vacuous (#678)."""
-    from app.domains.mdm.api import Organization
+    from app.domains.mdm.api import Tenant, TenantKind
 
-    rows = (
-        db_session.query(Organization)
-        .filter(Organization.org_type == OrganizationType.PLATFORM)
-        .all()
-    )
+    rows = db_session.query(Tenant).filter(Tenant.kind == TenantKind.PLATFORM).all()
 
-    assert len(rows) == 1, f"expected one PLATFORM organization, found {len(rows)}"
-    assert rows[0].parent_id is None, (
-        "the platform hangs under an account; row 1 is the customer and the platform "
-        "is not that customer"
+    assert len(rows) == 1, f"expected one platform tenant, found {len(rows)}"
+    # CR-20 C4.7: every tenant has an account; the platform's is the party it
+    # shows (its own row on the seed), never the customer of row 1.
+    assert rows[0].account_id == rows[0].organization_id, (
+        "the platform's account is the party it shows; row 1 is the customer and the "
+        "platform is not that customer"
     )
 
 

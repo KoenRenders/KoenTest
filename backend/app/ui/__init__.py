@@ -1371,7 +1371,7 @@ def site_context(db, request=None) -> dict:
     plek, elke publieke route neemt hem mee."""
     from app.domains.auth.api import csrf_from_request
     from app.domains.cms.api import CmsPage, menu_tree
-    from app.domains.mdm.api import Organization, OrganizationType, TenantKind, module_enabled
+    from app.domains.mdm.api import Organization, Tenant, TenantKind, module_enabled
     from app.domains.media.api import MediaAsset, MediaKind, media_url
     from app.i18n import _
     from app.kernel.modules import ModuleCode
@@ -1379,23 +1379,16 @@ def site_context(db, request=None) -> dict:
 
     # Dezelfde tenantresolutie als de rest van de configuratie (#924): buiten een
     # verzoek — een script, een test — is er geen context, en dan hoort de
-    # standaardtenant te gelden in plaats van "geen organisatie".
-    organisatie = (
-        db.query(Organization)
-        .filter(Organization.id == _actieve_tenant(None))
-        .execution_options(include_all_tenants=True)
-        .one_or_none()
-    )
+    # standaardtenant te gelden in plaats van "geen tenant". Since CR-20 the
+    # tenant is its own row (`mdm.tenants`), no organisation.
+    tenant = db.get(Tenant, _actieve_tenant(None))
     # #1550: whose data the site shows. The tenant's kind stays the tenant's own
     # (wordmark, sponsor heading); the footer and its links show this one.
     from app.kernel.tenant_config import site_organization_id
 
-    bron_id = site_organization_id(db)
     bron = (
-        organisatie
-        if organisatie is not None and organisatie.id == bron_id
-        else db.query(Organization)
-        .filter(Organization.id == bron_id)
+        db.query(Organization)
+        .filter(Organization.id == site_organization_id(db))
         .execution_options(include_all_tenants=True)
         .one_or_none()
     )
@@ -1530,8 +1523,7 @@ def site_context(db, request=None) -> dict:
         # since its home became a page, and it carries no Raak brand (#821).
         "site_wordmark": (
             tenant_display_name(db)
-            if organisatie is not None
-            and organisatie.kind in (TenantKind.COMPANY, TenantKind.PLATFORM)
+            if tenant is not None and tenant.kind in (TenantKind.COMPANY, TenantKind.PLATFORM)
             else None
         ),
         # #924: de sociale links komen uit de ORGANISATIE en niet meer uit de
@@ -1549,19 +1541,16 @@ def site_context(db, request=None) -> dict:
         # The newsletter's call, in the footer's row since #1588 (it was a link
         # at the bottom of the home page, #984). Not on the platform: it has no
         # members and sends no newsletter.
-        # CR-19 C6 test 11: the member, not the string. `org_type` is a CodeEnum,
-        # which never equals "PLATFORM", so the platform showed the link too.
+        # CR-19 C6 test 11: the member, not the string — the kind is a CodeEnum.
         # CR-19 (#1477): and only with the newsletter module on.
         "nieuwsbrief_inschrijven": (
-            organisatie is not None
-            and organisatie.org_type is not OrganizationType.PLATFORM
-            and module_enabled(ModuleCode.NEWSLETTER)
+            tenant is not None and not tenant.is_platform and module_enabled(ModuleCode.NEWSLETTER)
         ),
         # CR-19 (#1477): what the line above the sponsor logos says. A company
         # has partners; an association keeps the words it has always had.
         "sponsors_kop": (
             _("Partners")
-            if organisatie is not None and organisatie.kind is TenantKind.COMPANY
+            if tenant is not None and tenant.kind is TenantKind.COMPANY
             else _("Met steun van")
         ),
         # SEO (#454): canonieke origin + huidige canonical-URL voor OG/canonical.

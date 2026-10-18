@@ -28,15 +28,14 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from app.domains.mdm.api import (
-    Organization,
-    OrganizationType,
+    Tenant,
     TenantKind,
-    create_account,
-    create_tenant,
+    create_organization,
     enabled_modules,
 )
 from app.domains.media.api import MediaAsset, MediaKind
 from app.kernel.tenancy import TENANT_MILLEGEM_ID
+from tests._sites import new_site
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -100,17 +99,17 @@ def _save(client, csrf: str, tenant_id: int, **data):
     )
 
 
-def _company(db) -> Organization:
-    org = create_tenant(db, name="Bakkerij Soort", code="soort-1533", kind=TenantKind.COMPANY)
+def _company(db) -> Tenant:
+    org = new_site(db, name="Bakkerij Soort", code="soort-1533", kind=TenantKind.COMPANY)
     db.commit()
     return org
 
 
 def test_an_operator_makes_a_company_an_association(client, platform_workspace, db_session, caplog):
     # The default tenant, so the public header is served on "/" (as #1496 measures it).
-    org = db_session.get(Organization, TENANT_MILLEGEM_ID)
+    org = db_session.get(Tenant, TENANT_MILLEGEM_ID)
     org.kind = TenantKind.COMPANY
-    org.name = "Bakkerij Soort"
+    org.site_name = "Bakkerij Soort"
     _footer_sponsor(db_session)
     db_session.commit()
     modules_before = enabled_modules(org.id, db=db_session)
@@ -138,7 +137,7 @@ def test_an_operator_makes_a_company_an_association(client, platform_workspace, 
         )
     assert saved.status_code == 200, saved.text[-500:]
     db_session.expire_all()
-    assert db_session.get(Organization, org.id).kind is TenantKind.ASSOCIATION
+    assert db_session.get(Tenant, org.id).kind is TenantKind.ASSOCIATION
     assert enabled_modules(org.id, db=db_session) == modules_before, "the modules stay"
     logged = [r.getMessage() for r in caplog.records if "tenant kind changed" in r.getMessage()]
     assert logged == [
@@ -165,20 +164,15 @@ def test_platform_is_never_chosen_and_the_platforms_kind_is_fixed(
     assert refused.status_code == 422
     assert "Kies het type: vereniging of bedrijf." in refused.text
     db_session.expire_all()
-    assert db_session.get(Organization, org.id).kind is TenantKind.COMPANY
+    assert db_session.get(Tenant, org.id).kind is TenantKind.COMPANY
 
-    platform = (
-        db_session.query(Organization)
-        .filter(Organization.org_type == OrganizationType.PLATFORM)
-        .execution_options(include_all_tenants=True)
-        .one()
-    )
+    platform = db_session.query(Tenant).filter(Tenant.kind == TenantKind.PLATFORM).one()
     assert 'name="kind"' not in client.get(f"/admin/tenants/{platform.id}?bewerken=1").text
     refused = _save(client, csrf, platform.id, kind="VERENIGING")
     assert refused.status_code == 422
     assert "Het type van het platform ligt vast." in refused.text
     db_session.expire_all()
-    assert db_session.get(Organization, platform.id).kind is TenantKind.PLATFORM
+    assert db_session.get(Tenant, platform.id).kind is TenantKind.PLATFORM
 
 
 def test_an_admin_cannot_change_a_kind(client, platform_workspace, db_session):
@@ -186,7 +180,7 @@ def test_an_admin_cannot_change_a_kind(client, platform_workspace, db_session):
     csrf = _login(client, db_session, "admin-1533@example.com", "ADMIN")
     assert _save(client, csrf, org.id, kind="VERENIGING").status_code == 403
     db_session.expire_all()
-    assert db_session.get(Organization, org.id).kind is TenantKind.COMPANY
+    assert db_session.get(Tenant, org.id).kind is TenantKind.COMPANY
 
 
 PLATFORM_HOST = "platform.example.test"
@@ -219,9 +213,12 @@ def _landing_groups(client) -> dict[str, list[str]]:
 def test_an_operator_moves_a_tenant_to_another_account(
     client, platform_workspace, db_session, platform_host, caplog
 ):
-    first = create_account(db_session, name="Account Een", code="een-1533")
-    second = create_account(db_session, name="Account Twee", code="twee-1533")
-    org = create_tenant(db_session, name="Proefclub", code="proefclub-1533", parent_id=first.id)
+    first = create_organization(db_session, name="Account Een")
+    second = create_organization(db_session, name="Account Twee")
+    org = new_site(db_session, name="Proefclub", code="proefclub-1533", account_id=first.id)
+    # CR-20 F5: the editor offers the organisations tenants name as account;
+    # the second account has a site of its own.
+    new_site(db_session, name="Tweede site", code="tweede-1533", account_id=second.id)
     db_session.commit()
     modules_before = enabled_modules(org.id, db=db_session)
     assert _landing_groups(client)["Account Een"] == ["Proefclub"]
@@ -235,41 +232,38 @@ def test_an_operator_moves_a_tenant_to_another_account(
         saved = _save(client, csrf, org.id, account_id=str(second.id))
     assert saved.status_code == 200, saved.text[-500:]
     db_session.expire_all()
-    assert db_session.get(Organization, org.id).parent_id == second.id
+    assert db_session.get(Tenant, org.id).account_id == second.id
     assert enabled_modules(org.id, db=db_session) == modules_before, "the modules stay"
     logged = [r.getMessage() for r in caplog.records if "tenant account changed" in r.getMessage()]
     assert logged == [
-        f"tenant account changed: tenant={org.id} code=proefclub-1533 een-1533 -> twee-1533 "
+        f"tenant account changed: tenant={org.id} code=proefclub-1533 {first.id} -> {second.id} "
         "by operator3-1533@example.com"
     ]
 
     client.cookies.clear()
     groups = _landing_groups(client)
     print("MEASURE", groups)
-    assert groups["Account Twee"] == ["Proefclub"]
+    assert sorted(groups["Account Twee"]) == ["Proefclub", "Tweede site"]
     assert "Account Een" not in groups, "an account left without a tenant drops off"
 
 
 def test_only_an_active_account_is_taken_for_a_tenant_and_for_the_platform(
     client, platform_workspace, db_session
 ):
-    gone = create_account(db_session, name="Account Weg", code="weg-1533")
+    gone = create_organization(db_session, name="Account Weg")
     gone.is_active = False
     org = _company(db_session)
+    account_before = org.account_id
     csrf = _login(client, db_session, "operator4-1533@example.com", "OPERATOR")
 
     refused = _save(client, csrf, org.id, account_id=str(gone.id))
     assert refused.status_code == 422
     assert "Kies een actief account." in refused.text
     db_session.expire_all()
-    assert db_session.get(Organization, org.id).parent_id is None
+    assert db_session.get(Tenant, org.id).account_id == account_before
 
-    platform = (
-        db_session.query(Organization)
-        .filter(Organization.org_type == OrganizationType.PLATFORM)
-        .execution_options(include_all_tenants=True)
-        .one()
-    )
+    platform = db_session.query(Tenant).filter(Tenant.kind == TenantKind.PLATFORM).one()
+    platform_account = platform.account_id
     # #1542: the platform may hang under an account — an active one, as any tenant.
     editor = client.get(f"/admin/tenants/{platform.id}?bewerken=1").text
     assert 'name="account_id"' in editor and 'name="kind"' not in editor, "account yes, kind no"
@@ -277,19 +271,14 @@ def test_only_an_active_account_is_taken_for_a_tenant_and_for_the_platform(
     assert refused.status_code == 422
     assert "Kies een actief account." in refused.text
     db_session.expire_all()
-    assert db_session.get(Organization, platform.id).parent_id is None
+    assert db_session.get(Tenant, platform.id).account_id == platform_account
 
 
 # ── #1542: the platform under an account ─────────────────────────────────────
 
 
-def _the_platform(db) -> Organization:
-    return (
-        db.query(Organization)
-        .filter(Organization.org_type == OrganizationType.PLATFORM)
-        .execution_options(include_all_tenants=True)
-        .one()
-    )
+def _the_platform(db) -> Tenant:
+    return db.query(Tenant).filter(Tenant.kind == TenantKind.PLATFORM).one()
 
 
 def test_the_platform_hangs_under_an_account_and_stays_the_platform(
@@ -302,10 +291,11 @@ def test_the_platform_hangs_under_an_account_and_stays_the_platform(
     """
     from app.domains.mdm.api import enabled_modules
 
-    account = create_account(db_session, name="Account Drie", code="drie-1542")
-    create_tenant(db_session, name="Merkclub", code="merkclub-1542", parent_id=account.id)
+    account = create_organization(db_session, name="Account Drie")
+    new_site(db_session, name="Merkclub", code="merkclub-1542", account_id=account.id)
     db_session.commit()
     platform = _the_platform(db_session)
+    account_before = platform.account_id
     modules_before = enabled_modules(platform.id, db=db_session)
     csrf = _login(client, db_session, "operator5-1542@example.com", "OPERATOR")
 
@@ -314,12 +304,12 @@ def test_the_platform_hangs_under_an_account_and_stays_the_platform(
     assert saved.status_code == 200, saved.text[-400:]
     db_session.expire_all()
     platform = _the_platform(db_session)
-    assert platform.parent_id == account.id
+    assert platform.account_id == account.id
     assert platform.kind is TenantKind.PLATFORM
     assert enabled_modules(platform.id, db=db_session) == modules_before, "its own modules"
     assert any(
-        f"tenant account changed: tenant={platform.id} code={platform.code} None -> drie-1542"
-        in r.getMessage()
+        f"tenant account changed: tenant={platform.id} code={platform.code} "
+        f"{account_before} -> {account.id}" in r.getMessage()
         for r in caplog.records
     )
 
@@ -335,23 +325,25 @@ def test_the_platform_hangs_under_an_account_and_stays_the_platform(
 
 
 def test_an_admin_cannot_change_the_platforms_account(client, platform_workspace, db_session):
-    account = create_account(db_session, name="Account Vier", code="vier-1542")
+    account = create_organization(db_session, name="Account Vier")
     db_session.commit()
     platform = _the_platform(db_session)
+    account_before = platform.account_id
     csrf = _login(client, db_session, "admin-1542@example.com", "ADMIN")
     assert _save(client, csrf, platform.id, account_id=str(account.id)).status_code == 403
     db_session.expire_all()
-    assert _the_platform(db_session).parent_id is None
+    assert _the_platform(db_session).account_id == account_before
 
 
 def test_the_tenant_list_shows_each_sites_account(client, platform_workspace, db_session):
-    """#1542 (Koen): an account badge beside the kind badge, the platform's too once
-    it has an account; a site without an account has no account badge."""
-    account = create_account(db_session, name="Account Zeven", code="zeven-1542")
-    create_tenant(db_session, name="Zevenclub", code="zevenclub-1542", parent_id=account.id)
-    create_tenant(db_session, name="Losse Zeven", code="los-zeven-1542")
+    """#1542 (Koen): an account badge beside the kind badge, the platform's too.
+    Since CR-20 every site has an account; a site that is its own account names
+    itself there."""
+    account = create_organization(db_session, name="Account Zeven")
+    new_site(db_session, name="Zevenclub", code="zevenclub-1542", account_id=account.id)
+    new_site(db_session, name="Losse Zeven", code="los-zeven-1542")
     platform = _the_platform(db_session)
-    platform.parent_id = account.id
+    platform.account_id = account.id
     db_session.commit()
     _login(client, db_session, "operator7-1542@example.com", "OPERATOR")
 
@@ -364,4 +356,4 @@ def test_the_tenant_list_shows_each_sites_account(client, platform_workspace, db
 
     assert "Account Zeven" in card("Zevenclub")
     assert "Account Zeven" in card(platform.name), "the platform's account too"
-    assert "Account" not in card("Losse Zeven"), "no account, no name in its cell"
+    assert "Account" not in card("Losse Zeven"), "its own account, not another's"

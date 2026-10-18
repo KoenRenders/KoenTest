@@ -26,7 +26,16 @@ import re
 from datetime import datetime, timezone
 
 from cryptography.fernet import Fernet
-from sqlalchemy import Column, DateTime, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import Session
 
 from app.database import Base
@@ -44,7 +53,8 @@ class TenantSetting(Base):
     __table_args__ = (UniqueConstraint("tenant_id", "key", name="uq_tenant_setting"),)
 
     id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, nullable=False, index=True)
+    # CR-20 F1: a key to the tenant, in `mdm` (a key across schemas, CR-20 B4).
+    tenant_id = Column(Integer, ForeignKey("mdm.tenants.id"), nullable=False, index=True)
     key = Column(String(100), nullable=False)
     value = Column(Text, nullable=True)
     value_encrypted = Column(Text, nullable=True)
@@ -360,43 +370,41 @@ def platform_home_url(db: Session, platform_id: int) -> str:
     return settings.frontend_url.rstrip("/")
 
 
-def _organisatie(db: Session, tenant_id: int | None = None):
-    """De organisatie achter deze tenant (#924).
+def _organisatie(db: Session, organization_id: int):
+    """The organisation with this id (#924): since CR-20 a party, never a tenant.
 
-    Een tenant *is* een organisatie — `org_type` is de rol die ze speelt, de
-    kolommen ernaast zeggen wat ze is. Vandaar dat dit gewoon de rij is en geen
-    tweede entiteit.
-
-    Gelezen met SQL en niet via het mdm-model, want de kernel mag geen domein
-    importeren (`test_import_boundaries`). Dat is geen omweg om een poort heen:
-    de kernel wéét al dat een tenant een `mdm.organizations`-rij is — `tenancy.py`
-    schrijft het in zijn eerste regel — maar hij hoort dat domein niet aan te
-    trekken om het te lezen. De kolomlijst staat er daarom uitgeschreven, zodat
-    een wijziging aan het model hier zichtbaar breekt in plaats van stil iets
-    anders te leveren.
+    Read with SQL and not through the mdm model, because the kernel may not
+    import a domain (`test_import_boundaries`). The column list is written out,
+    so a change to the model breaks here visibly instead of quietly delivering
+    something else.
     """
     return db.execute(
         text("SELECT name FROM mdm.organizations WHERE id = :id AND deleted_at IS NULL"),
-        {"id": _actieve_tenant(tenant_id)},
+        {"id": organization_id},
     ).first()
 
 
 def site_organization_id(db: Session, tenant_id: int | None = None) -> int:
-    """The organisation whose data a tenant's site shows (#1550).
+    """The organisation whose data a tenant's site shows (#1550, CR-20).
 
-    The tenant's own row unless the operator pointed it at another organisation
-    of its account (`site_organization_id`). Everything that shows who runs the
-    site — the footer, "Onze organisatie", the bank account in the mails, the
-    newsletter's address line, a poster's details — asks this, so the data is
-    never copied and a change on the organisation reaches every site that shows
-    it. SQL with the column written out, like `_organisatie` below.
+    `mdm.tenants.organization_id`: the organisation the operator pointed the
+    site at — its own party, the account, or another organisation of that
+    account. Everything that shows who runs the site — the footer, "Onze
+    organisatie", the bank account in the mails, the newsletter's address line,
+    a poster's details — asks this, so the data is never copied and a change on
+    the organisation reaches every site that shows it. SQL with the column
+    written out, like `_organisatie` above. Until CR-20 the tenant was an
+    organisation row and its own id the answer by default; a tenant id and an
+    organisation id are keys of two tables now, so there is no such default
+    (a tenant without its row, outside a migrated database, falls back to its
+    own id as before).
     """
     tenant = _actieve_tenant(tenant_id)
     row = db.execute(
-        text("SELECT site_organization_id FROM mdm.organizations WHERE id = :id"),
+        text("SELECT organization_id FROM mdm.tenants WHERE id = :id"),
         {"id": tenant},
     ).first()
-    return row.site_organization_id if row and row.site_organization_id else tenant
+    return row.organization_id if row else tenant
 
 
 def _eerste_rekening(db: Session, tenant_id: int | None = None):
@@ -435,14 +443,15 @@ def tenant_display_name(db: Session, tenant_id: int | None = None) -> str:
     organisatie is — dat is geen tenant en dan is elke naam fout, maar een lege
     paginatitel is erger.
 
-    #1546: that brand name came — as a column, `site_name`, on the tenant's row.
+    #1546: that brand name came — as a column, `site_name`, on the tenant's row
+    (on `mdm.tenants` since CR-20).
     Filled in, it is the site's name. Empty, the site shows the name of the
     organisation behind it (#1550; its own row by default), so a site under an
     organisation follows that organisation's name when it changes. Every place
     the site names itself reads this function, never the column.
     """
     row = db.execute(
-        text("SELECT site_name FROM mdm.organizations WHERE id = :id AND deleted_at IS NULL"),
+        text("SELECT site_name FROM mdm.tenants WHERE id = :id"),
         {"id": _actieve_tenant(tenant_id)},
     ).first()
     if row is not None and (row.site_name or "").strip():

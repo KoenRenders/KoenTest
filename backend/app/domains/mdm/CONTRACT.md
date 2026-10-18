@@ -8,7 +8,7 @@
 contactgegevens, postcodes, externe nummers, organisaties (ACCOUNT/UNIT) en de
 bijbehorende codetabellen — plus merge/survivorship.
 
-*Process (A2.1 — membership: joining, changing, leaving, for the persons and the household; and the party under every other process).* Aggregates with a `check()` of their own: `Person`, `MemberPerson`, `OrganizationPerson`, `ContactDetail`; beside them `Member` (the household), `Address`, `Organization` with its identifications and bank accounts, and the tenant's modules.
+*Process (A2.1 — membership: joining, changing, leaving, for the persons and the household; and the party under every other process).* Aggregates with a `check()` of their own: `Person`, `MemberPerson`, `OrganizationPerson`, `ContactDetail`; beside them `Member` (the household), `Address`, `Organization` with its identifications and bank accounts, and the `Tenant` with its modules (CR-20).
 
 ## Publishes
 
@@ -111,7 +111,7 @@ Ids of part E of the architecture document, as it stood on 13 October 2026.
 
 - **E8** — the consent register in master data, then segments; planned beyond phase A of CR-05.
 - **E15** — the domain model as a party model (CR-04): proposal, not scheduled.
-- **E24** — the tenant apart from the organisation (CR-20): `mdm.tenants`, `org_type` becomes a role; decided, on no release.
+- **E24** — the tenant apart from the organisation (CR-20): `mdm.tenants` holds the site (code, kind, account, the organisation shown, site name); `mdm.organizations` keeps the party, with no role column (an account is the organisation a tenant names); built in phase 1 for v2.17.
 - **E28** — the party model (CR-26, to be written): the vocabulary for a person, a household and an organisation; parked.
 - **E29** — the label of the kind `ACCOUNT` is "Account": built on `master` for v2.17 (#1945).
 - **E30** — workbench tasks for the member administration (a new household, a changed member): open.

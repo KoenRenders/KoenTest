@@ -4,12 +4,12 @@ Since #1550 a tenant's site may show another organisation of its account, and th
 card under Tenants did not tell. Now such a card carries a grey line under the
 tenant's name, "Organisatie: <name>" — a line, not a badge, so it is not taken
 for the blue account badge. The name is asked of the resolver the footer uses
-(`site_organization_id`), so the card follows a rename of that organisation. A
-tenant on its own data shows nothing new.
+(`site_organization_id`), so the card follows a rename of that organisation.
+Since CR-20 (F5) every tenant names the organisation it shows, its own party
+included: "its own data" was the row whose id was the tenant's, and that
+equality no longer means anything.
 
 Red against master `65a7bd78`: the first test finds no `data-site-org` line.
-Additive counter-proof on this branch: with the `if` around the line taken out
-of the template, the second test fails (every card would carry a line).
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from __future__ import annotations
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, make_session_value
-from app.domains.mdm.api import Organization, create_account, save_organization
+from app.domains.mdm.api import Tenant, create_organization, save_organization
 from app.kernel.tenancy import TENANT_MILLEGEM_ID, TENANT_VOORBEELD_ID
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -42,10 +42,10 @@ def _card(html: str, tenant_id: int) -> str:
 def test_a_tenant_on_its_accounts_data_names_that_organisation(
     client, platform_workspace, db_session
 ):
-    account = create_account(db_session, name="Account Vier", code="vier-1554")
-    brand = db_session.get(Organization, TENANT_VOORBEELD_ID)
-    brand.parent_id = account.id
-    brand.site_organization_id = account.id
+    account = create_organization(db_session, name="Account Vier")
+    brand = db_session.get(Tenant, TENANT_VOORBEELD_ID)
+    brand.account_id = account.id
+    brand.organization_id = account.id
     db_session.commit()
     _operator(client, db_session)
 
@@ -67,17 +67,23 @@ def test_a_tenant_on_its_accounts_data_names_that_organisation(
     assert "Account Vier" not in card
 
 
-def test_a_tenant_on_its_own_data_shows_no_such_line(client, platform_workspace, db_session):
-    account = create_account(db_session, name="Account Vier", code="vier-1554-eigen")
-    brand = db_session.get(Organization, TENANT_VOORBEELD_ID)
-    brand.parent_id = account.id
+def test_every_tenant_names_the_organisation_it_shows(client, platform_workspace, db_session):
+    """CR-20 F5: every tenant shows an organisation — its own party, its account
+    or another of the account — so the column is filled for every row. Until
+    CR-20 a tenant on "its own data" (the row whose id was its own) left it
+    empty; a tenant id and an organisation id are keys of two tables now, and
+    nothing may lean on them being equal (C4.1)."""
+    account = create_organization(db_session, name="Account Vier")
+    brand = db_session.get(Tenant, TENANT_VOORBEELD_ID)
+    brand.account_id = account.id
     db_session.commit()
     _operator(client, db_session)
 
     html = client.get("/admin/tenants").text
 
-    assert "data-site-org" not in html
-    assert "Organisatie:" not in _card(html, brand.id)
-    assert "Organisatie:" not in _card(html, TENANT_MILLEGEM_ID)
-    # The account badge is still there: the line is not what shows the account.
-    assert "Account Vier" in _card(html, brand.id)
+    own = _card(html, brand.id)
+    cell_at = own.index("data-site-org")
+    assert "Raak Voorbeeldafdeling" in own[cell_at : own.index("</td>", cell_at)]
+    assert "data-site-org" in _card(html, TENANT_MILLEGEM_ID)
+    # The account badge is still there: the column is not what shows the account.
+    assert "Account Vier" in own

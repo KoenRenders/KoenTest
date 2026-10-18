@@ -266,14 +266,9 @@ def test_a_tenant_without_its_own_name_is_not_called_raak_millegem(db_session):
     eigen `display_name` heette zo — in zijn paginatitel, zijn mails, zijn
     afzender. Zelfde soort lek als het hardgecodeerde "— Raak Millegem" in #881.
     """
-    tweede = Organization(
-        org_type="UNIT",
-        code="tweede-afdeling",
-        name="Raak Testgem",
-        legal_form="FEITELIJKE_VERENIGING",
-    )
-    db_session.add(tweede)
-    db_session.commit()
+    from tests._sites import new_site
+
+    tweede = new_site(db_session, name="Raak Testgem", code="tweede-afdeling")
 
     assert tenant_display_name(db_session, tweede.id) == "Raak Testgem", (
         "een tenant zonder eigen naam hoort zijn organisatienaam te dragen, niet "
@@ -292,14 +287,9 @@ def test_no_setting_overrules_the_organisation_name(db_session):
     De instelling wordt hier alsnog gezet, want anders toetst deze test alleen dat
     er niets staat. Wint ze, dan is de tweede bron er nog.
     """
-    tweede = Organization(
-        org_type="UNIT",
-        code="derde-afdeling",
-        name="Raak Derdegem",
-        legal_form="FEITELIJKE_VERENIGING",
-    )
-    db_session.add(tweede)
-    db_session.commit()
+    from tests._sites import new_site
+
+    tweede = new_site(db_session, name="Raak Derdegem", code="derde-afdeling")
     set_setting(db_session, "display_name", "Derdegem Beweegt", tenant_id=tweede.id)
 
     assert tenant_display_name(db_session, tweede.id) == "Raak Derdegem", (
@@ -318,15 +308,26 @@ def test_the_legal_form_is_set_by_role_and_not_guessed_by_name(db_session):
     krijgt niets: het platform is geen vereniging, en een verzonnen rechtsvorm is
     erger dan een lege kolom.
     """
-    rijen = db_session.execute(
-        text("SELECT org_type, legal_form FROM mdm.organizations WHERE deleted_at IS NULL")
-    ).all()
-    per_rol = {rol: vorm for rol, vorm in rijen}
-    assert per_rol.get("UNIT") == "FEITELIJKE_VERENIGING"
-    if "ACCOUNT" in per_rol:
-        assert per_rol["ACCOUNT"] == "VZW"
-    if "PLATFORM" in per_rol:
-        assert per_rol["PLATFORM"] is None
+
+    # CR-20: the role is read from the tenants — the party a department shows,
+    # the party it names as its account, the party the platform shows.
+    def vorm(sql: str):
+        return db_session.execute(text(sql)).scalar()
+
+    afdeling = (
+        "FROM mdm.tenants t JOIN mdm.organizations o ON o.id = t.{} WHERE t.code = 'raakmillegem'"
+    )
+    assert (
+        vorm("SELECT o.legal_form " + afdeling.format("organization_id")) == "FEITELIJKE_VERENIGING"
+    )
+    assert vorm("SELECT o.legal_form " + afdeling.format("account_id")) == "VZW"
+    assert (
+        vorm(
+            "SELECT o.legal_form FROM mdm.tenants t JOIN mdm.organizations o "
+            "ON o.id = t.organization_id WHERE t.kind = 'PLATFORM'"
+        )
+        is None
+    )
 
 
 def test_the_legal_form_code_list_follows_the_779_pattern(db_session):
@@ -344,19 +345,6 @@ def test_the_legal_form_code_list_follows_the_779_pattern(db_session):
         for rij in db_session.execute(text("SELECT DISTINCT language FROM mdm.legal_form_labels"))
     }
     assert {"nl", "en"} <= talen
-
-
-def test_org_type_is_untouched(db_session):
-    """Uitdrukkelijk buiten scope: de rol-as blijft zoals ze was.
-
-    Rechtsvorm en adres toevoegen is neutraal; een nieuwe toets op `org_type` is
-    dat niet, en zou de latere samenvoeging van account-én-tenant moeilijker maken.
-    """
-    soorten = {
-        rij[0]
-        for rij in db_session.execute(text("SELECT DISTINCT org_type FROM mdm.organizations"))
-    }
-    assert soorten <= {"ACCOUNT", "UNIT", "PLATFORM"}
 
 
 # ── 6. De velden zijn ergens te bewerken ────────────────────────────────────

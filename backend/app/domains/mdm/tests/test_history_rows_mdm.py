@@ -123,7 +123,7 @@ def test_every_snapshot_of_mdm_writes_the_row_it_wrote(db_session):
                 SimpleNamespace(
                     id=883_001,
                     superseded_by_id=None,
-                    tenant_id=1,
+                    tenant_id=2,
                     last_name="Voorbeeld",
                     first_name="An",
                     date_of_birth=date(1980, 2, 29),
@@ -133,14 +133,14 @@ def test_every_snapshot_of_mdm_writes_the_row_it_wrote(db_session):
             (
                 snapshot_member,
                 MemberHistory,
-                SimpleNamespace(id=883_002, tenant_id=1, board_member_id=883_009),
+                SimpleNamespace(id=883_002, tenant_id=2, board_member_id=883_009),
             ),
             (
                 snapshot_member_person,
                 MemberPersonHistory,
                 SimpleNamespace(
                     id=883_003,
-                    tenant_id=1,
+                    tenant_id=2,
                     member_id=883_002,
                     person_id=883_001,
                     relation_type=RelationType.PRIMARY_MEMBER,
@@ -152,7 +152,7 @@ def test_every_snapshot_of_mdm_writes_the_row_it_wrote(db_session):
                 SimpleNamespace(
                     id=883_004,
                     organization_id=None,
-                    tenant_id=1,
+                    tenant_id=2,
                     person_id=883_001,
                     street="Voorbeeldstraat",
                     house_number="12",
@@ -166,7 +166,7 @@ def test_every_snapshot_of_mdm_writes_the_row_it_wrote(db_session):
                 SimpleNamespace(
                     id=883_006,
                     organization_id=None,
-                    tenant_id=1,
+                    tenant_id=2,
                     person_id=883_001,
                     contact_type_code=CONTACT.EMAIL,
                     value="an@example.org",

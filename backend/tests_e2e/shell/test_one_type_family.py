@@ -217,15 +217,14 @@ def test_the_three_kinds_of_tenant_share_the_headings_and_name_their_own_newslet
     van" plus THAT site's name (#1606 — never the town)."""
     import app.models  # noqa: F401  load_all_models()
     from app.database import SessionLocal
-    from app.domains.mdm.api import Organization, TenantKind
+    from app.domains.mdm.api import Tenant, TenantKind
     from tests_e2e.schermen import PLATFORM
 
     db = SessionLocal()
     company = (
-        db.query(Organization.code)
-        .filter(Organization.kind == TenantKind.COMPANY, Organization.is_active.is_(True))
-        .execution_options(include_all_tenants=True)
-        .order_by(Organization.id.desc())
+        db.query(Tenant.code)
+        .filter(Tenant.kind == TenantKind.COMPANY, Tenant.is_active.is_(True))
+        .order_by(Tenant.id.desc())
         .first()
     )
     db.close()

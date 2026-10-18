@@ -21,15 +21,15 @@ from app.domains.auth.models import User, UserRole
 from app.domains.cms.api import CmsPage
 from app.domains.mdm import tenant_lookup
 from app.domains.mdm.api import (
-    Organization,
+    Tenant,
     TenantFout,
     TenantKind,
-    create_tenant,
     enabled_modules,
     set_modules,
 )
 from app.kernel.modules import ModuleCode, current_modules, record_counts
-from app.kernel.tenancy import TENANT_MILLEGEM_ID
+from app.kernel.tenancy import ACCOUNT_RAAK_ID, TENANT_MILLEGEM_ID
+from tests._sites import new_site
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -79,7 +79,7 @@ def _blocks(db_session, tenant_id: int) -> dict[str, CmsPage]:
 def test_a_new_tenant_starts_with_its_kinds_modules_a_footer_and_a_home_page(
     db_session, kind, expected
 ):
-    org = create_tenant(db_session, name="Bakkerij & Co", code="bakkerij-1478", kind=kind)
+    org = new_site(db_session, name="Bakkerij & Co", code="bakkerij-1478", kind=kind)
     assert org.kind is (kind or TenantKind.ASSOCIATION)
     assert enabled_modules(org.id, db=db_session) == expected
 
@@ -103,18 +103,19 @@ def test_a_new_tenant_starts_with_its_kinds_modules_a_footer_and_a_home_page(
 
 def test_an_unknown_kind_is_refused(db_session):
     with pytest.raises(TenantFout, match="vereniging of bedrijf"):
-        create_tenant(db_session, name="X", code="x-1478", kind="KERK")
-    assert not db_session.query(Organization).filter(Organization.code == "x-1478").first()
+        new_site(db_session, name="X", code="x-1478", kind="KERK")
+    assert not db_session.query(Tenant).filter(Tenant.code == "x-1478").first()
 
 
 def test_every_existing_unit_is_an_association_and_nothing_else_has_a_kind(db_session):
-    """Every UNIT an association; the PLATFORM its own kind since #1523
-    (migration 191); an ACCOUNT none."""
-    rows = db_session.execute(sql("SELECT org_type, kind FROM mdm.organizations")).all()
-    assert {r.org_type for r in rows} >= {"UNIT", "ACCOUNT", "PLATFORM"}
-    expected = {"UNIT": "VERENIGING", "PLATFORM": "PLATFORM"}
-    for org_type, kind in rows:
-        assert kind == expected.get(org_type), (org_type, kind)
+    """Every department an association; the platform its own kind since #1523
+    (migration 191). Since CR-20 the kind is the tenant's (`mdm.tenants.kind`,
+    NOT NULL); an organisation has none."""
+    rows = db_session.execute(sql("SELECT code, kind FROM mdm.tenants")).all()
+    assert {r.kind for r in rows} >= {"VERENIGING", "PLATFORM"}
+    for code, kind in rows:
+        expected = "PLATFORM" if code == "platform" else "VERENIGING"
+        assert kind == expected, (code, kind)
 
 
 # ── C6 test 3: dependencies ─────────────────────────────────────────────────
@@ -129,7 +130,7 @@ def test_every_existing_unit_is_an_association_and_nothing_else_has_a_kind(db_se
     ],
 )
 def test_a_dependency_is_refused_before_anything_changes(db_session, codes, message):
-    org = create_tenant(db_session, name="Proef", code="proef-1478", kind=TenantKind.COMPANY)
+    org = new_site(db_session, name="Proef", code="proef-1478", kind=TenantKind.COMPANY)
     with pytest.raises(TenantFout) as refused:
         set_modules(db_session, org.id, codes)
     assert str(refused.value) == message
@@ -166,14 +167,14 @@ def test_the_alternatives_of_a_refused_module_read_as_a_dutch_list(
 
     payment = replace(modules.REGISTRY[ModuleCode.PAYMENT], depends_on=(alternatives,))
     monkeypatch.setitem(modules.REGISTRY, ModuleCode.PAYMENT, payment)
-    org = create_tenant(db_session, name="Proef", code="proef-1888", kind=TenantKind.COMPANY)
+    org = new_site(db_session, name="Proef", code="proef-1888", kind=TenantKind.COMPANY)
     with pytest.raises(TenantFout) as refused:
         set_modules(db_session, org.id, {"cms", "payment"})
     assert str(refused.value) == message
 
 
 def test_a_valid_set_is_saved_and_the_cache_cleared(db_session, monkeypatch):
-    org = create_tenant(db_session, name="Proef", code="proef2-1478", kind=TenantKind.COMPANY)
+    org = new_site(db_session, name="Proef", code="proef2-1478", kind=TenantKind.COMPANY)
     monkeypatch.setattr(tenant_lookup, "_modules_cache", {org.id: frozenset({"cms"})})
 
     set_modules(db_session, org.id, {"cms", "activities", "designstudio", "payment"})
@@ -192,7 +193,7 @@ def test_a_valid_set_is_saved_and_the_cache_cleared(db_session, monkeypatch):
 def test_record_counts_count_this_tenants_live_records(db_session):
     from app.soft_delete import soft_delete
 
-    org = create_tenant(db_session, name="Telproef", code="tel-1478", kind=TenantKind.ASSOCIATION)
+    org = new_site(db_session, name="Telproef", code="tel-1478", kind=TenantKind.ASSOCIATION)
     live = Activity(name="Telt", tenant_id=org.id)
     gone = Activity(name="Telt niet", tenant_id=org.id)
     db_session.add_all([live, gone])
@@ -210,7 +211,7 @@ def test_the_editor_shows_the_kind_and_the_modules_and_refuses_a_missing_depende
     client, platform_workspace, db_session
 ):
     csrf = _operator(client, db_session)
-    org = create_tenant(db_session, name="Editorproef", code="ed-1478", kind=TenantKind.COMPANY)
+    org = new_site(db_session, name="Editorproef", code="ed-1478", kind=TenantKind.COMPANY)
 
     page = client.get(f"/admin/tenants/{org.id}?bewerken=1").text
     # #1533: the kind is a choice now, BEDRIJF ticked.
@@ -253,10 +254,15 @@ def test_the_new_tenant_page_is_operator_only_and_offers_the_kind(
 
     client.post(
         "/admin/tenants",
-        data={"name": "Garage Peeters", "code": "garage-1478", "kind": "BEDRIJF"},
+        data={
+            "site_name": "Garage Peeters",
+            "code": "garage-1478",
+            "kind": "BEDRIJF",
+            "account_id": str(ACCOUNT_RAAK_ID),
+        },
         headers={"X-CSRF-Token": csrf, "HX-Request": "true"},
     )
-    org = db_session.query(Organization).filter(Organization.code == "garage-1478").one()
+    org = db_session.query(Tenant).filter(Tenant.code == "garage-1478").one()
     assert org.kind is TenantKind.COMPANY
     assert enabled_modules(org.id, db=db_session) == COMPANY
     assert "Bedrijf" in client.get("/admin/tenants").text

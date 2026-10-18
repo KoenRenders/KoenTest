@@ -286,6 +286,28 @@ def test_werkruimte_wisselen_linkt_via_de_padprefix(client, db_session):
     assert client.get("/raakvoorbeeldafdeling/admin").status_code == 200
 
 
+class _AsBefore313:
+    """The connection as migration 127 met it: it finds the platform by
+    `org_type`, which CR-20 (migration 313) replaced by the tenant's kind, with
+    the same id. The one query is read on today's schema; the steps run as they are."""
+
+    def __init__(self, bind):
+        self._bind = bind
+
+    def execute(self, statement, *args, **kwargs):
+        from sqlalchemy import text
+
+        old = "FROM mdm.organizations WHERE org_type = 'PLATFORM'"
+        if old in str(statement):
+            statement = text(
+                str(statement).replace(old, "FROM mdm.tenants WHERE kind = 'PLATFORM'")
+            )
+        return self._bind.execute(statement, *args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._bind, name)
+
+
 def _migratie_127():
     """Laad de migratiemodule zelf, zodat de test exact de SQL draait die op
     een host draait — geen herimplementatie die stilletjes kan afwijken."""
@@ -315,12 +337,17 @@ def test_migratie_plaatst_account_admin_bij_raak_vzw_en_platform(db_session):
     volgorde-onafhankelijk, en dát is wat deze test bewaakt.
     """
     from app.domains.mdm.api import platform_tenant_id
+    from tests._sites import a_tenant_with_id
 
+    # CR-20: a role's workspace has a key to `mdm.tenants` since migration 313,
+    # and organisation 1 is an account, no tenant. The steps of migration 127
+    # ran before that; on today's schema the workspace must exist to take them.
+    a_tenant_with_id(db_session, 1)
     m = _migratie_127()
     email = "hoofdbeheer@example.com"
     # Pre-migratiestand: rijen zonder werkruimte, zoals vóór #963.
     u = _user(db_session, email, ("ACCOUNT_ADMIN", None), ("ADMIN", None))
-    bind = db_session.connection()
+    bind = _AsBefore313(db_session.connection())
     m.scope_existing_roles(bind)
     m.copy_seed_roles(bind, [email])
 

@@ -29,7 +29,7 @@ def test_the_menu_offers_the_values_of_the_closed_list_and_nothing_else(db_sessi
     assert all(entry in card for entry in menu), "the menu names a code the card does not"
     assert [entry["code"].strip("{}") for entry in menu] == list(VALUE_CODES)
     left_out = [entry["code"] for entry in card if entry not in menu]
-    assert "{{tenants:raak}}" in left_out and "{{form:berichten}}" in left_out
+    assert "{{tenants:raakmillegem}}" in left_out and "{{form:berichten}}" in left_out
 
 
 def test_the_card_s_list_is_the_renderer_s(db_session):

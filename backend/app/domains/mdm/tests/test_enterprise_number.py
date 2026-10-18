@@ -27,7 +27,7 @@ from app.domains.auth.api import (
 from app.domains.mdm.api import (
     OngeldigeInstelling,
     Organization,
-    create_account,
+    create_organization,
     organization_details,
     save_organization,
 )
@@ -75,7 +75,7 @@ def test_a_wrong_check_number_is_told_apart():
 
 @pytest.mark.parametrize("spelling", ["0123.456.749", "BE0123456749"])
 def test_a_valid_number_is_stored_as_its_ten_digits(db_session, spelling):
-    account = create_account(db_session, name="Bakkerij", code=f"bakkerij-{len(spelling)}")
+    account = create_organization(db_session, name="Bakkerijbakkerij-{len(spelling)}")
     save_organization(db_session, account.id, {"enterprise_number": spelling})
     assert organization_details(db_session, account.id)["enterprise_number"] == VALID
 
@@ -86,7 +86,7 @@ def test_a_valid_number_is_stored_as_its_ten_digits(db_session, spelling):
     ids=["check-number", "letters", "too-short", "too-long"],
 )
 def test_a_bad_number_is_refused_and_nothing_is_written(db_session, text):
-    account = create_account(db_session, name="Bakkerij", code="bakkerij-1517")
+    account = create_organization(db_session, name="Bakkerij")
     with pytest.raises(OngeldigeInstelling) as refused:
         save_organization(
             db_session, account.id, {"name": "Nieuwe naam", "enterprise_number": text}
@@ -100,7 +100,7 @@ def test_a_bad_number_is_refused_and_nothing_is_written(db_session, text):
 
 @pytest.mark.ui_serverrendered
 def test_the_screen_names_the_field_and_the_reason(client, platform_workspace, db_session):
-    account = create_account(db_session, name="Bakkerij", code="bakkerij-scherm")
+    account = create_organization(db_session, name="Bakkerij")
     user = db_session.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).one()
     if not db_session.query(UserRole).filter_by(user_id=user.id, role_code="OPERATOR").first():
         db_session.add(UserRole(user_id=user.id, role_code="OPERATOR"))

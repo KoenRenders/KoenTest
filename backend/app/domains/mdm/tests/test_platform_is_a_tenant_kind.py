@@ -17,15 +17,9 @@ import re
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, make_session_value
-from app.domains.mdm.api import (
-    Organization,
-    OrganizationType,
-    TenantFout,
-    TenantKind,
-    create_tenant,
-    enabled_modules,
-)
+from app.domains.mdm.api import Tenant, TenantFout, TenantKind, enabled_modules
 from app.kernel.modules import DEFAULTS, ModuleCode
+from tests._sites import new_site
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -53,13 +47,8 @@ def platform_host(monkeypatch):
     invalidate_tenant_codes()
 
 
-def _platform(db) -> Organization:
-    return (
-        db.query(Organization)
-        .filter(Organization.org_type == OrganizationType.PLATFORM)
-        .execution_options(include_all_tenants=True)
-        .one()
-    )
+def _platform(db) -> Tenant:
+    return db.query(Tenant).filter(Tenant.kind == TenantKind.PLATFORM).one()
 
 
 def _operator(client, db) -> None:
@@ -104,7 +93,7 @@ def test_the_registry_has_the_platforms_own_entry():
 
 def test_a_new_tenant_is_never_a_platform(client, platform_workspace, db_session, platform_host):
     with pytest.raises(TenantFout):
-        create_tenant(db_session, name="Tweede platform", code="tweede-platform", kind="PLATFORM")
+        new_site(db_session, name="Tweede platform", code="tweede-platform", kind="PLATFORM")
 
     _operator(client, db_session)
     form = client.get("/admin/tenants/nieuw").text

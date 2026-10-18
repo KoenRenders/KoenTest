@@ -85,8 +85,10 @@ def browser_and_company():
         page.goto("/admin/tenants/nieuw")
         pagina_klaar(page)
         page.locator("label:has(input[name=kind][value=BEDRIJF])").click()
-        page.fill("#t-name", f"Testbedrijf {code}")
         page.fill("#t-code", code)
+        # CR-20 F5: a tenant names its account — here a new organisation of its own.
+        page.select_option("#t-account", "nieuw")
+        page.fill("#t-new-account", f"Testbedrijf {code}")
         with page.expect_response(
             lambda r: r.url.endswith("/admin/tenants") and r.request.method == "POST"
         ) as made:

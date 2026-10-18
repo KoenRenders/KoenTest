@@ -23,11 +23,12 @@ import secrets
 import pytest
 
 from app.domains.forms.api import CONTACT_FORM_SLUG, Form, FormSubmission
-from app.domains.mdm.api import TenantKind, create_tenant
+from app.domains.mdm.api import TenantKind
 from app.domains.workflow.api import MESSAGE_WORKFLOW, WorkflowTask
 from app.domains.workflow.models import WorkflowDefinition
 from app.kernel.tenancy import TENANT_MILLEGEM_ID
 from seed_contact_forms import seed_contact_forms
+from tests._sites import new_site
 from tests.conftest import form_guard_fields
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -70,7 +71,7 @@ def _known_to_the_app(monkeypatch, db) -> None:
 
 def _bare_tenant(db, code: str):
     """A tenant as the ones created before #1509: no contact form, no definition."""
-    tenant = create_tenant(db, name=f"Kaal {code}", code=code, kind=TenantKind.COMPANY)
+    tenant = new_site(db, name=f"Kaal {code}", code=code, kind=TenantKind.COMPANY)
     for row in (*_forms(db, tenant.id), *_definitions(db, tenant.id)):
         db.delete(row)
     db.commit()
@@ -80,7 +81,7 @@ def _bare_tenant(db, code: str):
 def test_a_new_tenant_has_a_contact_form_that_makes_a_task(
     client, db_session, platform_host, monkeypatch
 ):
-    tenant = create_tenant(db_session, name="Bakkerij", code="bakkerij-1509")
+    tenant = new_site(db_session, name="Bakkerij", code="bakkerij-1509")
     assert len(_forms(db_session, tenant.id)) == 1
     assert len(_definitions(db_session, tenant.id)) == 1
     assert len(_forms(db_session, TENANT_MILLEGEM_ID)) == 1, "raakmillegem keeps its own"
@@ -133,7 +134,7 @@ def test_a_form_without_its_definition_is_no_contact_form(
 ):
     """The form alone is not enough: without the definition, `start` refuses and
     the message would be rolled back with a 500."""
-    tenant = create_tenant(db_session, name="Half", code="half-1509", kind=TenantKind.COMPANY)
+    tenant = new_site(db_session, name="Half", code="half-1509", kind=TenantKind.COMPANY)
     for row in _definitions(db_session, tenant.id):
         db_session.delete(row)
     db_session.commit()

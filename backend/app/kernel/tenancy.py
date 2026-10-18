@@ -1,7 +1,7 @@
 """Tenant-context + mixin + globale filter (§7, fase 5 #406).
 
 Rij-niveau tenancy in een gedeeld schema: elke tenant-tabel draagt een
-verplichte, geïndexeerde ``tenant_id`` (UNIT uit ``mdm.organizations``).
+verplichte, geïndexeerde ``tenant_id`` (een rij van ``mdm.tenants``, CR-20).
 RLS-klaar vanaf dag één: RLS aanzetten wordt later een migratieregel.
 
 De actieve tenant komt uit ``current_tenant_id`` (gezet door de
@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from contextvars import ContextVar
 
-from sqlalchemy import Column, Integer, event
+from sqlalchemy import Column, ForeignKey, Integer, event
 from sqlalchemy.orm import Session, declarative_mixin, declared_attr, with_loader_criteria
 
 # Vaste organization-ids uit de seed (migratie 086) — bewust deterministisch,
@@ -63,11 +63,34 @@ def _tenant_default() -> int:
 @declarative_mixin
 class TenantMixin:
     """Rij-niveau tenancy: elke tenant-tabel draagt een verplichte, geïndexeerde
-    ``tenant_id`` (RLS aanzetten wordt zo later een migratieregel, geen verbouwing)."""
+    ``tenant_id`` (RLS aanzetten wordt zo later een migratieregel, geen verbouwing).
+
+    Since CR-20 the column is a foreign key to ``mdm.tenants`` — a row can no
+    longer carry a tenant that does not exist. The key crosses a schema for every
+    table outside ``mdm``, by the one named exception of CR-20 B4 (the schema
+    boundary gate allows ``mdm.tenants`` and ``mdm.parties``).
+
+    A model that sets ``tenant_key = False`` declares the column without the key:
+    the ``mdm`` tables whose ``tenant_id`` holds an organisation's id on an
+    organisation's own rows (addresses, contacts, the organisation's persons, and
+    their history — CR-20 F2, C4.8). CR-26 takes them out of the tenant scope;
+    until then they stand in the baseline of
+    ``tests/test_tenant_key_gate.py``, which may only shrink.
+    """
+
+    tenant_key = True
 
     @declared_attr
     def tenant_id(cls):  # noqa: N805 - declarative_mixin-conventie
-        return Column(Integer, nullable=False, index=True, default=_tenant_default)
+        if not cls.__dict__.get("tenant_key", True):
+            return Column(Integer, nullable=False, index=True, default=_tenant_default)
+        return Column(
+            Integer,
+            ForeignKey("mdm.tenants.id"),
+            nullable=False,
+            index=True,
+            default=_tenant_default,
+        )
 
 
 # Tenant-codes (organizations.code) → id. Deze hardgecodeerde map blijft het

@@ -200,6 +200,9 @@ def test_a_size_of_another_tenant_is_not_found(client, db_session, every_module_
     _operator(client, db_session, every_module_on)
     product = create_product(db_session, "T-shirt Raak")
 
+    from tests._sites import a_tenant_with_id
+
+    a_tenant_with_id(db_session, 999)  # CR-20: the other tenant exists
     token = current_tenant_id.set(999)
     try:
         other = ProductVariant(product_id=product.id, properties=[{"name": "Maat", "value": "M"}])

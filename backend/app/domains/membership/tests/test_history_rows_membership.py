@@ -53,7 +53,7 @@ def test_every_snapshot_of_membership_writes_the_row_it_wrote(db_session):
                 MembershipHistory,
                 SimpleNamespace(
                     id=884_001,
-                    tenant_id=1,
+                    tenant_id=2,
                     member_id=883_002,
                     year=2026,
                     is_active=True,

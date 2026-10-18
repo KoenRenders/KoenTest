@@ -1,18 +1,15 @@
 {% import "_macros.html" as ui %}
-{# The list of Organisaties (#1932): one row per organisation on the kit's table —
-   the name as the way in to the record with its code under it, the kind as a
-   badge, the account an afdeling hangs under as a jump link, the legal form, and
-   a Status cell that holds only Inactief: active is quiet. The toolbar swaps this
-   fragment; what changes with the list — the count, a segment's count, the
-   sort — travels out-of-band. #}
+{# The list of Organisaties (#1932): one row per organisation — a party; since
+   CR-20 a tenant is no organisation — on the kit's table: the name as the way in
+   to the record, the legal form, and a Status cell that holds only Inactief:
+   active is quiet. The toolbar swaps this fragment; what changes with the list —
+   the count, the sort — travels out-of-band. #}
 {% if rows %}
 {% call ui.data_table(columns, hx_target="#org-lijst", caption=_("Organisaties")) %}
   <tbody>
     {% for r in rows %}
     <tr data-row data-organisation="{{ r.id }}" class="align-middle">
-      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">{{ ui.row_link(r.name, r.href, sub=r.code) }}</td>
-      <td data-cell="context" class="border-b border-line px-3 py-2">{{ ui.badge(r.kind_label, r.kind_tone) }}</td>
-      <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2">{% if r.parent %}<span data-above-row>{{ ui.reference(r.parent.name, r.parent.href) }}</span>{% else %}<span class="text-ink-soft">—</span>{% endif %}</td>
+      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">{{ ui.row_link(r.name, r.href) }}</td>
       <td data-cell="extra" data-p="2" class="border-b border-line px-3 py-2 text-ink-soft">{{ r.legal_form or "—" }}</td>
       <td data-cell="status" class="border-b border-line px-3 py-2">{% if r.inactive %}{{ ui.badge(_("Inactief"), "red") }}{% endif %}</td>
     </tr>
@@ -23,4 +20,4 @@
 {% else %}
 {{ ui.empty_state(empty_reason) }}
 {% endif %}
-{% if oob %}{{ ui.toolbar_oob("org-filter", segments=segments, page=page, per_page=per_page, total=total, sort=sort) }}{% endif %}
+{% if oob %}{{ ui.toolbar_oob("org-filter", page=page, per_page=per_page, total=total, sort=sort) }}{% endif %}

@@ -15,25 +15,24 @@ domein importeren — die grens wordt door `test_import_boundaries.py` bewaakt.
 import pytest
 
 from app.domains.mdm.api import (
-    OrganizationType,
     TenantFout,
-    create_tenant,
     list_units,
     secrets_gezet,
     update_tenant_settings,
 )
+from tests._sites import new_site
 
 pytestmark = pytest.mark.ui_agnostisch
 
 
 def test_een_tenant_krijgt_zijn_basisinstellingen(db_session):
-    org = create_tenant(
+    org = new_site(
         db_session, name="Raak Voorbeeld", code="voorbeeld", base_url="https://voorbeeld.example"
     )
 
     from app.kernel.tenant_config import get_setting
 
-    assert org.org_type == OrganizationType.UNIT and org.is_active is True
+    assert not org.is_platform and org.is_active is True
     # #945: de naam staat één keer, op de organisatie. `create_tenant` schreef hem
     # daarnaast als `display_name`-instelling weg — een tweede bron, aangelegd op
     # het moment van aanmaken, en dat is precies waar er twee uit elkaar gaan lopen.
@@ -50,18 +49,18 @@ def test_een_tenant_krijgt_zijn_basisinstellingen(db_session):
 def test_een_ongeldige_code_wordt_geweigerd(db_session, code):
     """De code is de sleutel waarmee een verzoek naar zijn tenant resolvet."""
     with pytest.raises(TenantFout):
-        create_tenant(db_session, name="Naam", code=code)
+        new_site(db_session, name="Naam", code=code)
 
 
 def test_een_lege_naam_wordt_geweigerd(db_session):
     with pytest.raises(TenantFout):
-        create_tenant(db_session, name="   ", code="geldig")
+        new_site(db_session, name="   ", code="geldig")
 
 
 def test_dezelfde_code_kan_niet_twee_keer(db_session):
-    create_tenant(db_session, name="Eerste", code="dubbel")
+    new_site(db_session, name="Eerste", code="dubbel")
     with pytest.raises(TenantFout):
-        create_tenant(db_session, name="Tweede", code="dubbel")
+        new_site(db_session, name="Tweede", code="dubbel")
 
 
 # ── Instellingen ─────────────────────────────────────────────────────────────
@@ -71,7 +70,7 @@ GEWOON = ["tagline"]
 
 
 def _tenant(db):
-    return create_tenant(db, name="Instelbaar", code="instelbaar").id
+    return new_site(db, name="Instelbaar", code="instelbaar").id
 
 
 def test_een_geheime_sleutel_blijft_staan_als_het_veld_leeg_is(db_session):

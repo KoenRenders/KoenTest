@@ -14,6 +14,17 @@ from app.domains.chatbot.api import sink_for
 from app.kernel.tenancy import DEFAULT_TENANT_ID
 from tests.conftest import SEEDED_ADMIN_EMAIL, sent_to_sign_in
 
+
+@pytest.fixture(autouse=True)
+def _the_tenants_exist():
+    """CR-20: a `tenant_id` has a key to `mdm.tenants` (C6 test 10), so the
+    other department this file names by number must exist — committed, because
+    the log is written through a session of its own."""
+    from tests._sites import committed_tenant
+
+    yield from committed_tenant(DEFAULT_TENANT_ID + 40)
+
+
 pytestmark = pytest.mark.ui_serverrendered
 
 

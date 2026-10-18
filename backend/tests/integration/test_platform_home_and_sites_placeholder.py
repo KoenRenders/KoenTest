@@ -24,24 +24,15 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from app.domains.cms.api import CmsPage
-from app.domains.mdm.api import (
-    Organization,
-    OrganizationType,
-    create_account,
-    create_tenant,
-)
+from app.domains.mdm.api import Tenant, TenantKind, create_organization
 from app.kernel.tenancy import TENANT_MILLEGEM_ID
+from tests._sites import new_site
 
 pytestmark = pytest.mark.ui_serverrendered
 
 
-def _platform(db) -> Organization:
-    return (
-        db.query(Organization)
-        .filter(Organization.org_type == OrganizationType.PLATFORM)
-        .execution_options(include_all_tenants=True)
-        .one()
-    )
+def _platform(db) -> Tenant:
+    return db.query(Tenant).filter(Tenant.kind == TenantKind.PLATFORM).one()
 
 
 def _pages(db, tenant_id: int) -> dict[str, CmsPage]:
@@ -147,18 +138,16 @@ def test_editing_the_platform_home_in_paginas_changes_it(platform_workspace, db_
 
 
 def test_the_placeholder_on_a_department_page(client, db_session):
-    first = create_account(db_session, name="Account Vijf", code="vijf-1543")
-    second = create_account(db_session, name="Account Zes", code="zes-1543")
-    create_tenant(db_session, name="Clubhuis", code="clubhuis-1543", parent_id=first.id)
-    closed = create_tenant(
-        db_session, name="Gesloten Club", code="gesloten-1543", parent_id=first.id
-    )
+    first = create_organization(db_session, name="Account Vijf")
+    second = create_organization(db_session, name="Account Zes")
+    new_site(db_session, name="Clubhuis", code="clubhuis-1543", account_id=first.id)
+    closed = new_site(db_session, name="Gesloten Club", code="gesloten-1543", account_id=first.id)
     closed.is_active = False
-    create_tenant(db_session, name="Werkplaats", code="werkplaats-1543", parent_id=second.id)
+    new_site(db_session, name="Werkplaats", code="werkplaats-1543", account_id=second.id)
     platform = _platform(db_session)
-    platform.parent_id = second.id
+    platform.account_id = second.id
     db_session.commit()
-    _department_page(db_session, "<p>{{tenants}}</p><p>---</p><p>{{tenants:vijf-1543}}</p>")
+    _department_page(db_session, "<p>{{tenants}}</p><p>---</p><p>{{tenants:clubhuis-1543}}</p>")
 
     html = client.get("/onze-netwerk-1543").text
     everything, one = html.split("---", 1)
@@ -179,11 +168,11 @@ def test_each_site_is_a_card_that_is_a_link_as_a_whole(client, db_session):
     """#1566: one card link per site — its name, and its address under it — in a
     grid per account, and no list. Both forms of the placeholder. Red against
     master, where the placeholder rendered `<ul><li><a>`."""
-    account = create_account(db_session, name="Account Acht", code="acht-1566")
-    create_tenant(db_session, name="Atelier <Noord>", code="atelier-1566", parent_id=account.id)
-    create_tenant(db_session, name="Buurthuis", code="buurthuis-1566", parent_id=account.id)
+    account = create_organization(db_session, name="Account Acht")
+    new_site(db_session, name="Atelier <Noord>", code="atelier-1566", account_id=account.id)
+    new_site(db_session, name="Buurthuis", code="buurthuis-1566", account_id=account.id)
     db_session.commit()
-    _department_page(db_session, "<p>{{tenants}}</p><p>---</p><p>{{tenants:acht-1566}}</p>")
+    _department_page(db_session, "<p>{{tenants}}</p><p>---</p><p>{{tenants:buurthuis-1566}}</p>")
 
     html = client.get("/onze-netwerk-1543").text
     for part in html.split("---", 1):
@@ -205,9 +194,12 @@ def test_each_site_is_a_card_that_is_a_link_as_a_whole(client, db_session):
     )
 
 
-def test_the_placeholder_leaves_the_platform_out_without_an_account(client, db_session):
+def test_the_placeholder_lists_the_platform_under_its_account(client, db_session):
+    """CR-20 F1: every tenant has an account, the platform too (measured on UAT
+    and PROD on 18 October 2026: it already had one). Until CR-20 a platform
+    without an account was left out; that case no longer exists."""
     _department_page(db_session, "<p>{{tenants}}</p><p>{{tenants:bestaat-niet}}</p>")
     html = client.get("/onze-netwerk-1543").text
     names = [name for group in _groups(html).values() for name in group]
-    assert _platform(db_session).name not in names
-    assert "{{tenants" not in html, "an unknown account code renders nothing, not the code"
+    assert _platform(db_session).name in names
+    assert "{{tenants" not in html, "an unknown tenant code renders nothing, not the code"
