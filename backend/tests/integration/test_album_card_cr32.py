@@ -176,6 +176,14 @@ def test_a_moving_card_can_be_paused_and_clears_its_timer(db_session):
     html = render_document(_doc(albums=1, photos=3, interval=3), db_session)
     assert "aria-label=" in html and "paused = !paused" in html and "if (!this.paused)" in html
     assert "destroy() { clearInterval(this.t) }" in html
+    # #2097: an icon button laid over the picture, a sibling of the card's link (a button
+    # may not sit inside a link), inside the wrapper that owns the state; no text button.
+    assert "Pauzeer" not in html and "Hervat" not in html
+    wrapper = html.index("data-photo-moving")
+    button = html.index("<button")
+    assert wrapper < html.index("</a>") < button < html.rindex("</div>")
+    assert 'aria-label="Beweging van de albumkaart pauzeren of hervatten"' in html
+    assert ':aria-pressed="paused"' in html and "w-11 h-11" in html
     still = render_document(_doc(albums=1, photos=3, interval=0), db_session)
     assert "paused" not in still and "<button" not in still
     preview = render_document(_doc(albums=1, photos=3, interval=3), db_session, preview=True)
