@@ -70,6 +70,12 @@ HAND_DRAWN_LISTS: frozenset[str] = frozenset()
 #: How many entries the baseline may hold. Goes down with it, never up.
 CEILING = 0
 
+#: The one list screen the norm draws as cards and not as the table: the media
+#: library, "cards (grid) — the one admin exception" (design-system-end-state
+#: §5.1, its table of screens). On the list layout since #2130. Not a baseline:
+#: the norm names it, and nothing else may join.
+CARDS_BY_THE_NORM = {"admin_media.html"}
+
 _TAG = re.compile(r"{%-?\s*(for|endfor|call|endcall)\b(.*?)-?%}", re.S)
 
 
@@ -147,7 +153,11 @@ def test_the_gate_reads_the_templates_and_recognises_lists():
 
 def test_a_list_screen_draws_its_list_with_the_table():
     """Signal 1: on the list layout, the list is the kit's table."""
-    without = sorted(name for name, has_table in list_screens().items() if not has_table)
+    without = sorted(
+        name
+        for name, has_table in list_screens().items()
+        if not has_table and name not in CARDS_BY_THE_NORM
+    )
     assert not without, (
         "on the list layout without ui.data_table — a list of records comes from the "
         f"kit's table (design-system-end-state §2.1): {without}"

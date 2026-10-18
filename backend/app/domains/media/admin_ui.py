@@ -452,6 +452,18 @@ def _lijst_ctx(
     # #1470: the tags each card carries, in one query for the page.
     for asset in assets:
         asset["tag_ids"] = [str(t) for t in index.per_asset.get(asset["id"], [])]
+    # #2130: each card opens the picture's record, which remembers this list —
+    # branch, year, use, search and page — for its way back and after saving.
+    from urllib.parse import quote
+
+    lijst_adres = _list_address(
+        actief_kind, q, activity_id, tag_id, year, in_use_only, page if actief_kind == ALL else 1
+    )
+    kind_word = dict(alle_labels)
+    for asset in assets:
+        asset["href"] = f"/admin/media/{asset['id']}?terug={quote(lijst_adres, safe='/')}"
+        asset["kind_label"] = kind_word.get(asset["kind"], asset["kind"])
+        asset["origin"] = _origin(asset["activity_id"], alle_activiteiten, herkomst)
     tag_naam = dict(tag_paden)
     gekozen = _find_tag(index.tree, tag_id) if tag_id is not None else None
 
@@ -511,6 +523,37 @@ def _lijst_ctx(
         "tag_ouder_opties": [(str(t), pad) for t, pad in tag_paden if t != tag_id],
         "is_poster_lijst": tag_id is None and actief_kind == MediaKind.ACTIVITY_POSTER.value,
     }
+
+
+def _list_address(
+    kind: str,
+    q: str,
+    activity_id: Optional[int],
+    tag_id: Optional[int],
+    year: Optional[int],
+    in_use_only: bool,
+    page: int,
+) -> str:
+    """The library as it stands — the branch, the search, the year, the use and
+    the page — as an address: what a picture's record returns to (#2130)."""
+    adres = "/admin/media?" + _filterstand(kind, q, activity_id, tag_id, year)
+    if in_use_only:
+        adres += f"&gebruik={IN_USE}"
+    if page > 1:
+        adres += f"&page={page}"
+    return adres
+
+
+def _origin(activity_id: Optional[int], alle_activiteiten: list[dict], herkomst: dict) -> str:
+    """Where a picture comes from, in words: its activity and the activity's year,
+    or the name of a deleted one; empty for a picture of no activity."""
+    if not activity_id:
+        return ""
+    for a in alle_activiteiten:
+        if a["id"] == activity_id:
+            return f"{a['naam']} {a['jaar']}" if a["jaar"] else a["naam"]
+    naam = herkomst.get(activity_id)
+    return naam.name if naam else ""
 
 
 def _lijst_response(
@@ -776,26 +819,28 @@ def media_bijwerken(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.MEDIA_MANAGE)),
-    kind: str = Form("sponsor"),
     title: str = Form(""),
     link_url: str = Form(""),
     is_active: str = Form(""),
     show_in_footer: str = Form(""),
-    q: str = Form(""),
-    filter_activity_id: Optional[int] = Form(None),
-    filter_tag: Optional[int] = Form(None),
-    filter_year: Optional[int] = Form(None),
     tag_ids: List[int] = Form([]),
     tags_on_card: str = Form(""),
+    terug: str = Form(""),
 ):
-    """Titel, link en zichtbaarheid. NIET de volgorde (#882).
+    """Titel, link, tags en zichtbaarheid, from the picture's record (#2130). NIET
+    de volgorde (#882): that stays on the list's card.
 
     `sort_order` stond hier tot #882 als formulierveld met default "0". Nu de pijltjes
     de volgorde bepalen, stuurt het formulier dat veld niet meer mee — en dan zou die
     default bij élke keer opslaan de volgorde op 0 zetten. Vandaar: `sort_order` staat
     niet in de payload, en `update_media` raakt alleen aan wat er wél in staat.
+
+    Saved: back on the record, which still knows its list (`terug`). Refused: the
+    reason at the link, the one field the service judges.
     """
     from app.domains.media.api import MediaFout, set_asset_tags, update_media
+    from app.kernel.refusals import FieldError
+    from app.ui import refusal_response
 
     try:
         update_media(
@@ -811,17 +856,15 @@ def media_bijwerken(
                 "show_in_footer": bool(show_in_footer),
             },
         )
-        # #1470: the card's tags. Only when the card sent its tag field: an
+        # #1470: the picture's tags. Only when the form sent its tag field: an
         # unticked list sends nothing, and that must mean "none", not "untouched".
         if tags_on_card:
             set_asset_tags(db, asset_id, tag_ids)
-    except (LookupError, MediaFout) as exc:
-        return _lijst_response(
-            request, db, kind, str(exc), q, filter_activity_id, tag_id=filter_tag, year=filter_year
-        )
-    return _lijst_response(
-        request, db, kind, q=q, activity_id=filter_activity_id, tag_id=filter_tag, year=filter_year
-    )
+    except LookupError as exc:
+        return refusal_response(request, [FieldError("", str(exc))], "#media-melding")
+    except MediaFout as exc:
+        return refusal_response(request, [FieldError("link_url", str(exc))], "#media-melding")
+    return Response(status_code=204, headers={"HX-Redirect": _record_url(asset_id, terug)})
 
 
 @router.post(
@@ -866,36 +909,21 @@ def media_verwijderen(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.MEDIA_MANAGE)),
-    kind: str = Form("sponsor"),
-    q: str = Form(""),
-    filter_activity_id: Optional[int] = Form(None),
-    filter_tag: Optional[int] = Form(None),
-    filter_year: Optional[int] = Form(None),
+    terug: str = Form(""),
 ):
+    """Delete a picture from its record (#2130), and back to the list it was opened
+    from. Refused (#1471): the reason above the record's cards, where "Gebruikt in"
+    lists the places to fix as links."""
     from app.domains.media.api import MediaInUse, delete_media
+    from app.kernel.refusals import FieldError
+    from app.ui import refusal_response, way_back
 
     try:
         delete_media(db, asset_id)
-    except LookupError as exc:
-        return _lijst_response(
-            request, db, kind, str(exc), q, filter_activity_id, tag_id=filter_tag, year=filter_year
-        )
-    except MediaInUse as exc:
-        # #1471: refused, with the uses open on the card as links.
-        return _lijst_response(
-            request,
-            db,
-            kind,
-            str(exc),
-            q,
-            filter_activity_id,
-            tag_id=filter_tag,
-            year=filter_year,
-            refused=asset_id,
-        )
-    return _lijst_response(
-        request, db, kind, q=q, activity_id=filter_activity_id, tag_id=filter_tag, year=filter_year
-    )
+    except (LookupError, MediaInUse) as exc:
+        return refusal_response(request, [FieldError("", str(exc))], "#media-melding")
+    back = way_back(db, terug, "/admin/media")
+    return Response(status_code=204, headers={"HX-Redirect": back["href"]})
 
 
 # ── The picker (CR-15 §C4.3, #1472) ──────────────────────────────────────────
@@ -1029,3 +1057,118 @@ def media_picker(
             "target": f"#mp-{field}",
         },
     )
+
+
+# ── One picture: its record page (#2130; CR-11 phase 5, track 2, round 3b) ────
+# Each picture is edited on a record page of its own, no longer on its card: the
+# head with its status, kind, origin and size; the data — title, link (a sponsor
+# logo only), tags, Actief, "Toon onder de publieke pagina's" (a sponsor logo
+# only) — and where it is used; the picture beside them. Verwijderen stands under
+# Acties. The page remembers the list it was opened from (`terug`): its way back,
+# saving and deleting return to that list as it stood. Registered last: the
+# pattern would otherwise take "nieuw" and "kiezer" as an id.
+
+
+def _record_url(asset_id: int, terug: str) -> str:
+    from urllib.parse import quote
+
+    return f"/admin/media/{asset_id}" + (f"?terug={quote(terug, safe='/')}" if terug else "")
+
+
+@router.get("/admin/media/{asset_id}", response_class=HTMLResponse)
+def media_record(
+    asset_id: int,
+    request: Request,
+    terug: str = "",
+    bewerken: str = "",
+    db: Session = Depends(get_db),
+    email: str = Depends(require_right(Right.MEDIA_VIEW)),
+):
+    from fastapi import HTTPException
+
+    from app.domains.activities.api import activity_names
+    from app.domains.media.api import MEDIA_KIND, MediaKind, get_media, tag_index, uses_of
+    from app.domains.media.viewmodels import MediaRecordView
+    from app.kernel.codes import code_labels
+    from app.ui import delete_question, way_back
+
+    asset = get_media(db, asset_id)
+    if asset is None:
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
+    editing = bool(bewerken)
+    back = way_back(db, terug, "/admin/media")
+    index = tag_index(db)
+    paths = dict(index.paths)
+    current_tags = [str(t) for t in index.per_asset.get(asset_id, [])]
+    title = asset["title"] or _("Afbeelding %(id)s") % {"id": asset_id}
+
+    facts: list[dict] = [{"text": dict(code_labels(MEDIA_KIND.name)).get(asset["kind"], "")}]
+    if asset["activity_id"]:
+        naam = activity_names(db, {asset["activity_id"]}).get(asset["activity_id"])
+        if naam and naam.is_deleted:
+            facts.append({"text": _("Van een verwijderde activiteit")})
+        elif naam:
+            facts.append(
+                {
+                    "text": naam.name,
+                    "href": f"/admin/activiteiten/{asset['activity_id']}",
+                    "kind": "reference",
+                }
+            )
+    if asset["width"] and asset["height"]:
+        facts.append({"text": f"{asset['width']}×{asset['height']}"})
+
+    view = MediaRecordView(
+        asset=asset,
+        title=title,
+        badges=[
+            {"label": _("Actief"), "tone": "green"}
+            if asset["is_active"]
+            else {"label": _("Niet actief"), "tone": "gray"}
+        ],
+        facts=facts,
+        primary=None
+        if editing
+        else {
+            "label": _("Bewerken"),
+            "href": f"/admin/media/{asset_id}?bewerken=1"
+            + (f"&terug={_quoted(terug)}" if terug else ""),
+        },
+        actions=[
+            {
+                "kind": "delete",
+                "label": _("Verwijderen"),
+                "attrs": f'hx-post="/admin/media/{asset_id}/verwijderen"'
+                + (f" hx-vals='{_vals(terug=terug)}'" if terug else ""),
+                "confirm": delete_question(_("Media"), title),
+            }
+        ],
+        way_back=back,
+        editing=editing,
+        is_sponsor=asset["kind"] == MediaKind.SPONSOR.value,
+        tag_labels=[paths[int(t)] for t in current_tags if int(t) in paths],
+        tag_ids=current_tags,
+        tag_options=[(str(t), pad) for t, pad in index.paths],
+        uses=[{"label": u.label, "href": u.href} for u in uses_of(db, asset_id)],
+        terug=terug,
+        record_url=_record_url(asset_id, terug),
+        csrf_token=csrf_from_request(request),
+        nav_items=admin_nav(NAV, request),
+    )
+    return templates.TemplateResponse(request, "media_record.html", view.as_context())
+
+
+def _quoted(terug: str) -> str:
+    from urllib.parse import quote
+
+    return quote(terug, safe="/")
+
+
+def _vals(**values: str) -> str:
+    """`hx-vals` JSON, escaped for a single-quoted attribute: `terug` comes from
+    the address and may carry anything."""
+    import json
+
+    from markupsafe import escape
+
+    return str(escape(json.dumps(values)))

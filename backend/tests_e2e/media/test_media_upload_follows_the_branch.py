@@ -122,8 +122,9 @@ def _upload(page, title: str, tmp_path) -> None:
 
 
 def _on_a_card(page, title: str) -> int:
-    """How many cards carry this title — a card shows it in its title field."""
-    return page.locator(f'#me-lijst input[value="{title}"]').count()
+    """How many cards carry this title — a card shows it as its link to the
+    picture's record (#2130; it was the card's title field)."""
+    return page.locator("#me-lijst [data-row-link]", has_text=title).count()
 
 
 def _tree_link(page, name: str):

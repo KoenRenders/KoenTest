@@ -201,6 +201,12 @@ def list_activity_photos(db, activity_id: int) -> list[dict]:
     return [meta(a) for a in rijen]
 
 
+def get_media(db, asset_id: int) -> Optional[dict]:
+    """One picture's light metadata, or None (#2130: its record page)."""
+    asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
+    return meta(asset) if asset is not None else None
+
+
 def list_media(
     db,
     *,

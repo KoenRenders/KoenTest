@@ -481,7 +481,10 @@ KAARTFRAGMENTEN = (
 def test_lijstschermen_zetten_de_actie_in_de_kop():
     """De "+ Nieuwe …"-knop hoort op de titelregel, zoals C1 en het referentiescherm
     Leden (#611/#621). De call-vorm van page_header is daar het bewijs van: zonder
-    caller-blok staat de knop noodzakelijk ergens anders."""
+    caller-blok staat de knop noodzakelijk ergens anders.
+
+    #2130: a list on the kit's `list_page` layout puts it in the title row's
+    `list_primary` block — the same place, the newer form."""
     per_naam = {pad.name: pad for pad in TEMPLATES}
     fouten = []
     for naam in LIJSTSCHERMEN:
@@ -489,9 +492,10 @@ def test_lijstschermen_zetten_de_actie_in_de_kop():
         if pad is None:
             continue
         tekst = _zonder_commentaar(pad)
-        # #2123: a list on the kit's list page has its head in `list_page.html`, where the
-        # primary action is the `list_primary` block — the same place by another door.
-        if "{% call ui.page_header" not in tekst and '{% extends "list_page.html" %}' not in tekst:
+        op_list_page = (
+            '{% extends "list_page.html" %}' in tekst and "{% block list_primary %}" in tekst
+        )
+        if "{% call ui.page_header" not in tekst and not op_list_page:
             fouten.append(f"{pad.relative_to(APP)}: gebruikt ui.page_header() zonder call-blok")
     assert not fouten, (
         "Zet de primaire actie in de kop via {% call ui.page_header(…) %}:\n  "

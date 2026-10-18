@@ -217,7 +217,9 @@ def test_het_zoekveld_wint_de_restbreedte(client, db_session):
     balken = [
         app / p
         for p in (
-            "domains/media/templates/admin_media.html",
+            # #2130: Media left the filter bar for the kit's toolbar, whose search
+            # takes the rest of the row itself (`data-toolbar-search`); so did Pagina's,
+            # Formulieren and Rapporten with #2123.
             "domains/auth/templates/admin_gebruikers.html",
         )
     ]

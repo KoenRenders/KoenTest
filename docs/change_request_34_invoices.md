@@ -1,7 +1,7 @@
 # Change Request 34 — Invoices for the webshop
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 15 October 2026 by the design-documentation CLI, on Koen's dictation · build read by Dev2 on 15 October 2026 (comment on #2009), findings taken in · for v2.18 on Koen's word (not assigned yet: the assignment follows the build read) · **prerequisites:** CR-21 (webshop) built, and CR-26 (party model) phase 2, "the buyer" (C4.10)
+**Status:** shaped on 15 October 2026 by the design-documentation CLI, on Koen's dictation · build read by Dev2 on 15 October 2026 (comment on #2009), findings taken in · 18 Oct 2026: one tenant switch for the invoices and for selling to an organisation (R18) · for v2.18 on Koen's word (not assigned yet: the assignment follows the build read) · **prerequisites:** CR-21 (webshop) built, and CR-26 (party model) phase 2, "the buyer" (C4.10)
 **Tracking issue:** #2009 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** `payment` (the invoice, its number, its VAT, its document; the module "invoices"), `tax` (new: tax classes, categories, rates and the one rule that picks the rate), `product` and `pricing` of CR-21 (the tax class of an article), `sales` (the buyer's details, cancelling and changing an order that has an invoice), `mdm` (the issuing organisation, the buyer as a party; read, not changed), `mail` (the invoice mail), `kernel` (the module registry), `reporting` (a view)
 **Reading:** A 1 500 words · B 2 491 · C 4 082 — measured on 15 October 2026, drawings excluded, tables included; budgets A ≤ 1 500, B ≤ 2 500
@@ -152,6 +152,7 @@ Reporting need: the accountant gets the invoices of a period, a list and the doc
 | R15 | Only tenants that switch invoices on have them; the Raak departments have none | Must | Koen, 15 Oct 2026 | |
 | R16 | A VAT return and a bookkeeping module | Won't | Koen, 15 Oct 2026 | "btw-administratie valt buiten de scope" |
 | R17 | Selling outside Belgium and the Netherlands; other currencies | Won't *(now)* | Koen, 15 Oct 2026 | "enkel Belgische facturen", the Netherlands asked to be looked at |
+| R18 | **One switch per tenant: the module "invoices" also switches selling to an organisation as the buyer** (*Mijn organisatie*, *namens …* in the checkout, an order with an organisation as buyer). Off, the tenant sells to natural persons only. **Managing organisations stays available to every tenant** | Must | Koen, 18 Oct 2026 | "Misschien moeten we er maar één schakelaar van maken. Als je aan organisaties verkoopt, heb je ook facturen. Punt." (in the architecture CLI's chat) |
 
 ## A7. Non-functional requirements — security, privacy, house style, tenants
 
@@ -174,6 +175,7 @@ Reporting need: the accountant gets the invoices of a period, a list and the doc
 | AC6 | Boekhouding downloads the period's invoices and the list | R11 | W11 |
 | AC7 | A Raak department has no Facturen menu, no invoice route and no invoice text | R15 | W12 |
 | AC8 | A buyer in the Netherlands: as R13 says | R13 | W13–W14 |
+| AC9 | On a tenant with the module off the checkout offers no organisation as buyer, while the organisation can still be registered by the back office and managed; switching the module on offers it | R18 | W15 |
 
 ---
 
@@ -183,7 +185,7 @@ Reporting need: the accountant gets the invoices of a period, a list and the doc
 
 The portal issues an **invoice** when a sale is settled in business terms. The invoice is a **frozen document**: a copy of the seller, the buyer and the lines as they were, with a number from a gapless sequence of the issuing organisation, the VAT per rate and a payment text. It is rendered as a PDF in the site's logo, mailed, kept, and exported. A mistake is corrected by a **credit note**. Payments stay where they are; the invoice is the receivable they settle.
 
-- **D1 — Invoices live in `payment`, as a module "invoices" a tenant switches on.** Koen, 7 October 2026: invoices belong to the payment domain, called finance, with no domain of their own (CR-21 Q31). The switch is a module entry in the registry (CR-19), so a Raak department has none. Rejected: an `invoicing` domain, a second place for receivables.
+- **D1 — Invoices live in `payment`, as a module "invoices" a tenant switches on.** Koen, 7 October 2026: invoices belong to the payment domain, called finance, with no domain of their own (CR-21 Q31). The switch is a module entry in the registry (CR-19), so a Raak department has none. **The same switch governs selling to an organisation as the buyer** (R18, Koen, 18 October 2026); managing organisations is not behind it. Rejected: an `invoicing` domain, a second place for receivables.
 - **D2 — The invoice is a snapshot, never a live view.** Seller, buyer, lines and VAT are copied at issue; nothing edits them, and the PDF is rendered once at issue and stored (C4.4). Rejected: an invoice that reads the order or the tenant when opened.
 - **D3 — A correction is a credit note.** The same document type with a link to the invoice it corrects, issued when an order with an invoice is changed or cancelled. Rejected: editing.
 - **D4 — One gapless sequence per issuing organisation**, taken inside the issuing transaction under a lock. Rejected: a sequence per tenant; two tenants of a company would repeat a number.
@@ -210,6 +212,7 @@ The portal issues an **invoice** when a sale is settled in business terms. The i
 | F11 | A period export gives a list and the documents | R11 |
 | F12 | The invoice mail leaves after the outer commit | R10 |
 | F13 | A tenant without the module has no menu, route, mail or text | R15 |
+| F14 | A tenant without the module sells to natural persons only: the checkout has no choice of an organisation as buyer and refuses an order on behalf of one; the organisation as a party (list, record, link to a person) is not behind the switch | R18 |
 
 ## B2. Fit with the process and the requirements — for the business
 
@@ -259,6 +262,7 @@ flowchart LR
 | R13 | The Netherlands, phase 3 | F5 | payment | T16 | AC8 |
 | R14 | Won't here: CR-35 | — | — | — | — |
 | R15 | The module switch | F13 | kernel | T18 | AC7 |
+| R18 | One switch for the invoices and for selling to an organisation | F14 | kernel, sales | T23 | AC9 |
 | R16, R17 | Won't | — | — | — | — |
 
 **Walkthrough** (HDEV, the shop tenant with the module on, Mollie in test mode)
@@ -269,7 +273,7 @@ flowchart LR
 *Rates.* W9 Give one article 6 % and order it with another; the lines carry their rates and the totals per rate add up to the payment.
 *Correction.* W10 Cancel the first order; a credit note appears, the invoice stays.
 *Accountant.* W11 Download the period's list and documents.
-*Refusals.* W12 On a Raak department no *Facturen* and the route answers 404. W13 Order as a Dutch private buyer: Belgian 21 %. W14 As a Dutch company with a valid VAT number: the intra-Community text and no VAT.
+*Refusals.* W12 On a Raak department no *Facturen* and the route answers 404. W13 Order as a Dutch private buyer: Belgian 21 %. W14 As a Dutch company with a valid VAT number: the intra-Community text and no VAT. W15 On a tenant without the module, check out: no choice of an organisation; open *Mijn organisatie* and edit one; switch the module on and the choice appears.
 
 ## B3. The whole across the modules — for the architect
 
@@ -398,6 +402,7 @@ Phases 1 and 2 go live together (B9).
 | # | Question | Recommendation | What the answer changes |
 |---|---|---|---|
 | Q17–18 | Two choices (Q&A file nr. 07): cancelling an order that has an invoice; the price for a Dutch company | a, a | B4, C4.7 |
+| Q19 | ~~One module or two~~ **Answered 18 Oct 2026: one** (B9). Open: who lands the registration entry first, CR-26 phase 2 or this change's phase 0, and the other adds its routes | — | — |
 
 ## B9. Decisions log — dated answers
 
@@ -410,6 +415,7 @@ Phases 1 and 2 go live together (B9).
 | 15 Oct 2026 | Q10: C4.1 is built on as it stands. Koen: "b, maar vertel me misschien even wat je erop wil zetten". Then, on reading it: the date of supply, a printed table per rate and the late-payment text are dropped; the exemption statement is open until explained (C4.1) | Koen |
 | 15 Oct 2026 | Release v2.18, after CR-20 and CR-26: "deze moet ook in v2.18" (CR-26 B9) | Koen |
 | 15 Oct 2026 | Five choices after the build read (Q&A nr. 06): 1 **b**, the checkout asks every buyer for an address; 2 **a**, no date of supply; 3 **a**, the VAT per rate is not printed; 4 **b**, the number is the year and a counter that restarts each year; 5 **a**, no invoice for a free order | Koen |
+| 18 Oct 2026 | One switch: the module "invoices" also switches selling to an organisation; managing organisations stays open to all. Koen, in the architecture CLI's chat, to the choice between one module and two: "Misschien moeten we er maar één schakelaar van maken. Als je aan organisaties verkoopt, heb je ook facturen. Punt." This replaces the reading of the same day in which Koen thought of a separate toggle ("denk ik") and called the link with invoices "geen requirement van mij"; CR-26 Q15 records the same choice. R18, F14, T23, AC9 | Koen |
 | 15 Oct 2026 | Q4: the issuing organisation is Renko BV; the tenant is a brand, shown with its name and logo. Koen: "De verkoper is inderdaad Renko BV met zijn adres en btw-nummer."; the brand and its logo must stand on the invoice | Koen |
 
 ---
@@ -516,6 +522,7 @@ An invoice route reads the signed-in user's tenant and role (`invoices.view`, `i
 | T21 | A line of 10.00 at 21 % and a line of quantity 3 at 10.00: net, VAT, total, rounding as C4.3 says, the printed lines add up, and the Peppol validator accepts both | C4.3 |
 | T22 | A raw UPDATE and a raw DELETE on an issued invoice fail with the trigger's message | C5 |
 | T18 | A tenant without the module: no menu, 404 on the routes, no invoice on checkout | R15 |
+| T23 | A tenant without the module: the checkout has no organisation choice and a posted order on behalf of one is refused; the organisation can still be created and edited in the back office; with the module on both work | F14 |
 
 **Impact on the test landscape:** the CR-21 checkout e2e and its screenshots, the payments screen, the module-gate test and the payable delete gate; each changes by what B4 and C2 say, none is expected to break otherwise.
 
