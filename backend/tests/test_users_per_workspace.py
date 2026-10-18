@@ -28,9 +28,7 @@ from app.kernel.tenancy import TENANT_MILLEGEM_ID, TENANT_VOORBEELD_ID
 pytestmark = pytest.mark.ui_serverrendered
 
 B = "/raakvoorbeeldafdeling"
-EMAILS_IN_LIST = re.compile(
-    r'id="gu-email-\d+"[^>]*value="([^"]+)"|value="([^"]+)"[^>]*id="gu-email-\d+"'
-)
+EMAILS_IN_LIST = re.compile(r"data-row-link[^>]*>([^<]+)</a>")
 
 
 def _user(db, email: str, *roles: tuple[str, int | None]) -> str:
@@ -48,7 +46,7 @@ def _as(client, email: str) -> None:
 
 
 def _listed(html: str) -> set[str]:
-    return {a or b for a, b in EMAILS_IN_LIST.findall(html)}
+    return set(EMAILS_IN_LIST.findall(html))
 
 
 @pytest.fixture
@@ -78,10 +76,21 @@ def test_b_lists_its_role_holders_and_the_operator(client, db_session, two_works
     assert listed == expected, f"listed {sorted(listed)}, expected {sorted(expected)}"
     assert two_workspaces["admin_a"] not in listed, "an ADMIN of A is listed in B"
     assert two_workspaces["nobody"] not in listed
-    # CR-24: by its label, not its code.
-    assert "Platformbeheerder · alle werkruimtes" in html, "the platform-wide role is marked"
+    # CR-24: by its label, not its code — in the list and on the record.
+    operator_row = re.search(
+        rf"data-user=\"\d+\".*?{re.escape(two_workspaces['operator'])}.*?</tr>", html, re.S
+    )
+    assert operator_row and "Platformbeheerder" in operator_row.group(0), (
+        "the platform-wide role is named"
+    )
+    operator = db_session.query(User).filter(User.email == two_workspaces["operator"]).one()
+    record = client.get(f"{B}/admin/gebruikers/{operator.id}").text
+    assert "Platformbeheerder · alle werkruimtes" in record, "the platform-wide role is marked"
     # The roles to tick stand there by their label; no label is a role's code.
-    ticks = re.findall(r'name="role_codes" value="(\w+)"[^>]*>\s*([^<]+)</label>', html)
+    admin = db_session.query(User).filter(User.email == two_workspaces["admin_b"]).one()
+    editor = client.get(f"{B}/admin/gebruikers/{admin.id}?bewerken=1").text
+    ticks = re.findall(r'name="role_codes" value="(\w+)"[^>]*>\s*([^<]+)</label>', editor)
+    ticks = [(code, label.strip()) for code, label in ticks]
     assert ("FINANCE", "Boekhouding") in ticks and ("MASTERDATA", "Masterdata") in ticks, ticks
     assert not [(code, label) for code, label in ticks if label.strip() == code], ticks
 

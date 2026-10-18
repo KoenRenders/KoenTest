@@ -468,13 +468,11 @@ LIJSTSCHERMEN = [
     "admin_formulieren.html",
     "admin_paginas.html",
     "admin_media.html",
-    "admin_gebruikers.html",
 ]
 KAARTFRAGMENTEN = (
     "_fb_kaarten.html",
     "_cp_kaarten.html",
     "_me_lijst.html",
-    "_gu_lijst.html",
 )
 
 
@@ -1877,7 +1875,7 @@ def test_een_bewerkvlak_bouwt_zijn_cluster_met_action_bar():
     een cluster maakt: een Opslaan-/Bewaren-knop mét een Annuleren-knop buiten
     `action_bar`. Wie hem smaller wil maken, maakt hem weer blind.
 
-    Kapotgemaakt om te controleren dat hij rood kan worden: in `_gu_lijst.html`
+    Kapotgemaakt om te controleren dat hij rood kan worden: in a template that had one
     het cluster weer met losse knoppen gebouwd → rood met dat pad.
     """
     fouten = []

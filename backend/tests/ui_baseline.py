@@ -23,13 +23,11 @@ INCLUDED_BY_THE_PILOT_NOT_RENDERED_THERE: dict[str, str] = {
 }
 
 
-#: B7 test 8 — raw <label>, <select>, <textarea>, visible <input>. 60 in 17 files.
+#: B7 test 8 — raw <label>, <select>, <textarea>, visible <input>. 52 in 15 files.
 RAW_FORM_ELEMENTS: dict[str, int] = {
     "domains/activities/templates/admin_activiteit_kopieren.html": 10,
     "domains/auth/templates/_sign_in_code.html": 1,
     "domains/auth/templates/_sign_in_email.html": 1,
-    "domains/auth/templates/_gu_lijst.html": 2,
-    "domains/auth/templates/_gu_rollen_velden.html": 6,
     "domains/designstudio/templates/admin_ontwerp.html": 2,
     "domains/forms/templates/_fb_builder.html": 12,
     "domains/forms/templates/_formulier_veld.html": 4,
@@ -44,11 +42,9 @@ RAW_FORM_ELEMENTS: dict[str, int] = {
     "domains/reporting/templates/_rp_paneel.html": 4,
 }
 
-#: B7 test 9 — raw type="checkbox". 16 in 8 files.
+#: B7 test 9 — raw type="checkbox". 12 in 6 files.
 RAW_CHECKBOXES: dict[str, int] = {
     "domains/activities/templates/admin_activiteit_kopieren.html": 1,
-    "domains/auth/templates/_gu_lijst.html": 1,
-    "domains/auth/templates/_gu_rollen_velden.html": 3,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/forms/templates/_fb_builder.html": 6,
     "domains/media/templates/_me_lijst.html": 2,
@@ -56,13 +52,11 @@ RAW_CHECKBOXES: dict[str, int] = {
     "domains/reporting/templates/_rp_paneel.html": 1,
 }
 
-#: B7 test 8 — margin/padding/gap/space class on a raw form element. 50 in 16 files.
+#: B7 test 8 — margin/padding/gap/space class on a raw form element. 46 in 14 files.
 SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
     "domains/activities/templates/admin_activiteit_kopieren.html": 14,
     "domains/auth/templates/_sign_in_code.html": 1,
     "domains/auth/templates/_sign_in_email.html": 1,
-    "domains/auth/templates/_gu_lijst.html": 1,
-    "domains/auth/templates/_gu_rollen_velden.html": 3,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/forms/templates/_fb_builder.html": 7,
     "domains/forms/templates/_formulier_veld.html": 2,
@@ -76,11 +70,10 @@ SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
     "domains/reporting/templates/_rp_paneel.html": 2,
 }
 
-#: B7 test 8 — bg-white, bg-gray-50, bg-gray-100 written by the template. 53 in 24 files.
+#: B7 test 8 — bg-white, bg-gray-50, bg-gray-100 written by the template. 52 in 23 files.
 RAW_SURFACES: dict[str, int] = {
     "domains/activities/templates/_inschrijving_detail.html": 4,
     "domains/activities/templates/admin_activiteit_kopieren.html": 1,
-    "domains/auth/templates/_gu_lijst.html": 1,
     "domains/auth/templates/login_verlopen.html": 1,
     "domains/chatbot/templates/_ai_context_lijst.html": 2,
     "domains/chatbot/templates/_raakje_ballon.html": 1,
@@ -105,7 +98,6 @@ RAW_SURFACES: dict[str, int] = {
 
 #: B7 test 17 — a header button that is neither the create nor "Instellingen". 18 in 10 files.
 HEADER_EXTRAS: dict[str, int] = {
-    "domains/auth/templates/admin_gebruikers.html": 1,
     "domains/auth/templates/admin_gebruikers_overzicht.html": 1,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/forms/templates/admin_formulieren.html": 1,
@@ -142,7 +134,6 @@ CHECKBOX_GROUPS_IN_TOOLBARS: dict[str, int] = {}
 SHELL_EXTENDED_DIRECTLY: dict[str, int] = {
     "domains/activities/templates/admin_activiteit_kopieren.html": 1,
     "domains/activities/templates/admin_inschrijving.html": 1,
-    "domains/auth/templates/admin_gebruikers.html": 1,
     "domains/auth/templates/admin_gebruikers_overzicht.html": 1,
     "domains/chatbot/templates/ai_context.html": 1,
     "domains/cms/templates/admin_paginas.html": 1,

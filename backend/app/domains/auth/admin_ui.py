@@ -280,7 +280,9 @@ def admin_gebruikers(
 ):
     fragment = is_fragment_request(request)
     template = "_gu_tabel.html" if fragment else "admin_gebruikers.html"
-    return templates.TemplateResponse(request, template, _list_ctx(request, db, email, oob=fragment))
+    return templates.TemplateResponse(
+        request, template, _list_ctx(request, db, email, oob=fragment)
+    )
 
 
 @router.get("/admin/gebruikers/alle-werkruimtes", response_class=HTMLResponse)
@@ -437,7 +439,10 @@ def _record_ctx(
         "title": user.email,
         "badges": [state],
         "facts": [{"text": roles_text}] if roles_text else [],
-        "primary": {"label": _("Bewerken"), "href": f"{base}?bewerken=1" + (f"&{keep}" if keep else "")}
+        "primary": {
+            "label": _("Bewerken"),
+            "href": f"{base}?bewerken=1" + (f"&{keep}" if keep else ""),
+        }
         if can_manage
         else None,
         "actions": [delete] if deletable else [],
