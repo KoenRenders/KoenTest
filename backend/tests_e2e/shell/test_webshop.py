@@ -1233,7 +1233,12 @@ def test_verkoop_verwijdert_een_bestelling(webshop_page):
     page.wait_for_url("**/webshop/bedankt?**")
 
     page.goto("/admin/verkoop")
-    page.locator("a[data-row-link]").first.click()
+    row = page.locator("a[data-row-link]").first
+    href = row.get_attribute("href")
+    assert href and href.startswith("/admin/verkoop/"), href
+    row_of_the_order = page.locator(f'a[data-row-link][href="{href}"]')
+    assert row_of_the_order.count() == 1, "the order stands in the list before the delete"
+    row.click()
     page.wait_for_selector("[data-record-head]")
     assert "Verwijderen" in page.locator("main").inner_text()
 
@@ -1243,3 +1248,6 @@ def test_verkoop_verwijdert_een_bestelling(webshop_page):
     with htmx_afgerond(page):
         ok.click()
     page.wait_for_url("**/admin/verkoop")
+    listed = page.locator("main").inner_text()
+    assert "Bestellingen" in listed or "Nog geen bestellingen" in listed, "the list rendered"
+    assert row_of_the_order.count() == 0, "the deleted order is gone from the list"
