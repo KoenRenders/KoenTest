@@ -142,16 +142,17 @@ def test_de_schakelaar_staat_op_het_scherm_en_bewaart(client, db_session):
     logo = _logo(db_session, "Sponsor met vinkje")
     csrf = _login(client)
 
-    lijst = client.get("/admin/media?kind=sponsor").text
-    assert 'name="show_in_footer"' in lijst
-    assert "In de footer" in lijst
+    # #2130: on the picture's record, in edit mode, with the concept's words.
+    fiche = client.get(f"/admin/media/{logo.id}?bewerken=1").text
+    assert 'name="show_in_footer"' in fiche
+    assert "Toon onder de publieke pagina" in fiche
 
     antwoord = client.post(
         f"/admin/media/{logo.id}",
-        data={"kind": "sponsor", "title": logo.title, "link_url": "", "is_active": "1", "q": ""},
+        data={"title": logo.title, "link_url": "", "is_active": "1"},
         headers={"X-CSRF-Token": csrf},
     )
-    assert antwoord.status_code == 200, antwoord.text[:300]
+    assert antwoord.status_code == 204, antwoord.text[:300]
 
     db_session.expire_all()
     assert db_session.get(MediaAsset, logo.id).show_in_footer is False
@@ -189,6 +190,8 @@ def test_bij_een_andere_soort_staat_de_schakelaar_er_niet(client, db_session):
     _login(client)
 
     lijst = client.get(f"/admin/media?kind=activity_photo&activity_id={a.id}").text
-
     assert "Een foto" in lijst, "de foto staat niet op dit scherm"
-    assert 'name="show_in_footer"' not in lijst
+    foto = db_session.query(MediaAsset).filter(MediaAsset.title == "Een foto").one()
+    fiche = client.get(f"/admin/media/{foto.id}?bewerken=1").text
+    assert "Een foto" in fiche
+    assert 'name="show_in_footer"' not in fiche

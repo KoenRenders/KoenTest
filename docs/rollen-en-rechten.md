@@ -171,11 +171,12 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `POST /admin/paginas/{page_id}/verwijderen`
 - `POST /admin/paginas/{page_id}/volgorde/{richting}`
 
-### `media.view` — 3 routes
+### `media.view` — 4 routes
 
 - `GET /admin/media`
 - `GET /admin/media/kiezer`
 - `GET /admin/media/nieuw`
+- `GET /admin/media/{asset_id}`
 
 ### `media.manage` — 7 routes
 

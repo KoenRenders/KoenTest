@@ -306,6 +306,10 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
+  "GET /admin/media/{asset_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
   "GET /admin/nieuwsbrieven": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
