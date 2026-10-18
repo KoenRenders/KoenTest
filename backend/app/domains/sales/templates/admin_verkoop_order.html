@@ -1,0 +1,10 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Bestelling") }} {{ order.id }} — {{ _("Raak beheer") }}{% endblock %}
+{% block content %}
+{{ ui.record_header(_("Bestelling") ~ " " ~ order.id, back={"label": _("Verkoop"), "href": "/admin/verkoop"}) }}
+<div id="order-melding" data-form-message></div>
+{% call ui.card() %}
+  {% include "_order_detail.html" %}
+{% endcall %}
+{% endblock %}

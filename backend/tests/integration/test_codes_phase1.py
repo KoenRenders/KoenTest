@@ -347,6 +347,7 @@ def test_the_history_table_keeps_the_payment_method_as_a_plain_code(db_session):
     )
     assert "activities.registration_history" not in keyed, "a history table keys no code"
     assert "activities.registrations" in keyed
+    assert "sales.sales_orders" in keyed, "the webshop's order keys the code (CR-21 R14)"
 
 
 # ── The gateway keeps its own vocabulary (§B4.10) ────────────────────────────

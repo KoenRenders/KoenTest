@@ -103,6 +103,10 @@ PARTNER_EMAIL = "marie.jommeke@example.com"
 HOOFDLID_GSM = "0470 00 00 01"
 PARTNER_GSM = "0470 00 00 02"
 
+# A member on the Webshop tenant, so Verkoop's "Bestelling toevoegen" has a member
+# to link to (R43, W26): the board types the address and the page names the member.
+WEBSHOP_LID_EMAIL = "webshop.lid@example.com"
+
 # #1238 punt 4: de voettekst van de afdrukomgeving. Zonder deze regels staat op elk
 # beeld de zaai-inhoud van migratie 027 — «Naam van de vereniging» · «straat en
 # nummer», «postcode en gemeente» — en dat leest op een uitlegpagina als een
@@ -246,6 +250,120 @@ def main() -> None:
             create_tenant(
                 db, name="Voorbeeldbedrijf", code="voorbeeldbedrijf", kind=TenantKind.COMPANY
             )
+
+        # CR-21 (#1887): a tenant of its own with the shop on, for the browser
+        # test of the refused delete. The module set is cached in the server
+        # process, so a row written by the test is not seen — it must be seeded.
+        # The association's tenant stays untouched. Reached by its hostname
+        # (`TENANT_HOSTNAMES` in `tests_e2e/e2e.env`), because back-office screens
+        # are not reached by a path prefix (`path_for` never prefixes `/admin`).
+        from app.domains.mdm.api import set_modules
+        from app.kernel.modules import DEFAULTS
+        from app.kernel.modules import M as _M
+        from app.kernel.tenancy import current_tenant_id
+
+        # The code is `winkel`, not `webshop`: a code that equals a public route's
+        # first path segment would be read as that tenant's path prefix in
+        # `resolve_request`, and `/webshop` would be stripped to `/`.
+        if "winkel" not in tenant_codes(db):
+            webshop = create_tenant(db, name="Webshop", code="winkel", kind=TenantKind.ASSOCIATION)
+            set_modules(db, webshop.id, DEFAULTS["VERENIGING"] | {_M.SHOP})
+        webshop_id = tenant_codes(db)["winkel"]
+
+        token = current_tenant_id.set(webshop_id)
+        try:
+            from app.domains.pricing.api import add_prices
+            from app.domains.product.models import Product, ProductStatus, ProductVariant
+            from app.domains.stock.api import receive
+
+            if db.query(Product).filter(Product.name == "Webshop T-shirt").first() is None:
+                artikel = Product(name="Webshop T-shirt", status=ProductStatus.ON_SALE)
+                db.add(artikel)
+                db.flush()
+                maat = ProductVariant(
+                    product_id=artikel.id, properties=[{"name": "Maat", "value": "M"}]
+                )
+                db.add(maat)
+                db.flush()
+                receive(db, maat.id, quantity=5)
+                # A price so the public `/webshop` lists the article: the browser
+                # test of the public pages needs a card to render (commit 5).
+                add_prices(
+                    db,
+                    product_id=artikel.id,
+                    variant_id=maat.id,
+                    valid_from=date(2026, 1, 1),
+                    amount=Decimal("15.00"),
+                    member_amount=Decimal("12.00"),
+                )
+            # A second article, so the browser walk of a basket can mark one as
+            # gone while the other still orders (the "weg artikel" walk). Named to
+            # sort after "Webshop T-shirt", so the one-article tests keep it first.
+            if db.query(Product).filter(Product.name == "Webshop Zak").first() is None:
+                pet = Product(name="Webshop Zak", status=ProductStatus.ON_SALE)
+                db.add(pet)
+                db.flush()
+                pet_maat = ProductVariant(
+                    product_id=pet.id, properties=[{"name": "Maat", "value": "M"}]
+                )
+                db.add(pet_maat)
+                db.flush()
+                receive(db, pet_maat.id, quantity=5)
+                add_prices(
+                    db,
+                    product_id=pet.id,
+                    variant_id=pet_maat.id,
+                    valid_from=date(2026, 1, 1),
+                    amount=Decimal("8.00"),
+                    member_amount=None,
+                )
+
+            # A member on the Webshop tenant, for Verkoop's "Bestelling toevoegen"
+            # (R43, W26): the board types the address and the page names the member.
+            webshop_lid = (
+                db.query(Person)
+                .join(ContactDetail, ContactDetail.person_id == Person.id)
+                .filter(ContactDetail.value == WEBSHOP_LID_EMAIL)
+                .first()
+            )
+            if webshop_lid is None:
+                lid_member = Member()
+                db.add(lid_member)
+                db.flush()
+                lid_person = Person(
+                    first_name="Webshop",
+                    last_name="Lid",
+                    date_of_birth=date(1990, 1, 1),
+                    gender_code="F",
+                )
+                db.add(lid_person)
+                db.flush()
+                db.add(
+                    MemberPerson(
+                        member_id=lid_member.id, person_id=lid_person.id, relation_type="HOOFDLID"
+                    )
+                )
+                db.add(
+                    ContactDetail(
+                        person_id=lid_person.id,
+                        contact_type_code="EMAIL",
+                        value=WEBSHOP_LID_EMAIL,
+                        is_primary=True,
+                    )
+                )
+                jaar = vandaag.year
+                db.add(
+                    Membership(
+                        member_id=lid_member.id,
+                        year=jaar,
+                        is_active=True,
+                        valid_from=date(jaar, 1, 1),
+                        valid_to=date(jaar, 12, 31),
+                    )
+                )
+                db.flush()
+        finally:
+            current_tenant_id.reset(token)
 
         bestaat = db.query(ContactDetail).filter(ContactDetail.value == MARKER_EMAIL).first()
         if bestaat is not None:

@@ -93,21 +93,6 @@
   {{ ui.field("show_in_footer", _("Toon in de voettekst"), kind="switch", value=p.show_in_footer) }}
   {{ ui.field("is_home", _("Startpagina"), kind="switch", value=p.is_home) }}
   {% endcall %}
-  {% call ui.section(_("Opening van de pagina")) %}
-  {# CR-32 F4 (B8.11): the hero is a property of the page, set beside its
-     title — the title stays the page's one h1. The fields below are kept when
-     the page goes back to the title line. #}
-  {{ ui.field("opening", _("De pagina opent met"), kind="select", value=p.opening, options=opening_options) }}
-  {{ ui.field("hero_tone", _("Tint van de hero"), kind="select", value=hero_form.tone, options=tone_options) }}
-  {{ ui.field("hero_eyebrow", _("Bovenkopje"), value=hero_form.eyebrow, attrs='maxlength="80"') }}
-  {{ ui.field("hero_lead", _("Inleiding"), kind="textarea", value=hero_form.lead, rows=2, span="full", attrs='maxlength="400"') }}
-  {% for knop in hero_form.buttons %}
-  {% set n = loop.index %}
-  {{ ui.field("hero_b" ~ n ~ "_label", _("Knop %(n)s: tekst", n=n), value=knop.label, attrs='maxlength="60"') }}
-  {{ ui.field("hero_b" ~ n ~ "_destination", _("Knop %(n)s: waarheen", n=n), kind="select", value=knop.destination, options=hero_destinations) }}
-  {{ ui.field("hero_b" ~ n ~ "_address", _("Knop %(n)s: adres buiten de site", n=n), kind="url", value=knop.address) }}
-  {% endfor %}
-  {% endcall %}
   {% call ui.section(_("Inhoud")) %}
   {# The document is the author's page (snede 3): TipTap through the macro,
      her configuration from the set, her document as JSON. The figure's
@@ -130,6 +115,28 @@
   <div data-span="full">{{ ui.document_editor("document", editor_config, document_json, id="cp-document",
                                                 button_pages=button_pages, button_forms=button_forms,
                                                 button_lid_worden=button_lid_worden, codes=insert_codes) }}</div>
+  {% endcall %}
+  {#- #2096: the opening is rarely set — most pages open with the title line — so
+      it closes at the bottom, after the text, and its summary says what is set. A refusal that is
+      not the address's opens it: the banner names the hero's fields, not a
+      place the kit could mark. -#}
+  {% set hero_tint = (tone_options | selectattr(0, "equalto", hero_form.tone) | first)[1] %}
+  {% call ui.rare_settings(_("Opening van de pagina"),
+                           summary=(_("Hero · %(tint)s", tint=hero_tint) if p.opening == "hero" else _("Titelregel")),
+                           open=(error and not slug_error)) %}
+  {# CR-32 F4 (B8.11): the hero is a property of the page, set beside its
+     title — the title stays the page's one h1. The fields below are kept when
+     the page goes back to the title line. #}
+  {{ ui.field("opening", _("De pagina opent met"), kind="select", value=p.opening, options=opening_options) }}
+  {{ ui.field("hero_tone", _("Tint van de hero"), kind="select", value=hero_form.tone, options=tone_options) }}
+  {{ ui.field("hero_eyebrow", _("Bovenkopje"), value=hero_form.eyebrow, attrs='maxlength="80"') }}
+  {{ ui.field("hero_lead", _("Inleiding"), kind="textarea", value=hero_form.lead, rows=2, span="full", attrs='maxlength="400"') }}
+  {% for knop in hero_form.buttons %}
+  {% set n = loop.index %}
+  {{ ui.field("hero_b" ~ n ~ "_label", _("Knop %(n)s: tekst", n=n), value=knop.label, attrs='maxlength="60"') }}
+  {{ ui.field("hero_b" ~ n ~ "_destination", _("Knop %(n)s: waarheen", n=n), kind="select", value=knop.destination, options=hero_destinations) }}
+  {{ ui.field("hero_b" ~ n ~ "_address", _("Knop %(n)s: adres buiten de site", n=n), kind="url", value=knop.address) }}
+  {% endfor %}
   {% endcall %}
 </form>
 {# The action bar of a record form (§3.6, #1561): the ONE save of the whole

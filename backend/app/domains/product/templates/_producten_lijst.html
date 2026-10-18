@@ -1,0 +1,20 @@
+{% import "_macros.html" as ui %}
+{# The list of articles (#1911): one row per article on the kit's table — the
+   name as the way in to its record, the number of sizes, the life cycle as a
+   badge. #}
+{% if error %}{{ ui.error_banner(error) }}{% endif %}
+{% if not rows %}
+  {{ ui.empty_state(_("Nog geen artikelen.")) }}
+{% else %}
+{% call ui.data_table(columns, caption=_("Artikelen")) %}
+  <tbody>
+    {% for r in rows %}
+    <tr data-row data-product="{{ r.id }}" class="align-middle">
+      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">{{ ui.row_link(r.name, "/admin/producten/" ~ r.id) }}</td>
+      <td data-cell="extra" data-p="1" class="border-b border-line px-3 py-2 text-right tabular-nums">{{ r.sizes }}</td>
+      <td data-cell="status" class="border-b border-line px-3 py-2">{{ ui.badge(r.badge[0], r.badge[1]) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+{% endcall %}
+{% endif %}

@@ -124,6 +124,9 @@
     // asks for a proposal and its answer lands in the panel — nothing redraws
     // the record, so it is no way out, whatever the form holds.
     if (source.closest("[data-raakje-panel]")) return false;
+    // An in-place command (CR-21: an attachment upload that swaps only its own
+    // section) never redraws the record either, so it is no way out.
+    if (source.closest("[data-command-safe]")) return false;
     return (verb || "get").toLowerCase() !== "get";
   }
 

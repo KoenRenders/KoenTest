@@ -1,0 +1,25 @@
+{% import "_macros.html" as ui %}
+{% if not rows %}
+  {{ ui.empty_state(empty_reason) }}
+{% else %}
+{% call ui.data_table([
+    {"key": "artikel", "label": _("Artikel en maat"), "cell": "name"},
+    {"key": "voorraad", "label": _("In voorraad"), "cell": "amount", "num": True},
+    {"key": "gereserveerd", "label": _("Gereserveerd"), "cell": "amount", "num": True},
+    {"key": "beschikbaar", "label": _("Beschikbaar"), "cell": "amount", "num": True},
+], caption=_("Voorraad")) %}
+<tbody>
+  {% for row in rows %}
+  <tr class="align-middle" data-row>
+    <td data-cell="name" class="border-b border-line px-3 py-2">
+      {{ ui.row_link(row.product ~ " · " ~ row.size, href="/admin/voorraad/" ~ row.variant_id) }}
+    </td>
+    <td data-cell="amount" class="border-b border-line px-3 py-2 text-right tabular-nums">{{ row.on_hand }}</td>
+    <td data-cell="amount" class="border-b border-line px-3 py-2 text-right tabular-nums text-ink-soft">{{ row.reserved }}</td>
+    <td data-cell="amount" class="border-b border-line px-3 py-2 text-right tabular-nums">{{ row.available }}</td>
+  </tr>
+  {% endfor %}
+</tbody>
+{% endcall %}
+{% endif %}
+{% if oob %}{{ ui.toolbar_oob("voorraad-filter", page=1, per_page=total, total=total) }}{% endif %}

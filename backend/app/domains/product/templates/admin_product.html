@@ -1,0 +1,71 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ product.name }} — {{ _("Productbeheer") }}{% endblock %}
+{% block content %}
+{# The article record (CR-21, Q74): the life cycle in the head, then the article,
+   its sizes, its pictures and documents, and "Op bestelling". Read first,
+   "Bewerken" puts it in edit mode. The head's actions are data (`primary`,
+   `actions`), never a button the screen draws. #}
+{{ ui.record_header(product.name,
+    badges=[{"label": product.status | code_label("product_status"),
+             "tone": product.status | tone("product_status")}],
+    primary=primary, actions=actions,
+    back={"label": _("Productbeheer"), "href": "/admin/producten"}, editing=editing) }}
+<div id="product-melding" data-form-message>{{ ui.error_banner(error|default(None)) }}</div>
+
+{% macro _size_row(key, name) %}
+{% call ui.group_row("v_order", key, edit=True, handle=True, menu=["up", "down", "remove"], label=name) %}
+  {{ ui.field("v." ~ key ~ ".name", attribute="product.product_variant.properties", value=name, required=True, label_hidden=True) }}
+{% endcall %}
+{% endmacro %}
+
+{% if not editing %}
+{% call ui.record_columns() %}
+<div class="form-flow">
+  {% call ui.section(_("Artikel")) %}
+    {{ ui.field("name", attribute="product.product.name", value=product.name, edit=False) }}
+    {{ ui.field("description", attribute="product.product.description", kind="textarea", value=product.description or "", edit=False) }}
+  {% endcall %}
+  {% call ui.section(_("Maten")) %}
+    <div data-span="full" class="flex flex-wrap gap-2">
+      {% for size in sizes %}
+      <span class="rounded-md border border-line px-3 py-1 text-sm">{{ size.name }}</span>
+      {% else %}
+      <span class="text-sm text-ink-soft">{{ _("Nog geen maten.") }}</span>
+      {% endfor %}
+    </div>
+  {% endcall %}
+  <div id="bijlagen">{% include "_product_bijlagen.html" %}</div>
+  {% call ui.section(_("Op bestelling")) %}
+    {{ ui.field("pre_order", attribute="product.product.pre_order", kind="switch", value=product.pre_order, edit=False) }}
+    {% if product.pre_order_until %}{{ ui.field("pre_order_until", attribute="product.product.pre_order_until", kind="date", value=product.pre_order_until.isoformat(), edit=False) }}{% endif %}
+  {% endcall %}
+</div>
+{% endcall %}
+{% else %}
+{% call ui.record_columns() %}
+<div class="form-flow">
+  <form id="product-form" method="post" action="/admin/producten/{{ product.id }}"
+        data-record-form data-message="#product-melding" novalidate
+        hx-post="/admin/producten/{{ product.id }}" class="form-flow">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% call ui.section(_("Artikel")) %}
+      {{ ui.field("name", attribute="product.product.name", value=product.name, required=True, long=True, attrs='maxlength="255"') }}
+      {{ ui.field("description", attribute="product.product.description", kind="textarea", value=product.description or "") }}
+    {% endcall %}
+    {% set _size_template %}{{ _size_row("__V__", "") }}{% endset %}
+    {% call ui.repeating_group(_("Maten"), "v_order", token="__V__", add_label=_("Maat"), edit=True,
+                               handle=True, empty=_("Nog geen maten."), count=sizes|length, template=_size_template) %}
+      {% for size in sizes %}{{ _size_row(size.id, size.name) }}{% endfor %}
+    {% endcall %}
+    {% call ui.section(_("Op bestelling")) %}
+      {{ ui.field("pre_order", attribute="product.product.pre_order", kind="switch", value=product.pre_order, span="full", help=_("Kopers bestellen en betalen ook zonder voorraad. Wat besteld is, zie je in Voorraadbeheer.")) }}
+      {{ ui.field("pre_order_until", attribute="product.product.pre_order_until", kind="date", value=(product.pre_order_until.isoformat() if product.pre_order_until else ""), help=_("Leeg: zonder einddatum. Daarna verkoopt het artikel wat in voorraad ligt.")) }}
+    {% endcall %}
+  </form>
+  <div id="bijlagen">{% include "_product_bijlagen.html" %}</div>
+  {{ ui.action_bar(record=True, form="product-form", cancel_href="/admin/producten/" ~ product.id) }}
+</div>
+{% endcall %}
+{% endif %}
+{% endblock %}

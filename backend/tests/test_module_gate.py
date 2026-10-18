@@ -35,6 +35,7 @@ MODULE_ONLY_PACKAGES = {
     "app.domains.meetings",
     "app.domains.membership",
     "app.domains.newsletter",
+    "app.domains.product",
     "app.domains.reporting",
 }
 

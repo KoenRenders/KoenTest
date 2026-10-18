@@ -242,8 +242,8 @@ def test_the_transfer_block_is_the_one_of_the_registration_mail(client, db_sessi
     source = (Path(__file__).resolve().parents[2] / "app/domains/mail/service.py").read_text()
     assert source.count("transfer.lines") == 1, "a second place writes a transfer's lines"
     # Its definition and one call per confirmation mail: the welcome, the
-    # renewal and the registration.
-    assert source.count("_transfer_instructions_html(transfer)") == 4, (
+    # renewal, the registration and the order.
+    assert source.count("_transfer_instructions_html(transfer)") == 5, (
         "the confirmation mails do not all call the one transfer block"
     )
     # "Bedrag" is a fact of the renewal too; the four others are the transfer's own.

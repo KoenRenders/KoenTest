@@ -1,0 +1,44 @@
+{% import "_macros.html" as ui %}
+<div class="p-5">
+  <div class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+    <span class="font-semibold text-ink">{{ _("Bestelling") }} {{ order.id }}</span>
+    <span class="text-ink-soft">{{ order.contact_name or _("Onbekend") }}</span>
+    <span class="text-ink-soft">{{ order.delivery }}</span>
+    <span class="text-ink-soft">{{ _("Te betalen") if order.payment == "open" else _("Betaald") }}</span>
+  </div>
+  {% if order.online_checkout_stale %}
+  <p class="mb-3 text-sm text-ink-soft">{{ _("De betaallink is vervallen — betaal per overschrijving.") }}</p>
+  {% endif %}
+  <div class="space-y-2">
+    {% for l in order.lines %}
+    <div class="flex items-center justify-between gap-2">
+      <div class="min-w-0 text-sm">
+        <span class="font-medium">{{ l.name }}{% if l.size %} · {{ _("maat") }} {{ l.size }}{% endif %}</span>
+        <span class="block text-ink-soft">{{ l.quantity }} × € {{ l.unit_price|geld }}</span>
+      </div>
+      {% if l.delivered %}
+      <span class="text-sm text-ink-soft">{{ _("Afgeleverd") }}</span>
+      {% elif is_admin and l.deliverable %}
+      <form hx-post="/admin/verkoop/{{ order.id }}/lijn/{{ l.id }}/leveren">
+        {{ ui.btn_primary(_("Afleveren"), size="sm") }}
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  <div class="mt-3 flex items-center justify-between">
+    <span class="text-sm font-semibold text-ink">{{ _("Totaal") }}: € {{ order.total|geld }}</span>
+    <div class="flex items-center gap-2">
+      {% if is_admin and order.cancellable %}
+      {{ ui.btn_secondary(_("Wijzigen"), href="/admin/verkoop/" ~ order.id ~ "/wijzigen", size="sm") }}
+      <form hx-post="/admin/verkoop/{{ order.id }}/annuleren">
+        {{ ui.btn_danger(_("Verwijderen"), "submit", size="sm", confirm=(_("De betaalde € %(bedrag)s wordt terugbetaald.", bedrag=order.total|geld) if order.payment == "settled" else _("De bestelling wordt verwijderd."))) }}
+      </form>
+      {% elif not is_admin and order.cancellable %}
+      <form hx-post="/mijn/aankopen/{{ order.id }}/annuleren">
+        {{ ui.btn_danger(_("Bestelling annuleren"), "submit", size="sm", confirm=(_("Bestelling %(id)s annuleren? De artikelen komen weer vrij. Je krijgt € %(bedrag)s terug.", id=order.id, bedrag=order.total|geld) if order.payment == "settled" else _("Bestelling %(id)s annuleren? De artikelen komen weer vrij.", id=order.id))) }}
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
