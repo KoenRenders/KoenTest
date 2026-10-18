@@ -35,24 +35,35 @@ class AiCallLine:
 
 @dataclass(frozen=True, kw_only=True)
 class AiCallListView(ViewModel):
-    """`_ai_kosten_lijst.html`: the calls, newest first, one page, on the kit's
-    table (#1925)."""
+    """`_ai_kosten_lijst.html`: the month's calls on the kit's table (#1925, #2109)."""
 
     columns: list[dict[str, Any]]
 
     calls: list[AiCallLine]
     page: int
     per_page: int
-    # Every call of the tenant, counted (#1391, CR-11 W8).
+    # Every call of the month that matches the filters, counted (#1391, CR-11 W8).
     total: int
+    pager_url: str
+    empty_reason: str
+    oob: bool = False
+    sort: str = ""
 
 
 @dataclass(frozen=True, kw_only=True)
 class AiCostView(AiCallListView):
-    """`admin_ai_kosten.html`: the month's totals above the list."""
+    """`admin_ai_kosten.html`: the toolbar and the month's totals above the list."""
 
+    month: str
     month_label: str
-    prev_month: str
-    next_month: str
+    prev_month_url: str
+    next_month_url: str
     totals: list[AiCostLine]
+    totals_columns: list[dict[str, Any]]
+    capability: str
+    provider: str
+    sort_options: list[tuple[str, str]]
+    capability_options: list[tuple[str, str]]
+    provider_options: list[tuple[str, str]]
+    page_sizes: list[int]
     nav_items: list[dict[str, Any]] = field(default_factory=list)

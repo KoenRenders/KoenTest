@@ -22,7 +22,7 @@
                      page=1, per_page=reg_per_page, total=reg_total,
                      cls="basis-full md:basis-0 md:flex-1",
                      sort=reg_sort, sort_options=reg_sort_options) %}{% endcall %}
-  <div class="absolute bottom-3 left-0 md:static md:mb-3">{{ ui.btn_primary(_("+ Inschrijving toevoegen"), href="/admin/activiteiten/" ~ a.id ~ "/inschrijvingen/nieuw", size="sm", cls="h-11 md:h-9") }}</div>
+  <div class="absolute bottom-3 left-0 md:static md:mb-3">{{ ui.btn_primary(_("Inschrijving toevoegen"), href="/admin/activiteiten/" ~ a.id ~ "/inschrijvingen/nieuw", size="sm", cls="h-11 md:h-9", lead_icon="plus") }}</div>
 </div>
 <div id="inschrijvingen-lijst">
   {% include "_aa_inschrijvingen_lijst.html" %}

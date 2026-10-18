@@ -68,7 +68,7 @@
             hx-target="#vg-document" hx-swap="innerHTML">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button type="submit" class="inline-flex items-center rounded-r-full border border-line px-2 py-1.5 text-ink-soft hover:text-brand-danger hover:bg-surface-2"
-                aria-label="{{ _("Gast verwijderen") }}">{{ ui.icon("x", 13) }}</button>
+                aria-label="{{ _("Gast verwijderen") }}">{{ ui.icon("trash-2", 13) }}</button>
       </form>
       {% endif %}
     </span>
@@ -137,7 +137,7 @@
            characters, and does not shrink below it without this. At 390 px it
            pushed "Toevoegen" 32 px off the screen (#1339). #}
         {{ ui.input_control("title", cls="flex-1 min-w-0", placeholder=_("Typ een vrij punt")) }}
-        {{ ui.btn_secondary(_("Toevoegen"), type="submit", size="sm") }}
+        {{ ui.btn_secondary(_("Toevoegen"), type="submit", size="sm", lead_icon="plus") }}
       </form>
       <p class="mt-3 text-xs text-ink-soft">{{ _("… of kies een activiteit die al in het portaal staat:") }}</p>
       {# Zelfde reden als bij de kring: alleen de resultaten vervangen, anders
@@ -161,7 +161,7 @@
             <span class="block font-medium text-sm">{{ option.name }}</span>
             <span class="block text-sm text-ink-soft">{{ option.moment }}</span>
           </span>
-          <span class="ml-auto shrink-0">{{ ui.btn_outline(_("Toevoegen"), type="submit", size="xs") }}</span>
+          <span class="ml-auto shrink-0">{{ ui.btn_outline(_("Toevoegen"), type="submit", size="xs", lead_icon="plus") }}</span>
         </form>
         {% else %}
         <p class="text-sm text-ink-soft py-2">{{ _("Geen activiteiten gevonden die hier nog niet staan.") }}</p>
@@ -229,7 +229,7 @@
             hx-target="#vg-document" hx-swap="innerHTML"
             data-confirm="{{ _("Deze bijlage verwijderen?") }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" class="text-ink-soft hover:text-brand-danger" aria-label="{{ _("Bijlage verwijderen") }}">{{ ui.icon("x", 13) }}</button>
+        <button type="submit" class="text-ink-soft hover:text-brand-danger" aria-label="{{ _("Bijlage verwijderen") }}">{{ ui.icon("trash-2", 13) }}</button>
       </form>
       {% endif %}
     </span>
@@ -244,7 +244,7 @@
     <div class="flex-1">
       {{ ui.upload_field("file", text=_("Bijlage toevoegen"), accept="application/pdf,image/*,.doc,.docx,.odt") }}
     </div>
-    {{ ui.btn_secondary(_("Uploaden"), type="submit", size="sm") }}
+    {{ ui.btn_secondary(_("Uploaden"), type="submit", size="sm", lead_icon="upload") }}
   </form>
   {% endif %}
 

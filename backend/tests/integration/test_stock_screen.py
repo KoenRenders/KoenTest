@@ -99,6 +99,7 @@ def test_a_correction_without_a_reason_is_refused_in_words(client, db_session, e
     )
     assert answer.status_code == 422
     assert "reden" in answer.text
+    assert 'data-error-for="note"' in answer.text, "#2121: the refusal marks the field"
     assert on_hand(db_session, variant.id) == 10
 
 

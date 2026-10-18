@@ -1,5 +1,9 @@
 """De ledenexport volgt de gekozen periode, ook zonder paginalading (#1141).
 
+Sinds #2109 staat de export onder `⋯` van de werkbalk en leest hij het formulier op
+het moment van de klik; wat hieronder over de knop in de paginakop staat is de
+geschiedenis van het probleem dat die vorm niet meer kan hebben.
+
 De knop **Ledenexport (.ods) voor Raak Nationaal** staat in de paginakop en
 draagt de periode in haar adres. De filterbalk doet een `hx-get` met
 `hx-target="#lw-inhoud"` en vervangt dus alléén de tabel; de knop staat
@@ -46,7 +50,7 @@ from __future__ import annotations
 import io
 import re
 import zipfile
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import pytest
 
@@ -61,31 +65,6 @@ OUD = "2020-01-01"
 
 def _login(client):
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
-
-
-def _exportlinks(html: str) -> list[str]:
-    return [
-        h.replace("&amp;", "&")
-        for h in re.findall(r'href="(/admin/ledenwijzigingen/export[^"]*)"', html)
-    ]
-
-
-def _filterwissel(client, since: str) -> str:
-    """Wat de filterbalk doet als je de periode wijzigt.
-
-    `hx-target="#lw-inhoud"`, dus het antwoord is het tabelfragment — en alles
-    wat daarbuiten moet bijwerken, moet erin meereizen.
-    """
-    antwoord = client.get(
-        "/admin/ledenwijzigingen",
-        params={"since": since},
-        headers={
-            "HX-Request": "true",
-            "HX-Current-URL": "http://testserver/admin/ledenwijzigingen",
-        },
-    )
-    assert antwoord.status_code == 200, antwoord.text
-    return antwoord.text
 
 
 def _tekst_van_ods(inhoud: bytes) -> str:
@@ -161,39 +140,34 @@ def _alle_historie_naar(db_session, wanneer: datetime) -> int:
     return verzet
 
 
-def test_na_een_filterwissel_draagt_de_knop_de_nieuwe_periode(client, db_session):
-    """De test die het gemelde gedrag vangt.
+def test_de_exportknop_leest_de_periode_van_het_formulier_zelf(client, db_session):
+    """Sinds #2109 staat de export onder `⋯` van de werkbalk (§5.1) en leest hij de
+    velden van het formulier op het moment van de klik (`with_state`): de periode
+    kan dus niet meer achterlopen op wat het scherm toont — het mechanisme van #1141
+    (een knop buiten het swap-doel die out-of-band moest meereizen) bestaat niet meer.
 
-    Bewust ná een paginalading met de standaardperiode: dat is de volgorde
-    waarin het misgaat, en zonder die eerste stap zou de knop toevallig goed
-    kunnen staan.
+    Kapotgemaakt om rood te zien: het `since`-veld uit de Filters van
+    `admin_ledenwijzigingen.html` halen → de tweede assertie valt om; `with_state`
+    uit het menu-item in `changes_ui.py` halen → de eerste.
     """
     _login(client)
-    pagina = client.get("/admin/ledenwijzigingen")
-    assert pagina.status_code == 200
-    standaard = (belgian_today() - timedelta(days=30)).isoformat()
-    assert _exportlinks(pagina.text) == [f"/admin/ledenwijzigingen/export?since={standaard}"], (
-        "de paginakop hoort de standaardperiode te dragen"
-    )
-
-    links = _exportlinks(_filterwissel(client, OUD))
-    assert links, "geen exportlink in het fragment — de knop blijft op de oude periode staan"
-    assert links == [f"/admin/ledenwijzigingen/export?since={OUD}"], (
-        f"de exportknop draagt niet de gekozen periode: {links}"
+    pagina = client.get("/admin/ledenwijzigingen").text
+    assert "new URLSearchParams(new FormData($el.closest('form')))" in pagina
+    assert "window.location = '/admin/ledenwijzigingen/export?'" in pagina
+    kop = pagina.split("data-toolbar")[0]
+    assert "/export" not in kop, "geen exportknop meer in de paginakop"
+    formulier = pagina.split('id="lw-filters"', 1)[1].split("</form>", 1)[0]
+    assert 'name="since"' in formulier, (
+        "de periode is een veld van het formulier dat de export leest"
     )
 
 
 def test_het_bestand_bevat_de_rijen_van_de_gekozen_periode(client, db_session):
-    """De test die telt: de knop kan het juiste adres dragen terwijl de route
-    iets anders doet. Daarom wordt de link uit het fragment ook echt gevolgd."""
+    """De test die telt: de route moet de periode ook echt toepassen."""
     _login(client)
     vers, oud = _twee_perioden(client, db_session)
 
-    client.get("/admin/ledenwijzigingen")
-
-    ruim = _exportlinks(_filterwissel(client, OUD))
-    assert ruim, "geen exportlink in het fragment na de wissel naar 2020"
-    breed = client.get(ruim[0])
+    breed = client.get(f"/admin/ledenwijzigingen/export?since={OUD}")
     assert breed.status_code == 200, breed.text
     tekst = _tekst_van_ods(breed.content)
     ontbreekt = [n for n in (vers, oud) if n not in tekst]
@@ -203,29 +177,11 @@ def test_het_bestand_bevat_de_rijen_van_de_gekozen_periode(client, db_session):
 
     # En de tegenhanger: een korte periode laat de oude rij WEG. Zonder deze
     # helft zou een export die alles teruggeeft ook groen staan.
-    kort = _exportlinks(_filterwissel(client, belgian_today().isoformat()))
-    assert kort, "geen exportlink in het fragment na de wissel naar vandaag"
-    smal = client.get(kort[0])
+    smal = client.get(f"/admin/ledenwijzigingen/export?since={belgian_today().isoformat()}")
     assert smal.status_code == 200, smal.text
     tekst_smal = _tekst_van_ods(smal.content)
     assert vers in tekst_smal, "de wijziging van vandaag hoort er wél in te staan"
     assert oud not in tekst_smal, "een export vanaf vandaag mag de wijziging uit 2020 niet bevatten"
-
-
-def test_de_pagina_zet_de_knop_niet_dubbel(client, db_session):
-    """Het oob-blok hoort alleen in het FRAGMENT te zitten.
-
-    Zou de paginaroute het ook zetten, dan stonden er twee knoppen met dezelfde
-    id op het scherm — en dan is de tweede stil de eerste aan het overschrijven.
-    """
-    _login(client)
-    pagina = client.get("/admin/ledenwijzigingen")
-    assert len(_exportlinks(pagina.text)) == 1, (
-        f"de volle pagina hoort één exportknop te tonen: {_exportlinks(pagina.text)}"
-    )
-    assert "hx-swap-oob" not in pagina.text.split('id="lw-inhoud"')[0], (
-        "de paginakop hoort geen out-of-band blok te dragen"
-    )
 
 
 def test_de_export_filtert_alleen_op_de_periode(client, db_session):

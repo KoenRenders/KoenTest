@@ -16,5 +16,5 @@
     {{ ui.textarea_control("bericht", id="b_bericht", rows=5, value=bericht|default(""), required=True, cls="w-full") }}
   </div>
   {{ ui.form_guard_fields() }}
-  {{ ui.btn_primary(_("Verstuur bericht")) }}
+  {{ ui.btn_primary(_("Verstuur bericht"), lead_icon="send") }}
 </form>

@@ -206,7 +206,7 @@ def correct(
     if not (note or "").strip():
         from app.i18n import _
 
-        raise StockError(_("Een correctie vraagt een reden."))
+        raise StockError(_("Een correctie vraagt een reden."), field="note")
     if quantity == 0:
         from app.i18n import _
 

@@ -178,7 +178,6 @@ SCHERMEN = [
     ("/admin/rapporten", {"q", "owner", "shared"}),
     # #1527: the tree chooses the kind and the activity; the row keeps the search.
     ("/admin/media", {"q"}),
-    ("/admin/ledenwijzigingen", {"actor", "since", "group"}),
     ("/admin/gebruikers", {"q", "rol", "actief"}),
 ]
 
@@ -222,7 +221,6 @@ def test_het_zoekveld_wint_de_restbreedte(client, db_session):
             "domains/forms/templates/admin_formulieren.html",
             "domains/reporting/templates/admin_rapporten.html",
             "domains/media/templates/admin_media.html",
-            "ui/templates/admin_ledenwijzigingen.html",
             "domains/auth/templates/admin_gebruikers.html",
         )
     ]

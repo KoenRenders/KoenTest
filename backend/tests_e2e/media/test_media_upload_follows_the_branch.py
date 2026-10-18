@@ -1,10 +1,10 @@
-"""E2E #1527: "+ Uploaden" starts from the branch chosen in the tree of
+"""E2E #1527: "Uploaden" starts from the branch chosen in the tree of
 /admin/media, and the upload lands back on that branch with the new picture.
 
 Three branches, as the issue names them: an activity of 2027 (Activiteiten ›
 2027 › the activity), Logo's › Sponsorlogo, and a tag — and a fourth, Koen's
 addition: Ontwerpbeelden › 2027 › the activity. Each walk is the board's:
-click the branch in the tree, click "+ Uploaden", read the form, choose a file,
+click the branch in the tree, click "Uploaden", read the form, choose a file,
 "Uploaden", and find the picture on the branch it came from.
 
 Proven red against master `fcb88be1`: the library tree has no "Sponsorlogo"
@@ -138,7 +138,7 @@ def test_an_activity_branch_starts_and_ends_the_upload(browser, situation, tmp_p
     _tree_link(page, situation["activity_name"]).click()
     pagina_klaar(page)
 
-    page.get_by_role("link", name="+ Uploaden").click()
+    page.get_by_role("link", name="Uploaden", exact=True).click()
     pagina_klaar(page)
     assert page.input_value("#me-kind") == "activity_photo"
     assert page.input_value("#me-activity") == str(situation["activity"])
@@ -157,7 +157,7 @@ def test_the_sponsor_branch_starts_and_ends_the_upload(browser, situation, tmp_p
     _tree_link(page, "Sponsorlogo").click()
     pagina_klaar(page)
 
-    page.get_by_role("link", name="+ Uploaden").click()
+    page.get_by_role("link", name="Uploaden", exact=True).click()
     pagina_klaar(page)
     assert page.input_value("#me-kind") == "sponsor"
 
@@ -175,7 +175,7 @@ def test_a_tag_branch_starts_and_ends_the_upload(browser, situation, tmp_path):
     _tree_link(page, situation["tag_name"]).click()
     pagina_klaar(page)
 
-    page.get_by_role("link", name="+ Uploaden").click()
+    page.get_by_role("link", name="Uploaden", exact=True).click()
     pagina_klaar(page)
     chosen = page.eval_on_selector_all(
         'input[name="tag_ids"]:checked', "els => els.map(e => e.value)"
@@ -201,7 +201,7 @@ def test_a_design_branch_starts_and_ends_the_upload(browser, situation, tmp_path
     pagina_klaar(page)
     assert "kind=design_image" in page.url
 
-    page.get_by_role("link", name="+ Uploaden").click()
+    page.get_by_role("link", name="Uploaden", exact=True).click()
     pagina_klaar(page)
     assert page.input_value("#me-kind") == "design_image"
     assert page.input_value("#me-activity") == str(situation["activity"])

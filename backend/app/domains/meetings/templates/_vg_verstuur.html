@@ -4,7 +4,7 @@
 {% call ui.page_header(
      (_("Agenda versturen") if kind == "agenda" else _("Verslag versturen")),
      _("Eén mail, iedereen zichtbaar in de To-regel — de kring antwoordt elkaar.")) %}
-  {{ ui.btn_secondary(_("Terug naar het document"), href="/admin/vergaderingen/" ~ meeting.id) }}
+  {{ ui.btn_secondary(_("Terug naar het document"), href="/admin/vergaderingen/" ~ meeting.id, lead_icon="chevron-left") }}
 {% endcall %}
 
 {% if already_sent_at %}

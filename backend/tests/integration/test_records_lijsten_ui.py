@@ -210,17 +210,17 @@ def test_wijzigingen_heeft_geen_toon_knop_meer_en_filtert_live(client):
     pagina = client.get("/admin/ledenwijzigingen")
     assert pagina.status_code == 200
     assert ">Toon<" not in pagina.text
-    # actor is het zoekveld geworden, met de kit-debounce van de filterbalk
-    assert 'type="search"' in pagina.text and 'name="actor"' in pagina.text
+    # #2109: de actor is het zoekveld van de werkbalk (`q`), met de debounce van de kit
+    assert 'type="search"' in pagina.text and 'name="q"' in pagina.text
     assert "delay:" in pagina.text
     assert "/admin/ledenwijzigingen/export" in pagina.text
 
     fragment = client.get(
-        "/admin/ledenwijzigingen", params={"actor": "niemand@example.com"}, headers=HX
+        "/admin/ledenwijzigingen/lijst", params={"q": "niemand@example.com"}, headers=HX
     )
     assert fragment.status_code == 200
     assert "<html" not in fragment.text.lower()
-    assert "Audit-logboek" in fragment.text  # de lijst zelf komt terug
+    assert "Geen wijzigingen sinds" in fragment.text  # de lijst zelf komt terug
     assert 'type="search"' not in fragment.text  # het zoekveld blijft staan
 
 
@@ -232,12 +232,12 @@ def test_tenants_knop_is_primair_en_htmx_geeft_het_fragment(client, platform_wor
     pagina = client.get("/admin/tenants")
     assert pagina.status_code == 200
     # primaire knop = merkblauw gevuld; de outline-variant is de secundaire
-    knop = pagina.text.split("+ Nieuwe tenant")[0]
+    knop = pagina.text.split("Nieuwe tenant")[0]
     assert "bg-blue-700" in knop.rsplit("<button", 1)[-1]
 
     fragment = client.get("/admin/tenants", params={"q": "raak"}, headers=HX)
     assert "<html" not in fragment.text.lower()
-    assert "+ Nieuwe tenant" not in fragment.text
+    assert "Nieuwe tenant" not in fragment.text
 
 
 # ── C1-gelijktrekking (#621) ─────────────────────────────────────────────────

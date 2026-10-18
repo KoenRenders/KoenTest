@@ -28,7 +28,7 @@
         <form hx-post="/admin/verkoop/instellingen" hx-target="body" hx-swap="innerHTML">
           <input type="hidden" name="action" value="remove_contact">
           <input type="hidden" name="contact_id" value="{{ c.id }}">
-          {{ ui.btn_secondary(_("Verwijderen"), "submit", size="sm", confirm=confirm_attrs(_("Contactpersoon"), c.name)) }}
+          {{ ui.btn_danger(_("Verwijderen"), "submit", size="sm", confirm=confirm_attrs(_("Contactpersoon"), c.name), lead_icon="trash-2") }}
         </form>
       </li>
       {% endfor %}

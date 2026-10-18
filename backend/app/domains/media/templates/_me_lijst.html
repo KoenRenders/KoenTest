@@ -133,7 +133,7 @@
    en een oob-blok zou hem daar dubbel zetten. #}
 {% if oob_uploadknop|default(false) %}
 <span id="me-uploadknop" hx-swap-oob="true">
-  {{ ui.btn_primary(_("+ Uploaden"), href=upload_href) }}
+  {{ ui.btn_primary(_("Uploaden"), href=upload_href, lead_icon="upload") }}
 </span>
 {# #1470: the tree follows too — the year filter narrows its activity branches. #}
 <aside id="me-boom" class="mb-4 lg:mb-0" hx-swap-oob="true">{% include "_me_boom.html" %}</aside>

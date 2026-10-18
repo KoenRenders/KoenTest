@@ -210,11 +210,13 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `POST /admin/ontwerpen/{design_id}/svg/verwijderen`
 - `POST /admin/ontwerpen/{design_id}/verwijderen`
 
-### `newsletter.view` — 10 routes
+### `newsletter.view` — 12 routes
 
 - `GET /admin/nieuwsbrieven`
 - `GET /admin/nieuwsbrieven/abonnees`
 - `GET /admin/nieuwsbrieven/abonnees/import`
+- `GET /admin/nieuwsbrieven/abonnees/lijst`
+- `GET /admin/nieuwsbrieven/abonnees/nieuw`
 - `GET /admin/nieuwsbrieven/instellingen`
 - `GET /admin/nieuwsbrieven/{newsletter_id:int}`
 - `GET /admin/nieuwsbrieven/{newsletter_id:int}/activiteiten`
@@ -435,7 +437,7 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `POST /admin/gebruikers/{user_id}`
 - `POST /admin/gebruikers/{user_id}/verwijderen`
 
-### `settings.view` — 11 routes
+### `settings.view` — 13 routes
 
 - `GET /admin/ai-context`
 - `GET /admin/ai-context/lijst`
@@ -445,9 +447,11 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `GET /admin/e-maillog/{log_id}`
 - `GET /admin/info`
 - `GET /admin/info/ai-kosten`
+- `GET /admin/info/ai-kosten/lijst`
 - `GET /admin/instellingen`
 - `GET /admin/ledenwijzigingen`
 - `GET /admin/ledenwijzigingen/export`
+- `GET /admin/ledenwijzigingen/lijst`
 
 ### `settings.manage` — 9 routes
 

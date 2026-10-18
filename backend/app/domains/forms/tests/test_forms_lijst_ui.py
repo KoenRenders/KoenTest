@@ -97,7 +97,7 @@ def test_lijst_heeft_geen_permanent_naamveld_meer(client, db_session):
     _maak(db_session, "Bestaand formulier", "open", "best-1")
 
     html = client.get("/admin/formulieren").text
-    assert "+ Nieuw formulier" in html
+    assert "Nieuw formulier" in html
     assert "Formaat (voor AI)" in html
     assert 'name="q"' in html and 'name="status"' in html
     # Het naamveld staat op /admin/formulieren/nieuw, niet op de lijst (#627).

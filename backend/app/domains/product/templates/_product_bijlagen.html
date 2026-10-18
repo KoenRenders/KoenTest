@@ -9,7 +9,7 @@
     <a href="{{ a.url }}" target="_blank" rel="noopener" class="text-blue-500 underline">{{ a.title or a.filename or _("Document") }}</a>
     {% endif %}
     {% if editing %}
-    {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="/admin/producten/' ~ product.id ~ '/bijlage/' ~ a.id ~ '/verwijderen"', confirm=_('De bijlage wordt verwijderd.')) }}
+    {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="/admin/producten/' ~ product.id ~ '/bijlage/' ~ a.id ~ '/verwijderen"', confirm=_('De bijlage wordt verwijderd.'), lead_icon="trash-2") }}
     {% endif %}
   </div>
   {% if editing %}

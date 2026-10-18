@@ -218,6 +218,10 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
+  "GET /admin/info/ai-kosten/lijst": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
   "GET /admin/inschrijvingen/{registration_id}": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
@@ -274,6 +278,10 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
+  "GET /admin/ledenwijzigingen/lijst": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
   "GET /admin/login": {
    "platform": "everyone",
    "tenant": "everyone"
@@ -303,6 +311,14 @@
    "tenant": "ADMIN OPERATOR"
   },
   "GET /admin/nieuwsbrieven/abonnees/import": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/nieuwsbrieven/abonnees/lijst": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/nieuwsbrieven/abonnees/nieuw": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },

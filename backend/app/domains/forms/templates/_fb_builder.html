@@ -185,7 +185,7 @@
        zichtbare "Nieuwe vraag". `add_option` weigert een leeg label nu ook
        server-side; dit is de vriendelijke helft. #}
     <div x-data="{ nieuw: false }">
-      {{ ui.btn_secondary(_("+ Optie toevoegen"), size="sm", attrs='@click="nieuw = !nieuw"') }}
+      {{ ui.btn_secondary(_("Optie toevoegen"), size="sm", attrs='@click="nieuw = !nieuw"', lead_icon="plus") }}
       <div x-show="nieuw" x-cloak>{{ optie_rij(f, None) }}</div>
     </div>
   </div>
@@ -207,7 +207,7 @@
    opties client-side bijhouden is bewust buiten scope. #}
 {% macro veld_toevoegen_form(sid) %}
 <div class="mt-3" x-data="{ nieuw: false }">
-  {{ ui.btn_secondary(_("+ Vraag in deze sectie"), attrs='@click="nieuw = !nieuw"') }}
+  {{ ui.btn_secondary(_("Vraag in deze sectie"), attrs='@click="nieuw = !nieuw"', lead_icon="plus") }}
   {{ veld_vorm(None, sid, tonen='nieuw') }}
 </div>
 {% endmacro %}
@@ -402,9 +402,9 @@
     <p class="font-semibold text-ink mb-1">{{ _("Dit formulier is nog leeg.") }}</p>
     <p class="text-sm text-ink-soft mb-4">{{ _("Begin met je eerste vraag, of maak eerst secties om vragen in te groeperen.") }}</p>
     <div class="flex flex-wrap gap-2 justify-center">
-      {{ ui.btn_primary(_("+ Eerste vraag toevoegen"), type="button", attrs='@click="nieuw = !nieuw"') }}
+      {{ ui.btn_primary(_("Eerste vraag toevoegen"), type="button", attrs='@click="nieuw = !nieuw"', lead_icon="plus") }}
       <form hx-post="/admin/formulieren/{{ form.id }}/secties" hx-target="#fb-detail" hx-swap="innerHTML">
-        {{ ui.btn_secondary(_("+ Sectie toevoegen"), type="submit") }}
+        {{ ui.btn_secondary(_("Sectie toevoegen"), type="submit", lead_icon="plus") }}
       </form>
     </div>
     <div class="text-left mt-3">{{ veld_vorm(None, None, tonen='nieuw') }}</div>
@@ -417,12 +417,12 @@
   <div class="flex flex-wrap gap-2">
     {% if not loose_fields %}
     <div x-data="{ nieuw: false }">
-      {{ ui.btn_secondary(_("+ Vraag (zonder sectie)"), attrs='@click="nieuw = !nieuw"') }}
+      {{ ui.btn_secondary(_("Vraag (zonder sectie)"), attrs='@click="nieuw = !nieuw"', lead_icon="plus") }}
       {{ veld_vorm(None, None, tonen='nieuw') }}
     </div>
     {% endif %}
     <form hx-post="/admin/formulieren/{{ form.id }}/secties" hx-target="#fb-detail" hx-swap="innerHTML">
-      {{ ui.btn_secondary(_("+ Sectie toevoegen"), type="submit") }}
+      {{ ui.btn_secondary(_("Sectie toevoegen"), type="submit", lead_icon="plus") }}
     </form>
   </div>
   {% endif %}
@@ -457,7 +457,7 @@
          verwijder-dialogen (Fixed UI decisions). Hier zegt de tekst wat er
          verdwijnt — de opbouw, niet het formulier (#665). #}
       {{ ui.btn_primary(_("Importeren (vervangt de opbouw)"),
-                        confirm=_("De volledige opbouw van dit formulier vervangen?")) }}
+                        confirm=_("De volledige opbouw van dit formulier vervangen?"), lead_icon="upload") }}
     </form>
     {# F16 (#996): geen JSON-eerst-instructie meer als vaste voettekst — bij
        een leeg formulier las hij als de verplichte start. De lege staat

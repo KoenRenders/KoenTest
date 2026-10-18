@@ -127,6 +127,23 @@
     </div>
     {% endfor %}
   </div>
+  {# #2106: the verb → glyph table, from `app/ui/kit/verbs.py` — the same table the UI gate reads. #}
+  <h4 class="text-base font-semibold text-kop mt-6 mb-2">{{ _("Eén betekenis per glyph") }}</h4>
+  <p class="text-sm text-gray-600 mb-3">
+    {{ _("Een tekstknop draagt de glyph van haar werkwoord, nooit een getypte + of pijl. Het werkwoord is het eerste woord van het label; een werkwoord dat hier niet staat, heeft geen glyph. Een glyph uit deze tabel staat alleen op een knop van haar eigen werkwoord.") }}
+  </p>
+  <table class="w-full text-sm" data-verb-table>
+    <thead><tr class="text-left text-gray-500"><th class="py-1 pr-3 font-medium">{{ _("Glyph") }}</th><th class="py-1 pr-3 font-medium">{{ _("Betekent") }}</th><th class="py-1 font-medium">{{ _("En enkel dat") }}</th></tr></thead>
+    <tbody>
+    {% for w in werkwoorden %}
+      <tr class="border-t border-line">
+        <td class="py-1.5 pr-3 whitespace-nowrap"><span class="inline-flex items-center gap-2">{{ ui.icon(w.glyph, cls="shrink-0") }}<code>{{ w.glyph }}</code></span></td>
+        <td class="py-1.5 pr-3">{{ w.meaning }}</td>
+        <td class="py-1.5 text-gray-600">{{ w.note }}{% if w.variant %}{% if w.note %} · {% endif %}{{ _("stijl") }}: {{ w.variant }}{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
 {% endcall %}
 
 {# ── 4. Knoppen ────────────────────────────────────────────────────────────── #}
@@ -136,7 +153,7 @@
     {{ ui.btn_primary(_("Opslaan")) }}
     {{ ui.btn_secondary(_("Annuleren"), type="button") }}
     {{ ui.btn_outline(_("Exporteren"), type="button", lead_icon="download") }}
-    {{ ui.btn_danger(_("Verwijderen"), type="button", size="md") }}
+    {{ ui.btn_danger(_("Verwijderen"), type="button", size="md", lead_icon="trash-2") }}
     {{ ui.button(_("Kleine actie"), "secondary", "button", none, "sm") }}
     {{ ui.btn_unavailable(_("Afgesloten")) }}
     {{ ui.btn_unavailable(_("Volzet"), tone="orange") }}
@@ -343,7 +360,7 @@
        laat de rand al zien. #}
   <div class="border border-line rounded-xl p-4 bg-gray-50">
 {% call ui.page_header(_("Activiteiten"), _("Een kaart opent de activiteit."), list_page=True) %}
-      {{ ui.btn_primary(_("+ Nieuwe activiteit"), href="/admin/design-system") }}
+      {{ ui.btn_primary(_("Nieuwe activiteit"), href="/admin/design-system", lead_icon="plus") }}
     {% endcall %}
     <div class="grid grid-cols-2 gap-4 mb-6 max-w-md">
       <div class="rounded-xl bg-white border border-line p-5">
@@ -942,7 +959,7 @@
     {{ ui.field("kit_tiles_thirteen", _("Dertien opties"), kind="tiles", value="41", options=_kit_shoes, unavailable={"44": _("uitverkocht")},
                 help=_("Vier per rij op een telefoon, zes vanaf 768 px; de laatste rij sluit links aan.")) }}
     {{ ui.field("kit_tiles_read", _("Gelezen"), kind="tiles", value="m", options=_kit_sizes, edit=False) }}
-    <div data-span="full">{{ ui.btn_secondary(_("Verstuur de keuzes (demo)"), type="submit") }}</div>
+    <div data-span="full">{{ ui.btn_secondary(_("Verstuur de keuzes (demo)"), type="submit", lead_icon="send") }}</div>
   {% endcall %}
 {% endcall %}
 </form>

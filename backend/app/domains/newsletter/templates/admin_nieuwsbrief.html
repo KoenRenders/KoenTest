@@ -70,11 +70,11 @@
   <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/verwijderen"
         {{ confirm_attrs(_("Concept"), letter.subject or _("zonder onderwerp"))|safe }}>
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    {{ ui.btn_danger(_("Verwijderen"), type="submit", size="md") }}
+    {{ ui.btn_danger(_("Verwijderen"), type="submit", size="md", lead_icon="trash-2") }}
   </form>
   <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/kopieren">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    {{ ui.btn_secondary(_("Kopiëren"), type="submit") }}
+    {{ ui.btn_secondary(_("Kopiëren"), type="submit", lead_icon="copy") }}
   </form>
   {# De brief zoals hij aankomt: de markeringen zijn dan blokken. Nieuw tabblad,
      want dit is de mail zelf en geen beheerscherm. #}
