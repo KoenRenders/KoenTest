@@ -90,6 +90,7 @@ def create_tenant(
     # writes nothing.
     new_account = _checked_name(new_account_name) if new_account_name is not None else None
     new_shown = _checked_name(new_organization_name) if new_organization_name is not None else None
+    checked_site_name = _checked_site_name(site_name)
     if new_account is None:
         account = _checked_account(db, None, str(account_id) if account_id is not None else "")
         if new_shown is None:
@@ -122,7 +123,7 @@ def create_tenant(
         kind=kind,
         account_id=account,
         organization_id=shown,
-        site_name=_checked_site_name(site_name),
+        site_name=checked_site_name,
         is_active=True,
     )
     db.add(tenant)

@@ -20,7 +20,9 @@ Why it is shaped this way:
 - **The keys cross schemas** by the one named exception of CR-20 B4 (Koen,
   18 October 2026, Q&A nr. 03 question 1: "a"). They are added NOT VALID and
   then validated, so a row with a tenant that does not exist fails here, with
-  the table's name, instead of later.
+  the table's name, instead of later. That is for the error, not for the lock:
+  the migration is one transaction, so every lock is held until its commit;
+  the deploy stops the backend anyway.
 - **The `mdm` seam** (CR-20 F2, C4.8): addresses and contacts, with their
   history, get no key — an organisation's own rows carry the organisation's id
   in `tenant_id`, which is no tenant. CR-26 takes those tables out of the
@@ -234,13 +236,24 @@ def upgrade() -> None:
          WHERE o.org_type IN ('UNIT', 'PLATFORM')
         """
     )
+    # Past the highest organisation id as well (dev2's read of #2155): until
+    # CR-26 the seam rows of C4.8 carry an organisation's id in `tenant_id`, so a
+    # new tenant must never take the id of an organisation that exists now. An
+    # organisation made later can still take a tenant's id; CR-26 phase 1 closes
+    # that window by taking those tables out of the tenant scope.
     op.execute(
         "SELECT setval(pg_get_serial_sequence('mdm.tenants', 'id'), "
-        "COALESCE((SELECT max(id) FROM mdm.tenants), 1))"
+        "GREATEST(COALESCE((SELECT max(id) FROM mdm.tenants), 1), "
+        "COALESCE((SELECT max(id) FROM mdm.organizations), 1)))"
     )
     log.info("CR-20: %s tenants created", _count("SELECT count(*) FROM mdm.tenants"))
 
     # ── 2. The modules' key moves to the tenants ─────────────────────────────
+    orphans = _count(
+        "SELECT count(*) FROM mdm.tenant_modules WHERE tenant_id NOT IN (SELECT id FROM mdm.tenants)"
+    )
+    if orphans:
+        log.warning("CR-20: %s rows of mdm.tenant_modules point at no tenant", orphans)
     op.execute(
         "ALTER TABLE mdm.tenant_modules DROP CONSTRAINT IF EXISTS tenant_modules_tenant_id_fkey"
     )
@@ -372,9 +385,18 @@ def upgrade() -> None:
         UPDATE mdm.organization_persons r SET organization_id = t.organization_id
           FROM mdm.tenants t
          WHERE t.id = r.tenant_id AND r.organization_id <> t.organization_id
+           AND r.relation_type = 'BOARD_MEETING'
         """
     )
     log.info("CR-20: %s circle relations moved to the party their tenant shows", moved.rowcount)
+    log.info(
+        "CR-20: %s open circle relations now stand twice for one person and one party",
+        _count(
+            "SELECT count(*) FROM (SELECT organization_id, person_id FROM mdm.organization_persons "
+            "WHERE relation_type = 'BOARD_MEETING' AND end_date IS NULL AND deleted_at IS NULL "
+            "GROUP BY 1, 2 HAVING count(*) > 1) d"
+        ),
+    )
 
     # ── 7. The organisation rows that were only a borrowed-data tenant ───────
     # (CR-20 F7, C4.6): a tenant that showed another party; its own row was an

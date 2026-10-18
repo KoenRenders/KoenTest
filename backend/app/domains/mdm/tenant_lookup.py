@@ -55,7 +55,7 @@ _platform_cache: int | None = None
 def platform_tenant_id(db=None) -> int | None:
     """The id of the platform tenant, or None if this database has none (#854).
 
-    Looked up by its kind (CR-20; ``org_type`` until then) and never by number. Migration 086 could hand out ids
+    Looked up by its kind and never by number. Migration 086 could hand out ids
     1..3 because it created the table; by now an environment may have created tenants
     of its own through /admin/tenants, so id 4 is not free everywhere. A constant here
     would be right on one machine and wrong on the next.

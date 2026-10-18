@@ -10,6 +10,8 @@ from the same morning:
 
 That list IS the list of tenant settings, so `org_type` gets a third value `PLATFORM`
 next to `ACCOUNT` and `UNIT` instead of a second store for the same eight things.
+(Since CR-20 the platform is a row of `mdm.tenants` of kind PLATFORM; `org_type`
+is gone with the other tenant columns of the organisation.)
 
 **This also fixes #853.** On a platform host every path other than `/` used to fall back
 to the default tenant, so a platform administrator got the shell of Raak Millegem and an

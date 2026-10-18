@@ -95,6 +95,14 @@ def _write_the_cases(conn) -> None:
         {"firm": firm},
     )
     brand = _one(conn, "SELECT id FROM mdm.organizations WHERE code = 'merk-cr20'")
+    # An account with no tenant, made last: the highest organisation id is no
+    # tenant's, so the tenants' sequence must start past it.
+    conn.execute(
+        text(
+            "INSERT INTO mdm.organizations (org_type, code, name, is_active, created_at, "
+            "updated_at) VALUES ('ACCOUNT', 'laatste-cr20', 'Laatste', true, now(), now())"
+        )
+    )
     postal = _one(
         conn,
         "INSERT INTO mdm.postal_codes (postal_code, municipality, created_at, updated_at) "
@@ -193,6 +201,16 @@ def test_the_tenants_carry_the_ids_of_their_rows(migrated_url):
         ).one()
         assert millegem.organization_id == millegem.id
         assert _one(conn, "SELECT count(*) FROM mdm.tenants WHERE kind = 'PLATFORM'") == 1
+
+
+def test_a_new_tenant_never_takes_the_id_of_an_organisation(migrated_url):
+    """dev2's read of #2155: the seam rows carry an organisation's id in
+    `tenant_id` until CR-26, so the tenants' own sequence starts past every
+    organisation id. Broken on purpose: `setval` back to `max(tenants.id)` → the
+    next tenant id is an organisation's and this fails."""
+    with migrated_url.connect() as conn:
+        last = _one(conn, "SELECT last_value FROM mdm.tenants_id_seq")
+        assert last >= _one(conn, "SELECT max(id) FROM mdm.organizations")
 
 
 def test_the_organisation_keeps_the_party_only(migrated_url):

@@ -93,16 +93,16 @@ class TenantMixin:
         )
 
 
-# Tenant-codes (organizations.code) → id. Deze hardgecodeerde map blijft het
-# vangnet/de default voor de gekende tenants; de LIVE map komt sinds #546 dynamisch
-# uit `organizations` (zie tenant_codes()), zodat een nieuwe tenant zonder
-# codewijziging resolvet.
+# Tenant codes (`mdm.tenants.code`, CR-20) → id. This hard-coded map stays the
+# fallback and default for the known tenants; the LIVE map comes, since #546,
+# from `mdm.tenants` (see tenant_codes()), so a new tenant resolves without a
+# code change.
 TENANT_CODES: dict[str, int] = {
     "raakmillegem": TENANT_MILLEGEM_ID,
     "raakvoorbeeldafdeling": TENANT_VOORBEELD_ID,
 }
 
-# De LIVE code→id-map komt sinds #546 dynamisch uit `organizations`. Die DB-lezing
+# De LIVE code→id-map komt sinds #546 dynamisch uit `mdm.tenants` (CR-20). Die DB-lezing
 # hoort NIET in de kernel (importgrens: kernel → domains verboden): ze zit in
 # `app.domains.mdm.api.tenant_codes()`. De middleware geeft het resultaat als
 # `codes`-param door aan de resolve-functies hieronder; zonder param blijft de

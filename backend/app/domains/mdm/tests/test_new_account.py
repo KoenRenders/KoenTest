@@ -207,3 +207,23 @@ def test_the_shown_organisation_follows_the_account(client, platform_workspace, 
     assert options[-1] == ("nieuw", "Nieuwe organisatie…")
     assert ("Zuster",) == tuple(name for value, name in options[1:-1] if name == "Zuster")
     assert str(sibling.id) not in {value for value, _name in options}, "named by no tenant"
+
+
+def test_a_site_name_refused_after_the_new_names_writes_nothing(db_session):
+    """dev2's read of #2155: every check runs before a new organisation is
+    written, the site name's too. Broken on purpose: `_checked_site_name` moved
+    back after `_new_party` → the new account stays behind."""
+    from app.domains.mdm.api import TenantFout, create_tenant
+
+    before = db_session.query(Organization).count()
+    with pytest.raises(TenantFout, match="te lang"):
+        create_tenant(
+            db_session,
+            code="te-lang-cr20",
+            account_id=None,
+            new_account_name="Nieuw Account",
+            new_organization_name="Nieuwe Organisatie",
+            site_name="x" * 256,
+        )
+    db_session.flush()
+    assert db_session.query(Organization).count() == before
