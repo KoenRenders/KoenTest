@@ -4,6 +4,7 @@
 **Status:** Draft — brainstorm of 12 September 2026, not assigned to a release.
 All design questions are settled (§11); what remains open is measurement, not
 decision: the starting model and the caps are defaults to challenge in phase 1.
+**Tracking issue:** #917 (closed)
 **Apply to:** the `reporting` domain (new assistant seam + admin screen), a small
 facade addition to the `chatbot` domain. No new schema; one new log table.
 

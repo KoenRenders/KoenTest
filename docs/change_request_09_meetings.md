@@ -4,6 +4,7 @@
 **Status:** Shaped with Koen on 14 September 2026 (handover on #258) and
 **built the same day** (#939), assigned to v2.5 (#925). All scope decisions are
 settled; no open questions remain. §9 records what the build itself decided.
+**Tracking issue:** #939 (closed; built the same day, v2.5)
 **Apply to:** a new `meetings` domain (backend + admin screens). Board mail
 goes through the existing `mail` domain; attachments through `media`.
 **Split note (14 September 2026):** this CR covers the **meeting module

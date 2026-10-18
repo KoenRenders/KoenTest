@@ -7,6 +7,7 @@ clear preference**, for both sides. The conventions debate ran externally and
 was triaged on #785 (buckets: adopt / owner decides / deferred with trigger);
 three decisions remain open there (unsaved changes, what a record name opens,
 dashboard as a type). Execution follows §3 step 3 once those close.
+**Tracking issue:** #785 (closed)
 **Apply to:** scope and sequence only. The method, the briefing template, the
 triage chain and the admin-side direction live in **issue #785** and are not
 repeated here — one place per fact. This document decides what #785 left open:

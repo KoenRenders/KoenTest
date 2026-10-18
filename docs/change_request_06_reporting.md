@@ -6,6 +6,7 @@ five phases (#832–#835, #841). Written 9 September 2026, reworked 10 September
 after Koen asked for self-service in the BusinessObjects sense rather than
 reports written by the CLI. The ten questions in §3 are **confirmed by Koen**
 (10 September) and all in scope.
+**Tracking issue:** phase issues #832, #833, #834, #835 and #841 (all closed); release tracker #838 (v2.3.0, closed)
 **Apply to:** a new `reporting` Postgres schema, a new `reporting` domain under
 `backend/app/domains/`, a new screen type in `docs/design-system.md`.
 

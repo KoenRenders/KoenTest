@@ -1,5 +1,7 @@
 # Change Request 03 – Activity Registration Form Types
 
+**Tracking issue:** #2154 (made and closed on 18 October 2026, afterwards, so that the list of documents and the list of issues agree)
+
 ## Overview
 
 CR-03 introduces six distinct registration form types for activities in the Raak Millegem portal. Each form type collects different information from registrants, enabling the portal to handle everything from simple free sign-ups to paid product orders.
