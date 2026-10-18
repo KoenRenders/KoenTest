@@ -1,7 +1,7 @@
 # Change Request 20 — A tenant is its own thing, apart from the organisation whose data it shows
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 4 October 2026 · decided by Koen on 4 October 2026 (B8 answered: one release) · nothing is built; not on a release
+**Status:** shaped on 4 October 2026 · decided by Koen on 4 October 2026 (B8 answered: one release) · nothing is built · v2.17 on Koen's word (18 October 2026, to the master CLI's question whether CR-20, CR-26 and CR-34 stay in v2.17 even if the tag comes later or become v2.18: "v2.17"; the assignment to a builder follows the build read) · build read by dev4 to come
 **Tracking issue:** #1578 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the mdm domain (`mdm.organizations` and everything that reads it as a tenant), the kernel's tenancy (`TenantMixin`, the resolver, `kernel_tenant_settings`, `mdm.tenant_modules`), the auth roles per workspace, the platform screens Tenants and Organisaties, the reporting universe; every tenant-scoped table by its key, none by its content.
 **Reading:** A 1422 words · B 2047 · C 2049 — words to read, drawings excluded, measured on 2 October 2026; the budget is A ≤ 1 500, B ≤ 2 500
@@ -353,6 +353,7 @@ None. Koen answered Q1–Q4 on 4 October 2026 (B9, the Q&A log): the same ids, `
 | 4 Oct 2026 | *Proposed:* same ids, a new `tenants` table, the party kept, the account a party with a role, the platform a tenant, soft delete by rule, expand/contract over two releases. | author |
 | 4 Oct 2026 | Q1–Q4: as proposed — same ids, the role column kept, `parent_id` dropped — **but everything in one release, the contract part included**; the expand/contract rule set aside for this change (B4), as for CR-19. | Koen |
 
+| 18 Oct 2026 | Release: with CR-26 (the party model) and CR-34 (invoices for the webshop) in v2.17, to "Houd je de drie in v2.17, ook als de tag later komt, of worden ze v2.18, meteen erna?": "v2.17" (in the chat with the master CLI; on #1578). | Koen |
 ---
 
 # Part C — The build, for the master CLI and the dev CLIs
