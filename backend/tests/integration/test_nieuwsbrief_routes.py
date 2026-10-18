@@ -628,7 +628,7 @@ def test_de_abonneeslijst_staat_op_de_kit(client, db_session):
     _subscriber(db_session, "weg@example.org", status=SubscriberStatus.UNSUBSCRIBED)
     pagina = client.get("/admin/nieuwsbrieven/abonnees").text
     assert "data-list-page" in pagina and "Adres toevoegen" not in pagina
-    assert "+ Adres" in pagina and "Lijst importeren" in pagina
+    assert "/admin/nieuwsbrieven/abonnees/nieuw" in pagina and "Lijst importeren" in pagina
     for woord in ("Bevestigd", "Wachten", "Uitgeschreven"):
         assert f">{woord}<" in pagina, woord
     balk = pagina.split("data-status-filter", 1)[1].split("</fieldset>", 1)[0]

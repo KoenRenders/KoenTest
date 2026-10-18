@@ -185,7 +185,7 @@ def test_the_subscribers_segment_the_search_and_the_add_page(world):
         expect(rows.first).to_contain_text(f"weg-{tag}")
         page.fill("[data-toolbar-search] input", "")
         # "+ Adres": the page of its own; a refusal stays on it, a success lands on the list.
-        page.get_by_role("link", name="+ Adres").click()
+        page.get_by_role("link", name="Adres", exact=True).click()
         page.wait_for_url("**/abonnees/nieuw")
         pagina_klaar(page)
         page.fill("#nb-nieuw-adres", f"bevestigd-{tag}@example.com")
