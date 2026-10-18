@@ -100,7 +100,6 @@ def _filterstand(
     if q:
         params.append(("q", q))
     activity_id = _activity_filter(kind, activity_id)
-    # `is not None`: 0 is a place too — "Zonder activiteit" (#1527).
     if activity_id is not None:
         params.append(("activity_id", str(activity_id)))
     # #1470: the chosen tag and year are part of "where I was" too.
@@ -143,8 +142,7 @@ def _tree(
     branches too, from `media.api.KIND_GROUPS`, the one source both trees read. A
     branch of one kind is one link with the branch's name; a branch of several
     lists them by their kind's word. Ontwerpbeelden is a branch per year and
-    activity, like Affiches, with "Zonder activiteit" for the ones of none
-    (Koen's addition to #1527).
+    activity, like Affiches (Koen's addition to #1527).
     """
     from app.domains.media.api import MediaKind
 
@@ -187,7 +185,7 @@ def _tree(
             "kinderen": [tag_node(child) for child in node.children],
         }
 
-    from app.domains.media.api import KIND_GROUPS, WITHOUT_ACTIVITY
+    from app.domains.media.api import KIND_GROUPS
 
     group_names = {"logos": _("Logo's"), "pages": _("Paginabeelden")}
 
@@ -212,11 +210,6 @@ def _tree(
         # #1527 (Koen): design pictures per year and activity, like posters, and
         # those of no activity apart.
         "ontwerpen": branch(MediaKind.DESIGN_IMAGE, "designs"),
-        "ontwerpen_los": {
-            "naam": _("Zonder activiteit"),
-            "href": href("designs", WITHOUT_ACTIVITY),
-            "actief": chosen("designs", WITHOUT_ACTIVITY),
-        },
         "soorten": soorten,
         "tags": [tag_node(node) for node in tags],
     }
@@ -621,6 +614,7 @@ def media_nieuw(
     ctx = _lijst_ctx(request, db, kind=(request.query_params.get("kind") or "").strip())
     ctx["tak"] = _branch_of(ctx)
     ctx["upload_kind"] = _upload_kind(ctx["kind"], ctx["upload_kind_options"])
+    ctx["field_errors"] = {}
     ctx["nav_items"] = admin_nav(NAV, request)
     return templates.TemplateResponse(request, "admin_media_nieuw.html", ctx)
 
@@ -692,7 +686,11 @@ async def media_uploaden(
         ctx["tak"] = _branch_of(ctx)
         ctx["upload_kind"] = _upload_kind(kind, ctx["upload_kind_options"])
         ctx["nav_items"] = admin_nav(NAV, request)
-        ctx["error"] = str(exc)
+        # #2142: a refusal about one field stands at that field, the rest in the
+        # page's banner.
+        field = getattr(exc, "field", "")
+        ctx["field_errors"] = {field: str(exc)} if field else {}
+        ctx["error"] = None if field else str(exc)
         return templates.TemplateResponse(request, "admin_media_nieuw.html", ctx)
     # Media is met één handeling compleet, dus terug naar de lijst (#627) — en naar
     # DEZELFDE lijst (#962). Hier stond een kaal `/admin/media`, dus je kwam terug in
@@ -728,9 +726,7 @@ def _back_after_upload(
         or (
             filter_tag is None
             and filter_kind == kind
-            # "Zonder activiteit" (0) is the place of a picture with none.
-            and (_activity_filter(kind, filter_activity_id) or None)
-            == (_activity_filter(kind, activity_id) or None)
+            and _activity_filter(kind, filter_activity_id) == _activity_filter(kind, activity_id)
         )
     )
     if in_branch:

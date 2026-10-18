@@ -31,10 +31,11 @@ from app.domains.forms.api import (
     list_forms,
     list_submissions,
     submission_count,
+    submission_stats,
 )
 from app.domains.forms.screenfields import FieldKind, screen_fields
-from app.i18n import _
-from app.kernel.codes import code_labels, code_of, register_tones, tone
+from app.i18n import _, short_date
+from app.kernel.codes import code_labels, code_of, register_tones
 from app.ui import admin_nav, is_fragment_request, says_why_in, templates
 
 router = APIRouter(include_in_schema=False)
@@ -145,34 +146,67 @@ def formulieren_page(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.FORM_VIEW)),
-    q: str = "",
-    status: str = "",
 ):
-    """Lijst-index (design-system C1, #585): zoeken op naam + statusfilter.
+    """Formulieren on the kit's list page (#2123): the statuses as the segments with
+    their counts, the search on the name, the table with the share link under the row's
+    ⋯. An unknown status does not filter — a doctored query string gets 'all', not an
+    empty list or a 500 (`read_state` drops it)."""
+    from app.ui import PER_PAGE_OPTIONS
+    from app.ui.list_state import page_of, read_state, segments_of
 
-    Een onbekende status filtert niet — een gemanipuleerde querystring hoort een
-    lege lijst noch een 500 op te leveren, gewoon 'alles'.
-    """
-    forms = list_forms(db, q=q, status=status)
-    # De filterbalk vraagt enkel de kaarten op: zou ze de pagina vervangen, dan
-    # sneuvelt het zoekveld (en je focus) bij elke aanslag.
-    sjabloon = "_fb_kaarten.html" if is_fragment_request(request) else "admin_formulieren.html"
+    state = read_state(request, FORM_STATUSES)
+    everyone = list_forms(db, q=state.q)
+    shown = [f for f in everyone if not state.status or code_of(f.status) == state.status]
+    forms, total, page = page_of(shown, state)
+    labels = dict(code_labels(FORM_STATUS.name, db=db))
+    stats = submission_stats(db)
+    counts = {code: sum(1 for f in everyone if code_of(f.status) == code) for code in FORM_STATUSES}
+    # De deellink wordt HIER gekozen en niet in de template (#928): welke van de twee
+    # URL's je toont is een regel, en een regel in een sjabloon is een tweede plaats
+    # waar hij woont.
+    share_paths = {f.id: deellink_pad(f) for f in forms}
+    fragment = is_fragment_request(request)
     return templates.TemplateResponse(
         request,
-        sjabloon,
+        "_fb_kaarten.html" if fragment else "admin_formulieren.html",
         {
-            "nav_items": admin_nav(NAV, request),
+            "nav_items": [] if fragment else admin_nav(NAV, request),
             "forms": forms,
-            "q": q,
-            "status": status,
-            "statuses": FORM_STATUSES,
-            "status_labels": dict(code_labels(FORM_STATUS.name, db=db)),
-            "status_tones": {code: tone(FORM_STATUS.name, code) for code in FORM_STATUSES},
-            "gefilterd": bool(q.strip() or status),
-            # De deellink wordt HIER gekozen en niet in de template (#928): welke van
-            # de twee URL's je toont is een regel, en een regel in een sjabloon is een
-            # tweede plaats waar hij woont.
-            "share_paths": {f.id: deellink_pad(f) for f in forms},
+            "q": state.q,
+            "status": state.status,
+            "columns": [
+                {"key": "naam", "label": _("Formulier"), "cell": "name"},
+                {"key": "status", "label": _("Status"), "cell": "status"},
+                {
+                    "key": "inzendingen",
+                    "label": _("Inzendingen"),
+                    "cell": "extra",
+                    "priority": 1,
+                    "num": True,
+                },
+                {"key": "laatste", "label": _("Laatste inzending"), "cell": "date", "priority": 2},
+                {"key": "acties", "label": _("Acties"), "cell": "actions"},
+            ],
+            "segments": segments_of(
+                [(code, labels[code]) for code in FORM_STATUSES], counts, len(everyone), _("Alle")
+            ),
+            "submission_counts": {f.id: stats.get(f.id, (0, None))[0] for f in forms},
+            "last_submissions": {
+                f.id: short_date(stats[f.id][1]) if f.id in stats and stats[f.id][1] else "—"
+                for f in forms
+            },
+            "share_paths": share_paths,
+            "page": page,
+            "per_page": state.per_page,
+            "total": total,
+            "page_sizes": list(PER_PAGE_OPTIONS),
+            "pager_url": f"{NAV}?{state.query()}",
+            "empty_reason": (
+                _("Geen formulieren gevonden.")
+                if (state.q or state.status)
+                else _("Nog geen formulieren.")
+            ),
+            "oob": fragment,
             "csrf_token": csrf_from_request(request),
         },
     )

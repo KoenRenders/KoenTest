@@ -46,13 +46,15 @@
      een vast `required`: een verborgen veld met required laat de browser bij
      verzenden falen met "An invalid form control is not focusable" en het
      verzenden mislukt geruisloos — dezelfde val als bij #688. De server
-     controleert het hoe dan ook. #1527: a design picture can belong to an
-     activity too (optional). #}
+     controleert het hoe dan ook. #2142: a design picture belongs to an
+     activity, as an activity photo does. #}
   {% set activity_options = [("", _("— Kies een activiteit —"))] %}
   {% for a in alle_activiteiten %}{% set _ = activity_options.append((a.id, a.naam ~ (" (" ~ a.jaar ~ ")" if a.jaar else ""))) %}{% endfor %}
   <div data-span="half" class="min-w-0" x-show="soort === 'activity_photo' || soort === 'design_image'" x-cloak>
+    {# #2142: required for a design picture too; refused at this field. #}
     {{ ui.field("activity_id", attribute="media.media_asset.activity_id", kind="select", id="me-activity", value=activity_id,
-                options=activity_options, attrs=':required="soort === \'activity_photo\'"') }}
+                options=activity_options, error=field_errors.get("activity_id"),
+                attrs=':required="soort === \'activity_photo\' || soort === \'design_image\'"') }}
   </div>
   {{ ui.field("title", attribute="media.media_asset.title", id="me-title") }}
   {# #1470: an upload can carry one or more tags at once. #}

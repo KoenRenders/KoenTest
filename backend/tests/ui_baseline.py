@@ -70,12 +70,10 @@ SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
 RAW_SURFACES: dict[str, int] = {
     "domains/auth/templates/_gu_lijst.html": 1,
     "domains/forms/templates/_fb_builder.html": 6,
-    "domains/forms/templates/_fb_kaarten.html": 1,
     "domains/forms/templates/_fb_resultaten.html": 1,
     "domains/media/templates/_me_boom.html": 1,
     "domains/media/templates/_media_picker.html": 1,
     "domains/payment/templates/_bt_boven.html": 1,
-    "domains/reporting/templates/_rp_kaarten.html": 2,
     "domains/reporting/templates/_rp_paneel.html": 14,
     "domains/reporting/templates/_rp_raakje_antwoord.html": 1,
 }
@@ -85,12 +83,10 @@ HEADER_EXTRAS: dict[str, int] = {
     "domains/auth/templates/admin_gebruikers.html": 1,
     "domains/auth/templates/admin_gebruikers_overzicht.html": 1,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
-    "domains/forms/templates/admin_formulieren.html": 1,
     "domains/meetings/templates/_vg_document.html": 5,
     "domains/meetings/templates/_vg_verstuur.html": 1,
     "domains/newsletter/templates/admin_nieuwsbrief.html": 5,
     "domains/newsletter/templates/admin_nieuwsbrief_archief.html": 1,
-    "domains/newsletter/templates/admin_nieuwsbrieven.html": 1,
 }
 
 #: B7 test 18 — a tile strip outside `ui.key_figures`. 1 in 1 files.
@@ -115,34 +111,28 @@ WIDENED_ROWS: dict[str, int] = {
 #: B7 test 23 — a `checkbox_group` in a toolbar or filter bar. 0 in 0 files.
 CHECKBOX_GROUPS_IN_TOOLBARS: dict[str, int] = {}
 
-#: B7 test 1 — an admin page on the shell itself, no layout and no record head. 32 in 32 files.
+#: B7 test 1 — an admin page on the shell itself, no layout and no record head. 26 in 26 files.
 SHELL_EXTENDED_DIRECTLY: dict[str, int] = {
     "domains/activities/templates/admin_inschrijving.html": 1,
     "domains/auth/templates/admin_gebruikers.html": 1,
     "domains/auth/templates/admin_gebruikers_overzicht.html": 1,
-    "domains/cms/templates/admin_paginas.html": 1,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/designstudio/templates/admin_ontwerp_nieuw.html": 1,
-    "domains/designstudio/templates/admin_ontwerpen.html": 1,
     "domains/forms/templates/admin_formulier_builder.html": 1,
     "domains/forms/templates/admin_formulier_inzendingen.html": 1,
     "domains/forms/templates/admin_formulier_resultaten.html": 1,
-    "domains/forms/templates/admin_formulieren.html": 1,
     "domains/mdm/templates/leden_import.html": 1,
     "domains/meetings/templates/admin_vergadering.html": 1,
     "domains/meetings/templates/admin_vergadering_nieuw.html": 1,
     "domains/meetings/templates/admin_vergadering_verstuur.html": 1,
-    "domains/meetings/templates/admin_vergaderingen.html": 1,
     "domains/meetings/templates/admin_vergaderkring.html": 1,
     "domains/newsletter/templates/admin_abonnees_import.html": 1,
     "domains/newsletter/templates/admin_nieuwsbrief.html": 1,
     "domains/newsletter/templates/admin_nieuwsbrief_archief.html": 1,
     "domains/newsletter/templates/admin_nieuwsbrief_instellingen.html": 1,
     "domains/newsletter/templates/admin_nieuwsbrief_versturen.html": 1,
-    "domains/newsletter/templates/admin_nieuwsbrieven.html": 1,
     "domains/payment/templates/admin_inschrijving_betalingen.html": 1,
     "domains/reporting/templates/admin_rapport_paneel.html": 1,
-    "domains/reporting/templates/admin_rapporten.html": 1,
     "ui/templates/admin_dashboard.html": 1,
     "ui/templates/admin_info.html": 1,
     "ui/templates/admin_profiel.html": 1,

@@ -1,45 +1,44 @@
 {% import "_macros.html" as ui %}
-{# Alleen de kaarten (#587); de filterbalk swapt dít fragment, niet de pagina. #}
-{% if pages %}
-<div class="space-y-3">
-  {% for p in pages %}
-  {# #745: de kaart is geen <a> meer. De pijltjes zijn knoppen, en een knop in een
-     link is ongeldige HTML — de browser mag dan zelf kiezen wat een klik doet. De
-     link zit nu om de inhoud, de pijltjes staan ernaast.
+{# The list of pages on the kit's table (#2123): the title as the way in to the editor with
+   the address under it; the status — gepubliceerd or concept, and "concept gewijzigd"
+   where the draft differs from the published document; where the page stands (homepagina,
+   in navigatie, in voettekst); and the order arrows in a column of their own.
 
-     `first`/`last` komen uit de VOLLEDIGE lijst, niet uit deze lus: met een filter
-     aan is de bovenste zichtbare rij zelden de eerste pagina, en die uitgrijzen zou
-     een verplaatsing blokkeren die gewoon kan. #}
-  {# #1391 (CR-11 W11): the whole card opens the page — a stretched link, as on
-     the forms list (#689): the <a> covers the card as an absolute layer, and
-     only what is positioned itself (the arrows, z-10) lies above it. #}
-  <div class="relative bg-surface border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
-    <a href="/admin/paginas/{{ p.id }}" class="absolute inset-0 rounded-xl" aria-label="{{ p.title }}"></a>
-    <div class="flex items-start justify-between gap-3">
-      <div class="flex-1 min-w-0">
-        <div class="font-semibold text-ink">{{ p.title }}</div>
-        <div class="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
-          <span class="font-mono text-xs text-ink-soft">/{{ p.slug }}</span>
+   `first`/`last` come from the WHOLE list, not from this loop (#745): with a filter on, the
+   top row shown is rarely the first page, and greying it out would block a move that can
+   be made. The arrows are buttons beside the row's link, never inside it (#745). The
+   toolbar swaps this fragment; the count and the segments' counts travel out-of-band. #}
+{% if pages %}
+{% call ui.data_table(columns, hx_target="#cp-lijst", caption=_("Pagina's")) %}
+  <tbody>
+    {% for p in pages %}
+    <tr data-row data-page="{{ p.id }}" class="align-middle">
+      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">{{ ui.row_link(p.title, "/admin/paginas/" ~ p.id, sub="/" ~ p.slug) }}</td>
+      <td data-cell="status" class="border-b border-line px-3 py-2">
+        <span class="flex flex-wrap items-center gap-1">
           {% if p.is_published %}{{ ui.badge(_("gepubliceerd"), "green") }}{% else %}{{ ui.badge(_("concept")) }}{% endif %}
-          {% if p.show_in_nav %}{{ ui.badge(_("in navigatie"), "blue") }}{% endif %}
-          {% if p.is_home %}{{ ui.badge(_("homepagina"), "green") }}{% endif %}
-          {% if p.show_in_footer %}{{ ui.badge(_("in voettekst"), "blue") }}{% endif %}
           {% if p.concept_gewijzigd %}{{ ui.badge(_("concept gewijzigd"), "amber") }}{% endif %}
-        </div>
-      </div>
-      <div class="shrink-0 flex items-center gap-3">
-        {# Only the arrows lie above the stretched link (their own z-10 layer); the
-           wrapper and the chevron stay under it, so a click there opens the page. #}
-        <div class="relative z-10">{{ ui.reorder(
+        </span>
+      </td>
+      <td data-cell="context" class="border-b border-line px-3 py-2">
+        <span class="flex flex-wrap items-center gap-1">
+          {% if p.is_home %}{{ ui.badge(_("homepagina"), "green") }}{% endif %}
+          {% if p.show_in_nav %}{{ ui.badge(_("in navigatie"), "blue") }}{% endif %}
+          {% if p.show_in_footer %}{{ ui.badge(_("in voettekst"), "blue") }}{% endif %}
+        </span>
+      </td>
+      <td data-cell="actions" class="border-b border-line px-3 py-2">
+        <div data-above-row class="flex justify-end">{{ ui.reorder(
              up_attrs='hx-post="/admin/paginas/' ~ p.id ~ '/volgorde/omhoog" hx-target="#cp-lijst" hx-swap="innerHTML"',
              down_attrs='hx-post="/admin/paginas/' ~ p.id ~ '/volgorde/omlaag" hx-target="#cp-lijst" hx-swap="innerHTML"',
-             first=(p.id == eerste_id), last=(p.id == laatste_id)) }}</div>
-        <span class="text-sm text-ink-soft" aria-hidden="true">›</span>
-      </div>
-    </div>
-  </div>
-  {% endfor %}
-</div>
+             first=(p.id == eerste_id), last=(p.id == laatste_id), touch=True) }}</div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+{% endcall %}
+{{ ui.pager(page, per_page=per_page, total=total, hx_get=pager_url, hx_target="#cp-lijst", count=False, push=True) }}
 {% else %}
-{{ ui.empty_state(_("Geen pagina's gevonden.") if gefilterd else _("Nog geen pagina's.")) }}
+{{ ui.empty_state(empty_reason) }}
 {% endif %}
+{% if oob %}{{ ui.toolbar_oob("cp-filter", segments=segments, page=page, per_page=per_page, total=total) }}{% endif %}

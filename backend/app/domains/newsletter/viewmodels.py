@@ -13,7 +13,7 @@ from app.ui.viewmodel import ViewModel
 
 @dataclass(frozen=True, kw_only=True)
 class NewsletterListView(ViewModel):
-    """`admin_nieuwsbrieven.html` and its fragment `_nb_lijst.html`."""
+    """`admin_nieuwsbrieven.html` and its fragment `_nb_lijst.html`: the kit's list page (#2123)."""
 
     letters: list[Any]
     # Per letter id, derived in the route (design-system §8.3).
@@ -24,9 +24,21 @@ class NewsletterListView(ViewModel):
     moments: dict[int, str]
     #: Per sent letter, what was counted (CR-37): opened and clicked as an indication.
     results: dict[int, Any]
+    columns: list[dict[str, Any]]
+    #: Alle, Concept, Wordt verstuurd and Verstuurd, each with its count.
+    segments: list[dict[str, Any]]
+    status: str = ""
     q: str = ""
+    page: int = 1
+    per_page: int = 50
+    total: int = 0
+    page_sizes: list[int] = field(default_factory=list)
+    pager_url: str = ""
+    empty_reason: str = ""
     csrf_token: str
     error: Optional[str] = None
+    #: The fragment carries the toolbar's count and segment counts out-of-band.
+    oob: bool = False
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 
 

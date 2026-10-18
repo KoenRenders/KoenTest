@@ -632,14 +632,21 @@ def _viewer(request: Request) -> str:
 # ── The list (design-system C1) ──────────────────────────────────────────────
 
 
-def _list_view(request: Request, db: Session, email: str) -> ReportListView:
-    params = request.query_params
-    q = (params.get("q") or "").strip()
+def _list_view(request: Request, db: Session, email: str, *, oob: bool = False) -> ReportListView:
+    """Rapporten on the kit's list page (#2123): the search on name and description, the
+    filters on owner and on shared or private behind the toolbar's Filters, the table."""
+    from app.ui import PER_PAGE_OPTIONS, filterparams
+    from app.ui.list_state import page_of, read_state
+
+    state = read_state(request)
+    params = filterparams(request)
     owner = params.get("owner") or "all"
     shared = params.get("shared") or "all"
-    reports = list_saved_reports(
-        db, tenant_id=_tenant(request), viewer=email, q=q, owner=owner, shared=shared
+    everyone = list_saved_reports(
+        db, tenant_id=_tenant(request), viewer=email, q=state.q, owner=owner, shared=shared
     )
+    reports, total, page = page_of(everyone, state)
+    extra = {"owner": owner if owner != "all" else "", "shared": shared if shared != "all" else ""}
     return ReportListView(
         reports=reports,
         classes_per_report={r.id: classes_of(r) for r in reports},
@@ -656,11 +663,24 @@ def _list_view(request: Request, db: Session, email: str) -> ReportListView:
             "chart-stacked": _("Gestapelde staafgrafiek"),
             "list": _("Lijst"),
         },
-        q=q,
+        q=state.q,
         owner=owner,
         shared=shared,
+        columns=[
+            {"key": "naam", "label": _("Rapport"), "cell": "name"},
+            {"key": "soort", "label": _("Soort"), "cell": "status"},
+            {"key": "eigenaar", "label": _("Eigenaar"), "cell": "extra", "priority": 1},
+            {"key": "geopend", "label": _("Laatst geopend"), "cell": "date", "priority": 2},
+        ],
+        page=page,
+        per_page=state.per_page,
+        total=total,
+        page_sizes=list(PER_PAGE_OPTIONS),
+        pager_url=f"{NAV}?{state.query(**extra)}",
+        empty_reason=_("Geen rapporten gevonden."),
+        oob=oob,
         csrf_token=_csrf(request),
-        nav_items=admin_nav(NAV, request),
+        nav_items=[] if oob else admin_nav(NAV, request),
     )
 
 
@@ -670,8 +690,9 @@ def reports_index(
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.REPORT_VIEW)),
 ):
-    view = _list_view(request, db, email)
-    template = "_rp_kaarten.html" if is_fragment_request(request) else "admin_rapporten.html"
+    fragment = is_fragment_request(request)
+    view = _list_view(request, db, email, oob=fragment)
+    template = "_rp_kaarten.html" if fragment else "admin_rapporten.html"
     return templates.TemplateResponse(request, template, view.as_context())
 
 

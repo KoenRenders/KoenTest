@@ -65,19 +65,10 @@ KIT = {"ui/templates/_macros.html", "ui/templates/design_system.html"}
 
 #: The templates that draw a list of records by hand on 12 October 2026. Only
 #: shrinks: a list that moves onto `ui.data_table` leaves, and nothing joins.
-HAND_DRAWN_LISTS: frozenset[str] = frozenset(
-    {
-        "domains/cms/templates/_cp_kaarten.html",
-        "domains/designstudio/templates/_ds_lijst.html",
-        "domains/forms/templates/_fb_kaarten.html",
-        "domains/meetings/templates/_vg_lijst.html",
-        "domains/newsletter/templates/_nb_lijst.html",
-        "domains/reporting/templates/_rp_kaarten.html",
-    }
-)
+HAND_DRAWN_LISTS: frozenset[str] = frozenset()
 
 #: How many entries the baseline may hold. Goes down with it, never up.
-CEILING = 6
+CEILING = 0
 
 #: The one list screen the norm draws as cards and not as the table: the media
 #: library, "cards (grid) — the one admin exception" (design-system-end-state
