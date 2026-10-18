@@ -383,10 +383,12 @@
    right-aligned. A title is never broken word by word.
 
    `list_page=True` keeps W10 for a list page on a phone (below `md`): the action
-   wrapper dissolves (`contents`), the LAST action — the create button, by
-   convention the rightmost — stays beside the title, which truncates (Koen,
-   30 September 2026), the other actions take a row underneath (`order-1`) and
-   the subtitle comes last. From `md` a list page behaves like any other.
+   wrapper dissolves (`contents`), the title takes the whole row and is never cut,
+   the actions — the create button among them — take the row underneath
+   (`order-1`) and the subtitle comes last (Koen, 18 October 2026, #2126, to the
+   create button beside a title that was cut: "a, voor dev1"; before it the last
+   action stood beside the title, which truncated, Koen 30 September 2026). From
+   `md` a list page behaves like any other.
 
    `data-page-header` marks the macro's output for tests, so they do not pin the
    class string. `data-list-page` (#1482) lets the admin shell give a list page
@@ -398,14 +400,14 @@
 {% set w10 = list_page and has_actions %}
 <div data-page-header{% if list_page %} data-list-page{% endif %} class="flex flex-wrap gap-x-3 gap-y-2 mb-6 {{ 'items-start justify-end md:items-end md:justify-start' if w10 else 'items-end' }}">
   <div data-title-block class="{{ 'contents md:block' if w10 else 'block' }} min-w-0 max-w-full {{ 'md:flex-[1_0_auto]' if w10 else 'flex-[1_0_auto]' }}">
-    <h1 tabindex="-1" class="text-3xl font-bold text-kop truncate{{ ' min-w-0 flex-[1_1_33%]' if w10 }}">{{ title }}</h1>
+    <h1 tabindex="-1" class="text-3xl font-bold text-kop truncate{{ ' min-w-0 basis-full md:basis-auto' if w10 }}">{{ title }}</h1>
     {% if subtitle %}<p class="text-sm text-gray-500 mt-1 {{ 'order-2 basis-full md:order-none md:w-0 md:min-w-full' if w10 else 'w-0 min-w-full' }}">{{ subtitle }}</p>{% endif %}
   </div>
   {# `caller is defined` en niet `if caller` (#643): onder StrictUndefined klapt
      een waarheidstest op een niet-bestaande variabele eruit, en Jinja zet
      `caller` juist op undefined wanneer de macro zónder {% call %} gebruikt
      wordt. `is defined` vraagt naar het bestaan i.p.v. naar de waarde. #}
-  {% if has_actions %}<div data-header-actions class="{{ 'contents [&>*:not(:last-child)]:order-1 md:flex md:[&>*:not(:last-child)]:order-none' if w10 else 'flex' }} md:flex-wrap md:justify-end md:items-center md:gap-2 md:ml-auto{{ '' if w10 else ' flex-wrap justify-end items-center gap-2 ml-auto' }}">{{ actions }}</div>{% endif %}
+  {% if has_actions %}<div data-header-actions class="{{ 'contents [&>*]:order-1 md:flex md:[&>*]:order-none' if w10 else 'flex' }} md:flex-wrap md:justify-end md:items-center md:gap-2 md:ml-auto{{ '' if w10 else ' flex-wrap justify-end items-center gap-2 ml-auto' }}">{{ actions }}</div>{% endif %}
 </div>
 {%- endmacro %}
 
