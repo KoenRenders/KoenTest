@@ -993,6 +993,22 @@ def schema_for(
             if "section" in BLOCK_SETS[set_name]["insert"]
             else None
         ),
+        # The ratio choice of a columns block (#2101), in words.
+        "columns": (
+            {
+                "ratios": [
+                    {"id": ratio, "label": label}
+                    for ratio, label in zip(
+                        COLUMN_RATIOS,
+                        (_("Gelijk"), _("Breed – smal"), _("Smal – breed")),
+                        strict=True,
+                    )
+                ],
+                "ratioLabel": _("Verhouding van de kolommen"),
+            }
+            if "columns" in BLOCK_SETS[set_name]["insert"]
+            else None
+        ),
         "nodes": sorted(NODES),
     }
 

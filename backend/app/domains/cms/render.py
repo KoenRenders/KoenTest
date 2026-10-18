@@ -1152,11 +1152,8 @@ def render_document(
         document = json.loads(document)
     if target == "text":
         return _document_text(document, db)
-    return "".join(
-        html
-        for _kind, html in render_document_parts(
-            document, db, preview=preview, viewer=viewer, blocks=blocks
-        )
+    return flat_html(
+        render_document_parts(document, db, preview=preview, viewer=viewer, blocks=blocks)
     )
 
 
@@ -1169,23 +1166,50 @@ _DATA_BLOCKS = {
 
 def render_document_parts(
     document, db=None, *, preview: bool = False, viewer=None, blocks=None
-) -> "list[tuple[str, str]]":
-    """The page as `(kind, html)` parts, in order (CR-32 phase 5): `"prose"` for
-    what the author wrote — the stretch of blocks between two data blocks — and
-    `"data"` for a data block of a module (the activity list). A data block is the
-    module's own markup, with its own classes, and it does not stand inside the
-    prose styling: the page template puts each part in its own container, the
-    prose in `prose-raak`, a data block beside it. Data blocks stand at the root
-    only (the grammar, `schema.DATA_BLOCKS`), so the split is the root's.
+) -> "list[tuple]":
+    """The page as parts, in order (CR-32 phase 5): `("prose", html)` for what the
+    author wrote — the stretch of blocks between two data blocks — and
+    `("data", html)` for a data block of a module (the activity list). A data block
+    is the module's own markup, with its own classes, and it does not stand inside
+    the prose styling: the page template puts each part in its own container, the
+    prose in `prose-raak`, a data block beside it.
+
+    A data block stands at the root, or in a column of a columns block at the root
+    (the grammar and `schema._validate_node`, #2101). A columns block that holds one
+    is a third kind of part, `("columns", ratio, cells)`: each cell a list of parts
+    split as at the root. A columns block without a data block stays in the prose,
+    so no page without one changes.
 
     The visitor the page is rendered for (`viewer`, F14) is an input: held for the
     length of the call, so a button to "Word lid" can send a member with a household
     to the household instead."""
-    from app.domains.cms.schema import DATA_BLOCKS
-
     if isinstance(document, str):
         document = json.loads(document)
-    parts: list[tuple[str, str]] = []
+    token = _VIEWER.set(viewer)
+    blocks_token = _BLOCKS.set(blocks)
+    try:
+        return _split_parts((document or {}).get("content") or [], preview, db, root=True)
+    finally:
+        _VIEWER.reset(token)
+        _BLOCKS.reset(blocks_token)
+
+
+def _holds_data_block(columns: dict) -> bool:
+    from app.domains.cms.schema import DATA_BLOCKS
+
+    return any(
+        child.get("type") in DATA_BLOCKS
+        for column in columns.get("content") or []
+        for child in column.get("content") or []
+    )
+
+
+def _split_parts(nodes: list, preview: bool, db, *, root: bool) -> "list[tuple]":
+    """The nodes of the root, or of one cell, as parts: the prose in runs, a data block
+    apart. Only the root cuts a columns block that holds a data block out of the prose."""
+    from app.domains.cms.schema import DATA_BLOCKS
+
+    parts: list[tuple] = []
     run: list[dict] = []
 
     def close_run() -> None:
@@ -1193,22 +1217,41 @@ def render_document_parts(
             parts.append(("prose", _finish_prose(list(run), preview, db)))
             run.clear()
 
-    token = _VIEWER.set(viewer)
-    blocks_token = _BLOCKS.set(blocks)
-    try:
-        for node in (document or {}).get("content") or []:
-            if node.get("type") in DATA_BLOCKS:
-                close_run()
-                block = _DATA_BLOCKS[node["type"]](node, preview=preview, db=db)
-                if block:
-                    parts.append(("data", block))
-            else:
-                run.append(node)
-        close_run()
-    finally:
-        _VIEWER.reset(token)
-        _BLOCKS.reset(blocks_token)
+    for node in nodes:
+        if node.get("type") in DATA_BLOCKS:
+            close_run()
+            block = _DATA_BLOCKS[node["type"]](node, preview=preview, db=db)
+            if block:
+                parts.append(("data", block))
+        elif root and node.get("type") == "columns" and _holds_data_block(node):
+            close_run()
+            cells = [
+                _split_parts(column.get("content") or [], preview, db, root=False)
+                for column in node.get("content") or []
+            ]
+            if any(cells):
+                ratio = (node.get("attrs") or {}).get("ratio")
+                parts.append(("columns", ratio if ratio != "equal" else None, cells))
+        else:
+            run.append(node)
+    close_run()
     return parts
+
+
+def flat_html(parts: "list[tuple]") -> str:
+    """The parts as one string: for a caller that wants the page's HTML and not its
+    containers. A columns part is drawn with the prose's own grid classes."""
+    out: list[str] = []
+    for part in parts:
+        if part[0] == "columns":
+            modifier = f" prose-columns--{part[1]}" if part[1] else ""
+            cells = "".join(
+                f'<div class="prose-column">{flat_html(cell)}</div>' for cell in part[2]
+            )
+            out.append(f'<div class="prose-columns{modifier}">{cells}</div>')
+        else:
+            out.append(part[1])
+    return "".join(out)
 
 
 def _finish_prose(blocks: list[dict], preview: bool, db) -> str:

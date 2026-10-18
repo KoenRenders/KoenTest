@@ -38,10 +38,16 @@
 {# CR-32 phase 5: the page is parts — the author's blocks in the prose container, a
    data block of a module (the activity list) in a container of its own beside it,
    so the prose rules never reach the module's markup. #}
-{% for kind, html in content_parts %}
-{% if kind == "data" %}<div class="page-data">{{ html | safe }}</div>
-{% else %}<div class="prose-raak cms-page" data-page-body>{{ html | safe }}</div>{% endif %}
+{# #2101: a columns block that holds a data block is a part of its own — the same loop
+   draws a cell, so a cell's prose and data block are drawn as at the root. #}
+{% macro draw(parts) -%}
+{% for part in parts %}
+{% if part[0] == "columns" %}<div class="prose-columns{% if part[1] %} prose-columns--{{ part[1] }}{% endif %}" data-page-columns>{% for cell in part[2] %}<div class="prose-column">{{ draw(cell) }}</div>{% endfor %}</div>
+{% elif part[0] == "data" %}<div class="page-data">{{ part[1] | safe }}</div>
+{% else %}<div class="prose-raak cms-page" data-page-body>{{ part[1] | safe }}</div>{% endif %}
 {% endfor %}
+{%- endmacro %}
+{{ draw(content_parts) }}
 {# #924: de privacypagina toont de contactgegevens van de vereniging uit de
    ENTITEIT. Ze stonden er als vrije tekst in — naam, adres en het e-mailadres
    meermaals — en die regels zijn bij migratie 121 weggehaald.
