@@ -633,6 +633,9 @@ def _block_html(
             cls = "prose-columns"
             if align == "middle":
                 cls += " prose-columns--middle"
+            ratio = (node.get("attrs") or {}).get("ratio")
+            if ratio in ("wide-narrow", "narrow-wide"):
+                cls += f" prose-columns--{ratio}"
             inner = _blocks_html(content, preview=preview, db=db, late=late)
             return f'<div class="{cls}">{inner}</div>'
         inner = _blocks_html(content, preview=preview, db=db, late=late)
