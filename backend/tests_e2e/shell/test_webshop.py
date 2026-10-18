@@ -27,6 +27,7 @@ from tests_e2e.schermen import (  # noqa: E402
     htmx_afgerond,
     laat_de_wacht_passeren,
     login_met_sessie,
+    pagina_klaar,
     refusal_shown,
 )
 
@@ -1251,3 +1252,78 @@ def test_verkoop_verwijdert_een_bestelling(webshop_page):
     listed = page.locator("main").inner_text()
     assert "Bestellingen" in listed or "Nog geen bestellingen" in listed, "the list rendered"
     assert row_of_the_order.count() == 0, "the deleted order is gone from the list"
+
+
+def _short_article() -> int:
+    """A size with 2 in stock on the shop's tenant, at € 10 — for a basket line
+    asking more than the stock. Its own article, so the shirt's stock that the
+    other walks use does not decide the sentence."""
+    import secrets
+    from datetime import date
+    from decimal import Decimal
+
+    import app.models  # noqa: F401
+    from app.database import SessionLocal
+    from app.domains.mdm.api import tenant_codes
+    from app.domains.pricing.api import add_prices
+    from app.domains.product.models import Product, ProductStatus, ProductVariant
+    from app.domains.stock.api import receive
+    from app.kernel.tenancy import current_tenant_id
+
+    db = SessionLocal()
+    token = current_tenant_id.set(tenant_codes(db)["winkel"])
+    try:
+        product = Product(name=f"Webshop Krap {secrets.token_hex(3)}", status=ProductStatus.ON_SALE)
+        db.add(product)
+        db.flush()
+        variant = ProductVariant(product_id=product.id, properties=[{"name": "Maat", "value": "M"}])
+        db.add(variant)
+        db.flush()
+        receive(db, variant.id, quantity=2)
+        add_prices(
+            db,
+            product_id=product.id,
+            variant_id=variant.id,
+            valid_from=date(2026, 1, 1),
+            amount=Decimal("10.00"),
+            member_amount=None,
+        )
+        db.commit()
+        return variant.id
+    finally:
+        current_tenant_id.reset(token)
+        db.close()
+
+
+def test_de_voorraadzin_staat_over_de_volle_breedte(browser):
+    """#2125, at 390 px: a line asking more than the stock says so over the line's
+    full width, under the quantity and the delete button, in at most two lines —
+    not in the narrow column under the name."""
+    variant_id = _short_article()
+    page = browser.new_page(base_url=WEBSHOP_HOST)
+    page.set_viewport_size({"width": 390, "height": 844})
+    try:
+        page.goto("/webshop")
+        page.evaluate(f"localStorage.setItem('raak_basket', JSON.stringify({{'{variant_id}': 5}}))")
+        with htmx_afgerond(page):
+            page.locator("form[data-basket-form] button[type=submit]").click()
+        page.wait_for_url("**/webshop/mandje")
+        pagina_klaar(page)
+
+        line = page.locator("[data-basket-line]").filter(has_text="Webshop Krap")
+        note = line.locator("[data-line-note]")
+        assert note.inner_text() == "Nog 2 op voorraad, maximaal 2 bestelbaar."
+        line_box = line.bounding_box()
+        note_box = note.bounding_box()
+        quantity_box = line.locator("input[name=quantity]").bounding_box()
+        assert abs(note_box["width"] - line_box["width"]) <= 1, (note_box, line_box)
+        assert note_box["y"] >= quantity_box["y"] + quantity_box["height"], "under the quantity"
+        name_box = line.locator(":scope > div").first.bounding_box()
+        assert quantity_box["y"] < name_box["y"] + name_box["height"], (
+            f"the quantity stays beside the name, not under it: {quantity_box}, {name_box}"
+        )
+        line_height = float(note.evaluate("el => parseFloat(getComputedStyle(el).lineHeight)"))
+        assert note_box["height"] <= 2 * line_height + 1, f"at most two lines: {note_box}"
+    finally:
+        page.evaluate("localStorage.removeItem('raak_basket')")
+        page.close()
