@@ -2585,27 +2585,22 @@ def _declared_walkers(text: str, position: int) -> tuple[str, ...]:
     return tuple(name for name in re.split(r"[,\s]+", found.group(1)) if name)
 
 
-#: Templates whose `ui.field` promises the walk follows too (#2110). The walk read
-#: `input_control` and raw inputs only, so a field moved onto `ui.field` left it; these six
-#: pages moved with #2110 and keep their promises proven. Every other template on `ui.field`
-#: is #2118's, and the list grows as a screen's promises are walked — never past what is walked.
-#: Proven red additively (18 October 2026): `ui.field("note", "Notitie", required=True)` added to
-#: `admin_pagina_nieuw.html` → "cannot be walked: route `pagina_aanmaken` does not read `note`".
-UI_FIELD_PROMISES = frozenset(
-    {
-        "domains/auth/templates/admin_gebruiker_nieuw.html",
-        "domains/cms/templates/admin_pagina_nieuw.html",
-        "domains/forms/templates/admin_formulier_nieuw.html",
-        "domains/media/templates/admin_media_nieuw.html",
-        "ui/templates/admin_organisatie_nieuw.html",
-        "ui/templates/admin_tenant_nieuw.html",
-    }
-)
+#: Pages whose `ui.field` calls the walk does not read, with the reason. The kit's own page
+#: shows its fields and posts none of them. Every other template's `ui.field(required=True)`,
+#: and a `pattern=`/`min=` in its `attrs`, is followed to the column like a raw input (#2118;
+#: it was six pages' worth with #2110). Proven red additively (18 October 2026):
+#: `ui.field("note", "Notitie", required=True)` added to `admin_pagina_nieuw.html` →
+#: "cannot be walked: route `pagina_aanmaken` does not read `note`"; and, once every template
+#: was read, `ui.field("memo", "Memo", required=True)` added to `admin_correctie.html` →
+#: "cannot be walked: route `correction_create` does not read `memo` by name".
+FIELDS_NOT_WALKED = {
+    "ui/templates/design_system.html": "the kit's demo page: its fields are shown, never posted",
+}
 
 
 def _template_promises(text: str, *, fields: bool = False):
     """Yield `(line, field, kinds, form path, declared walkers)` for every promising input.
-    `fields=True` reads the kit's `ui.field` calls too (`UI_FIELD_PROMISES`)."""
+    `fields=True` reads the kit's `ui.field` calls too (all but `FIELDS_NOT_WALKED`)."""
     forms = [(m.start(), m.group(1)) for m in _FORM_TARGET.finditer(text)]
 
     def form_for(position: int) -> str | None:
@@ -2835,7 +2830,7 @@ def collect_promises() -> tuple[dict[str, str], dict[str, str]]:
     seen = 0
     for template in templates:
         for line, name, kinds, form_path, walkers in _template_promises(
-            template.read_text(), fields=_rel(template) in UI_FIELD_PROMISES
+            template.read_text(), fields=_rel(template) not in FIELDS_NOT_WALKED
         ):
             seen += 1
             key = f"{_rel(template)}::{name}::{'/'.join(kinds)}"
