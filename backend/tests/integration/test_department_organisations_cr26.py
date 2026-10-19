@@ -165,19 +165,13 @@ def _read_only_and_refused(client, csrf, organisation_id: int, db_session, name:
     assert db_session.get(Organization, organisation_id).name == name
 
 
-def test_the_account_itself_is_read_only_in_a_department(client, db_session, every_module_on):
-    """An ADMIN of a department cannot rename the account's own organisation, which the
-    list shows him as a party with a fact nowhere (dev4's measurement, PR #2169).
-
-    Red proof (put back): the `read_only=` of the department's record dropped -> the form
-    opens; the refusal of the save dropped -> the account is renamed."""
+def _the_account_organisation(db_session):
     from app.domains.mdm.api import Organization
     from app.kernel.tenancy import current_tenant_id
 
-    csrf = login(client, db_session, SEEDED_ADMIN_EMAIL, ("ADMIN",))
     token = current_tenant_id.set(TENANT_MILLEGEM_ID)
     try:
-        account = (
+        return (
             db_session.query(Organization)
             .filter(Organization.party_id == current_account_id(db_session))
             .execution_options(include_all_tenants=True)
@@ -185,6 +179,33 @@ def test_the_account_itself_is_read_only_in_a_department(client, db_session, eve
         )
     finally:
         current_tenant_id.reset(token)
+
+
+def test_the_account_itself_is_not_in_a_departments_list(client, db_session, every_module_on):
+    """Koen, 19 October 2026, "b": a department's list shows only what has a fact at it,
+    so the account's own organisation — the party that pays the platform — is not in it,
+    and its record is a 404 there.
+
+    Red proof (put back): the `~exists(Tenant.account_id == …)` of the nowhere branch
+    dropped -> the account is listed and its record opens."""
+    login(client, db_session, SEEDED_ADMIN_EMAIL, ("ADMIN",))
+    account = _the_account_organisation(db_session)
+    assert f'data-organisation="{account.id}"' not in client.get(BASE).text
+    assert client.get(f"{BASE}/{account.id}").status_code == 404
+
+
+def test_the_account_with_a_fact_of_its_own_is_listed_and_read_only(
+    client, db_session, every_module_on
+):
+    """An order that names the account puts it at the department: it is listed then, and
+    its record stays read-only — an account is edited in the platform's Organisaties.
+
+    Red proof (put back): the `read_only=` of the department's record dropped -> the form
+    opens; the refusal of the save dropped -> the account is renamed."""
+    csrf = login(client, db_session, SEEDED_ADMIN_EMAIL, ("ADMIN",))
+    account = _the_account_organisation(db_session)
+    _order(db_session, tenant_id=TENANT_MILLEGEM_ID, party_id=account.party_id)
+    db_session.commit()
     assert f'data-organisation="{account.id}"' in client.get(BASE).text
     _read_only_and_refused(client, csrf, account.id, db_session, account.name)
 

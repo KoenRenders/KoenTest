@@ -98,17 +98,22 @@ def organisations_of_tenant():
     `in_()`; None without a tenant (CR-26 F9): the ones with a fact here — shown by the
     tenant, named by one of its orders, acted for by a person at it — and the ones with a
     fact at no tenant at all, which every department of their account sees until they get
-    one (the rule of `persons_of_tenant`, Koen, 19 October 2026: "1 voor allen zichtbaar").
+    one (the rule of `persons_of_tenant`, Koen, 19 October 2026: "1 voor allen zichtbaar") —
+    except an account's own organisation, which only a fact of its own lists.
     The account is the filter's, as for persons."""
     from sqlalchemy import exists
 
-    from app.domains.mdm.models import Organization
+    from app.domains.mdm.models import Organization, Tenant
 
     tenant = current_tenant_id.get()
     if tenant is None:
         return None
+    # The account's own organisation is the party that pays the platform, not one a
+    # department deals with: it is listed only through a fact of its own (Koen,
+    # 19 October 2026, "b").
     nowhere = select(Organization.id).where(
-        ~exists().where(organisation_tenants.c.organization_id == Organization.id)
+        ~exists().where(organisation_tenants.c.organization_id == Organization.id),
+        ~exists().where(Tenant.account_id == Organization.party_id),
     )
     return (
         select(organisation_tenants.c.organization_id)
