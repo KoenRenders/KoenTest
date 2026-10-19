@@ -6,6 +6,7 @@ from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_va
 from app.domains.mdm.api import PaymentMethod, Person
 from app.domains.payment.api import PayableType
 from app.kernel.clock import belgian_today
+from tests._sites import at_tenant
 from tests.conftest import create_test_family, household_fields
 
 
@@ -27,6 +28,7 @@ def test_gezin_portaal_toont_leden_en_muteert(client, db_session):
     member, person = create_test_family(
         db_session, email="portaal@example.com", mobile="0470 00 00 01"
     )
+    at_tenant(db_session, member)  # CR-26 F9
     db_session.commit()
     csrf = _login_as(client, "portaal@example.com")
 
@@ -63,6 +65,7 @@ def test_gezin_mutatie_zonder_csrf(client, db_session):
     member, person = create_test_family(
         db_session, email="csrfloos@example.com", mobile="0470 00 00 01"
     )
+    at_tenant(db_session, member)  # CR-26 F9
     db_session.commit()
     csrf = _login_as(client, "csrfloos@example.com")
     fields = household_fields(client)
@@ -84,7 +87,9 @@ def test_home_word_lid_wordt_mijn_gezin_voor_ingelogd_lid(client, db_session):
     # Anoniem → 'Word lid' naar /lid-worden (die link staat enkel in de home-CTA).
     assert 'href="/lid-worden"' in client.get("/").text
     # Ingelogd lid → CTA wijst naar /leden/gezin, geen /lid-worden meer.
-    create_test_family(db_session, email="home-lid@example.com")
+    at_tenant(
+        db_session, create_test_family(db_session, email="home-lid@example.com")[0]
+    )  # CR-26 F9
     _login_as(client, "home-lid@example.com")
     html = client.get("/").text
     assert 'href="/leden/gezin"' in html

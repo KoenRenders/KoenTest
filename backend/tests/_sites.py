@@ -35,14 +35,18 @@ def a_tenant_with_id(db, tenant_id: int, *, code: str | None = None):
     existing = db.get(Tenant, tenant_id)
     if existing is not None:
         return existing
+    from app.domains.mdm.tenant_service import _move_to_account
+
     party = Organization(name=f"Organisatie {tenant_id}", is_active=True)
     db.add(party)
     db.flush()
+    # Its own account (CR-26 C4.9): the tenant names the organisation's party.
+    _move_to_account(db, party, party.party_id)
     tenant = Tenant(
         id=tenant_id,
         code=code or f"tenant-{tenant_id}",
         kind=TenantKind.ASSOCIATION,
-        account_id=party.id,
+        account_id=party.party_id,
         organization_id=party.id,
         is_active=True,
     )
@@ -68,6 +72,7 @@ def committed_tenant(tenant_id: int):
         )
         tenant = a_tenant_with_id(own, tenant_id)
         party = tenant.organization_id
+        party_row = tenant.account_id
         own.commit()
     finally:
         own.close()
@@ -78,6 +83,56 @@ def committed_tenant(tenant_id: int):
     try:
         own.execute(text("DELETE FROM mdm.tenants WHERE id = :t"), {"t": tenant_id})
         own.execute(text("DELETE FROM mdm.organizations WHERE id = :p"), {"p": party})
+        own.execute(text("DELETE FROM mdm.parties WHERE id = :p"), {"p": party_row})
         own.commit()
     finally:
         own.close()
+
+
+def as_account(db, organization) -> int:
+    """Make this organisation its own account and give the party a tenant names
+    as its account (CR-26 C4.9) — for a test that hangs a tenant under an
+    account by hand. Does not commit."""
+    from app.domains.mdm.tenant_service import _move_to_account
+
+    _move_to_account(db, organization, organization.party_id)
+    return organization.party_id
+
+
+def at_tenant(db, household, tenant_id: int = 2, year: int | None = None):
+    """Put a household at a tenant, the way the board's list sees it since CR-26
+    (F9): a membership row there — this one not paid, so not valid. For a test
+    that made a household and needs it listed or reported at a tenant. Flushes."""
+    from app.domains.membership.api import Membership
+    from app.kernel.clock import belgian_today
+
+    if household.id is None:
+        db.flush()
+    row = Membership(
+        tenant_id=tenant_id,
+        member_id=household.id,
+        year=year or belgian_today().year,
+        # Not paid: a membership turns active when its payment is confirmed.
+        is_active=False,
+    )
+    db.add(row)
+    db.flush()
+    return row
+
+
+def in_the_circle(db, person, tenant_id: int = 2):
+    """Give a person who is in no household a fact at a tenant (CR-26 F9): a
+    place in its meeting circle, on the organisation the tenant shows. For a
+    test whose board member or organiser must be named at that tenant. Flushes."""
+    from app.domains.mdm.api import OrganizationPerson, Tenant
+
+    tenant = db.get(Tenant, tenant_id)
+    row = OrganizationPerson(
+        tenant_id=tenant_id,
+        organization_id=tenant.organization_id,
+        person_id=person.id,
+        relation_type="BOARD_MEETING",
+    )
+    db.add(row)
+    db.flush()
+    return row

@@ -28,6 +28,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import ContactDetail, new_contact_detail
+from tests._sites import at_tenant
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     create_test_family,
@@ -73,6 +74,7 @@ def _rows(html: str) -> dict[str, str]:
 @pytest.fixture
 def world(client, db_session):
     household, person = create_test_family(db_session, email=MAIN)
+    at_tenant(db_session, household)  # CR-26 F9
     person.first_name, person.last_name = "Wies", "Wachter"
     second = _address(db_session, person, SECOND, confirmed=True)
     waiting = _address(db_session, person, WAITING, confirmed=False)

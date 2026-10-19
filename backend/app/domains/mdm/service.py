@@ -21,7 +21,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.domains.mdm.codes import CONTACT
-from app.domains.mdm.models import Person, PersonHistory, RelationType
+from app.domains.mdm.models import Person, PersonHistory
 from app.i18n import _
 from app.kernel.clock import belgian_today
 from app.kernel.codes import code_of
@@ -1909,13 +1909,9 @@ def delete_person(db: Session, person: Person, *, actor: Optional[str]) -> None:
     from app.soft_delete import soft_delete
 
     history = {"operation": "delete", "action": "person_deleted", "source": BOARD_SOURCE}
-    # The household where he is the main member first: the one refusal there is
-    # comes before anything is written, also for someone in two households.
-    links = sorted(
-        (m for m in person.member_persons if m.deleted_at is None),
-        key=lambda m: m.relation_type != RelationType.PRIMARY_MEMBER,
-    )
-    for link in links:
+    # One living link at most since CR-26 (F5: one household per person), so
+    # its one refusal comes before anything is written.
+    for link in [m for m in person.member_persons if m.deleted_at is None]:
         detach_household_person(db, link.member, person, by=None, actor=actor, source=BOARD_SOURCE)
     for contact in person.contact_details:
         snapshot_contact_detail(db, contact, actor=actor, **history)

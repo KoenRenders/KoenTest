@@ -35,7 +35,7 @@ from app.domains.mdm.api import (
 )
 from app.domains.media.api import MediaAsset, MediaKind
 from app.kernel.tenancy import TENANT_MILLEGEM_ID
-from tests._sites import new_site
+from tests._sites import as_account, new_site
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -183,145 +183,31 @@ def test_an_admin_cannot_change_a_kind(client, platform_workspace, db_session):
     assert db_session.get(Tenant, org.id).kind is TenantKind.COMPANY
 
 
-PLATFORM_HOST = "platform.example.test"
-
-
-@pytest.fixture
-def platform_host(monkeypatch):
-    from app.config import settings
-    from app.domains.mdm.api import invalidate_tenant_codes
-
-    monkeypatch.setattr(settings, "platform_hosts", PLATFORM_HOST)
-    invalidate_tenant_codes()
-    yield PLATFORM_HOST
-    invalidate_tenant_codes()
-
-
-def _landing_groups(client) -> dict[str, list[str]]:
-    """The platform home's list of accounts and sites (#1543: the `{{tenants}}`
-    placeholder on its CMS page): each `<h3>` with the site names of the cards in
-    its grid (#1566). The heading holds no tag: a heading of the page's own text
-    shows as an `<h3>` too since #1656 (an author's h2, one level down), and a
-    lazy `.*?` ran on from it to the first account's heading."""
-    html = client.get("/", headers={"host": PLATFORM_HOST}).text
-    return {
-        m.group(1): re.findall(r"<a [^>]*data-site-card[^>]*><span[^>]*>(.*?)</span>", m.group(2))
-        for m in re.finditer(r"<h3>([^<]*)</h3>\s*<div class=\"grid[^>]*>(.*?)</div>", html, re.S)
-    }
-
-
-def test_an_operator_moves_a_tenant_to_another_account(
-    client, platform_workspace, db_session, platform_host, caplog
-):
-    first = create_organization(db_session, name="Account Een")
-    second = create_organization(db_session, name="Account Twee")
-    org = new_site(db_session, name="Proefclub", code="proefclub-1533", account_id=first.id)
-    # CR-20 F5: the editor offers the organisations tenants name as account;
-    # the second account has a site of its own.
-    new_site(db_session, name="Tweede site", code="tweede-1533", account_id=second.id)
-    db_session.commit()
-    modules_before = enabled_modules(org.id, db=db_session)
-    assert _landing_groups(client)["Account Een"] == ["Proefclub"]
-    csrf = _login(client, db_session, "operator3-1533@example.com", "OPERATOR")
-
-    editor = client.get(f"/admin/tenants/{org.id}?bewerken=1").text
-    assert re.search(rf'<option value="{first.id}"\s+selected>Account Een</option>', editor)
-    assert f'<option value="{second.id}">Account Twee</option>' in editor
-
-    with caplog.at_level(logging.INFO, logger="app.domains.mdm.tenant_service"):
-        saved = _save(client, csrf, org.id, account_id=str(second.id))
-    assert saved.status_code == 200, saved.text[-500:]
-    db_session.expire_all()
-    assert db_session.get(Tenant, org.id).account_id == second.id
-    assert enabled_modules(org.id, db=db_session) == modules_before, "the modules stay"
-    logged = [r.getMessage() for r in caplog.records if "tenant account changed" in r.getMessage()]
-    assert logged == [
-        f"tenant account changed: tenant={org.id} code=proefclub-1533 {first.id} -> {second.id} "
-        "by operator3-1533@example.com"
-    ]
-
-    client.cookies.clear()
-    groups = _landing_groups(client)
-    print("MEASURE", groups)
-    assert sorted(groups["Account Twee"]) == ["Proefclub", "Tweede site"]
-    assert "Account Een" not in groups, "an account left without a tenant drops off"
-
-
-def test_only_an_active_account_is_taken_for_a_tenant_and_for_the_platform(
-    client, platform_workspace, db_session
-):
-    gone = create_organization(db_session, name="Account Weg")
-    gone.is_active = False
+def test_an_existing_tenant_never_changes_its_account(client, platform_workspace, db_session):
+    """CR-26: a tenant's parties are its account's, so a tenant never moves
+    (Koen, 19 October 2026, to whether an empty tenant may still move: "1").
+    The editor shows the account as a fact, for a unit and for the platform; an
+    account posted all the same is refused and nothing changes. Until CR-26 the
+    operator could move a tenant (#1533) and hang the platform under an account
+    (#1542); that went with this rule."""
+    other = create_organization(db_session, name="Ander Account")
     org = _company(db_session)
-    account_before = org.account_id
+    platform = _the_platform(db_session)
+    before = {org.id: org.account_id, platform.id: platform.account_id}
     csrf = _login(client, db_session, "operator4-1533@example.com", "OPERATOR")
 
-    refused = _save(client, csrf, org.id, account_id=str(gone.id))
-    assert refused.status_code == 422
-    assert "Kies een actief account." in refused.text
-    db_session.expire_all()
-    assert db_session.get(Tenant, org.id).account_id == account_before
-
-    platform = db_session.query(Tenant).filter(Tenant.kind == TenantKind.PLATFORM).one()
-    platform_account = platform.account_id
-    # #1542: the platform may hang under an account — an active one, as any tenant.
-    editor = client.get(f"/admin/tenants/{platform.id}?bewerken=1").text
-    assert 'name="account_id"' in editor and 'name="kind"' not in editor, "account yes, kind no"
-    refused = _save(client, csrf, platform.id, account_id=str(gone.id))
-    assert refused.status_code == 422
-    assert "Kies een actief account." in refused.text
-    db_session.expire_all()
-    assert db_session.get(Tenant, platform.id).account_id == platform_account
-
-
-# ── #1542: the platform under an account ─────────────────────────────────────
+    for tenant_id in (org.id, platform.id):
+        editor = client.get(f"/admin/tenants/{tenant_id}?bewerken=1").text
+        assert 'data-setting="account_id"' in editor and 'name="account_id"' not in editor
+        refused = _save(client, csrf, tenant_id, account_id=str(other.id))
+        assert refused.status_code == 422
+        assert "Het account van een bestaande tenant verandert niet." in refused.text
+        db_session.expire_all()
+        assert db_session.get(Tenant, tenant_id).account_id == before[tenant_id]
 
 
 def _the_platform(db) -> Tenant:
     return db.query(Tenant).filter(Tenant.kind == TenantKind.PLATFORM).one()
-
-
-def test_the_platform_hangs_under_an_account_and_stays_the_platform(
-    client, platform_workspace, db_session, caplog
-):
-    """The platform under an account that also holds a tenant (#1542). The
-    platform keeps its kind, its modules and its resolution. Whether a list of
-    accounts shows the platform is #1543's to decide; here only that the tenant
-    stands under its account.
-    """
-    from app.domains.mdm.api import enabled_modules
-
-    account = create_organization(db_session, name="Account Drie")
-    new_site(db_session, name="Merkclub", code="merkclub-1542", account_id=account.id)
-    db_session.commit()
-    platform = _the_platform(db_session)
-    account_before = platform.account_id
-    modules_before = enabled_modules(platform.id, db=db_session)
-    csrf = _login(client, db_session, "operator5-1542@example.com", "OPERATOR")
-
-    with caplog.at_level(logging.INFO, logger="app.domains.mdm.tenant_service"):
-        saved = _save(client, csrf, platform.id, account_id=str(account.id))
-    assert saved.status_code == 200, saved.text[-400:]
-    db_session.expire_all()
-    platform = _the_platform(db_session)
-    assert platform.account_id == account.id
-    assert platform.kind is TenantKind.PLATFORM
-    assert enabled_modules(platform.id, db=db_session) == modules_before, "its own modules"
-    assert any(
-        f"tenant account changed: tenant={platform.id} code={platform.code} "
-        f"{account_before} -> {account.id}" in r.getMessage()
-        for r in caplog.records
-    )
-
-    client.cookies.clear()
-    groups = _landing_groups(client)
-    print("MEASURE", groups)
-    assert "Merkclub" in groups["Account Drie"], "the tenant under its account"
-
-    # The platform host still resolves to the platform: its menu, not a tenant's.
-    csrf = _login(client, db_session, "operator6-1542@example.com", "OPERATOR")
-    menu = client.get("/admin").text
-    assert 'href="/admin/tenants"' in menu and 'href="/admin/instellingen"' not in menu
 
 
 def test_an_admin_cannot_change_the_platforms_account(client, platform_workspace, db_session):
@@ -343,7 +229,7 @@ def test_the_tenant_list_shows_each_sites_account(client, platform_workspace, db
     new_site(db_session, name="Zevenclub", code="zevenclub-1542", account_id=account.id)
     new_site(db_session, name="Losse Zeven", code="los-zeven-1542")
     platform = _the_platform(db_session)
-    platform.account_id = account.id
+    platform.account_id = as_account(db_session, account)
     db_session.commit()
     _login(client, db_session, "operator7-1542@example.com", "OPERATOR")
 

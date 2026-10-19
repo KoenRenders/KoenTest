@@ -109,15 +109,14 @@ def test_resolve_plain_person_returns_itself(db_session):
 def test_a_tenant_hangs_under_its_account_and_shows_an_organisation(db_session):
     """CR-20: the hierarchy that `parent_id` carried is the tenant's account now;
     the organisation is a party and carries no type (roles are read from facts)."""
+    from app.domains.mdm.api import create_organization
     from tests._sites import new_site
 
-    account = Organization(name="Testaccount")
-    db_session.add(account)
-    db_session.flush()
+    account = create_organization(db_session, name="Testaccount")
     unit = new_site(
         db_session, name="Jeugdwerking", code="testaccount-jeugd", account_id=account.id
     )
-    assert unit.account.id == account.id
+    assert unit.account_id == account.party_id
     assert unit.organization.name == "Jeugdwerking"
     with pytest.raises(TypeError):
         Organization(name="Fout type", org_type="UNIT")

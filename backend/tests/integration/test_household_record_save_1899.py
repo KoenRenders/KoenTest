@@ -51,6 +51,7 @@ from app.domains.mdm.api import (
     PersonHistory,
 )
 from app.domains.membership.api import Membership
+from tests._sites import at_tenant
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     board_session,
@@ -73,6 +74,7 @@ def world(client, db_session):
     booking, and the board signed in."""
     seed_postal_code(db_session, code="2400", municipality="Mol")
     household, main = create_test_family(db_session, email=MAIN, mobile="0470 00 00 01")
+    at_tenant(db_session, household)  # CR-26 F9
     partner = create_test_person(db_session, first_name="Pia", last_name="Partner")
     db_session.add(
         MemberPerson(member_id=household.id, person_id=partner.id, relation_type="PARTNER")
@@ -288,6 +290,7 @@ def test_a_year_of_another_household_is_not_touched(client, db_session, world):
     """The save removes the years of ITS household that the form no longer
     holds — a key the form adds from elsewhere does nothing."""
     other, _person = create_test_family(db_session, email="ander-1899@example.org")
+    at_tenant(db_session, other)  # CR-26 F9
     theirs = Membership(member_id=other.id, year=2020, is_active=True)
     db_session.add(theirs)
     db_session.commit()

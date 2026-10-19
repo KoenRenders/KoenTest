@@ -37,6 +37,7 @@ from app.domains.mdm.api import ContactDetail, MemberPerson
 from app.domains.membership.api import Membership
 from app.domains.payment.api import PaymentRecord
 from app.kernel.clock import belgian_today
+from tests._sites import at_tenant
 from tests.conftest import create_test_family, create_test_person, form_fields
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -52,6 +53,7 @@ OGM = "+++123/4567/89012+++"
 def _household(db, email: str):
     """A main member with two e-mail addresses and a partner with one."""
     member, main = create_test_family(db, email=email, mobile="0470000000")
+    at_tenant(db, member)  # CR-26 F9: Mijn gezin where the household is a member
     db.add(
         ContactDetail(
             person_id=main.id,
@@ -217,6 +219,7 @@ def test_an_e_mail_row_with_the_main_members_number_is_not_the_main_member(clien
         {"value": ceiling},
     )
     member, main = create_test_family(db_session, email="botsing@example.com", mobile="0470000000")
+    at_tenant(db_session, member)  # CR-26 F9
     partner = create_test_person(db_session)
     db_session.add(MemberPerson(member_id=member.id, person_id=partner.id, relation_type="PARTNER"))
     db_session.add(
@@ -260,13 +263,13 @@ def test_the_main_member_is_no_row_and_the_form_still_sends_them_first(client, d
 
 
 def _membership(db, member, *, year: int, active: bool) -> Membership:
-    membership = Membership(
-        member_id=member.id,
-        year=year,
-        is_active=active,
-        valid_from=date(year, 1, 1),
-        valid_to=date(year, 12, 31),
-    )
+    # The year's row when `at_tenant` made it already (CR-26 F9), else a new one.
+    membership = db.query(Membership).filter_by(member_id=member.id, year=year).first()
+    if membership is None:
+        membership = Membership(member_id=member.id, year=year)
+    membership.is_active = active
+    membership.valid_from = date(year, 1, 1)
+    membership.valid_to = date(year, 12, 31)
     db.add(membership)
     db.flush()
     return membership

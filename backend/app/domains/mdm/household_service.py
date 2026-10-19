@@ -83,10 +83,12 @@ def actor_of(person: Person) -> Optional[str]:
 
 def household_with_id(db: Session, household_id: int) -> Member:
     """The household the board names by its id (#1899: the record's one save)."""
+    from app.domains.mdm.facts import household_at_tenant
     from app.i18n import _
 
     household = db.query(Member).filter(Member.id == household_id).first()
-    if household is None:
+    # CR-26 F9: a household of the account without a fact here is not yours.
+    if household is None or not household_at_tenant(db, household_id):
         raise HouseholdNotFound(_("Geen gezin gevonden."))
     return household
 

@@ -275,7 +275,6 @@ def test_every_organiser_is_in_the_programme(db_session, situation):
     course = db_session.query(Activity).filter(Activity.name == "Kookcursus" + MARK).one()
     for first_name, contact, order in (("Cas", False, 2), ("Bart", True, 1), ("Anna", False, 0)):
         person = Person(
-            tenant_id=TENANT_A,
             first_name=first_name,
             last_name="Trekker",
             date_of_birth=date(1980, 1, 1),

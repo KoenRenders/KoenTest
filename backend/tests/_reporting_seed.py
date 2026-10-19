@@ -88,13 +88,12 @@ def seed(db) -> dict:
     db.flush()
 
     def household(tenant: int, persons: int, house_number: str = "1") -> tuple:
-        member = Member(tenant_id=tenant)
+        member = Member()
         db.add(member)
         db.flush()
         people = []
         for index in range(persons):
             person = Person(
-                tenant_id=tenant,
                 first_name=f"Persoon{index}",
                 last_name="Test",
                 date_of_birth=born,
@@ -104,7 +103,6 @@ def seed(db) -> dict:
             db.flush()
             db.add(
                 MemberPerson(
-                    tenant_id=tenant,
                     member_id=member.id,
                     person_id=person.id,
                     relation_type="HOOFDLID" if index == 0 else "PARTNER",
@@ -113,7 +111,6 @@ def seed(db) -> dict:
             people.append(person)
         db.add(
             Address(
-                tenant_id=tenant,
                 person_id=people[0].id,
                 street="Straat",
                 house_number=house_number,
@@ -148,7 +145,6 @@ def seed(db) -> dict:
     soft_delete(verhuisd)
     db.add(
         Address(
-            tenant_id=TENANT_A,
             person_id=_h2_people[0].id,
             street="Straat",
             house_number="9",

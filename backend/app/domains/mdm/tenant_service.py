@@ -92,37 +92,32 @@ def create_tenant(
     new_shown = _checked_name(new_organization_name) if new_organization_name is not None else None
     checked_site_name = _checked_site_name(site_name)
     if new_account is None:
-        account = _checked_account(db, None, str(account_id) if account_id is not None else "")
+        account = _checked_account(db, str(account_id) if account_id is not None else "")
         if new_shown is None:
             shown = _checked_site_organization(
                 db, None, str(organization_id) if organization_id else "", account
             )
     elif new_shown is None and organization_id:
-        # A new account owns nothing yet: it may show an organisation that no
-        # tenant names, never one of another account.
-        from app.domains.mdm.models import Organization, Tenant
-
-        other = db.get(Organization, organization_id)
-        named = (
-            db.query(Tenant.id)
-            .filter(
-                (Tenant.account_id == organization_id) | (Tenant.organization_id == organization_id)
-            )
-            .first()
-        )
-        if other is None or other.deleted_at is not None or named is not None:
+        # A new account owns nothing yet: it may show an organisation that is
+        # free (CR-26), never one of another account.
+        other = _organization(db, organization_id)
+        if other is None or other.deleted_at is not None or not _free(db, other):
             raise TenantFout("Kies een organisatie van het eigen account.")
     if new_account is not None:
-        account = _new_party(db, new_account).id
+        account = _new_party(db, new_account)
         if new_shown is None:
-            shown = organization_id or account
+            shown = other if organization_id else account
     if new_shown is not None:
-        shown = _new_party(db, new_shown).id
+        shown = _new_party(db, new_shown)
+    # CR-26: the account is its own account, and what the site shows is the
+    # account's — a free organisation moves along (`_move_to_account`).
+    _move_to_account(db, account, account.party_id)
+    _move_to_account(db, shown, account.party_id)
     tenant = Tenant(
         code=code,
         kind=kind,
-        account_id=account,
-        organization_id=shown,
+        account_id=account.party_id,
+        organization_id=shown.id,
         site_name=checked_site_name,
         is_active=True,
     )
@@ -185,7 +180,7 @@ def _new_party(db, name: str):
     """An organisation of this (checked) name, flushed — the commit is the caller's."""
     from app.domains.mdm.models import Organization
 
-    org = Organization(name=name, is_active=True)
+    org = Organization(name=name, is_active=True, account_id=_platform_account(db))
     db.add(org)
     db.flush()
     return org
@@ -193,7 +188,8 @@ def _new_party(db, name: str):
 
 def create_organization(db, *, name: str):
     """Create an organisation — a party, no code (CR-20 F6, C4.7). It becomes
-    an account when a tenant names it as one. Legal form, identifiers, address
+    an account when a tenant names it as one. Until a tenant names it, it is
+    free in the platform's account (CR-26 F1), whatever tenant made it. Legal form, identifiers, address
     and bank account are filled in on the organisation screen it lands on.
     Commits."""
     from app.domains.mdm.models import Organization
@@ -201,7 +197,7 @@ def create_organization(db, *, name: str):
     name = (name or "").strip()
     if not name:
         raise TenantFout("Een naam is verplicht.")
-    org = Organization(name=name, is_active=True)
+    org = Organization(name=name, is_active=True, account_id=_platform_account(db))
     db.add(org)
     db.commit()
     return org
@@ -292,9 +288,9 @@ def save_tenant(
     do not follow a new kind — the kind sets the starting modules at creation
     only, and what the tenant has switched on since is its own.
 
-    `account` moves the tenant under another account, the same way: its id as
-    text, None to leave it. Every tenant has an account since CR-20 (F1), so
-    "none" is no longer a choice. Modules and data stay."""
+    `account` is what a form sent as the account, None when it sent none: an
+    existing tenant never changes its account (CR-26; Koen, 19 October 2026),
+    so anything but its own is refused. Only Tenants › Nieuw chooses it."""
     from app.domains.mdm.models import Tenant
     from app.domains.mdm.tenant_lookup import invalidate_tenant_codes
 
@@ -302,11 +298,12 @@ def save_tenant(
     if tenant is None:
         raise TenantFout("Onbekende tenant.")
     new_kind = _checked_kind(db, tenant_id, kind) if kind is not None else None
-    account_after = (
-        _checked_account(db, tenant_id, account) if account is not None else tenant.account_id
-    )
-    # #1550: checked against the account the tenant will have after this save.
-    site_org = _checked_site_organization(db, tenant_id, site_organization, account_after)
+    account_org = _account_organization(db, tenant)
+    if account is not None and account != str(account_org.id):
+        # CR-26 C5: its parties belong to its account. Koen, 19 October 2026, to
+        # whether a tenant may still move while it is empty: "1" — never.
+        raise TenantFout("Het account van een bestaande tenant verandert niet.")
+    site_org = _checked_site_organization(db, tenant_id, site_organization, account_org)
     new_site_name = _checked_site_name(site_name) if site_name is not None else None
     chosen = _checked_modules(modules) if modules is not None else None
     _write_settings(db, tenant_id, form, known=known, secret=secret)
@@ -314,8 +311,8 @@ def save_tenant(
         _write_modules(db, tenant_id, chosen)
     if new_kind is not None:
         _write_kind(db, tenant, new_kind, actor=actor)
-    _write_reference(db, tenant, "account_id", "account", account_after, actor=actor)
-    _write_reference(db, tenant, "organization_id", "site organisation", site_org, actor=actor)
+    _move_to_account(db, site_org, account_org.party_id)
+    _write_reference(db, tenant, "organization_id", "site organisation", site_org.id, actor=actor)
     if site_name is not None:
         tenant.site_name = new_site_name
     db.commit()
@@ -340,73 +337,142 @@ def _checked_kind(db, tenant_id: int, kind: str) -> TenantKind:
     return chosen
 
 
-def _checked_account(db, tenant_id: int | None, account: str) -> int:
-    """The account a tenant may hang under (#1533, CR-20): an active
-    organisation, refused before anything is written. On every tenant, the
-    platform too (#1542): the account grants nothing — no role is read from it —
-    and the platform stays the platform."""
-    from app.domains.mdm.models import Organization
+def _checked_account(db, account: str):
+    """The organisation that is the account a new tenant hangs under (#1533,
+    CR-20): an active organisation, refused before anything is written. The
+    account grants nothing — no role is read from it.
 
-    chosen = db.get(Organization, int(account)) if account.isdigit() else None
+    Since CR-26 an organisation belongs to an account (`account_id`, its
+    party's): it can be the account only when it is one already, or when it is
+    free (`_free`) and becomes one — never when it belongs to another account,
+    because its data would then be in two."""
+    chosen = _organization(db, int(account)) if account.isdigit() else None
     if chosen is None or chosen.deleted_at is not None or not chosen.is_active:
         raise TenantFout("Kies een actief account.")
-    return chosen.id
+    if chosen.account_id != chosen.party_id and not _free(db, chosen):
+        raise TenantFout("Kies een actief account.")
+    return chosen
 
 
-def _named_by_another_account(
-    db, organization_id: int, account_id: int, tenant_id: int | None = None
-) -> bool:
-    """Does a tenant of another account name this organisation, as its account
-    or as the organisation it shows? Koen: no data across accounts (#1550). The
-    tenant being saved does not count: it is the one moving."""
+def _organization(db, organization_id: int | None):
+    """One organisation, whatever its account: the tenant screens are the
+    operator's, on the platform, and see every account (CR-26 C3)."""
+    from app.domains.mdm.models import Organization
+
+    if not organization_id:
+        return None
+    return (
+        db.query(Organization)
+        .execution_options(include_all_tenants=True)
+        .filter(Organization.id == organization_id)
+        .first()
+    )
+
+
+def _account_organization(db, tenant):
+    """The organisation whose party is the tenant's account (C4.9)."""
+    from app.domains.mdm.models import Organization
+
+    return (
+        db.query(Organization)
+        .execution_options(include_all_tenants=True)
+        .filter(Organization.party_id == tenant.account_id)
+        .one()
+    )
+
+
+def _platform_account(db) -> int | None:
+    platform = platform_tenant(db)
+    return platform.account_id if platform is not None else None
+
+
+def _free(db, organization, tenant_id: int | None = None) -> bool:
+    """Is this organisation free to join an account (CR-26)? It is when it lies
+    in the platform's account — where an organisation the operator made in
+    Organisaties lands — is no account itself, and no tenant names it, as
+    account or as the one it shows. The tenant being saved does not count."""
     from app.domains.mdm.models import Tenant
 
-    query = db.query(Tenant.id).filter(
-        Tenant.account_id != account_id,
-        (Tenant.account_id == organization_id) | (Tenant.organization_id == organization_id),
+    if organization.account_id != _platform_account(db):
+        return False
+    if organization.account_id == organization.party_id:
+        return False
+    named = db.query(Tenant.id).filter(
+        (Tenant.account_id == organization.party_id) | (Tenant.organization_id == organization.id)
     )
     if tenant_id is not None:
-        query = query.filter(Tenant.id != tenant_id)
-    return query.first() is not None
+        named = named.filter(Tenant.id != tenant_id)
+    return named.first() is None
 
 
-def _checked_site_organization(
-    db, tenant_id: int | None, value: str | None, account_id: int
-) -> int:
+def _move_to_account(db, organization, account: int) -> None:
+    """Give an organisation, its party and what hangs on it — addresses,
+    contacts, bank accounts, their history — this account (CR-26 F1). Nothing
+    when it has it already. Read across accounts: the rows are of another
+    account than the current tenant's, which the filter would hide."""
+    from app.domains.mdm.models import (
+        Address,
+        AddressHistory,
+        BankAccount,
+        ContactDetail,
+        ContactDetailHistory,
+        Party,
+    )
+
+    if organization.account_id == account:
+        return
+    for model in (Address, ContactDetail, BankAccount, AddressHistory, ContactDetailHistory):
+        rows = (
+            db.query(model)
+            .execution_options(include_all_tenants=True)
+            .filter(model.organization_id == organization.id)
+        )
+        for row in rows:
+            row.account_id = account
+    party = (
+        db.query(Party)
+        .execution_options(include_all_tenants=True)
+        .filter(Party.id == organization.party_id)
+        .one()
+    )
+    party.account_id = account
+    organization.account_id = account
+
+
+def _checked_site_organization(db, tenant_id: int | None, value: str | None, account):
     """The organisation behind the tenant's site after this save (#1550): the
-    account, or another organisation of that account — never one that a tenant
-    of another account names (Koen: no data across accounts). Since CR-20 an
-    organisation carries no account of its own (CR-26 gives it one); what ties
-    it to an account is the tenants that name it.
+    account, or another organisation of that account — never one of another
+    account (Koen: no data across accounts). Since CR-26 an organisation
+    belongs to an account (`account_id`); a free one (`_free`) may join it.
 
     `value` is what the form sent: "" for the account itself, an id, or None
     when the form sent nothing; then the current choice stays, unless the
     account moves away from under it — a choice outside the new account falls
     back to the account (and is logged by `_write_reference`).
     """
-    from app.domains.mdm.models import Organization, Tenant
+    from app.domains.mdm.models import Tenant
 
     tenant = db.get(Tenant, tenant_id) if tenant_id is not None else None
     if value is None:
-        chosen = tenant.organization_id if tenant is not None else account_id
+        chosen = tenant.organization_id if tenant is not None else account.id
     elif value == "":
-        chosen = account_id
+        chosen = account.id
     elif value.isdigit():
         chosen = int(value)
     else:
         raise TenantFout("Kies een organisatie van het eigen account.")
-    if chosen == account_id:
-        return chosen
-    other = db.get(Organization, chosen)
+    if chosen == account.id:
+        return account
+    other = _organization(db, chosen)
     within = (
         other is not None
         and other.deleted_at is None
-        and not _named_by_another_account(db, chosen, account_id, tenant_id)
+        and (other.account_id == account.party_id or _free(db, other, tenant_id))
     )
     if within:
-        return chosen
+        return other
     if value is None:
-        return account_id
+        return account
     raise TenantFout("Kies een organisatie van het eigen account.")
 
 
@@ -420,9 +486,9 @@ def _checked_site_name(value: str) -> str | None:
 
 
 def _write_reference(db, tenant, column: str, what: str, chosen: int, *, actor: str | None) -> None:
-    """Point the tenant at an organisation — its account or the one its site
-    shows; a change is logged (#1533, #1550): there is no history table for
-    tenants, so the application log records who, which tenant, old and new."""
+    """Point the tenant at the organisation its site shows; a change is logged
+    (#1550): there is no history table for tenants, so the application log
+    records who, which tenant, old and new."""
     old = getattr(tenant, column)
     if old == chosen:
         return
@@ -622,7 +688,15 @@ def tenants_of_account(db, organization_id: int):
     (CR-20 F6, R6: the door to an account workspace is this query)."""
     from app.domains.mdm.models import Tenant
 
-    return db.query(Tenant).filter(Tenant.account_id == organization_id).order_by(Tenant.id).all()
+    party = _organization_party(db, organization_id)
+    if party is None:
+        return []
+    return db.query(Tenant).filter(Tenant.account_id == party).order_by(Tenant.id).all()
+
+
+def _organization_party(db, organization_id: int) -> int | None:
+    organization = _organization(db, organization_id)
+    return organization.party_id if organization is not None else None
 
 
 def is_account(db, organization_id: int) -> bool:
@@ -630,7 +704,11 @@ def is_account(db, organization_id: int) -> bool:
     account — the role is read from that fact, never stored (CR-20 C4.2)."""
     from app.domains.mdm.models import Tenant
 
-    return db.query(Tenant.id).filter(Tenant.account_id == organization_id).first() is not None
+    party = _organization_party(db, organization_id)
+    return (
+        party is not None
+        and db.query(Tenant.id).filter(Tenant.account_id == party).first() is not None
+    )
 
 
 def accounts(db):
@@ -641,7 +719,8 @@ def accounts(db):
     named = db.query(Tenant.account_id)
     return (
         db.query(Organization)
-        .filter(Organization.id.in_(named), Organization.is_active.is_(True))
+        .execution_options(include_all_tenants=True)
+        .filter(Organization.party_id.in_(named), Organization.is_active.is_(True))
         .order_by(Organization.id)
         .all()
     )
@@ -667,15 +746,22 @@ def active_sites_by_account(db):
     groups: dict[int | None, list] = {}
     active = db.query(Tenant).filter(Tenant.is_active.is_(True)).order_by(Tenant.id).all()
     account_ids = {t.account_id for t in active}
+    # Every account's: the placeholder lists the sites of all accounts (CR-26).
+    every = db.query(Organization).execution_options(include_all_tenants=True)
     live = {
-        a.id: a
-        for a in db.query(Organization).filter(
-            Organization.id.in_(account_ids), Organization.is_active.is_(True)
+        a.party_id: a
+        for a in every.filter(
+            Organization.party_id.in_(account_ids), Organization.is_active.is_(True)
         )
     }
+    shown_party = dict(
+        every.with_entities(Organization.id, Organization.party_id).filter(
+            Organization.id.in_({t.organization_id for t in active})
+        )
+    )
     for site in active:
         if site.is_platform and (
-            site.account_id not in live or site.account_id == site.organization_id
+            site.account_id not in live or site.account_id == shown_party.get(site.organization_id)
         ):
             continue
         groups.setdefault(site.account_id if site.account_id in live else None, []).append(site)
@@ -765,20 +851,26 @@ def secrets_gezet(db, tenant_id: int, keys) -> dict[str, bool]:
 
 def organizations_of_account(db, account_id: int) -> list[dict]:
     """The organisations a site of this account may show (#1550, CR-20): the
-    account first, then the organisations that the account's tenants show, by
-    name. Plain dicts for a screen (`test_layer_gate`). Until CR-26 gives an
-    organisation an account of its own, what ties it to an account is the
-    tenants that name it."""
-    from app.domains.mdm.models import Organization, Tenant
+    account first, then the other organisations of the account, by name.
+    `account_id` is the account's organisation. Plain dicts for a screen
+    (`test_layer_gate`). Since CR-26 an organisation belongs to an account
+    (`account_id`, its party's)."""
+    from app.domains.mdm.models import Organization
 
-    shown = db.query(Tenant.organization_id).filter(Tenant.account_id == account_id)
+    party = _organization_party(db, account_id)
     rows = (
         db.query(Organization)
-        .filter(
-            Organization.deleted_at.is_(None),
-            (Organization.id == account_id) | Organization.id.in_(shown),
-        )
+        .execution_options(include_all_tenants=True)
+        .filter(Organization.deleted_at.is_(None), Organization.account_id == party)
         .all()
+        if party is not None
+        else []
     )
     rows.sort(key=lambda o: (o.id != account_id, (o.name or "").casefold(), o.id))
     return [{"id": o.id, "name": o.name} for o in rows]
+
+
+def account_organization_id(db, tenant) -> int:
+    """The id of the organisation that is this tenant's account — what the
+    tenant screens show and send (CR-26 C4.9: the tenant stores its party)."""
+    return _account_organization(db, tenant).id

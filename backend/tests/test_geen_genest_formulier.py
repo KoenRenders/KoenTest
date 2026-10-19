@@ -36,6 +36,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from tests._reporting_seed import TENANT_A
+from tests._sites import at_tenant
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     create_test_family,
@@ -100,6 +101,7 @@ def schermen(client, db_session, assistent_aan) -> list[str]:
     seed_postal_code(db_session)
     activiteit, _onderdeel, _product = seed_activity_with_product(db_session)
     gezin, _persoon = create_test_family(db_session, email="genest@example.com")
+    at_tenant(db_session, gezin)  # CR-26 F9
     db_session.flush()
     return [
         "/admin/betalingen",

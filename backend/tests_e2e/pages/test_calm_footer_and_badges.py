@@ -92,7 +92,6 @@ def world():
     made: dict = {}
     try:
         contact = ContactDetail(
-            tenant_id=tenant,
             organization_id=tenant,
             contact_type_code="FACEBOOK",
             value="https://facebook.example/voorbeeld-1647",

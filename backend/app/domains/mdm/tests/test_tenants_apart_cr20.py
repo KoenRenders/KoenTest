@@ -43,7 +43,7 @@ def test_a_tenant_is_a_tenant_and_writes_no_organisation(db_session):
 
     assert db_session.query(Organization).count() == before, "no organisation was written"
     assert db_session.get(Tenant, tenant.id).code == "firma-een-cr20"
-    assert tenant.account_id == account.id
+    assert tenant.account_id == account.party_id, "the account's party (CR-26 C4.9)"
     assert tenant.organization_id == account.id, "it shows its account until told otherwise"
 
 

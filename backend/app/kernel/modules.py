@@ -140,7 +140,9 @@ MODULES: tuple[Module, ...] = (
         sitemap_paths=("/lid-worden",),
         newsletter_audiences=("members", "non_members", "both"),
         reporting_folders=("Leden",),
-        record_tables=("mdm.members", "membership.memberships"),
+        # CR-26: the households are the account's; the tenant's records are
+        # the memberships (F5).
+        record_tables=("membership.memberships",),
         tenant_settings=(
             "membership_price_full",
             "membership_price_half",

@@ -45,9 +45,7 @@ def _contact(db_session, organisatie, code: str, waarde: str) -> None:
     niet de scope — zie de docstring van `ContactDetail`.
     """
     db_session.add(
-        ContactDetail(
-            tenant_id=TENANT, organization_id=organisatie.id, contact_type_code=code, value=waarde
-        )
+        ContactDetail(organization_id=organisatie.id, contact_type_code=code, value=waarde)
     )
 
 
@@ -64,7 +62,6 @@ def met_adres(db_session, organisatie):
     db_session.add(BankAccount(organization_id=organisatie.id, iban="BE68 5390 0754 7034"))
     db_session.add(
         Address(
-            tenant_id=TENANT,
             organization_id=organisatie.id,
             street="Kerkstraat",
             house_number="12",

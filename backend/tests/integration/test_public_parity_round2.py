@@ -12,6 +12,7 @@ from app.domains.activities.api import Activity, ActivityDate, ActivitySubRegist
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.mdm.api import ContactDetail
 from app.kernel.clock import belgian_today
+from tests._sites import at_tenant
 from tests.conftest import create_test_family
 
 
@@ -108,6 +109,7 @@ def test_gezin_add_form_has_gender_mobile_phone(client, db_session):
     #1590 that is the group's template row in the edit mode of the portal (the
     read mode has no template), under the names the save reads."""
     _member, person = create_test_family(db_session, email="hoofd@example.com")
+    at_tenant(db_session, _member)  # CR-26 F9
     db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value("hoofd@example.com"))
     html = client.get("/leden/gezin?bewerken=1").text

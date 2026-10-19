@@ -18,7 +18,9 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    MetaData,
     String,
+    Table,
     text,
 )
 from sqlalchemy import inspect as sa_inspect
@@ -28,7 +30,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 from app.database import Base
 from app.kernel.codes import CodeEnum, EnumColumn, code_of
 from app.kernel.rules import aggregate, exemption
-from app.kernel.tenancy import TenantMixin
+from app.kernel.tenancy import AccountMixin, TenantMixin
 from app.soft_delete import SoftDeleteMixin
 
 
@@ -180,7 +182,39 @@ class RelationType(CodeEnum):
 HOUSEHOLD_ORDER = (RelationType.PRIMARY_MEMBER, RelationType.PARTNER, RelationType.ADULT_CHILD)
 
 
-class Member(TenantMixin, SoftDeleteMixin, Base):
+class PartyKind(CodeEnum):
+    """What a party is (CR-26 F1): Silverston's *Party* has two subtypes, a
+    person and an organisation. The household is no party (R8)."""
+
+    PERSON = "PERSON"
+    ORGANIZATION = "ORGANIZATION"
+
+
+class Party(AccountMixin, SoftDeleteMixin, Base):
+    """Whoever can act — buy, pay, be invoiced, be addressed (CR-26 B7) — once
+    per account: the one thing every "someone" points at.
+
+    A person and an organisation each hang on one party, one-to-one
+    (`Person.party_id`, `Organization.party_id`); a party gets made with them,
+    by the flush listener below, so no writer has to remember it. Its
+    `account_id` is the account's own party; for an account that is itself
+    (C4.9). What a party does at a tenant is a fact in that tenant's tables.
+    """
+
+    __tablename__ = "parties"
+    __table_args__ = {"schema": "mdm"}
+
+    id = Column(Integer, primary_key=True)
+    kind: Mapped[PartyKind] = mapped_column(
+        EnumColumn(PartyKind, length=20), ForeignKey("mdm.party_kind_codes.code"), nullable=False
+    )
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
+
+
+class Member(AccountMixin, SoftDeleteMixin, Base):
     """Household grouping — dynamic, can change over time."""
 
     __tablename__ = "members"
@@ -203,7 +237,7 @@ class Member(TenantMixin, SoftDeleteMixin, Base):
 
 
 @aggregate
-class Person(TenantMixin, SoftDeleteMixin, Base):
+class Person(AccountMixin, SoftDeleteMixin, Base):
     """Stable, permanent individual entity (CR-13 phase 3, #1250).
 
     Its rules, each at its address (§B4.2):
@@ -230,6 +264,12 @@ class Person(TenantMixin, SoftDeleteMixin, Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
+    #: CR-26 F1: the person's party, made with it (`_parties_for_new_rows`).
+    party_id = Column(Integer, ForeignKey("mdm.parties.id"), nullable=False, unique=True)
+    # One way, on purpose: a back reference would make a person and its party a
+    # cycle that outlives the identity map's weak references, and a person
+    # loaded again would bring back what an earlier load cached.
+    party = relationship("Party", foreign_keys=[party_id])
     last_name = Column(String(100), nullable=False)
     first_name = Column(String(100), nullable=False)
     date_of_birth = Column(Date, nullable=True)
@@ -293,7 +333,7 @@ class Person(TenantMixin, SoftDeleteMixin, Base):
 
 
 @aggregate
-class MemberPerson(TenantMixin, SoftDeleteMixin, Base):
+class MemberPerson(AccountMixin, SoftDeleteMixin, Base):
     """A person's place in a household — the link, and the rule that comes with it
     (CR-13 phase 3, #1250).
 
@@ -515,10 +555,9 @@ class OrganizationRelationTypeLabel(Base):
     )
 
 
-class Address(TenantMixin, SoftDeleteMixin, Base):
-    # CR-20 F2: `tenant_id` holds an organisation's id on its own rows; no key
-    # until CR-26 moves this table to the account scope (C4.8).
-    tenant_key = False
+class Address(AccountMixin, SoftDeleteMixin, Base):
+    # CR-26 F1: on the account scope with the person or organisation it hangs
+    # on; the pointer columns become one `party_id` in phase 3.
     __tablename__ = "addresses"
     __table_args__ = {"schema": "mdm"}
 
@@ -546,7 +585,7 @@ class Address(TenantMixin, SoftDeleteMixin, Base):
 
 
 @aggregate
-class ContactDetail(TenantMixin, SoftDeleteMixin, Base):
+class ContactDetail(AccountMixin, SoftDeleteMixin, Base):
     """Een contactgegeven van een persoon OF van een organisatie (#945).
 
     UBL ``cac:Contact`` (``cbc:ElectronicMail``, ``cbc:Telephone``) en
@@ -555,26 +594,14 @@ class ContactDetail(TenantMixin, SoftDeleteMixin, Base):
     codebase al voor personen gebruikt, en ze laat een vijfde sociaal netwerk een
     rij zijn in plaats van een kolom.
 
-    **De tenant-naad, expliciet (#945).** Deze tabel draagt ``TenantMixin`` omdat
-    ze gedeeld wordt met persoonsrijen, die de scope echt nodig hebben.
-    ``organizations`` draagt zelf géén ``tenant_id``.
-
-    Voor een organisatierij is ``tenant_id`` daarom **niet de scope**. De scope is
-    ``organization_id``. De kolom staat er alleen omdat ze ``NOT NULL`` is en de
-    tabel gedeeld wordt; ze krijgt de waarde van ``organization_id`` omdat er geen
-    betere bestaat, niet omdat ze iets betekent. Organisatierijen lees je dus met
-    ``include_all_tenants=True``, zoals de footer dat al voor het adres doet, en
-    ``test_organisatie_contactgegevens`` legt vast dat ze **zonder** die optie
-    niet gevonden worden.
-
-    **Waarschuwing voor wie ooit RLS aanzet.** De mixin bestaat opdat "RLS
-    aanzetten later een migratieregel wordt, geen verbouwing". Een policy op
-    ``tenant_id`` zou deze rijen **stil mis-scopen**: de rijen van de
-    ACCOUNT-organisatie krijgen ``tenant_id = 1``, en tenant 1 is geen tenant. Wie
-    die policy schrijft, moet organisatierijen apart behandelen — op
-    ``organization_id``, of door ze uit te sluiten met ``person_id IS NOT NULL``.
-
-    Bij ``addresses`` (#924) bleef deze naad impliciet; hier staat ze opgeschreven.
+    **The account scope (CR-26 F1).** Until CR-26 this table carried
+    ``TenantMixin``, and on an organisation's row ``tenant_id`` held the
+    organisation's id — no scope, a seam (#945, CR-20 F2). Since CR-26 a row
+    carries the account of the person or the organisation it hangs on
+    (``AccountMixin``): every tenant of that account sees it, and the operator's
+    screens, which edit every account's organisations, read with
+    ``include_all_tenants=True``. A new organisation row takes the
+    organisation's account, not the current tenant's.
 
     Dezelfde XOR-regel als ``Address``: precies één van ``person_id`` en
     ``organization_id`` is gevuld, bewaakt door een CHECK. Bestaande query's
@@ -582,9 +609,6 @@ class ContactDetail(TenantMixin, SoftDeleteMixin, Base):
     uitbreiding contained maakt.
     """
 
-    # CR-20 F2: `tenant_id` holds an organisation's id on its own rows; no key
-    # until CR-26 moves this table to the account scope (C4.8).
-    tenant_key = False
     __tablename__ = "contact_details"
     __table_args__ = {"schema": "mdm"}
 
@@ -687,7 +711,7 @@ class ExternalNumber(TenantMixin, SoftDeleteMixin, Base):
     person = relationship("Person", back_populates="external_numbers")
 
 
-class Organization(SoftDeleteMixin, Base):
+class Organization(AccountMixin, SoftDeleteMixin, Base):
     """An organisation: a party (UBL ``cac:Party``), and nothing else (CR-20).
 
     The rule (CR-20 B7): *a tenant is a site; an organisation is a party.* Until
@@ -700,14 +724,19 @@ class Organization(SoftDeleteMixin, Base):
     addresses, contacts, persons).
 
     No role is stored (CR-26, Koen 15 October 2026: roles are read from facts):
-    an organisation is an *account* because a tenant names it as its account
-    (`Tenant.account_id`, `mdm.api.is_account`).
+    an organisation is an *account* because a tenant names its party as its
+    account (`Tenant.account_id`, `mdm.api.is_account`). Since CR-26 it belongs
+    to an account (`account_id`): the account of the tenants that name it,
+    itself for an account, the platform's while no tenant names it (F1).
     """
 
     __tablename__ = "organizations"
     __table_args__ = {"schema": "mdm"}
 
     id = Column(Integer, primary_key=True)
+    #: CR-26 F1: the organisation's party, made with it (`_parties_for_new_rows`).
+    party_id = Column(Integer, ForeignKey("mdm.parties.id"), nullable=False, unique=True)
+    party = relationship("Party", foreign_keys=[party_id])
     name = Column(String(255), nullable=False)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
@@ -766,9 +795,10 @@ class Tenant(Base):
     kind: Mapped[TenantKind] = mapped_column(
         EnumColumn(TenantKind, length=20), ForeignKey("mdm.tenant_kind_codes.code"), nullable=False
     )
-    #: The organisation that is the account; for the platform, the party it
-    #: shows (CR-20 C4.7).
-    account_id = Column(Integer, ForeignKey("mdm.organizations.id"), nullable=False, index=True)
+    #: The account: the party of the organisation that is the customer; for the
+    #: platform, the party of the organisation it shows (CR-20 C4.7). Since
+    #: CR-26 the party's id, the one key of the account (C4.9).
+    account_id = Column(Integer, ForeignKey("mdm.parties.id"), nullable=False, index=True)
     #: The organisation whose data the site shows (#1550). Read through
     #: `kernel.tenant_config.site_organization_id`.
     organization_id = Column(
@@ -784,7 +814,7 @@ class Tenant(Base):
         DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
     )
 
-    account = relationship("Organization", foreign_keys=[account_id])
+    account = relationship("Party", foreign_keys=[account_id])
     organization = relationship("Organization", foreign_keys=[organization_id])
 
     @property
@@ -817,7 +847,7 @@ class TenantModule(Base):
     module_code = Column(String(20), primary_key=True)
 
 
-class BankAccount(SoftDeleteMixin, Base):
+class BankAccount(AccountMixin, SoftDeleteMixin, Base):
     """Een rekening van een organisatie (#945) — UBL ``cac:PayeeFinancialAccount``.
 
     Tot #945 stonden IBAN, BIC en begunstigde als drie kolommen op de
@@ -833,11 +863,9 @@ class BankAccount(SoftDeleteMixin, Base):
     is een hernoeming van twee velden en geen vertaalslag — dat is de afweging
     die `CLAUDE.md` vraagt op te schrijven.
 
-    **Geen ``TenantMixin``**, en dat is geen vergetelheid. De rijen zijn eigendom
-    van de organisatie en raken niets dat tenant-scoped is; ``organization_id``
-    ís de scope, precies zoals ``organizations`` zelf geen ``tenant_id`` draagt.
-    ``organization_persons`` heeft er wél een omdat die naar personen wijst, en
-    die zijn het wel.
+    **The account scope (CR-26 F1):** the rows are the organisation's, and
+    carry its account; until CR-26 they had no scope at all, the organisation
+    being none.
     """
 
     __tablename__ = "bank_accounts"
@@ -875,7 +903,8 @@ class OrganizationIdentification(SoftDeleteMixin, Base):
     vocabulaire en wij vullen alleen wat we gebruiken. ``country`` is
     ISO 3166-1 alpha-2, zoals ``cbc:IdentificationCode``.
 
-    Geen ``TenantMixin``, om dezelfde reden als :class:`BankAccount`.
+    No scope of its own yet: CR-26 phase 3 widens it to ``party_identifications``
+    on the account scope (F3).
     """
 
     __tablename__ = "organization_identifications"
@@ -1091,6 +1120,35 @@ class TenantKindLabel(Base):
     )
 
 
+class PartyKindCode(Base):
+    """Which party kinds exist — the target of the foreign key (CR-26 F1)."""
+
+    __tablename__ = "party_kind_codes"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class PartyKindLabel(Base):
+    """The word for a party kind, per language (CR-26 F1). No screen shows it:
+    *partij* is the model's word (A3); a screen says persoon or organisatie."""
+
+    __tablename__ = "party_kind_labels"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(20), ForeignKey("mdm.party_kind_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
+
+
 class GenderCode(Base):
     """Which codes exist — the target of the foreign key (CR-12 phase 2)."""
 
@@ -1227,7 +1285,7 @@ class HistoryMixin:
     recorded_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False, index=True)
 
 
-class PersonHistory(TenantMixin, HistoryMixin, Base):
+class PersonHistory(AccountMixin, HistoryMixin, Base):
     __tablename__ = "person_history"
     __table_args__ = {"schema": "mdm"}
 
@@ -1240,7 +1298,7 @@ class PersonHistory(TenantMixin, HistoryMixin, Base):
     superseded_by_id = Column(Integer, nullable=True)
 
 
-class MemberHistory(TenantMixin, HistoryMixin, Base):
+class MemberHistory(AccountMixin, HistoryMixin, Base):
     __tablename__ = "member_history"
     __table_args__ = {"schema": "mdm"}
 
@@ -1248,7 +1306,7 @@ class MemberHistory(TenantMixin, HistoryMixin, Base):
     board_member_id = Column(Integer, nullable=True)
 
 
-class MemberPersonHistory(TenantMixin, HistoryMixin, Base):
+class MemberPersonHistory(AccountMixin, HistoryMixin, Base):
     __tablename__ = "member_person_history"
     __table_args__ = {"schema": "mdm"}
 
@@ -1258,10 +1316,7 @@ class MemberPersonHistory(TenantMixin, HistoryMixin, Base):
     relation_type = Column(String(10), nullable=True)
 
 
-class AddressHistory(TenantMixin, HistoryMixin, Base):
-    # CR-20 F2: `tenant_id` holds an organisation's id on its own rows; no key
-    # until CR-26 moves this table to the account scope (C4.8).
-    tenant_key = False
+class AddressHistory(AccountMixin, HistoryMixin, Base):
     __tablename__ = "address_history"
     __table_args__ = {"schema": "mdm"}
 
@@ -1275,10 +1330,7 @@ class AddressHistory(TenantMixin, HistoryMixin, Base):
     organization_id = Column(Integer, nullable=True)
 
 
-class ContactDetailHistory(TenantMixin, HistoryMixin, Base):
-    # CR-20 F2: `tenant_id` holds an organisation's id on its own rows; no key
-    # until CR-26 moves this table to the account scope (C4.8).
-    tenant_key = False
+class ContactDetailHistory(AccountMixin, HistoryMixin, Base):
     __tablename__ = "contact_detail_history"
     __table_args__ = {"schema": "mdm"}
 
@@ -1303,3 +1355,36 @@ class ExternalNumberHistory(TenantMixin, HistoryMixin, Base):
     person_id = Column(Integer, nullable=True)
     number_source = Column(String(50), nullable=True)
     external_id = Column(String(50), nullable=True)
+
+
+# The views of visibility by fact (CR-26 F9, C4.3; migration 314), read by
+# `mdm.facts` and the reporting views, so the rule has one home. A metadata of
+# their own: they are views, not tables the gates and the attribute register
+# count.
+_VIEWS = MetaData()
+
+#: A household is at a tenant through a membership row there — an ended or a
+#: deleted one too, so a household whose years were removed stays under
+#: "opgezegd" (the master CLI, 19 October 2026).
+household_tenants = Table(
+    "household_tenants",
+    _VIEWS,
+    Column("tenant_id", Integer),
+    Column("member_id", Integer),
+    schema="mdm",
+)
+
+#: A person is at a tenant through a household that is (`household_tenants`),
+#: or a registration, an order or a relation there.
+person_tenants = Table(
+    "person_tenants",
+    _VIEWS,
+    Column("tenant_id", Integer),
+    Column("person_id", Integer),
+    schema="mdm",
+)
+
+
+# CR-26 F1: every new person and organisation gets its party in the same flush;
+# the listener is a service's, not an entity's (CR-13 §B4.1).
+from app.domains.mdm import parties as _parties  # noqa: E402, F401

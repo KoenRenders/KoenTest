@@ -29,6 +29,7 @@ from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_va
 from app.domains.membership.api import Membership, open_renewal_payment
 from app.domains.payment.api import GatewayPayment, PaymentRecord
 from app.kernel.clock import belgian_today
+from tests._sites import at_tenant
 from tests.conftest import create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -92,6 +93,7 @@ def _openstaande_vernieuwing(db, member, method="transfer", gateway_payment_id=N
 def test_overschrijving_toont_instructies_bij_een_verse_get(client, db_session):
     """De kern van #618: navigeren weg en terug mag het formulier niet terugbrengen."""
     member, _person = create_test_family(db_session, email="vern@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     _, rec = _openstaande_vernieuwing(db_session, member)
     _login_as(client, "vern@example.com")
 
@@ -115,6 +117,7 @@ def test_mijn_gezin_points_to_the_running_renewal_and_offers_no_second_one(clien
     payment; without one the same card offers the renewal. A pair, so the
     missing button is the running renewal's doing."""
     member, _person = create_test_family(db_session, email="wijzer@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     _was_a_paid_member(db_session, member)
     db_session.commit()
     _login_as(client, "wijzer@example.com")
@@ -137,6 +140,7 @@ def test_mijn_gezin_points_to_the_running_renewal_and_offers_no_second_one(clien
 def test_afgebroken_online_betaling_toont_hervatknop(client, db_session):
     """#618-3: even doodlopend als de overschrijving, dus ook afgevangen."""
     member, _person = create_test_family(db_session, email="online@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     gw = GatewayPayment(
         amount=Decimal("35.00"),
         currency="EUR",
@@ -161,6 +165,7 @@ def test_afgebroken_online_betaling_toont_hervatknop(client, db_session):
 
 def test_online_zonder_checkout_url_toont_uitleg(client, db_session):
     member, _person = create_test_family(db_session, email="geenurl@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     _openstaande_vernieuwing(db_session, member, method="online")
     _login_as(client, "geenurl@example.com")
 
@@ -178,6 +183,7 @@ def test_betaalde_vernieuwing_blokkeert_het_scherm_niet(client, db_session):
     """Zodra de betaling `paid` is, hoort het scherm weer normaal te zijn — precies
     zoals de guard dan weer doorlaat."""
     member, _person = create_test_family(db_session, email="betaald@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     _, rec = _openstaande_vernieuwing(db_session, member)
     rec.status = "paid"
     db_session.commit()
@@ -191,6 +197,7 @@ def test_betaalde_vernieuwing_blokkeert_het_scherm_niet(client, db_session):
 def test_guard_en_scherm_stellen_dezelfde_vraag(client, db_session):
     """Eén bron (#618-1): de functie die de guard gebruikt, voedt ook het scherm."""
     member, _person = create_test_family(db_session, email="bron@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     assert open_renewal_payment(db_session, member) is None
 
     _, rec = _openstaande_vernieuwing(db_session, member)
@@ -216,7 +223,9 @@ def _open_payments(db) -> int:
 
 def test_a_renewal_without_a_payment_method_is_refused_at_that_field(client, db_session):
     """The banner alone, for the page's message line — and nothing booked."""
-    create_test_family(db_session, email="geenkeuze@example.com")
+    at_tenant(
+        db_session, create_test_family(db_session, email="geenkeuze@example.com")[0]
+    )  # CR-26 F9
     db_session.commit()
     csrf = _login_as(client, "geenkeuze@example.com")
 
@@ -234,6 +243,7 @@ def test_a_transfer_renewal_answers_the_page_with_what_to_pay(client, db_session
     """#497: the payment details on the screen, from the booking itself — and
     the form is gone, because this renewal now runs (#618)."""
     member, _person = create_test_family(db_session, email="overschrijver@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     _was_a_paid_member(db_session, member)
     db_session.commit()
     csrf = _login_as(client, "overschrijver@example.com")
@@ -260,6 +270,7 @@ def test_a_second_renewal_is_refused_while_the_first_runs(client, db_session):
     """Guard and screen agree (#618): the screen shows no form, and whoever
     posts anyway is told why, in the banner, with nothing booked twice."""
     member, _person = create_test_family(db_session, email="tweemaal@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     _openstaande_vernieuwing(db_session, member)
     csrf = _login_as(client, "tweemaal@example.com")
 
@@ -278,7 +289,9 @@ def test_a_second_renewal_is_refused_while_the_first_runs(client, db_session):
 
 def test_an_online_renewal_leaves_with_a_hard_redirect(client, db_session, mock_mollie):
     """The fixed decision: `HX-Redirect` to the provider, never a soft swap."""
-    create_test_family(db_session, email="onlinebetaler@example.com")
+    at_tenant(
+        db_session, create_test_family(db_session, email="onlinebetaler@example.com")[0]
+    )  # CR-26 F9
     db_session.commit()
     csrf = _login_as(client, "onlinebetaler@example.com")
 
@@ -290,7 +303,9 @@ def test_an_online_renewal_leaves_with_a_hard_redirect(client, db_session, mock_
 
 
 def test_the_renewal_needs_a_session_and_the_csrf_token(client, db_session):
-    create_test_family(db_session, email="zondertoken@example.com")
+    at_tenant(
+        db_session, create_test_family(db_session, email="zondertoken@example.com")[0]
+    )  # CR-26 F9
     db_session.commit()
     assert _renew(client, None, payment_method="transfer").status_code == 401, "no session"
     _login_as(client, "zondertoken@example.com")

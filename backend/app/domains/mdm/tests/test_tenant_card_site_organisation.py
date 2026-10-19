@@ -19,6 +19,7 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, make_session_value
 from app.domains.mdm.api import Tenant, create_organization, save_organization
 from app.kernel.tenancy import TENANT_MILLEGEM_ID, TENANT_VOORBEELD_ID
+from tests._sites import as_account
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -44,7 +45,7 @@ def test_a_tenant_on_its_accounts_data_names_that_organisation(
 ):
     account = create_organization(db_session, name="Account Vier")
     brand = db_session.get(Tenant, TENANT_VOORBEELD_ID)
-    brand.account_id = account.id
+    brand.account_id = as_account(db_session, account)
     brand.organization_id = account.id
     db_session.commit()
     _operator(client, db_session)
@@ -75,7 +76,7 @@ def test_every_tenant_names_the_organisation_it_shows(client, platform_workspace
     nothing may lean on them being equal (C4.1)."""
     account = create_organization(db_session, name="Account Vier")
     brand = db_session.get(Tenant, TENANT_VOORBEELD_ID)
-    brand.account_id = account.id
+    brand.account_id = as_account(db_session, account)
     db_session.commit()
     _operator(client, db_session)
 

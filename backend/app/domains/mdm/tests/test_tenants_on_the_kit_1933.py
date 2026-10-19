@@ -128,9 +128,11 @@ def test_every_setting_stands_in_both_modes(client, platform_workspace, db_sessi
 
     assert 'data-mode="read"' in read and 'data-mode="edit"' in editing
     assert "<input" not in read.replace('type="hidden"', ""), "read mode carries a field"
-    for key in [*SETTINGS, "site_name", "kind", "account_id"]:
+    for key in [*SETTINGS, "site_name", "kind"]:
         assert f'data-setting="{key}"' in read, f"{key} is not read"
         assert f'name="{key}"' in editing, f"{key} cannot be edited"
+    # CR-26: the account is a fact in both modes; an existing tenant keeps it.
+    assert 'data-setting="account_id"' in read and 'name="account_id"' not in editing
     for key in SECRETS:
         assert f'data-secret="{key}"' in read, f"{key}: not said whether it is set"
         assert f'name="{key}"' in editing and f'name="{key}_wissen"' in editing

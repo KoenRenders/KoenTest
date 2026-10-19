@@ -37,7 +37,7 @@ def organisatie(db_session):
 def _contact(db_session, organisatie, code: str, waarde: str) -> None:
     db_session.add(
         ContactDetail(
-            tenant_id=organisatie.id,
+            account_id=organisatie.account_id,
             organization_id=organisatie.id,
             contact_type_code=code,
             value=waarde,

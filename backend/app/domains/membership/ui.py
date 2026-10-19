@@ -61,14 +61,15 @@ def _signed_in_account(request: Request, db: Session):
     signed in gets the empty form."""
     from app.domains.auth.api import (
         SESSION_COOKIE,
-        has_household,
         login_person_for_email,
         read_session_value,
     )
 
     email = read_session_value(request.cookies.get(SESSION_COOKIE))
     person = login_person_for_email(db, email) if email else None
-    return person if person is not None and not has_household(person) else None
+    # CR-26: an account is a person in no household at all; one whose household
+    # is a member of another department of the account joins with it (F5).
+    return person if person is not None and not person.member_persons else None
 
 
 def _signup_page(request: Request, db: Session, **state) -> HTMLResponse:
@@ -88,7 +89,15 @@ def _signup_page(request: Request, db: Session, **state) -> HTMLResponse:
 @router.get("/lid-worden", response_class=HTMLResponse)
 def sign_up_page(request: Request, db: Session = Depends(get_db)):
     """Word lid. A signed-in account stands in it as the main member, with what
-    the application already has of him (#1883)."""
+    the application already has of him (#1883).
+
+    CR-26 (A3, F5): a signed-in person whose household is a member of another
+    department of the account joins with that household — the page that pays a
+    membership, for this department, not a second household (Koen, 19 October
+    2026, to the existing payment page or a concept first: "1a")."""
+    joiner = _session_joiner(request, db)
+    if joiner is not None:
+        return _renew_page(request, db, joiner, joining=True)
     return _signup_page(request, db)
 
 
@@ -240,17 +249,34 @@ def render_family_portal(request: Request, db: Session, person) -> HTMLResponse:
     return response
 
 
-def _require_member_csrf(request: Request, db: Session):
+def _session_joiner(request: Request, db: Session):
+    """The signed-in person whose household is a member of another department
+    of the account and not of this one (CR-26 A3), or None."""
+    from app.domains.auth.api import (
+        SESSION_COOKIE,
+        in_household_elsewhere,
+        login_person_for_email,
+        read_session_value,
+    )
+
+    email = read_session_value(request.cookies.get(SESSION_COOKIE))
+    person = login_person_for_email(db, email) if email else None
+    return person if in_household_elsewhere(person) else None
+
+
+def _require_member_csrf(request: Request, db: Session, *, or_joiner: bool = False):
     from app.domains.auth.api import require_csrf
 
     person = _session_member(request, db)
+    if person is None and or_joiner:
+        person = _session_joiner(request, db)
     if person is None:
         raise HTTPException(status_code=401, detail=_("Niet aangemeld"))
     require_csrf(request)
     return person
 
 
-def _renew_page(request: Request, db: Session, person) -> HTMLResponse:
+def _renew_page(request: Request, db: Session, person, *, joining: bool = False) -> HTMLResponse:
 
     from app.domains.membership.api import (
         household_view,
@@ -273,6 +299,9 @@ def _renew_page(request: Request, db: Session, person) -> HTMLResponse:
         terms=terms,
         summary=summary,
         address_line=address_line,
+        joining=joining,
+        # Cancelling a join goes to the account page: Mijn gezin is not here yet.
+        household_href="/mijn" if joining else "/leden/gezin",
     )
     return templates.TemplateResponse(
         request, "lidmaatschap_vernieuwen.html", {**site_context(db, request), "page": page}
@@ -304,7 +333,8 @@ def renew_membership_page(
     from app.domains.membership.signup_form import PAYMENT_METHODS
     from app.kernel.refusals import FieldError
 
-    person = _require_member_csrf(request, db)
+    # CR-26: the household of another department joins here the same way.
+    person = _require_member_csrf(request, db, or_joiner=True)
     if payment_method not in PAYMENT_METHODS:
         return refusal_response(
             request,

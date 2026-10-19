@@ -65,17 +65,13 @@ def test_a_members_order_carries_its_household(db_session):
     first = Member()
     db_session.add(first)
     db_session.flush()
-    second = Member()
-    db_session.add(second)
-    db_session.flush()
     person = Person(
         first_name="Piet", last_name="Peeters", date_of_birth="1980-05-01", gender_code="M"
     )
     db_session.add(person)
     db_session.flush()
-    # two households: the head's comes first, so the fact holds one row, the head's
+    # One household: since CR-26 a person has one (F5), so the fact holds its row.
     db_session.add(MemberPerson(member_id=first.id, person_id=person.id, relation_type="HOOFDLID"))
-    db_session.add(MemberPerson(member_id=second.id, person_id=person.id, relation_type="HOOFDLID"))
     db_session.flush()
 
     order = _order(db_session, person_id=person.id)

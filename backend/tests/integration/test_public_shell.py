@@ -37,6 +37,7 @@ from app.domains.cms.api import CmsPage
 from app.domains.mdm.api import Address, BankAccount, ContactDetail, Organization, PostalCode
 from app.kernel.tenant_config import _actieve_tenant
 from app.ui import legal_parts
+from tests._sites import at_tenant
 from tests.conftest import create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -54,11 +55,7 @@ def _organisation(db):
 
 
 def _contact(db, organisation, code: str, value: str) -> None:
-    db.add(
-        ContactDetail(
-            tenant_id=TENANT, organization_id=organisation.id, contact_type_code=code, value=value
-        )
-    )
+    db.add(ContactDetail(organization_id=organisation.id, contact_type_code=code, value=value))
 
 
 @pytest.fixture
@@ -76,7 +73,6 @@ def details(db_session):
     db_session.add(BankAccount(organization_id=organisation.id, iban="BE68 5390 0754 7034"))
     db_session.add(
         Address(
-            tenant_id=TENANT,
             organization_id=organisation.id,
             street="Kerkstraat",
             house_number="12",
@@ -140,6 +136,7 @@ def test_signed_out_the_header_says_inloggen_and_nothing_else(client):
 
 def test_a_member_sees_the_first_name_and_mijn_gezin(client, db_session):
     _member, person = create_test_family(db_session, email="lid-1588@example.org")
+    at_tenant(db_session, _member)  # CR-26 F9: Mijn gezin where the household is a member
     person.first_name, person.last_name = "Emma", "Voorbeeld"
     db_session.commit()
     html = _home(client, "lid-1588@example.org")
@@ -200,6 +197,7 @@ def test_a_role_without_a_page_in_the_back_office_gets_no_admin_item(client, db_
 
 def test_the_drawer_carries_the_same_items_as_the_menu(client, db_session):
     _member, person = create_test_family(db_session, email="bestuur-1588@example.org")
+    at_tenant(db_session, _member)  # CR-26 F9: Mijn gezin where the household is a member
     person.first_name = "Bram"
     db_session.commit()
     email = "bestuur-1588@example.org"

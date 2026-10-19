@@ -36,6 +36,7 @@ from app.domains.activities.api import (
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Address, ContactDetail, Member, Person, PostalCode
 from app.kernel.clock import belgian_today
+from tests._sites import at_tenant
 from tests._snapshot import compare, fixed_ids, main_region, normalise
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
@@ -89,6 +90,7 @@ def test_an_address_for_a_household_without_persons_is_refused_as_before(client,
     from tests.conftest import record_fields, save_record
 
     household = create_test_member(db_session)
+    at_tenant(db_session, household)  # CR-26 F9
     _postal_code(db_session)
     db_session.commit()
     headers = _login(client)
@@ -111,6 +113,7 @@ def test_an_address_for_a_household_is_stored_as_before(client, db_session):
     from tests.conftest import record_fields, save_record
 
     household, main = create_test_family(db_session, email="adres-1251@example.com")
+    at_tenant(db_session, household)  # CR-26 F9
     _postal_code(db_session)
     db_session.commit()
     headers = _login(client)
@@ -195,6 +198,7 @@ def test_the_circle_without_an_organisation_is_refused_as_before(
 
     monkeypatch.setattr(tenant_service, "shown_organization", lambda db: None)
     _household, main = create_test_family(db_session, email="kringlid-1251@example.com")
+    at_tenant(db_session, _household)  # CR-26 F9
     db_session.commit()
     persons = db_session.query(Person).count()
     sent = {k: (str(main.id) if v == "PERSON" else v) for k, v in fields.items()}

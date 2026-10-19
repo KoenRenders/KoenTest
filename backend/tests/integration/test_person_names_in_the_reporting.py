@@ -28,6 +28,7 @@ import pytest
 from sqlalchemy import text
 
 from app.domains.reporting.assistant import detokenise, scrub_question
+from tests._sites import in_the_circle
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -38,13 +39,16 @@ def _persoon(db, first: str, last: str):
     """Een gewone persoon: geen bestuurslid, geen organisator, geen gezin.
 
     Bewust zonder gezin: mét een gezin zou `d_member.head_name` de naam ook
-    dragen, en dan meet de test de oude bron in plaats van de nieuwe.
+    dragen, en dan meet de test de oude bron in plaats van de nieuwe. Sinds
+    CR-26 staat een persoon bij een afdeling door een feit (F9): hier een plaats
+    in de vergaderkring.
     """
     from app.domains.mdm.api import Person
 
-    p = Person(tenant_id=TENANT, first_name=first, last_name=last)
+    p = Person(first_name=first, last_name=last)
     db.add(p)
     db.flush()
+    in_the_circle(db, p, TENANT)
     return p
 
 

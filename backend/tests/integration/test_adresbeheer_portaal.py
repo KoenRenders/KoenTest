@@ -30,6 +30,7 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Person
 from app.kernel.clock import belgian_today
+from tests._sites import at_tenant
 from tests.conftest import create_test_family, household_fields
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -41,6 +42,7 @@ TWEEDE = "tweede@example.com"
 @pytest.fixture
 def lid(db_session):
     member, person = create_test_family(db_session, email=HOOFD, mobile="0470 00 00 01")
+    at_tenant(db_session, member)  # CR-26 F9
     db_session.commit()
     return member, person
 
@@ -183,6 +185,7 @@ def test_een_lid_raakt_niet_aan_de_adressen_van_een_ander_gezin(client, db_sessi
     """
     _member, person = lid
     _vreemd_member, vreemde = create_test_family(db_session, email="vreemd@example.com")
+    at_tenant(db_session, _vreemd_member)  # CR-26 F9
     db_session.commit()
     strangers_row = _rij_id(db_session, vreemde, "vreemd@example.com")
     csrf = _aanmelden(client, HOOFD)
@@ -264,6 +267,7 @@ def test_een_gewone_adreswijziging_blijft_lezen_zoals_ze_was(db_session):
     # snapshot van dezelfde rij kan "oud → nieuw" niet bestaan, en dan zou deze
     # test een gebrek meten dat er niet is. (Zo werkte het al vóór #1174.)
     _member, person = create_test_family(db_session, email="start@example.com")
+    at_tenant(db_session, _member)  # CR-26 F9
     for c in list(person.contact_details):
         if c.contact_type_code == "EMAIL":
             person.contact_details.remove(c)

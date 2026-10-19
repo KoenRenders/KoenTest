@@ -32,11 +32,13 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from typing import Any
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.domains.auth.api import has_login
 from app.domains.mdm.api import (
     Address,
+    ContactDetail,
     ExternalNumber,
     Member,
     MemberPerson,
@@ -278,6 +280,39 @@ _PERSOONSVELDEN = {
     "geboortedatum": "date_of_birth",
     "geslacht": "gender_code",
 }
+
+
+def _known_by_email(db: Session, row: dict, ext_map: dict) -> Person | None:
+    """The one person of the account with this row's e-mail address, who has no
+    member number of this department yet (CR-26 C2 mdm): a member of another
+    department of the account, known, and linked instead of made again. The
+    member number cannot match across departments — each issues its own — so
+    the address does, with the name beside it: an address that belongs to
+    someone else of another name is a refusal of the address (#1704), not the
+    same person. None when there is no address, nobody, more than one, or
+    another name.
+    The account filter narrows the search to the current tenant's account."""
+    address = (row.get("email") or "").strip().lower()
+    if not address:
+        return None
+    persons = {
+        p.id: p
+        for p in db.query(Person)
+        .join(ContactDetail, ContactDetail.person_id == Person.id)
+        .filter(
+            ContactDetail.contact_type_code == CONTACT.EMAIL,
+            func.lower(ContactDetail.value) == address,
+        )
+    }
+    numbered = {person.id for person in ext_map.values() if person is not None}
+    candidates = [
+        p
+        for pid, p in persons.items()
+        if pid not in numbered
+        and _norm(p.first_name) == _norm(row["voornaam"])
+        and _norm(p.last_name) == _norm(row["naam"])
+    ]
+    return candidates[0] if len(persons) == 1 and candidates else None
 
 
 def _leeg(waarde) -> bool:
@@ -812,6 +847,35 @@ def _sync_family(
                 ext_map[row["lidnr"]] = match
                 _identity_remove(identity_map, match)
 
+        if existing is None and row["lidnr"]:
+            # CR-26: a member of another department of the account, known by
+            # the e-mail address, gets this department's member number — not a
+            # second person (F3: the number is a fact per department).
+            known = _known_by_email(db, row, ext_map)
+            if known is not None:
+                existing = known
+                report.line(
+                    f"  ⇄ bekend #{row['lidnr']}  {row['voornaam']} {row['naam']}"
+                    f"  — gekoppeld aan de bestaande persoon van het account",
+                    "external_number",
+                    "person",
+                )
+                if apply:
+                    en = ExternalNumber(source=LEGACY_SOURCE, external_id=row["lidnr"])
+                    en.person = known
+                    db.add(en)
+                    db.flush()
+                    snapshot_external_number(
+                        db,
+                        en,
+                        operation="insert",
+                        action="lidnr_attached",
+                        source=LEGACY_SOURCE,
+                        actor=actor,
+                    )
+                ext_map[row["lidnr"]] = known
+                _identity_remove(identity_map, known)
+
         if existing is None:
             # Onbekend lidnummer (en geen identiteitsmatch) → nieuwe persoon.
             person = _create_person(db, row, member, pc, apply=apply, report=report, actor=actor)
@@ -1212,6 +1276,7 @@ def _resolve_existing_member(
     identity_map: dict,
     report: ImportReport,
     claimed: frozenset[int],
+    db: Session | None = None,
 ) -> Member | None:
     """Bepaal het bestaande gezin voor een adresgroep uit het rapport via het
     lidnummer van het hoofdlid. Lukt dat niet (hoofdlid onbekend of verweesd),
@@ -1249,6 +1314,17 @@ def _resolve_existing_member(
                 f"gezin {fam[0]['naam']}: geen lidnummer-match; gekoppeld "
                 f"aan bestaand gezin via identiteit "
                 f"({row['voornaam']} {row['naam']})."
+            )
+            return m
+    # CR-26: the household of a member of another department of the account,
+    # known by the e-mail address — one household per person (F5).
+    for row in fam:
+        p = _known_by_email(db, row, ext_map) if db is not None else None
+        m = _current_member(p) if p else None
+        if m is not None and m.id not in claimed:
+            report.warn(
+                f"gezin {fam[0]['naam']}: bekend, gekoppeld aan het bestaande gezin "
+                f"van het account via het e-mailadres ({row['voornaam']} {row['naam']})."
             )
             return m
     return None
@@ -1372,7 +1448,7 @@ def upsert_families(
         if index in refused:
             continue
         pc = pc_map.get(fam[0]["postcode"])
-        member = _resolve_existing_member(fam, ext_map, identity_map, report, claimed)
+        member = _resolve_existing_member(fam, ext_map, identity_map, report, claimed, db)
         is_new = member is None
 
         if is_new:

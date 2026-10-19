@@ -69,15 +69,18 @@ def _incomplete_member_at_rest(db) -> tuple[Person, MemberPerson]:
     household = _household(db)
     person_id = db.execute(
         text(
-            "INSERT INTO mdm.persons (first_name, last_name, tenant_id, created_at, updated_at) "
-            "VALUES ('Oud', 'Lid', 2, now(), now()) RETURNING id"
+            "WITH pa AS (INSERT INTO mdm.parties (kind, account_id) "
+            "SELECT 'PERSON', account_id FROM mdm.tenants WHERE id = 2 RETURNING id, account_id) "
+            "INSERT INTO mdm.persons (first_name, last_name, party_id, account_id, created_at, "
+            "updated_at) SELECT 'Oud', 'Lid', id, account_id, now(), now() FROM pa RETURNING id"
         )
     ).scalar()
     link_id = db.execute(
         text(
             "INSERT INTO mdm.member_persons "
-            "(member_id, person_id, relation_type, tenant_id, created_at, updated_at) "
-            "VALUES (:m, :p, 'HOOFDLID', 2, now(), now()) RETURNING id"
+            "(member_id, person_id, relation_type, account_id, created_at, updated_at) "
+            "SELECT :m, :p, 'HOOFDLID', account_id, now(), now() FROM mdm.tenants WHERE id = 2 "
+            "RETURNING id"
         ),
         {"m": household.id, "p": person_id},
     ).scalar()

@@ -27,6 +27,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Person, PersonHistory
+from tests._sites import at_tenant
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     create_test_family,
@@ -84,6 +85,7 @@ def _headers(client) -> dict[str, str]:
 @pytest.mark.parametrize("blank", ["first_name", "last_name"])
 def test_a_persons_card_without_a_name_is_refused(client, db_session, blank):
     household, main = create_test_family(db_session, email="naam-kaart-1251@example.com")
+    at_tenant(db_session, household)  # CR-26 F9
     db_session.commit()
     before = (main.first_name, main.last_name)
     history = db_session.query(PersonHistory).count()
@@ -101,6 +103,7 @@ def test_a_persons_card_without_a_name_is_refused(client, db_session, blank):
 @pytest.mark.parametrize("blank", ["first_name", "last_name"])
 def test_a_new_person_without_a_name_is_refused(client, db_session, blank):
     household, _main = create_test_family(db_session, email="naam-nieuw-1251@example.com")
+    at_tenant(db_session, household)  # CR-26 F9
     db_session.commit()
     persons = db_session.query(Person).count()
 
@@ -114,6 +117,7 @@ def test_a_person_with_both_names_is_still_stored(client, db_session):
     """The way that is not refused, for a person who is there and for a new one:
     without it a function that refuses everything would pass the tests above."""
     household, main = create_test_family(db_session, email="naam-goed-1251@example.com")
+    at_tenant(db_session, household)  # CR-26 F9
     db_session.commit()
     persons = db_session.query(Person).count()
 
@@ -155,6 +159,7 @@ def test_the_sentence_about_the_length_is_true_of_both_columns():
 @pytest.mark.parametrize("case, field, value, words", OTHER, ids=[c[0] for c in OTHER])
 def test_a_persons_card_with_it_is_refused(client, db_session, case, field, value, words):
     household, main = create_test_family(db_session, email="waarde-kaart-1251@example.com")
+    at_tenant(db_session, household)  # CR-26 F9
     db_session.commit()
     before = (main.first_name, main.last_name, main.date_of_birth, main.gender_code)
     history = db_session.query(PersonHistory).count()
@@ -177,6 +182,7 @@ def test_a_persons_card_with_it_is_refused(client, db_session, case, field, valu
 )
 def test_a_new_person_with_it_is_refused(client, db_session, case, field, value, words):
     household, _main = create_test_family(db_session, email="waarde-nieuw-1251@example.com")
+    at_tenant(db_session, household)  # CR-26 F9
     db_session.commit()
     persons = db_session.query(Person).count()
 
@@ -189,6 +195,7 @@ def test_a_new_person_with_it_is_refused(client, db_session, case, field, value,
 def test_a_name_of_exactly_the_columns_length_is_stored(client, db_session):
     """The edge that is not refused: a hundred characters fit."""
     household, main = create_test_family(db_session, email="waarde-rand-1251@example.com")
+    at_tenant(db_session, household)  # CR-26 F9
     db_session.commit()
 
     response = _change(client, household.id, main.id, last_name="x" * 100)
@@ -209,6 +216,7 @@ def test_the_name_fields_stop_where_the_server_refuses(client, db_session):
     from app.domains.mdm.api import PERSON_NAME_MAX
 
     household, _main = create_test_family(db_session, email="veldlengte-1251@example.com")
+    at_tenant(db_session, household)  # CR-26 F9
     db_session.commit()
     _headers(client)
 

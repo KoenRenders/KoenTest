@@ -164,9 +164,14 @@ def test_a_removed_address_is_free_again(db_session, world):
 # ── Per tenant (T8) ──────────────────────────────────────────────────────────
 
 
-def test_two_tenants_may_each_have_a_person_with_the_same_address(db_session, world):
-    """Accounts are per tenant (R10): the same address at two tenants is two persons."""
-    token = current_tenant_id.set(TENANT_VOORBEELD_ID)
+def test_two_accounts_may_each_have_a_person_with_the_same_address(db_session, world):
+    """The same address in two accounts is two persons (R10; since CR-26 a person
+    is per account, R1, so the line runs between accounts, not tenants)."""
+    from tests._sites import a_tenant_with_id
+
+    other_account = a_tenant_with_id(db_session, 9_704)
+    db_session.commit()
+    token = current_tenant_id.set(other_account.id)
     try:
         elsewhere = _person(db_session, "Elders")
         assert email_refusal(db_session, elsewhere, TAKEN) is None
@@ -180,6 +185,17 @@ def test_two_tenants_may_each_have_a_person_with_the_same_address(db_session, wo
         .filter(ContactDetail.value == TAKEN)
     )
     assert holders.count() == 2
+
+
+def test_another_tenant_of_the_account_finds_the_same_holder(db_session, world):
+    """CR-26 R1: a second department of the account holds no second person with
+    the address — the account's person has it already."""
+    token = current_tenant_id.set(TENANT_VOORBEELD_ID)
+    try:
+        elsewhere = _person(db_session, "Elders")
+        assert email_refusal(db_session, elsewhere, TAKEN) is not None
+    finally:
+        current_tenant_id.reset(token)
 
 
 # ── Every writer passes it ───────────────────────────────────────────────────

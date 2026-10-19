@@ -32,6 +32,8 @@ from app.domains.mdm.api import (
     PersonDetailsMissing,
     RelationType,
     email_refusal,
+    household_at_tenant,
+    households_of_tenant,
 )
 from app.domains.membership.models import Membership
 from app.domains.membership.schemas_member import (  # noqa: F401
@@ -399,6 +401,10 @@ def list_families(
     `sort`: `naam` or `-naam`, the main member's name as the list shows it;
     without it the newest household first, as before."""
     query = db.query(Member)
+    # CR-26 F9: the account's households that are at this tenant.
+    here = households_of_tenant()
+    if here is not None:
+        query = query.filter(Member.id.in_(here))
     if q and q.strip():
         # Server-side zoeken over álle leden (niet enkel de geladen pagina): match
         # op voornaam/achternaam/volledige naam, e-mail of STRAATNAAM van een
@@ -537,7 +543,8 @@ def list_families(
 
 def get_family(db: Session, family_id: int, _admin=None):
     m = db.query(Member).filter(Member.id == family_id).first()
-    if not m:
+    # CR-26 F9: a household of the account without a fact here is not yours.
+    if not m or not household_at_tenant(db, family_id):
         raise HTTPException(status_code=404, detail=_("Family not found"))
     from app.domains.membership.service import membership_states
 

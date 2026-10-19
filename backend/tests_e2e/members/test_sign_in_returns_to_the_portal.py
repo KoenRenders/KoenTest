@@ -32,7 +32,10 @@ def board_member():
     email = f"bestuur-lid-{secrets.token_hex(3)}@example.com"
     db = SessionLocal()
     try:
-        create_test_family(db, email=email)
+        # CR-26 F9: a member of Millegem through a membership row there.
+        from tests._sites import at_tenant
+
+        at_tenant(db, create_test_family(db, email=email)[0])
         user = User(email=email, is_active=True)
         db.add(user)
         db.flush()

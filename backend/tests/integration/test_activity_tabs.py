@@ -59,6 +59,7 @@ from app.domains.payment.api import (
     registration_balance_by_activity,
     registration_payment_states,
 )
+from tests._sites import at_tenant
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -542,6 +543,7 @@ def test_the_payments_tab_of_a_household_keeps_its_band(client, db_session, worl
     from tests.conftest import create_test_family
 
     member, _person = create_test_family(db_session, email="gezin-k6@example.org")
+    at_tenant(db_session, member)  # CR-26 F9
     db_session.commit()
     _login(client, db_session)
     assert "kpi-strip" in client.get(f"/admin/leden/gezin/{member.id}/betalingen").text

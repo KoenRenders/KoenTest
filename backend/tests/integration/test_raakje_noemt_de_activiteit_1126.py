@@ -51,6 +51,7 @@ from app.domains.reporting.assistant import (
     scope_for_payments,
 )
 from tests._assistant_seed import TENANT, seed
+from tests._sites import at_tenant
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -204,11 +205,11 @@ def test_een_ledennaam_in_de_titel_gaat_niet_mee_de_prompt_in(db_session, situat
     # systeemprompt, en "Gezin1" draagt een cijfer — de woordsplitser laat dat
     # vallen, dus die naam is geen zuivere meting.
     achternaam = "Vliethoven"
-    gezin = Member(tenant_id=TENANT)
+    gezin = Member()
     db_session.add(gezin)
     db_session.flush()
+    at_tenant(db_session, gezin, TENANT)
     hoofdlid = Person(
-        tenant_id=TENANT,
         first_name="Wiebe",
         last_name=achternaam,
         date_of_birth=date(1980, 6, 15),
@@ -217,9 +218,7 @@ def test_een_ledennaam_in_de_titel_gaat_niet_mee_de_prompt_in(db_session, situat
     db_session.add(hoofdlid)
     db_session.flush()
     db_session.add(
-        MemberPerson(
-            tenant_id=TENANT, member_id=gezin.id, person_id=hoofdlid.id, relation_type="HOOFDLID"
-        )
+        MemberPerson(member_id=gezin.id, person_id=hoofdlid.id, relation_type="HOOFDLID")
     )
     db_session.flush()
     assert scrub_question(db_session, achternaam, tenant_id=TENANT) != achternaam, (

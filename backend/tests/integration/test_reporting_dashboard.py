@@ -79,7 +79,7 @@ def _old_stats(db):
     from sqlalchemy import func
 
     from app.domains.activities.api import ActivityDate
-    from app.domains.mdm.api import Member
+    from app.domains.mdm.api import Member, households_of_tenant
     from app.domains.membership.api import current_membership_counts
     from app.domains.payment.api import PaymentRecord, aggregate
     from app.domains.workflow.api import open_count
@@ -90,7 +90,10 @@ def _old_stats(db):
         today = belgian_today()
         households, persons = current_membership_counts(db, today)
         return {
-            "members": db.query(func.count(Member.id)).scalar(),
+            # CR-26 F9: the account's households that are at this tenant.
+            "members": db.query(func.count(Member.id))
+            .filter(Member.id.in_(households_of_tenant()))
+            .scalar(),
             "active_member_households": households,
             "active_member_persons": persons,
             "upcoming_activities": db.query(func.count(func.distinct(ActivityDate.activity_id)))
@@ -171,26 +174,17 @@ def test_the_open_tasks_tile_counts_two_roles_and_not_the_third(db_session, situ
     )
 
 
-def test_the_members_tile_counts_a_household_that_never_joined(db_session, situation):
-    """The grain that was missing: `f_memberships` cannot see this household."""
+def test_a_household_that_never_joined_is_at_no_tenant(db_session, situation):
+    """CR-26 F9: a household is at a tenant through a membership row there; one
+    that never joined anywhere has none, and the tile does not count it — the
+    rule of the member list (the master CLI, 19 October 2026). Until CR-26 the
+    household carried its tenant and this test said the opposite."""
     from app.domains.mdm.api import Member
 
     voor = _tile_number(db_session, "dashboard_members")
-    db_session.add(Member(tenant_id=TENANT_A))
+    db_session.add(Member())
     db_session.commit()
-    assert _tile_number(db_session, "dashboard_members") == voor + 1
-
-    # And it is invisible to the membership fact, which is why the grain was
-    # needed at all: distinct households there, against every household here.
-    from sqlalchemy import text
-
-    in_lidmaatschappen = db_session.execute(
-        text("SELECT COUNT(DISTINCT member_id) FROM reporting.f_memberships WHERE tenant_id = :t"),
-        {"t": TENANT_A},
-    ).scalar()
-    assert in_lidmaatschappen < _tile_number(db_session, "dashboard_members"), (
-        "een gezin dat nooit lid was, bestaat niet in f_memberships"
-    )
+    assert _tile_number(db_session, "dashboard_members") == voor
 
 
 def test_the_persons_tile_follows_validity_and_not_the_year(db_session, situation):

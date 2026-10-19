@@ -24,9 +24,9 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from app.domains.cms.api import CmsPage
-from app.domains.mdm.api import Tenant, TenantKind, create_organization
+from app.domains.mdm.api import Organization, Tenant, TenantKind, create_organization
 from app.kernel.tenancy import TENANT_MILLEGEM_ID
-from tests._sites import new_site
+from tests._sites import as_account, new_site
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -145,7 +145,7 @@ def test_the_placeholder_on_a_department_page(client, db_session):
     closed.is_active = False
     new_site(db_session, name="Werkplaats", code="werkplaats-1543", account_id=second.id)
     platform = _platform(db_session)
-    platform.account_id = second.id
+    platform.account_id = as_account(db_session, second)
     db_session.commit()
     _department_page(db_session, "<p>{{tenants}}</p><p>---</p><p>{{tenants:clubhuis-1543}}</p>")
 
@@ -201,7 +201,8 @@ def test_the_placeholder_leaves_the_platform_out_without_an_account(client, db_s
     seed's is; it stays out (measured on UAT and PROD on 18 October 2026: there
     it hangs under an account)."""
     platform = _platform(db_session)
-    assert platform.account_id == platform.organization_id, "the seed's platform is its own account"
+    shown = db_session.query(Organization).filter_by(id=platform.organization_id).one()
+    assert platform.account_id == shown.party_id, "the seed's platform is its own account"
     _department_page(db_session, "<p>{{tenants}}</p><p>{{tenants:bestaat-niet}}</p>")
     html = client.get("/onze-netwerk-1543").text
     names = [name for group in _groups(html).values() for name in group]

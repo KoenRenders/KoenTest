@@ -10,6 +10,8 @@ from pathlib import Path
 
 import pytest
 
+from tests._sites import at_tenant
+
 pytestmark = pytest.mark.ui_serverrendered
 
 APP = Path(__file__).resolve().parents[2] / "app"
@@ -25,6 +27,7 @@ def test_de_adresknop_toont_beide_standen(client, db_session):
 
     seed_postal_code(db_session)
     member, _person = create_test_family(db_session, email="adres@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
 

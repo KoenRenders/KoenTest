@@ -36,6 +36,7 @@ from app.domains.auth.api import (
     back_office_home,
     make_session_value,
 )
+from tests._sites import at_tenant
 from tests.conftest import create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -96,7 +97,9 @@ def test_an_admin_still_sees_it(client, db_session):
 
 
 def test_a_member_without_a_role_does_not(client, db_session):
-    create_test_family(db_session, email="lid-1499@example.com")
+    at_tenant(
+        db_session, create_test_family(db_session, email="lid-1499@example.com")[0]
+    )  # CR-26 F9
     db_session.commit()
 
     html = _home_as(client, "lid-1499@example.com")
