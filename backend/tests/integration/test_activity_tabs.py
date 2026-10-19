@@ -253,9 +253,9 @@ def test_the_list_tabs_carry_no_summary(client, db_session, world):
         assert "data-summary-card" not in html, tab
         # The head and the tabs are the same on every tab.
         assert "data-record-head" in html and f'href="{_base(world)}/betalingen"' in html
-    # And the activity's Betalingen tab lost its figures band (K1 kept it here
-    # until the summary existed).
-    assert "kpi-strip" not in client.get(f"{_base(world)}/betalingen").text
+    # And the activity's Betalingen tab has no figures band of its own: its figures
+    # stand on the summary card.
+    assert "data-open-side" not in client.get(f"{_base(world)}/betalingen").text
 
 
 # ── Inschrijvingen: one table, groups, the unfold ────────────────────────────
@@ -537,16 +537,17 @@ def test_the_embedded_tab_keeps_its_own_address(client, db_session, world):
     assert str(world["records"]["cas"].id) not in shown and shown
 
 
-def test_the_payments_tab_of_a_household_keeps_its_band(client, db_session, world):
-    """Pilot B gives the household its summary; until then its Betalingen tab
-    keeps the figures band the activity's lost."""
+def test_the_payments_tab_of_a_household_shows_the_three_figures(client, db_session, world):
+    """The household has no summary card, so its Betalingen tab shows the kit's
+    three figures (CR-11 phase 5, #2128), which the activity's tab does not."""
     from tests.conftest import create_test_family
 
     member, _person = create_test_family(db_session, email="gezin-k6@example.org")
     at_tenant(db_session, member)  # CR-26 F9
     db_session.commit()
     _login(client, db_session)
-    assert "kpi-strip" in client.get(f"/admin/leden/gezin/{member.id}/betalingen").text
+    html = client.get(f"/admin/leden/gezin/{member.id}/betalingen").text
+    assert html.count("data-figure-label") == 3
 
 
 def test_the_registrations_own_payments_tab_opens_the_booking_too(client, db_session, world):
