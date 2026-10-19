@@ -22,6 +22,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.domains.mdm.codes import CONTACT
+from app.domains.mdm.facts import persons_seen_here
 from app.domains.mdm.models import ContactDetail, Member, MemberPerson, Person, RelationType
 
 #: The views, by their value in the address (a path a person sees: Dutch).
@@ -148,7 +149,7 @@ def persons_page(
     """One page of the list, by last name, first name and id; with the number of
     persons per view for what was searched — the search cuts every count, the
     view cuts only the list."""
-    searched = _searched(_seen_here(db.query(Person)), q)
+    searched = _searched(persons_seen_here(db.query(Person)), q)
     counts = {v: _viewed(searched, v).count() for v in VIEWS}
     total = counts[view]
     last_page = max(1, -(-total // per_page))
@@ -163,18 +164,9 @@ def persons_page(
     return PersonsPage(rows=[_row(p) for p in persons], total=total, counts=counts)
 
 
-def _seen_here(query):
-    """The persons the current tenant sees (CR-26 F9; `facts.persons_of_tenant`):
-    with a fact here, or with a fact at no tenant at all."""
-    from app.domains.mdm.facts import persons_of_tenant
-
-    here = persons_of_tenant()
-    return query if here is None else query.filter(Person.id.in_(here))
-
-
 def person_row(db: Session, person_id: int) -> Optional[PersonRow]:
     """One person as the list shows him, or None when he is not there."""
-    person = _seen_here(db.query(Person)).filter(Person.id == person_id).first()
+    person = persons_seen_here(db.query(Person)).filter(Person.id == person_id).first()
     return _row(person) if person is not None else None
 
 
@@ -183,7 +175,7 @@ def delete_listed_person(db: Session, person_id: int, *, actor: Optional[str]) -
     (`service.delete_person`), whose refusals pass through."""
     from app.domains.mdm.service import delete_person
 
-    person = _seen_here(db.query(Person)).filter(Person.id == person_id).first()
+    person = persons_seen_here(db.query(Person)).filter(Person.id == person_id).first()
     if person is not None:
         delete_person(db, person, actor=actor)
         db.commit()

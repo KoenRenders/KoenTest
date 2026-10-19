@@ -24,6 +24,7 @@ from app.domains.mdm.api import (
     CONTACT,
     Member,
     MemberPerson,
+    household_here,
     household_of,
     household_refusals_as_http,
     person_payload,
@@ -52,7 +53,7 @@ def main_person_of(db: Session, household_id: int):
     when there is no such household."""
     from app.domains.mdm.api import RelationType
 
-    member = db.query(Member).filter(Member.id == household_id).first()
+    member = household_here(db, household_id)
     if member is None:
         raise HTTPException(status_code=404, detail=_("Gezin niet gevonden"))
     return next(
@@ -280,7 +281,7 @@ def get_household(*, person, db: Session) -> dict:
 def get_household_by_id(db: Session, household_id: int) -> dict:
     """The same view for the board's household record (#1899), which names the
     household and not a person of it. 404 when there is none."""
-    member = db.query(Member).filter(Member.id == household_id).first()
+    member = household_here(db, household_id)
     if member is None:
         raise HTTPException(status_code=404, detail=_("Gezin niet gevonden"))
     return household_payload(member)

@@ -797,7 +797,8 @@ class Tenant(Base):
     )
     #: The account: the party of the organisation that is the customer; for the
     #: platform, the party of the organisation it shows (CR-20 C4.7). Since
-    #: CR-26 the party's id, the one key of the account (C4.9).
+    #: CR-26 a PARTY id (C4.9) — not an organisation id, unlike
+    #: `organization_id` beside it: join through `Organization.party_id`.
     account_id = Column(Integer, ForeignKey("mdm.parties.id"), nullable=False, index=True)
     #: The organisation whose data the site shows (#1550). Read through
     #: `kernel.tenant_config.site_organization_id`.

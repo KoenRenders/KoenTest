@@ -54,6 +54,14 @@ bijbehorende codetabellen — plus merge/survivorship.
   the start date of a circle relation, refused by `OrganizationPerson.check()` when
   it lies after the end (`mdm.handlers`).
 
+**The account scope (CR-26 phase 1).** A person, a household, an organisation
+and what hangs on them belong to the account (`AccountMixin`, `parties`), not to
+a tenant. What a tenant sees is what has a fact at it: two views of migration
+314, `mdm.household_tenants` and `mdm.person_tenants`, read by `facts.py` and
+the reporting views. **A new kind of fact** — an invoice, a webshop customer —
+adds a branch to `mdm.person_tenants` in a migration of its own; forgotten, the
+person is simply not at the tenant, and nothing fails.
+
 *Counted in the code on 13 October 2026:* the facade exports 184 names (100 functions, 65 classes, 19 values); events it owns (`kernel/contracts/`): `BoardMemberReported`, `EmailAddressAdded`, `EntityMerged`, `HouseholdDeleted`, `MembershipReported`, `TenantCreated`; ports it offers: `CreateHousehold`.
 
 ## Consumes

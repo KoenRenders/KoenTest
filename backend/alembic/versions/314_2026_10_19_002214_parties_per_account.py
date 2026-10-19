@@ -329,7 +329,11 @@ def upgrade() -> None:
         UNION
         SELECT op.tenant_id, op.person_id
           FROM mdm.organization_persons op
-         WHERE op.deleted_at IS NULL
+         WHERE op.deleted_at IS NULL;
+        COMMENT ON VIEW mdm.person_tenants IS
+            'CR-26 F9: the persons at a tenant by fact. A new kind of fact (an invoice, '
+            'a webshop customer) adds a branch here; a person without one is simply not '
+            'at the tenant (mdm CONTRACT.md).';
         """
     )
 
@@ -343,11 +347,25 @@ def upgrade() -> None:
         op.execute(f"ALTER TABLE {table} DROP COLUMN tenant_id")
 
     # ── 9. One household per person; two departments in one year (F5) ───────
+    # Counted first, so a refusal names the persons instead of an index error
+    # (measured: none on HDEV, UAT and PROD).
+    two = [
+        row[0]
+        for row in op.get_bind().exec_driver_sql(
+            "SELECT person_id FROM mdm.member_persons WHERE deleted_at IS NULL "
+            "GROUP BY person_id HAVING count(*) > 1 ORDER BY person_id"
+        )
+    ]
+    if two:
+        raise RuntimeError(
+            f"CR-26: these persons are in more than one living household: {two}. "
+            "One household per person (F5): end the other link first."
+        )
     op.execute(
         "CREATE UNIQUE INDEX uq_member_persons_one_household ON mdm.member_persons "
         "(person_id) WHERE deleted_at IS NULL"
     )
-    op.execute("DROP INDEX membership.uq_memberships_member_year")
+    op.execute("DROP INDEX IF EXISTS membership.uq_memberships_member_year")
     op.execute(
         "CREATE UNIQUE INDEX uq_memberships_tenant_member_year ON membership.memberships "
         "(tenant_id, member_id, year) WHERE deleted_at IS NULL"

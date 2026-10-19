@@ -32,7 +32,7 @@ from app.domains.mdm.api import (
     PersonDetailsMissing,
     RelationType,
     email_refusal,
-    household_at_tenant,
+    household_here,
     households_of_tenant,
 )
 from app.domains.membership.models import Membership
@@ -542,9 +542,9 @@ def list_families(
 
 
 def get_family(db: Session, family_id: int, _admin=None):
-    m = db.query(Member).filter(Member.id == family_id).first()
     # CR-26 F9: a household of the account without a fact here is not yours.
-    if not m or not household_at_tenant(db, family_id):
+    m = household_here(db, family_id)
+    if not m:
         raise HTTPException(status_code=404, detail=_("Family not found"))
     from app.domains.membership.service import membership_states
 
@@ -559,7 +559,7 @@ def create_membership_for_family(
 ):
     from app.domains.membership.history import snapshot_membership
 
-    member = db.query(Member).filter(Member.id == family_id).first()
+    member = household_here(db, family_id)
     if not member:
         raise HTTPException(status_code=404, detail=_("Family not found"))
     existing = (

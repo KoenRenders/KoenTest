@@ -352,3 +352,31 @@ def test_an_organisation_named_by_two_accounts_stops_the_migration():
         with pytest.raises(Exception, match=r"named by tenants of two accounts") as refused:
             upgrade()
         assert f"[{ids['firm']}]" in str(refused.value)
+
+
+def _in_two_households(conn) -> dict:
+    """One person with a living link to two households, as no environment holds."""
+    person = _person(conn, "Twee", 2)
+    for _ in range(2):
+        household = _one(
+            conn,
+            "INSERT INTO mdm.members (tenant_id, created_at, updated_at) "
+            "VALUES (2, now(), now()) RETURNING id",
+        )
+        conn.execute(
+            text(
+                "INSERT INTO mdm.member_persons (member_id, person_id, relation_type, "
+                "tenant_id, created_at, updated_at) VALUES (:m, :p, 'HOOFDLID', 2, now(), now())"
+            ),
+            {"m": household, "p": person},
+        )
+    return {"person": person}
+
+
+def test_a_person_in_two_households_stops_the_migration_by_name():
+    """dev2's read of #2158: the refusal names the person, before the index
+    would fail with Postgres' own words."""
+    with _migrated("cr26_two_homes", _in_two_households) as (upgrade, _engine, ids):
+        with pytest.raises(Exception, match=r"more than one living household") as refused:
+            upgrade()
+        assert f"[{ids['person']}]" in str(refused.value)

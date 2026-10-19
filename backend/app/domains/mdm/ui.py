@@ -420,9 +420,11 @@ def renew_membership(
     """The board starts the renewal. Online: the hard redirect to the provider,
     as on the public side — the board may pay itself. A transfer: back to the
     record, where the running renewal stands with its payment details."""
-    from app.domains.membership.api import PAYMENT_METHODS, board_renew_membership
+    from app.domains.membership.api import PAYMENT_METHODS, board_renew_membership, get_family
     from app.kernel.refusals import FieldError
 
+    # CR-26 F9: a household of another department answers 404, as on the GET.
+    get_family(db, family_id)
     if payment_method not in PAYMENT_METHODS:
         return refusal_response(
             request,

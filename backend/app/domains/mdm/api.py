@@ -28,6 +28,7 @@ from app.domains.mdm.codes import (  # noqa: F401,E402
 )
 from app.domains.mdm.facts import (  # noqa: F401
     household_at_tenant,
+    household_here,
     households_of_tenant,
     person_at_tenant,
     persons_of_tenant,
@@ -311,6 +312,7 @@ __all__ = [
     "list_postal_codes",
     "account_organization_id",
     "household_at_tenant",
+    "household_here",
     "households_of_tenant",
     "person_at_tenant",
     "persons_of_tenant",

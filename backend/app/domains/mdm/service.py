@@ -175,10 +175,12 @@ def admin_code_lists(db) -> dict:
 
 
 def list_persons(db):
-    """Alle personen, op naam — voor de keuzelijst 'bestaand lid toevoegen'."""
+    """Alle personen, op naam — voor de keuzelijst 'bestaand lid toevoegen'.
+    The ones the current tenant sees (CR-26 F9, `facts.persons_seen_here`)."""
+    from app.domains.mdm.facts import persons_seen_here
     from app.domains.mdm.models import Person
 
-    return db.query(Person).order_by(Person.last_name, Person.first_name).all()
+    return persons_seen_here(db.query(Person)).order_by(Person.last_name, Person.first_name).all()
 
 
 # Characters that mean something to SQL's LIKE. Escaped rather than stripped: a
@@ -230,13 +232,15 @@ def search_persons(
     Sorted by last name, first name, and id as the tiebreaker (#761), so the
     same query gives the same order on every run.
     """
+    from app.domains.mdm.facts import persons_seen_here
     from app.domains.mdm.models import MemberPerson
 
     naald = (query or "").strip().lower()
     if not naald:
         return []
     patroon = f"%{naald.translate(_LIKE_SPECIAAL)}%"
-    vraag = db.query(Person).filter(
+    # CR-26 F9: the persons this tenant sees, not every person of the account.
+    vraag = persons_seen_here(db.query(Person)).filter(
         func.lower(Person.first_name + " " + Person.last_name).like(patroon, escape="\\")
     )
     if members_only:

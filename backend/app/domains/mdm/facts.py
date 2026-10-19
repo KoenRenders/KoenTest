@@ -70,3 +70,24 @@ def person_at_tenant(db, person_id: int) -> bool:
         return True
     seen = select(here.subquery().c[0]).where(here.subquery().c[0] == person_id)
     return db.execute(seen).first() is not None
+
+
+def household_here(db, household_id: int):
+    """The household with this id when the current tenant sees it (F9), else
+    None — the one read of a household by id for a door that names one: an id
+    of the account without a fact here answers as an id that is not yours."""
+    from app.domains.mdm.models import Member
+
+    household = db.query(Member).filter(Member.id == household_id).first()
+    if household is None or not household_at_tenant(db, household_id):
+        return None
+    return household
+
+
+def persons_seen_here(query):
+    """Narrow a query on persons to the ones the current tenant sees
+    (`persons_of_tenant`): Personen, the person pickers, a person by id."""
+    from app.domains.mdm.models import Person
+
+    here = persons_of_tenant()
+    return query if here is None else query.filter(Person.id.in_(here))

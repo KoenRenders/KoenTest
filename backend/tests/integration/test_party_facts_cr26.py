@@ -11,7 +11,11 @@ Proven red, additively (put back each time):
 - `return True` added at the top of `household_at_tenant` → the 404 test gets
   200;
 - `known = None` added after the e-mail lookup in `_sync_family` → the import
-  test finds a second person.
+  test finds a second person;
+- `return True` added at the top of `household_at_tenant` → all seven
+  household routes answer (200, 422, 204: the delete went through);
+- `return query` added at the top of `persons_seen_here` → the picker finds
+  the other department's member.
 """
 
 from __future__ import annotations
@@ -94,6 +98,65 @@ def test_a_household_without_a_fact_here_answers_404(client, db_session):
 
     assert client.get(f"/admin/leden/gezin/{here.id}").status_code == 200
     assert client.get(f"/admin/leden/gezin/{elsewhere.id}").status_code == 404
+
+
+#: The routes of a household's record (`test_who_gets_in_unchanged_1722`): the
+#: method, the path after the id, and what a POST sends.
+HOUSEHOLD_ROUTES = [
+    ("GET", "", None),
+    ("GET", "/vernieuwen", None),
+    ("GET", "/inschrijvingen", None),
+    ("GET", "/betalingen", None),
+    ("POST", "", {}),
+    ("POST", "/vernieuwen", {"payment_method": "transfer"}),
+    ("POST", "/verwijderen", {}),
+]
+
+
+@pytest.mark.parametrize(("method", "tail", "data"), HOUSEHOLD_ROUTES)
+def test_every_household_route_refuses_a_household_of_another_department(
+    client, db_session, method, tail, data
+):
+    """dev2's read of #2158: the guard on every door, not on one GET. A
+    household of the account that is a member of the Voorbeeldafdeling only,
+    asked of Millegem: 404, and nothing written."""
+    from app.domains.membership.api import Membership
+
+    elsewhere, _person = create_test_family(db_session, email=f"deur{len(tail)}@example.org")
+    at_tenant(db_session, elsewhere, TENANT_VOORBEELD_ID)
+    db_session.commit()
+    headers = board_session(client)
+    path = f"/admin/leden/gezin/{elsewhere.id}{tail}"
+    answer = client.get(path) if method == "GET" else client.post(path, data=data, headers=headers)
+    assert answer.status_code == 404, (method, path, answer.status_code)
+    db_session.expire_all()
+    assert db_session.get(Member, elsewhere.id).deleted_at is None
+    rows = (
+        db_session.query(Membership)
+        .execution_options(include_all_tenants=True)
+        .filter(Membership.member_id == elsewhere.id)
+        .count()
+    )
+    assert rows == 1, "no membership was written"
+
+
+def test_the_person_pickers_find_only_who_the_tenant_sees(db_session):
+    """dev2's read of #2158: the circle, the organiser and the order contact
+    search, and 'bestaand lid toevoegen', narrow like Personen — a member of the
+    other department is not found, a person with a fact nowhere is."""
+    from app.domains.mdm.service import list_persons, search_persons
+
+    household, elsewhere = create_test_family(db_session, email="zoek-elders@example.org")
+    elsewhere.first_name, elsewhere.last_name = "Zoek", "Elders"
+    at_tenant(db_session, household, TENANT_VOORBEELD_ID)
+    create_test_person(db_session, first_name="Zoek", last_name="Nergens")
+    db_session.commit()
+    with _At(TENANT_MILLEGEM_ID):
+        db_session.expire_all()
+        found = {f"{m.first_name} {m.last_name}" for m in search_persons(db_session, "zoek")}
+        listed = {f"{p.first_name} {p.last_name}" for p in list_persons(db_session)}
+    assert found == {"Zoek Nergens"}
+    assert "Zoek Elders" not in listed and "Zoek Nergens" in listed
 
 
 def test_the_member_list_holds_only_the_tenants_households(client, db_session):

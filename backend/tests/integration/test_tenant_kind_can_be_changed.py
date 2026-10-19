@@ -225,7 +225,15 @@ def test_the_tenant_list_shows_each_sites_account(client, platform_workspace, db
     """#1542 (Koen): an account badge beside the kind badge, the platform's too.
     Since CR-20 every site has an account; a site that is its own account names
     itself there."""
+    # CR-26 (dev2's read of #2158): a tenant names its account's PARTY, and
+    # here the party id differs from the organisation id — persons took party
+    # ids first — so a reader that joins on the organisation id names nothing.
+    from tests.conftest import create_test_person
+
+    for n in range(3):
+        create_test_person(db_session, first_name=f"Voor{n}", last_name="Partij")
     account = create_organization(db_session, name="Account Zeven")
+    assert account.id != account.party_id
     new_site(db_session, name="Zevenclub", code="zevenclub-1542", account_id=account.id)
     new_site(db_session, name="Losse Zeven", code="los-zeven-1542")
     platform = _the_platform(db_session)

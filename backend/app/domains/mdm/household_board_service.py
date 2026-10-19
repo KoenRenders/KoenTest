@@ -25,6 +25,7 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
+from app.domains.mdm.facts import household_here
 from app.domains.mdm.household_board_schemas import (
     AddressUpdate,
     BoardMemberAssign,
@@ -44,7 +45,6 @@ from app.domains.mdm.household_service import (
 from app.domains.mdm.models import (
     Address,
     MasterDataError,
-    Member,
     MemberPerson,
     Person,
     PersonDetailsMissing,
@@ -150,7 +150,7 @@ def update_family_address(db: Session, family_id: int, data: AddressUpdate, admi
     """The household's one address. It hangs on the main member — on the first
     person where none is marked — and a household without persons has nobody to
     hang it on. That rule stood in the screen until CR-13 phase 4c (#1251)."""
-    household = db.query(Member).filter(Member.id == family_id).first()
+    household = household_here(db, family_id)
     if not household:
         raise HTTPException(status_code=404, detail=_("Family not found"))
     links = sorted(household.member_persons, key=MemberPerson.household_position)
@@ -311,7 +311,7 @@ def add_person_to_family(
         snapshot_person,
     )
 
-    member = db.query(Member).filter(Member.id == family_id).first()
+    member = household_here(db, family_id)
     if not member:
         raise HTTPException(status_code=404, detail=_("Family not found"))
 
@@ -394,7 +394,7 @@ def assign_board_member(
 ):
     from app.domains.mdm.history import snapshot_member
 
-    member = db.query(Member).filter(Member.id == family_id).first()
+    member = household_here(db, family_id)
     if not member:
         raise HTTPException(status_code=404, detail=_("Family not found"))
     if data.person_id is not None:
@@ -524,7 +524,7 @@ def delete_household(db: Session, family_id: int, admin=None) -> None:
     from app.kernel.events import has_subscribers, publish
     from app.soft_delete import soft_delete
 
-    member = db.query(Member).filter(Member.id == family_id).first()
+    member = household_here(db, family_id)
     if not member:
         raise HTTPException(status_code=404, detail=_("Family not found"))
     if not has_subscribers(HouseholdDeleted):
