@@ -85,6 +85,23 @@ def users_of_workspace(db: Session, workspace_id: int) -> list:
     ]
 
 
+def user_of_workspace(db: Session, user_id: int):
+    """The account `user_id` as the current workspace's Gebruikers knows it, or
+    404 as for an account that does not exist (#2162): on the platform every
+    account, in a workspace one with a role here or a platform-wide one
+    (`users_of_workspace`). The one scope of the user record: opening it, saving
+    it and deleting it all go through here."""
+    if is_platform_workspace(db):
+        user = db.query(User).filter(User.id == user_id).first()
+    else:
+        user = next(
+            (u for u in users_of_workspace(db, _actieve_werkruimte()) if u.id == user_id), None
+        )
+    if user is None:
+        raise HTTPException(status_code=404, detail=_("Gebruiker niet gevonden."))
+    return user
+
+
 class AccessRow(NamedTuple):
     """One (account, workspace, role) of the operator's overview (#1500)."""
 
@@ -236,9 +253,7 @@ def create_user(body: UserCreate, db: Session, _admin=None):
 
 
 def update_user(user_id: int, body: UserUpdate, db: Session, _admin=None):
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail=_("Gebruiker niet gevonden."))
+    user = user_of_workspace(db, user_id)
     if body.email is not None:
         existing = db.query(User).filter(User.email == body.email, User.id != user_id).first()
         if existing:
@@ -257,9 +272,7 @@ def update_user(user_id: int, body: UserUpdate, db: Session, _admin=None):
 def delete_user(user_id: int, db: Session, current_admin: User):
     if current_admin.id == user_id:
         raise HTTPException(status_code=400, detail=_("Je kan jezelf niet verwijderen."))
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail=_("Gebruiker niet gevonden."))
+    user = user_of_workspace(db, user_id)
     from app.soft_delete import soft_delete
 
     soft_delete(user)
