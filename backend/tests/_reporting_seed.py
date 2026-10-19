@@ -111,7 +111,7 @@ def seed(db) -> dict:
             people.append(person)
         db.add(
             Address(
-                person_id=people[0].id,
+                party_id=people[0].party_id,
                 street="Straat",
                 house_number=house_number,
                 postal_code_id=postal.id,
@@ -135,17 +135,18 @@ def seed(db) -> dict:
     h4, _h4_people = household(TENANT_A, 2, house_number="12A")
     hb, _hb_people = household(TENANT_B, 4)
 
-    # H2's head of household has moved. `uq_addresses_person_id` (migration 053)
-    # is UNIQUE (person_id) WHERE deleted_at IS NULL, so this is allowed and it is
+    # H2's head of household has moved. `uq_addresses_party_id` (migration 315,
+    # migration 053's `uq_addresses_person_id` before it) is UNIQUE (party_id)
+    # WHERE deleted_at IS NULL, so this is allowed and it is
     # what everybody who ever moves looks like: one live address, one or more
     # soft-deleted ones behind it. Without such a person in the seed, a grain test
     # on `reporting.d_address` proves nothing — the unique index holds it green
     # whatever the view does.
-    verhuisd = db.query(Address).filter(Address.person_id == _h2_people[0].id).one()
+    verhuisd = db.query(Address).filter(Address.party_id == _h2_people[0].party_id).one()
     soft_delete(verhuisd)
     db.add(
         Address(
-            person_id=_h2_people[0].id,
+            party_id=_h2_people[0].party_id,
             street="Straat",
             house_number="9",
             postal_code_id=postal.id,

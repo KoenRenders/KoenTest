@@ -113,7 +113,7 @@ def _household(db, *people, year=YEAR):
         db.flush()
         db.add(MemberPerson(member_id=member.id, person_id=person.id, relation_type=relation))
         if email:
-            db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=email))
+            db.add(ContactDetail(party_id=person.party_id, contact_type_code="EMAIL", value=email))
     if year is not None:
         db.add(
             Membership(

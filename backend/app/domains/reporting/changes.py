@@ -69,6 +69,7 @@ class _SubjectResolver:
         self._member_of_person: dict = {}
         self._head_of_member: dict = {}
         self._pc: dict = {}
+        self._person_of_party: dict = {}
 
     def _q(self, model):
         return self.db.query(model).execution_options(include_deleted=True)
@@ -86,6 +87,18 @@ class _SubjectResolver:
             )
         return self._pc[postal_code_id]
 
+    def person_of_party(self, party_id):
+        """The person whose party this is (CR-26 F3), or None — an organisation's
+        rows name no person, as before, when they carried `person_id` NULL."""
+        if party_id is None:
+            return None
+        if party_id not in self._person_of_party:
+            from app.domains.mdm.api import Person
+
+            p = self._q(Person).filter(Person.party_id == party_id).first()
+            self._person_of_party[party_id] = p.id if p else None
+        return self._person_of_party[party_id]
+
     def _name_of(self, person_id):
         if person_id is None:
             return ""
@@ -100,11 +113,12 @@ class _SubjectResolver:
         if person_id is None:
             return ""
         if person_id not in self._ext:
-            from app.domains.mdm.api import ExternalNumber
+            from app.domains.mdm.api import ExternalNumber, Person
 
             en = (
                 self._q(ExternalNumber)
-                .filter(ExternalNumber.person_id == person_id)
+                .join(Person, Person.party_id == ExternalNumber.party_id)
+                .filter(Person.id == person_id)
                 .order_by(ExternalNumber.id)
                 .first()
             )
@@ -115,9 +129,14 @@ class _SubjectResolver:
         if person_id is None:
             return ""
         if person_id not in self._addr:
-            from app.domains.mdm.api import Address, PostalCode
+            from app.domains.mdm.api import Address, Person, PostalCode
 
-            a = self._q(Address).filter(Address.person_id == person_id).first()
+            a = (
+                self._q(Address)
+                .join(Person, Person.party_id == Address.party_id)
+                .filter(Person.id == person_id)
+                .first()
+            )
             if a is None:
                 self._addr[person_id] = ""
             else:
@@ -163,23 +182,23 @@ class _SubjectResolver:
             return None
         from sqlalchemy import func
 
-        from app.domains.mdm.api import ContactDetail
+        from app.domains.mdm.api import ContactDetail, Person
 
-        # `person_id IS NOT NULL` is niet overbodig sinds #945: een organisatie
-        # draagt haar e-mailadres nu als rij in dezelfde tabel, met `person_id`
-        # leeg. Zonder deze voorwaarde kan deze `.first()` — die geen ordening
-        # heeft — de organisatierij pakken en `None` teruggeven, waarna de
-        # auditregel stil haar onderwerp verliest.
-        cd = (
-            self._q(ContactDetail)
+        # The join on the person is not superfluous since #945: an organisation
+        # holds its e-mail address as a row of the same table. Without it this
+        # `.first()` — which has no order — could take the organisation's row,
+        # and the audit line would silently lose its subject.
+        row = (
+            self.db.query(Person.id)
+            .join(ContactDetail, ContactDetail.party_id == Person.party_id)
             .filter(
-                ContactDetail.person_id.isnot(None),
                 func.lower(ContactDetail.value) == email.strip().lower(),
                 ContactDetail.contact_type_code == CONTACT.EMAIL,
             )
+            .execution_options(include_deleted=True)
             .first()
         )
-        return cd.person_id if cd else None
+        return row[0] if row else None
 
     def fields(self, *, person_id=None, member_id=None) -> dict:
         """De vier extra kolommen voor één wijziging. Subject = de betrokken
@@ -408,17 +427,17 @@ shows(
 shows(
     "Address",
     shown={"street", "house_number", "bus_number", "postal_code_id"},
-    not_shown={"person_id": _SUBJECT, "organization_id": "the organisation that owns it: " + REF},
+    not_shown={"party_id": _SUBJECT},
 )
 shows(
     "ContactDetail",
     shown={"contact_type_code", "value", "is_primary"},
-    not_shown={"person_id": _SUBJECT, "organization_id": "the organisation that owns it: " + REF},
+    not_shown={"party_id": _SUBJECT},
 )
 shows(
     "ExternalNumber",
     shown={"source", "external_id"},
-    not_shown={"person_id": _SUBJECT},
+    not_shown={"party_id": _SUBJECT},
 )
 shows(
     "Membership",
@@ -609,7 +628,7 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
                 entity="Adres",
                 entity_id=h.address_id,
                 summary=_with_more(summary, db, h),
-                subject=subj.fields(person_id=h.person_id),
+                subject=subj.fields(person_id=subj.person_of_party(h.party_id)),
             )
         )
 
@@ -676,7 +695,7 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
                 entity="Contact",
                 entity_id=h.contact_detail_id,
                 summary=_with_more(f"{shown.text()}{markering}", db, h),
-                subject=subj.fields(person_id=h.person_id),
+                subject=subj.fields(person_id=subj.person_of_party(h.party_id)),
             )
         )
 

@@ -161,7 +161,7 @@ def world(db_session):
     db.add(MemberPerson(member_id=MEMBER_ID, person_id=PERSON_ID, relation_type="HOOFDLID"))
     db.add(
         ContactDetail(
-            person_id=PERSON_ID,
+            party_id=db.get(Person, PERSON_ID).party_id,
             contact_type_code="EMAIL",
             value="karakter@example.org",
             is_primary=True,

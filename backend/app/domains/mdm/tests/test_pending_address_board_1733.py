@@ -28,7 +28,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import ContactDetail, new_contact_detail
-from tests._sites import at_tenant
+from tests._sites import at_tenant, party_of
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     create_test_family,
@@ -129,7 +129,9 @@ def test_a_waiting_address_is_never_made_the_main_one(client, db_session, world)
     db_session.expire_all()
     rows = {
         c.value: (bool(c.is_primary), c.confirmed_at is not None)
-        for c in db_session.query(ContactDetail).filter(ContactDetail.person_id == world["person"])
+        for c in db_session.query(ContactDetail).filter(
+            ContactDetail.party_id == party_of(db_session, world["person"])
+        )
     }
     assert rows == {MAIN: (True, True), SECOND: (False, True), WAITING: (False, False)}
 
@@ -138,7 +140,9 @@ def test_a_waiting_address_is_never_made_the_main_one(client, db_session, world)
     db_session.expire_all()
     primary = [
         c.value
-        for c in db_session.query(ContactDetail).filter(ContactDetail.person_id == world["person"])
+        for c in db_session.query(ContactDetail).filter(
+            ContactDetail.party_id == party_of(db_session, world["person"])
+        )
         if c.is_primary
     ]
     assert primary == [SECOND]

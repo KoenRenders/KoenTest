@@ -261,7 +261,9 @@ def test_the_exemption_outlives_no_transaction(db_session):
 
 def _contact(db, person, value, *, primary, kind="EMAIL"):
     db.add(
-        ContactDetail(person_id=person.id, contact_type_code=kind, value=value, is_primary=primary)
+        ContactDetail(
+            party_id=person.party_id, contact_type_code=kind, value=value, is_primary=primary
+        )
     )
     db.flush()
 

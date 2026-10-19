@@ -96,7 +96,9 @@ def test_an_address_of_two_households_gets_the_board_notice_through_the_queue(db
     owner today."""
     for name in ("Een", "Twee"):
         person = _person(db_session, name, household=True)
-        db_session.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=SHARED))
+        db_session.add(
+            ContactDetail(party_id=person.party_id, contact_type_code="EMAIL", value=SHARED)
+        )
     db_session.commit()
 
     start_login(db_session, SHARED, proof=form_guard_proof())

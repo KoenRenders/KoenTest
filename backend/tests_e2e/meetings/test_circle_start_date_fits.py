@@ -60,7 +60,7 @@ def _add_to_circle(first: str, last: str) -> None:
         db.flush()
         db.add(
             ContactDetail(
-                person_id=person.id,
+                party_id=person.party_id,
                 contact_type_code="EMAIL",
                 value=f"{first.lower()}.{last.lower()}@voorbeeld-van-een-lang-domein.example",
                 is_primary=True,

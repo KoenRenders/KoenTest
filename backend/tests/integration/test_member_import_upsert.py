@@ -134,7 +134,7 @@ def test_existing_member_fields_overwritten(db_session):
 
     person = (
         db_session.query(Person)
-        .join(ExternalNumber)
+        .join(ExternalNumber, ExternalNumber.party_id == Person.party_id)
         .filter(ExternalNumber.external_id == "100")
         .one()
     )
@@ -253,7 +253,7 @@ def test_person_moves_between_households(db_session):
     assert db_session.query(ExternalNumber).filter_by(external_id="101").count() == 1
     p101 = (
         db_session.query(Person)
-        .join(ExternalNumber)
+        .join(ExternalNumber, ExternalNumber.party_id == Person.party_id)
         .filter(ExternalNumber.external_id == "101")
         .one()
     )
@@ -261,7 +261,7 @@ def test_person_moves_between_households(db_session):
     new_member_id = p101.member_persons[0].member_id
     p200 = (
         db_session.query(Person)
-        .join(ExternalNumber)
+        .join(ExternalNumber, ExternalNumber.party_id == Person.party_id)
         .filter(ExternalNumber.external_id == "200")
         .one()
     )
@@ -271,7 +271,7 @@ def test_person_moves_between_households(db_session):
     # household with two main members and two addresses.
     p100 = (
         db_session.query(Person)
-        .join(ExternalNumber)
+        .join(ExternalNumber, ExternalNumber.party_id == Person.party_id)
         .filter(ExternalNumber.external_id == "100")
         .one()
     )
@@ -312,7 +312,7 @@ def test_orphan_person_reused_not_duplicated(db_session):
     assert db_session.query(ExternalNumber).filter_by(external_id="101").count() == 1
     p = (
         db_session.query(Person)
-        .join(ExternalNumber)
+        .join(ExternalNumber, ExternalNumber.party_id == Person.party_id)
         .filter(ExternalNumber.external_id == "101")
         .one()
     )
@@ -368,7 +368,7 @@ def test_a_link_the_import_deleted_is_gone_from_what_the_next_import_reads(
 
     p = (
         db_session.query(Person)
-        .join(ExternalNumber)
+        .join(ExternalNumber, ExternalNumber.party_id == Person.party_id)
         .filter(ExternalNumber.external_id == "101")
         .one()
     )
@@ -412,7 +412,7 @@ def test_dry_run_makes_no_changes(db_session):
     assert db_session.query(PersonHistory).count() == history_before
     person = (
         db_session.query(Person)
-        .join(ExternalNumber)
+        .join(ExternalNumber, ExternalNumber.party_id == Person.party_id)
         .filter(ExternalNumber.external_id == "100")
         .one()
     )
@@ -499,7 +499,7 @@ def test_a_partner_who_leaves_and_heads_a_household_in_the_same_report_gets_that
     assert len(links) == 1, f"she has {len(links)} households in the database"
     assert links[0] != household_a, "she was put back into the household she had left"
     assert db_session.query(Member).count() == households_before + 1
-    assert db_session.query(ExternalNumber).filter_by(external_id="201").one().person_id == an.id
+    assert db_session.query(ExternalNumber).filter_by(external_id="201").one().person.id == an.id
 
 
 def test_identity_match_attaches_lidnr_no_duplicate(db_session):
@@ -529,7 +529,7 @@ def test_identity_match_attaches_lidnr_no_duplicate(db_session):
     assert db_session.query(Member).count() == members_before
     # Lidnummer gehecht aan het bestaande lid.
     ext = db_session.query(ExternalNumber).filter_by(external_id="100").one()
-    assert ext.person_id == person.id
+    assert ext.person.id == person.id
     # Bestaand gezin hergebruikt.
     assert _household(db_session, member.id)[0].person_id == person.id
     # Audit: lidnr_attached-snapshot.
@@ -821,7 +821,7 @@ def _seed_imported(db, lidnr, voornaam, naam, dob, *, relatie="HOOFDLID", member
     db.add(person)
     db.flush()
     mp = MemberPerson(member_id=member.id, person_id=person.id, relation_type=relatie)
-    en = ExternalNumber(person_id=person.id, source=LEGACY_SOURCE, external_id=lidnr)
+    en = ExternalNumber(party_id=person.party_id, source=LEGACY_SOURCE, external_id=lidnr)
     db.add_all([mp, en])
     db.flush()
     return member, person, mp, en

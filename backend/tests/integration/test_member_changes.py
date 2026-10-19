@@ -94,7 +94,9 @@ def test_member_changes_enriched_with_person_and_head(client, db_session):
 
     person = db_session.query(Person).filter(Person.first_name == "An").first()
     db_session.add(
-        ExternalNumber(person_id=person.id, source="ledenadministratie", external_id="RN-12345")
+        ExternalNumber(
+            party_id=person.party_id, source="ledenadministratie", external_id="RN-12345"
+        )
     )
     db_session.flush()
 
@@ -122,7 +124,7 @@ def test_changes_feed_enriches_payment_with_registration_person(client, db_sessi
     _create_family(client, db_session)  # An Janssens, hoofdlid, Milostraat 40 2400 Mol
     person = db_session.query(Person).filter(Person.first_name == "An").first()
     db_session.add(
-        ExternalNumber(person_id=person.id, source="ledenadministratie", external_id="RN-1")
+        ExternalNumber(party_id=person.party_id, source="ledenadministratie", external_id="RN-1")
     )
 
     _, comp, product = seed_activity_with_product(db_session, price="2.00")
@@ -162,7 +164,7 @@ def test_changes_feed_matches_guest_payment_by_email(client, db_session):
     )  # An Janssens, e-mail lid@example.com, Milostraat 40 2400 Mol
     person = db_session.query(Person).filter(Person.first_name == "An").first()
     db_session.add(
-        ExternalNumber(person_id=person.id, source="ledenadministratie", external_id="RN-9")
+        ExternalNumber(party_id=person.party_id, source="ledenadministratie", external_id="RN-9")
     )
     db_session.flush()
 
@@ -200,7 +202,7 @@ def test_changes_feed_person_and_head_columns_differ(client, db_session):
     _create_family(client, db_session)  # hoofdlid An Janssens, Milostraat 40 2400 Mol
     an = db_session.query(Person).filter(Person.first_name == "An").first()
     db_session.add(
-        ExternalNumber(person_id=an.id, source="ledenadministratie", external_id="RN-HEAD")
+        ExternalNumber(party_id=an.party_id, source="ledenadministratie", external_id="RN-HEAD")
     )
     member_id = (
         db_session.query(MemberPerson).filter(MemberPerson.person_id == an.id).first().member_id
@@ -214,10 +216,10 @@ def test_changes_feed_person_and_head_columns_differ(client, db_session):
     db_session.flush()
     db_session.add(MemberPerson(member_id=member_id, person_id=kind.id, relation_type="KIND"))
     db_session.add(
-        ContactDetail(person_id=kind.id, contact_type_code="EMAIL", value="tom@example.com")
+        ContactDetail(party_id=kind.party_id, contact_type_code="EMAIL", value="tom@example.com")
     )
     db_session.add(
-        ExternalNumber(person_id=kind.id, source="ledenadministratie", external_id="RN-KIND")
+        ExternalNumber(party_id=kind.party_id, source="ledenadministratie", external_id="RN-KIND")
     )
     db_session.flush()
 

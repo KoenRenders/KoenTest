@@ -3,7 +3,7 @@
 *Ondernemingsnummer* (KBO/BCE): ten digits, the first a 0 or a 1, and the last
 two a check — 97 minus the first eight modulo 97. It identifies a party in the
 scheme ISO 6523 ICD 0208, whose value is exactly those ten digits; that is the
-form stored (`organization_identifications`, scheme KBO, #924). People write it
+form stored (`party_identifications`, scheme KBO, #924). People write it
 as `0123.456.789`, `0123 456 789`, `0123456789` or, as a VAT number,
 `BE0123456789`; all are read. An old nine-digit number (before the leading digit
 existed) is read with its 0 in front, as KBO itself did.

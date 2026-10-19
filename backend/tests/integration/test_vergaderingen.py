@@ -86,7 +86,7 @@ def _person(db, voornaam: str, achternaam: str, email: str | None = None) -> Per
     db.add(person)
     db.flush()
     if email:
-        db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=email))
+        db.add(ContactDetail(party_id=person.party_id, contact_type_code="EMAIL", value=email))
         db.flush()
     return person
 

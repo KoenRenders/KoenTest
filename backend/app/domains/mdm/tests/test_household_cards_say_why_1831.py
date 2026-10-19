@@ -127,7 +127,7 @@ def _state(db) -> tuple:
     places = [
         (a.street, a.house_number, a.postal_code_id) for a in db.query(Address).order_by(Address.id)
     ]
-    contacts = [(c.person_id, c.value) for c in db.query(ContactDetail).order_by(ContactDetail.id)]
+    contacts = [(c.party_id, c.value) for c in db.query(ContactDetail).order_by(ContactDetail.id)]
     return people, links, places, contacts
 
 

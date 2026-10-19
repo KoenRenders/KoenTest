@@ -80,13 +80,15 @@ def test_een_post_maakt_gezin_hoofdlid_adres_en_contactgegevens(client, db_sessi
     koppeling = db_session.query(MemberPerson).filter(MemberPerson.person_id == persoon.id).one()
     assert koppeling.member_id == gezin and koppeling.relation_type == RelationType.PRIMARY_MEMBER
 
-    adres = db_session.query(Address).filter(Address.person_id == persoon.id).one()
+    adres = db_session.query(Address).filter(Address.party_id == persoon.party_id).one()
     assert (adres.street, adres.house_number) == ("Nieuwstraat", "7")
     assert adres.postal_code.postal_code == "2400"
 
     contacten = {
         code_of(c.contact_type_code): c.value
-        for c in db_session.query(ContactDetail).filter(ContactDetail.person_id == persoon.id).all()
+        for c in db_session.query(ContactDetail)
+        .filter(ContactDetail.party_id == persoon.party_id)
+        .all()
     }
     assert contacten["EMAIL"] == "nieuw@example.com"
     assert contacten["MOBILE"] == "0470000000"
@@ -205,7 +207,10 @@ def test_een_gezin_met_twee_extra_leden_komt_in_een_keer_binnen(client, db_sessi
     }
 
     # Het adres hangt aan het hoofdlid en aan niemand anders (#125).
-    adressen = {a.person.first_name for a in db_session.query(Address).join(Person).all()}
+    adressen = {
+        a.person.first_name
+        for a in db_session.query(Address).join(Person, Person.party_id == Address.party_id).all()
+    }
     assert adressen == {"Nieuw"}
 
 
@@ -261,4 +266,9 @@ def test_een_fout_na_de_eerste_rijen_laat_niets_achter(client, db_session, monke
 
     db_session.expire_all()
     assert _telling(db_session) == voor, "er staat een half gezin in de databank"
-    assert not db_session.query(Address).join(Person).filter(Person.first_name == "Nieuw").all()
+    assert (
+        not db_session.query(Address)
+        .join(Person, Person.party_id == Address.party_id)
+        .filter(Person.first_name == "Nieuw")
+        .all()
+    )

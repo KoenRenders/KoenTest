@@ -206,7 +206,7 @@ def test_the_code_makes_the_account_and_a_wrong_code_keeps_the_button(client, db
     assert _persons(db_session) == before + 1
     person = (
         db_session.query(Person)
-        .join(ContactDetail, ContactDetail.person_id == Person.id)
+        .join(ContactDetail, ContactDetail.party_id == Person.party_id)
         .filter(ContactDetail.value == GOOD["email"])
         .one()
     )

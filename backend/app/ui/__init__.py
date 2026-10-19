@@ -1122,11 +1122,11 @@ def _footer_organisatie(db, organisatie) -> dict | None:
     """
     if organisatie is None:
         return None
-    from app.domains.mdm.api import Address, BankAccount, ContactDetail
+    from app.domains.mdm.api import Address, BankAccount, party_contacts
 
     adres = (
         db.query(Address)
-        .filter(Address.organization_id == organisatie.id, Address.deleted_at.is_(None))
+        .filter(Address.party_id == organisatie.party_id, Address.deleted_at.is_(None))
         .execution_options(include_all_tenants=True)
         .one_or_none()
     )
@@ -1138,26 +1138,15 @@ def _footer_organisatie(db, organisatie) -> dict | None:
         if adres.postal_code is not None:
             regels.append(f"{adres.postal_code.postal_code} {adres.postal_code.municipality}")
             gemeente = adres.postal_code.municipality
-    # `include_all_tenants=True`: `tenant_id` is op een organisatierij niet de
-    # scope (zie `ContactDetail`), dus de gewone filter zou hier het verkeerde
-    # antwoord geven in plaats van geen.
     # Keyed on the CODE: the callers below look up with "EMAIL" and "PHONE".
-    # The column holds the plain code (contact types have no enum, see
-    # `mdm.codes.CONTACT`); `code_of` keeps this correct whichever it holds.
-    from app.kernel.codes import code_of as _code_of
-
-    contacten = {
-        _code_of(c.contact_type_code): c.value
-        for c in db.query(ContactDetail)
-        .filter(ContactDetail.organization_id == organisatie.id, ContactDetail.deleted_at.is_(None))
-        .execution_options(include_all_tenants=True)
-        .all()
-    }
+    # One per kind, the primary first — the same row the organisation's form
+    # shows (`party_contacts`, CR-26 phase 3).
+    contacten = party_contacts(db, organisatie.party_id)
     # De eerste rekening: `sort_order` bepaalt welke er getoond wordt zodra er
     # meer dan één is (#945).
     rekening = (
         db.query(BankAccount)
-        .filter(BankAccount.organization_id == organisatie.id, BankAccount.deleted_at.is_(None))
+        .filter(BankAccount.party_id == organisatie.party_id, BankAccount.deleted_at.is_(None))
         .order_by(BankAccount.sort_order, BankAccount.id)
         .execution_options(include_all_tenants=True)
         .first()
@@ -1259,12 +1248,12 @@ def _sociale_links(db, organisatie) -> list[dict]:
     """
     if organisatie is None:
         return []
-    from app.domains.mdm.api import ContactDetail, ContactTypeCode
+    from app.domains.mdm.api import ContactTypeCode, party_contacts
 
     # CR-12 phase 2: `is_social_network` still lives on the code table — it is
     # a property of the code (#1160) — but since the split the word next to it
     # comes from the label table, via `code_label()`.
-    from app.kernel.codes import code_label, code_of
+    from app.kernel.codes import code_label
 
     netwerken = {
         c.code: code_label("contact_type", c.code)
@@ -1275,21 +1264,8 @@ def _sociale_links(db, organisatie) -> list[dict]:
     }
     if not netwerken:
         return []
-    # `code_of`: the column holds the plain code — contact types have no enum,
-    # precisely so that a fifth social network is one row (#1160) — and
-    # `code_of` returns it unchanged. Kept so this reads the same as every
-    # other code lookup.
-    rijen = {
-        code_of(c.contact_type_code): c.value
-        for c in db.query(ContactDetail)
-        .filter(
-            ContactDetail.organization_id == organisatie.id,
-            ContactDetail.contact_type_code.in_(list(netwerken)),
-            ContactDetail.deleted_at.is_(None),
-        )
-        .execution_options(include_all_tenants=True)
-        .all()
-    }
+    # One link per network, the primary first (`party_contacts`, CR-26 phase 3).
+    rijen = party_contacts(db, organisatie.party_id, netwerken)
     links = []
     for code in sorted(netwerken):
         url = _externe_url(rijen.get(code) or "")

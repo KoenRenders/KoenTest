@@ -302,7 +302,7 @@ def _known_by_email(db: Session, row: dict, ext_map: dict) -> Person | None:
     persons = {
         p.id: p
         for p in db.query(Person)
-        .join(ContactDetail, ContactDetail.person_id == Person.id)
+        .join(ContactDetail, ContactDetail.party_id == Person.party_id)
         .filter(
             ContactDetail.contact_type_code == CONTACT.EMAIL,
             func.lower(ContactDetail.value) == address,
@@ -596,7 +596,7 @@ def _sync_address(
     else:
         if apply:
             addr = Address(
-                person_id=person.id,
+                party_id=person.party_id,
                 street=row["straat"],
                 house_number=row["huisnummer"],
                 bus_number=bus,
@@ -658,7 +658,9 @@ def _create_person(
     row["_person_id"] = person.id
 
     if row["lidnr"]:
-        number = ExternalNumber(person_id=person.id, source=LEGACY_SOURCE, external_id=row["lidnr"])
+        number = ExternalNumber(
+            party_id=person.party_id, source=LEGACY_SOURCE, external_id=row["lidnr"]
+        )
         db.add(number)
         db.flush()
         snapshot_external_number(
@@ -829,7 +831,7 @@ def _sync_family(
                 )
                 if apply:
                     en = ExternalNumber(source=LEGACY_SOURCE, external_id=row["lidnr"])
-                    en.person = match  # zet person_id én vult match.external_numbers in-sessie
+                    en.person = match  # zet party_id én vult match.external_numbers in-sessie
                     db.add(en)
                     db.flush()
                     snapshot_external_number(
@@ -1212,7 +1214,7 @@ def _revive_soft_deleted(
         .all()
     )
     for en in ens:
-        person = inc(Person).filter(Person.id == en.person_id).first()
+        person = inc(Person).filter(Person.party_id == en.party_id).first()
         if person is None or person.deleted_at is None:
             continue  # persoon nog actief → niets te herstellen
         report.persons_revived += 1
@@ -1449,10 +1451,10 @@ def upsert_families(
     # Bestaande personen ZONDER ledenadministratie-lidnummer, geïndexeerd op
     # identiteit (naam+geboortedatum) — voor de identiteitsmatch (#192). Een
     # geboortedatum is vereist; naamgenoten zonder datum komen niet in de index.
-    lidnr_person_ids = {e.person_id for e in ext_rows}
+    numbered_parties = {e.party_id for e in ext_rows}
     identity_map: dict[tuple, list[Person]] = defaultdict(list)
     for p in db.query(Person).options(joinedload(Person.member_persons)).all():
-        if p.id in lidnr_person_ids or p.date_of_birth is None:
+        if p.party_id in numbered_parties or p.date_of_birth is None:
             continue
         identity_map[_identity_key(p.first_name, p.last_name, p.date_of_birth)].append(p)
 

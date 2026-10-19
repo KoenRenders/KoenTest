@@ -30,7 +30,7 @@ DERDE = "derde@example.com"
 def _extra(db, person, waarde, *, primair=False):
     db.add(
         ContactDetail(
-            person_id=person.id, contact_type_code="EMAIL", value=waarde, is_primary=primair
+            party_id=person.party_id, contact_type_code="EMAIL", value=waarde, is_primary=primair
         )
     )
     db.flush()

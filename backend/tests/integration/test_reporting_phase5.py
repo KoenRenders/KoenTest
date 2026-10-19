@@ -352,7 +352,7 @@ def test_a_group_of_four_is_shown_as_itself(db_session, situation):
             if index == 0:
                 db_session.add(
                     Address(
-                        person_id=person.id,
+                        party_id=person.party_id,
                         street="Straat",
                         house_number="1",
                         postal_code_id=pc.id,

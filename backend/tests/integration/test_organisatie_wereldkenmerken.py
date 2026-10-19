@@ -24,6 +24,7 @@ from app.kernel.tenant_config import (
     tenant_payment_beneficiary,
     tenant_payment_iban,
 )
+from tests._sites import organization_party
 
 # De tenant die de applicatie werkelijk gebruikt, en niet 1. De seed zet vier
 # organisaties neer: 1 is het ACCOUNT ("Raak"), 2 is de UNIT "Raak Millegem" — en
@@ -63,7 +64,7 @@ def test_the_payment_details_come_from_the_organisation(db_session, organisatie)
     # #945: de rekening is een eigen rij geworden (UBL `cac:PayeeFinancialAccount`).
     db_session.add(
         BankAccount(
-            organization_id=organisatie.id, iban="BE68 5390 0754 7034", beneficiary="Raak Millegem"
+            party_id=organisatie.party_id, iban="BE68 5390 0754 7034", beneficiary="Raak Millegem"
         )
     )
     db_session.commit()
@@ -80,7 +81,7 @@ def test_the_tenant_setting_no_longer_exists_as_a_source(db_session, organisatie
     wordt er hier eentje gezet die van de organisatie verschilt. Wint die, dan is
     het veld verplaatst in plaats van weggenomen.
     """
-    db_session.add(BankAccount(organization_id=organisatie.id, iban="BE11 1111 1111 1111"))
+    db_session.add(BankAccount(party_id=organisatie.party_id, iban="BE11 1111 1111 1111"))
     db_session.commit()
     set_setting(db_session, "payment_iban", "BE99 9999 9999 9999", tenant_id=TENANT)
 
@@ -106,57 +107,31 @@ def test_the_env_stays_the_safety_net(db_session, organisatie):
     """Een organisatie zonder rekeningnummer valt terug op `.env`."""
     from app.config import settings
 
-    db_session.query(BankAccount).filter(BankAccount.organization_id == organisatie.id).delete()
+    db_session.query(BankAccount).filter(BankAccount.party_id == organisatie.party_id).delete()
     db_session.commit()
     assert tenant_payment_iban(db_session, TENANT) == settings.payment_iban
 
 
-# ── 2. Een adres hangt aan een persoon OF aan een organisatie ───────────────
+# ── 2. Een adres hangt aan een partij: een persoon of een organisatie ───────
 
 
 def test_an_address_can_belong_to_an_organisation(db_session, organisatie, postcode):
     """Het goede geval: een adres zonder persoon eronder."""
     adres = Address(
-        organization_id=organisatie.id,
+        party_id=organisatie.party_id,
         street="Kerkstraat",
         house_number="1",
         postal_code_id=postcode.id,
     )
     db_session.add(adres)
     db_session.commit()
-    assert adres.id and adres.person_id is None
-
-
-def test_an_address_with_both_owners_is_refused(db_session, organisatie, postcode):
-    """De XOR-regel, bewaakt door de DATABANK en niet door de code.
-
-    Eigen test per richting, want een regel die maar één kant afdekt laat precies
-    de andere door — en beide richtingen in één test betekent dat de eerste
-    terugrol de tweede onmogelijk maakt.
-    """
-    persoon = Person(first_name="Test", last_name="Persoon")
-    db_session.add(persoon)
-    db_session.flush()
-    db_session.add(
-        Address(
-            person_id=persoon.id,
-            organization_id=organisatie.id,
-            street="Fout",
-            house_number="1",
-            postal_code_id=postcode.id,
-        )
-    )
-    with pytest.raises(IntegrityError):
-        db_session.commit()
-    db_session.rollback()
+    assert adres.id and adres.person is None
 
 
 def test_an_address_without_an_owner_is_refused(db_session, postcode):
     """De andere kant: een adres dat nergens aan hangt."""
     db_session.add(
         Address(
-            person_id=None,
-            organization_id=None,
             street="Fout",
             house_number="1",
             postal_code_id=postcode.id,
@@ -172,7 +147,7 @@ def test_one_live_address_per_organisation(db_session, organisatie, postcode):
     pc = postcode
     db_session.add(
         Address(
-            organization_id=organisatie.id,
+            party_id=organisatie.party_id,
             street="Kerkstraat",
             house_number="1",
             postal_code_id=pc.id,
@@ -181,7 +156,7 @@ def test_one_live_address_per_organisation(db_session, organisatie, postcode):
     db_session.commit()
     db_session.add(
         Address(
-            organization_id=organisatie.id,
+            party_id=organisatie.party_id,
             street="Tweede straat",
             house_number="2",
             postal_code_id=pc.id,
@@ -208,7 +183,7 @@ def test_a_person_address_still_works_exactly_as_before(db_session, postcode):
     db_session.flush()
     db_session.add(
         Address(
-            person_id=persoon.id,
+            party_id=persoon.party_id,
             street="Dorpsstraat",
             house_number="5",
             postal_code_id=pc.id,
@@ -222,7 +197,7 @@ def test_a_person_address_still_works_exactly_as_before(db_session, postcode):
     )
     db_session.add(
         Address(
-            organization_id=organisatie.id,
+            party_id=organisatie.party_id,
             street="Kerkstraat",
             house_number="1",
             postal_code_id=pc.id,
@@ -230,13 +205,14 @@ def test_a_person_address_still_works_exactly_as_before(db_session, postcode):
     )
     db_session.commit()
 
-    van_de_persoon = db_session.query(Address).filter(Address.person_id == persoon.id).all()
-    assert len(van_de_persoon) == 1
-    assert van_de_persoon[0].street == "Dorpsstraat"
+    db_session.refresh(persoon)
+    assert persoon.address is not None and persoon.address.street == "Dorpsstraat"
 
     # En de organisatierij komt in geen enkele persoonsquery voor.
-    alle_persoonsadressen = db_session.query(Address).filter(Address.person_id.isnot(None)).all()
-    assert all(a.organization_id is None for a in alle_persoonsadressen)
+    alle_persoonsadressen = (
+        db_session.query(Address).join(Person, Person.party_id == Address.party_id).all()
+    )
+    assert organisatie.party_id not in {a.party_id for a in alle_persoonsadressen}
 
 
 def test_the_members_screen_still_renders(client, db_session):
@@ -392,7 +368,7 @@ def test_saving_the_screen_writes_to_the_organisation(client, db_session, organi
 
     rekening = (
         db_session.query(BankAccount)
-        .filter(BankAccount.organization_id == TENANT)
+        .filter(BankAccount.party_id == organization_party(db_session, TENANT))
         .execution_options(include_all_tenants=True)
         .one()
     )

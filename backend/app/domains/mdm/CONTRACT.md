@@ -62,6 +62,14 @@ the reporting views. **A new kind of fact** — an invoice, a webshop customer �
 adds a branch to `mdm.person_tenants` in a migration of its own; forgotten, the
 person is simply not at the tenant, and nothing fails.
 
+**One pointer: the party (CR-26 phase 3).** An address, a contact detail, a bank
+account, an identification (`party_identifications`) and a member number hang on
+a party by `party_id` — the person's or the organisation's — never by a pair of
+`person_id` and `organization_id` (`tests/test_pointer_gate.py`). The member
+number stays a fact per department (`external_numbers.tenant_id`). A screen that
+asks "whose" goes through the owner's `party_id` (`Person.address`,
+`Person.contact_details`, `ExternalNumber.person` do it for a person).
+
 *Counted in the code on 13 October 2026:* the facade exports 184 names (100 functions, 65 classes, 19 values); events it owns (`kernel/contracts/`): `BoardMemberReported`, `EmailAddressAdded`, `EntityMerged`, `HouseholdDeleted`, `MembershipReported`, `TenantCreated`; ports it offers: `CreateHousehold`.
 
 ## Consumes
@@ -99,7 +107,7 @@ None: no part of this contract is in its deprecation cycle.
 | UBL 2.1 | `cac:Party/cac:Person` (`cbc:FirstName`, `cbc:FamilyName`) | `mdm.persons` · `first_name`, `last_name` | follows; the column names stay (`AGENTS.md`: do not rename) |
 | UBL 2.1 | `cac:BuyerCustomerParty/cac:Party` | `mdm.persons.id`, referenced by value from a registration | follows: the party is the person, no customer table |
 | UBL 2.1 | `cac:PartyLegalEntity` (`cbc:CompanyLegalForm`, `cbc:RegistrationName`) | `mdm.organizations` · `legal_form`, `name` | follows: singular on the party |
-| UBL 2.1; ISO 6523 / ICD; ISO 3166-1 alpha-2 | `cac:PartyIdentification`, `cac:PartyTaxScheme`, repeatable, with a scheme and a country | `mdm.organization_identifications` · `scheme`, `value`, `country` | follows: a table, never a column per kind |
+| UBL 2.1; ISO 6523 / ICD; ISO 3166-1 alpha-2 | `cac:PartyIdentification`, `cac:PartyTaxScheme`, repeatable, with a scheme and a country | `mdm.party_identifications` · `scheme`, `value`, `country`, on the party | follows: a table, never a column per kind |
 | UBL 2.1; ISO 20022 | `cac:PayeeFinancialAccount`; `IBAN`, `BICFI` | `mdm.bank_accounts` · `iban`, `bic`, `beneficiary` | follows the shape (a table of its own, #945); deviates in the names: UBL's `cbc:ID` is unreadable on a screen, the mapping is one line in the docstring |
 | UBL 2.1; vCard | `cac:Contact` (`cbc:ElectronicMail`, `cbc:Telephone`, `cbc:WebsiteURI`); `EMAIL`, `TEL` with `PREF` | `mdm.contact_details` · `contact_type_code`, `value`, `is_primary` | follows vCard (repeatable and typed); the primary maps to UBL's one element |
 | UBL 2.1 | `cac:PostalAddress` with `cac:Country` | `mdm.addresses`, hung on the party; the postal code from the lookup table | follows |

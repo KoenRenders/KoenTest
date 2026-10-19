@@ -84,10 +84,11 @@ def register_family(
                     MemberPerson.relation_type == RelationType.PRIMARY_MEMBER,
                 ),
             )
+            .join(Person, Person.id == MemberPerson.person_id)
             .join(
                 ContactDetail,
                 and_(
-                    ContactDetail.person_id == MemberPerson.person_id,
+                    ContactDetail.party_id == Person.party_id,
                     ContactDetail.contact_type_code == CONTACT.EMAIL,
                     func.lower(ContactDetail.value) == hoofdlid_email.lower(),
                 ),

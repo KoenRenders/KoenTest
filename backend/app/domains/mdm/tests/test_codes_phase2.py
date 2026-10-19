@@ -233,7 +233,7 @@ def test_a_fifth_social_network_is_one_row_and_no_code_change(db_session):
     db_session.flush()
 
     detail = ContactDetail(
-        person_id=person.id, contact_type_code="MATRIX", value="@raak:matrix.example"
+        party_id=person.party_id, contact_type_code="MATRIX", value="@raak:matrix.example"
     )
     db_session.add(detail)
     db_session.flush()
@@ -266,9 +266,9 @@ def test_an_unknown_contact_type_is_still_refused_by_the_database(db_session):
         db_session.execute(
             text(
                 "INSERT INTO mdm.contact_details "
-                "(person_id, contact_type_code, value, is_primary, created_at, "
+                "(party_id, contact_type_code, value, is_primary, created_at, "
                 " updated_at, account_id) "
-                "SELECT :p, 'SEMAFOON', 'x', false, now(), now(), account_id "
+                "SELECT party_id, 'SEMAFOON', 'x', false, now(), now(), account_id "
                 "FROM mdm.persons WHERE id = :p"
             ),
             {"p": person.id},

@@ -110,7 +110,7 @@ def household():
         for number, primary in ((1, True), (2, False)):
             db.add(
                 ContactDetail(
-                    person_id=people["main"].id,
+                    party_id=people["main"].party_id,
                     contact_type_code="EMAIL",
                     value=f"record-{tag}-{number}@example.org",
                     is_primary=primary,
@@ -118,7 +118,7 @@ def household():
             )
         db.add(
             ContactDetail(
-                person_id=people["partner"].id,
+                party_id=people["partner"].party_id,
                 contact_type_code="EMAIL",
                 value=f"record-{tag}-p@example.org",
                 is_primary=True,
@@ -126,7 +126,7 @@ def household():
         )
         db.add(
             Address(
-                person_id=people["main"].id,
+                party_id=people["main"].party_id,
                 street="Voorbeeldstraat",
                 house_number="12",
                 postal_code_id=postal.id,

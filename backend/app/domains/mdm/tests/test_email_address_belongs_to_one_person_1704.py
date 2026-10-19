@@ -86,7 +86,9 @@ def _emails(db, person) -> list[str]:
     db.expire_all()
     return sorted(
         row.value
-        for row in db.query(ContactDetail).filter_by(person_id=person.id, contact_type_code="EMAIL")
+        for row in db.query(ContactDetail).filter_by(
+            party_id=person.party_id, contact_type_code="EMAIL"
+        )
     )
 
 
@@ -143,7 +145,7 @@ def test_an_organisations_address_is_no_persons_address(db_session, world):
     assert organisation is not None, "no seeded organisation to hang a contact on"
     db_session.add(
         ContactDetail(
-            organization_id=organisation.id,
+            party_id=organisation.party_id,
             contact_type_code="EMAIL",
             value="info@example.com",
             is_primary=True,
@@ -155,7 +157,7 @@ def test_an_organisations_address_is_no_persons_address(db_session, world):
 
 def test_a_removed_address_is_free_again(db_session, world):
     holder, _partner, other, _account = world
-    row = db_session.query(ContactDetail).filter_by(person_id=holder.id, value=TAKEN).one()
+    row = db_session.query(ContactDetail).filter_by(party_id=holder.party_id, value=TAKEN).one()
     holder.contact_details.remove(row)
     db_session.commit()
     assert email_refusal(db_session, other, TAKEN) is None
@@ -206,7 +208,7 @@ def test_the_factory_refuses_and_marks_what_it_makes_as_confirmed(db_session, wo
     with pytest.raises(EmailAddressInUse):
         new_contact_detail(db_session, other, "EMAIL", TAKEN, is_primary=True)
     made = new_contact_detail(db_session, other, "EMAIL", "nieuw@example.com", is_primary=True)
-    assert made.confirmed_at is not None and made.person_id == other.id
+    assert made.confirmed_at is not None and made.party_id == other.party_id
     waiting = new_contact_detail(
         db_session, other, "EMAIL", "later@example.com", is_primary=False, confirmed=False
     )
@@ -221,11 +223,11 @@ def test_the_factory_refuses_and_marks_what_it_makes_as_confirmed(db_session, wo
     db_session.expire_all()
     stored = {
         row.value: row.confirmed_at
-        for row in db_session.query(ContactDetail).filter_by(person_id=other.id)
+        for row in db_session.query(ContactDetail).filter_by(party_id=other.party_id)
     }
     assert stored["nieuw@example.com"] is not None
     assert stored["later@example.com"] is None, "the waiting address was stored as confirmed"
-    raw = ContactDetail(person_id=other.id, contact_type_code="PHONE", value="014000001")
+    raw = ContactDetail(party_id=other.party_id, contact_type_code="PHONE", value="014000001")
     db_session.add(raw)
     db_session.commit()
     assert raw.confirmed_at is not None, "a row made without a word counts, as before"
@@ -246,7 +248,7 @@ def test_a_new_row_and_a_changed_row_of_the_email_rows_are_refused(db_session, w
 
     write_email_rows(db_session, other, {}, ["mijn@example.com"], actor="x@example.com")
     db_session.commit()
-    own = db_session.query(ContactDetail).filter_by(person_id=other.id).one()
+    own = db_session.query(ContactDetail).filter_by(party_id=other.party_id).one()
     with pytest.raises(EmailAddressInUse):
         write_email_rows(db_session, other, {own.id: TAKEN}, [], actor="x@example.com")
     assert _emails(db_session, other) == ["mijn@example.com"]

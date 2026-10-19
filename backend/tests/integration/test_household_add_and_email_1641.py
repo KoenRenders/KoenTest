@@ -195,7 +195,7 @@ def test_saving_with_the_partners_field_empty_writes_no_address_and_no_history(c
     assert answer.status_code == 200, answer.text[:300]
     assert "data-save-refusal" not in answer.text
     db_session.expire_all()
-    rows = db_session.query(ContactDetail).filter_by(person_id=partner.id).all()
+    rows = db_session.query(ContactDetail).filter_by(party_id=partner.party_id).all()
     assert rows == [], "an empty field became a row"
     assert db_session.query(ContactDetailHistory).count() == before, "an empty field left history"
 
@@ -205,7 +205,7 @@ def test_saving_with_the_partners_field_empty_writes_no_address_and_no_history(c
     fields[f"e.n{partner.id}e.value"] = "partner.leeg@example.com"
     assert client.post("/leden/gezin", data=fields, headers=headers).status_code == 200
     db_session.expire_all()
-    stored = db_session.query(ContactDetail).filter_by(person_id=partner.id).one()
+    stored = db_session.query(ContactDetail).filter_by(party_id=partner.party_id).one()
     assert (stored.value, stored.is_primary, stored.confirmed_at) == (
         "partner.leeg@example.com",
         False,

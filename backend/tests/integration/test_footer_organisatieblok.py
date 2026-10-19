@@ -45,7 +45,7 @@ def _contact(db_session, organisatie, code: str, waarde: str) -> None:
     niet de scope — zie de docstring van `ContactDetail`.
     """
     db_session.add(
-        ContactDetail(organization_id=organisatie.id, contact_type_code=code, value=waarde)
+        ContactDetail(party_id=organisatie.party_id, contact_type_code=code, value=waarde)
     )
 
 
@@ -59,10 +59,10 @@ def met_adres(db_session, organisatie):
     # Sinds #945 zijn contact en rekening rijen en geen kolommen.
     _contact(db_session, organisatie, "EMAIL", "bestuur@example.com")
     _contact(db_session, organisatie, "PHONE", "014 00 00 00")
-    db_session.add(BankAccount(organization_id=organisatie.id, iban="BE68 5390 0754 7034"))
+    db_session.add(BankAccount(party_id=organisatie.party_id, iban="BE68 5390 0754 7034"))
     db_session.add(
         Address(
-            organization_id=organisatie.id,
+            party_id=organisatie.party_id,
             street="Kerkstraat",
             house_number="12",
             bus_number="3",
@@ -130,9 +130,9 @@ def test_an_empty_organisation_renders_no_block(client, db_session, organisatie)
     De footer draagt onderaan al de naam van de site, dus een tweede kale naam
     voegt niets toe en roept de vraag op wat er mis is.
     """
-    db_session.query(ContactDetail).filter(ContactDetail.organization_id == organisatie.id).delete()
-    db_session.query(BankAccount).filter(BankAccount.organization_id == organisatie.id).delete()
-    db_session.query(Address).filter(Address.organization_id == organisatie.id).delete()
+    db_session.query(ContactDetail).filter(ContactDetail.party_id == organisatie.party_id).delete()
+    db_session.query(BankAccount).filter(BankAccount.party_id == organisatie.party_id).delete()
+    db_session.query(Address).filter(Address.party_id == organisatie.party_id).delete()
     db_session.commit()
 
     html = client.get("/aanmelden").text
@@ -165,7 +165,7 @@ def test_a_tenant_setting_no_longer_wins(client, db_session, organisatie):
     from app.kernel.tenant_config import set_setting
 
     db_session.query(ContactDetail).filter(
-        ContactDetail.organization_id == organisatie.id,
+        ContactDetail.party_id == organisatie.party_id,
         ContactDetail.contact_type_code == CONTACT.FACEBOOK,
     ).delete()
     db_session.commit()

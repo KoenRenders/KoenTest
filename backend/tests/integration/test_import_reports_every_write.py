@@ -202,9 +202,10 @@ def before_second_import(db_session):
     db_session.add(MemberPerson(member_id=household.id, person_id=ivo.id, relation_type="HOOFDLID"))
     # Gust leaves: person, member number, household link and household soft-deleted.
     gust = db_session.query(ExternalNumber).filter_by(external_id="400").one()
-    link = db_session.query(MemberPerson).filter_by(person_id=gust.person_id).one()
+    gust_person = db_session.query(Person).filter_by(party_id=gust.party_id).one()
+    link = db_session.query(MemberPerson).filter_by(person_id=gust_person.id).one()
     for obj in (
-        db_session.get(Person, gust.person_id),
+        gust_person,
         gust,
         link,
         db_session.get(Member, link.member_id),
