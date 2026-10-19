@@ -4,7 +4,7 @@
 > three switchovers of #924 and the eleven columns they put on `Organization`. Of
 > those, only `legal_form` is still a column. Identifications, bank accounts and
 > contact details — including the social links — became **rows** in
-> `mdm.organization_identifications`, `mdm.bank_accounts` and
+> `mdm.organization_identifications` (since CR-26 phase 3 `mdm.party_identifications`), `mdm.bank_accounts` and
 > `mdm.contact_details`, in the shape UBL 2.1 / EN 16931 gives them, and the
 > `display_name` setting is gone: the name comes from the organisation.
 >

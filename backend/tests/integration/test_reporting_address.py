@@ -6,8 +6,9 @@ members gaan terugkomen"*. The data model is untouched: an address still hangs o
 a person.
 
 **The grain is one live address per person, and the database says so — partially.**
-`uq_addresses_person_id` (migration 053) is `UNIQUE (person_id) WHERE deleted_at IS
-NULL`. So the constraint does not stop a person from having three addresses; it
+`uq_addresses_party_id` (migration 315; migration 053's `uq_addresses_person_id`
+before it) is `UNIQUE (party_id) WHERE deleted_at IS NULL`, and a person is one
+party. So the constraint does not stop a person from having three addresses; it
 stops them from having two *undeleted* ones. Somebody who has moved twice leaves
 rows behind, and the entire grain of `d_address` rests on its `WHERE a.deleted_at
 IS NULL` matching that predicate exactly.

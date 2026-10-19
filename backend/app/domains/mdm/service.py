@@ -1512,7 +1512,8 @@ def upsert_primary_contact(
                 # "geladen" terwijl andere relaties van diezelfde persoon dat niet
                 # zijn. Gemeten: de import zag daarna `person.address` als None
                 # terwijl het adres bestond, en probeerde een tweede adres in te
-                # voegen — `uq_addresses_person_id`. Acht bestaande importtests
+                # voegen — `uq_addresses_person_id`, sinds CR-26 fase 3
+                # `uq_addresses_party_id`. Acht bestaande importtests
                 # vielen erop om. De import deed dit altijd al met `db.add`; die
                 # vorm is hier de veilige.
                 nieuw = new_contact_detail(db, person, type_code, value, is_primary=is_primary)

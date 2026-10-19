@@ -86,12 +86,22 @@ def upgrade() -> None:
     op.execute(
         """
         ALTER TABLE mdm.organization_identifications RENAME TO party_identifications;
+        -- The names of what came with the table follow it. Only names: where an
+        -- environment holds another one, it is left as it is rather than refused.
         ALTER SEQUENCE IF EXISTS mdm.organization_identifications_id_seq
             RENAME TO party_identifications_id_seq;
-        ALTER INDEX mdm.organization_identifications_pkey RENAME TO party_identifications_pkey;
-        ALTER TABLE mdm.party_identifications
-            RENAME CONSTRAINT fk_organization_identifications_scheme
-            TO fk_party_identifications_scheme;
+        ALTER INDEX IF EXISTS mdm.organization_identifications_pkey
+            RENAME TO party_identifications_pkey;
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM pg_constraint
+                        WHERE conname = 'fk_organization_identifications_scheme'
+                          AND conrelid = 'mdm.party_identifications'::regclass) THEN
+                ALTER TABLE mdm.party_identifications
+                    RENAME CONSTRAINT fk_organization_identifications_scheme
+                    TO fk_party_identifications_scheme;
+            END IF;
+        END $$;
         ALTER TABLE mdm.party_identifications ADD COLUMN account_id integer;
         UPDATE mdm.party_identifications i SET account_id = o.account_id
           FROM mdm.organizations o WHERE o.id = i.organization_id;

@@ -115,6 +115,34 @@ def _log(db, rij, operation: str, actor: str | None) -> None:
         )
 
 
+def _in_order(model) -> list:
+    """Which row of a kind a one-per-kind form reads and writes: the primary
+    first (a contact has one), then the oldest. Since CR-26 phase 3 an
+    organisation may hold two contacts of one kind (C4.10); the form has one
+    input per kind, so it must show and edit the same row every time."""
+    primary = [model.is_primary.desc()] if hasattr(model, "is_primary") else []
+    return [*primary, model.id]
+
+
+def party_contacts(db, party_id: int, codes=None) -> dict[str, str]:
+    """One value per contact type of a party, by code: the primary, else the
+    oldest (`_in_order`). `codes` narrows to those types. Read across accounts:
+    the operator's screens show every account's organisations."""
+    from app.domains.mdm.models import ContactDetail
+
+    query = db.query(ContactDetail).filter(
+        ContactDetail.party_id == party_id, ContactDetail.deleted_at.is_(None)
+    )
+    if codes is not None:
+        query = query.filter(ContactDetail.contact_type_code.in_(list(codes)))
+    found: dict[str, str] = {}
+    for row in query.order_by(*_in_order(ContactDetail)).execution_options(
+        include_all_tenants=True
+    ):
+        found.setdefault(row.contact_type_code, row.value)
+    return found
+
+
 def _zet_lijstrij(
     db,
     model,
@@ -135,6 +163,7 @@ def _zet_lijstrij(
         db.query(model)
         .filter_by(**filters)
         .filter(model.deleted_at.is_(None))
+        .order_by(*_in_order(model))
         .execution_options(include_all_tenants=True)
         .first()
     )
@@ -371,7 +400,7 @@ def organization_details(db, organization_id: int) -> dict[str, str]:
     ziet nog altijd één plat woordenboek — het scherm hoeft niet te weten welke
     tabel welk veld draagt.
     """
-    from app.domains.mdm.models import BankAccount, ContactDetail, PartyIdentification
+    from app.domains.mdm.models import BankAccount, PartyIdentification
 
     leeg = {key: "" for key in ALLE_ORGANISATIEVELDEN}
     rij = _organisatie(db, organization_id)
@@ -384,26 +413,21 @@ def organization_details(db, organization_id: int) -> dict[str, str]:
     # code and the template compares it with the selected value.
     uit["legal_form"] = code_of(rij.legal_form) or ""
 
-    contacten = {
-        c.contact_type_code: c.value
-        for c in db.query(ContactDetail)
-        .filter(ContactDetail.party_id == rij.party_id, ContactDetail.deleted_at.is_(None))
-        .execution_options(include_all_tenants=True)
-        .all()
-    }
+    contacten = party_contacts(db, rij.party_id)
     for veld, code in CONTACTVELDEN:
         uit[veld] = contacten.get(code) or ""
 
-    nummers = {
-        i.scheme: i.value
-        for i in db.query(PartyIdentification)
+    nummers: dict[str, str] = {}
+    for i in (
+        db.query(PartyIdentification)
         .filter(
             PartyIdentification.party_id == rij.party_id,
             PartyIdentification.deleted_at.is_(None),
         )
+        .order_by(*_in_order(PartyIdentification))
         .execution_options(include_all_tenants=True)
-        .all()
-    }
+    ):
+        nummers.setdefault(i.scheme, i.value)
     for veld, schema in IDENTIFICATIEVELDEN:
         uit[veld] = nummers.get(schema) or ""
 

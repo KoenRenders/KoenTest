@@ -1555,7 +1555,7 @@ stands here from the code, not from a change request.
 | UBL 2.1 `cac:Party/cac:Person` (`cbc:FirstName`, `cbc:FamilyName`) | `mdm.persons` · `first_name`, `last_name` (the names stay: `AGENTS.md`, do not rename) | mdm | CR-22 B3a |
 | UBL `cac:BuyerCustomerParty/cac:Party` | `mdm.persons.id`, referenced by value from a registration or an order | mdm | CR-22 B3a |
 | UBL `cac:PartyLegalEntity` (`cbc:CompanyLegalForm`, `cbc:RegistrationName`) | `mdm.organizations` · `legal_form`, `name`; singular on the party | mdm | `mdm/models.py` docstrings |
-| UBL `cac:PartyIdentification`, `cac:PartyTaxScheme`, repeatable, with a scheme; ISO 6523 / ICD for the scheme; ISO 3166-1 alpha-2 for the country | `mdm.organization_identifications` · `scheme`, `value`, `country` | mdm | `mdm/models.py` docstrings |
+| UBL `cac:PartyIdentification`, `cac:PartyTaxScheme`, repeatable, with a scheme; ISO 6523 / ICD for the scheme; ISO 3166-1 alpha-2 for the country | `mdm.party_identifications` · `scheme`, `value`, `country`, on the party (CR-26 phase 3) | mdm | `mdm/models.py` docstrings |
 | UBL `cac:PayeeFinancialAccount`; ISO 20022 `IBAN`, `BICFI` | `mdm.bank_accounts` · `iban`, `bic`, `beneficiary` — one table, a party can have several | mdm | `mdm/models.py` docstrings (#945) |
 | UBL `cac:Contact` (`cbc:ElectronicMail`, `cbc:Telephone`, `cbc:WebsiteURI`); vCard `EMAIL`, `TEL` repeatable with `PREF` | `mdm.contact_details` · `contact_type_code`, `value`, `is_primary` — repeatable and typed where UBL keeps them singular; the primary maps to UBL's one element | mdm | CR-22 B3a, `mdm/models.py` |
 | UBL `cac:PostalAddress` with `cac:Country` | `mdm.addresses`, hung on the party, postal code from the lookup table | mdm | `AGENTS.md` (*Modelleer op standaarden*) |

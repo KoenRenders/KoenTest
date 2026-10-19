@@ -135,8 +135,9 @@ def seed(db) -> dict:
     h4, _h4_people = household(TENANT_A, 2, house_number="12A")
     hb, _hb_people = household(TENANT_B, 4)
 
-    # H2's head of household has moved. `uq_addresses_person_id` (migration 053)
-    # is UNIQUE (person_id) WHERE deleted_at IS NULL, so this is allowed and it is
+    # H2's head of household has moved. `uq_addresses_party_id` (migration 315,
+    # migration 053's `uq_addresses_person_id` before it) is UNIQUE (party_id)
+    # WHERE deleted_at IS NULL, so this is allowed and it is
     # what everybody who ever moves looks like: one live address, one or more
     # soft-deleted ones behind it. Without such a person in the seed, a grain test
     # on `reporting.d_address` proves nothing — the unique index holds it green
