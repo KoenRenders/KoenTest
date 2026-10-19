@@ -7,7 +7,10 @@
    `first`/`last` come from the WHOLE list, not from this loop (#745): with a filter on, the
    top row shown is rarely the first page, and greying it out would block a move that can
    be made. The arrows are buttons beside the row's link, never inside it (#745). The
-   toolbar swaps this fragment; the count and the segments' counts travel out-of-band. #}
+   toolbar swaps this fragment; the count and the segments' counts travel out-of-band.
+   Verwijderen is last and red in the row's ⋯, with the record's question (#2172); a
+   refusal comes back on the banner above the table. #}
+{% if error %}{{ ui.error_banner(error) }}{% endif %}
 {% if pages %}
 {% call ui.data_table(columns, hx_target="#cp-lijst", caption=_("Pagina's")) %}
   <tbody>
@@ -28,10 +31,13 @@
         </span>
       </td>
       <td data-cell="actions" class="border-b border-line px-3 py-2">
-        <div data-above-row class="flex justify-end">{{ ui.reorder(
-             up_attrs='hx-post="/admin/paginas/' ~ p.id ~ '/volgorde/omhoog" hx-target="#cp-lijst" hx-swap="innerHTML"',
-             down_attrs='hx-post="/admin/paginas/' ~ p.id ~ '/volgorde/omlaag" hx-target="#cp-lijst" hx-swap="innerHTML"',
-             first=(p.id == eerste_id), last=(p.id == laatste_id), touch=True) }}</div>
+        <div class="flex items-center justify-end gap-2">
+          <div data-above-row class="flex justify-end">{{ ui.reorder(
+               up_attrs='hx-post="/admin/paginas/' ~ p.id ~ '/volgorde/omhoog" hx-target="#cp-lijst" hx-swap="innerHTML"',
+               down_attrs='hx-post="/admin/paginas/' ~ p.id ~ '/volgorde/omlaag" hx-target="#cp-lijst" hx-swap="innerHTML"',
+               first=(p.id == eerste_id), last=(p.id == laatste_id), touch=True) }}</div>
+          {{ ui.row_actions_cell(None, menus[p.id], label=p.title) }}
+        </div>
       </td>
     </tr>
     {% endfor %}

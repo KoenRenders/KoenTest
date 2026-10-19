@@ -13,6 +13,7 @@ from the head's facts in `_head` → the audience assertion is red.
 """
 
 import os
+import re
 import sys
 
 import pytest
@@ -89,9 +90,10 @@ def test_the_head_the_save_fact_and_the_edit_page(world):
             "Kopiëren",
             "Voorbeeld",
             "Testmail naar mezelf",
-            "Verwijderen",
         ):
             expect(menu.get_by_role("menuitem", name=label)).to_be_visible()
+        # #2172: Verwijderen is the edit bar's, not the head's.
+        assert menu.get_by_role("menuitem", name="Verwijderen").count() == 0
         page.keyboard.press("Escape")
 
         # The audience and the subject are the head's: saved on its edit page, said by the head.
@@ -136,6 +138,25 @@ def test_the_head_the_save_fact_and_the_edit_page(world):
         page.locator("[data-action-bar] [data-form-save]").click()
         expect(page.locator("#nb-kop-form")).to_be_hidden()
         expect(page.locator("#nb-kop h1")).to_have_text("Nieuwsbrief december")
+    finally:
+        page.close()
+
+
+def test_verwijderen_in_the_edit_bar_asks_and_returns_to_the_list(world):
+    """#2172: Verwijderen stands at the left of the head card's action bar, asks the
+    record's question and leaves the draft gone."""
+    page = _page(world, 1100)
+    try:
+        address = _new_letter(page)
+        open_head_card(page)
+        bar = page.locator("[data-action-bar]")
+        expect(bar.locator("[data-form-delete]")).to_have_text("Verwijderen")
+        bar.locator("[data-form-delete]").click()
+        dialog = page.get_by_role("dialog")
+        expect(dialog).to_contain_text("definitief verwijderen?")
+        dialog.get_by_role("button", name="Definitief verwijderen").click()
+        expect(page).to_have_url(re.compile(r"/admin/nieuwsbrieven$"))
+        assert page.goto(address).status == 404
     finally:
         page.close()
 

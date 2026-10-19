@@ -118,6 +118,8 @@
     </div>
     {% endcall %}
     {{ ui.action_bar(form="nb-kop-form", cancel_href="#", record=True,
+                     delete_attrs='hx-post="/admin/nieuwsbrieven/' ~ letter.id ~ '/verwijderen" hx-vals=\'{"csrf_token": "' ~ csrf_token ~ '"}\'',
+                     delete_confirm=head.delete_confirm,
                      cancel_attrs='@click.prevent="editing = false; $refs.form.reset(); $refs.form.querySelectorAll(\'[data-proposal-note]\').forEach(n => n.remove())"') }}
   </div>
   <div id="nb-keuzes">

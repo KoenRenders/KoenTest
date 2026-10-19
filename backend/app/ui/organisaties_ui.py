@@ -377,6 +377,9 @@ class OrganisationRecordView(ViewModel):
     #: A department's record (CR-26 F9): the form posts to the department's address.
     department: bool = False
     base: str = NAV
+    #: Verwijderen in the edit-mode action bar (#2172); empty where the record has none.
+    delete_attrs: str = ""
+    delete_confirm: str = ""
 
 
 def _address_line(address: dict[str, str], postal: dict[str, str]) -> str:
@@ -476,23 +479,12 @@ def _record_view(
             ]
             if showing and platform_links
             else []
-        )
-        # CR-20 F5, C4.4: the platform deletes a party; one a tenant names refuses
-        # with the tenants' names, on the record's banner.
-        + (
-            [
-                {
-                    "kind": "delete",
-                    "label": _("Verwijderen"),
-                    "attrs": f'hx-post="{base}/verwijderen"',
-                    "confirm": _("De organisatie en haar gegevens verdwijnen uit de lijsten."),
-                    "confirm_ok": _("Definitief verwijderen"),
-                }
-            ]
-            if can_edit and not own and platform_links
-            else []
         ),
     }
+    # CR-20 F5, C4.4: the platform deletes a party; one a tenant names refuses with
+    # the tenants' names, on the record's banner. Where the norm puts it (#2172): in
+    # the edit-mode action bar, not under Acties.
+    deletable = can_edit and not own and platform_links
     summary = {
         "state": {
             "label": _("Actief") if organisation["is_active"] else _("Inactief"),
@@ -525,6 +517,8 @@ def _record_view(
         people=people_of_organisation(db, organization_id),
         department=scope.department,
         base=scope.base,
+        delete_attrs=f'hx-post="{base}/verwijderen"' if deletable else "",
+        delete_confirm=_("De organisatie en haar gegevens verdwijnen uit de lijsten."),
     )
 
 

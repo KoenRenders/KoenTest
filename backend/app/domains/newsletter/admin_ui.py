@@ -747,6 +747,7 @@ def _head(request: Request, db: Session, letter) -> NewsletterHead:
         title=letter.subject or _("Nieuwe nieuwsbrief"),
         facts=facts,
         csrf_token=_csrf(request),
+        delete_confirm=delete_question(_("Concept"), letter.subject or _("zonder onderwerp")),
     )
 
 
