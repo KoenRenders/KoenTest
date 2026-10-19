@@ -115,7 +115,7 @@ def _list_view(request: Request, db: Session, *, oob: bool = False) -> Organisat
     were the segments are gone with the column that held them (CR-20 F5). The
     search on name, the sort by name. The state is in the URL; the toolbar asks
     this same address for the fragment."""
-    from app.domains.mdm.api import legal_form_options, organization_options, tenants
+    from app.domains.mdm.api import legal_form_options, organization_options, tenants_naming_each
 
     state = filterparams(request)
     q = (state.get("q") or "").strip()
@@ -147,14 +147,12 @@ def _list_view(request: Request, db: Session, *, oob: bool = False) -> Organisat
         page=page if page > 1 else "",
         per_page=per_page if per_page != PER_PAGE_DEFAULT else "",
     )
-    # CR-20 F5: how many tenants name each party — as the organisation they show
-    # or as their account (`tenants_naming`): what makes it "in use".
-    every_tenant = tenants(db)
+    # CR-20 F5: how many tenants name each party — what makes it "in use", from
+    # the one place that rule stands (`tenants_naming_each`).
+    naming = tenants_naming_each(db)
 
     def used_by(o) -> str:
-        n = sum(
-            1 for t in every_tenant if t.organization_id == o["id"] or t.account_id == o["party_id"]
-        )
+        n = len(naming.get(o["id"], []))
         if not n:
             return ""
         return _("1 tenant") if n == 1 else _("%(n)s tenants") % {"n": n}

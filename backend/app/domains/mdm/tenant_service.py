@@ -703,25 +703,30 @@ def tenants_of_account(db, organization_id: int):
     return db.query(Tenant).filter(Tenant.account_id == party).order_by(Tenant.id).all()
 
 
-def tenants_naming(db, organization_id: int) -> list:
-    """The tenants that name this organisation's party, as the organisation they
-    show or as their account, by id — what makes a party "in use" (CR-20 C4.4).
-    Nothing else does: a relation goes with the party, an order keeps its buyer
-    copy."""
-    from app.domains.mdm.models import Tenant
+def tenants_naming_each(db) -> dict[int, list]:
+    """Per organisation id, the tenants that name its party — as the
+    organisation they show or as their account — by id: what makes a party "in
+    use" (CR-20 C4.4), the one place that rule stands. Nothing else does: a
+    relation goes with the party, an order keeps its buyer copy. The list of
+    Organisaties counts from it, the delete refuses from it."""
+    from app.domains.mdm.models import Organization, Tenant
 
-    organization = _organization(db, organization_id)
-    if organization is None:
-        return []
-    return (
-        db.query(Tenant)
-        .filter(
-            (Tenant.organization_id == organization.id)
-            | (Tenant.account_id == organization.party_id)
-        )
-        .order_by(Tenant.id)
+    organization_of_party = dict(
+        db.query(Organization.party_id, Organization.id)
+        .execution_options(include_all_tenants=True)
         .all()
     )
+    naming: dict[int, list] = {}
+    for tenant in db.query(Tenant).order_by(Tenant.id):
+        named = {tenant.organization_id, organization_of_party.get(tenant.account_id)}
+        for organization_id in named - {None}:
+            naming.setdefault(organization_id, []).append(tenant)
+    return naming
+
+
+def tenants_naming(db, organization_id: int) -> list:
+    """The tenants that name this organisation's party (`tenants_naming_each`)."""
+    return tenants_naming_each(db).get(organization_id, [])
 
 
 def delete_organization(db, organization_id: int, *, actor: str | None = None) -> None:

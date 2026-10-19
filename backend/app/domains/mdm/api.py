@@ -242,6 +242,7 @@ from app.domains.mdm.tenant_service import (  # noqa: F401
     tenant_by_code,
     tenants,
     tenants_naming,
+    tenants_naming_each,
     tenants_of_account,
     update_tenant_settings,
 )
@@ -326,6 +327,7 @@ __all__ = [
     "tenants",
     "tenants_of_account",
     "tenants_naming",
+    "tenants_naming_each",
     "delete_organization",
     "active_sites_by_account",
     "list_units",

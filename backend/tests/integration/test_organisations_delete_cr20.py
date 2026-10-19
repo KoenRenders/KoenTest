@@ -19,7 +19,8 @@ Proven red, additively (put back each time): `naming = []` added after the
 `tenants_naming` call in `delete_organization` → the refusals delete the
 organisation; the bank accounts' and identifications' `soft_delete` replaced by
 `continue` → the test names `BankAccount` live; `return` added before `soft_delete(person.party)` in `delete_person`
-→ the person's party stays live. Test 16 is red on the rule before (`org_id ==
+→ the person's party and relations stay live; `continue` before the relation's
+`soft_delete` in `delete_person` → the relation stays live. Test 16 is red on the rule before (`org_id ==
 tenant`): a site that shows a new party of its own could not edit it.
 """
 
@@ -142,15 +143,39 @@ def test_an_unused_party_goes_softly_with_its_row_and_its_details(db_session):
         ], history.__name__
 
 
-def test_deleting_a_person_takes_its_party_along(db_session):
+def test_deleting_a_person_takes_its_party_and_its_relations_along(db_session):
     from app.domains.mdm.service import delete_person
 
+    organisation = _organisation(db_session, "Kring vzw")
     person = create_test_person(db_session)
+    db_session.add(
+        OrganizationPerson(
+            organization_id=organisation.id, person_id=person.id, tenant_id=TENANT_MILLEGEM_ID
+        )
+    )
     db_session.commit()
     delete_person(db_session, person, actor="bestuur@example.org")
     db_session.commit()
     assert _all(db_session, Person, Person.id == person.id)[0].deleted_at is not None
     assert _all(db_session, Party, Party.id == person.party_id)[0].deleted_at is not None
+    relations = _all(db_session, OrganizationPerson, OrganizationPerson.person_id == person.id)
+    assert relations and all(r.deleted_at is not None for r in relations)
+
+
+def test_the_column_and_the_refusal_read_one_rule(platform_workspace, db_session):
+    """The count in Organisaties and the refusal of Verwijderen come from one
+    place (`tenants_naming_each`): a party a tenant names as its account counts
+    there and is refused here."""
+    client = platform_workspace
+    organisation = _organisation(db_session, "Een Account vzw")
+    db_session.get(Tenant, TENANT_VOORBEELD_ID).account_id = as_account(db_session, organisation)
+    db_session.commit()
+    login(client, db_session, SEEDED_ADMIN_EMAIL, ("OPERATOR",))
+    html = client.get("/admin/organisaties?q=Een+Account").text
+    row = html[html.index(f'data-organisation="{organisation.id}"') :]
+    assert "1 tenant" in row[: row.index("</tr>")]
+    with pytest.raises(OngeldigeInstelling):
+        delete_organization(db_session, organisation.id)
 
 
 def test_the_record_refuses_on_its_banner_and_deletes_an_unused_one(platform_workspace, db_session):
