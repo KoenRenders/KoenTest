@@ -1,0 +1,33 @@
+{% import "_macros.html" as ui %}
+{# The card Zelf bewerken in Inkscape (#2120): downloads, and the upload of an edited SVG with its own button. #}
+{# ── SVG round trip ── #}
+{% call ui.section(_("Zelf bewerken in Inkscape")) %}
+  <p data-span="full" class="text-sm leading-[21px] text-ink-soft">{{ _("Download het SVG, werk het bij in Inkscape en laad het terug op. Dan telt jouw bestand voor deze opmaak, tot je het weer weghaalt.") }}</p>
+  <div data-span="full" class="flex flex-wrap gap-2">
+    {% for code, label in layout_options %}
+      {{ ui.btn_secondary(_("Download %(l)s", l=label), href="/admin/ontwerpen/" ~ design_id ~ "/svg/" ~ code, size="sm", lead_icon="download") }}
+    {% endfor %}
+  </div>
+  <p data-span="full" class="text-[13px] leading-[19.5px] text-ink-soft">{{ _("Lettertypes voor op je computer:") }}
+    {% for name, href in font_links %}<a href="{{ href }}" class="underline text-link">{{ name }}</a>{% if not loop.last %} · {% endif %}{% endfor %}
+  </p>
+  {% if edited_layouts and not editing %}
+  <p data-span="full" class="text-sm leading-[21px] text-ink-soft">{{ _("Handmatig bewerkt: %(l)s", l=edited_layouts|join(", ")) }}</p>
+  {% endif %}
+  {% if editing %}
+  <form data-span="full" method="post" action="/admin/ontwerpen/{{ design_id }}/svg" enctype="multipart/form-data" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div data-span="half" class="min-w-0 [&_input]:max-w-full">{{ ui.upload_field(name="file", text=_("Bewerkt SVG"), accept=".svg,image/svg+xml") }}</div>
+    {{ ui.field("layout", _("Voor opmaak"), kind="select", value=layout, options=layout_options, id="ds-svg-layout") }}
+    <div data-span="full">{{ ui.btn_secondary(_("SVG opladen"), type="submit", size="sm") }}</div>
+  </form>
+  {% if edited_layouts %}
+  <form data-span="full" method="post" action="/admin/ontwerpen/{{ design_id }}/svg/verwijderen" class="flex flex-wrap items-center gap-2">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="layout" value="{{ layout }}">
+    <span class="text-sm text-ink-soft">{{ _("Handmatig bewerkt: %(l)s", l=edited_layouts|join(", ")) }}</span>
+    {{ ui.btn_danger(_("Bewerkt SVG weghalen"), type="submit", size="sm") }}
+  </form>
+  {% endif %}
+  {% endif %}
+{% endcall %}

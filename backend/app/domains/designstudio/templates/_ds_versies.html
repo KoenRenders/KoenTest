@@ -1,0 +1,26 @@
+{% import "_macros.html" as ui %}
+{# The card Versies (#2120): Publiceren als affiche per version, a button of its own — it publishes. "Definitief maken" is under Acties. #}
+{# ── Versions and publishing ── #}
+{% call ui.section(_("Versies"), intro=_("Ten hoogste %(n)s bewaard. Een nieuwe versie maak je met 'Definitief maken' onder Acties.", n=max_versions)) %}
+  {% for v in versions %}
+  <div data-span="full" data-version class="rounded-xl border border-line p-3">
+    <div class="flex items-center gap-2 flex-wrap">
+      <span class="font-semibold text-ink">{{ _("Versie %(n)s", n=v.number) }}</span>
+      <span class="text-sm text-ink-soft">{{ v.created }}</span>
+      {% if v.published %}{{ ui.badge(_("Gepubliceerd als affiche"), "blue") }}{% endif %}
+      {% if v.stale %}{{ ui.badge(_("Verouderd — feiten gewijzigd"), "red") }}{% endif %}
+      {% if not v.published %}
+      <form method="post" action="/admin/ontwerpen/{{ design_id }}/publiceer" class="ml-auto">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="layout" value="{{ layout }}">
+        <input type="hidden" name="version_id" value="{{ v.id }}">
+        {{ ui.btn_outline(_("Publiceren als affiche"), type="submit", size="sm", confirm=_("De huidige affiche van de activiteit wordt vervangen door de A3-pdf van deze versie. Doorgaan?")) }}
+      </form>
+      {% endif %}
+    </div>
+    <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1">
+      {% for f in v.files %}<a href="{{ f.url }}" class="text-sm text-link underline" target="_blank" rel="noopener">{{ f.label }}</a>{% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+{% endcall %}

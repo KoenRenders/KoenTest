@@ -120,8 +120,9 @@ def test_the_list_pages_are_the_headers_with_a_create_button():
             if has_create != ("list_page=True" in head):
                 wrong.append(str(path.relative_to(APP)))
     # 15 since #2123: six lists left `page_header` for the kit's list page (18 headers stand);
-    # 13 since #2112: the meeting's two pages went to the record head and the form page.
-    assert scanned > 12, f"the scan found only {scanned} headers"
+    # 13 since #2112: the meeting's two pages went to the record head and the form page;
+    # 12 since #2120: the design went to the record head too.
+    assert scanned > 11, f"the scan found only {scanned} headers"
     assert not wrong, wrong
 
 
@@ -197,7 +198,6 @@ def test_the_opened_menu_starts_with_who_is_signed_in(client, db_session):
 # head left it with #2127: `ui.record_header` draws its way back there as well.
 RECORD_PAGES = [
     "domains/forms/templates/_fb_recordkop.html",
-    "domains/designstudio/templates/admin_ontwerp.html",
     "domains/reporting/templates/admin_rapport_paneel.html",
 ]
 

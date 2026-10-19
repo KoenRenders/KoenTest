@@ -1,0 +1,22 @@
+{% import "_macros.html" as ui %}
+{# The card Tekening laten maken (#2120): its own form and its own button — it asks for a drawing. #}
+{# ── AI line drawing ── #}
+{% call ui.section(_("Tekening laten maken")) %}
+  <p data-span="full" class="text-sm leading-[21px] text-ink-soft">{{ ai_budget_line }}</p>
+  {% if ai_enabled %}
+  <form data-span="full" method="post" action="/admin/ontwerpen/{{ design_id }}/genereer" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="layout" value="{{ layout }}">
+    {{ ui.field("scene", _("Wat moet erop staan?"), kind="textarea", rows=2, value=ai_prompt, span="full",
+                placeholder=_("bv. two adults and two children walking a forest path, one carries a lantern"),
+                help=_("Nederlands mag: de tekst wordt vóór het verzenden naar het Engels vertaald (Mistral) en die vertaling staat in het AI-logboek. Witte achtergrond en huisstijl zitten er al bij; je krijgt vier varianten.")) }}
+    {{ ui.field("style", _("Stijl"), kind="select", value=ai_style, options=style_options) }}
+    <details data-span="full" class="text-[13px] leading-[19.5px] text-ink-soft"><summary class="cursor-pointer">{{ _("Wat het model per stijl te horen krijgt") }}</summary>
+      <dl class="mt-1 space-y-1">{% for code, label in style_options %}<dt class="font-medium text-ink">{{ label }}</dt><dd>{{ style_texts[code] }}</dd>{% endfor %}</dl>
+    </details>
+    <div data-span="full">{{ ui.btn_secondary(_("Vier varianten maken"), type="submit", size="sm") }}</div>
+  </form>
+  {% endif %}
+  <div data-span="full">{% include "_ds_varianten.html" %}</div>
+{% endcall %}
+

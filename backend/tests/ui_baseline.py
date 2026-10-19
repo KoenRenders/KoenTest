@@ -31,7 +31,6 @@ DECLARED_KIT_EXCEPTIONS: dict[str, str] = {
 
 #: B7 test 8 — raw <label>, <select>, <textarea>, visible <input>. 55 in 16 files.
 RAW_FORM_ELEMENTS: dict[str, int] = {
-    "domains/designstudio/templates/admin_ontwerp.html": 2,
     "domains/forms/templates/_fb_builder.html": 12,
     "domains/forms/templates/_formulier_veld.html": 4,
     "domains/meetings/templates/_vg_kring.html": 1,
@@ -45,7 +44,6 @@ RAW_FORM_ELEMENTS: dict[str, int] = {
 
 #: B7 test 9 — raw type="checkbox". 14 in 7 files.
 RAW_CHECKBOXES: dict[str, int] = {
-    "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/forms/templates/_fb_builder.html": 6,
     "domains/newsletter/templates/_nb_gesprek.html": 1,
     "domains/reporting/templates/_rp_paneel.html": 1,
@@ -53,7 +51,6 @@ RAW_CHECKBOXES: dict[str, int] = {
 
 #: B7 test 8 — margin/padding/gap/space class on a raw form element. 47 in 15 files.
 SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
-    "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/forms/templates/_fb_builder.html": 7,
     "domains/forms/templates/_formulier_veld.html": 2,
     "domains/meetings/templates/_vg_kring.html": 3,
@@ -76,7 +73,6 @@ RAW_SURFACES: dict[str, int] = {
 #: B7 test 17 — a header button that is neither the create nor "Instellingen". 18 in 10 files.
 HEADER_EXTRAS: dict[str, int] = {
     "domains/auth/templates/admin_gebruikers_overzicht.html": 1,
-    "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/meetings/templates/_vg_verstuur.html": 1,
     "domains/newsletter/templates/admin_nieuwsbrief_archief.html": 1,
 }
@@ -103,7 +99,6 @@ CHECKBOX_GROUPS_IN_TOOLBARS: dict[str, int] = {}
 #: B7 test 1 — an admin page on the shell itself, no layout and no record head. 26 in 26 files.
 SHELL_EXTENDED_DIRECTLY: dict[str, int] = {
     "domains/auth/templates/admin_gebruikers_overzicht.html": 1,
-    "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/designstudio/templates/admin_ontwerp_nieuw.html": 1,
     "domains/forms/templates/admin_formulier_builder.html": 1,
     "domains/forms/templates/admin_formulier_inzendingen.html": 1,

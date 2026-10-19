@@ -7,7 +7,8 @@
  *   [data-record-form]        the form; `data-message` is the selector of its
  *                             message line (where a refusal or a failure stands)
  *   [data-action-bar]         the bar: [data-form-save], [data-form-cancel],
- *                             [data-form-delete]; a <template data-save-failed>
+ *                             [data-form-delete], an optional second save
+ *                             [data-form-save-extra] (#2120); a <template data-save-failed>
  *   [data-save-refusal]       the banner; its [data-error-for] links name a
  *                             field (`slug`, `c.12.max_participants`) or a row (`c.12`)
  *   [data-field]              a field of `ui.field`, by the form's name
@@ -208,12 +209,16 @@
     if (!bar) return;
     if (on) bar.setAttribute("data-saving", "");
     else bar.removeAttribute("data-saving");
-    var save = bar.querySelector("[data-form-save]");
-    if (save) {
+    // A bar may carry a second save (`extra_label`, #2120): both are shut while saving,
+    // and the one that was pressed says what is running.
+    var main = bar.querySelector("[data-form-save]");
+    var saves = bar.querySelectorAll("[data-form-save], [data-form-save-extra]");
+    Array.prototype.forEach.call(saves, function (save) {
       save.disabled = on;
-      save.querySelector("[data-save-idle]").hidden = on;
-      save.querySelector("[data-save-busy]").hidden = !on;
-    }
+      var shows = on && save === (bar.raakPressed && bar.contains(bar.raakPressed) ? bar.raakPressed : main);
+      save.querySelector("[data-save-idle]").hidden = shows;
+      save.querySelector("[data-save-busy]").hidden = !shows;
+    });
     Array.prototype.forEach.call(bar.querySelectorAll("[data-form-cancel], [data-form-delete]"), function (el) {
       el.inert = on;
     });
@@ -366,6 +371,13 @@
     focusOn(banner);
   }, true);
 
+  /* Which save of the bar was pressed: the busy words belong to that one. */
+  document.addEventListener("click", function (event) {
+    var button = event.target.closest("[data-form-save], [data-form-save-extra]");
+    var bar = theBar();
+    if (bar && button && bar.contains(button)) bar.raakPressed = button;
+  }, true);
+
   /* ── The keyboard ──────────────────────────────────────────────────────── */
 
   document.addEventListener("keydown", function (event) {
@@ -375,6 +387,7 @@
     event.preventDefault(); // never the browser's "save page" while editing a record
     if (form.raakSaving || dialogOpen()) return;
     var save = theBar() && theBar().querySelector("[data-form-save]");
+    if (theBar()) theBar().raakPressed = null; // the keyboard presses the first save
     form.requestSubmit(save && save.form === form ? save : undefined);
   });
 

@@ -4,6 +4,12 @@ A ratchet: it may only shrink. A field that is no datum — a search box, a filt
 """
 
 TYPED_LABELS: dict[str, dict[str, int]] = {
+    # #2120: the parameters of the Design Studio's commands — where an uploaded photo goes, what
+    # a drawing shows and in which style, which layout an edited SVG is for. They say how one
+    # command runs; none is a datum of the design.
+    "domains/designstudio/templates/_ds_foto.html": {"Plaats": 1},
+    "domains/designstudio/templates/_ds_tekening.html": {"Stijl": 1, "Wat moet erop staan?": 1},
+    "domains/designstudio/templates/_ds_inkscape.html": {"Voor opmaak": 1},
     # #2111: the parameters of the copy step are no datum of the register — they say how
     # one action runs (where the first date goes, the copy's status, whether the components go).
     "domains/activities/templates/admin_activiteit_kopieren.html": {

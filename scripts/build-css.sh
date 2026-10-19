@@ -591,6 +591,10 @@ html.nav-rail body[data-shell="admin"]{--nav-current:64px}
   .record-bar-save{grid-column:1/-1;grid-row:1}
   .record-bar-delete{grid-column:1;grid-row:2;justify-self:start;margin:0}
   .record-bar-cancel{grid-column:2;grid-row:2;justify-self:end;margin:0}
+  /* #2120: a second save takes a full line under Opslaan; Verwijderen and Annuleren drop one line. */
+  .record-bar-extra{grid-column:1/-1;grid-row:2}
+  .record-bar:has(.record-bar-extra){min-height:173px}
+  .record-bar:has(.record-bar-extra) .record-bar-delete,.record-bar:has(.record-bar-extra) .record-bar-cancel{grid-row:3}
   .form-flow:has(>.record-bar){padding-bottom:24px}
 }
 /* CR-11 block 10 (#1562), §3.15: a field the Assistent proposes a value for —
