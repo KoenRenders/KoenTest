@@ -2,7 +2,22 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ letter.subject or _("Nieuwsbrief") }} — {{ _("Raak beheer") }}{% endblock %}
 {% block content %}
-{{ ui.back_link(_("Alle nieuwsbrieven"), "/admin/nieuwsbrieven") }}
+{# The head has two states and one card (#2113, Koen, 19 October 2026: "Ja, zoals het
+   concept"): "Onderwerp en doelgroep" under Acties — or Toepassen of a proposal of
+   Raakje that fills the subject or the preview text — opens the head's edit card on this
+   page; Opslaan saves the three fields and closes it, Annuleren puts back what was
+   there. The text below it saves itself as ever. The card stays in the page while it is
+   closed, so the fields of a proposal exist; it is hidden, not absent. #}
+<div x-data="{ editing: false,
+               settle() {
+                 // What was saved is what Annuleren puts back next time.
+                 this.$refs.form.querySelectorAll('input, textarea').forEach(c => { c.defaultValue = c.value; });
+                 this.$refs.form.querySelectorAll('option').forEach(o => { o.defaultSelected = o.selected; });
+                 this.editing = false;
+               } }"
+     @nb-head-saved.window="settle()"
+     @proposal:applied.window="if ($root.querySelector('#nb-kop-form [data-proposal-applied]')) editing = true">
+{% include "_nb_kop_koppen.html" %}
 {# The letter is a document of the page editor (CR-17 phase 7): its blocks — an
    activity, the calendar, the closing — are nodes the editor draws as labelled
    boxes, and the mail builds them when it is sent. What this screen adds to the
@@ -63,118 +78,83 @@
   // undo keeps working.
 </script>
 
-{% call ui.page_header(letter.subject or _("Nieuwe nieuwsbrief"), _("Concept — wordt automatisch bewaard.")) %}
-  {# De bevestiging staat op het FORMULIER: htmx leest `data-confirm` op het
-     element dat het verzoek doet, en dat is bij een formulier het formulier,
-     niet de knop erin. #}
-  <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/verwijderen"
-        {{ confirm_attrs(_("Concept"), letter.subject or _("zonder onderwerp"))|safe }}>
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    {{ ui.btn_danger(_("Verwijderen"), type="submit", size="md", lead_icon="trash-2") }}
-  </form>
-  <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/kopieren">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    {{ ui.btn_secondary(_("Kopiëren"), type="submit", lead_icon="copy") }}
-  </form>
-  {# De brief zoals hij aankomt: de markeringen zijn dan blokken. Nieuw tabblad,
-     want dit is de mail zelf en geen beheerscherm. #}
-  {{ ui.btn_secondary(_("Voorbeeld"), href="/admin/nieuwsbrieven/" ~ letter.id ~ "/voorbeeld",
-                      attrs='target="_blank" rel="noopener" data-turbo="false" hx-boost="false"') }}
-  <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/testmail" hx-target="#nb-bewaard" hx-swap="innerHTML">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    {{ ui.btn_outline(_("Testmail naar mezelf"), type="submit", size="md", lead_icon="mail") }}
-  </form>
-  {{ ui.btn_primary(_("Versturen…"), href="/admin/nieuwsbrieven/" ~ letter.id ~ "/versturen", lead_icon="send") }}
-{% endcall %}
-
 <div id="nb-bewaard" class="mb-4 min-h-[1.5rem]">
   {% include "_nb_bewaard.html" %}
 </div>
 
-{# The letter's choices stand on the page (#1562, row 41); the conversation with
-   Raakje stands in the Assistent's panel, so the editor has the full width. #}
-<div id="nb-keuzes" class="mb-4">
-  {% include "_nb_keuzes.html" %}
-</div>
-<div>
-  {# Eén formulier voor onderwerp, doelgroep en tekst: elke wijziging bewaart
-     zichzelf, en het antwoord vervangt alleen de statusregel — nooit de editor
-     onder je vingers.
+{# The record page (#2113): the head above, then the letter's choices and its text as
+   cards in the kit's reading column. The letter's choices stand on the page (#1562,
+   row 41); the conversation with Raakje stands in the Assistent's panel, so the
+   editor has the full width. Subject, preview text and audience are the head's own
+   form (Acties › Onderwerp en doelgroep). #}
+{% call ui.record_columns() %}
+<div class="form-flow">
+  <div x-show="editing" x-cloak data-head-card class="form-flow">
+    <form id="nb-kop-form" x-ref="form" class="contents"
+          hx-post="/admin/nieuwsbrieven/{{ letter.id }}/bewerken"
+          hx-target="#nb-kop-fout" hx-swap="innerHTML">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {% call ui.section(_("Nieuwsbrief")) %}
+      <div id="nb-kop-fout" data-span="full" class="min-w-0 empty:hidden"></div>
+      {{ ui.field("subject", attribute="newsletter.newsletter.subject", id="nb-onderwerp", value=subject, required=True,
+                  placeholder=_("Het najaar in Millegem")) }}
+      {{ ui.field("preview_text", attribute="newsletter.newsletter.preview_text", id="nb-voorbeeldtekst", value=preview_text,
+                  kind="textarea", rows=1, placeholder=_("Ontdek onze najaarsactiviteiten!"), attrs='maxlength="200"',
+                  help=_("Optioneel. Leeg = de eerste zin van de brief.")) }}
+      {# No default choice: a letter to the members says things not meant for subscribers. #}
+      {{ ui.field("audience", attribute="newsletter.newsletter.audience", id="nb-doelgroep", kind="select", value=audience,
+                  options=[("", _("Kies een doelgroep"))] + audience_options,
+                  help=_("Geen standaardkeuze: een ledenbrief vertelt dingen die niet voor abonnees bedoeld zijn.")) }}
+      {% endcall %}
+    </form>
+    {# Who each audience is, in the send screen's own words (#1834), and the list under
+       *Eerdere deelnemers* (CR-36): its ticks save themselves, as they always did. #}
+    {% call ui.section(_("Wie krijgt de brief?")) %}
+    <div data-span="full" class="min-w-0 space-y-2" data-audience-said>
+      {% include "_nb_doelgroep.html" %}
+    </div>
+    <div data-span="full" class="min-w-0">
+      {% include "_nb_deelnemers.html" %}
+    </div>
+    {% endcall %}
+    {{ ui.action_bar(form="nb-kop-form", cancel_href="#", record=True,
+                     cancel_attrs='@click.prevent="editing = false; $refs.form.reset(); $refs.form.querySelectorAll(\'[data-proposal-note]\').forEach(n => n.remove())"') }}
+  </div>
+  <div id="nb-keuzes">
+    {% include "_nb_keuzes.html" %}
+  </div>
+  {# One form for the text: every change saves itself, and the answer replaces only the
+     status line and the head — never the editor under the author's fingers.
 
-     `hx-indicator` wijst naar die statusregel, en dat is geen detail: de schil
-     maakt het element dat een verzoek doet tijdens dat verzoek doorschijnend en
-     onklikbaar (`.htmx-request`). Zonder indicator was dat het HELE formulier —
-     bij elk automatisch bewaren flitste de editor en ging een klik verloren
-     (gemeten in de e2e: de klik op "Leden" landde op een div). #}
-  <form id="nb-formulier" class="space-y-4"
+     `hx-indicator` points at that status line, and that is no detail: the shell makes the
+     element that makes a request translucent and unclickable (`.htmx-request`) while it
+     runs. Without an indicator that was the WHOLE form — at every autosave the editor
+     flashed and a click was lost (measured in the e2e: the click on "Leden" landed on a
+     div). #}
+  <form id="nb-formulier" class="contents"
         hx-post="/admin/nieuwsbrieven/{{ letter.id }}/bewaren"
         hx-target="#nb-bewaard" hx-swap="innerHTML" hx-indicator="#nb-bewaard"
-        hx-trigger="change, keyup changed delay:1500ms from:#nb-onderwerp, raak-editor-change delay:1500ms, raak-editor-blur">
-    {# The choice is one line of pills with the number on each (Koen, 17 September
-       2026); who each audience is stands under it in the send screen's own words
-       (#1834) — nothing a reader needs in order to choose is in a hover text.
-       Het verborgen veld staat ONDERAAN: als eerste kind telde het mee voor
-       `space-y-4`, en zakte deze kaart 16 px onder het Raakje-paneel. #}
-    <fieldset class="bg-surface border border-line rounded-2xl px-5 py-3">
-      <legend class="sr-only">{{ _("Voor wie?") }}</legend>
-      <div class="flex flex-wrap items-center gap-2">
-        <h2 class="font-semibold text-blue-700 mr-1">{{ _("Voor wie?") }}</h2>
-        {% for value, label, count in audience_options %}
-        <label class="inline-flex items-center gap-2 rounded-full border border-line px-3 py-1.5 text-sm cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:ring-2 has-[:checked]:ring-blue-200">
-          <input type="radio" name="audience" value="{{ value }}"{% if audience == value %} checked{% endif %}>
-          <span class="font-semibold">{{ label }}</span>
-          <span class="text-ink-soft">{{ count }}</span>
-        </label>
-        {% endfor %}
-      </div>
-      <div class="mt-3 space-y-2" data-audience-said>
-        {% include "_nb_doelgroep.html" %}
-      </div>
-      {% include "_nb_deelnemers.html" %}
-      <p class="text-xs text-ink-soft mt-2">{{ _("Geen standaardkeuze: een ledenbrief vertelt dingen die niet voor abonnees bedoeld zijn.") }}</p>
-    </fieldset>
-
-    <div class="bg-surface border border-line rounded-2xl p-5 space-y-3">
-      <div data-field="subject">
-        {{ ui.label(_("Onderwerp"), "nb-onderwerp", required=True) }}
-        {{ ui.input_control("subject", id="nb-onderwerp", value=letter.subject, cls="w-full",
-                            placeholder=_("Het najaar in Millegem")) }}
-      </div>
-      {# Koen, 19 september 2026, naar het voorbeeld van Raak nationaal: de regel
-         die het postvak naast het onderwerp toont. Laat je hem leeg, dan neemt de
-         brief zijn eigen eerste zin — zo staat er nooit "Beste," in de inbox. #}
-      {# #1562 (decision 10): a growing field with its limit of 200 — a preview
-         text of two lines was cut off in a one-line input. #}
-      <div data-field="preview_text" x-data="{ n: {{ (letter.preview_text or '')|length }} }">
-        {{ ui.label(_("Voorbeeldtekst"), "nb-voorbeeldtekst") }}
-        {{ ui.textarea_control("preview_text", id="nb-voorbeeldtekst", value=letter.preview_text or "", rows=1,
-                               cls="w-full", max_px=160, placeholder=_("Ontdek onze najaarsactiviteiten!"),
-                               attrs='maxlength="200" @input="n = $event.target.value.length"') }}
-        <p class="text-xs text-ink-soft mt-1">
-          {{ _("Optioneel. Staat in het postvak naast het onderwerp; leeg = de eerste zin van de brief.") }}
-          <span data-preview-count x-text="n + ' / 200'"></span></p>
-      </div>
-    </div>
-
-    <div class="bg-surface border border-line rounded-2xl p-5">
-      <div class="flex flex-wrap items-center gap-2">
-        <h2 class="font-semibold text-blue-700 mr-auto">{{ _("Inhoud") }}</h2>
-        {# Een bijlage wordt een link in de tekst (Koen, 17 september 2026): de
-           brief vertrekt als aparte mail naar honderden adressen. #}
-        <input type="file" id="nb-bijlage" class="hidden" accept="application/pdf,image/*"
-               aria-label="{{ _("Bijlage kiezen") }}"
-               onchange="nbBijlage(this, '/admin/nieuwsbrieven/{{ letter.id }}/bijlage', '{{ csrf_token }}')">
+        hx-trigger="change, raak-editor-change delay:1500ms, raak-editor-blur">
+    {# Een bijlage wordt een link in de tekst (Koen, 17 september 2026): de brief
+       vertrekt als aparte mail naar honderden adressen. #}
+    <input type="file" id="nb-bijlage" class="hidden" accept="application/pdf,image/*"
+           aria-label="{{ _("Bijlage kiezen") }}"
+           onchange="nbBijlage(this, '/admin/nieuwsbrieven/{{ letter.id }}/bijlage', '{{ csrf_token }}')">
+    {% call ui.section(_("Inhoud"), intro=_("Opgemaakte tekst, zoals je hem in een mailprogramma schrijft. Een activiteit, de kalender en de afsluiting zet je met “Blok invoegen”: ze worden bij het versturen een blok met affiche, omschrijving en inschrijflink.")) %}
+    <div data-span="full" class="min-w-0">
+      <div class="flex justify-end mb-2">
         {{ ui.btn_outline(_("Bijlage invoegen"), lead_icon="upload",
                           attrs='onmousedown="event.preventDefault()" onclick="document.getElementById(\'nb-bijlage\').click()"') }}
       </div>
-      <p class="text-sm text-ink-soft mt-0.5">{{ _("Opgemaakte tekst, zoals je hem in een mailprogramma schrijft. Een activiteit, de kalender en de afsluiting zet je met “Blok invoegen”: ze worden bij het versturen een blok met affiche, omschrijving en inschrijflink.") }}</p>
-      <div class="mt-3" data-field="body">
+      <div data-field="body">
         {{ ui.document_editor("body", editor_config, body_json, id="nb-editor", cls="min-h-[22rem]",
                               button_pages=button_pages, button_forms=[], button_lid_worden=False) }}
       </div>
     </div>
+    {% endcall %}
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   </form>
-
+</div>
+{% endcall %}
 </div>
 {% endblock %}

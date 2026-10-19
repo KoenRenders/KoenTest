@@ -46,7 +46,7 @@ RAW_FORM_ELEMENTS: dict[str, int] = {
     "domains/newsletter/templates/_nb_import.html": 1,
     "domains/newsletter/templates/_nb_kiezer.html": 1,
     "domains/newsletter/templates/_nb_versturen.html": 4,
-    "domains/newsletter/templates/admin_nieuwsbrief.html": 3,
+    "domains/newsletter/templates/admin_nieuwsbrief.html": 1,
     "domains/reporting/templates/_rp_paneel.html": 4,
 }
 
@@ -71,7 +71,6 @@ SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
     "domains/newsletter/templates/_nb_gesprek.html": 2,
     "domains/newsletter/templates/_nb_kiezer.html": 2,
     "domains/newsletter/templates/_nb_versturen.html": 2,
-    "domains/newsletter/templates/admin_nieuwsbrief.html": 3,
     "domains/reporting/templates/_rp_paneel.html": 2,
 }
 
@@ -93,7 +92,6 @@ HEADER_EXTRAS: dict[str, int] = {
     "domains/auth/templates/admin_gebruikers_overzicht.html": 1,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/meetings/templates/_vg_verstuur.html": 1,
-    "domains/newsletter/templates/admin_nieuwsbrief.html": 5,
     "domains/newsletter/templates/admin_nieuwsbrief_archief.html": 1,
 }
 
@@ -133,7 +131,6 @@ SHELL_EXTENDED_DIRECTLY: dict[str, int] = {
     "domains/meetings/templates/admin_vergadering_verstuur.html": 1,
     "domains/meetings/templates/admin_vergaderkring.html": 1,
     "domains/newsletter/templates/admin_abonnees_import.html": 1,
-    "domains/newsletter/templates/admin_nieuwsbrief.html": 1,
     "domains/newsletter/templates/admin_nieuwsbrief_archief.html": 1,
     "domains/newsletter/templates/admin_nieuwsbrief_instellingen.html": 1,
     "domains/newsletter/templates/admin_nieuwsbrief_versturen.html": 1,

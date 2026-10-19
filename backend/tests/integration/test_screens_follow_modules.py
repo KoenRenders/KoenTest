@@ -195,19 +195,21 @@ def test_without_membership_the_newsletter_offers_only_iedereen(client, db_sessi
     db_session.commit()
     _admin(client)
     modules(EVERY)
-    assert (
-        len(re.findall(r'name="audience"', client.get(f"/admin/nieuwsbrieven/{letter.id}").text))
-        == 4
-    )
+
+    def offered(page: str) -> list[str]:
+        select = re.search(r'<select[^>]*name="audience"[^>]*>(.*?)</select>', page, re.S)
+        return re.findall(r'<option value="([^"]+)"', select.group(1))
+
+    assert len(offered(client.get(f"/admin/nieuwsbrieven/{letter.id}").text)) == 4
     modules(EVERY - {"membership"})
     page = client.get(f"/admin/nieuwsbrieven/{letter.id}").text
     # The lists are the subscribers ("Iedereen"); the fourth audience reads the
     # registrations and only needs the activities module (CR-36).
-    assert re.findall(r'name="audience" value="([^"]*)"', page) == ["both", "participants"]
+    assert offered(page) == ["both", "participants"]
     assert "Iedereen" in page
     modules(EVERY - {"activities"})
     page = client.get(f"/admin/nieuwsbrieven/{letter.id}").text
-    assert "participants" not in re.findall(r'name="audience" value="([^"]*)"', page), (
+    assert "participants" not in offered(page), (
         "a tenant without the activities module is not offered the audience (T17)"
     )
 
