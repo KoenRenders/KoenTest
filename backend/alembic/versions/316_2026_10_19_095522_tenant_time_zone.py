@@ -21,6 +21,10 @@ default; timestamps stay UTC, the day is the tenant's.
   moments between midnight in Brussels and midnight UTC.
 
 Not reversible in one step, like 314 and 315 under it (B4: the dump is the way back).
+Idempotent: the column and the functions are made `IF NOT EXISTS` / `OR REPLACE`, the views
+are `CREATE OR REPLACE`. The parameters are named `p_*`, so a column the table may one day
+have, `tenant_id`, cannot shadow them inside the function (a column name wins over a
+parameter name in an SQL function).
 """
 
 from alembic import op
@@ -289,17 +293,17 @@ def upgrade() -> None:
     op.execute(
         """
         ALTER TABLE mdm.tenants
-            ADD COLUMN time_zone VARCHAR(64) NOT NULL DEFAULT 'Europe/Brussels';
+            ADD COLUMN IF NOT EXISTS time_zone VARCHAR(64) NOT NULL DEFAULT 'Europe/Brussels';
 
-        CREATE FUNCTION mdm.tenant_day(tenant_id integer, moment timestamptz)
+        CREATE OR REPLACE FUNCTION mdm.tenant_day(p_tenant_id integer, p_moment timestamptz)
         RETURNS date
         LANGUAGE sql STABLE AS
-        $$ SELECT (moment AT TIME ZONE t.time_zone)::date FROM mdm.tenants t WHERE t.id = tenant_id $$;
+        $$ SELECT (p_moment AT TIME ZONE t.time_zone)::date FROM mdm.tenants t WHERE t.id = p_tenant_id $$;
 
-        CREATE FUNCTION mdm.tenant_today(tenant_id integer)
+        CREATE OR REPLACE FUNCTION mdm.tenant_today(p_tenant_id integer)
         RETURNS date
         LANGUAGE sql STABLE AS
-        $$ SELECT mdm.tenant_day(tenant_id, now()) $$;
+        $$ SELECT mdm.tenant_day(p_tenant_id, now()) $$;
 
         COMMENT ON FUNCTION mdm.tenant_day(integer, timestamptz) IS
             'The day a moment belongs to in the tenant''s time zone (mdm.tenants.time_zone).';

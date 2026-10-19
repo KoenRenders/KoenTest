@@ -42,7 +42,19 @@ from sqlalchemy import event, text
 from sqlalchemy.exc import IntegrityError, InternalError
 
 from app.database import SessionLocal, engine, get_db
+from app.kernel import clock as _clock
+from app.kernel.tenancy import TENANT_MILLEGEM_ID, current_tenant_id
 from app.main import app
+
+# The clock has no default tenant (#2156): the day is a tenant's, and a call outside any
+# tenant fails loudly (`clock.NoTenantContext`). A request has its tenant from the
+# middleware; a job runs in the tenant it was planned in (`kernel.jobs`). A test is, unless
+# it says otherwise, a call inside the association's tenant — also at import time, where a
+# test module builds a constant from today's date, and in a thread it starts. The tenant
+# FILTER is another matter and stays off outside a request (`current_tenant_id` is None),
+# so the seam is the clock's alone: `clock.tenant_of_the_call`, which production never
+# replaces. A test that is about "no tenant" puts `clock.current_tenant_id.get` back.
+_clock.tenant_of_the_call = lambda: current_tenant_id.get() or TENANT_MILLEGEM_ID
 
 # Bestaat in de seed-migratie 014; gebruiken we als ingelogde admin. Het is de
 # placeholder-default van SEED_ADMIN_EMAILS — echte adressen staan nooit in deze

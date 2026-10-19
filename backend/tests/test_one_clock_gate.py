@@ -28,6 +28,8 @@ EXEMPT = {"kernel/clock.py"}
 
 FORBIDDEN = re.compile(
     r"\bdate\.today\(\)|\bdatetime\.now\(\)\.date\(\)|\bdatetime\.today\(\)"
+    # the UTC day, the same fault in Python (#2156, dev4's review)
+    r"|\bdatetime\.now\((?:timezone\.utc|UTC)\)\.date\(\)|\butcnow\(\)\.date\(\)"
     r"|\bCURRENT_DATE\b|\bcurrent_date\b|\bnow\(\)::date\b|\bCURRENT_TIMESTAMP\b"
 )
 
@@ -67,6 +69,8 @@ def test_the_gate_sees_each_form_and_skips_a_comment():
     for bad in (
         "today = date.today()",
         "x = datetime.now().date()",
+        "x = datetime.now(timezone.utc).date()",
+        "x = datetime.utcnow().date()",
         "SELECT CURRENT_DATE - created_at::date",
         "WHERE d >= current_date",
         "SELECT now()::date",

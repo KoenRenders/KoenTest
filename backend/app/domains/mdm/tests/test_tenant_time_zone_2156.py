@@ -10,16 +10,20 @@ What these tests hold:
 
 - the SQL day of a moment equals the application's for every quarter of an hour around
   the two midnights and the two clock changes of 2026, in two zones;
+- the SQL `tenant_today()` equals the application's for the same pinned instants (the sweep
+  of `tenant_day` above only reads a given moment, not the database's own clock);
 - a reporting view asks the tenant's day: with the database's own `now()` pinned inside
   the window (a temporary function that shadows it for the transaction), `d_date` ends
   on the day the application says, and not on the UTC one;
 - no reporting view reads the database's own `CURRENT_DATE` or `now()` any more;
 - the zone is validated before anything is written, and a new tenant has Brussels.
 
-Broken on purpose (19 October 2026, each put back): `mdm.tenant_today` redefined as
-`(now() AT TIME ZONE 'UTC')::date` → the pinned-view test and the sweep are red;
-`CURRENT_DATE` put back in `f_tasks` → the definition test names the view; the zone check
-taken out of `_checked_time_zone` → the refusal test is red.
+Broken on purpose (19 October 2026, each put back): `mdm.tenant_day` redefined on UTC →
+the sweep of `tenant_day` is red in three zones; `mdm.tenant_today` redefined as
+`(now() AT TIME ZONE 'UTC')::date` → the sweep of `tenant_today` and the pinned-view test
+are red; `CURRENT_DATE` put back in `f_tasks` → the definition test names the view; the
+zone check taken out of `_checked_time_zone` → the refusal test is red; the clock given
+back a default tenant → the "no tenant" test is red.
 """
 
 from __future__ import annotations
@@ -95,19 +99,15 @@ def test_the_two_zones_really_differ_in_the_window(db_session):
 
 
 def test_a_view_asks_the_tenants_day_not_the_databases(db_session, monkeypatch):
+    from tests._pins import pin_database_now
+
     """The database's own clock pinned at 22:30 UTC on 2 October — 00:30 on the 3rd in
     Brussels — for this transaction only: a function `now()` in a schema of the
     test, first on the search path (the temporary schema is never searched for functions). `d_date` runs two years past "today"; on the old
     `CURRENT_DATE` it would end on the UTC day, and no pin could move it."""
+
     pinned = datetime(2026, 10, 2, 22, 30, tzinfo=timezone.utc)
-    db_session.execute(text("CREATE SCHEMA pin_2156"))
-    db_session.execute(
-        text(
-            "CREATE FUNCTION pin_2156.now() RETURNS timestamptz LANGUAGE sql AS "
-            "$$ SELECT '2026-10-02 22:30:00+00'::timestamptz $$"
-        )
-    )
-    db_session.execute(text("SET LOCAL search_path = pin_2156, pg_catalog, public"))
+    pin_database_now(db_session, pinned)
     try:
         last = db_session.execute(
             text("SELECT max(date_key) FROM reporting.d_date WHERE tenant_id = :t"),
@@ -222,3 +222,84 @@ def test_a_refused_zone_writes_nothing_and_a_saved_one_clears_the_clock(db_sessi
     assert clock._zones is None, "a changed zone must clear what the clock has read"
     db_session.expire_all()
     assert db_session.get(Tenant, tenant.id).time_zone == "America/New_York"
+
+
+# ── Today, from the database's clock ─────────────────────────────────────────
+
+
+@pytest.mark.parametrize("zone", ["Europe/Brussels", "Pacific/Auckland"])
+def test_today_in_sql_is_today_in_the_application_for_every_pinned_instant(
+    db_session, monkeypatch, zone
+):
+    from tests._pins import pin_database_now
+
+    tenant = _tenant(db_session, f"today-{zone.split('/')[-1].lower()}", zone)
+    monkeypatch.setattr(clock, "_zones", {tenant: zone})
+    pin_database_now(db_session)
+    wrong = []
+    checked = 0
+    for instant in list(_instants())[::2]:
+        db_session.execute(
+            text("SELECT set_config('pin_2156.at', :at, true)"), {"at": instant.isoformat()}
+        )
+        sql = db_session.execute(text("SELECT mdm.tenant_today(:t)"), {"t": tenant}).scalar()
+        checked += 1
+        if sql != clock.belgian_today(instant, tenant_id=tenant):
+            wrong.append((instant.isoformat(), sql))
+    assert checked > 400, "the sweep looked at too few instants"
+    assert not wrong, f"SQL's today and the application's disagree, e.g. {wrong[:3]}"
+
+
+# ── No tenant, no day ────────────────────────────────────────────────────────
+
+
+def test_the_clock_refuses_a_day_outside_any_tenant(monkeypatch):
+    """No default tenant (the architecture CLI's shape, "no silent default"): outside a
+    request and outside a job that carries its tenant, the clock says so."""
+    monkeypatch.setattr(clock, "tenant_of_the_call", current_tenant_id.get)
+    assert current_tenant_id.get() is None
+    for ask in (
+        clock.belgian_today,
+        clock.belgian_now,
+        lambda: clock.belgian_day(datetime(2026, 10, 2, 22, 30, tzinfo=timezone.utc)),
+    ):
+        with pytest.raises(clock.NoTenantContext):
+            ask()
+    # a caller that has none and means a tenant says so
+    assert clock.belgian_today(
+        datetime(2026, 10, 2, 22, 30, tzinfo=timezone.utc), tenant_id=2
+    ) == date(2026, 10, 3)
+
+
+def test_a_job_runs_in_the_tenant_it_was_planned_in_and_in_none_otherwise(db_session, monkeypatch):
+    from app.kernel.jobs import KernelJob, enqueue, job, run_due_jobs
+
+    seen: dict[str, object] = {}
+
+    @job("probe.2156")
+    def probe(db, payload):
+        seen["tenant"] = current_tenant_id.get()
+        seen["payload_tenant"] = payload.get("tenant_id")
+        try:
+            clock.belgian_today(tenant_id=None)
+        except clock.NoTenantContext as exc:
+            seen["clock"] = type(exc).__name__
+
+    monkeypatch.setattr(clock, "tenant_of_the_call", current_tenant_id.get)
+    token = current_tenant_id.set(BRUSSELS_TENANT)
+    try:
+        planned_in = enqueue(db_session, "probe.2156", {})
+    finally:
+        current_tenant_id.reset(token)
+    planned_nowhere = enqueue(db_session, "probe.2156", {})
+    db_session.flush()
+    assert planned_in.payload == {"tenant_id": BRUSSELS_TENANT}
+    assert planned_nowhere.payload == {}, "outside a tenant the job carries none"
+
+    run_due_jobs(db_session)
+    first = seen.copy()
+    assert first["tenant"] is None and first["clock"] == "NoTenantContext", (
+        "a job planned in no tenant runs in none, and the clock says so"
+    )
+    assert db_session.query(KernelJob).filter_by(name="probe.2156").count() == 2
+    assert current_tenant_id.get() is None, "the job's tenant does not leak out of the run"

@@ -34,6 +34,7 @@ from app.domains.reporting.api import (
 )
 from app.domains.reporting.tests.test_reporting_panel_ui import ADMIN_EMAIL, login
 from app.kernel.clock import belgian_today
+from tests._pins import pinned_window  # noqa: F401 - the fixture of the marker below
 from tests._reporting_seed import TENANT_A, seed
 
 # builtin_key -> the key of the one measure the report returns. Derived from the
@@ -109,6 +110,9 @@ def _old_stats(db):
 # ── The cross-check (#848, the test the issue rests on) ──────────────────────
 
 
+# #2156: run inside the window between midnight in Brussels and midnight UTC, at any hour
+# (both clocks pinned, `tests/_pins.py`).
+@pytest.mark.usefixtures("pinned_window")
 def test_every_tile_reads_the_same_number_both_ways(db_session, situation):
     from datetime import datetime, timedelta, timezone
 
