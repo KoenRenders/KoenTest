@@ -32,7 +32,7 @@
       {% if is_admin and order.cancellable %}
       {{ ui.btn_secondary(_("Wijzigen"), href="/admin/verkoop/" ~ order.id ~ "/wijzigen", size="sm", lead_icon="pencil") }}
       <form hx-post="/admin/verkoop/{{ order.id }}/annuleren">
-        {{ ui.btn_danger(_("Verwijderen"), "submit", size="sm", confirm=(_("De betaalde € %(bedrag)s wordt terugbetaald.", bedrag=order.total|geld) if order.payment == "settled" else _("De bestelling wordt verwijderd.")), lead_icon="trash-2") }}
+        {{ ui.btn_danger(_("Annuleren"), "submit", size="sm", confirm=(_("De betaalde € %(bedrag)s wordt terugbetaald.", bedrag=order.total|geld) if order.payment == "settled" else _("De bestelling wordt verwijderd.")), lead_icon="trash-2") }}
       </form>
       {% elif not is_admin and order.cancellable %}
       <form hx-post="/mijn/aankopen/{{ order.id }}/annuleren">

@@ -11,9 +11,9 @@
      {"kind": "record", "label": _("Onderwerp en doelgroep"), "attrs": '@click="editing = true; open = false"'},
      {"kind": "record", "verb": "copy", "label": _("Kopiëren"), "attrs": 'hx-post="' ~ _base ~ '/kopieren" hx-vals=\'{"csrf_token": "' ~ head.csrf_token ~ '"}\''},
      {"kind": "tool", "label": _("Voorbeeld"), "href": _base ~ "/voorbeeld", "target": "_blank", "attrs": 'hx-boost="false"'},
-     {"kind": "tool", "label": _("Testmail naar mezelf"), "attrs": 'hx-post="' ~ _base ~ '/testmail" hx-target="#nb-bewaard" hx-swap="innerHTML" hx-vals=\'{"csrf_token": "' ~ head.csrf_token ~ '"}\''},
-     {"kind": "delete", "label": _("Verwijderen"), "attrs": 'hx-post="' ~ _base ~ '/verwijderen" hx-vals=\'{"csrf_token": "' ~ head.csrf_token ~ '"}\' ' ~ confirm_attrs(_("Concept"), head.letter.subject or _("zonder onderwerp")) ~ ' data-confirm-tone="delete"'}
+     {"kind": "tool", "label": _("Testmail naar mezelf"), "attrs": 'hx-post="' ~ _base ~ '/testmail" hx-target="#nb-bewaard" hx-swap="innerHTML" hx-vals=\'{"csrf_token": "' ~ head.csrf_token ~ '"}\''}
    ] %}
+{#- Verwijderen stands in the edit-mode action bar (#2172), not under Acties. #}
 {{ ui.record_header(head.title,
      badges=[{"label": head.letter.status | code_label("letter_status"), "tone": head.letter.status | tone("letter_status")}],
      facts=head.facts, primary={"label": _("Versturen…"), "href": _base ~ "/versturen"}, actions=_acties,

@@ -1204,9 +1204,10 @@ def test_de_koper_annuleert_zijn_bestelling(webshop_page):
     )
 
 
-def test_verkoop_verwijdert_een_bestelling(webshop_page):
-    """Q61/F8, at 390 px: Verkoop's "Verwijderen" asks, and the order leaves the list.
-    Walks the button so a dead one (a type lost) is caught, as the buyer's was."""
+def test_verkoop_annuleert_een_bestelling(webshop_page):
+    """Q61/F8, at 390 px: Verkoop's "Annuleren" (#2172; it read "Verwijderen") asks, and
+    the order leaves the list. Walks the button so a dead one (a type lost) is caught, as
+    the buyer's was."""
     from app.domains.auth.api import make_session_value
     from tests.conftest import SEEDED_ADMIN_EMAIL
 
@@ -1242,11 +1243,13 @@ def test_verkoop_verwijdert_een_bestelling(webshop_page):
     assert row_of_the_order.count() == 1, "the order stands in the list before the delete"
     row.click()
     page.wait_for_selector("[data-record-head]")
-    assert "Verwijderen" in page.locator("main").inner_text()
+    head = page.locator("main").inner_text()
+    assert "Verwijderen" not in head, "the button says what it does"
 
-    page.get_by_role("button", name="Verwijderen").click()
+    page.get_by_role("button", name="Annuleren", exact=True).click()
     ok = page.locator("[data-dialog] [data-dialog-ok]")
     ok.wait_for(state="visible")
+    assert "De bestelling wordt verwijderd." in page.locator("[data-dialog]").inner_text()
     with htmx_afgerond(page):
         ok.click()
     page.wait_for_url("**/admin/verkoop")

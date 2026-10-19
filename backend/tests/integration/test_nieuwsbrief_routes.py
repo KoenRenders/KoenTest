@@ -270,8 +270,10 @@ def test_een_concept_verwijderen_vraagt_bevestiging_op_het_formulier(client, db_
     _login(client)
     letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
     html = client.get(f"/admin/nieuwsbrieven/{letter.id}").text
-    form = html.split(f'hx-post="/admin/nieuwsbrieven/{letter.id}/verwijderen"')[1].split(">")[0]
-    assert "data-confirm" in form
+    # #2172: the request is made by the edit bar's button now; its whole tag carries both.
+    at = html.index(f'hx-post="/admin/nieuwsbrieven/{letter.id}/verwijderen"')
+    tag = html[html.rindex("<", 0, at) : html.index(">", at)]
+    assert "data-confirm" in tag and "data-form-delete" in tag
 
 
 def test_zonder_aanmelding_geen_toegang(client, db_session):

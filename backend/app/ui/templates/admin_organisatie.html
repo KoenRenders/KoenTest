@@ -131,7 +131,7 @@
 
   {% if edit %}
   </form>
-  {{ ui.action_bar(record=True, form="org-form", cancel_href=cancel_href) }}
+  {{ ui.action_bar(record=True, form="org-form", cancel_href=cancel_href, delete_attrs=delete_attrs, delete_confirm=delete_confirm) }}
   {% endif %}
 </div>
 {% endcall %}

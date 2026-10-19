@@ -721,7 +721,7 @@ def test_the_look_of_the_cards_on_the_public_page(setup, width):
 
         first = four["cards"][0]
         assert first["tile"] == [44, 44, "6px"], first["tile"]
-        assert [first["title"], first["line"], first["labels"]] == ["18px", "16px", "12px"]
+        assert [first["title"], first["line"], first["labels"]] == ["20px", "16px", "12px"]
         assert first["radius"] == "14px"
         for c in [*four["cards"], *alone["cards"]]:
             assert c["links"] == 1, "a card holds more than one link"

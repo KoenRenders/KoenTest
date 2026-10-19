@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
+from markupsafe import escape
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -26,7 +27,9 @@ router = APIRouter(include_in_schema=False)
 NAV = "/admin/paginas"
 
 
-def _lijst_ctx(request: Request, db: Session, *, oob: bool = False) -> dict:
+def _lijst_ctx(
+    request: Request, db: Session, *, oob: bool = False, error: str | None = None
+) -> dict:
     """Pagina's on the kit's list page (#2123): the segments Gepubliceerd, Concept and In
     navigatie with their counts, the search on title and slug, the table with the order
     arrows in a column of their own.
@@ -103,6 +106,22 @@ def _lijst_ctx(request: Request, db: Session, *, oob: bool = False) -> dict:
             else _("Nog geen pagina's.")
         ),
         "oob": oob,
+        #: The row's ⋯ (#2172): Verwijderen, with the record's question and its OK.
+        "menus": {
+            p.id: [
+                {
+                    "kind": "delete",
+                    "label": _("Verwijderen"),
+                    "attrs": f'hx-post="{NAV}/{p.id}/verwijderen" hx-vals=\'{{"from_list": "1"}}\' '
+                    'hx-target="#cp-lijst" hx-swap="innerHTML" data-confirm-tone="delete" '
+                    f'data-confirm-ok="{escape(_("Definitief verwijderen"))}"',
+                    "confirm": _("“%(naam)s” definitief verwijderen?") % {"naam": p.title},
+                }
+            ]
+            for p in pages
+        },
+        #: The reason a delete from a row's ⋯ was refused, on the list's banner (#2172).
+        "error": error,
     }
 
 
@@ -579,14 +598,7 @@ def pagina_verplaatsen(
     verplaats_pagina(db, page_id, richting)
     # De filterstand komt uit de browser-URL (#671), zodat je na een verplaatsing
     # dezelfde selectie terugkrijgt en niet plots de hele lijst.
-    return templates.TemplateResponse(
-        request,
-        "_cp_kaarten.html",
-        {
-            "csrf_token": csrf_from_request(request),
-            **_lijst_ctx(request, db, oob=True),
-        },
-    )
+    return _list_response(request, db)
 
 
 @router.post(
@@ -599,20 +611,39 @@ def pagina_verwijderen(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.PAGE_MANAGE)),
+    from_list: str = Form(""),
 ):
+    """Asked from the record's action bar or from a row's ⋯ in the list (#2172,
+    `from_list`): the answer goes back where it was asked."""
     from app.domains.cms.api import SectionRefused, delete_page
 
     try:
         delete_page(db, page_id)
     except SectionRefused as error:
-        # A section with pages under it stays (#2024): the record page again,
-        # with the reason, where the delete was asked.
+        # A section with pages under it stays (#2024): the reason where the delete
+        # was asked — the list's banner, or the record page again.
+        if from_list:
+            return _list_response(request, db, error=str(error))
         response = _record_response(request, db, page_id, error=str(error))
         response.headers["HX-Retarget"] = "#main"
         response.headers["HX-Reswap"] = "innerHTML"
         return response
-    # Verwijderen gebeurt vanuit de editor; die pagina bestaat daarna niet meer.
+    if from_list:
+        return _list_response(request, db)
+    # From the editor: that page no longer exists, so back to the list.
     return Response(status_code=204, headers={"HX-Redirect": "/admin/paginas"})
+
+
+def _list_response(request: Request, db: Session, *, error: str | None = None):
+    """The list fragment with the counts out of band, as after a move."""
+    return templates.TemplateResponse(
+        request,
+        "_cp_kaarten.html",
+        {
+            "csrf_token": csrf_from_request(request),
+            **_lijst_ctx(request, db, oob=True, error=error),
+        },
+    )
 
 
 @router.get("/admin/paginas/{page_id}/voorbeeld", response_class=HTMLResponse)

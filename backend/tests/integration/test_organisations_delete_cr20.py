@@ -187,7 +187,10 @@ def test_the_record_refuses_on_its_banner_and_deletes_an_unused_one(platform_wor
     csrf = login(client, db_session, SEEDED_ADMIN_EMAIL, ("OPERATOR",))
     headers = {"X-CSRF-Token": csrf, "HX-Request": "true"}
 
-    record = client.get(f"/admin/organisaties/{unused.id}").text
+    # #2172: Verwijderen is the edit bar's, not the head's while reading.
+    reading = client.get(f"/admin/organisaties/{unused.id}").text
+    assert f'hx-post="/admin/organisaties/{unused.id}/verwijderen"' not in reading
+    record = client.get(f"/admin/organisaties/{unused.id}?bewerken=1").text
     assert f'hx-post="/admin/organisaties/{unused.id}/verwijderen"' in record
 
     refused = client.post(f"/admin/organisaties/{used.id}/verwijderen", headers=headers)

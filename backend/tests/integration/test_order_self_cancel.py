@@ -170,11 +170,12 @@ def test_after_delivery_the_buyer_cannot_cancel(client, db_session, every_module
     assert get_order(db_session, order.id) is not None, "the order stays"
 
 
-def test_the_buyer_reads_bestelling_annuleren_and_verkoop_verwijderen(
+def test_the_buyer_reads_bestelling_annuleren_and_verkoop_annuleren(
     client, db_session, every_module_on
 ):
     """Q61: the words follow who clicks — the buyer "Bestelling annuleren", Verkoop
-    "Verwijderen"."""
+    "Annuleren" (#2172: the button cancels and refunds, so it says so; it said
+    "Verwijderen" before)."""
     from tests.conftest import board_session, create_test_family
 
     m = _variant(db_session, stock=5)
@@ -187,7 +188,8 @@ def test_the_buyer_reads_bestelling_annuleren_and_verkoop_verwijderen(
 
     board_session(client)
     admin_page = client.get(f"/admin/verkoop/{order.id}")
-    assert "Verwijderen" in admin_page.text
+    assert ">Annuleren<" in admin_page.text.replace("\n", "").replace("  ", "")
+    assert "Verwijderen" not in admin_page.text
     assert "Bestelling annuleren" not in admin_page.text
 
 
@@ -281,3 +283,40 @@ def test_a_partly_paid_order_does_not_claim_nothing_was_paid(client, db_session,
     page = client.get(f"/mijn/aankopen/{order_id}")
     assert "Bestelling annuleren" in page.text
     assert "nog niets betaald" not in page.text
+
+
+def test_verkoop_annuleren_on_a_paid_order_names_the_refund(client, db_session, every_module_on):
+    """#2172: the button reads "Annuleren" and its question, unchanged, names the amount
+    that is paid back. Proven red (put back): a second button "Verwijderen" added in the
+    form of `_order_detail.html` → this test and the one above fail."""
+    from app.domains.payment.api import PayableType, confirm_manual_payment, get_records_for
+    from app.domains.sales.api import submit_order
+    from app.kernel.form_guard import TRUSTED
+    from tests.conftest import board_session, create_test_family, form_guard_fields
+
+    m = _variant(db_session, stock=5)
+    _owner, owner_person = create_test_family(db_session, email="eigenaar@example.com")
+    _checkout, order_id, _key = submit_order(
+        db_session,
+        proof=TRUSTED,
+        values=form_guard_fields(),
+        person_id=owner_person.id,
+        member=False,
+        contact_name="",
+        contact_email="",
+        phone="",
+        method=PaymentMethod.TRANSFER,
+        items=[(m.id, 1)],
+    )
+    (record,) = get_records_for(db_session, PayableType.ORDER, order_id)
+    confirm_manual_payment(
+        db_session, record.id, amount_paid=record.amount, actor="penning@example.com"
+    )
+    db_session.commit()
+
+    board_session(client)
+    page = client.get(f"/admin/verkoop/{order_id}").text
+    form = page[page.index(f'hx-post="/admin/verkoop/{order_id}/annuleren"') :]
+    form = form[: form.index("</form>")]
+    assert "Annuleren" in form and "Verwijderen" not in form
+    assert "De betaalde € 15,00 wordt terugbetaald." in form

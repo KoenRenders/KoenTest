@@ -863,15 +863,15 @@ body[data-shell="site"]>main{padding-bottom:24px}
 @media (max-width:639.98px){
   .prose-cards,.prose-cards:has(>:nth-child(3)){grid-template-columns:minmax(0,1fr)}
 }
-.prose-card{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:4px;border:1px solid rgb(var(--c-line));border-radius:14px;background:#fff;padding:16px;overflow:hidden}
+.prose-card{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:4px;border:1px solid rgb(var(--c-line));border-radius:14px;background:#fff;padding:24px;overflow:hidden}
 .prose-card:has(a.prose-card-title:focus-visible){outline:3px solid rgb(var(--c-blue-600));outline-offset:2px}
 .prose-card-icon{display:grid;place-items:center;width:44px;height:44px;border-radius:6px;background:rgb(var(--c-blue-50));color:rgb(var(--c-brand));margin-bottom:8px}
-.prose-raak img.prose-card-picture{display:block;width:calc(100% + 32px);max-width:none;margin:-16px -16px 8px;aspect-ratio:16/9;object-fit:cover;border-radius:0;box-shadow:none}
-.prose-raak .prose-card-title{font-size:18px;line-height:1.35;font-weight:600;color:var(--ink);text-decoration:none}
+.prose-raak img.prose-card-picture{display:block;width:calc(100% + 48px);max-width:none;margin:-24px -24px 8px;aspect-ratio:16/9;object-fit:cover;border-radius:0;box-shadow:none}
+.prose-raak .prose-card-title{font-size:20px;line-height:1.35;font-weight:600;color:var(--ink);text-decoration:none}
 .prose-raak a.prose-card-title::after{content:"";position:absolute;inset:0}
 .prose-raak a.prose-card-title:focus-visible{outline:none}
 .de-gallery{margin:.5rem 0;padding:.75rem 1rem;border:1px dashed rgb(var(--c-line));border-radius:8px;background:rgb(var(--c-surface-2));font-size:.875rem}
-.prose-card-number{font-size:14px;font-weight:700;letter-spacing:.06em;color:rgb(var(--c-brand))}
+.prose-card-number{font-size:12px;font-weight:400;letter-spacing:.06em;color:rgb(var(--c-ink-soft))}
 .prose-card-text{margin:0;font-size:16px;line-height:1.5;color:rgb(var(--c-ink-soft))}
 .prose-card-line{font-size:16px;line-height:1.5;color:rgb(var(--c-ink-soft))}
 /* A value in the page editor (CR-32 R19): a chip with the value it has now; on the
