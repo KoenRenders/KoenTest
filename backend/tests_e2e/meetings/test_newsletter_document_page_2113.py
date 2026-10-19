@@ -196,7 +196,7 @@ def test_the_preview_text_shows_all_its_text_and_the_bar_stays_in_view(world, wi
         ys = []
         for y in (0, 900):
             page.evaluate(f"window.scrollTo(0, {y})")
-            page.wait_for_timeout(200)
+            page.evaluate("new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))")
             ys.append((y, round(bar.bounding_box()["y"]), page.evaluate("window.innerHeight")))
         with capsys.disabled():
             print(f"MEASURE preview box at {width}: {box}; bar (scroll, y, window height): {ys}")
