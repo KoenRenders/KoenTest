@@ -26,14 +26,14 @@ NOTE = "Jan zorgt voor de tent"
 
 _MEASURE = """(name) => {
   const card = [...document.querySelectorAll('#vg-document h2')]
-    .find(h => h.textContent.trim() === 'Volgende activiteiten').closest('div.rounded-2xl');
+    .find(h => h.textContent.trim() === 'Volgende activiteiten').closest('[data-vg-section]');
   const point = [...card.querySelectorAll('[id^="vg-punt-"]')]
     .find(p => p.querySelector('span').textContent.trim() === name);
   const editor = point.querySelector('.document-editor');
   const r = editor.getBoundingClientRect();
   return {
     doc: document.documentElement.scrollWidth, vw: innerWidth,
-    card_right: Math.round(card.getBoundingClientRect().right),
+    card_right: Math.round(point.getBoundingClientRect().right),
     editor_right: Math.round(r.right), editor_width: Math.round(r.width),
     editor_text: point.querySelector('.ProseMirror').textContent.trim(),
   };

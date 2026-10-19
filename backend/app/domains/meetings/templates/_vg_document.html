@@ -1,27 +1,10 @@
 {% import "_macros.html" as ui %}
+{# The meeting as a document page on the kit (CR-11 fase 5, #2112): the record head,
+   a card for the attendance, one card per point under the heading of its section,
+   a card for the attachments. Every write replaces this one fragment. #}
 {% if error %}{{ ui.error_banner(error) }}{% endif %}
 
-{% call ui.page_header(title, _("Agenda en verslag zijn hetzelfde document. Wat je tijdens de vergadering typt, staat meteen in het verslag.")) %}
-  <div class="flex items-center gap-2 flex-wrap">
-    {{ ui.badge(meeting.status | code_label("meeting_status"),
-                meeting.status | tone("meeting_status")) }}
-    {% if editable %}{{ ui.btn_secondary(_("Datum, uur, locatie"), href="/admin/vergaderingen/" ~ meeting.id ~ "/bewerken", lead_icon="pencil") }}{% endif %}
-    {{ ui.btn_secondary(_("Download PDF"), href="/admin/vergaderingen/" ~ meeting.id ~ "/pdf", attrs='hx-boost="false"', lead_icon="download") }}
-    {% if editable %}
-      {% if not meeting.agenda_sent_at %}
-        {# CR-11 W7 (#1391): a button that opens a step ends in "…"; the button
-           on that step names the consequence ("Verstuur agenda aan N ontvangers"). #}
-        {{ ui.btn_outline(_("Agenda versturen…"), href="/admin/vergaderingen/" ~ meeting.id ~ "/verstuur?kind=agenda", lead_icon="mail") }}
-      {% endif %}
-      {{ ui.btn_primary(_("Verslag versturen…"), href="/admin/vergaderingen/" ~ meeting.id ~ "/verstuur?kind=verslag", lead_icon="mail") }}
-    {% else %}
-      <form hx-post="/admin/vergaderingen/{{ meeting.id }}/heropen" hx-target="#vg-document" hx-swap="innerHTML">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        {{ ui.btn_secondary(_("Heropen verslag"), type="submit") }}
-      </form>
-    {% endif %}
-  </div>
-{% endcall %}
+<div id="vg-kop">{% include "_vg_kop.html" %}</div>
 
 {% if not editable %}
 <div class="rounded-lg border border-line bg-surface-2 px-4 py-3 text-sm text-ink-soft mb-4">
@@ -29,19 +12,24 @@
 </div>
 {% endif %}
 
-{# ── Aanwezigheid ────────────────────────────────────────────────────────── #}
-<div class="bg-surface border border-line rounded-2xl p-5 mb-4">
-  <h2 class="font-semibold text-blue-700">{{ _("Aanwezigheid") }}</h2>
-  <p class="text-sm text-ink-soft mt-0.5">{{ _("Aanvinken uit de vergaderkring — klik: aanwezig → verontschuldigd → leeg.") }}</p>
+{% call ui.record_columns() %}
+<div class="form-flow">
+
+  {# ── Aanwezigheid ──────────────────────────────────────────────────────── #}
+  {% call ui.section(_("Aanwezigheid"), intro=_("Aanvinken uit de vergaderkring — klik: aanwezig → verontschuldigd → leeg.")) %}
   {% if not circle %}
     {# #1346: why it is empty comes from the service — empty today, or only on
        this meeting's date. #}
-    {{ ui.empty_state(circle_gap, action_label=_("Kring beheren"), action_href="/admin/vergaderingen/kring") }}
+    <div data-span="full">{{ ui.empty_state(circle_gap, action_label=_("Kring beheren"), action_href="/admin/vergaderingen/kring") }}</div>
   {% else %}
-  <div class="flex flex-wrap gap-2 mt-3">
+  <div data-span="full" class="flex flex-wrap gap-2">
     {# Eén lijst: de kring van dát moment, de gasten, en wie aangevinkt staat maar
        de kring intussen verlaten heeft. Die laatste blijft zichtbaar — wie er was,
-       was er, en een verslag dat hem weglaat klopt niet meer met die avond. #}
+       was er, en een verslag dat hem weglaat klopt niet meer met die avond.
+
+       DECLARED EXCEPTION to the kit (#2112): the attendance button — one button
+       that cycles present, excused, empty — is its own drawing, no kit macro
+       (`DECLARED_KIT_EXCEPTIONS` in `tests/ui_baseline.py`). #}
     {% for deelnemer in participants %}
     {% set state = attendance.get(deelnemer.key, "") %}
     <span class="inline-flex items-center">
@@ -51,7 +39,7 @@
         {% if deelnemer.guest_id %}<input type="hidden" name="guest_id" value="{{ deelnemer.guest_id }}">{% endif %}
         <input type="hidden" name="current" value="{{ state }}">
         <button type="submit" {% if not editable %}disabled{% endif %}
-                class="inline-flex items-center gap-1.5 border px-3 py-1.5 text-sm transition-colors
+                class="inline-flex items-center gap-1.5 border px-3 min-h-11 md:min-h-9 text-sm transition-colors
                 {% if deelnemer.is_guest %}rounded-l-full border-r-0{% else %}rounded-full{% endif %}
                 {% if state == 'present' %}border-green-300 bg-green-50 text-green-800 font-medium
                 {% elif state == 'excused' %}border-yellow-300 bg-yellow-50 text-yellow-800 font-medium
@@ -67,7 +55,7 @@
       <form hx-post="/admin/vergaderingen/{{ meeting.id }}/gast/{{ deelnemer.guest_id }}/verwijder"
             hx-target="#vg-document" hx-swap="innerHTML">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" class="inline-flex items-center rounded-r-full border border-line px-2 py-1.5 text-ink-soft hover:text-brand-danger hover:bg-surface-2"
+        <button type="submit" class="inline-flex items-center rounded-r-full border border-line px-2 min-h-11 md:min-h-9 text-ink-soft hover:text-brand-danger hover:bg-surface-2"
                 aria-label="{{ _("Gast verwijderen") }}">{{ ui.icon("trash-2", 13) }}</button>
       </form>
       {% endif %}
@@ -75,23 +63,24 @@
     {% endfor %}
   </div>
   {% if editable %}
-  <form class="mt-3 flex flex-wrap items-center gap-2" hx-post="/admin/vergaderingen/{{ meeting.id }}/gast"
-        hx-target="#vg-document" hx-swap="innerHTML">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    {{ ui.input_control("guest_name", cls="w-44", placeholder=_("Naam van de gast")) }}
-    {{ ui.input_control("guest_email", type="email", cls="w-56", placeholder=_("naam@voorbeeld.be")) }}
-    {{ ui.btn_secondary(_("Gast uitnodigen"), type="submit", size="sm") }}
-    <span class="text-xs text-ink-soft">{{ _("krijgt de agenda en het verslag, voor deze vergadering") }}</span>
-  </form>
+  <div data-span="full" class="min-w-0">
+    <form class="flex flex-wrap items-center gap-2" hx-post="/admin/vergaderingen/{{ meeting.id }}/gast"
+          hx-target="#vg-document" hx-swap="innerHTML">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {{ ui.input_control("guest_name", cls="w-44", placeholder=_("Naam van de gast")) }}
+      {{ ui.input_control("guest_email", type="email", cls="w-56", placeholder=_("naam@voorbeeld.be")) }}
+      {{ ui.btn_secondary(_("Gast uitnodigen"), type="submit", size="sm") }}
+      <span class="text-xs text-ink-soft">{{ _("krijgt de agenda en het verslag, voor deze vergadering") }}</span>
+    </form>
+  </div>
   {% endif %}
   {% endif %}
-</div>
+  {% endcall %}
 
-{# ── De secties ──────────────────────────────────────────────────────────── #}
-{% for section in sections %}
-<div class="bg-surface border border-line rounded-2xl p-5 mb-4">
-  <div class="flex items-center gap-3 flex-wrap">
-    <h2 class="font-semibold text-blue-700">{{ section.label }}</h2>
+  {# ── De secties: de kop, dan een kaart per punt ───────────────────────── #}
+  {% for section in sections %}
+  <div data-vg-section class="form-flow">
+  {% call ui.flow_heading(section.label) %}
     {% if section.is_members %}
       {{ ui.badge(_("totaal %(jaar)s: %(n)s gezinnen", jaar=standing.year, n=standing.total), "blue") }}
       {% if standing.renewal_running %}
@@ -100,36 +89,26 @@
     {% elif section.is_custom %}
       {{ ui.badge(_("eigen sectie"), "gray") }}
     {% endif %}
-  </div>
-  {% if section.subtitle %}<p class="text-sm text-ink-soft mt-0.5">{{ section.subtitle }}</p>{% endif %}
+  {% endcall %}
+  {% if section.subtitle %}<p class="-mt-2 text-sm text-ink-soft">{{ section.subtitle }}</p>{% endif %}
 
   {% if not section.items %}
-    <p class="text-sm text-ink-soft py-4 text-center">{{ _("Nog geen punten.") }}</p>
+    <p class="text-sm text-ink-soft">{{ _("Nog geen punten.") }}</p>
   {% endif %}
-  {# #1372: the line between points belongs to this list (`divide-y`), not to a
-     point. A point swapped back on its own does not know it is the first, so a
-     line decided by the point itself grew under the heading after every note. #}
-  <div class="divide-y divide-line">
   {% for item in section.items %}
   {% include "_vg_punt.html" %}
   {% endfor %}
-  </div>
 
   {% if section.can_add %}
     {% if picker_section_id == section.id %}
     {# De kiezer: een bestaande activiteit alsnog toevoegen, ook tijdens de
        vergadering — het geval van een hotel dat een jaar vooruit vastligt. #}
-    <div class="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
-      <div class="flex items-center justify-between gap-3">
-        <h3 class="font-semibold text-sm text-blue-700">{{ _("Punt toevoegen") }}</h3>
-        <a href="/admin/vergaderingen/{{ meeting.id }}" hx-get="/admin/vergaderingen/{{ meeting.id }}/kiezer"
-           hx-target="#vg-document" hx-swap="innerHTML"
-           class="text-ink-soft hover:text-ink" aria-label="{{ _("Kiezer sluiten") }}">{{ ui.icon("x", 16) }}</a>
-      </div>
+    {% call ui.section(_("Punt toevoegen"), id="vg-kiezer") %}
+    <div data-span="full" class="min-w-0">
       {# Het vrije punt staat BOVEN de lijst: negen van de tien keer is dat wat je
          wil onder Varia of Programma-ideeën, en anders moest je eerst langs de
          hele activiteitenlijst scrollen om erbij te komen. #}
-      <form class="mt-3 flex items-center gap-2" hx-post="/admin/vergaderingen/{{ meeting.id }}/punt"
+      <form class="flex items-center gap-2" hx-post="/admin/vergaderingen/{{ meeting.id }}/punt"
             hx-target="#vg-document" hx-swap="innerHTML">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input type="hidden" name="section_id" value="{{ section.id }}">
@@ -142,12 +121,8 @@
       <p class="mt-3 text-xs text-ink-soft">{{ _("… of kies een activiteit die al in het portaal staat:") }}</p>
       {# Zelfde reden als bij de kring: alleen de resultaten vervangen, anders
          springt de focus uit het zoekveld bij elke toetsaanslag. #}
-      <input type="search" name="q" value="{{ picker_query }}" placeholder="{{ _("Zoek een activiteit…") }}"
-             class="mt-3 w-full rounded-lg border border-line px-3 py-2 text-sm"
-             hx-get="/admin/vergaderingen/{{ meeting.id }}/kiezer"
-             hx-target="#vg-kiezer-resultaten" hx-select="#vg-kiezer-resultaten"
-             hx-swap="outerHTML" hx-trigger="input changed delay:300ms"
-             hx-vals='{"section_id": "{{ section.id }}"}'>
+      {{ ui.input_control("q", type="search", value=picker_query, cls="mt-3 w-full", placeholder=_("Zoek een activiteit…"),
+                          attrs='hx-get="/admin/vergaderingen/' ~ meeting.id ~ '/kiezer" hx-target="#vg-kiezer-resultaten" hx-select="#vg-kiezer-resultaten" hx-swap="outerHTML" hx-trigger="input changed delay:300ms" hx-vals=\'{"section_id": "' ~ section.id ~ '"}\'') }}
       <div id="vg-kiezer-resultaten" class="mt-2 divide-y divide-line">
         {# #1335: one choice per date of an activity, so a monthly ride can be
            picked once per ride. #}
@@ -167,36 +142,35 @@
         <p class="text-sm text-ink-soft py-2">{{ _("Geen activiteiten gevonden die hier nog niet staan.") }}</p>
         {% endfor %}
       </div>
+      <div class="mt-3">
+        {{ ui.btn_secondary(_("Kiezer sluiten"), size="sm", attrs='hx-get="/admin/vergaderingen/' ~ meeting.id ~ '/kiezer" hx-target="#vg-document" hx-swap="innerHTML"') }}
+      </div>
     </div>
+    {% endcall %}
     {% else %}
-    <div class="mt-3">
-      <button type="button" hx-get="/admin/vergaderingen/{{ meeting.id }}/kiezer"
-              hx-vals='{"section_id": "{{ section.id }}"}' hx-target="#vg-document" hx-swap="innerHTML"
-              class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-line px-3 py-2 text-sm text-blue-700 hover:bg-surface-2">
-        {{ ui.icon("plus", 14) }}{{ _("Punt toevoegen") }}
-      </button>
+    <div>
+      {{ ui.btn_secondary(_("Punt toevoegen"), size="sm", lead_icon="plus",
+                          attrs='hx-get="/admin/vergaderingen/' ~ meeting.id ~ '/kiezer" hx-vals=\'{"section_id": "' ~ section.id ~ '"}\' hx-target="#vg-document" hx-swap="innerHTML"') }}
     </div>
     {% endif %}
   {% endif %}
-</div>
 
-{# Een eigen sectie komt vóór Varia; Varia is altijd het laatste punt. #}
-{% if section.is_ideas and editable %}
-<form class="flex flex-wrap items-center gap-2 justify-center mb-4"
-      hx-post="/admin/vergaderingen/{{ meeting.id }}/sectie" hx-target="#vg-document" hx-swap="innerHTML">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-  {{ ui.input_control("title", cls="w-64", placeholder=_("Naam van de sectie")) }}
-  {{ ui.btn_secondary(_("Sectie toevoegen"), type="submit", size="sm") }}
-  <span class="text-xs text-ink-soft">{{ _("komt vóór Varia") }}</span>
-</form>
-{% endif %}
-{% endfor %}
+  {# Een eigen sectie komt vóór Varia; Varia is altijd het laatste punt. #}
+  {% if section.is_ideas and editable %}
+  <form class="flex flex-wrap items-center gap-2"
+        hx-post="/admin/vergaderingen/{{ meeting.id }}/sectie" hx-target="#vg-document" hx-swap="innerHTML">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {{ ui.input_control("title", cls="w-64", placeholder=_("Naam van de sectie")) }}
+    {{ ui.btn_secondary(_("Sectie toevoegen"), type="submit", size="sm", lead_icon="plus") }}
+    <span class="text-xs text-ink-soft">{{ _("komt vóór Varia") }}</span>
+  </form>
+  {% endif %}
+  </div>
+  {% endfor %}
 
-{# ── Bijlagen ────────────────────────────────────────────────────────────── #}
-<div class="bg-surface border border-line rounded-2xl p-5">
-  <h2 class="font-semibold text-blue-700">{{ _("Bijlagen") }}</h2>
-  <p class="text-sm text-ink-soft mt-0.5">{{ _("Gaan mee met de agenda- en verslagmail — bijvoorbeeld een werkgroepverslag of een document van de gemeente.") }}</p>
-  <div class="flex flex-wrap gap-2 mt-3 items-center">
+  {# ── Bijlagen ──────────────────────────────────────────────────────────── #}
+  {% call ui.section(_("Bijlagen"), intro=_("Gaan mee met de agenda- en verslagmail — bijvoorbeeld een werkgroepverslag of een document van de gemeente.")) %}
+  <div data-span="full" class="min-w-0 flex flex-wrap gap-2 items-center">
     {% for file, verstuurd, waarmee in attachments %}
     <span class="inline-flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-sm">
       {{ ui.icon("file-text", 14) }}
@@ -238,18 +212,20 @@
     {% endfor %}
   </div>
   {% if editable %}
-  <form class="mt-3 flex flex-wrap items-end gap-2" hx-post="/admin/vergaderingen/{{ meeting.id }}/bijlage"
-        hx-target="#vg-document" hx-swap="innerHTML" hx-encoding="multipart/form-data">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <div class="flex-1">
-      {{ ui.upload_field("file", text=_("Bijlage toevoegen"), accept="application/pdf,image/*,.doc,.docx,.odt") }}
-    </div>
-    {{ ui.btn_secondary(_("Uploaden"), type="submit", size="sm", lead_icon="upload") }}
-  </form>
+  <div data-span="full" class="min-w-0">
+    <form class="flex flex-wrap items-end gap-2" hx-post="/admin/vergaderingen/{{ meeting.id }}/bijlage"
+          hx-target="#vg-document" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="flex-1">
+        {{ ui.upload_field("file", text=_("Bijlage toevoegen"), accept="application/pdf,image/*,.doc,.docx,.odt") }}
+      </div>
+      {{ ui.btn_secondary(_("Uploaden"), type="submit", size="sm", lead_icon="upload") }}
+    </form>
+  </div>
   {% endif %}
 
   {% if sent_pdfs %}
-  <div class="mt-4 pt-3 border-t border-line">
+  <div data-span="full" class="min-w-0 pt-3 border-t border-line">
     <h3 class="text-sm font-semibold text-ink">{{ _("Verstuurd") }}</h3>
     <p class="text-xs text-ink-soft">{{ _("Wat er écht vertrokken is. Elke verzending bewaart haar eigen PDF.") }}</p>
     <div class="flex flex-wrap gap-2 mt-2">
@@ -262,4 +238,6 @@
     </div>
   </div>
   {% endif %}
+  {% endcall %}
 </div>
+{% endcall %}

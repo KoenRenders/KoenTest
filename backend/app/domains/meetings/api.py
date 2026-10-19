@@ -65,6 +65,7 @@ from app.domains.meetings.service import (  # noqa: F401
     get_file,
     get_meeting,
     items_of,
+    last_saved_at,
     list_meetings,
     mail_signature,
     member_standing,

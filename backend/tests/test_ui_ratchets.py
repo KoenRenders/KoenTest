@@ -333,7 +333,10 @@ def test_the_count_only_falls(rule):
 
 def test_every_rule_has_its_baseline_and_no_baseline_is_an_orphan():
     names = {
-        n for n in vars(baseline) if n.isupper() and n != "INCLUDED_BY_THE_PILOT_NOT_RENDERED_THERE"
+        n
+        for n in vars(baseline)
+        if n.isupper()
+        and n not in ("INCLUDED_BY_THE_PILOT_NOT_RENDERED_THERE", "DECLARED_KIT_EXCEPTIONS")
     }
     assert names == {r.upper() for r in RULES}
 
@@ -446,3 +449,14 @@ if (
         for rel_path, number in sorted(measured.items()):
             sys.stdout.write(f'    "{rel_path}": {number},\n')
         sys.stdout.write(f"}}  # {sum(measured.values())} in {len(measured)} files\n")
+
+
+def test_a_declared_kit_exception_is_named_in_its_template():
+    """The exceptions of `DECLARED_KIT_EXCEPTIONS` stand in the template with the
+    words "DECLARED EXCEPTION", so a reader of either finds the other. Proven red
+    by taking the words out of `_vg_document.html` (#2112)."""
+    assert baseline.DECLARED_KIT_EXCEPTIONS, "the list was emptied: nothing is checked"
+    for rel, reason in baseline.DECLARED_KIT_EXCEPTIONS.items():
+        source = (APP / rel).read_text(encoding="utf-8")
+        assert "DECLARED EXCEPTION" in source, f"{rel} does not name its exception"
+        assert reason.strip()

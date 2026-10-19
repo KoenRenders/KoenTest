@@ -23,6 +23,17 @@ INCLUDED_BY_THE_PILOT_NOT_RENDERED_THERE: dict[str, str] = {
 }
 
 
+#: A control the kit has no macro for on purpose: a drawing of its own that the template
+#: names ("DECLARED EXCEPTION") and that stands here with its reason. File → why.
+DECLARED_KIT_EXCEPTIONS: dict[str, str] = {
+    "domains/meetings/templates/_vg_document.html": (
+        "the attendance button of a meeting — one button that cycles present, excused, "
+        "empty, a chip per person; not a switch, not a checkbox, not a segment (#2112, Koen, "
+        '18 October 2026: "akkoord op alles")'
+    ),
+}
+
+
 #: B7 test 8 — raw <label>, <select>, <textarea>, visible <input>. 55 in 16 files.
 RAW_FORM_ELEMENTS: dict[str, int] = {
     "domains/auth/templates/_gu_lijst.html": 2,
@@ -30,7 +41,6 @@ RAW_FORM_ELEMENTS: dict[str, int] = {
     "domains/designstudio/templates/admin_ontwerp.html": 2,
     "domains/forms/templates/_fb_builder.html": 12,
     "domains/forms/templates/_formulier_veld.html": 4,
-    "domains/meetings/templates/_vg_document.html": 1,
     "domains/meetings/templates/_vg_kring.html": 1,
     "domains/newsletter/templates/_nb_gesprek.html": 2,
     "domains/newsletter/templates/_nb_import.html": 1,
@@ -57,7 +67,6 @@ SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
     "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/forms/templates/_fb_builder.html": 7,
     "domains/forms/templates/_formulier_veld.html": 2,
-    "domains/meetings/templates/_vg_document.html": 3,
     "domains/meetings/templates/_vg_kring.html": 3,
     "domains/newsletter/templates/_nb_gesprek.html": 2,
     "domains/newsletter/templates/_nb_kiezer.html": 2,
@@ -83,7 +92,6 @@ HEADER_EXTRAS: dict[str, int] = {
     "domains/auth/templates/admin_gebruikers.html": 1,
     "domains/auth/templates/admin_gebruikers_overzicht.html": 1,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
-    "domains/meetings/templates/_vg_document.html": 5,
     "domains/meetings/templates/_vg_verstuur.html": 1,
     "domains/newsletter/templates/admin_nieuwsbrief.html": 5,
     "domains/newsletter/templates/admin_nieuwsbrief_archief.html": 1,
@@ -122,8 +130,6 @@ SHELL_EXTENDED_DIRECTLY: dict[str, int] = {
     "domains/forms/templates/admin_formulier_inzendingen.html": 1,
     "domains/forms/templates/admin_formulier_resultaten.html": 1,
     "domains/mdm/templates/leden_import.html": 1,
-    "domains/meetings/templates/admin_vergadering.html": 1,
-    "domains/meetings/templates/admin_vergadering_nieuw.html": 1,
     "domains/meetings/templates/admin_vergadering_verstuur.html": 1,
     "domains/meetings/templates/admin_vergaderkring.html": 1,
     "domains/newsletter/templates/admin_abonnees_import.html": 1,
