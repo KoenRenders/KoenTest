@@ -1,0 +1,22 @@
+{% import "_macros.html" as ui %}
+{# The record head of a meeting (#2112): the status as the badge, the facts under
+   the title, "Verslag versturen…" as the one primary and the rest under Acties.
+   Included by the document and by a saved point, which sends it out of band. #}
+{% set _base = "/admin/vergaderingen/" ~ head.meeting.id %}
+{% set _acties = (
+     [{"kind": "record", "label": _("Datum, uur en locatie"), "href": _base ~ "/bewerken"}] if head.editable else []
+   ) + (
+     [{"kind": "record", "verb": "send", "label": _("Agenda versturen…"), "href": _base ~ "/verstuur?kind=agenda"}]
+       if head.editable and not head.meeting.agenda_sent_at else []
+   ) + [
+     {"kind": "record", "verb": "export", "label": _("Download PDF"), "href": _base ~ "/pdf", "attrs": 'hx-boost="false"'}
+   ] %}
+{% if head.editable %}
+  {% set _primary = {"label": _("Verslag versturen…"), "href": _base ~ "/verstuur?kind=verslag"} %}
+{% else %}
+  {% set _primary = {"label": _("Heropen verslag"), "attrs": 'hx-post="' ~ _base ~ '/heropen" hx-target="#vg-document" hx-swap="innerHTML" hx-vals=\'{"csrf_token": "' ~ head.csrf_token ~ '"}\''} %}
+{% endif %}
+{{ ui.record_header(head.title,
+     badges=[{"label": head.meeting.status | code_label("meeting_status"), "tone": head.meeting.status | tone("meeting_status")}],
+     facts=head.facts, primary=_primary, actions=_acties,
+     back={"label": _("Alle vergaderingen"), "href": "/admin/vergaderingen"}) }}

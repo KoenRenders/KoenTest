@@ -40,23 +40,24 @@ def _element(html: str, start: str, tag: str = "div") -> str:
 # ── W10: the create button stays on the title line ──────────────────────────
 
 
-def test_a_list_page_keeps_its_create_button_beside_the_title_on_a_phone():
-    """W10, now only for a list page (`list_page=True`): below md the action
-    wrapper dissolves and every action but the LAST — the create button — moves
-    to the row under the title; the title truncates. Drop the `order-1` or the
-    `truncate` and this goes red."""
+def test_a_list_page_puts_its_actions_under_the_title_on_a_phone():
+    """W10 as revised by #2126, for a list page (`list_page=True`): below md the
+    title takes the whole row (`basis-full`, and never cut) and every action —
+    the create button among them — moves to the row under it; from md the title
+    shares the row again. Drop the `basis-full` or the `order-1` and this goes red;
+    the browser test at 390 px measures what it makes (`test_list_head_phone_2126`)."""
     html = _render(
         "{% call ui.page_header('Nieuwsbrieven', 'Uitleg', list_page=True) %}"
         "<a>Instellingen</a><a>Abonnees</a><a>+ Nieuwe nieuwsbrief</a>{% endcall %}"
     )
     h1 = _element(html, "<h1", "h1")
-    assert "truncate" in h1 and "min-w-0" in h1
+    assert "basis-full" in h1 and "md:basis-auto" in h1 and "min-w-0" in h1
     header = _element(html, "<div data-page-header")
     # The class is written by an expression, so the attribute arrives escaped
     # (`&amp;&gt;`); a browser decodes it, and so does this test.
     actions = html_module.unescape(_element(header, "<div data-header-actions"))
-    assert "contents [&>*:not(:last-child)]:order-1" in actions
-    assert "md:[&>*:not(:last-child)]:order-none" in actions, "desktop keeps the DOM order"
+    assert "contents [&>*]:order-1" in actions
+    assert "md:[&>*]:order-none" in actions, "desktop keeps the DOM order"
     assert actions.index("Abonnees") < actions.index("+ Nieuwe nieuwsbrief")
     # The subtitle leaves the title column on a phone: full width, under both.
     assert "basis-full" in _element(header, "<p", "p")
@@ -118,7 +119,9 @@ def test_the_list_pages_are_the_headers_with_a_create_button():
             )
             if has_create != ("list_page=True" in head):
                 wrong.append(str(path.relative_to(APP)))
-    assert scanned > 20, f"the scan found only {scanned} headers"
+    # 15 since #2123: six lists left `page_header` for the kit's list page (18 headers stand);
+    # 13 since #2112: the meeting's two pages went to the record head and the form page.
+    assert scanned > 12, f"the scan found only {scanned} headers"
     assert not wrong, wrong
 
 
@@ -149,7 +152,7 @@ def test_the_reports_header_links_to_no_other_module(client, db_session):
     assert moved.status_code == 301 and moved.headers["location"] == "/admin/rapporten"
 
     html = client.get("/admin/rapporten").text
-    header = _element(html, "<div data-page-header")
+    header = _element(html, "<div data-list-head")
     assert "Nieuw rapport" in header, "the measurement found the wrong header"
     links = re.findall(r'href="([^"]*)"', header)
     assert links == ["/admin/rapporten/nieuw"], links

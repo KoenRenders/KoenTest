@@ -4,28 +4,41 @@
 {% block content %}
 {# Mijn profiel (golf 9, #913 / #963): read-only — wie ben ik en wat mag ik,
    pér werkruimte. Platformbrede rollen (vandaag alleen OPERATOR) staan apart:
-   ze gelden overal en horen niet bij één werkruimte te liegen. #}
-{{ ui.page_header(_("Mijn profiel")) }}
-{% call ui.card() %}
-  <dl class="text-sm space-y-2 max-w-md">
-    <div class="flex justify-between gap-4"><dt class="text-ink-soft">{{ _("E-mail") }}</dt>
-      <dd>{{ profiel_email }}</dd></div>
-    <div class="flex justify-between gap-4"><dt class="text-ink-soft">{{ _("Actieve werkruimte") }}</dt>
-      <dd>{{ werkruimte_naam() }}</dd></div>
-    {% if profiel_platform_rollen %}
-    <div class="flex justify-between gap-4"><dt class="text-ink-soft">{{ _("Platformbreed") }}</dt>
-      <dd class="flex flex-wrap gap-1 justify-end">{% for rol in profiel_platform_rollen %}{{ ui.badge(rol | code_label("role"), "blue") }}{% endfor %}</dd></div>
-    {% endif %}
-    {% for wr in profiel_werkruimtes %}
-    <div class="flex justify-between gap-4"><dt class="text-ink-soft">{{ wr.naam }}</dt>
-      <dd class="flex flex-wrap gap-1 justify-end">{% for rol in wr.rollen %}{{ ui.badge(rol | code_label("role"), "blue") }}{% endfor %}</dd></div>
-    {% else %}
-    {% if not profiel_platform_rollen %}
-    <div class="flex justify-between gap-4"><dt class="text-ink-soft">{{ _("Rollen") }}</dt>
-      <dd class="text-ink-soft">—</dd></div>
-    {% endif %}
-    {% endfor %}
-  </dl>
-  <p class="text-xs text-ink-soft mt-4">{{ _("Een rol geldt in de werkruimte waar hij staat; platformbrede rollen gelden overal (#963).") }}</p>
+   ze gelden overal en horen niet bij één werkruimte te liegen.
+
+   A readable record page of the kit (#2129; concept round 4): the record head with the
+   address as its fact and no Bewerken — there is nothing to edit here — and two cards,
+   Account and Rollen. Every function of the old page stays: the address, the active
+   workspace, the platform-wide roles, the roles per workspace, the dash where there is
+   none, and the sentence about where a role holds. #}
+{{ ui.record_header(_("Mijn profiel"), facts=[{"text": profiel_email}]) }}
+{% call ui.record_columns() %}
+<div class="form-flow">
+  {% call ui.section(_("Account")) %}
+  <p data-span="half" class="min-w-0">{{ ui.label_fact(_("E-mail"), profiel_email) }}</p>
+  <p data-span="half" class="min-w-0">{{ ui.label_fact(_("Actieve werkruimte"), werkruimte_naam()) }}</p>
+  {% endcall %}
+  {% call ui.section(_("Rollen"), intro=_("Een rol geldt in de werkruimte waar hij staat; platformbrede rollen gelden overal.")) %}
+  {% if profiel_platform_rollen %}
+  <div data-span="full" class="flex items-baseline justify-between gap-4 text-sm">
+    <span class="text-ink-soft">{{ _("Platformbreed") }}</span>
+    <span class="flex flex-wrap justify-end gap-1">{% for rol in profiel_platform_rollen %}{{ ui.badge(rol | code_label("role"), "blue") }}{% endfor %}</span>
+  </div>
+  {% endif %}
+  {% for wr in profiel_werkruimtes %}
+  <div data-span="full" class="flex items-baseline justify-between gap-4 text-sm">
+    <span class="text-ink-soft">{{ wr.naam }}</span>
+    <span class="flex flex-wrap justify-end gap-1">{% for rol in wr.rollen %}{{ ui.badge(rol | code_label("role"), "blue") }}{% endfor %}</span>
+  </div>
+  {% else %}
+  {% if not profiel_platform_rollen %}
+  <div data-span="full" class="flex items-baseline justify-between gap-4 text-sm">
+    <span class="text-ink-soft">{{ _("Rollen") }}</span>
+    <span class="text-ink-soft">—</span>
+  </div>
+  {% endif %}
+  {% endfor %}
+  {% endcall %}
+</div>
 {% endcall %}
 {% endblock %}

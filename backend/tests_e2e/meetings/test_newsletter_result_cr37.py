@@ -40,8 +40,8 @@ BLOCK = """() => {
 }"""
 LIST = """() => ({
   lines: document.querySelectorAll('[data-letter-result]').length,
-  cards: [...document.querySelectorAll('a[href^="/admin/nieuwsbrieven/"]')].map(a => ({
-    subject: a.innerText.split('\\n')[0].trim(), lines: a.querySelectorAll('[data-letter-result]').length })),
+  cards: [...document.querySelectorAll('tr[data-letter]')].map(a => ({
+    subject: a.querySelector('[data-row-link]').innerText.trim(), lines: a.querySelectorAll('[data-letter-result]').length })),
   page: [window.innerWidth, document.documentElement.scrollWidth] })"""
 
 

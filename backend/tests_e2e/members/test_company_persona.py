@@ -97,21 +97,23 @@ def company(browser, operator) -> dict:
     from app.domains.auth.api import User, UserRole, make_session_value
     from app.domains.cms.api import CmsPage
     from app.domains.forms.models import Form, FormField, FormSection
-    from app.domains.mdm.api import Organization
+    from app.domains.mdm.api import Tenant
 
     page = _page(browser, operator, base=PLATFORM)  # #1535: Tenants, on the platform
     page.goto("/admin/tenants/nieuw")
     pagina_klaar(page)
     page.get_by_text("Bedrijf", exact=True).click()
-    page.fill("#t-name", NAME)
     page.fill("#t-code", CODE)
+    # CR-20 F5: a tenant names its account — here a new organisation of its own.
+    page.select_option("#t-account", "nieuw")
+    page.fill("#t-new-account", NAME)
     page.get_by_role("button", name="Opslaan").first.click()
     page.wait_for_selector("text=Tenant aangemaakt.")
     listed = page.locator("main").inner_text()
     page.close()
 
     db = SessionLocal()
-    tenant = db.query(Organization).filter(Organization.code == CODE).one()
+    tenant = db.query(Tenant).filter(Tenant.code == CODE).one()
     admin_email = f"admin-{CODE}@example.org"
     admin = User(email=admin_email, is_active=True)
     db.add(admin)

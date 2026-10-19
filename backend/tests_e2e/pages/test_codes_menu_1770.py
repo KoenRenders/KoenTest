@@ -124,7 +124,7 @@ def test_a_code_from_the_menu_is_a_value_chip_and_renders_as_its_value(setup):
         assert offered == [f"{{{{{code}}}}}" for code in VALUE_CODES], offered
         assert all(code in card for code in offered), (offered, card)
         assert [c for c in card if c.startswith("{{form:")], "the card lost its form codes"
-        assert "{{tenants:raak}}" in card and "{{tenants:raak}}" not in offered
+        assert "{{tenants:raakmillegem}}" in card and "{{tenants:raakmillegem}}" not in offered
         # Every choice can be pressed on a phone: inside the window, 44 px high.
         for box in (e.bounding_box() for e in page.locator(f"{DIALOG} [data-code]").all()):
             assert box["x"] >= 0 and box["x"] + box["width"] <= 390 and box["height"] >= 44, box

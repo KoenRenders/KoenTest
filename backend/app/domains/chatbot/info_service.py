@@ -25,7 +25,7 @@ from app.domains.cms.api import CmsPage
 # Een module-level import hier zou EXTRACTABLE_KINDS opvragen terwijl
 # media/api.py nog aan het initialiseren is.
 from app.i18n import _
-from app.kernel.codes import code_of
+from app.kernel.codes import code_label, code_of
 from app.kernel.contracts.media import ReadTextAgain
 from app.kernel.ports import call
 from app.schemas.chatbot_info import ChatbotInfoEdit, NoteCreate
@@ -74,7 +74,11 @@ def _row(ci: Optional[ChatbotInfo]) -> Optional[dict]:
 
 
 def _document_label(db: Session, asset: "MediaAsset") -> str:
-    from app.domains.media.api import MediaKind
+    """A document's name on the AI context's list and record: an activity's
+    poster and a component's info by what they belong to; any other document by
+    its own title, else by its kind's word from the code list — never the code
+    (#2144)."""
+    from app.domains.media.api import MEDIA_KIND, MediaKind
 
     if asset.kind is MediaKind.ACTIVITY_POSTER and asset.activity_id:
         a = db.query(Activity).filter(Activity.id == asset.activity_id).first()
@@ -89,7 +93,7 @@ def _document_label(db: Session, asset: "MediaAsset") -> str:
             an = c.activity.name if c.activity else "activiteit"
             return f"{an} — {c.name} (info)"
         return "reglement"
-    return code_of(asset.kind) or ""
+    return (asset.title or "").strip() or code_label(MEDIA_KIND.name, asset.kind, db=db)
 
 
 def list_chatbot_info(db: Session, _admin=None):
@@ -146,6 +150,25 @@ def list_chatbot_info(db: Session, _admin=None):
         .all()
     ]
     return {"documents": documents, "cms": cms, "notes": notes}
+
+
+def context_item(db: Session, kind: str, item_id: int) -> Optional[dict]:
+    """One item of what Raakje knows, as the list shows it (#2124): a document by
+    its asset, a page by its page, a note by its row — `kind` is "document",
+    "page" or "note". None when it is not there.
+
+    Taken from `list_chatbot_info`, so the record and the list read one source. A
+    document or a page without a row of its own is returned without one: looking
+    at it makes none (the row is made where it is made today — by the reading
+    job, or at a page's first switch or text)."""
+    data = list_chatbot_info(db)
+    if kind == "document":
+        return next((d for d in data["documents"] if d["asset_id"] == item_id), None)
+    if kind == "page":
+        return next((c for c in data["cms"] if c["page_id"] == item_id), None)
+    if kind == "note":
+        return next((n for n in data["notes"] if n["id"] == item_id), None)
+    return None
 
 
 def _apply_edit(ci: ChatbotInfo, data: ChatbotInfoEdit) -> None:

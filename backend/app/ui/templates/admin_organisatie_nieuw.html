@@ -1,21 +1,19 @@
 {% extends "admin_base.html" %}
 {% import "_macros.html" as ui %}
-{% block title %}{{ _("Nieuw account — Raak beheer") }}{% endblock %}
+{% block title %}{{ _("Nieuwe organisatie — Raak beheer") }}{% endblock %}
 {% block content %}
-{# Creating an account as a full page, like "Nieuwe tenant" (#627, §2.8): only
-   the name and the code; the rest is filled in on the organisation screen it
-   lands on (CR-19, #1495). On the kit since #2110, like Nieuw lid. #}
-{% call ui.public_form_page(_("Nieuw account"), shell="admin",
-                            back_href="/admin/organisaties", back_label=_("Accounts"),
-                            intro=_("Platformbeheer — enkel OPERATOR. Een account is de rechtspersoon waar tenants onder hangen. Na het aanmaken vul je rechtsvorm, nummers, adres en rekening aan.")) %}
+{# Creating an organisation as a full page, like "Nieuwe tenant" (#627, §2.8):
+   only the name — a party has no code (CR-20 C4.7); the rest is filled in on the
+   organisation screen it lands on. It becomes an account when a tenant names it.
+   On the kit since #2110, like Nieuw lid. #}
+{% call ui.public_form_page(_("Nieuwe organisatie"), shell="admin",
+                            back_href="/admin/organisaties", back_label=_("Organisaties"),
+                            intro=_("Platformbeheer — enkel OPERATOR. Na het aanmaken vul je rechtsvorm, nummers, adres en rekening aan.")) %}
 <div data-form-flow data-mode="edit" class="form-flow">
 {{ ui.error_banner(error) }}
 <form id="organisatie-nieuw-form" class="contents" hx-post="/admin/organisaties" hx-target="body" hx-swap="innerHTML">
-  {% call ui.section(_("Account")) %}
+  {% call ui.section(_("Organisatie")) %}
   {{ ui.field("name", attribute="mdm.organization.name", id="a-name", value=name, required=True) }}
-  {{ ui.field("code", attribute="mdm.organization.code", id="a-code", value=code, required=True, placeholder="nieuwaccount",
-              attrs='pattern="[a-z0-9-]+"',
-              help=_("Kleine letters, cijfers, streepjes — uniek over alle organisaties, net als een tenantcode.")) }}
   {% endcall %}
 </form>
 {{ ui.action_bar(record=True, form="organisatie-nieuw-form", cancel_href="/admin/organisaties") }}

@@ -39,10 +39,11 @@ from app.domains.auth.api import (
     csrf_token_for,
     make_session_value,
 )
-from app.domains.mdm.api import Organization, create_tenant, enabled_modules
+from app.domains.mdm.api import enabled_modules
 from app.kernel.modules import MODULES
 from app.kernel.tenant_config import get_setting
 from app.ui.tenants_ui import BEKENDE_SLEUTELS, GEHEIME_SLEUTELS
+from tests._sites import new_site
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -76,7 +77,7 @@ def _cards(html: str) -> dict[str, str]:
 
 def test_the_list_is_the_kits_table_with_its_five_columns(client, platform_workspace, db_session):
     headers = _operator(client, db_session)
-    unit = create_tenant(db_session, name="Lijstclub", code="lijst-1933")
+    unit = new_site(db_session, name="Lijstclub", code="lijst-1933")
     db_session.commit()
 
     page = client.get("/admin/tenants").text
@@ -96,9 +97,9 @@ def test_the_list_is_the_kits_table_with_its_five_columns(client, platform_works
 
 def test_the_segments_filter_on_active_and_count(client, platform_workspace, db_session):
     _operator(client, db_session)
-    quiet = create_tenant(db_session, name="Slapende club", code="slaapt-1933")
-    awake = create_tenant(db_session, name="Wakkere club", code="wakker-1933")
-    db_session.get(Organization, quiet.id).is_active = False
+    quiet = new_site(db_session, name="Slapende club", code="slaapt-1933")
+    awake = new_site(db_session, name="Wakkere club", code="wakker-1933")
+    quiet.is_active = False
     db_session.commit()
 
     def shown(query: str) -> tuple[bool, bool]:
@@ -119,7 +120,7 @@ def test_the_segments_filter_on_active_and_count(client, platform_workspace, db_
 
 def test_every_setting_stands_in_both_modes(client, platform_workspace, db_session):
     _operator(client, db_session)
-    unit = create_tenant(db_session, name="Volledige club", code="volledig-1933")
+    unit = new_site(db_session, name="Volledige club", code="volledig-1933")
     db_session.commit()
 
     read = _main(client.get(f"/admin/tenants/{unit.id}").text)
@@ -137,14 +138,17 @@ def test_every_setting_stands_in_both_modes(client, platform_workspace, db_sessi
     assert "data-tenant-kind" in read, "the operator's record has no Tenant card"
     assert read.count("data-action-bar") == 0 and editing.count("data-action-bar") == 1
     assert re.search(r">\s*Bewerken\s*<", read), "the primary of the record"
+    # The help under "Organisatie achter de site" says "gegevens" since every
+    # tenant has an account (CR-20 F1); every other mention is gone.
+    help_text = "De organisatie waarvan de site de gegevens toont."
     for gone in ("gegevens", "Deactiveren", "Activeren"):
-        assert gone not in read and gone not in editing, gone
+        assert gone not in read and gone not in editing.replace(help_text, ""), gone
     assert "Modules aan" in read and "data-summary-card" in read
 
 
 def test_the_fields_have_the_shape_the_issue_asks(client, platform_workspace, db_session):
     _operator(client, db_session)
-    unit = create_tenant(db_session, name="Vormclub", code="vorm-1933")
+    unit = new_site(db_session, name="Vormclub", code="vorm-1933")
     db_session.commit()
     editing = _main(client.get(f"/admin/tenants/{unit.id}?bewerken=1").text)
 
@@ -174,7 +178,7 @@ def test_the_fields_have_the_shape_the_issue_asks(client, platform_workspace, db
 
 def test_the_choices_store_what_the_text_fields_stored(client, platform_workspace, db_session):
     headers = _operator(client, db_session)
-    unit = create_tenant(db_session, name="Keuzeclub", code="keuze-1933")
+    unit = new_site(db_session, name="Keuzeclub", code="keuze-1933")
     db_session.commit()
 
     saved = client.post(
@@ -199,7 +203,7 @@ def test_the_choices_store_what_the_text_fields_stored(client, platform_workspac
 
 def test_a_secret_is_typed_and_never_shown(client, platform_workspace, db_session):
     headers = _operator(client, db_session)
-    unit = create_tenant(db_session, name="Geheime club", code="geheim-1933")
+    unit = new_site(db_session, name="Geheime club", code="geheim-1933")
     db_session.commit()
     url = f"/admin/tenants/{unit.id}"
     secret = "test_sleutel_1933"
@@ -228,7 +232,7 @@ def test_a_secret_is_typed_and_never_shown(client, platform_workspace, db_sessio
 
 def test_the_module_switches_save_the_set_they_show(client, platform_workspace, db_session):
     headers = _operator(client, db_session)
-    unit = create_tenant(db_session, name="Moduleclub", code="module-1933")
+    unit = new_site(db_session, name="Moduleclub", code="module-1933")
     db_session.commit()
     before = enabled_modules(unit.id, db=db_session)
     editing = client.get(f"/admin/tenants/{unit.id}?bewerken=1").text

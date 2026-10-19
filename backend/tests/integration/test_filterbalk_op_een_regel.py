@@ -172,13 +172,13 @@ def _seed(db):
 # Per scherm: het pad, en élke filter-control die erop hoort te staan. De namen
 # staan er expliciet bij en niet als "wat we toevallig vinden" — verdwijnt er een
 # filter, dan hoort deze test dat te melden en niet mee te schuiven.
+#
+# Pagina's, Formulieren and Rapporten left this list with #2123: they are the kit's
+# toolbar now, whose search, segments and Filters are one form by construction.
 SCHERMEN = [
-    ("/admin/paginas", {"q", "status"}),
-    ("/admin/formulieren", {"q", "status"}),
-    ("/admin/rapporten", {"q", "owner", "shared"}),
     # #1527: the tree chooses the kind and the activity; the row keeps the search.
     ("/admin/media", {"q"}),
-    # Gebruikers is a `list_page` with the kit toolbar since #2114: `test_three_lists_2109.py` style.
+    ("/admin/gebruikers", {"q", "rol", "actief"}),
 ]
 
 
@@ -201,33 +201,6 @@ def test_zoek_en_filters_staan_in_een_rij(client, workspace_host, db_session, pa
         f"filterbalk ({sorted(regels)}) — elk kind is een eigen regel. "
         f"Verdeling: {sorted(controls)}"
     )
-
-
-def test_het_zoekveld_wint_de_restbreedte(client, db_session):
-    """De wrapper van de referentie moet mee, anders staat het zoekveld op zijn
-    vaste `sm:w-64` naast een leeg gat — de F8-bevinding van #996.
-
-    Op de bron getoetst en niet op de gerenderde pagina: de klasse zit op de
-    wrapper rond de macro-aanroep, en dat is precies de regel die per scherm
-    vergeten kan worden.
-    """
-    from pathlib import Path
-
-    app = Path(__file__).resolve().parents[2] / "app"
-    balken = [
-        app / p
-        for p in (
-            "domains/cms/templates/admin_paginas.html",
-            "domains/forms/templates/admin_formulieren.html",
-            "domains/reporting/templates/admin_rapporten.html",
-            "domains/media/templates/admin_media.html",
-        )
-    ]
-    for pad in balken:
-        assert pad.exists(), pad  # een verplaatst bestand mag niet stil overslaan
-        assert 'class="flex-1 min-w-[14rem]"' in pad.read_text(), (
-            f"{pad.name}: het zoekveld mist de flex-1-wrapper van de referentie"
-        )
 
 
 # ── Media: de rij verspringt niet bij het wisselen van soort ─────────────────

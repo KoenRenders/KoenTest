@@ -29,6 +29,7 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.cms.api import CmsPage, SlugBestaatAl, create_page, update_page
 from app.schemas.cms import CmsPageCreate, CmsPageUpdate
+from tests._sites import new_site
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -136,8 +137,8 @@ def test_a_tenant_code_in_upper_case_is_the_same_code(db_session):
     """#2061's third point: `Admin` and `admin` cannot both exist. `_check_code`
     lower-cases before it looks for the code, so a second tenant `RaakProef-2061`
     is refused as the code that exists."""
-    from app.domains.mdm.api import TenantFout, create_tenant
+    from app.domains.mdm.api import TenantFout
 
-    create_tenant(db_session, name="Raak Proef", code="raakproef-2061")
+    new_site(db_session, name="Raak Proef", code="raakproef-2061")
     with pytest.raises(TenantFout, match="Die code bestaat al."):
-        create_tenant(db_session, name="Raak Proef twee", code="RaakProef-2061")
+        new_site(db_session, name="Raak Proef twee", code="RaakProef-2061")

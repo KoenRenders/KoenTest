@@ -1,23 +1,21 @@
-{% extends "admin_base.html" %}
+{% extends "list_page.html" %}
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Vergaderingen — Raak beheer") }}{% endblock %}
-{% block content %}
-{# Records-lijst (design-system C1), precies zoals Leden en Pagina's: titel met
-   duidingsregel, de acties rechts in de kop — secundair eerst, de primaire actie
-   uiterst rechts — en daaronder de kit-filterbalk. Geen eigen wikkel-div om de
-   knoppen: `page_header` levert die rij zelf, en een tweede laag eromheen zou de
-   afstanden per scherm laten verschillen. #}
-{% call ui.page_header(_("Vergaderingen"), _("Agenda en verslag zijn één document: voorbereiden, notuleren en versturen gebeuren op hetzelfde scherm."), list_page=True) %}
-    {# CR-11 W4 (#1391): the settings of the module, with the circle as their
-       section; the address stays until phase 5 renames it. #}
-    {{ ui.btn_secondary(_("Instellingen"), href="/admin/vergaderingen/kring", lead_icon="settings") }}
-    {{ ui.btn_primary(_("Nieuwe vergadering"), href="/admin/vergaderingen/nieuw", lead_icon="plus") }}
-  {% endcall %}
-
-{% call ui.filter_bar("/admin/vergaderingen", "#vg-lijst") %}
-  <div>{{ ui.search(value=q, placeholder=_('Zoek op datum of locatie…'), standalone=False) }}</div>
-{% endcall %}
-
+{# Vergaderingen on the kit's list page (#2123; end state §2.1, §5.1): the title with the
+   one primary button, the toolbar (Komende and Voorbije as the segments, the search on
+   the date and the place, the page size) and the kit's table. No tiles. The settings of
+   the module — the circle's section (CR-11 W4, #1391) — stand under the toolbar's ⋯, not
+   beside the title. The toolbar stands outside the list fragment. #}
+{% block list_title %}{{ _("Vergaderingen") }}{% endblock %}
+{% block list_primary %}{{ ui.btn_primary(_("Nieuwe vergadering"), href="/admin/vergaderingen/nieuw", lead_icon="plus") }}{% endblock %}
+{% block list_toolbar %}
+{{ ui.toolbar("/admin/vergaderingen", "#vg-lijst", "vg-filter",
+              segments=segments, status_name="status", status_current=status, status_legend=_("Vergaderingen"),
+              q=q, search_placeholder=_("Zoek op datum of locatie…"),
+              page=page, per_page=per_page, total=total, page_sizes=page_sizes,
+              menu=[{"label": _("Instellingen"), "href": "/admin/vergaderingen/kring", "icon": "settings"}]) }}
+{% endblock %}
+{% block list_body %}
 <div id="vg-lijst">
   {% include "_vg_lijst.html" %}
 </div>

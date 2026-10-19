@@ -171,11 +171,12 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `POST /admin/paginas/{page_id}/verwijderen`
 - `POST /admin/paginas/{page_id}/volgorde/{richting}`
 
-### `media.view` — 3 routes
+### `media.view` — 4 routes
 
 - `GET /admin/media`
 - `GET /admin/media/kiezer`
 - `GET /admin/media/nieuw`
+- `GET /admin/media/{asset_id}`
 
 ### `media.manage` — 7 routes
 
@@ -437,10 +438,12 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `POST /admin/gebruikers/{user_id}`
 - `POST /admin/gebruikers/{user_id}/verwijderen`
 
-### `settings.view` — 13 routes
+### `settings.view` — 15 routes
 
 - `GET /admin/ai-context`
 - `GET /admin/ai-context/lijst`
+- `GET /admin/ai-context/notities/nieuw`
+- `GET /admin/ai-context/{segment}/{item_id}`
 - `GET /admin/design-system`
 - `GET /admin/e-maillog`
 - `GET /admin/e-maillog/lijst`
@@ -465,7 +468,7 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `POST /admin/e-maillog/{log_id}/verwijderen`
 - `POST /admin/instellingen`
 
-### `platform.view` — 7 routes
+### `platform.view` — 8 routes
 
 - `GET /admin/gebruikers/alle-werkruimtes`
 - `GET /admin/organisaties`
@@ -473,6 +476,7 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `GET /admin/organisaties/{organization_id}`
 - `GET /admin/tenants`
 - `GET /admin/tenants/nieuw`
+- `GET /admin/tenants/nieuw/getoond`
 - `GET /admin/tenants/{tenant_id}`
 
 ### `platform.manage` — 4 routes

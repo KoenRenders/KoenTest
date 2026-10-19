@@ -725,6 +725,31 @@ def set_attendance(
     db.commit()
 
 
+def last_saved_at(db: Session, meeting: Meeting) -> Optional[datetime]:
+    """When anything on this meeting was last written: a note or title on a point, or
+    an attendance tick — what the head's "Opgeslagen om" says (#2112). `None` when
+    nothing was written yet; the meeting's own row is left out, its `updated_at` is
+    its creation until the status moves."""
+    items = (
+        db.query(func.max(MeetingItem.updated_at))
+        .join(MeetingSection, MeetingSection.id == MeetingItem.section_id)
+        .filter(
+            MeetingSection.meeting_id == meeting.id,
+            # A point the agenda generated carries its creation as `updated_at`;
+            # only one written afterwards was saved.
+            MeetingItem.updated_at > MeetingItem.created_at + timedelta(seconds=1),
+        )
+        .scalar()
+    )
+    ticks = (
+        db.query(func.max(MeetingAttendance.updated_at))
+        .filter(MeetingAttendance.meeting_id == meeting.id)
+        .scalar()
+    )
+    moments = [m for m in (items, ticks) if m is not None]
+    return max(moments) if moments else None
+
+
 def attendance_of(db: Session, meeting: Meeting) -> dict[str, Attendance]:
     """Per deelnemer: present of excused. Wie er niet in staat, is niet aangevinkt.
 

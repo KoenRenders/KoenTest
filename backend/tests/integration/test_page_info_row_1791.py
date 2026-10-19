@@ -17,6 +17,9 @@ Proven red, each by one edit that was put back:
   leaves the page on, and a first text edit takes the page out;
 - `page_id=c.page_id` taken out of the template's call → a page without a row
   shows no action, as on `master`.
+
+#2124: the actions stand on the page's own record now (CR-11 phase 5), addressed
+by the page; the tests read that record instead of the list's row.
 """
 
 import re
@@ -69,23 +72,27 @@ def _rows(db, page) -> list[ChatbotInfo]:
     return db.query(ChatbotInfo).filter(ChatbotInfo.cms_page_id == page.id).all()
 
 
-def _block(html: str, page) -> str:
-    """The list row of this page, up to the next row."""
-    start = html.index(f'data-page="{page.id}"')
-    return html[start:].split('<div class="py-2 border-b border-gray-100"')[0]
+def _record(admin, page, *, editing: bool = False) -> str:
+    """The page's own record (#2124), read or in edit mode."""
+    answer = admin.get(f"/admin/ai-context/paginas/{page.id}" + ("?bewerken=1" if editing else ""))
+    assert answer.status_code == 200, answer.text[:300]
+    return answer.text
 
 
 def test_a_page_without_a_row_shows_the_same_actions_as_one_with_a_row(admin, db_session, page):
-    block = _block(admin.get("/admin/ai-context/lijst").text, page)
+    record = _record(admin, page)
 
-    assert "standaard" in block, "a page nobody touched reads as the default"
-    assert f'hx-post="/admin/ai-context/paginas/{page.id}/toggle"' in block
-    assert f'hx-post="/admin/ai-context/paginas/{page.id}/bewerken"' in block
-    assert len(re.findall(r'<textarea[^>]*name="text_override"', block)) == 1
-    assert len(re.findall(r'<textarea[^>]*name="text_addition"', block)) == 1
-    assert "/verwijderen" not in block, "there is no row to remove yet"
-    assert "gelezen tekst (OCR)" not in block, "a page is never read by OCR"
-    assert _rows(db_session, page) == [], "looking at the screen makes no row"
+    assert ">Standaard<" in re.sub(r"\s+", "", record), "a page nobody touched reads as default"
+    assert f'hx-post="/admin/ai-context/paginas/{page.id}/toggle"' in record
+    assert f'href="/admin/ai-context/paginas/{page.id}?bewerken=1"' in record
+    assert "/verwijderen" not in record, "there is no row to remove yet"
+    assert "Gelezen tekst" not in record, "a page is never read by OCR"
+
+    form = _record(admin, page, editing=True)
+    assert f'hx-post="/admin/ai-context/paginas/{page.id}/bewerken"' in form
+    assert len(re.findall(r'<textarea[^>]*name="text_override"', form)) == 1
+    assert len(re.findall(r'<textarea[^>]*name="text_addition"', form)) == 1
+    assert _rows(db_session, page) == [], "looking at the record makes no row"
 
 
 def test_the_first_switch_makes_the_row_and_takes_the_page_out_of_the_context(
@@ -93,16 +100,17 @@ def test_the_first_switch_makes_the_row_and_takes_the_page_out_of_the_context(
 ):
     assert PAGE_TEXT in build_system_prompt(db_session)
 
-    answer = admin.post(f"/admin/ai-context/paginas/{page.id}/toggle")
+    answer = admin.post(f"/admin/ai-context/paginas/{page.id}/toggle", follow_redirects=False)
 
-    assert answer.status_code == 200
+    assert answer.status_code == 303
+    assert answer.headers["location"] == f"/admin/ai-context/paginas/{page.id}", "back to it"
     (row,) = _rows(db_session, page)
     assert row.is_active is False
     assert PAGE_TEXT not in build_system_prompt(db_session), (
         "a switched-off page is still sent to the provider"
     )
-    block = _block(answer.text, page)
-    assert ">uit<" in re.sub(r"\s+", "", block) and "/verwijderen" in block
+    record = _record(admin, page)
+    assert ">Uit<" in re.sub(r"\s+", "", record) and "/verwijderen" in record
 
     admin.post(f"/admin/ai-context/paginas/{page.id}/toggle")
     (row,) = _rows(db_session, page)
@@ -116,7 +124,7 @@ def test_a_first_text_replaces_the_page_and_adds_to_it_and_leaves_it_on(admin, d
         data={"text_override": " Kaarten op vrijdag. ", "text_addition": "Inkom gratis."},
     )
 
-    assert answer.status_code == 200
+    assert answer.status_code == 200, "back on the page's record"
     (row,) = _rows(db_session, page)
     assert (row.is_active, row.text_override, row.text_addition) == (
         True,
@@ -126,7 +134,7 @@ def test_a_first_text_replaces_the_page_and_adds_to_it_and_leaves_it_on(admin, d
     prompt = build_system_prompt(db_session)
     assert "Kaarten op vrijdag.\n\nInkom gratis." in prompt
     assert PAGE_TEXT not in prompt, "the replacing text did not replace the page"
-    assert ">Kaarten op vrijdag.</textarea>" in _block(answer.text, page), (
+    assert ">Kaarten op vrijdag.</textarea>" in _record(admin, page, editing=True), (
         "the form does not show the text that was saved"
     )
 

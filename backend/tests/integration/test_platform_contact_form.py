@@ -38,7 +38,7 @@ import pytest
 
 from app.domains.cms.api import CmsPage
 from app.domains.forms.api import CONTACT_FORM_SLUG, Form, FormSubmission
-from app.domains.mdm.api import platform_org
+from app.domains.mdm.api import platform_tenant
 from app.domains.workflow.api import MESSAGE_WORKFLOW, WorkflowTask
 from app.domains.workflow.models import WorkflowDefinition
 from app.kernel.tenancy import TENANT_MILLEGEM_ID
@@ -69,7 +69,7 @@ def _definitions(db, tenant_id: int) -> list:
 
 def _bare_platform(db):
     """The platform as every environment had it: no contact form, no definition."""
-    platform = platform_org(db)
+    platform = platform_tenant(db)
     assert platform is not None, "the test database has no platform organisation"
     for row in (*_forms(db, platform.id), *_definitions(db, platform.id)):
         db.delete(row)

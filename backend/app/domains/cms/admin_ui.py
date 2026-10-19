@@ -19,22 +19,30 @@ from app.domains.auth.api import (
     require_right,
 )
 from app.i18n import _
-from app.ui import admin_nav, filterparams, is_fragment_request, templates
+from app.ui import admin_nav, is_fragment_request, templates
 
 router = APIRouter(include_in_schema=False)
 
 NAV = "/admin/paginas"
 
 
-def _lijst_ctx(db: Session, q: str = "", status: str = "") -> dict:
-    """Records-lijst (C1, #587): zoeken op titel of slug + statusfilter.
+def _lijst_ctx(request: Request, db: Session, *, oob: bool = False) -> dict:
+    """Pagina's on the kit's list page (#2123): the segments Gepubliceerd, Concept and In
+    navigatie with their counts, the search on title and slug, the table with the order
+    arrows in a column of their own.
 
-    Er zijn tientallen CMS-pagina's, geen duizenden: filteren gebeurt op de al
-    opgehaalde lijst i.p.v. in een tweede query.
+    Er zijn tientallen CMS-pagina's, geen duizenden: filteren gebeurt op de al opgehaalde
+    lijst i.p.v. in een tweede query.
     """
     from app.domains.cms.api import draft_states
     from app.domains.cms.api import list_pages as list_all_pages
+    from app.ui import PER_PAGE_OPTIONS, filterparams
+    from app.ui.list_state import page_of, read_state, segments_of
 
+    state = read_state(request, ("published", "draft"))
+    # "In navigatie" is a filter behind the toolbar's Filters, not a fourth segment: four
+    # segments with their counts are wider than a phone (measured at 390 px, 36 px).
+    in_nav = (filterparams(request).get("nav") or "") == "in_nav"
     alle = list_all_pages(db)
     # Snede 3 (#1671): the list says "concept gewijzigd" where the draft
     # differs from the published document (C4.3) — one source: draft_states.
@@ -47,27 +55,54 @@ def _lijst_ctx(db: Session, q: str = "", status: str = "") -> dict:
     eerste_id = geordend[0].id if geordend else None
     laatste_id = geordend[-1].id if geordend else None
 
-    pages = list(alle)
-    term = q.strip().lower()
-    if term:
-        pages = [
-            p for p in pages if term in (p.title or "").lower() or term in (p.slug or "").lower()
-        ]
-    if status == "published":
-        pages = [p for p in pages if p.is_published]
-    elif status == "draft":
-        pages = [p for p in pages if not p.is_published]
-    elif status == "in_nav":
-        pages = [p for p in pages if p.show_in_nav]
-    for page in pages:
-        page.concept_gewijzigd = gewijzigd.get(page.id, False)
+    term = state.q.lower()
+    found = [
+        p
+        for p in alle
+        if not term or term in (p.title or "").lower() or term in (p.slug or "").lower()
+    ]
+    if in_nav:
+        found = [p for p in found if p.show_in_nav]
+    counts = {
+        "published": sum(1 for p in found if p.is_published),
+        "draft": sum(1 for p in found if not p.is_published),
+    }
+    segment = {"published": lambda p: p.is_published, "draft": lambda p: not p.is_published}
+    shown = [p for p in found if not state.status or segment[state.status](p)]
+    pages, total, page = page_of(shown, state)
+    for row in pages:
+        row.concept_gewijzigd = gewijzigd.get(row.id, False)
     return {
         "pages": pages,
-        "q": q,
-        "status": status,
-        "gefilterd": bool(term or status),
+        "q": state.q,
+        "status": state.status,
+        "gefilterd": bool(term or state.status or in_nav),
+        "in_nav": in_nav,
         "eerste_id": eerste_id,
         "laatste_id": laatste_id,
+        "columns": [
+            {"key": "titel", "label": _("Pagina"), "cell": "name"},
+            {"key": "status", "label": _("Status"), "cell": "status"},
+            {"key": "plaats", "label": _("Waar"), "cell": "context"},
+            {"key": "volgorde", "label": _("Volgorde"), "cell": "actions"},
+        ],
+        "segments": segments_of(
+            [("published", _("Gepubliceerd")), ("draft", _("Concept"))],
+            counts,
+            len(found),
+            _("Alle"),
+        ),
+        "page": page,
+        "per_page": state.per_page,
+        "total": total,
+        "page_sizes": list(PER_PAGE_OPTIONS),
+        "pager_url": f"{NAV}?{state.query(nav='in_nav' if in_nav else '')}",
+        "empty_reason": (
+            _("Geen pagina's gevonden.")
+            if (term or state.status or in_nav)
+            else _("Nog geen pagina's.")
+        ),
+        "oob": oob,
     }
 
 
@@ -254,17 +289,15 @@ def admin_paginas(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.PAGE_VIEW)),
-    q: str = "",
-    status: str = "",
 ):
-    sjabloon = "_cp_kaarten.html" if is_fragment_request(request) else "admin_paginas.html"
+    fragment = is_fragment_request(request)
     return templates.TemplateResponse(
         request,
-        sjabloon,
+        "_cp_kaarten.html" if fragment else "admin_paginas.html",
         {
-            "nav_items": admin_nav(NAV, request),
+            "nav_items": [] if fragment else admin_nav(NAV, request),
             "csrf_token": csrf_from_request(request),
-            **_lijst_ctx(db, q, status),
+            **_lijst_ctx(request, db, oob=fragment),
         },
     )
 
@@ -546,13 +579,12 @@ def pagina_verplaatsen(
     verplaats_pagina(db, page_id, richting)
     # De filterstand komt uit de browser-URL (#671), zodat je na een verplaatsing
     # dezelfde selectie terugkrijgt en niet plots de hele lijst.
-    stand = filterparams(request)
     return templates.TemplateResponse(
         request,
         "_cp_kaarten.html",
         {
             "csrf_token": csrf_from_request(request),
-            **_lijst_ctx(db, stand.get("q", ""), stand.get("status", "")),
+            **_lijst_ctx(request, db, oob=True),
         },
     )
 

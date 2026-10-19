@@ -1329,6 +1329,13 @@
     {% call(f) pub.photo_grid(_kit_photos, _("Voorbeeld")) %}{% endcall %}
   {% endcall %}
   </div>
+  {# #2108: one picture at a time, an article's pictures on the product page. #}
+  <p class="text-sm text-ink-soft mt-6 mb-4">
+    {{ _("Eén foto tegelijk, voor de foto's van een artikel: vorige en volgende verdwijnen bij de eerste en de laatste foto, de teller staat rechtsonder, een tik opent de lichtbak. Eén foto: geen pijlen en geen teller.") }}
+  </p>
+  <div data-kit-carousel class="max-w-xs">
+    {{ pub.photo_carousel([{"url": _kit_photo_1, "alt": _("Voorbeeld 1")}, {"url": _kit_photo_2, "alt": _("Voorbeeld 2")}]) }}
+  </div>
 {% endcall %}
 
 {# ── 16. The account page (CR-22 S3 — #1706) ─────────────────────────────

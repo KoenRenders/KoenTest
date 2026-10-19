@@ -135,7 +135,8 @@ def test_media_upload_en_beheer(client, db_session):
         data={"kind": "sponsor", "title": "Sponsor Y", "sort_order": "3", "is_active": "1"},
         headers={"X-CSRF-Token": csrf},
     )
-    assert resp.status_code == 200
+    # #2130: saved from the picture's record, which answers with its own address.
+    assert resp.status_code == 204
     db_session.expire_all()
     assert asset.title == "Sponsor Y"
     assert asset.sort_order != 3, (
@@ -148,7 +149,9 @@ def test_media_upload_en_beheer(client, db_session):
         data={"kind": "sponsor"},
         headers={"X-CSRF-Token": csrf},
     )
-    assert resp.status_code == 200
+    # #2130: deleted from the record, back to the library.
+    assert resp.status_code == 204
+    assert resp.headers.get("HX-Redirect") == "/admin/media"
     assert db_session.query(MediaAsset).filter(MediaAsset.id == asset.id).first() is None
 
 

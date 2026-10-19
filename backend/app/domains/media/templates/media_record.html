@@ -1,0 +1,65 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ title }} — {{ _("Media") }}{% endblock %}
+{% block content %}
+{# One picture (#2130; CR-11 phase 5, track 2, round 3b): edited here, no longer
+   on its card. The head names the status, the kind, the origin (the activity as
+   a jump link, or "Van een verwijderde activiteit") and the size; Verwijderen is
+   last under Acties. The picture stands in the summary column. The page keeps the
+   list it was opened from (`terug`): the way back, saving and deleting return to
+   it as it stood — branch, year, use, search. #}
+{{ ui.record_header(title, badges=badges, facts=facts, primary=primary, actions=actions,
+                    back=way_back, editing=editing) }}
+<div id="media-melding" data-form-message></div>
+{% set _picture %}
+<div data-media-picture class="rounded-2xl border border-line bg-surface p-3 shadow-sm">
+  <img src="{{ asset.thumb_url }}" alt="{{ asset.title or '' }}" class="w-full max-h-80 rounded-lg bg-surface-2 object-contain">
+</div>
+{% endset %}
+{% macro _uses() %}
+{# CR-15 #1471: where the picture is used — the places to fix before it can go. #}
+{% if uses %}
+{% call ui.section(_("Gebruikt in %(n)s", n=uses|length), attrs="data-media-uses") %}
+  <ul data-span="full" class="space-y-1 text-sm">
+    {% for u in uses %}<li>{{ ui.reference(u.label, u.href) }}</li>{% endfor %}
+  </ul>
+{% endcall %}
+{% endif %}
+{% endmacro %}
+{% call ui.record_columns(aside=_picture) %}
+<div class="form-flow">
+  {% if not editing %}
+  {% call ui.section(_("Gegevens")) %}
+    {{ ui.field("title", attribute="media.media_asset.title", value=asset.title or "", edit=False) }}
+    {% if is_sponsor %}{{ ui.field("link_url", attribute="media.media_asset.link_url", kind="url", value=asset.link_url or "", edit=False, span="full") }}{% endif %}
+    <div data-span="full" data-media-tags class="text-sm leading-[21px] text-ink"><span class="text-ink-soft">{{ _("Tags:") }}</span> {{ tag_labels|join(", ") or "—" }}</div>
+    {{ ui.field("is_active", attribute="media.media_asset.is_active", kind="switch", value=asset.is_active, edit=False) }}
+    {% if is_sponsor %}{{ ui.field("show_in_footer", attribute="media.media_asset.show_in_footer", kind="switch", value=asset.show_in_footer, edit=False) }}{% endif %}
+  {% endcall %}
+  {{ _uses() }}
+  {% else %}
+  <form id="media-form" data-record-form data-message="#media-melding" class="form-flow" novalidate
+        hx-post="/admin/media/{{ asset.id }}">
+    <input type="hidden" name="terug" value="{{ terug }}">
+    {% call ui.section(_("Gegevens")) %}
+      {{ ui.field("title", attribute="media.media_asset.title", value=asset.title or "") }}
+      {# #707: only on a sponsor logo; the kind of this picture is fixed. #}
+      {% if is_sponsor %}{{ ui.field("link_url", attribute="media.media_asset.link_url", value=asset.link_url or "", span="full") }}{% endif %}
+      {# #1470: the picture's tags, ticked or not. The marker says the form sent its
+         tags — nothing ticked then means "none". #}
+      <input type="hidden" name="tags_on_card" value="1">
+      <div data-span="full" class="min-w-0">
+        {{ ui.multiselect("tag_ids", labelled=tag_options, current=tag_ids, aria_label=_("Tags"), empty_label=_("Geen tags")) }}
+      </div>
+      {{ ui.field("is_active", attribute="media.media_asset.is_active", kind="switch", value=asset.is_active) }}
+      {# #1057: only on a sponsor logo — elsewhere the column means nothing. #}
+      {% if is_sponsor %}{{ ui.field("show_in_footer", attribute="media.media_asset.show_in_footer", kind="switch", value=asset.show_in_footer,
+                                     help=_("Uit: het logo blijft beschikbaar voor affiches, maar staat niet onder de publieke pagina's.")) }}{% endif %}
+    {% endcall %}
+  </form>
+  {{ _uses() }}
+  {{ ui.action_bar(record=True, form="media-form", cancel_href=record_url) }}
+  {% endif %}
+</div>
+{% endcall %}
+{% endblock %}

@@ -17,10 +17,12 @@ import importlib.util
 from pathlib import Path
 
 import pytest
+import sqlalchemy as sa
 
 from app.domains.cms.api import get_translation, published_document
 from app.domains.cms.models import CmsPage, CmsPageTranslation
-from app.domains.mdm.api import TenantKind, create_tenant
+from app.domains.mdm.api import TenantKind
+from tests._sites import new_site
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -43,6 +45,38 @@ def _load():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+class _AsBefore313:
+    """The connection as migration 208 met it. It asks `mdm.organizations` for
+    the associations by `kind` and for a tenant's name by its id; CR-20
+    (migration 313) moved the tenant out of that table, with the same ids. The
+    suite's schema is the newest, so those two queries are read there — the
+    step itself runs unchanged."""
+
+    def __init__(self, bind):
+        self._bind = bind
+
+    #: What migration 208 asked of the tenant's organisation row, as today's
+    #: schema answers it: the kind is the tenant's, the name its organisation's.
+    _READ_AS = {
+        "FROM mdm.organizations WHERE kind": "FROM mdm.tenants WHERE kind",
+        "SELECT name FROM mdm.organizations WHERE id = :t": (
+            "SELECT o.name FROM mdm.tenants t JOIN mdm.organizations o "
+            "ON o.id = t.organization_id WHERE t.id = :t"
+        ),
+    }
+
+    def execute(self, statement, *args, **kwargs):
+        sql = str(statement)
+        for old, new in self._READ_AS.items():
+            if old in sql:
+                statement = sa.text(sql.replace(old, new))
+        return self._bind.execute(statement, *args, **kwargs)
+
+
+def _make_home_pages(db):
+    return _load().make_home_pages(_AsBefore313(db.connection()))
 
 
 def _pages(db, tenant_id):
@@ -84,13 +118,13 @@ def _give_an_intro(db, tenant_id):
 
 @pytest.mark.parametrize("kind", [TenantKind.COMPANY, TenantKind.ASSOCIATION])
 def test_the_migration_and_the_seed_make_the_same_home_page(db_session, kind):
-    org = create_tenant(db_session, name="Bakkerij & Co", code=f"home-{kind.value}", kind=kind)
+    org = new_site(db_session, name="Bakkerij & Co", code=f"home-{kind.value}", kind=kind)
     tenant_id = org.id
 
     # The migration's door: an existing tenant with an intro and no home page.
     _remove_home(db_session, tenant_id)
     intro = _give_an_intro(db_session, tenant_id)
-    made, _skipped = _load().make_home_pages(db_session.connection())
+    made, _skipped = _make_home_pages(db_session)
     assert tenant_id in made
     db_session.expire_all()
     by_migration = next(p for p in _pages(db_session, tenant_id) if p.is_home)
@@ -133,11 +167,11 @@ def test_the_migration_and_the_seed_make_the_same_home_page(db_session, kind):
 def test_a_second_run_of_either_door_makes_nothing_and_never_touches_a_page(db_session):
     from app.domains.cms.service import seed_home_page
 
-    org = create_tenant(db_session, name="Eenmaal", code="home-eenmaal", kind=TenantKind.COMPANY)
+    org = new_site(db_session, name="Eenmaal", code="home-eenmaal", kind=TenantKind.COMPANY)
     first = next(p for p in _pages(db_session, org.id) if p.is_home)
     before = published_document(db_session, first)
     assert seed_home_page(db_session, org.id, "Eenmaal") is None
-    made, _ = _load().make_home_pages(db_session.connection())
+    made, _ = _make_home_pages(db_session)
     assert org.id not in made
     db_session.expire_all()
     homes = [p for p in _pages(db_session, org.id) if p.is_home]
@@ -146,10 +180,8 @@ def test_a_second_run_of_either_door_makes_nothing_and_never_touches_a_page(db_s
 
 
 def test_the_module_set_decides_what_the_page_holds(db_session):
-    company = create_tenant(db_session, name="Zonder", code="home-zonder", kind=TenantKind.COMPANY)
-    association = create_tenant(
-        db_session, name="Met", code="home-met", kind=TenantKind.ASSOCIATION
-    )
+    company = new_site(db_session, name="Zonder", code="home-zonder", kind=TenantKind.COMPANY)
+    association = new_site(db_session, name="Met", code="home-met", kind=TenantKind.ASSOCIATION)
 
     def kinds(tenant_id):
         page = next(p for p in _pages(db_session, tenant_id) if p.is_home)
@@ -168,7 +200,7 @@ def test_an_association_without_a_single_page_gets_a_home_and_every_intro_goes_d
     """Master's findings on PR #2029: the migration walks every association (also one
     with no page yet) and makes `home-intro` invisible for EVERY tenant — also one that
     kept a home page of its own, so it never reaches `/home-intro` or the sitemap."""
-    association = create_tenant(
+    association = new_site(
         db_session, name="Zonder pagina", code="home-leeg", kind=TenantKind.ASSOCIATION
     )
     _remove_home(db_session, association.id)
@@ -178,14 +210,12 @@ def test_an_association_without_a_single_page_gets_a_home_and_every_intro_goes_d
     db_session.flush()
     assert _pages(db_session, association.id) == []
 
-    company = create_tenant(
-        db_session, name="Eigen home", code="home-eigen", kind=TenantKind.COMPANY
-    )
+    company = new_site(db_session, name="Eigen home", code="home-eigen", kind=TenantKind.COMPANY)
     kept = next(p for p in _pages(db_session, company.id) if p.is_home)
     intro = _give_an_intro(db_session, company.id)
     assert intro.is_published is True
 
-    made, skipped = _load().make_home_pages(db_session.connection())
+    made, skipped = _make_home_pages(db_session)
     db_session.expire_all()
     assert association.id in made, "an association without pages got no home"
     assert company.id in skipped, "a tenant with a home page of its own is left alone"

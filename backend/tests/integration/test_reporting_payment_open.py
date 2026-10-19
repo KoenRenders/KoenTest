@@ -68,6 +68,16 @@ from app.domains.reporting.api import BY_KEY, Filter, Operator, Selection, run_v
 TENANT = 7788
 
 
+@pytest.fixture(autouse=True)
+def _the_tenants_exist(db_session):
+    """CR-20: a `tenant_id` has a key to `mdm.tenants` (C6 test 10), so the
+    tenant this file names by number must exist."""
+    from tests._sites import a_tenant_with_id
+
+    for tenant_id in (TENANT,):
+        a_tenant_with_id(db_session, tenant_id)
+
+
 @pytest.fixture
 def twee_kanten(db_session):
     """Drie rijen: twee waar scherm en status uit elkaar lopen, en één met een

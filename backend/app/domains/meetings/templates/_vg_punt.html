@@ -6,8 +6,11 @@
    name from its source, so only a free point, while editable, gets the pencil. #}
 {% set title_editable = editable and not item.source_url %}
 {% set item_error = item_error|default(None) %}
-<div id="vg-punt-{{ item.id }}" class="py-3"
-     {% if title_editable %}x-data="{ edit: {{ 'true' if item_error else 'false' }} }"{% endif %}>
+{# One card per point (CR-11 fase 5, #2112): the kit's section, its own id as the
+   swap target of a saved point. #}
+{% set _hooks = ("x-data=\"{ edit: " ~ ("true" if item_error else "false") ~ " }\"") if title_editable else "" %}
+{% call ui.section(id="vg-punt-" ~ item.id, attrs=_hooks) %}
+<div data-span="full" class="min-w-0">
     <div class="flex items-center gap-2.5 flex-wrap">
       <span class="font-semibold text-sm text-ink" {% if title_editable %}x-show="!edit"{% endif %}>{{ item.label }}</span>
       {% if title_editable %}
@@ -106,3 +109,4 @@
     <div class="prose-raak mt-2 text-sm">{{ item.notes|safe }}</div>
     {% endif %}
   </div>
+{% endcall %}

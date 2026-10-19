@@ -59,6 +59,7 @@ from app.domains.meetings.api import (
     files_of,
     get_file,
     get_meeting,
+    last_saved_at,
     list_meetings,
     long_date,
     mail_signature,
@@ -82,13 +83,14 @@ from app.domains.meetings.api import (
 from app.domains.meetings.viewmodels import (
     MeetingCircleView,
     MeetingDocumentView,
+    MeetingHead,
     MeetingItemView,
     MeetingListView,
     MeetingNewView,
     MeetingSendView,
 )
-from app.i18n import _
-from app.kernel.clock import belgian_today
+from app.i18n import _, clock_time, short_date
+from app.kernel.clock import belgian_day, belgian_today
 from app.kernel.codes import code_of, register_tones
 from app.ui import admin_nav, is_fragment_request, templates
 
@@ -155,26 +157,66 @@ def _title(meeting) -> str:
 
 
 def _list_view(
-    request: Request, db: Session, error: Optional[str] = None, q: str = ""
+    request: Request, db: Session, error: Optional[str] = None, oob: bool = False
 ) -> MeetingListView:
-    meetings = list_meetings(db)
-    zoek = (q or "").strip().lower()
+    """Vergaderingen on the kit's list page (#2123): the segments Komende and Voorbije
+    with their counts, the search, the table. Newest first, as the list always was."""
+    from app.ui import PER_PAGE_OPTIONS
+    from app.ui.list_state import page_of, read_state, segments_of
+
+    state = read_state(request, ("komend", "voorbij"))
+    today = belgian_today()
+    zoek = state.q.lower()
+    everyone = list_meetings(db, limit=1000)
     if zoek:
         # Op het GETOONDE label zoeken en niet op de kolom: een bestuurder typt
         # "oktober", niet "2026-10-01". De lijst is klein (een twaalftal per jaar),
         # dus dit filtert in Python zonder dat iemand het merkt.
-        meetings = [
+        everyone = [
             m
-            for m in meetings
+            for m in everyone
             if zoek in long_date(m.meeting_date).lower() or zoek in (m.location or "").lower()
         ]
+    segment = {
+        "komend": lambda m: m.meeting_date >= today,
+        "voorbij": lambda m: m.meeting_date < today,
+    }
+    counts = {key: sum(1 for m in everyone if test(m)) for key, test in segment.items()}
+    shown = [m for m in everyone if not state.status or segment[state.status](m)]
+    meetings, total, page = page_of(shown, state)
     return MeetingListView(
         meetings=meetings,
-        q=q,
+        q=state.q,
         dates={m.id: long_date(m.meeting_date) for m in meetings},
+        times={m.id: m.start_time.strftime("%H:%M") if m.start_time else "" for m in meetings},
+        point_counts={m.id: len(m.items) for m in meetings},
+        columns=[
+            {"key": "datum", "label": _("Vergadering"), "cell": "name"},
+            {"key": "status", "label": _("Status"), "cell": "status"},
+            {"key": "locatie", "label": _("Locatie"), "cell": "extra", "priority": 1},
+            {"key": "punten", "label": _("Punten"), "cell": "extra", "priority": 2, "num": True},
+        ],
+        segments=segments_of(
+            [("komend", _("Komende")), ("voorbij", _("Voorbije"))],
+            counts,
+            len(everyone),
+            _("Alle"),
+        ),
+        status=state.status,
+        page=page,
+        per_page=state.per_page,
+        total=total,
+        page_sizes=list(PER_PAGE_OPTIONS),
+        pager_url=f"{NAV}?{state.query()}",
+        empty_reason=(
+            _("Geen vergaderingen gevonden.")
+            if (state.q or state.status)
+            else _("Nog geen vergaderingen. Maak er een aan; de agenda wordt meteen ingevuld.")
+        ),
         csrf_token=_csrf(request),
         error=error,
-        nav_items=admin_nav(NAV, request),
+        oob=oob,
+        nav_items=[] if oob else admin_nav(NAV, request),
     )
 
 
@@ -255,12 +297,12 @@ def meeting_list(
     request: Request,
     db: Session = Depends(get_db),
     _email: str = Depends(require_right(Right.MEETING_VIEW)),
-    q: str = "",
 ):
-    view = _list_view(request, db, q=q)
-    # Bij een filterverzoek alleen de kaartenlijst terug, zodat het zoekveld niet
-    # onder je vingers vervangen wordt (dezelfde regel als op het betalingsscherm).
-    template = "_vg_lijst.html" if is_fragment_request(request) else "admin_vergaderingen.html"
+    fragment = is_fragment_request(request)
+    view = _list_view(request, db, oob=fragment)
+    # Bij een filterverzoek alleen de lijst terug, zodat het zoekveld niet onder je
+    # vingers vervangen wordt (dezelfde regel als op het betalingsscherm).
+    template = "_vg_lijst.html" if fragment else "admin_vergaderingen.html"
     return templates.TemplateResponse(request, template, view.as_context())
 
 
@@ -553,6 +595,37 @@ def notes_editor_config() -> dict:
     return schema.schema_for("notes")
 
 
+def _head(request: Request, db: Session, meeting) -> MeetingHead:
+    """The facts of the record head: when it starts, where, how many are present and
+    when something was last written (#2112)."""
+    facts: list[dict[str, str]] = []
+    if meeting.start_time:
+        facts.append({"text": meeting.start_time.strftime("%H:%M")})
+    if meeting.location:
+        facts.append({"text": meeting.location})
+    present = sum(1 for state in attendance_of(db, meeting).values() if state == Attendance.PRESENT)
+    if present:
+        facts.append({"text": _("%(n)s aanwezig") % {"n": present}})
+    saved = last_saved_at(db, meeting)
+    if saved is not None:
+        if belgian_day(saved) == belgian_today():
+            facts.append({"text": _("Opgeslagen om %(tijd)s") % {"tijd": clock_time(saved)}})
+        else:
+            facts.append(
+                {
+                    "text": _("Opgeslagen op %(dag)s om %(tijd)s")
+                    % {"dag": short_date(saved), "tijd": clock_time(saved)}
+                }
+            )
+    return MeetingHead(
+        meeting=meeting,
+        title=_title(meeting),
+        facts=facts,
+        editable=meeting.status != MeetingStatus.SENT,
+        csrf_token=_csrf(request),
+    )
+
+
 def _document_view(
     request: Request,
     db: Session,
@@ -569,6 +642,7 @@ def _document_view(
     return MeetingDocumentView(
         meeting=meeting,
         title=_title(meeting),
+        head=_head(request, db, meeting),
         sections=document_of(db, meeting),
         participants=participants_of(db, meeting),
         circle=organization_circle(db, on_day=meeting.meeting_date),
@@ -608,10 +682,11 @@ def _item_response(
         return _document_response(request, db, meeting)
     return templates.TemplateResponse(
         request,
-        "_vg_punt.html",
+        "_vg_punt_antwoord.html",
         MeetingItemView(
             item=punt,
             meeting=meeting,
+            head=_head(request, db, meeting),
             editable=meeting.status != MeetingStatus.SENT,
             circle=organization_circle(db, on_day=meeting.meeting_date),
             csrf_token=_csrf(request),

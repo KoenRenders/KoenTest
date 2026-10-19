@@ -49,7 +49,7 @@ def test_ai_context_scherm_en_notitieflow(client, db_session):
         data={"title": "Parkeren", "text_addition": "Parkeren kan aan de kerk."},
         headers={"X-CSRF-Token": csrf},
     )
-    assert resp.status_code == 200 and "Parkeren" in resp.text
+    assert resp.status_code == 200 and "Parkeren" in resp.text, "the new note's record"
     note = db_session.query(ChatbotInfo).filter(ChatbotInfo.title == "Parkeren").one()
 
     uit = client.post(f"/admin/ai-context/{note.id}/toggle", headers={"X-CSRF-Token": csrf})
@@ -84,7 +84,8 @@ def test_document_toont_gelezen_ocr_tekst(client, db_session):
     db_session.commit()
 
     _login(client)
-    resp = client.get("/admin/ai-context")
+    # #2124: the read text stands on the document's own record.
+    resp = client.get(f"/admin/ai-context/documenten/{asset.id}")
     assert resp.status_code == 200
-    assert "Toon gelezen tekst (OCR)" in resp.text
+    assert "Gelezen tekst" in resp.text
     assert "AFFICHE: Zomerbar op 1 juli om 19u" in resp.text

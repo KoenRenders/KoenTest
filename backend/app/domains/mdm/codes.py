@@ -26,9 +26,6 @@ from app.domains.mdm.models import (
     LegalFormLabel,
     OrganizationRelationType,
     OrganizationRelationTypeLabel,
-    OrganizationType,
-    OrganizationTypeCode,
-    OrganizationTypeLabel,
     PaymentMethod,
     PaymentMethodCode,
     PaymentMethodLabel,
@@ -222,24 +219,17 @@ TENANT_KIND = CodeList(
     codes=TenantKindCode,
     labels=TenantKindLabel,
     enum=TenantKind,
-    fk_from=("mdm.organizations.kind",),
+    fk_from=("mdm.tenants.kind",),
 )
 
+#: The organisation types ACCOUNT, UNIT and PLATFORM, as migration 154 seeded
+#: them. The list and its column are gone since CR-20 (a tenant is no
+#: organisation, a role is read from facts); the seed stays because a merged
+#: migration imports it and is never changed.
 ORGANIZATION_TYPE_CODES = (
-    # #1945: the kind is a role in the platform, so its word is the role's —
-    # "Account", as "Afdeling" and "Platform". "Rechtspersoon" is a legal nature.
     CodeSeed(code="ACCOUNT", nl="Account", en="Account", sort_order=10),
     CodeSeed(code="UNIT", nl="Afdeling", en="Unit", sort_order=20),
     CodeSeed(code="PLATFORM", nl="Platform", en="Platform", sort_order=30),
-)
-
-ORGANIZATION_TYPE = CodeList(
-    name="organization_type",
-    schema="mdm",
-    codes=OrganizationTypeCode,
-    labels=OrganizationTypeLabel,
-    enum=OrganizationType,
-    fk_from=("mdm.organizations.org_type",),
 )
 
 #: These two already had the shape (#924); they are only registered here, so

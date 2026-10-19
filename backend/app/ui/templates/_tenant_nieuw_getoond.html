@@ -1,0 +1,14 @@
+{% import "_macros.html" as ui %}
+{# "Toont de gegevens van" on Tenants › Nieuw (CR-20 F5): the chosen account, an
+   organisation its tenants show, or a new one. Rendered in the form and again
+   by `/admin/tenants/nieuw/getoond` when the account changes. #}
+<div x-data="{ shown: '{{ typed.organization_id|default('') }}' }" class="flex flex-col gap-4">
+  {{ ui.field("organization_id", _("Toont de gegevens van"), kind="select", id="t-shown-org", value=typed.organization_id|default(""),
+              options=shown_options, attrs='x-model="shown"',
+              help=_("De organisatie waarvan de site de gegevens toont: het account of een organisatie van dat account.")) }}
+  <div class="min-w-0" x-show="shown === '{{ new_choice }}'" x-cloak>
+    {{ ui.field("new_organization_name", attribute="mdm.organization.name", id="t-new-org", value=typed.new_organization_name|default(""),
+                help=_("De naam van de nieuwe organisatie."),
+                attrs=':required="shown === \'' ~ new_choice ~ '\'"') }}
+  </div>
+</div>

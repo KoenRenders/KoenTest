@@ -383,10 +383,12 @@
    right-aligned. A title is never broken word by word.
 
    `list_page=True` keeps W10 for a list page on a phone (below `md`): the action
-   wrapper dissolves (`contents`), the LAST action — the create button, by
-   convention the rightmost — stays beside the title, which truncates (Koen,
-   30 September 2026), the other actions take a row underneath (`order-1`) and
-   the subtitle comes last. From `md` a list page behaves like any other.
+   wrapper dissolves (`contents`), the title takes the whole row and is never cut,
+   the actions — the create button among them — take the row underneath
+   (`order-1`) and the subtitle comes last (Koen, 18 October 2026, #2126, to the
+   create button beside a title that was cut: "a, voor dev1"; before it the last
+   action stood beside the title, which truncated, Koen 30 September 2026). From
+   `md` a list page behaves like any other.
 
    `data-page-header` marks the macro's output for tests, so they do not pin the
    class string. `data-list-page` (#1482) lets the admin shell give a list page
@@ -398,14 +400,14 @@
 {% set w10 = list_page and has_actions %}
 <div data-page-header{% if list_page %} data-list-page{% endif %} class="flex flex-wrap gap-x-3 gap-y-2 mb-6 {{ 'items-start justify-end md:items-end md:justify-start' if w10 else 'items-end' }}">
   <div data-title-block class="{{ 'contents md:block' if w10 else 'block' }} min-w-0 max-w-full {{ 'md:flex-[1_0_auto]' if w10 else 'flex-[1_0_auto]' }}">
-    <h1 tabindex="-1" class="text-3xl font-bold text-kop truncate{{ ' min-w-0 flex-[1_1_33%]' if w10 }}">{{ title }}</h1>
+    <h1 tabindex="-1" class="text-3xl font-bold text-kop truncate{{ ' min-w-0 basis-full md:basis-auto' if w10 }}">{{ title }}</h1>
     {% if subtitle %}<p class="text-sm text-gray-500 mt-1 {{ 'order-2 basis-full md:order-none md:w-0 md:min-w-full' if w10 else 'w-0 min-w-full' }}">{{ subtitle }}</p>{% endif %}
   </div>
   {# `caller is defined` en niet `if caller` (#643): onder StrictUndefined klapt
      een waarheidstest op een niet-bestaande variabele eruit, en Jinja zet
      `caller` juist op undefined wanneer de macro zónder {% call %} gebruikt
      wordt. `is defined` vraagt naar het bestaan i.p.v. naar de waarde. #}
-  {% if has_actions %}<div data-header-actions class="{{ 'contents [&>*:not(:last-child)]:order-1 md:flex md:[&>*:not(:last-child)]:order-none' if w10 else 'flex' }} md:flex-wrap md:justify-end md:items-center md:gap-2 md:ml-auto{{ '' if w10 else ' flex-wrap justify-end items-center gap-2 ml-auto' }}">{{ actions }}</div>{% endif %}
+  {% if has_actions %}<div data-header-actions class="{{ 'contents [&>*]:order-1 md:flex md:[&>*]:order-none' if w10 else 'flex' }} md:flex-wrap md:justify-end md:items-center md:gap-2 md:ml-auto{{ '' if w10 else ' flex-wrap justify-end items-center gap-2 ml-auto' }}">{{ actions }}</div>{% endif %}
 </div>
 {%- endmacro %}
 
@@ -477,7 +479,7 @@
 {#- #1561: a command that is refused says why, before any click: no dialog first. -#}
 {% if a.get("disabled") %}<div role="menuitem" aria-disabled="true" data-menu-refused class="px-3 py-2 text-sm text-ink-soft">
   <span class="block font-medium">{{ a.label }}</span><span class="block text-[13px] leading-[19.5px]">{{ a.disabled }}</span></div>
-{% elif a.get("href") %}<a role="menuitem" href="{{ a.href }}"{% if a.get("target") %} target="{{ a.target }}" rel="noopener noreferrer"{% endif %} class="{{ _cls }}">{{ a.label }}</a>
+{% elif a.get("href") %}<a role="menuitem" href="{{ a.href }}"{% if a.get("target") %} target="{{ a.target }}" rel="noopener noreferrer"{% endif %}{% if a.get("attrs") %} {{ a.attrs|safe }}{% endif %} class="{{ _cls }}">{{ a.label }}</a>
 {% else %}<button role="menuitem" type="button" class="{{ _cls }}" {{ a.get("attrs", "")|safe }}{% if a.get("confirm") %} data-confirm="{{ a.confirm }}"{% if a.get("confirm_title") %} data-confirm-title="{{ a.confirm_title }}"{% endif %}{% if a.get("confirm_ok") %} data-confirm-ok="{{ a.confirm_ok }}"{% endif %}{% if danger %} data-confirm-tone="delete"{% endif %}{% endif %}{% if a.get("toast") %} data-toast-after="{{ a.toast }}"{% endif %}>{{ a.label }}</button>{% endif %}
 {%- endmacro %}
 <header data-record-head class="mb-3">
@@ -622,7 +624,11 @@
    component) — the cards did not read as components without it. 8 px closer
    to the cards under it than two cards are to each other. #}
 {% macro flow_heading(title, id=None) -%}
-<h2 data-flow-heading{% if id %} id="{{ id }}"{% endif %} class="-mb-2 text-base font-semibold leading-6 text-ink">{{ title }}</h2>
+{#- A caller puts badges beside the heading (a meeting's section with its totals,
+    #2112); without one the markup is the heading alone. -#}
+{% set _extra = (caller() if caller is defined else "")|trim %}
+{% if _extra %}<div data-flow-heading-row class="-mb-2 flex flex-wrap items-center gap-x-3 gap-y-1"><h2 data-flow-heading{% if id %} id="{{ id }}"{% endif %} class="text-base font-semibold leading-6 text-ink">{{ title }}</h2>{{ _extra|safe }}</div>
+{% else %}<h2 data-flow-heading{% if id %} id="{{ id }}"{% endif %} class="-mb-2 text-base font-semibold leading-6 text-ink">{{ title }}</h2>{% endif %}
 {%- endmacro %}
 
 {# `rare_line(title, count)` — what is rarely set, as a closed line in the card
@@ -818,7 +824,7 @@
                display=None, help_in_read=False, preview_url=None, delete_name=None,
                beside_field=False, help_lines=False, label_hidden=False,
                fallback=None, fallback_note=None, beside_switch=False, unavailable={},
-               attribute=None) -%}
+               attribute=None, multiple=False) -%}
 {#- CR-33: `attribute=` reads the label from the register (`kernel/attributes.py`); a typed
     `label` stays for a field that is no datum (a search box). Both at once is refused. -#}
 {%- set label = attribute_label(attribute, label) -%}
@@ -929,7 +935,13 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
   <div data-upload class="flex flex-wrap items-center gap-3" x-data="{ chosen: '', drop: false }">
     <label class="relative inline-flex items-center gap-2 min-h-11 md:min-h-10 px-3 rounded-md border border-control-line bg-surface text-sm font-medium text-ink cursor-pointer hover:bg-surface-2 has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-focus">
       {{ icon("upload", 16) }}<span>{{ _("Bestand kiezen") }}</span>
+      {#- #2130: `multiple` takes several files at once and then says how many were
+          chosen; without it the field is as it was, byte for byte. -#}
+      {%- if multiple %}
+      <input type="file" accept="{{ accept }}" multiple class="absolute inset-0 h-full w-full opacity-0 cursor-pointer" @change="const n = $event.target.files.length; chosen = n > 1 ? n + ' {{ _('bestanden gekozen') }}' : (n ? $event.target.files[0].name : '')" {{ _common }}>
+      {%- else %}
       <input type="file" accept="{{ accept }}" class="absolute inset-0 h-full w-full opacity-0 cursor-pointer" @change="chosen = $event.target.files.length ? $event.target.files[0].name : ''" {{ _common }}>
+      {%- endif %}
     </label>
     <span data-upload-chosen class="min-w-0 text-[13px] text-ink-soft [overflow-wrap:anywhere]" x-text="chosen" x-show="chosen" x-cloak></span>
     {% if current_url %}

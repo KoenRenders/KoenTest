@@ -139,7 +139,9 @@ class UserRole(Base):
     role_code: Mapped[Role] = mapped_column(
         EnumColumn(Role, length=20), ForeignKey("auth.role_codes.code"), nullable=False
     )
-    tenant_id = Column(Integer, nullable=True)
+    # CR-20 F1: a key to the tenant (a key across schemas, CR-20 B4); NULL stays
+    # the platform-wide role.
+    tenant_id = Column(Integer, ForeignKey("mdm.tenants.id"), nullable=True)
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )

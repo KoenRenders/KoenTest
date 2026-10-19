@@ -136,20 +136,20 @@ def test_media_zoekt_op_titel_en_behoudt_het_filter_bij_opslaan(client, db_sessi
     gezocht = client.get("/admin/media", params={"q": "bakkerij", "kind": "sponsor"})
     assert "Bakkerij Jan" in gezocht.text and "Garage Piet" not in gezocht.text
 
-    # Opslaan vanuit een gefilterde lijst mag niet terugvallen op 'alles'.
+    # Opslaan vanuit een gefilterde lijst mag niet terugvallen op 'alles'. #2130:
+    # saved on the picture's record, which keeps the list it came from; its way
+    # back is that list, the search included.
+    lijst = "/admin/media?kind=sponsor&q=bakkerij"
     opgeslagen = client.post(
         f"/admin/media/{bakkerij.id}",
-        data={
-            "kind": "sponsor",
-            "title": "Bakkerij Jan",
-            "sort_order": "0",
-            "is_active": "1",
-            "q": "bakkerij",
-        },
+        data={"title": "Bakkerij Jan", "sort_order": "0", "is_active": "1", "terug": lijst},
         headers={"X-CSRF-Token": csrf},
     )
-    assert opgeslagen.status_code == 200
-    assert "Bakkerij Jan" in opgeslagen.text and "Garage Piet" not in opgeslagen.text
+    assert opgeslagen.status_code == 204
+    record = client.get(opgeslagen.headers["HX-Redirect"]).text
+    assert 'href="/admin/media?kind=sponsor&amp;q=bakkerij"' in record
+    terug = client.get(lijst).text
+    assert "Bakkerij Jan" in terug and "Garage Piet" not in terug
 
 
 # ── Gebruikers (#589) ─────────────────────────────────────────────────────────

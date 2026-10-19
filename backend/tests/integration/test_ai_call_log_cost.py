@@ -50,6 +50,16 @@ TENANT = DEFAULT_TENANT_ID
 ANDER = TENANT + 40
 
 
+@pytest.fixture(autouse=True)
+def _the_tenants_exist():
+    """CR-20: a `tenant_id` has a key to `mdm.tenants` (C6 test 10), so the
+    other department this file names by number must exist — committed, because
+    the log is written through a session of its own."""
+    from tests._sites import committed_tenant
+
+    yield from committed_tenant(ANDER)
+
+
 @pytest.fixture
 def leeg_logboek():
     def wis():

@@ -106,20 +106,18 @@ def test_resolve_plain_person_returns_itself(db_session):
     assert resolve(db_session, 999_999_999) is None
 
 
-def test_organizations_account_unit_hierarchy(db_session):
-    account = Organization(code="testaccount", name="Testaccount", org_type="ACCOUNT")
+def test_a_tenant_hangs_under_its_account_and_shows_an_organisation(db_session):
+    """CR-20: the hierarchy that `parent_id` carried is the tenant's account now;
+    the organisation is a party and carries no type (roles are read from facts)."""
+    from tests._sites import new_site
+
+    account = Organization(name="Testaccount")
     db_session.add(account)
     db_session.flush()
-    unit = Organization(
-        code="testaccount-jeugd", name="Jeugdwerking", org_type="UNIT", parent_id=account.id
+    unit = new_site(
+        db_session, name="Jeugdwerking", code="testaccount-jeugd", account_id=account.id
     )
-    db_session.add(unit)
-    db_session.flush()
-    assert unit.parent.id == account.id
-    # CR-12 phase 2: the CHECK constraint has been replaced by a code list with a
-    # foreign key, and the enum refuses the value before it reaches the
-    # database. So the refusal happens earlier and with a better message — the
-    # name of the list instead of the name of a constraint.
-    with pytest.raises(ValueError) as error:
-        Organization(code="fout", name="Fout type", org_type="WRONG")
-    assert "OrganizationType" in str(error.value)
+    assert unit.account.id == account.id
+    assert unit.organization.name == "Jeugdwerking"
+    with pytest.raises(TypeError):
+        Organization(name="Fout type", org_type="UNIT")

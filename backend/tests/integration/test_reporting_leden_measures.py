@@ -105,10 +105,10 @@ def test_every_household_year_lands_in_a_named_status(db_session, situation):
     zonder_lapsed = (
         "CREATE OR REPLACE VIEW reporting.d_membership_status AS "
         "SELECT o.id AS tenant_id, v.code, v.label, v.sort_order "
-        "FROM mdm.organizations o "
+        "FROM mdm.tenants o "
         "CROSS JOIN (VALUES ('NEW', 'Nieuw', 1), ('RENEWED', 'Vernieuwd', 2)) "
         "  AS v(code, label, sort_order) "
-        "WHERE o.org_type = 'UNIT' AND o.deleted_at IS NULL"
+        "WHERE o.kind <> 'PLATFORM'"
     )
     volledig = zonder_lapsed.replace(
         "('RENEWED', 'Vernieuwd', 2)", "('RENEWED', 'Vernieuwd', 2), ('LAPSED', 'Vervallen', 3)"

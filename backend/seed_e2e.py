@@ -244,12 +244,23 @@ def main() -> None:
         # `app.main` registers; so this script imports the application, and with
         # it every subscriber (the contact form and the task of #1509 too).
         import app.main  # noqa: F401
-        from app.domains.mdm.api import TenantKind, create_tenant, tenant_codes
+        from app.domains.mdm.api import (
+            TenantKind,
+            create_organization,
+            create_tenant,
+            tenant_codes,
+        )
+
+        def _site(name: str, code: str, kind):
+            """CR-20: a site is a tenant that names an organisation; here one of
+            its own, as its account and as the organisation it shows."""
+            party = create_organization(db, name=name)
+            return create_tenant(
+                db, code=code, account_id=party.id, organization_id=party.id, kind=kind
+            )
 
         if "voorbeeldbedrijf" not in tenant_codes(db):
-            create_tenant(
-                db, name="Voorbeeldbedrijf", code="voorbeeldbedrijf", kind=TenantKind.COMPANY
-            )
+            _site("Voorbeeldbedrijf", code="voorbeeldbedrijf", kind=TenantKind.COMPANY)
 
         # CR-21 (#1887): a tenant of its own with the shop on, for the browser
         # test of the refused delete. The module set is cached in the server
@@ -266,7 +277,7 @@ def main() -> None:
         # first path segment would be read as that tenant's path prefix in
         # `resolve_request`, and `/webshop` would be stripped to `/`.
         if "winkel" not in tenant_codes(db):
-            webshop = create_tenant(db, name="Webshop", code="winkel", kind=TenantKind.ASSOCIATION)
+            webshop = _site("Webshop", code="winkel", kind=TenantKind.ASSOCIATION)
             set_modules(db, webshop.id, DEFAULTS["VERENIGING"] | {_M.SHOP})
         webshop_id = tenant_codes(db)["winkel"]
 

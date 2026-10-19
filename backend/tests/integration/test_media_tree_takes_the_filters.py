@@ -77,35 +77,33 @@ def test_the_library_and_the_picker_list_the_same_kind_branches(client, db_sessi
     expected = {"sponsor", "tenant_logo", "page_image"}
     assert _kind_branches(library) == expected
     assert _kind_branches(picker) == expected
-    for name in ("Logo&#39;s", "Paginabeelden", "Ontwerpbeelden", "Zonder activiteit"):
+    for name in ("Logo&#39;s", "Paginabeelden", "Ontwerpbeelden"):
         assert name in library and name in picker, name
+    # #2142: the empty branch "Zonder activiteit" is gone, from both trees.
+    assert "Zonder activiteit" not in library and "Zonder activiteit" not in picker
 
 
-def test_ontwerpbeelden_branch_per_activity_and_without_one(client, db_session):
+def test_ontwerpbeelden_branch_per_activity(client, db_session):
     """Koen's addition to #1527: Ontwerpbeelden › year › activity, like Affiches,
-    from the picture's activity; a design picture of no activity under
-    "Zonder activiteit". The library and the picker both."""
+    from the picture's activity. The library and the picker both. #2142: and no
+    branch "Zonder activiteit" any more — every design picture has an activity."""
     activity = _activity(db_session, "Ontwerpdag")
     with_one = _picture(db_session, MediaKind.DESIGN_IMAGE, activity.id, "ontwerp-met")
-    without = _picture(db_session, MediaKind.DESIGN_IMAGE, None, "ontwerp-zonder")
+    other = _activity(db_session, "Andere dag")
+    elsewhere = _picture(db_session, MediaKind.DESIGN_IMAGE, other.id, "ontwerp-elders")
     db_session.commit()
     _login(client)
 
     library = client.get("/admin/media").text
     assert f"/admin/media?kind=design_image&amp;activity_id={activity.id}" in library
-    assert "/admin/media?kind=design_image&amp;activity_id=0" in library
+    assert "activity_id=0" not in library and "Zonder activiteit" not in library
 
     album = client.get(f"/admin/media?kind=design_image&activity_id={activity.id}").text
-    loose = client.get("/admin/media?kind=design_image&activity_id=0").text
-    assert "ontwerp-met" in album and "ontwerp-zonder" not in album
-    assert "ontwerp-zonder" in loose and "ontwerp-met" not in loose
+    assert "ontwerp-met" in album and "ontwerp-elders" not in album
 
     picked = client.get(f"/admin/media/kiezer?field=f&designs_of={activity.id}").text
-    picked_loose = client.get("/admin/media/kiezer?field=f&designs_of=0").text
-    assert f'data-id="{with_one.id}"' in picked and f'data-id="{without.id}"' not in picked
-    assert (
-        f'data-id="{without.id}"' in picked_loose and f'data-id="{with_one.id}"' not in picked_loose
-    )
+    assert f'data-id="{with_one.id}"' in picked and f'data-id="{elsewhere.id}"' not in picked
+    assert "designs_of=0" not in client.get("/admin/media/kiezer?field=f").text
 
     form = client.get(f"/admin/media/nieuw?kind=design_image&activity_id={activity.id}").text
     assert 'value="design_image" selected' in form

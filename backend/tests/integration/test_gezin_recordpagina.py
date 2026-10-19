@@ -213,7 +213,8 @@ def test_mijn_profiel_toont_rollen_per_werkruimte(client, db_session):
     assert "Beheerder" in html and "Boekhouding" in html
     assert "Platformbreed" in html and "Platformbeheerder" in html
     assert ">ADMIN<" not in html and ">OPERATOR<" not in html
-    assert "#963" in html
+    # #2129: the sentence stands on the profile without the issue number the old page printed.
+    assert "platformbrede rollen gelden overal" in html and "#963" not in html
 
 
 def test_opslaan_ververst_de_kop(client, db_session):

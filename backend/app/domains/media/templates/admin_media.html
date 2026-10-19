@@ -1,59 +1,34 @@
-{% extends "admin_base.html" %}
+{% extends "list_page.html" %}
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Media — Raak beheer") }}{% endblock %}
-{% block content %}
-{# Records-lijst (design-system C1, #588): titel → duidingsregel → primaire
-   "+ Uploaden" (los, uploaden in een modal) → zoeken → filterrij (soort +
-   activiteit) → kaarten. De kaarten blijven inline bewerkbaar: media beheer je
-   per stuk (titel, link, volgorde, actief), niet in een aparte editor. #}
+{# The media library on the kit's list layout (#2130; CR-11 phase 5, track 2,
+   round 3b): the title with "+ Uploaden", the tree at the left (unchanged — it is
+   the picker's too, CR-15), and at the right the kit's search bar over the
+   cards. A card opens the picture's record page; editing is done there.
 
-{# De primaire actie is een LINK naar het aanmaakscherm (#627, §2.8): aanmaken
-   opent een volledige-pagina-editor, geen modal. Je werkt na het aanmaken toch
-   verder in de editor, en de velden uit een dialoogje maken het object zelden
-   compleet. #}
-{% call ui.page_header(_("Media"), _("Sponsorlogo's en activiteitenfoto's; elke kaart bewerk je ter plaatse."), list_page=True) %}
-    {# #696: `kind` gaat mee als BEGINWAARDE van de soort-keuze op het
-       uploadscherm, niet meer als de beslissing zelf. Sta je op het sponsorfilter,
-       dan begin je bij sponsor — maar je kunt daar omschakelen.
-
-       #962: en de gekozen ACTIVITEIT gaat mee, zodat de dropdown daarginds al goed
-       staat. Het sjabloon stelt dat adres niet zelf samen — `filterstand` komt uit
-       de route, want de knop die één stuk context liet vallen is precies waarom je
-       dezelfde activiteit drie keer moest kiezen. #}
-    {# #1138: het anker waarop het lijstfragment deze knop out-of-band bijwerkt.
-       De filterbalk vervangt alléén #me-lijst, en deze knop staat daarbuiten —
-       zonder die bijwerking draagt ze na een chipklik nog de filterstand van bij
-       het LADEN van de pagina, en land je op de verkeerde soort. #}
-    <span id="me-uploadknop">
-      {{ ui.btn_primary(_("Uploaden"), href=upload_href, lead_icon="upload") }}
-    </span>
-  {% endcall %}
-
-
-{# #1470: two columns from `lg` — the tree at the left, the cards at the
-   right (CR-15 §C4.2); on a phone the tree stands above the cards. Back office
-   is desktop-first: judged at 1 440 px, not broken at 390. #}
+   #696/#962/#1138: "+ Uploaden" carries the chosen branch — kind, activity,
+   tag, year — as the upload screen's starting point. The list fragment refreshes
+   it out-of-band (#me-uploadknop), so after a click in the tree or a search it
+   never carries the state of the page's load. #}
+{% block list_title %}{{ _("Media") }}{% endblock %}
+{% block list_primary %}<span id="me-uploadknop">{{ ui.btn_primary(_("Uploaden"), href=upload_href, lead_icon="upload") }}</span>{% endblock %}
+{% block list_body %}
+{# #1470: two columns from `lg` — the tree at the left, the cards at the right
+   (CR-15 §C4.2); on a phone the tree stands above the cards. #}
 <div class="lg:grid lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-6 lg:items-start">
 <aside id="me-boom" class="mb-4 lg:mb-0">{% include "_me_boom.html" %}</aside>
 <div class="min-w-0">
-{% call ui.filter_bar("/admin/media", "#me-lijst") %}
-  {# #1527: the row holds the search alone — the tree chooses the kind and the
-     activity, so the width questions of the kind and activity lists (#1138,
-     #1194, #1291) went with them. The search keeps the shared
-     `min-w-[14rem]` of every filter bar (`tests/test_filterbalk_op_een_regel.py`). #}
-  <div class="flex flex-wrap gap-3 items-center">
-    <div class="flex-1 min-w-[14rem]">{{ ui.search(value=q, placeholder=_('Zoek op titel…'), standalone=False) }}</div>
-    {# #1527: the kind list (#1194) and the activity list (#1291) are gone: the
-       tree at the left chooses both, as the picker's does. The search searches
-       within the chosen branch, which travels along hidden with the tag and the
-       year. #}
-    {% if kind %}<input type="hidden" name="kind" value="{{ kind }}">{% endif %}
-    {% if activity_id %}<input type="hidden" name="activity_id" value="{{ activity_id }}">{% endif %}
-    {% if tag %}<input type="hidden" name="tag" value="{{ tag }}">{% endif %}
-    {% if year %}<input type="hidden" name="year" value="{{ year }}">{% endif %}
-  </div>
-{% endcall %}
-
+{# The search searches within the chosen branch, which travels along hidden
+   with the tag, the year and the use (#1527): the tree chooses the kind and the
+   activity. #}
+{% set _hidden = [] %}
+{% if kind %}{% set __ = _hidden.append(("kind", kind)) %}{% endif %}
+{% if activity_id %}{% set __ = _hidden.append(("activity_id", activity_id)) %}{% endif %}
+{% if tag %}{% set __ = _hidden.append(("tag", tag)) %}{% endif %}
+{% if year %}{% set __ = _hidden.append(("year", year)) %}{% endif %}
+{% if gebruik %}{% set __ = _hidden.append(("gebruik", gebruik)) %}{% endif %}
+{{ ui.toolbar("/admin/media", "#me-lijst", "me-filter", q=q, search_placeholder=_("Zoek op titel…"),
+              page=page, per_page=per_page, total=total, hidden=_hidden) }}
 <div id="me-lijst">
   {% include "_me_lijst.html" %}
 </div>

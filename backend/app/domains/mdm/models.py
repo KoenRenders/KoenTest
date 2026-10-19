@@ -126,8 +126,8 @@ class TenantKind(CodeEnum):
     The operator chooses it once, in words a person uses; it gives a new tenant
     its module set (`app/kernel/modules.py`, `DEFAULTS`). Next to `legal_form`
     and not instead of it: the legal form is about law — a company can run a
-    club — the kind about what the site is for. On UNIT rows, the tenants, and
-    since #1523 on the PLATFORM row (its own kind, PLATFORM); NULL on ACCOUNT. No
+    club — the kind about what the site is for. On every tenant (`Tenant.kind`,
+    CR-20), the platform included since #1523 (its own kind, PLATFORM). No
     standard has a home for "kind of site" (UBL's `PartyLegalEntity` holds the
     legal form), so this one is ours.
     """
@@ -158,20 +158,6 @@ class LegalForm(CodeEnum):
     NON_PROFIT = "VZW"
     UNINCORPORATED = "FEITELIJKE_VERENIGING"
     COMPANY = "BEDRIJF"
-
-
-class OrganizationType(CodeEnum):
-    """What kind of organization this is (CR-12 phase 2).
-
-    `ACCOUNT` is the legal entity that holds the account, `UNIT` a unit,
-    `PLATFORM` the one organization that represents the platform itself (#406).
-    The column had a CHECK constraint with these three values; it goes away with
-    the foreign key, because otherwise a fourth kind costs a row and a migration.
-    """
-
-    ACCOUNT = "ACCOUNT"
-    UNIT = "UNIT"
-    PLATFORM = "PLATFORM"
 
 
 class RelationType(CodeEnum):
@@ -530,6 +516,9 @@ class OrganizationRelationTypeLabel(Base):
 
 
 class Address(TenantMixin, SoftDeleteMixin, Base):
+    # CR-20 F2: `tenant_id` holds an organisation's id on its own rows; no key
+    # until CR-26 moves this table to the account scope (C4.8).
+    tenant_key = False
     __tablename__ = "addresses"
     __table_args__ = {"schema": "mdm"}
 
@@ -593,6 +582,9 @@ class ContactDetail(TenantMixin, SoftDeleteMixin, Base):
     uitbreiding contained maakt.
     """
 
+    # CR-20 F2: `tenant_id` holds an organisation's id on its own rows; no key
+    # until CR-26 moves this table to the account scope (C4.8).
+    tenant_key = False
     __tablename__ = "contact_details"
     __table_args__ = {"schema": "mdm"}
 
@@ -696,50 +688,27 @@ class ExternalNumber(TenantMixin, SoftDeleteMixin, Base):
 
 
 class Organization(SoftDeleteMixin, Base):
-    """Organisatie (§6). Zelf-refererend; de tenancy-fase (#406) hangt de
-    tenant-kolommen aan dit begrip.
+    """An organisation: a party (UBL ``cac:Party``), and nothing else (CR-20).
 
-    Drie soorten, en de vorige versie van deze docstring had er twee door elkaar:
+    The rule (CR-20 B7): *a tenant is a site; an organisation is a party.* Until
+    CR-20 this row was both — the tenant columns (`org_type`, `code`, `kind`,
+    `parent_id`, `site_organization_id`, `site_name`) made a site of it, and a
+    site that showed another organisation's data stood here as an empty second
+    company that could not be deleted. The site is now :class:`Tenant`; what
+    stays is what the organisation is in the world: its name, its legal form,
+    and the repeatable tables that hang on it (identifications, bank accounts,
+    addresses, contacts, persons).
 
-    - ``ACCOUNT`` — de klant, de rij waar de facturatie aan hangt (bv. Raak vzw).
-    - ``UNIT`` — de afdeling met haar eigen site en merk (bv. Raak Millegem). Dít is
-      wat elders "tenant" heet en wat een pad-prefix krijgt.
-    - ``PLATFORM`` — het platform zelf (#854): één rij zonder ouder, met een naam, een
-      afzender en sleutels, maar zonder leden, gezinnen of activiteiten. Geen
-      pad-prefix; ``tenant_lookup`` filtert bewust op ``UNIT``.
-
-    Tot 10 september 2026 stond hier "ACCOUNT = afdeling/klant (bv. Raak Millegem)".
-    Dat klopte niet met de data — Millegem is een UNIT — en het is precies de regel die
-    je leest als je hieraan werkt.
+    No role is stored (CR-26, Koen 15 October 2026: roles are read from facts):
+    an organisation is an *account* because a tenant names it as its account
+    (`Tenant.account_id`, `mdm.api.is_account`).
     """
 
     __tablename__ = "organizations"
     __table_args__ = {"schema": "mdm"}
 
     id = Column(Integer, primary_key=True)
-    parent_id = Column(Integer, ForeignKey("mdm.organizations.id"), nullable=True)
-    # #1550: on a tenant, the organisation whose data its site shows (footer,
-    # "Onze organisatie", mails) when that is not its own row: the account, or
-    # another organisation of that account. NULL = its own row. Read only
-    # through `kernel.tenant_config.site_organization_id`.
-    site_organization_id = Column(Integer, ForeignKey("mdm.organizations.id"), nullable=True)
-    # ACCOUNT | UNIT | PLATFORM — CHECK in migratie 078, uitgebreid in 097.
-    # Dit is de ROL die de organisatie speelt in het platform; de kolommen
-    # hieronder zeggen wat ze IS in de wereld (#924). Twee assen, één ding.
-    org_type: Mapped[OrganizationType] = mapped_column(
-        EnumColumn(OrganizationType, length=10),
-        ForeignKey("mdm.organization_type_codes.code"),
-        nullable=False,
-        default=OrganizationType.ACCOUNT,
-    )
-    # Stabiele technische naam (bv. "raakmillegem") — uniek.
-    code = Column(String(50), nullable=False, unique=True)
     name = Column(String(255), nullable=False)
-    # #1546: on a tenant, the name its site shows (wordmark, tab, footer, mails,
-    # the list of sites), when it differs from the organisation's. NULL = the name
-    # of the organisation behind the site (#1550). Read only through
-    # `kernel.tenant_config.tenant_display_name`.
-    site_name = Column(String(255), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
     updated_at = Column(
@@ -756,14 +725,6 @@ class Organization(SoftDeleteMixin, Base):
     legal_form: Mapped[Optional[LegalForm]] = mapped_column(
         EnumColumn(LegalForm, length=30), ForeignKey("mdm.legal_form_codes.code"), nullable=True
     )
-    # CR-19 (#1478): what the site is for — `mdm.tenant_kind_codes`. A UNIT
-    # carries one; ACCOUNT and PLATFORM do not.
-    kind: Mapped[Optional[TenantKind]] = mapped_column(
-        EnumColumn(TenantKind, length=20), ForeignKey("mdm.tenant_kind_codes.code"), nullable=True
-    )
-
-    # #1550: two keys to this table now — the parent is `parent_id`.
-    parent = relationship("Organization", remote_side=[id], foreign_keys=[parent_id])
 
     # Elf kolommen stonden hier tot #945: `enterprise_number`, `vat_number`,
     # `email`, `phone`, `website`, `payment_iban`, `payment_beneficiary`,
@@ -774,6 +735,70 @@ class Organization(SoftDeleteMixin, Base):
     # een vijfde netwerk) en één kolom per soort laat het tweede geval niet toe.
     # `legal_form` blijft wél staan: UBL houdt `cac:PartyLegalEntity/
     # cbc:CompanyLegalForm` per definitie enkelvoudig.
+
+
+class Tenant(Base):
+    """A tenant: a site with a code, a kind, modules and settings (CR-20 F1).
+
+    It hangs under an account — the organisation that is the customer of the
+    platform — and shows the data of an organisation of that account (its
+    footer, *Onze organisatie*, the bank account in its mails). Both are
+    parties in `mdm.organizations`; one party may be shown by several tenants.
+
+    The ids are the ids the organisation rows had when they were the tenants
+    (CR-20 C4.1): every `tenant_id` in every table kept its value, and only
+    gained the foreign key it never had. From the migration on the two tables
+    have sequences of their own; a tenant id and an organisation id are keys of
+    two tables, and nothing may lean on them being equal.
+
+    The platform is a tenant too, of kind PLATFORM (CR-20 C4.3): it has a host,
+    settings, modules and a landing page. There is one. CR-20 F1 named an
+    `is_platform` column beside the kind; the kind already says it, so the flag
+    is the property below and not a second column for one fact.
+    """
+
+    __tablename__ = "tenants"
+    __table_args__ = {"schema": "mdm"}
+
+    id = Column(Integer, primary_key=True)
+    # The path prefix and the key `TENANT_HOSTNAMES` maps a host to (C4.5).
+    code = Column(String(50), nullable=False, unique=True)
+    kind: Mapped[TenantKind] = mapped_column(
+        EnumColumn(TenantKind, length=20), ForeignKey("mdm.tenant_kind_codes.code"), nullable=False
+    )
+    #: The organisation that is the account; for the platform, the party it
+    #: shows (CR-20 C4.7).
+    account_id = Column(Integer, ForeignKey("mdm.organizations.id"), nullable=False, index=True)
+    #: The organisation whose data the site shows (#1550). Read through
+    #: `kernel.tenant_config.site_organization_id`.
+    organization_id = Column(
+        Integer, ForeignKey("mdm.organizations.id"), nullable=False, index=True
+    )
+    #: The name the site shows when it differs from its organisation's (#1546).
+    #: NULL = that organisation's name. Read through
+    #: `kernel.tenant_config.tenant_display_name`.
+    site_name = Column(String(255), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
+
+    account = relationship("Organization", foreign_keys=[account_id])
+    organization = relationship("Organization", foreign_keys=[organization_id])
+
+    @property
+    def is_platform(self) -> bool:
+        return self.kind is TenantKind.PLATFORM
+
+    @property
+    def name(self) -> str:
+        """The site's name: its own `site_name`, else the name of the
+        organisation it shows — the rule of `tenant_config.tenant_display_name`,
+        for the lists that name a tenant (Tenants, roles, system info)."""
+        if (self.site_name or "").strip():
+            return self.site_name.strip()
+        return self.organization.name if self.organization is not None else self.code
 
 
 class TenantModule(Base):
@@ -788,9 +813,7 @@ class TenantModule(Base):
     __tablename__ = "tenant_modules"
     __table_args__ = {"schema": "mdm"}
 
-    tenant_id = Column(
-        Integer, ForeignKey("mdm.organizations.id", ondelete="CASCADE"), primary_key=True
-    )
+    tenant_id = Column(Integer, ForeignKey("mdm.tenants.id", ondelete="CASCADE"), primary_key=True)
     module_code = Column(String(20), primary_key=True)
 
 
@@ -1068,34 +1091,6 @@ class TenantKindLabel(Base):
     )
 
 
-class OrganizationTypeCode(Base):
-    """Which codes exist — the target of the foreign key (CR-12 phase 2)."""
-
-    __tablename__ = "organization_type_codes"
-    __table_args__ = {"schema": "mdm"}
-
-    code = Column(String(20), primary_key=True)
-    sort_order = Column(Integer, nullable=False, default=0)
-    is_active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-
-
-class OrganizationTypeLabel(Base):
-    """The word a screen shows, per language (CR-12 phase 2)."""
-
-    __tablename__ = "organization_type_labels"
-    __table_args__ = {"schema": "mdm"}
-
-    code = Column(String(20), ForeignKey("mdm.organization_type_codes.code"), primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
-    value = Column(String(150), nullable=False)
-    description = Column(String(255), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(
-        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
-    )
-
-
 class GenderCode(Base):
     """Which codes exist — the target of the foreign key (CR-12 phase 2)."""
 
@@ -1264,6 +1259,9 @@ class MemberPersonHistory(TenantMixin, HistoryMixin, Base):
 
 
 class AddressHistory(TenantMixin, HistoryMixin, Base):
+    # CR-20 F2: `tenant_id` holds an organisation's id on its own rows; no key
+    # until CR-26 moves this table to the account scope (C4.8).
+    tenant_key = False
     __tablename__ = "address_history"
     __table_args__ = {"schema": "mdm"}
 
@@ -1278,6 +1276,9 @@ class AddressHistory(TenantMixin, HistoryMixin, Base):
 
 
 class ContactDetailHistory(TenantMixin, HistoryMixin, Base):
+    # CR-20 F2: `tenant_id` holds an organisation's id on its own rows; no key
+    # until CR-26 moves this table to the account scope (C4.8).
+    tenant_key = False
     __tablename__ = "contact_detail_history"
     __table_args__ = {"schema": "mdm"}
 

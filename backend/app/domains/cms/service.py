@@ -1336,7 +1336,7 @@ def insertable_codes(codes: list[dict]) -> list[dict]:
 
     The values of the closed list (`schema.VALUE_CODES`, CR-32 R19): the menu
     inserts a value node, which only those can be. The form codes and the codes
-    with a part of their own (`{{tenants:raak}}`) stay in the card and keep
+    with a part of their own (`{{tenants:raakmillegem}}`) stay in the card and keep
     working as typed text.
     """
     from app.domains.cms.schema import VALUE_CODES

@@ -122,6 +122,14 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
+  "GET /admin/ai-context/notities/nieuw": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/ai-context/{segment}/{item_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
   "GET /admin/betalingen": {
    "platform": "ADMIN FINANCE OPERATOR",
    "tenant": "ADMIN FINANCE OPERATOR"
@@ -299,6 +307,10 @@
    "tenant": "ADMIN OPERATOR"
   },
   "GET /admin/media/nieuw": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/media/{asset_id}": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
@@ -487,6 +499,10 @@
    "tenant": "OPERATOR"
   },
   "GET /admin/tenants/nieuw": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
+  "GET /admin/tenants/nieuw/getoond": {
    "platform": "OPERATOR",
    "tenant": "OPERATOR"
   },

@@ -30,10 +30,11 @@ from app.domains.auth.api import (
     csrf_token_for,
     make_session_value,
 )
-from app.domains.mdm.api import TenantKind, create_tenant, enabled_modules, platform_tenant_id
+from app.domains.mdm.api import TenantKind, enabled_modules, platform_tenant_id
 from app.kernel.modules import MODULES, owner_of
 from app.kernel.tenant_config import TenantSetting, get_setting, set_setting
 from app.ui.tenants_ui import BEKENDE_SLEUTELS, GEHEIME_SLEUTELS
+from tests._sites import new_site
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -81,7 +82,7 @@ def _form(page_html: str) -> dict:
 
 def test_every_setting_sits_in_exactly_its_owners_card(client, platform_workspace, db_session):
     _operator(client, db_session)
-    tenant = create_tenant(db_session, name="Kaartenclub", code="kaarten-1498")
+    tenant = new_site(db_session, name="Kaartenclub", code="kaarten-1498")
     cards = _cards(client.get(f"/admin/tenants/{tenant.id}?bewerken=1").text)
 
     assert set(cards) == {"site", *ALL_MODULES}, "one card per module, plus Site"
@@ -101,16 +102,14 @@ def test_every_registry_setting_has_a_field():
 
 def test_the_assistant_card_uses_the_house_word(client, platform_workspace, db_session):
     _operator(client, db_session)
-    tenant = create_tenant(db_session, name="Woordclub", code="woord-1498")
+    tenant = new_site(db_session, name="Woordclub", code="woord-1498")
     card = _cards(client.get(f"/admin/tenants/{tenant.id}?bewerken=1").text)["chatbot"]
     assert ">Assistent</span>" in card and "Raakje" not in card.split("</label>")[0]
 
 
 def test_one_save_writes_a_module_and_a_setting_together(client, platform_workspace, db_session):
     headers = _operator(client, db_session)
-    tenant = create_tenant(
-        db_session, name="Bakkerij", code="bakkerij-1498", kind=TenantKind.COMPANY
-    )
+    tenant = new_site(db_session, name="Bakkerij", code="bakkerij-1498", kind=TenantKind.COMPANY)
     data = _form(client.get(f"/admin/tenants/{tenant.id}?bewerken=1").text)
     data["modules"] = [*data["modules"], "newsletter"]
     data["tagline"] = "Brood en banket"
@@ -125,7 +124,7 @@ def test_one_save_writes_a_module_and_a_setting_together(client, platform_worksp
 
 def test_a_refused_dependency_saves_nothing(client, platform_workspace, db_session):
     headers = _operator(client, db_session)
-    tenant = create_tenant(db_session, name="Garage", code="garage-1498", kind=TenantKind.COMPANY)
+    tenant = new_site(db_session, name="Garage", code="garage-1498", kind=TenantKind.COMPANY)
     before = enabled_modules(tenant.id, db=db_session)
     data = _form(client.get(f"/admin/tenants/{tenant.id}?bewerken=1").text)
     data["modules"] = [*data["modules"], "designstudio"]  # needs activities, which is off
@@ -143,7 +142,7 @@ def test_a_refused_dependency_saves_nothing(client, platform_workspace, db_sessi
 
 def test_switching_a_module_off_keeps_its_settings(client, platform_workspace, db_session):
     headers = _operator(client, db_session)
-    tenant = create_tenant(db_session, name="Turnclub", code="turn-1498")
+    tenant = new_site(db_session, name="Turnclub", code="turn-1498")
     set_setting(db_session, "membership_price_full", "40.00", tenant_id=tenant.id)
     set_setting(db_session, "max_item_quantity", "12", tenant_id=tenant.id)
     db_session.commit()

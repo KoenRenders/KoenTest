@@ -177,7 +177,8 @@ def test_saving_a_title_does_not_reset_the_order(client, db_session):
         },
     )
 
-    assert resp.status_code == 200, resp.text[:200]
+    # #2130: saved from the picture's record, which answers with its own address.
+    assert resp.status_code == 204, resp.text[:200]
     db_session.expire_all()
     assert _order(db_session, activity_id=6) == [("eerste", 0), ("tweede bis", 1)], (
         "opslaan heeft de volgorde veranderd"

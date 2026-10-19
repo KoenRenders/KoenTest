@@ -4,6 +4,13 @@ A ratchet: it may only shrink. A field that is no datum — a search box, a filt
 """
 
 TYPED_LABELS: dict[str, dict[str, int]] = {
+    # #2111: the parameters of the copy step are no datum of the register — they say how
+    # one action runs (where the first date goes, the copy's status, whether the components go).
+    "domains/activities/templates/admin_activiteit_kopieren.html": {
+        "Nieuwe begindatum": 1,
+        "Ook onderdelen en producten kopiëren": 1,
+        "Status van de kopie": 1,
+    },
     "domains/activities/templates/_aa_detail.html": {
         "Affiche": 1,
         "Afrekening": 1,
@@ -124,6 +131,11 @@ TYPED_LABELS: dict[str, dict[str, int]] = {
     "ui/templates/admin_tenant_nieuw.html": {
         "Account": 1,
         "Canonieke URL": 1,
+    },
+    # CR-20 F5: "Toont de gegevens van" is the tenant's shown organisation, a foreign key as
+    # "Account" is — technical, with no register entry.
+    "ui/templates/_tenant_nieuw_getoond.html": {
+        "Toont de gegevens van": 1,
     },
     "ui/templates/admin_tenant.html": {
         "Account": 1,

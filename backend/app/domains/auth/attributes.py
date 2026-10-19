@@ -27,7 +27,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="auth.login_token.otp_code",
         columns=("auth.login_tokens.otp_code",),
-        label=None,
+        label="Code uit de e-mail",
         name_en="Otp code",
         help="The otp code of the login token.",
         ai_exposure=AiExposure.INTERNAL,  # K8

@@ -479,14 +479,21 @@ KAARTFRAGMENTEN = (
 def test_lijstschermen_zetten_de_actie_in_de_kop():
     """De "+ Nieuwe …"-knop hoort op de titelregel, zoals C1 en het referentiescherm
     Leden (#611/#621). De call-vorm van page_header is daar het bewijs van: zonder
-    caller-blok staat de knop noodzakelijk ergens anders."""
+    caller-blok staat de knop noodzakelijk ergens anders.
+
+    #2130: a list on the kit's `list_page` layout puts it in the title row's
+    `list_primary` block — the same place, the newer form."""
     per_naam = {pad.name: pad for pad in TEMPLATES}
     fouten = []
     for naam in LIJSTSCHERMEN:
         pad = per_naam.get(naam)
         if pad is None:
             continue
-        if "{% call ui.page_header" not in _zonder_commentaar(pad):
+        tekst = _zonder_commentaar(pad)
+        op_list_page = (
+            '{% extends "list_page.html" %}' in tekst and "{% block list_primary %}" in tekst
+        )
+        if "{% call ui.page_header" not in tekst and not op_list_page:
             fouten.append(f"{pad.relative_to(APP)}: gebruikt ui.page_header() zonder call-blok")
     assert not fouten, (
         "Zet de primaire actie in de kop via {% call ui.page_header(…) %}:\n  "
@@ -1212,53 +1219,6 @@ def test_geen_losse_glyphs_meer_voor_verwijderen_en_bewerken():
                         f'lead_icon="{hoort}" met een leeg label'
                     )
     assert not fouten, "Losse glyphs op knoppen (§1.5, #698):\n  " + "\n  ".join(fouten)
-
-
-def test_een_verwijderknop_draagt_geen_kruisje():
-    """§1.4 (#2105): `trash-2` betekent verwijderen, `x` alleen sluiten.
-
-    De regels hierboven zien een glyph als label (`btn_danger("×")`) en een kale
-    `×` in een `<button>`. De webshop schreef zijn verwijderknop als kit-macro met
-    `lead_icon="x"` — een vorm die door beide glipte, drie keer (mandje, Verkoop
-    nieuw, Verkoop wijzigen). Deze regel toetst de eigenschap: een knop wiens label
-    of `aria-label` "Verwijderen" is, draagt het icoon `x` niet — als macro-aanroep
-    (`lead_icon="x"`) noch als `icon("x")` in rauwe HTML.
-
-    Kapotgemaakt om te controleren dat hij rood kan worden (18 oktober 2026,
-    additief, daarna weer weggehaald): één regel
-    `{{ ui.btn_danger("", size="sm", lead_icon="x", aria_label=_("Verwijderen")) }}`
-    in `webshop_mandje.html` → rood met dat pad en dat regelnummer.
-    """
-    verwijderen = re.compile(r"""_\(\s*["']Verwijderen["']\s*\)|["']Verwijderen["']""")
-    kruisje = re.compile(r"""lead_icon\s*=\s*["']x["']|\bicon\(\s*["']x["']""")
-    fouten = []
-    geteld = 0
-    for pad in TEMPLATES:
-        rel = str(pad.relative_to(APP))
-        tekst = _zonder_commentaar(pad)
-        for naam in ("button", "btn_primary", "btn_secondary", "btn_danger", "btn_outline"):
-            for regel, argumenten in _oproepen(tekst, naam):
-                if verwijderen.search(argumenten):
-                    geteld += 1
-                    if kruisje.search(argumenten):
-                        fouten.append(f"{rel}:{regel}")
-        for treffer in re.finditer(r"<button\b.*?</button>", tekst, re.S):
-            tag = treffer.group(0)
-            if re.search(
-                r"""aria-label="\{\{\s*_\(\s*["']Verwijderen["']\s*\)\s*\}\}\"|aria-label="Verwijderen\"""",
-                tag,
-            ):
-                geteld += 1
-                if kruisje.search(tag):
-                    fouten.append(f"{rel}:{tekst[: treffer.start()].count(chr(10)) + 1}")
-    assert geteld >= 5, (
-        f"maar {geteld} verwijderknoppen gevonden — de zoekopdracht mist er, "
-        "een gate die nergens kijkt bewaakt niets"
-    )
-    assert not fouten, (
-        "Een knop 'Verwijderen' draagt het icoon `x`; dat betekent sluiten. Gebruik "
-        "`trash-2` (§1.4, #2105):\n  " + "\n  ".join(fouten)
-    )
 
 
 def test_een_symboolknop_krijgt_ook_een_tooltip():

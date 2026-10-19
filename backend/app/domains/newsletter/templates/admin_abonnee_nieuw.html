@@ -15,6 +15,7 @@
         hx-post="/admin/nieuwsbrieven/abonnees" hx-swap="none">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     {% call ui.section(_("Adres"), id="abonnee") %}
+      {# promise walked by: test_a_subscriber_is_not_added_without_an_address #}
       {{ ui.field("subscriber_email", attribute="newsletter.subscriber.email", kind="email", required=True, id="nb-nieuw-adres",
                   placeholder=_("naam@voorbeeld.be"), attrs="autofocus") }}
       {{ ui.field("first_name", attribute="newsletter.subscriber.first_name", id="nb-nieuw-voornaam") }}

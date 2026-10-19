@@ -14,20 +14,34 @@ from app.ui.viewmodel import ViewModel
 
 @dataclass(frozen=True, kw_only=True)
 class MeetingListView(ViewModel):
-    """`admin_vergaderingen.html` and its fragment `_vg_lijst.html`."""
+    """`admin_vergaderingen.html` and its fragment `_vg_lijst.html`: the kit's list page (#2123)."""
 
     meetings: list[Any]
     # No `status_labels`/`status_tones` here since CR-12: the label of a code is
     # not derived state, it is the one text that code has, and the template asks
-    # `code_label`/`tone` for it. Deriving it per meeting id in the route was a
-    # dictionary of Dutch words living in a screen — the thing this change
-    # request removes. What the route still derives stays derived.
+    # `code_label`/`tone` for it. What the route still derives stays derived.
     dates: dict[int, str]
+    #: Per meeting id, the hour under the date ("20:00") or "".
+    times: dict[int, str]
+    #: Per meeting id, how many points its agenda holds.
+    point_counts: dict[int, int]
+    columns: list[dict[str, Any]]
+    #: Alle, Komende and Voorbije, each with its count.
+    segments: list[dict[str, Any]]
+    status: str
     # Het actieve zoekwoord: de filterbalk leest het terug, zodat het in het veld
     # blijft staan na een swap.
     q: str = ""
+    page: int = 1
+    per_page: int = 50
+    total: int = 0
+    page_sizes: list[int] = field(default_factory=list)
+    pager_url: str = ""
+    empty_reason: str = ""
     csrf_token: str
     error: Optional[str] = None
+    #: The fragment carries the toolbar's count and segment counts out-of-band.
+    oob: bool = False
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 
 
@@ -56,6 +70,20 @@ class MeetingNewView(ViewModel):
 
 
 @dataclass(frozen=True, kw_only=True)
+class MeetingHead:
+    """What the record head of a meeting shows (#2112): one description for the head
+    in the document and for the head a saved point sends back out of band, so the
+    "Opgeslagen om" fact never says an older moment than the screen has."""
+
+    meeting: Any
+    title: str
+    # Time, location, how many are present, when it was saved — each a plain text.
+    facts: list[dict[str, str]]
+    editable: bool
+    csrf_token: str
+
+
+@dataclass(frozen=True, kw_only=True)
 class MeetingDocumentView(ViewModel):
     """`admin_vergadering.html` and its fragment `_vg_document.html`.
 
@@ -66,6 +94,7 @@ class MeetingDocumentView(ViewModel):
 
     meeting: Any
     title: str
+    head: MeetingHead
     sections: list[Any]
     # The circle, with who is ticked present or excused.
     circle: list[Any]
@@ -107,6 +136,7 @@ class MeetingItemView(ViewModel):
 
     item: Any
     meeting: Any
+    head: MeetingHead
     circle: list[Any]
     editable: bool
     csrf_token: str

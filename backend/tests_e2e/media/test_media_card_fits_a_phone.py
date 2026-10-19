@@ -10,8 +10,10 @@ it. #1236 needed `min-w-0` as well; here it did not (measured below).
 Why an e2e test and not a render test: the markup was valid. Only a browser
 knows how wide that row is and whether it fits.
 
-The test first counts what it measures — a card, its Opslaan button, the two
-reorder arrows and the Actief box — so an empty screen cannot pass as "fits".
+The test first counts what it measures — a card, its link to the record and the
+two reorder arrows — so an empty screen cannot pass as "fits". (#2130 moved the
+card's edit form to the picture's record page; until then the card carried the
+action bar, the title field and the row Volgorde / Actief / dimensions.)
 
 Broken on purpose (28 September 2026):
 - `flex-wrap` taken off the row → the phone test failed: the page 403 px wide,
@@ -40,7 +42,7 @@ SCREEN = "/admin/media?kind=page_image"
 _MEASURE = """(limit) => {
   const list = document.querySelector('#me-lijst');
   if (!list) return null;
-  const card = list.querySelector('form');
+  const card = list.querySelector('article[data-card]');
   const box = e => { const r = e.getBoundingClientRect();
                      return {l: Math.round(r.left), t: Math.round(r.top),
                              r: Math.round(r.right), b: Math.round(r.bottom)}; };
@@ -48,15 +50,16 @@ _MEASURE = """(limit) => {
   const offenders = [...list.querySelectorAll('*')].filter(shown)
     .filter(e => Math.round(e.getBoundingClientRect().right) > limit)
     .map(e => `${e.tagName.toLowerCase()} "${(e.innerText || e.value || '').trim().slice(0, 30)}" right=${box(e).r}`);
-  const row = card ? card.querySelector('input[name="is_active"]').closest('div') : null;
+  const inside = card ? [...card.querySelectorAll('*')].filter(shown)
+    .filter(e => box(e).r > box(card).r + 1)
+    .map(e => `${e.tagName.toLowerCase()} right=${box(e).r} card=${box(card).r}`) : [];
   return {
     doc: document.documentElement.scrollWidth,
-    cards: list.querySelectorAll('form').length,
-    save: card ? [...card.querySelectorAll('button')].filter(b => /Opslaan/.test(b.innerText) && shown(b)).length : 0,
+    cards: list.querySelectorAll('article[data-card]').length,
+    link: card ? card.querySelectorAll('[data-row-link]').length : 0,
     arrows: card ? card.querySelectorAll('[hx-post$="/verplaats"]').length : 0,
-    active: card ? card.querySelectorAll('input[name="is_active"]').length : 0,
     offenders,
-    rowChildren: row ? [...row.children].filter(shown).map(box) : [],
+    inside,
   };
 }"""
 
@@ -83,9 +86,9 @@ def _measure(page, width: int) -> dict:
     m = page.evaluate(_MEASURE, width)
     assert m is not None, "no media list on the screen"
     assert m["cards"] >= 1, "no media card on the screen — is the e2e seed loaded?"
-    assert m["save"] == 1 and m["arrows"] == 2 and m["active"] == 1, (
-        f"the card's controls are not all there: {m}"
-    )
+    # #2130: a card is read on the list and edited on the picture's record — its
+    # link to the record and the two order arrows are what it carries.
+    assert m["link"] == 1 and m["arrows"] == 2, f"the card's controls are not all there: {m}"
     return m
 
 
@@ -95,12 +98,11 @@ def test_the_media_card_fits_a_phone(page):
         f"the page is {m['doc']} px wide at {PHONE} px; sticking out: {m['offenders']}"
     )
     assert not m["offenders"], f"sticking out of the screen: {m['offenders']}"
+    assert not m["inside"], f"sticking out of the card: {m['inside']}"
 
 
-def test_on_a_desktop_the_row_stays_on_one_line(page):
-    """The other half: at 1440 px Volgorde, Actief and the dimensions stay on
-    one line, as they did before the fix."""
+def test_on_a_desktop_nothing_sticks_out_of_a_card(page):
+    """The other half, at 1440 px (#2130: the card's row of Volgorde, Actief and
+    the size left with its edit form; what stays must stay inside the card)."""
     m = _measure(page, 1440)
-    tops = {c["t"] for c in m["rowChildren"]}
-    assert len(m["rowChildren"]) >= 3, m["rowChildren"]
-    assert max(tops) - min(tops) <= 6, f"the row wrapped at 1440 px: {m['rowChildren']}"
+    assert not m["inside"], f"sticking out of the card: {m['inside']}"

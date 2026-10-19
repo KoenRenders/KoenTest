@@ -378,7 +378,9 @@ def test_the_browser_title_of_a_public_page_names_the_site_it_is_on(client, db_s
     THAT name in the tab of every public page — until now twelve pages said "— Raak"
     or "— Raak Millegem" whatever the site was called. Red against C1: the title of
     `/fotos` was "Foto's — Raak Millegem" on this site too."""
-    _organisation(db_session).site_name = "Voorbeeldafdeling Meting"
+    from app.domains.mdm.api import Tenant
+
+    db_session.get(Tenant, TENANT).site_name = "Voorbeeldafdeling Meting"
     db_session.commit()
     for path, page in (
         ("/fotos", "Foto's"),

@@ -1,9 +1,19 @@
-{% extends "admin_base.html" %}
+{% extends "list_page.html" %}
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Raakje — ai-context") }}{% endblock %}
-{% block content %}
-{{ ui.page_header(_("Wat Raakje weet"), _("Documenten, pagina's en notities die de chatbot als context gebruikt.")) }}
-<div id="ai-context-lijst">
+{# What Raakje knows, on the kit's list layout (#2124; CR-11 phase 5, track 2,
+   round 3): the three kinds as segments, a search on the name, and the kit's
+   table, where a row's name opens the item's own record. "+ Notitie" makes a
+   note; documents and pages come from elsewhere, so their segments have none. #}
+{% block list_title %}{{ _("AI-context") }}{% endblock %}
+{% block list_primary %}{% if segment == "notities" %}{{ ui.btn_primary(_("Notitie"), href="/admin/ai-context/notities/nieuw", lead_icon="plus") }}{% endif %}{% endblock %}
+{% block list_toolbar %}
+{{ ui.toolbar("/admin/ai-context/lijst", "#ai-context-lijst", "ai-context-filter",
+              segments=segments, status_name="segment", status_current=segment, status_legend=_("Soort"),
+              q=q, search_placeholder=_("Zoek op naam…"), total=total, per_page=total) }}
+{% endblock %}
+{% block list_body %}
+<div id="ai-context-lijst" hx-include="#ai-context-filter">
   {% include "_ai_context_lijst.html" %}
 </div>
 {% endblock %}

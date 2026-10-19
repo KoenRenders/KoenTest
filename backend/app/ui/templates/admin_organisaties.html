@@ -2,18 +2,17 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Organisaties — Raak beheer") }}{% endblock %}
 {# Organisaties (#1932, CR-11 roll-out; end state §2.1, §5.1) on the `list_page`
-   layout: the title and the one primary button, the toolbar (the kinds as the
-   segments with their counts, the search on name and code, the sort and the
-   page size) and the kit's table. "+ Nieuw account" creates an ACCOUNT, the
-   legal entity tenants hang under (CR-19, #1495) — OPERATOR only, like the
-   whole screen. A unit still comes from "Nieuwe tenant"; no address book of
-   outside organisations (#971). The toolbar stands outside the list fragment. #}
+   layout: the title and the one primary button, the toolbar (the search on
+   name, the sort and the page size) and the kit's table. The parties only since
+   CR-20: a tenant comes from "Nieuwe tenant" and is no organisation; "+ Nieuwe
+   organisatie" creates a party, which becomes an account when a tenant names it
+   (CR-20 C4.7) — OPERATOR only, like the whole screen. The toolbar stands
+   outside the list fragment. #}
 {% block list_title %}{{ _("Organisaties") }}{% endblock %}
-{% block list_primary %}{{ ui.btn_primary(_("Nieuw account"), href="/admin/organisaties/nieuw", lead_icon="plus") }}{% endblock %}
+{% block list_primary %}{{ ui.btn_primary(_("Nieuwe organisatie"), href="/admin/organisaties/nieuw", lead_icon="plus") }}{% endblock %}
 {% block list_toolbar %}
 {{ ui.toolbar("/admin/organisaties", "#org-lijst", "org-filter",
-              segments=segments, status_name="org_type", status_current=kind, status_legend=_("Soort"),
-              q=q, search_placeholder=_("Zoek op naam of code…"),
+              q=q, search_placeholder=_("Zoek op naam…"),
               page=page, per_page=per_page, total=total, page_sizes=page_sizes,
               sort=sort, sort_options=sort_options) }}
 {% endblock %}

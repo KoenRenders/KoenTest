@@ -37,7 +37,7 @@
   {% if report.lines %}
   <div x-data="{ det: false }" class="mb-4">
     {{ ui.btn_secondary(_("Toon details per gezin"), attrs='@click="det = !det"') }}
-    <div x-show="det" x-cloak class="mt-2 max-h-80 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3">
+    <div x-show="det" x-cloak class="mt-2 max-h-80 overflow-y-auto rounded-lg border border-gray-200 bg-surface-2 p-3">
       <ul class="text-xs text-gray-700 font-mono space-y-0.5">
         {% for line in report.lines %}<li>{{ line }}</li>{% endfor %}
       </ul>

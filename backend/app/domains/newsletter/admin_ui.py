@@ -139,9 +139,26 @@ def _raakje_enabled(db: Session) -> bool:
 
 
 def _list_view(
-    request: Request, db: Session, q: str = "", error: Optional[str] = None
+    request: Request, db: Session, error: Optional[str] = None, oob: bool = False
 ) -> NewsletterListView:
-    letters = nb.list_newsletters(db, query=q)
+    """Nieuwsbrieven on the kit's list page (#2123): the statuses as the segments with
+    their counts, the search on the subject, the table."""
+    from app.ui.list_state import page_of, read_state, segments_of
+
+    # Three segments, as the concept draws them: four with their counts are wider than a
+    # phone (measured at 390 px, 41 px). A letter that is still going out counts with the
+    # sent ones — its row says "Wordt verstuurd" on its own badge.
+    gone = (nb.LetterStatus.SENDING.value, nb.LetterStatus.SENT.value)
+    statuses = [nb.LetterStatus.DRAFT.value, nb.LetterStatus.SENT.value]
+    state = read_state(request, statuses)
+    everyone = nb.list_newsletters(db, query=state.q)
+
+    def _in(letter, status: str) -> bool:
+        code = code_of(letter.status)
+        return code in gone if status == nb.LetterStatus.SENT.value else code == status
+
+    shown = [lt for lt in everyone if not state.status or _in(lt, state.status)]
+    letters, total, page = page_of(shown, state)
     progress = {
         letter.id: nb.progress_of(db, letter)
         for letter in letters
@@ -159,9 +176,11 @@ def _list_view(
             moments[letter.id] = _("verstuurd %(m)s") % {
                 "m": short_datetime(letter.send_finished_at)
             }
+    labels = dict(code_labels(nb.LETTER_STATUS.name, db=db))
     return NewsletterListView(
         letters=letters,
-        q=q,
+        q=state.q,
+        status=state.status,
         status_labels={
             lt.id: code_label(nb.LETTER_STATUS.name, lt.status, db=db) for lt in letters
         },
@@ -177,9 +196,33 @@ def _list_view(
         progress=progress,
         moments=moments,
         results=nb.results_of(db, list(progress)),
+        columns=[
+            {"key": "onderwerp", "label": _("Onderwerp"), "cell": "name"},
+            {"key": "status", "label": _("Status"), "cell": "status"},
+            {"key": "doelgroep", "label": _("Doelgroep"), "cell": "extra", "priority": 1},
+            {"key": "resultaat", "label": _("Geopend · geklikt"), "cell": "extra", "priority": 2},
+            {"key": "moment", "label": _("Bijgewerkt"), "cell": "moment"},
+        ],
+        segments=segments_of(
+            [(code, labels[code]) for code in statuses],
+            {code: sum(1 for lt in everyone if _in(lt, code)) for code in statuses},
+            len(everyone),
+            _("Alle"),
+        ),
+        page=page,
+        per_page=state.per_page,
+        total=total,
+        page_sizes=list(PER_PAGE_OPTIONS),
+        pager_url=f"{NAV}?{state.query()}",
+        empty_reason=(
+            _("Geen nieuwsbrieven gevonden.")
+            if (state.q or state.status)
+            else _("Nog geen nieuwsbrieven. Maak er een aan — Raakje kan meeschrijven.")
+        ),
         csrf_token=_csrf(request),
         error=error,
-        nav_items=admin_nav(NAV, request),
+        oob=oob,
+        nav_items=[] if oob else admin_nav(NAV, request),
     )
 
 
@@ -188,10 +231,10 @@ def newsletter_list(
     request: Request,
     db: Session = Depends(get_db),
     _email: str = Depends(require_right(Right.NEWSLETTER_VIEW)),
-    q: str = "",
 ):
-    view = _list_view(request, db, q=q)
-    template = "_nb_lijst.html" if is_fragment_request(request) else "admin_nieuwsbrieven.html"
+    fragment = is_fragment_request(request)
+    view = _list_view(request, db, oob=fragment)
+    template = "_nb_lijst.html" if fragment else "admin_nieuwsbrieven.html"
     return templates.TemplateResponse(request, template, view.as_context())
 
 

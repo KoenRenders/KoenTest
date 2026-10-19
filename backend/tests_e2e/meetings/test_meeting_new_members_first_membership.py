@@ -23,7 +23,7 @@ MEETING_DAY = "2029-06-07"
 
 _MEMBERS = """() => {
   const card = [...document.querySelectorAll('#vg-document h2')]
-    .find(h => h.textContent.trim() === 'Leden').closest('div.rounded-2xl');
+    .find(h => h.textContent.trim() === 'Leden').closest('[data-vg-section]');
   return {
     doc: document.documentElement.scrollWidth, vw: innerWidth,
     card_right: Math.round(card.getBoundingClientRect().right),

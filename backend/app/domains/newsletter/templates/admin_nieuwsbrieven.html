@@ -1,24 +1,29 @@
-{% extends "admin_base.html" %}
+{% extends "list_page.html" %}
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Nieuwsbrieven — Raak beheer") }}{% endblock %}
-{% block content %}
-{# Records-lijst (design-system C1), zoals Vergaderingen: titel met duidingsregel,
-   de acties rechts — secundair eerst, de primaire actie uiterst rechts. De
-   primaire knop is een formulier: hij maakt een concept aan en opent dat als
-   volledige pagina (geen aanmaak-modal, #627). #}
-{% call ui.page_header(_("Nieuwsbrieven"), _("Opstellen, versturen en terugvinden wat er vertrokken is."), list_page=True) %}
-    {{ ui.btn_secondary(_("Instellingen"), href="/admin/nieuwsbrieven/instellingen", lead_icon="settings") }}
-    {{ ui.btn_secondary(_("Abonnees"), href="/admin/nieuwsbrieven/abonnees") }}
-    <form hx-post="/admin/nieuwsbrieven">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      {{ ui.btn_primary(_("Nieuwe nieuwsbrief"), type="submit", lead_icon="plus") }}
-    </form>
-  {% endcall %}
-
-{% call ui.filter_bar("/admin/nieuwsbrieven", "#nb-lijst") %}
-  <div>{{ ui.search(value=q, placeholder=_('Zoek op onderwerp…'), standalone=False) }}</div>
-{% endcall %}
-
+{# Nieuwsbrieven on the kit's list page (#2123; end state §2.1, §5.1): the title with the
+   one primary button, the toolbar (the statuses as the segments with their counts, the
+   search on the subject, the page size) and the kit's table. No tiles. Instellingen and
+   Abonnees stand under the toolbar's ⋯ — what stood beside the title leaves it, and with
+   it the header extra of the baseline. The primary button is a form: it makes a draft and
+   opens it as a full page (no creation modal, #627). The toolbar stands outside the list
+   fragment. #}
+{% block list_title %}{{ _("Nieuwsbrieven") }}{% endblock %}
+{% block list_primary %}
+<form hx-post="/admin/nieuwsbrieven">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  {{ ui.btn_primary(_("Nieuwe nieuwsbrief"), type="submit", lead_icon="plus") }}
+</form>
+{% endblock %}
+{% block list_toolbar %}
+{{ ui.toolbar("/admin/nieuwsbrieven", "#nb-lijst", "nb-filter",
+              segments=segments, status_name="status", status_current=status, status_legend=_("Status"),
+              q=q, search_placeholder=_("Zoek op onderwerp…"),
+              page=page, per_page=per_page, total=total, page_sizes=page_sizes,
+              menu=[{"label": _("Instellingen"), "href": "/admin/nieuwsbrieven/instellingen", "icon": "settings"},
+                    {"label": _("Abonnees"), "href": "/admin/nieuwsbrieven/abonnees", "icon": "users"}]) }}
+{% endblock %}
+{% block list_body %}
 <div id="nb-lijst">
   {% include "_nb_lijst.html" %}
 </div>

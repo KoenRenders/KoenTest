@@ -2,10 +2,10 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ title }} — {{ _("Raak beheer") }}{% endblock %}
 {% block content %}
-{# Eén scherm voor agenda én verslag (CR-09 §3.23). De statusbadge zegt waar je
-   staat; er is geen modus om in of uit te gaan. Elke schrijfactie vervangt dit
-   ene fragment, zodat er maar één waarheid op het scherm staat. #}
-{{ ui.back_link(_("Alle vergaderingen"), "/admin/vergaderingen") }}
+{# Eén scherm voor agenda én verslag (CR-09 §3.23), als documentpagina op de kit
+   (CR-11 fase 5, #2112). De statusbadge zegt waar je staat; er is geen modus om
+   in of uit te gaan. Elke schrijfactie vervangt dit ene fragment, zodat er maar
+   één waarheid op het scherm staat. #}
 {# One set of editor files for every point: the notes editors come and go with
    the swaps of single points, the files stay. #}
 {{ ui.document_editor_assets() }}

@@ -11,7 +11,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="meetings.meeting.meeting_date",
         columns=("meetings.meetings.meeting_date",),
-        label=None,
+        label="Datum",
         name_en="Meeting date",
         help="The meeting date of the meeting.",
         ai_exposure=AiExposure.INTERNAL,  # K8
@@ -19,7 +19,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="meetings.meeting.start_time",
         columns=("meetings.meetings.start_time",),
-        label=None,
+        label="Aanvang",
         name_en="Start time",
         help="The start time of the meeting.",
         ai_exposure=AiExposure.INTERNAL,  # K8
@@ -27,7 +27,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="meetings.meeting.location",
         columns=("meetings.meetings.location",),
-        label=None,
+        label="Locatie",
         name_en="Location",
         help="The location of the meeting.",
         ai_exposure=AiExposure.INTERNAL,  # K9

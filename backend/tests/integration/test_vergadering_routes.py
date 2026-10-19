@@ -52,7 +52,7 @@ def _login(client) -> dict:
 def _kringlid(db, voornaam="Mon", achternaam="Essers", email="mon@example.org"):
     organisatie = db.query(Organization).first()
     if organisatie is None:
-        organisatie = Organization(name="Raak Millegem", code="raakmillegem")
+        organisatie = Organization(name="Raak Millegem")
         db.add(organisatie)
         db.flush()
     person = Person(first_name=voornaam, last_name=achternaam)

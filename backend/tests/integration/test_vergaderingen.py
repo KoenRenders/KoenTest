@@ -94,7 +94,7 @@ def _person(db, voornaam: str, achternaam: str, email: str | None = None) -> Per
 def _in_circle(db, person: Person) -> OrganizationPerson:
     organization = db.query(Organization).first()
     if organization is None:
-        organization = Organization(name="Raak Millegem", code="raakmillegem")
+        organization = Organization(name="Raak Millegem")
         db.add(organization)
         db.flush()
     relation = OrganizationPerson(
@@ -621,6 +621,11 @@ def test_elk_formulier_op_de_vergaderschermen_kan_ook_echt_verzenden():
                 or "btn_outline(" in stuk
                 or "action_bar(" in stuk
             )
+            # De actiebalk van de kit staat onder het formulier en wijst ernaar met
+            # `form="<id>"` (#2112): de knop hoort er dan wel bij.
+            formulier_id = re.search(r'<form\b[^>]*\bid="([^"]+)"', stuk)
+            if formulier_id and f'form="{formulier_id.group(1)}"' in tekst:
+                heeft_knop = True
             heeft_trigger = "hx-trigger=" in stuk
             if not (heeft_knop or heeft_trigger):
                 kop = " ".join(stuk.split())[:90]
@@ -1337,7 +1342,7 @@ def _organisatie(db):
 
     org = db.query(Organization).first()
     if org is None:
-        org = Organization(name="Raak Millegem", code="raakmillegem")
+        org = Organization(name="Raak Millegem")
         db.add(org)
         db.flush()
     return org
@@ -1684,17 +1689,13 @@ def test_de_ondertekening_staat_onderaan_het_kringscherm(client, db_session):
 
 
 def test_de_lijstkop_volgt_de_conventie_van_de_andere_schermen(client, db_session):
-    """Titel links, acties rechts — secundair eerst, de primaire knop uiterst rechts.
-
-    Dezelfde `page_header`-macro als Pagina's en Formulieren, dus dezelfde
-    afstanden en dezelfde volgorde; het scherm mag geen eigen knoppenrij bouwen.
-    Gemeten door de twee knoppen om te wisselen: dan faalt de volgordeassertie.
-    """
+    """Titel links en één hoofdknop (#2123): de lijstpagina van de kit, zoals Organisaties.
+    "Instellingen" staat onder het ⋯ van de balk en niet naast de titel; het scherm bouwt
+    geen eigen knoppenrij."""
     _login(client)
     html = client.get("/admin/vergaderingen").text
 
-    # De macro zelf: titelrij met de acties rechts uitgelijnd.
-    assert "<div data-page-header" in html, "de kop komt niet uit page_header"
-    assert html.index("Instellingen") < html.index("Nieuwe vergadering"), (
-        "de primaire knop hoort uiterst rechts te staan, dus als laatste"
-    )
+    head = html[html.index("data-list-head") : html.index("data-toolbar")]
+    assert "Nieuwe vergadering" in head and "Instellingen" not in head
+    menu = html[html.index("data-more-menu") :]
+    assert 'href="/admin/vergaderingen/kring"' in menu[: menu.index("</form>")]

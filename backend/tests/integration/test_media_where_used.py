@@ -183,19 +183,22 @@ def test_the_library_card_says_where_and_the_refusal_opens_it(client, db_session
 
     url = f"/admin/media?kind=activity_photo&activity_id={activity.id}"
     card = client.get(url).text
-    assert "Gebruikt in 2" in card
-    assert f'href="/admin/ontwerpen/{design.id}"' in card
-    assert f'href="/admin/paginas/{page.id}"' in card
-    assert '<details class="text-xs">' in card, "folded until clicked"
+    assert "Gebruikt in 2" in card, "the card says that it is used"
+    # #2130: the places stand on the picture's record, its card "Gebruikt in n".
+    record = client.get(f"/admin/media/{photo.id}").text
+    assert "Gebruikt in 2" in record
+    assert f'href="/admin/ontwerpen/{design.id}"' in record
+    assert f'href="/admin/paginas/{page.id}"' in record
 
     refused = client.post(
         f"/admin/media/{photo.id}/verwijderen",
-        data={"kind": "activity_photo", "q": "", "filter_activity_id": str(activity.id)},
+        data={"terug": url},
         headers={"X-CSRF-Token": csrf, "HX-Request": "true"},
     )
-    assert refused.status_code == 200
+    # The reason above the record's cards, where "Gebruikt in" lists the places.
+    assert refused.status_code == 422
+    assert refused.headers["HX-Retarget"] == "#media-melding"
     assert "Nog in gebruik in Ontwerp voor Wandelen, Pagina Wandelclub" in refused.text
-    assert '<details class="text-xs" open>' in refused.text
     db_session.expire_all()
     assert db_session.get(MediaAsset, photo.id) is not None
 

@@ -29,7 +29,7 @@
         {% if branch_chosen %}{{ boomdelen.link(_("Alles"), alles_href, False, target=target) }}{% endif %}
         {{ boomdelen.tak(_("Activiteiten"), boom.activiteiten, _("Nog niets."), target) }}
         {{ boomdelen.tak(_("Affiches"), boom.affiches, _("Nog niets."), target) }}
-        {{ boomdelen.tak(_("Ontwerpbeelden"), boom.ontwerpen, _("Nog niets."), target, los=boom.ontwerpen_los) }}
+        {{ boomdelen.tak(_("Ontwerpbeelden"), boom.ontwerpen, _("Nog niets."), target) }}
         {{ boomdelen.soorten(boom.soorten, target) }}
         <div>
           <p class="text-xs font-semibold uppercase tracking-wide text-ink-soft">{{ _("Tags") }}</p>

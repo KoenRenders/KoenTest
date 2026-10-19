@@ -27,7 +27,7 @@ from app.domains.auth.api import (
 from app.domains.mdm.api import (
     OngeldigeInstelling,
     Organization,
-    create_account,
+    create_organization,
     organization_details,
     save_organization,
 )
@@ -44,13 +44,13 @@ REFUSED = {
     "spelling", ["BE 0123.456.749", "BE0123456749", "be0123456749", "0123 456 749"]
 )
 def test_a_belgian_vat_number_is_stored_as_be_and_ten_digits(db_session, spelling):
-    account = create_account(db_session, name="Bakkerij", code="bakkerij-btw")
+    account = create_organization(db_session, name="Bakkerij")
     save_organization(db_session, account.id, {"vat_number": spelling})
     assert organization_details(db_session, account.id)["vat_number"] == "BE0123456749"
 
 
 def test_a_foreign_vat_number_is_kept_as_typed(db_session):
-    account = create_account(db_session, name="Bakkerij", code="bakkerij-btw-nl")
+    account = create_organization(db_session, name="Bakkerij")
     save_organization(db_session, account.id, {"vat_number": "NL 123456789B01"})
     assert organization_details(db_session, account.id)["vat_number"] == "NL 123456789B01"
 
@@ -61,7 +61,7 @@ def test_a_foreign_vat_number_is_kept_as_typed(db_session):
     ids=["check-number", "letters", "too-short", "too-long"],
 )
 def test_a_bad_belgian_vat_number_is_refused_and_nothing_is_written(db_session, text):
-    account = create_account(db_session, name="Bakkerij", code="bakkerij-btw-fout")
+    account = create_organization(db_session, name="Bakkerij")
     with pytest.raises(OngeldigeInstelling) as refused:
         save_organization(db_session, account.id, {"name": "Nieuwe naam", "vat_number": text})
     assert refused.value.fouten["vat_number"] == REFUSED["vat_number"]
@@ -75,8 +75,8 @@ def test_a_bad_belgian_vat_number_is_refused_and_nothing_is_written(db_session, 
     [("enterprise_number", "123"), ("vat_number", "BE 0123.456.789")],
 )
 def test_the_reason_names_its_field(client, platform_workspace, db_session, field, text):
-    account = create_account(
-        db_session, name="Bakkerij", code=f"bakkerij-veld-{field.replace('_', '-')}"
+    account = create_organization(
+        db_session, name="Bakkerijbakkerij-veld-{field.replace('_', '-')}"
     )
     user = db_session.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).one()
     if not db_session.query(UserRole).filter_by(user_id=user.id, role_code="OPERATOR").first():

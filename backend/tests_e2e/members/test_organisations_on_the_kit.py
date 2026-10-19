@@ -3,9 +3,10 @@
 What only a browser shows: the heads on one line, where the last column ends, the
 rows of the record in read mode and their gap, and what a click does.
 
-- At 1 440 and 1 920 px the list has five columns (Organisatie, Soort, Onder,
-  Rechtsvorm, Status); every head stands on one line (36 px); the last column's
-  cell reaches the frame's right edge (the kit's rule since #1927).
+- At 1 440 and 1 920 px the list has three columns (Organisatie, Rechtsvorm,
+  Status — Soort and Onder went with CR-20); every head stands on one line
+  (36 px); the last column's cell reaches the frame's right edge (the kit's rule
+  since #1927).
 - A click on a row's name opens the record; its way back returns to the list with
   the state it had.
 - The record in read mode at 1 440 px (end state §2.2; K2, #1928): Telefoon and
@@ -108,7 +109,7 @@ def _open(browser, operator, size, url):
 
 
 @pytest.mark.parametrize("width", [1440, 1920])
-def test_the_list_has_five_heads_on_one_line_and_its_last_cell_reaches_the_edge(
+def test_the_list_has_three_heads_on_one_line_and_its_last_cell_reaches_the_edge(
     browser, operator, width
 ):
     page = _open(browser, operator, (width, 900), "/admin/organisaties")
@@ -117,18 +118,18 @@ def test_the_list_has_five_heads_on_one_line_and_its_last_cell_reaches_the_edge(
     page.close()
 
     assert t["rows"] >= 1
-    assert t["columns"] == ["Organisatie", "Soort", "Onder", "Rechtsvorm", "Status"]
-    assert t["head_h"] == [36] * 5, f"a head wraps: {t['head_h']}"
+    assert t["columns"] == ["Organisatie", "Rechtsvorm", "Status"]
+    assert t["head_h"] == [36] * 3, f"a head wraps: {t['head_h']}"
     assert abs(t["last_right"] - t["frame_right"]) <= 2, (
         f"the last column stops short of the frame: {t['last_right']} v {t['frame_right']}"
     )
     gaps = [b - a for a, b in zip(t["head_x"], t["head_x"][1:])]
-    assert gaps == [380, 150, 200, 200], f"the columns are not at the kit's widths: {gaps}"
+    assert gaps == [380, 200], f"the columns are not at the kit's widths: {gaps}"
     assert t["scroll"] == t["width"]
 
 
 def test_a_click_on_the_name_opens_the_record_and_the_way_back_keeps_the_state(browser, operator):
-    page = _open(browser, operator, (1440, 900), "/admin/organisaties?sort=soort")
+    page = _open(browser, operator, (1440, 900), "/admin/organisaties?sort=-naam")
     page.locator("#org-lijst tbody tr[data-row] [data-row-link]").first.click()
     page.wait_for_function("() => /^\\/admin\\/organisaties\\/\\d+$/.test(location.pathname)")
     pagina_klaar(page)
@@ -136,7 +137,7 @@ def test_a_click_on_the_name_opens_the_record_and_the_way_back_keeps_the_state(b
     page.locator("[data-way-back]").first.click()
     page.wait_for_function("() => location.pathname === '/admin/organisaties'")
     pagina_klaar(page)
-    assert "sort=soort" in page.url
+    assert "sort=-naam" in page.url
     page.close()
 
 
