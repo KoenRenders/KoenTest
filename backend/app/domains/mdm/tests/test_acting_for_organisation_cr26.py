@@ -34,7 +34,7 @@ from app.kernel.tenancy import TENANT_MILLEGEM_ID
 
 pytestmark = pytest.mark.ui_serverrendered
 
-VAT = "BE0403170701"  # a valid structure: ten digits, check number
+VAT = "BE0000000097"  # a made-up number with a valid check number: no company has it
 ADDRESS = "namens-cr26@example.com"
 
 

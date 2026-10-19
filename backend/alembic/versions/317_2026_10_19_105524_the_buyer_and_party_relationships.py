@@ -52,7 +52,7 @@ def _count(sql: str) -> int:
     return op.get_bind().exec_driver_sql(sql).scalar() or 0
 
 
-def upgrade() -> None:
+def _move_the_circle() -> None:
     # ── 1. The kinds: the old list, the new one beside it ────────────────────
     op.execute(
         """
@@ -102,7 +102,6 @@ def upgrade() -> None:
             CONSTRAINT ck_party_relationships_period
                 CHECK (start_date IS NULL OR end_date IS NULL OR start_date <= end_date)
         );
-        CREATE INDEX ix_party_relationships_id ON mdm.party_relationships (id);
         CREATE INDEX ix_party_relationships_account_id ON mdm.party_relationships (account_id);
         CREATE INDEX ix_party_relationships_from_party_id ON mdm.party_relationships (from_party_id);
         CREATE INDEX ix_party_relationships_to_party_id ON mdm.party_relationships (to_party_id);
@@ -171,20 +170,26 @@ def upgrade() -> None:
         """
     )
 
+
+def upgrade() -> None:
+    # Idempotent: a database that already ran steps 1 to 4 has no `organization_persons`.
+    if op.get_bind().exec_driver_sql("SELECT to_regclass('mdm.organization_persons')").scalar():
+        _move_the_circle()
+
     # ── 5. The buyer of an order, and the copy of who it was ─────────────────
     op.execute(
         """
         ALTER TABLE sales.sales_orders
-            ADD COLUMN buyer_party_id INTEGER REFERENCES mdm.parties (id),
-            ADD COLUMN buyer_name VARCHAR(200),
-            ADD COLUMN buyer_street VARCHAR(200),
-            ADD COLUMN buyer_house_number VARCHAR(20),
-            ADD COLUMN buyer_bus_number VARCHAR(20),
-            ADD COLUMN buyer_postal_code VARCHAR(10),
-            ADD COLUMN buyer_municipality VARCHAR(100),
-            ADD COLUMN buyer_country VARCHAR(2),
-            ADD COLUMN buyer_vat_number VARCHAR(50);
-        CREATE INDEX ix_sales_orders_buyer_party_id ON sales.sales_orders (buyer_party_id);
+            ADD COLUMN IF NOT EXISTS buyer_party_id INTEGER REFERENCES mdm.parties (id),
+            ADD COLUMN IF NOT EXISTS buyer_name VARCHAR(200),
+            ADD COLUMN IF NOT EXISTS buyer_street VARCHAR(200),
+            ADD COLUMN IF NOT EXISTS buyer_house_number VARCHAR(20),
+            ADD COLUMN IF NOT EXISTS buyer_bus_number VARCHAR(20),
+            ADD COLUMN IF NOT EXISTS buyer_postal_code VARCHAR(10),
+            ADD COLUMN IF NOT EXISTS buyer_municipality VARCHAR(100),
+            ADD COLUMN IF NOT EXISTS buyer_country VARCHAR(2),
+            ADD COLUMN IF NOT EXISTS buyer_vat_number VARCHAR(50);
+        CREATE INDEX IF NOT EXISTS ix_sales_orders_buyer_party_id ON sales.sales_orders (buyer_party_id);
         """
     )
 

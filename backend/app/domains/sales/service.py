@@ -259,13 +259,23 @@ def _buyer_columns(db: Session, person_id: int | None, organization_id: int | No
     address. A guest: nothing — the invoice of CR-34 will read the one copy that
     is there. The copy keeps what the invoice must show even when the party later
     changes or is deleted."""
-    from app.domains.mdm.api import buyer_copy_of_organisation, module_enabled, person_buyer_copy
+    from app.domains.mdm.api import (
+        acts_for,
+        buyer_copy_of_organisation,
+        module_enabled,
+        person_buyer_copy,
+    )
     from app.i18n import _
     from app.kernel.modules import ModuleCode
 
     if organization_id is not None:
         if not module_enabled(ModuleCode.INVOICES):
             raise SalesError(_("Bestellen namens een organisatie kan hier niet."))
+        # *Namens* is a person's, for an organisation he acts for, at the shop and in
+        # Verkoop alike (Q13: no confirmation step, but no order without the relation):
+        # beside the module check, so no caller of `place_order` can skip it.
+        if person_id is None or not acts_for(db, person_id, organization_id):
+            raise SalesError(_("Je bestelt niet namens deze organisatie."))
         copy = buyer_copy_of_organisation(db, organization_id)
         if not copy:
             raise SalesError(_("Deze organisatie bestaat niet meer."))
@@ -547,14 +557,6 @@ def submit_order(
     # the trusted door and keeps the person's own details.
     if proof is not form_guard.TRUSTED and not phone.strip():
         raise SalesError(_("Vul je mobiele nummer in."), field="phone")
-
-    if buyer_organization_id is not None:
-        # *Namens* is a person's, for an organisation he acts for, at the shop and in
-        # Verkoop alike (Q13: no confirmation step, but no order without the relation).
-        from app.domains.mdm.api import acts_for
-
-        if person_id is None or not acts_for(db, person_id, buyer_organization_id):
-            raise SalesError(_("Je bestelt niet namens deze organisatie."))
 
     try:
         order = place_order(

@@ -495,7 +495,7 @@ class PartyRelationship(AccountMixin, SoftDeleteMixin, Base):
         {"schema": "mdm"},
     )
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     from_party_id = Column(Integer, ForeignKey("mdm.parties.id"), nullable=False, index=True)
     to_party_id = Column(Integer, ForeignKey("mdm.parties.id"), nullable=False, index=True)
     kind = Column(String(30), ForeignKey("mdm.party_relationship_kind_codes.code"), nullable=False)

@@ -1331,7 +1331,7 @@ def test_de_voorraadzin_staat_over_de_volle_breedte(browser):
 
 # ── CR-26 phase 2: Mijn organisatie and "Wie bestelt" ────────────────────────
 
-ORGANISATION_VAT = "BE0403170701"
+ORGANISATION_VAT = "BE0000000097"  # a made-up number: no company has it
 
 
 def _organisatie_registreren(page, naam: str) -> None:

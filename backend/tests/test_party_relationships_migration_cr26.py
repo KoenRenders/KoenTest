@@ -17,7 +17,8 @@ account, runs 317 and reads what it left (F4, F8, F14, C4.7):
 
 Proven red (put back each time): the copy given `NULL` for `deleted_at` -> the
 soft-deleted relation comes back alive; the CHECK left without `invoices` -> the
-module insert fails with the CHECK violation.
+module insert fails with the CHECK violation; the guard `to_regclass` left out of
+`upgrade` -> the second run fails on the missing old table.
 """
 
 from __future__ import annotations
@@ -52,6 +53,24 @@ def _person(conn, account: int, first: str) -> tuple[int, int]:
         a=account,
     )
     return person, party
+
+
+def _run_again(engine) -> None:
+    """The migration's `upgrade()` a second time on the migrated database: idempotent."""
+    import importlib.util
+    from pathlib import Path
+
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+
+    path = next((Path(__file__).parent.parent / "alembic" / "versions").glob("317_2026_10_19_*.py"))
+    spec = importlib.util.spec_from_file_location("migration_317", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    with engine.begin() as conn:
+        with Operations.context(MigrationContext.configure(conn)):
+            module.upgrade()
 
 
 def test_the_circle_moves_with_its_ids_and_the_buyer_columns_arrive():
@@ -144,6 +163,15 @@ def test_the_circle_moves_with_its_ids_and_the_buyer_columns_arrive():
             }
             assert set(columns.values()) == {"YES"}
             conn.execute(text("INSERT INTO mdm.tenant_modules VALUES (2, 'invoices')"))
+            duplicate = _one(
+                conn,
+                "SELECT count(*) FROM pg_indexes WHERE schemaname = 'mdm' AND "
+                "tablename = 'party_relationships' AND indexname = 'ix_party_relationships_id'",
+            )
+            assert duplicate == 0, "the primary key's index is the only one on id"
+        _run_again(engine)
+        with engine.begin() as conn:
+            assert _one(conn, "SELECT count(*) FROM mdm.party_relationships") == total + 1
         with pytest.raises(IntegrityError):
             with engine.begin() as conn:
                 conn.execute(text("INSERT INTO mdm.tenant_modules VALUES (2, 'stamboom')"))

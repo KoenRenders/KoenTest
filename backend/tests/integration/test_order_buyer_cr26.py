@@ -35,7 +35,7 @@ from tests.conftest import form_guard_fields
 
 pytestmark = pytest.mark.ui_agnostisch
 
-VAT = "BE0403170701"
+VAT = "BE0000000097"  # a made-up number with a valid check number: no company has it
 
 
 def _variant(db) -> int:
@@ -132,7 +132,7 @@ def test_without_the_invoices_module_an_organisation_buyer_is_refused(db_session
     person = _person(db_session)
     organization_id = _organisation(db_session, person)
     variant_id = _variant(db_session)
-    with pytest.raises(SalesError):
+    with pytest.raises(SalesError, match="kan hier niet"):
         _place(db_session, variant_id, person, buyer_organization_id=organization_id)
 
 
@@ -140,7 +140,7 @@ def test_namens_without_the_relation_is_refused(db_session, every_module_on):
     person = _person(db_session)
     organization_id = _organisation(db_session, person)
     stranger = _person(db_session, "vreemd-cr26@example.com")
-    with pytest.raises(SalesError):
+    with pytest.raises(SalesError, match="niet namens deze organisatie"):
         submit_order(
             db_session,
             proof=form_guard.TRUSTED,

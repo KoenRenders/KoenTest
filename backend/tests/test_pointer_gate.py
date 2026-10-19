@@ -65,6 +65,7 @@ def _outside(metadata: MetaData) -> set[str]:
 
 def test_no_table_points_at_a_person_and_an_organisation():
     pairs = _pairs(Base.metadata)
+    assert len(Base.metadata.tables) >= 100, "the gate looks at too few tables"
     assert not pairs, f"{sorted(pairs)} points at a person and an organisation: point at a party"
 
 

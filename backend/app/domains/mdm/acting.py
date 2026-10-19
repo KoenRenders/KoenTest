@@ -261,7 +261,7 @@ def buyer_copy_of_organisation(db, organization_id: int) -> dict[str, Optional[s
         "bus_number": address["bus_number"] or None,
         "postal_code": address["postal_code"] or None,
         "municipality": (row.postal_code.municipality if row and row.postal_code else None),
-        "country": "BE",
+        "country": "BE" if address["street"] else None,
         "vat_number": details["vat_number"] or None,
     }
 
