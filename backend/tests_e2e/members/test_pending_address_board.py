@@ -48,6 +48,10 @@ def household():
         member = Member()
         db.add(member)
         db.flush()
+        # CR-26 F9: the household is Millegem's through a membership row there.
+        from tests._sites import at_tenant
+
+        at_tenant(db, member)
         person = Person(
             first_name="Wies",
             last_name=f"Wachter-{tag}",

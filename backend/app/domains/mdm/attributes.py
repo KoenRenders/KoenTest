@@ -169,6 +169,15 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K8
     ),
     Attribute(
+        key="mdm.party.kind",
+        columns=("mdm.parties.kind",),
+        label=None,
+        name_en="Party kind",
+        help="Whether the party is a person or an organisation, a code of its code list "
+        "(CR-26). No screen shows it.",
+        ai_exposure=AiExposure.INTERNAL,  # K0
+    ),
+    Attribute(
         key="mdm.organization.legal_form",
         columns=("mdm.organizations.legal_form",),
         label=None,

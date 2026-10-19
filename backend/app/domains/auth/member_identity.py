@@ -116,7 +116,25 @@ def login_person_for_email(db: Session, email: str) -> Optional[Person]:
 
 
 def has_household(person: Optional[Person]) -> bool:
-    """Is this signed-in person a member of a household? An account is a person
-    too since CR-22, so "there is a person" no longer means "Mijn gezin exists"
-    (#1707): whoever shows or opens the household asks this."""
-    return bool(person is not None and person.member_persons)
+    """Is this signed-in person a member of a household here? An account is a
+    person too since CR-22, so "there is a person" no longer means "Mijn gezin
+    exists" (#1707): whoever shows or opens the household asks this.
+
+    Since CR-26 the household is the account's, and "here" counts: a household
+    with no membership at this tenant has no *Mijn gezin* on its site, and its
+    person sees *Word lid* (A3; `in_household_elsewhere`)."""
+    from sqlalchemy.orm import object_session
+
+    from app.domains.mdm.api import household_at_tenant
+
+    if person is None or not person.member_persons:
+        return False
+    db = object_session(person)
+    return any(household_at_tenant(db, link.member_id) for link in person.member_persons)
+
+
+def in_household_elsewhere(person: Optional[Person]) -> bool:
+    """Is this signed-in person in a household of the account that is no member
+    here (CR-26 A3)? Then *Word lid* makes a membership of that household here,
+    not a second household (F5)."""
+    return bool(person is not None and person.member_persons) and not has_household(person)

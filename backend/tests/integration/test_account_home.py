@@ -28,6 +28,7 @@ from app.domains.mdm.api import invalidate_tenant_codes
 from app.kernel.modules import ModuleCode
 from app.kernel.tenancy import TENANT_MILLEGEM_ID
 from app.kernel.tenant_config import _actieve_tenant
+from tests._sites import at_tenant
 from tests.conftest import create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -49,6 +50,7 @@ def _card(html: str) -> str:
 @pytest.fixture
 def member(client, db_session):
     _household, person = create_test_family(db_session, email=EMAIL)
+    at_tenant(db_session, _household)  # CR-26 F9
     person.first_name, person.last_name = "Emma", "Voorbeeld"
     db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value(EMAIL))
@@ -178,8 +180,12 @@ def test_the_three_kinds_of_session_and_what_each_has(client, db_session):
     Red: `account_home` sending a session without a person to the sign-in → the
     third case answers 302 where 404 is asked; the `is_member` condition taken
     out of `_site_account.html` → the third menu gains two items."""
-    create_test_family(db_session, email="alleen-lid-1706@example.org")
-    create_test_family(db_session, email="lid-en-bestuur-1706@example.org")
+    at_tenant(
+        db_session, create_test_family(db_session, email="alleen-lid-1706@example.org")[0]
+    )  # CR-26 F9
+    at_tenant(
+        db_session, create_test_family(db_session, email="lid-en-bestuur-1706@example.org")[0]
+    )  # CR-26 F9
     _board_user(db_session, "lid-en-bestuur-1706@example.org")
     _board_user(db_session, "alleen-bestuur-1706@example.org")
     seen = {}

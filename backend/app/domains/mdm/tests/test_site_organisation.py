@@ -24,7 +24,7 @@ from app.domains.mdm.api import (
     save_organization,
 )
 from app.kernel.tenancy import TENANT_VOORBEELD_ID
-from tests._sites import new_site
+from tests._sites import as_account, new_site
 from tests.conftest import seed_postal_code
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -65,7 +65,7 @@ def _brand(db):
 
     update_organization_details(db, account.id, {"payment_iban": IBAN})
     brand = db.get(Tenant, TENANT_VOORBEELD_ID)
-    brand.account_id = account.id
+    brand.account_id = as_account(db, account)
     db.commit()
     return account, brand
 

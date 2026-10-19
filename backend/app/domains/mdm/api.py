@@ -26,6 +26,13 @@ from app.domains.mdm.codes import (  # noqa: F401,E402
     RELATION_TYPE,
     TENANT_KIND,
 )
+from app.domains.mdm.facts import (  # noqa: F401
+    household_at_tenant,
+    household_here,
+    households_of_tenant,
+    person_at_tenant,
+    persons_of_tenant,
+)
 from app.domains.mdm.history import (
     snapshot_address,
     snapshot_contact_detail,
@@ -215,6 +222,7 @@ from app.domains.mdm.tenant_service import (  # noqa: F401
     ModuleRefused,
     OngeldigeInstelling,
     TenantFout,
+    account_organization_id,
     accounts,
     active_sites_by_account,
     circle_organization,
@@ -302,6 +310,12 @@ __all__ = [
     "is_member",
     "household_ids",
     "list_postal_codes",
+    "account_organization_id",
+    "household_at_tenant",
+    "household_here",
+    "households_of_tenant",
+    "person_at_tenant",
+    "persons_of_tenant",
     "accounts",
     "is_account",
     "tenant",

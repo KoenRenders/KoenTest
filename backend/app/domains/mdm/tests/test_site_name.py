@@ -25,6 +25,7 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from app.domains.mdm.api import Tenant, TenantKind, create_organization
 from app.kernel.tenancy import TENANT_VOORBEELD_ID
+from tests._sites import as_account
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -59,7 +60,7 @@ def _company_under_an_account(db):
     account = create_organization(db, name="Account Tien")
     db.commit()
     site = db.get(Tenant, TENANT_VOORBEELD_ID)
-    site.account_id = account.id
+    site.account_id = as_account(db, account)
     site.kind = TenantKind.COMPANY
     site.organization_id = account.id
     db.commit()

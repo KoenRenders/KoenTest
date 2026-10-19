@@ -44,7 +44,6 @@ def situation(db_session):
     bestuur = Person(
         date_of_birth=date(1980, 1, 1),
         gender_code="M",
-        tenant_id=TENANT_A,
         first_name="Anna",
         last_name="Bestuur",
     )
@@ -131,7 +130,6 @@ def test_a_second_partner_does_not_double_the_household(db_session, situation):
     extra = Person(
         date_of_birth=date(1980, 1, 1),
         gender_code="M",
-        tenant_id=TENANT_A,
         first_name="Extra",
         last_name="Partner",
     )
@@ -139,7 +137,6 @@ def test_a_second_partner_does_not_double_the_household(db_session, situation):
     db_session.flush()
     db_session.add(
         MemberPerson(
-            tenant_id=TENANT_A,
             member_id=situation["households"]["h1"],
             person_id=extra.id,
             relation_type="PARTNER",
@@ -313,7 +310,7 @@ def test_a_bus_number_is_written_the_way_the_rest_of_the_code_writes_it(db_sessi
 
     adres = (
         db_session.query(Address)
-        .filter(Address.tenant_id == TENANT_A, Address.deleted_at.is_(None))
+        .filter(Address.person_id.isnot(None), Address.deleted_at.is_(None))
         .first()
     )
     adres.bus_number = "3"

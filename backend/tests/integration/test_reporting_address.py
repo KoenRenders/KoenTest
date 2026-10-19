@@ -44,7 +44,7 @@ from tests._reporting_seed import TENANT_A, TENANT_B, seed
 # The migration that currently defines `d_address`. Move the view again and this
 # is the one line to follow it — the tests break loudly rather than silently
 # rebuilding a stale definition.
-ADDRESS_MIGRATION = "111_reporting_members_per_board_member.py"
+ADDRESS_MIGRATION = "314_2026_10_19_002214_parties_per_account.py"
 
 
 def _migration():
@@ -195,7 +195,6 @@ def test_the_address_hangs_off_the_person_and_not_off_the_household(db_session, 
     pc = db_session.query(PostalCode).first()
     db_session.add(
         Address(
-            tenant_id=TENANT_A,
             person_id=tweede_bewoner,
             street="Andere straat",
             house_number="3",

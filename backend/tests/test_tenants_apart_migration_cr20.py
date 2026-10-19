@@ -43,12 +43,12 @@ BEFORE = "312_2026_10_16_162902"
 AFTER = "313_2026_10_18_180812"
 
 
-@pytest.fixture(scope="module")
-def migrated_url():
+def _migrated(name: str, target: str):
+    """A database of its own: the chain to 312, the cases, then `target`."""
     from tests.conftest import TEST_DATABASE_URL
 
     url = make_url(TEST_DATABASE_URL)
-    own = url.set(database=f"{url.database}_cr20")
+    own = url.set(database=f"{url.database}_{name}")
     admin = create_engine(url.set(database="postgres"), isolation_level="AUTOCOMMIT")
     with admin.connect() as conn:
         conn.exec_driver_sql(f'DROP DATABASE IF EXISTS "{own.database}" WITH (FORCE)')
@@ -62,7 +62,7 @@ def migrated_url():
         engine = create_engine(rendered)
         with engine.begin() as conn:
             _write_the_cases(conn)
-        command.upgrade(cfg, AFTER)
+        command.upgrade(cfg, target)
         yield engine
         engine.dispose()
     finally:
@@ -73,6 +73,18 @@ def migrated_url():
         with admin.connect() as conn:
             conn.exec_driver_sql(f'DROP DATABASE IF EXISTS "{own.database}" WITH (FORCE)')
         admin.dispose()
+
+
+@pytest.fixture(scope="module")
+def migrated_url():
+    yield from _migrated("cr20", AFTER)
+
+
+@pytest.fixture(scope="module")
+def head_url():
+    """The cases through every migration: the code under test reads the schema
+    of the head, so test 11 renders there (CR-26's 314 keeps the sites too)."""
+    yield from _migrated("cr20_head", "head")
 
 
 def _one(conn, sql: str, **params):
@@ -410,7 +422,7 @@ def _without_overige(html: str) -> str:
     )
 
 
-def test_every_site_renders_as_before(migrated_url, tmp_path):
+def test_every_site_renders_as_before(head_url, tmp_path):
     """C6 test 11: per tenant the header and footer of the site shell, both
     sites placeholders and the meeting circle render after 313 what the code
     before 313 rendered on the same cases, with one exception named: "Overige"
@@ -419,7 +431,9 @@ def test_every_site_renders_as_before(migrated_url, tmp_path):
 
     `cr20_rendered_before.json` is the code before 313 (commit 7c389256, the
     merge-base of #2155) rendering this file's cases on revision 312, through
-    `tests/_cr20_render.py`, the same file that renders the after here. To make
+    `tests/_cr20_render.py`, the same file that renders the after here — on
+    the head, since the code under test reads its schema: CR-26's migration 314
+    (#2020) is held to the same output. To make
     it again: a worktree of that commit with these two files copied in, the chain
     to its head, `_write_the_cases`, then `python -m tests._cr20_render <url> <file>`.
 
@@ -428,7 +442,7 @@ def test_every_site_renders_as_before(migrated_url, tmp_path):
     enough: the shell strips it); the platform let through when it is its own
     account → the all-sites page gains its card.
     """
-    url = migrated_url.url.render_as_string(hide_password=False)
+    url = head_url.url.render_as_string(hide_password=False)
     subprocess.run(
         [sys.executable, "-m", "tests._cr20_render", url, str(tmp_path / "after.json")],
         cwd=Path(__file__).resolve().parents[1],

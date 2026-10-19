@@ -62,7 +62,7 @@ def test_footer_sociale_links_zijn_iconen(client, db_session):
 
     db_session.add(
         ContactDetail(
-            tenant_id=organisatie.id,
+            account_id=organisatie.account_id,
             organization_id=organisatie.id,
             contact_type_code="FACEBOOK",
             value="https://www.facebook.com/raakvoorbeeld",

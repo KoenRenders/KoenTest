@@ -232,6 +232,10 @@ class RenewPage:
     board: bool = False
     post_url: str = "/leden/gezin/vernieuwen"
     household_href: str = "/leden/gezin"
+    #: CR-26 (A3): a household of another department of the account joins this
+    #: one — no Mijn gezin here yet, so no way back to it, and the account menu
+    #: marks Word lid (Koen, 19 October 2026: "1a").
+    joining: bool = False
 
 
 def _labels(choices: list) -> dict[str, str]:

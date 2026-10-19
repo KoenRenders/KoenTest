@@ -529,7 +529,10 @@ def create_test_family(db, *, email="hoofdlid@example.com", relation_type="HOOFD
 
     `mobile` gives that person a mobile number: the one save of "Mijn gezin"
     refuses a main member without one (#1590), so a test that saves through the
-    portal passes it."""
+    portal passes it.
+
+    No membership: since CR-26 such a household is at no tenant (F9) — a test
+    that opens it on a tenant's screen puts it there (`tests._sites.at_tenant`)."""
     from app.domains.mdm.api import ContactDetail, MemberPerson
 
     member = create_test_member(db)

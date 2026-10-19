@@ -10,7 +10,9 @@
   <p class="text-sm text-gray-600 mb-4">{{ data.selected_families }} gezinnen, {{ data.total_persons }} personen in het rapport.
     {#- #1308: what does not change is counted here, not listed per household. -#}
     {% if report.unchanged_families %} {{ _("%(n)s gezinnen ongewijzigd.", n=report.unchanged_families) }}{% endif %}
-    {% if report.admins_existing %} {{ _("%(n)s bestuursleden hebben al een beheeraccount.", n=report.admins_existing) }}{% endif %}</p>
+    {% if report.admins_existing %} {{ _("%(n)s bestuursleden hebben al een beheeraccount.", n=report.admins_existing) }}{% endif %}
+    {#- CR-26: each one is named under the warnings. -#}
+    {% if report.persons_kept_elsewhere %} {{ _("%(n)s personen blijven in hun gezin: het gezin is nog lid bij een andere afdeling.", n=report.persons_kept_elsewhere) }}{% endif %}</p>
   <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
     {% for label, n in [
       (_("Nieuwe gezinnen"), report.new_families), (_("Gewijzigde gezinnen"), report.updated_families),

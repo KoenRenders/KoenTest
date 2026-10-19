@@ -89,7 +89,6 @@ def seed(db) -> dict:
     bestuur = []
     for naam in ("Anke", "Bram"):
         persoon = Person(
-            tenant_id=TENANT,
             first_name=naam,
             last_name="Bestuur",
             date_of_birth=date(jaar - 50, 5, 5),
@@ -97,6 +96,10 @@ def seed(db) -> dict:
         )
         db.add(persoon)
         db.flush()
+        # CR-26 F9: named at the tenant, so a fact there — the meeting circle.
+        from tests._sites import in_the_circle
+
+        in_the_circle(db, persoon, TENANT)
         bestuur.append(persoon)
 
     # ── Nine households ──────────────────────────────────────────────────────
@@ -107,12 +110,11 @@ def seed(db) -> dict:
         for nummer in range(aantal):
             index += 1
             verantwoordelijke = bestuur[0] if index <= 5 else bestuur[1]
-            member = Member(tenant_id=TENANT, board_member_id=verantwoordelijke.id)
+            member = Member(board_member_id=verantwoordelijke.id)
             db.add(member)
             db.flush()
             for rol, leeftijd in zip(("HOOFDLID", "PARTNER", "KIND"), AGES):
                 persoon = Person(
-                    tenant_id=TENANT,
                     first_name=f"{rol.title()}{index}",
                     last_name=f"Gezin{index}",
                     date_of_birth=date(jaar - leeftijd, 6, 15),
@@ -122,7 +124,6 @@ def seed(db) -> dict:
                 db.flush()
                 db.add(
                     MemberPerson(
-                        tenant_id=TENANT,
                         member_id=member.id,
                         person_id=persoon.id,
                         relation_type=rol,
@@ -130,7 +131,6 @@ def seed(db) -> dict:
                 )
                 db.add(
                     Address(
-                        tenant_id=TENANT,
                         person_id=persoon.id,
                         street=straat,
                         house_number=str(nummer + 1),

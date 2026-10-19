@@ -56,6 +56,7 @@ from app.domains.mdm.api import (
 )
 from app.domains.membership.api import person_block as _person_block
 from app.kernel.jobs import run_due_jobs
+from tests._sites import at_tenant
 from tests.conftest import create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -97,6 +98,7 @@ def sent(monkeypatch):
 @pytest.fixture
 def member(client, db_session):
     _household, person = create_test_family(db_session, email=EMAIL)
+    at_tenant(db_session, _household)  # CR-26 F9
     person.first_name, person.last_name = "Emma", "Voorbeeld"
     db_session.commit()
     # On the domain the server sets its own cookie for, so a new session
@@ -332,6 +334,7 @@ def test_code_again_needs_the_session_and_its_token(client, db_session, member, 
 def test_only_ones_own_rows_and_a_housemates(client, db_session, member, sent):
     # A stranger's waiting row: not mine.
     _other_household, stranger = create_test_family(db_session, email="ander-1711@example.org")
+    at_tenant(db_session, _other_household)  # CR-26 F9
     theirs = new_contact_detail(
         db_session, stranger, "EMAIL", "vreemd-1711@example.org", is_primary=False, confirmed=False
     )
@@ -339,6 +342,7 @@ def test_only_ones_own_rows_and_a_housemates(client, db_session, member, sent):
     # A housemate's waiting row: the household is edited as one.
     household = member.member_persons[0].member
     _same, housemate = create_test_family(db_session, email="huis-1711@example.org")
+    at_tenant(db_session, _same)  # CR-26 F9
     housemate.member_persons[0].member_id = household.id
     housemate.member_persons[0].relation_type = "PARTNER"
     db_session.flush()
@@ -385,6 +389,7 @@ def test_an_address_that_got_an_owner_while_it_waited_is_refused(client, db_sess
     _save(client, _form(db_session, member, changed={old.id: NEW}))
     [mail] = _mails(db_session, sent)
     _household, other = create_test_family(db_session, email="ander-1711@example.org")
+    at_tenant(db_session, _household)  # CR-26 F9
     add_email_address(db_session, other.id, NEW, actor="bestuur@example.com")
 
     answer = _enter(client, NEW, _code(mail))

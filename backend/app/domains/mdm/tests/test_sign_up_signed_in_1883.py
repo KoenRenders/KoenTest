@@ -30,6 +30,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.mdm.api import Person, new_contact_detail
+from tests._sites import at_tenant
 from tests.conftest import create_test_family, signup_fields
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -113,7 +114,9 @@ def test_the_door_takes_his_own_details_whatever_is_posted(client, db_session):
 @pytest.mark.parametrize("household", [True, False])
 def test_the_newsletter_offers_word_lid_only_to_who_has_no_household(client, db_session, household):
     if household:
-        create_test_family(db_session, email="gezin-1883@example.com")
+        at_tenant(
+            db_session, create_test_family(db_session, email="gezin-1883@example.com")[0]
+        )  # CR-26 F9
         email = "gezin-1883@example.com"
     else:
         _account(db_session)

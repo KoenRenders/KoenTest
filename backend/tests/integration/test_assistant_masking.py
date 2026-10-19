@@ -22,6 +22,7 @@ from app.domains.reporting.assistant import (
     scrub_question,
 )
 from app.kernel.clock import belgian_today
+from tests._sites import at_tenant, in_the_circle
 
 TENANT = 2
 ACHTERNAAM = "Vandenbulcke"
@@ -41,26 +42,20 @@ def _household(db, first: str, last: str, *, board_member=None, extra=0, lid=Fal
         postal = PostalCode(postal_code="2400", municipality="Mol")
         db.add(postal)
         db.flush()
-    member = Member(tenant_id=TENANT, board_member_id=board_member.id if board_member else None)
+    member = Member(board_member_id=board_member.id if board_member else None)
     db.add(member)
     db.flush()
     person = Person(
         date_of_birth=date(1980, 1, 1),
         gender_code="M",
-        tenant_id=TENANT,
         first_name=first,
         last_name=last,
     )
     db.add(person)
     db.flush()
-    db.add(
-        MemberPerson(
-            tenant_id=TENANT, member_id=member.id, person_id=person.id, relation_type="HOOFDLID"
-        )
-    )
+    db.add(MemberPerson(member_id=member.id, person_id=person.id, relation_type="HOOFDLID"))
     db.add(
         Address(
-            tenant_id=TENANT,
             person_id=person.id,
             street="Kerkstraat",
             house_number="7",
@@ -81,21 +76,19 @@ def _household(db, first: str, last: str, *, board_member=None, extra=0, lid=Fal
                 is_active=True,
             )
         )
+    else:
+        # CR-26 F9: a household is at the tenant through a membership row there.
+        at_tenant(db, member, TENANT)
     for i in range(extra):
         huisgenoot = Person(
             date_of_birth=date(1980, 1, 1),
             gender_code="M",
-            tenant_id=TENANT,
             first_name=f"Kind{i}",
             last_name=last,
         )
         db.add(huisgenoot)
         db.flush()
-        db.add(
-            MemberPerson(
-                tenant_id=TENANT, member_id=member.id, person_id=huisgenoot.id, relation_type="KIND"
-            )
-        )
+        db.add(MemberPerson(member_id=member.id, person_id=huisgenoot.id, relation_type="KIND"))
     db.flush()
     return member, person
 
@@ -372,12 +365,13 @@ def _person_row(db, first: str, last: str):
     persoon = Person(
         date_of_birth=date(1980, 1, 1),
         gender_code="M",
-        tenant_id=TENANT,
         first_name=first,
         last_name=last,
     )
     db.add(persoon)
     db.flush()
+    # CR-26 F9: named at the tenant, so it has a fact there.
+    in_the_circle(db, persoon, TENANT)
     return persoon
 
 
@@ -404,8 +398,10 @@ def test_a_row_without_an_entity_keeps_its_own_label(db_session):
 
     toegewezen = _person_row(db_session, "Wolfgang", "Steenhuyse")
     _household(db_session, "Mira", ACHTERNAAM, board_member=toegewezen)
-    db_session.add(Member(tenant_id=TENANT))  # een gezin zonder bestuurslid
+    zonder = Member()  # een gezin zonder bestuurslid
+    db_session.add(zonder)
     db_session.flush()
+    at_tenant(db_session, zonder, TENANT)
 
     out = json.loads(
         dispatcher(tenant_id=TENANT)(

@@ -4,6 +4,7 @@ en de import-wizard (sessie + CSRF, zelfde patroon als werkbank/e-maillog)."""
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Address
 from app.kernel.clock import belgian_today
+from tests._sites import at_tenant
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     create_test_family,
@@ -20,6 +21,9 @@ def _login(client):
 
 def _family_with_address(db):
     member, person = create_test_family(db, email="ui-lid@example.com")
+    # CR-26 F9: at the tenant through a membership row — an old one, so a test
+    # that adds this year's does not meet it.
+    at_tenant(db, member, year=belgian_today().year - 5)
     pc = seed_postal_code(db, code="2400", municipality="Mol")
     db.add(
         Address(person_id=person.id, street="Dorpsstraat", house_number="1", postal_code_id=pc.id)

@@ -53,6 +53,7 @@ from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.membership.api import Membership, is_first_membership
 from app.domains.payment.api import PaymentRecord
 from app.kernel.clock import belgian_today
+from tests._sites import at_tenant
 from tests.conftest import create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -170,6 +171,9 @@ def _household(db, kind: str, email: str):
     member, _person = create_test_family(db, email=email)
     if kind == "before":
         _membership(db, member, year=belgian_today().year - 1, paid=True)
+    else:
+        # CR-26 F9: at the tenant through a row — last year's, never paid.
+        at_tenant(db, member, year=belgian_today().year - 1)
     return member
 
 

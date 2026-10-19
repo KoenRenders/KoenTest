@@ -41,7 +41,6 @@ def _assign(db, situation, *, first: str, last: str, households: list[str]):
     from app.domains.mdm.api import Member, Person
 
     bestuurslid = Person(
-        tenant_id=TENANT_A,
         first_name=first,
         last_name=last,
         date_of_birth=date(1980, 1, 1),
@@ -137,7 +136,6 @@ def test_only_board_members_who_carry_a_household_are_in_the_dimension(db_sessio
 
     db_session.add(
         Person(
-            tenant_id=TENANT_A,
             first_name="Niemand",
             last_name="Bestuur",
             date_of_birth=date(1980, 1, 1),

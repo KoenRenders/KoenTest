@@ -30,6 +30,7 @@ getoetst wordt kan altijd blijven staan of altijd wegblijven.
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests._sites import at_tenant
 from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, household_fields
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -50,7 +51,7 @@ GEBOOST = {"HX-Request": "true", "HX-Boosted": "true"}
 
 
 def _als_lid(client, db):
-    create_test_family(db, email=LID_EMAIL)
+    at_tenant(db, create_test_family(db, email=LID_EMAIL)[0])  # CR-26 F9
     waarde = make_session_value(LID_EMAIL)
     client.cookies.set(SESSION_COOKIE, waarde)
     return csrf_token_for(waarde)

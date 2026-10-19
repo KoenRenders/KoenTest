@@ -19,6 +19,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import ContactDetail, Person
+from tests._sites import at_tenant
 from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, record_fields, save_record
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -31,6 +32,7 @@ JUIST = "tweede@example.com"
 @pytest.fixture
 def gezin(db_session):
     member, person = create_test_family(db_session, email=HOOFD)
+    at_tenant(db_session, member)  # CR-26 F9
     db_session.add(
         ContactDetail(
             person_id=person.id, contact_type_code="EMAIL", value=TIKFOUT, is_primary=False
@@ -186,6 +188,7 @@ def test_het_eerste_adres_van_een_mens_wordt_het_hoofdadres(client, db_session):
     adres krijgt de markering niet en deze test faalt.
     """
     member, person = create_test_family(db_session, email=HOOFD)
+    at_tenant(db_session, member)  # CR-26 F9
     for c in list(person.contact_details):
         if c.contact_type_code == "EMAIL":
             person.contact_details.remove(c)

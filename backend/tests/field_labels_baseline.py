@@ -138,7 +138,6 @@ TYPED_LABELS: dict[str, dict[str, int]] = {
         "Toont de gegevens van": 1,
     },
     "ui/templates/admin_tenant.html": {
-        "Account": 1,
         "Naam van de site": 1,
         "Organisatie achter de site": 1,
         "Type": 1,

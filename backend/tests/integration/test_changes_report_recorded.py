@@ -761,6 +761,11 @@ def _cells(ods: bytes) -> list[str]:
 
 def test_the_change_report_gives_what_it_gave(db_session):
     db = db_session
+    # CR-26: a party's row carries its account, a key to a party — Millegem's.
+    from app.domains.mdm.api import Tenant
+
+    for _function, source, _operation, _action in WRITES:
+        source.account_id = db.get(Tenant, TENANT_MILLEGEM_ID).account_id
     # Each row at its own fixed moment, a minute apart: the order is the report's, not chance's.
     for minute, (function, source, operation, action) in enumerate(WRITES):
         before = set(db.new)

@@ -11,12 +11,12 @@ De parameter heet daarom overal `organization_id`. Voor een UNIT of een PLATFORM
 dat hetzelfde getal als het tenant-id — die rijen zijn allebei — maar de naam zegt
 nu welke van de twee betekenissen bedoeld is.
 
-**De tenant-naad, in het kort** (uitgebreid in de docstrings van `ContactDetail` en
-`Address`): `addresses` en `contact_details` worden gedeeld met personen en dragen
-daarom een `tenant_id`. Voor een organisatierij is dat NIET de scope —
-`organization_id` is dat — dus die query's draaien met
-`include_all_tenants=True`. Vergeet je dat, dan krijg je geen fout maar een leeg
-resultaat, en dat is de beroerdste soort.
+**The account scope** (CR-26): an organisation, its addresses, contacts and
+bank accounts belong to its account. The operator edits every account's
+organisations from the platform, so these queries run with
+`include_all_tenants=True`, and a new row takes the organisation's account, not
+the current tenant's. Forget the option and you get no error but an empty
+result, which is the worst kind.
 
 **Eén rij per soort op het scherm, meer in het model.** Een tweede rekening of een
 tweede btw-nummer past in het model en niet in dit formulier. Staat er toch een
@@ -261,11 +261,9 @@ def _write_organization_details(
             {"organization_id": organization_id, "contact_type_code": code},
             "value",
             (form.get(veld) or "").strip() or None,
-            # De KOLOM heet `tenant_id` en draagt hier de eigenaar, niet de scope
-            # — zie de docstring van `ContactDetail`. (Bij het verplaatsen van deze
-            # module hernoemde een blinde zoek-en-vervang ook deze sleutel; de
-            # tests vielen er meteen over, wat precies is waar ze voor zijn.)
-            standaard={"tenant_id": organization_id, "person_id": None},
+            # The organisation's account (CR-26 F1), not the current tenant's:
+            # the operator edits every account's organisations from the platform.
+            standaard={"account_id": rij.account_id, "person_id": None},
             actor=actor,
         )
 
@@ -355,7 +353,10 @@ def _bewaar_rekening(db, organization_id: int, form: Mapping) -> None:
             db.delete(rekening)
         return
     if rekening is None:
-        rekening = BankAccount(organization_id=organization_id, iban=iban)
+        organisatie = _organisatie(db, organization_id)
+        rekening = BankAccount(
+            organization_id=organization_id, iban=iban, account_id=organisatie.account_id
+        )
         db.add(rekening)
     for kolom, waarde in waarden.items():
         setattr(rekening, kolom, waarde)
@@ -447,6 +448,7 @@ def organization_options(db) -> list[dict]:
     return [
         {
             "id": r.id,
+            "party_id": r.party_id,
             "name": r.name,
             "is_active": r.is_active,
             "legal_form": r.legal_form or "",
@@ -572,9 +574,8 @@ def update_organization_address(
         rij = Address(
             organization_id=organization_id,
             person_id=None,
-            # `tenant_id` is hier de eigenaar en niet de scope — zie de
-            # moduledocstring en die van `ContactDetail`.
-            tenant_id=organization_id,
+            # The organisation's account (CR-26 F1), not the current tenant's.
+            account_id=_organisatie(db, organization_id).account_id,
         )
         db.add(rij)
     rij.street = straat

@@ -70,6 +70,7 @@ from app.domains.mdm.api import (
 )
 from app.kernel.jobs import run_due_jobs
 from app.kernel.tenancy import TENANT_VOORBEELD_ID, current_tenant_id
+from tests._sites import at_tenant
 from tests.conftest import (
     form_guard_fields,
     form_guard_proof,
@@ -126,6 +127,7 @@ def _person(db, first_name, *, household=None, relation="HOOFDLID", email=None, 
 def _household(db):
     household = Member()
     db.add(household)
+    at_tenant(db, household)  # CR-26 F9
     db.flush()
     return household
 

@@ -27,6 +27,7 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import ContactDetail, Person, new_contact_detail
 from app.domains.membership.api import person_block as _person_block
+from tests._sites import at_tenant
 from tests.conftest import create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -48,6 +49,7 @@ def _main(html: str) -> str:
 @pytest.fixture
 def member(client, db_session):
     _household, person = create_test_family(db_session, email=EMAIL)
+    at_tenant(db_session, _household)  # CR-26 F9
     person.first_name, person.last_name = "Emma", "Voorbeeld"
     db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value(EMAIL))
@@ -200,6 +202,7 @@ def test_an_e_mail_row_that_is_no_address_is_refused_at_its_row(client, db_sessi
 
 def test_a_form_that_names_another_person_is_refused_whole(client, db_session, member):
     _other_household, other = create_test_family(db_session, email="ander-1710@example.org")
+    at_tenant(db_session, _other_household)  # CR-26 F9
     other.first_name = "Ander"
     db_session.commit()
     block = person_block(other, edit=True)

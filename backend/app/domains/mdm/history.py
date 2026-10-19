@@ -32,7 +32,12 @@ from app.domains.mdm.models import (
 )
 from app.kernel.logged import declare, snapshot
 
-declare(Person, PersonHistory, key="person_id")
+declare(
+    Person,
+    PersonHistory,
+    key="person_id",
+    not_logged={"party_id": "the person's party is made with it and never changes (CR-26 F1)"},
+)
 declare(Member, MemberHistory, key="member_id")
 declare(MemberPerson, MemberPersonHistory, key="member_person_id")
 declare(Address, AddressHistory, key="address_id")

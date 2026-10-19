@@ -71,7 +71,7 @@ def _tile(db) -> int:
 
 def _household(db, *periods: tuple[int, date, date]) -> Member:
     """A household with an active membership per (year, valid_from, valid_to)."""
-    member = Member(tenant_id=TENANT_A)
+    member = Member()
     db.add(member)
     db.flush()
     for year, valid_from, valid_to in periods:
