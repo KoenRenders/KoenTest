@@ -4,27 +4,46 @@
 {% block content %}
 {# Aanmaakscherm als volledige pagina (#627, §2.8): geen modal. Sinds #2110 op de
    kit, zoals Nieuw lid: kitkop, de velden als `ui.field` in een `ui.section`, de
-   actiebalk met één Opslaan. #}
+   actiebalk met één Opslaan.
+
+   CR-20 F5: a tenant is no organisation. It names the organisation that is its
+   account and the one whose data its site shows — an existing one, or a new one
+   made with it ("Nieuwe organisatie…", one transaction). The shown organisation
+   is one of the chosen account's, so its field is asked again when the account
+   changes (`/admin/tenants/nieuw/getoond`). #}
 {% call ui.public_form_page(_("Nieuwe tenant"), shell="admin",
                             back_href="/admin/tenants", back_label=_("Tenants"),
                             intro=_("Platformbeheer — enkel OPERATOR. Na het aanmaken vul je de instellingen aan.")) %}
 <div data-form-flow data-mode="edit" class="form-flow">
-<form id="tenant-nieuw-form" class="contents" hx-post="/admin/tenants" hx-target="body" hx-swap="innerHTML">
+{{ ui.error_banner(error) }}
+<form id="tenant-nieuw-form" class="contents" hx-post="/admin/tenants" hx-target="body" hx-swap="innerHTML"
+      x-data="{ account: '{{ typed.account_id|default('') }}' }">
   {% call ui.section(_("Tenant")) %}
   {# CR-19 (#1478): chosen once — it gives the modules the tenant starts with. #}
-  {{ ui.field("kind", attribute="mdm.organization.kind", kind="segmented", id="t-kind", required=True, value="VERENIGING", options=kind_options,
+  {{ ui.field("kind", attribute="mdm.tenant.kind", kind="segmented", id="t-kind", required=True, value=typed.kind|default("VERENIGING"), options=kind_options,
               help=_("Bepaalt met welke modules de tenant start; die pas je nadien aan in de tenant.")) }}
-  {{ ui.field("name", attribute="mdm.organization.name", id="t-name", required=True) }}
-  {{ ui.field("code", attribute="mdm.organization.code", id="t-code", required=True, placeholder="raaknieuw",
+  {{ ui.field("code", attribute="mdm.tenant.code", id="t-code", required=True, placeholder="raaknieuw", value=typed.code|default(""),
               attrs='pattern="[a-z0-9-]+"',
-              help=_("Kleine letters, cijfers, streepjes — wordt de pad-prefix (/code/…) en de organizations.code.")) }}
-  {% if accounts %}
-  {% set account_options = [] %}
-  {% for a in accounts %}{% set _ = account_options.append((a.id, a.name)) %}{% endfor %}
-  {{ ui.field("account_id", _("Account"), kind="select", id="t-account", options=account_options) }}
-  {% endif %}
-  {{ ui.field("base_url", _("Canonieke URL"), id="t-baseurl", placeholder="https://…",
+              help=_("Kleine letters, cijfers, streepjes — wordt de pad-prefix (/code/…).")) }}
+  {{ ui.field("site_name", attribute="mdm.tenant.site_name", id="t-site-name", value=typed.site_name|default(""),
+              help=_("Leeg laten: de site toont de naam van de organisatie.")) }}
+  {{ ui.field("base_url", _("Canonieke URL"), id="t-baseurl", placeholder="https://…", value=typed.base_url|default(""),
               help=_("Optioneel; de overige instellingen zet je nadien in de tenant zelf.")) }}
+  {% endcall %}
+  {% call ui.section(_("Organisatie")) %}
+  {{ ui.field("account_id", _("Account"), kind="select", id="t-account", required=True, value=typed.account_id|default(""),
+              options=account_options,
+              attrs='x-model="account" hx-get="/admin/tenants/nieuw/getoond" hx-trigger="change" hx-target="#t-shown" hx-swap="innerHTML" hx-include="this"') }}
+  <div data-span="half" class="min-w-0" x-show="account === '{{ new_choice }}'" x-cloak>
+    {{ ui.field("new_account_name", attribute="mdm.organization.name", id="t-new-account", value=typed.new_account_name|default(""),
+                help=_("De naam van het nieuwe account."),
+                attrs=':required="account === \'' ~ new_choice ~ '\'"') }}
+  </div>
+  {# A grid cell of its own (a `contents` wrapper would take the field out of the
+     grid's span rules); the fragment fills it. #}
+  <div id="t-shown" data-span="full" class="min-w-0 flex flex-col gap-4">
+    {% include "_tenant_nieuw_getoond.html" %}
+  </div>
   {% endcall %}
 </form>
 {{ ui.action_bar(record=True, form="tenant-nieuw-form", cancel_href="/admin/tenants") }}

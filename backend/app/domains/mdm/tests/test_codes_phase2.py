@@ -61,7 +61,6 @@ from sqlalchemy.exc import IntegrityError
 from app.domains.auth.api import Role
 from app.domains.mdm.api import (
     LegalForm,
-    OrganizationType,
     RelationType,
 )
 from app.kernel.codes import code_label, code_labels, registry, reset_label_cache
@@ -332,25 +331,7 @@ def test_the_identification_schemes_finally_have_english_labels(db_session):
     assert code_label("identification_scheme", "VAT", language="en") == "VAT number"
 
 
-# ── The two new foreign keys on the organisation ─────────────────────────────
-
-
-def test_the_organisation_type_is_a_list_and_no_longer_a_check(db_session):
-    """`ck_org_type` said what the foreign key says.
-
-    Two places for one fact, and the expensive half is the second: with the
-    check still there a fourth kind of organisation would cost a row *and* a
-    migration, so "a new value is a row" would quietly stop being true.
-    """
-    checks = {
-        c["name"]
-        for c in inspect(db_session.bind).get_check_constraints("organizations", schema="mdm")
-    }
-    assert "ck_org_type" not in checks
-
-    fks = inspect(db_session.bind).get_foreign_keys("organizations", schema="mdm")
-    on_type = [fk for fk in fks if fk["constrained_columns"] == ["org_type"]]
-    assert on_type and on_type[0]["referred_table"] == "organization_type_codes"
+# ── The foreign key on the organisation (its type went with CR-20) ───────────
 
 
 def test_the_legal_form_gets_the_key_it_never_had(db_session):
@@ -383,18 +364,13 @@ def test_the_four_new_enum_columns_store_codes(db_session):
     """The round trip, on the master data columns."""
     from app.domains.mdm.api import Organization
 
-    org = Organization(
-        code="proefvorm",
-        name="Proef",
-        org_type=OrganizationType.UNIT,
-        legal_form=LegalForm.NON_PROFIT,
-    )
+    org = Organization(name="Proef", legal_form=LegalForm.NON_PROFIT)
     db_session.add(org)
     db_session.flush()
     raw = db_session.execute(
-        text("SELECT org_type, legal_form FROM mdm.organizations WHERE id = :i"), {"i": org.id}
+        text("SELECT legal_form FROM mdm.organizations WHERE id = :i"), {"i": org.id}
     ).one()
-    assert tuple(raw) == ("UNIT", "VZW")
+    assert tuple(raw) == ("VZW",)
 
 
 def test_the_contact_type_constants_match_the_stored_codes(db_session):

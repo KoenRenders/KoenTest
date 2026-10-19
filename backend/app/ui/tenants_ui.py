@@ -38,7 +38,6 @@ from app.domains.auth.api import (  # noqa: F401
     require_right,
     require_tenant_workspace,
 )
-from app.domains.mdm.api import OrganizationType
 from app.i18n import _
 from app.kernel.tenant_config import SWITCH_SETTINGS, switch_is_on
 from app.ui import (
@@ -315,7 +314,7 @@ def _list_view(request: Request, db: Session, *, oob: bool = False, **extra: Any
             "name": u.name,
             # #854: the platform is in this list but is no unit, and its code is
             # no path prefix: it reads without a slash.
-            "code": u.code if u.org_type is OrganizationType.PLATFORM else f"/{u.code}",
+            "code": u.code if u.is_platform else f"/{u.code}",
             "href": f"{NAV}/{u.id}?terug={quote(way_back, safe='/')}",
             "kind": kind_of[u.id],
             "account": accounts.get(u.id, ""),
@@ -403,53 +402,70 @@ def _list_view(request: Request, db: Session, *, oob: bool = False, **extra: Any
     return TenantsView(**values)
 
 
-def _new_ctx(request: Request, db: Session) -> dict:
-    """What the new-tenant form needs: the creatable kinds and the accounts."""
-    from app.domains.mdm.api import list_accounts
+#: The choice "nieuwe organisatie" in the two selects of Tenants › Nieuw (CR-20 F5).
+NEW = "nieuw"
 
+
+def _new_ctx(request: Request, db: Session, *, typed: dict | None = None, error=None) -> dict:
+    """What the new-tenant form needs (CR-20 F5): the creatable kinds, the
+    accounts — the organisations tenants name — with "nieuwe organisatie", and
+    the organisations the chosen account's site may show. `typed` is what a
+    refused POST sent, shown again as it was."""
+    from app.domains.mdm.api import accounts
+
+    typed = typed or {}
+    account = typed.get("account_id", "")
     return {
         "nav_items": admin_nav(NAV, request),
+        "error": error,
+        "typed": typed,
         # #1523: a new tenant takes one of the creatable kinds, never PLATFORM.
         "kind_options": _creatable_kind_options(),
-        "accounts": list_accounts(db),
+        "account_options": [("", _("— Kies een account —"))]
+        + [(str(a.id), a.name) for a in accounts(db)]
+        + [(NEW, _("Nieuwe organisatie…"))],
+        "shown_options": _shown_options(db, account),
+        "new_choice": NEW,
         "csrf_token": csrf_from_request(request),
     }
 
 
-def _site_org_options(db: Session, unit) -> list[tuple[str, str]]:
-    """The organisations a tenant's site may show (#1550): its own data first,
-    then its account and the account's other organisations; none without an
-    account."""
-    from app.domains.mdm.api import organization_options
+def _shown_options(db: Session, account: str) -> list[tuple[str, str]]:
+    """What a new site of this account may show (#1550, CR-20 F5): the account
+    itself, the organisations its tenants show, and "nieuwe organisatie"."""
+    from app.domains.mdm.api import organizations_of_account
 
-    if unit.parent_id is None:
-        return []
-    others = [
-        (str(o["id"]), o["name"])
-        for o in organization_options(db)
-        if o["id"] != unit.id and (o["id"] == unit.parent_id or o["parent_id"] == unit.parent_id)
-    ]
-    return [("", _("Eigen gegevens (%(naam)s)") % {"naam": unit.name}), *others]
+    others = (
+        [(str(o["id"]), o["name"]) for o in organizations_of_account(db, int(account))][1:]
+        if account.isdigit()
+        else []
+    )
+    return [("", _("Het account zelf")), *others, (NEW, _("Nieuwe organisatie…"))]
+
+
+def _site_org_options(db: Session, unit) -> list[tuple[str, str]]:
+    """The organisations a tenant's site may show (#1550): its account first,
+    then the organisations the account's tenants show (CR-20)."""
+    from app.domains.mdm.api import organizations_of_account
+
+    return [(str(o["id"]), o["name"]) for o in organizations_of_account(db, unit.account_id)]
 
 
 def _account_names(db: Session, units) -> dict[int, str]:
     """Each listed site's account name, by the site's id (#1542)."""
     from app.domains.mdm.api import organization_options
 
-    names = {o["id"]: o["name"] for o in organization_options(db) if o["org_type"] == "ACCOUNT"}
-    return {u.id: names[u.parent_id] for u in units if u.parent_id in names}
+    names = {o["id"]: o["name"] for o in organization_options(db)}
+    return {u.id: names[u.account_id] for u in units if u.account_id in names}
 
 
 def _site_org_names(db: Session, units) -> dict[int, str]:
-    """The name of the organisation behind each listed site, by the site's id,
-    for the sites that show another organisation's data (#1554). Asked of the
-    resolver the footer uses (#1550), so the list and the site cannot disagree;
-    a site on its own data is left out."""
-    from app.kernel.tenant_config import site_name_default, site_organization_id
+    """The name of the organisation behind each listed site, by the site's id
+    (#1554, CR-20 F5: "toont de gegevens van" for every tenant). Asked of the
+    resolver the footer uses (#1550), so the list and the site cannot disagree."""
+    from app.kernel.tenant_config import site_name_default
 
-    return {
-        u.id: site_name_default(db, u.id) for u in units if site_organization_id(db, u.id) != u.id
-    }
+    return {u.id: site_name_default(db, u.id) for u in units}
 
 
 def _creatable_kind_options() -> list[tuple[str, str]]:
@@ -477,9 +493,7 @@ def _settings_of(unit) -> tuple[list, list]:
     #1478).
     """
     sleutels = [
-        rij
-        for rij in BEKENDE_SLEUTELS
-        if not (unit.org_type == OrganizationType.PLATFORM and rij[0] in LEDENSLEUTELS)
+        rij for rij in BEKENDE_SLEUTELS if not (unit.is_platform and rij[0] in LEDENSLEUTELS)
     ]
     return sleutels, list(GEHEIME_SLEUTELS)
 
@@ -488,7 +502,7 @@ def _hidden_cards(unit) -> set:
     """The modules without a card for this tenant: a platform has no members (#854)."""
     from app.kernel.modules import ModuleCode
 
-    return {ModuleCode.MEMBERSHIP} if unit.org_type == OrganizationType.PLATFORM else set()
+    return {ModuleCode.MEMBERSHIP} if unit.is_platform else set()
 
 
 # ── The record ────────────────────────────────────────────────────────────────
@@ -683,7 +697,7 @@ def _record_view(
     without the Tenant card and with the modules read-only — type, account and
     modules are platform administration (#1533). `typed` are the values of a
     refused save, shown again as they were sent (#797)."""
-    from app.domains.mdm.api import enabled_modules, list_accounts, organization_options
+    from app.domains.mdm.api import accounts, enabled_modules, organization_options
     from app.domains.mdm.api import secrets_gezet as _secrets_gezet
     from app.kernel.tenant_config import get_setting, site_name_default, site_organization_id
 
@@ -705,10 +719,10 @@ def _record_view(
     can_edit = may(db, email, Right.SETTINGS_MANAGE if own else Right.PLATFORM_MANAGE)
     editing = (frame["head_editing"] if edit is None else edit) and can_edit
 
-    is_platform = unit.org_type is OrganizationType.PLATFORM
+    is_platform = unit.is_platform
     kind_label = _kind_labels().get(unit.kind.value, "") if unit.kind is not None else ""
     everyone = {o["id"]: o for o in organization_options(db)}
-    account = everyone.get(unit.parent_id) if unit.parent_id else None
+    account = everyone.get(unit.account_id)
     behind_id = site_organization_id(db, tenant_id)
     behind = everyone.get(behind_id)
 
@@ -740,9 +754,9 @@ def _record_view(
     tenant_card = None
     if not own:
         site_org_options = _site_org_options(db, unit)
-        site_org_value = str(unit.site_organization_id or "")
-        account_options = [(str(a.id), a.name) for a in list_accounts(db)]
-        account_value = str(unit.parent_id) if unit.parent_id is not None else ""
+        site_org_value = str(unit.organization_id)
+        account_options = [(str(a.id), a.name) for a in accounts(db)]
+        account_value = str(unit.account_id)
         tenant_card = {
             # #1533: a unit's kind can be changed between the creatable kinds;
             # the platform's is fixed and only shown.
@@ -752,15 +766,15 @@ def _record_view(
                 "options": [] if is_platform else _creatable_kind_options(),
             },
             # #1533 (Koen): the account the tenant hangs under, chosen from the
-            # active accounts (#1495); "" only while it has none. #1542: the
-            # platform too.
+            # active accounts (#1495). #1542: the platform too. Every tenant has
+            # one since CR-20 (F1).
             "account": {
                 "value": account_value,
                 "label": account["name"] if account else "—",
-                "options": ([] if account_value else [("", _("Geen account"))]) + account_options,
+                "options": account_options,
             },
-            # #1550: whose data the site shows — its own, or another organisation
-            # of its account; only once it has an account.
+            # #1550: whose data the site shows — its account, or another
+            # organisation of its account (CR-20).
             "site_org": {
                 "value": site_org_value,
                 "label": dict(site_org_options).get(site_org_value, "—"),
@@ -889,31 +903,63 @@ def tenant_editor(
     return _record_page(request, db, email, tenant_id)
 
 
+@router.get("/admin/tenants/nieuw/getoond", response_class=HTMLResponse)
+def new_tenant_shown_field(
+    request: Request,
+    account_id: str = "",
+    db: Session = Depends(get_db),
+    email: str = Depends(require_platform_right(Right.PLATFORM_VIEW)),
+):
+    """The field "Toont de gegevens van" for the chosen account (CR-20 F5): the
+    form asks it again when the account changes."""
+    ctx = _new_ctx(request, db, typed={"account_id": account_id})
+    return templates.TemplateResponse(request, "_tenant_nieuw_getoond.html", ctx)
+
+
 @router.post("/admin/tenants", response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
 def tenant_aanmaken(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_platform_right(Right.PLATFORM_MANAGE)),
-    name: str = Form(""),
+    site_name: str = Form(""),
     code: str = Form(""),
     account_id: str = Form(""),
+    new_account_name: str = Form(""),
+    organization_id: str = Form(""),
+    new_organization_name: str = Form(""),
     base_url: str = Form(""),
     kind: str = Form("VERENIGING"),
 ):
+    """Creates the tenant — and the organisation chosen as "nieuwe organisatie",
+    in the same transaction (CR-20 F5). A refusal shows the form again with what
+    was typed."""
     from app.domains.mdm.api import TenantFout, create_tenant
 
     try:
         create_tenant(
             db,
-            name=name,
             code=code,
-            parent_id=int(account_id) if account_id.isdigit() else None,
+            account_id=int(account_id) if account_id.isdigit() else None,
+            new_account_name=new_account_name if account_id == NEW else None,
+            organization_id=int(organization_id) if organization_id.isdigit() else None,
+            new_organization_name=new_organization_name if organization_id == NEW else None,
+            site_name=site_name,
             base_url=base_url,
             kind=kind,
         )
     except TenantFout as fout:
-        view = _list_view(request, db, error=_(str(fout)))
-        return templates.TemplateResponse(request, "admin_tenants.html", view.as_context())
+        typed = {
+            "site_name": site_name,
+            "code": code,
+            "account_id": account_id,
+            "new_account_name": new_account_name,
+            "organization_id": organization_id,
+            "new_organization_name": new_organization_name,
+            "base_url": base_url,
+            "kind": kind,
+        }
+        ctx = _new_ctx(request, db, typed=typed, error=_(str(fout)))
+        return templates.TemplateResponse(request, "admin_tenant_nieuw.html", ctx)
     view = _list_view(request, db, created=True)
     return templates.TemplateResponse(request, "admin_tenants.html", view.as_context())
 

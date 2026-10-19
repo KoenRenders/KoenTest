@@ -529,6 +529,9 @@ def add_to_circle(
         db.query(OrganizationPerson)
         .filter(
             OrganizationPerson.person_id == person_id,
+            # CR-20 F11: each tenant's circle hangs on its own shown party, so
+            # one person may stand in the circle of two departments.
+            OrganizationPerson.organization_id == organization_id,
             OrganizationPerson.relation_type == relation_type,
             OrganizationPerson.end_date.is_(None),
         )

@@ -144,7 +144,7 @@ def test_every_snapshot_of_activities_writes_the_row_it_wrote(db_session):
                 ActivityHistory,
                 SimpleNamespace(
                     id=882_001,
-                    tenant_id=1,
+                    tenant_id=2,
                     slug="quiz-night",
                     location="Zaal",
                     description="Een quiz.",
@@ -163,7 +163,7 @@ def test_every_snapshot_of_activities_writes_the_row_it_wrote(db_session):
                 ActivityDateHistory,
                 SimpleNamespace(
                     id=882_002,
-                    tenant_id=1,
+                    tenant_id=2,
                     start_time=None,
                     end_time=None,
                     activity_id=882_001,
@@ -176,7 +176,7 @@ def test_every_snapshot_of_activities_writes_the_row_it_wrote(db_session):
                 ComponentHistory,
                 SimpleNamespace(
                     id=882_003,
-                    tenant_id=1,
+                    tenant_id=2,
                     description=None,
                     external_register_url=None,
                     external_registrations_url=None,
@@ -199,7 +199,7 @@ def test_every_snapshot_of_activities_writes_the_row_it_wrote(db_session):
                 ProductHistory,
                 SimpleNamespace(
                     id=882_004,
-                    tenant_id=1,
+                    tenant_id=2,
                     is_free=False,
                     pay_on_site=False,
                     is_active=True,
@@ -215,7 +215,7 @@ def test_every_snapshot_of_activities_writes_the_row_it_wrote(db_session):
                 snapshot_registration_item,
                 RegistrationItemHistory,
                 SimpleNamespace(
-                    id=882_005, tenant_id=1, registration_id=882_006, product_id=882_004, quantity=3
+                    id=882_005, tenant_id=2, registration_id=882_006, product_id=882_004, quantity=3
                 ),
             ),
         ],

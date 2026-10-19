@@ -34,6 +34,7 @@ from tests._newsletter_world import (
     register,
     subscriber,
 )
+from tests._sites import new_site
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -157,19 +158,19 @@ def test_an_address_erased_after_its_opt_out_is_still_left_out(db_session):
 
 def test_another_tenants_registrations_never_appear(db_session):
     """T7."""
-    from app.domains.mdm.api import TenantKind, create_tenant
+    from app.domains.mdm.api import TenantKind
     from app.kernel.tenancy import TENANT_MILLEGEM_ID, current_tenant_id
 
     # The filter is the session's: it needs the tenant the screen would be in.
     token = current_tenant_id.set(TENANT_MILLEGEM_ID)
     try:
-        _the_isolation(db_session, create_tenant, TenantKind)
+        _the_isolation(db_session, TenantKind)
     finally:
         current_tenant_id.reset(token)
 
 
-def _the_isolation(db_session, create_tenant, TenantKind):
-    other = create_tenant(
+def _the_isolation(db_session, TenantKind):
+    other = new_site(
         db_session, name="Andere afdeling", code="cr36-other", kind=TenantKind.ASSOCIATION
     )
     foreign = past_activity(db_session, "Elders", tenant_id=other.id)

@@ -132,6 +132,11 @@ TYPED_LABELS: dict[str, dict[str, int]] = {
         "Account": 1,
         "Canonieke URL": 1,
     },
+    # CR-20 F5: "Toont de gegevens van" is the tenant's shown organisation, a foreign key as
+    # "Account" is — technical, with no register entry.
+    "ui/templates/_tenant_nieuw_getoond.html": {
+        "Toont de gegevens van": 1,
+    },
     "ui/templates/admin_tenant.html": {
         "Account": 1,
         "Naam van de site": 1,

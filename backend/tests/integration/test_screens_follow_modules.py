@@ -25,10 +25,11 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.cms.api import CmsPage
 from app.domains.mdm import tenant_lookup
-from app.domains.mdm.api import Organization, TenantKind
+from app.domains.mdm.api import TenantKind
 from app.kernel.modules import ModuleCode
 from app.kernel.tenancy import TENANT_MILLEGEM_ID
 from app.kernel.tenant_config import get_setting, set_setting
+from tests._sites import new_site
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -212,9 +213,10 @@ def test_without_membership_the_newsletter_offers_only_iedereen(client, db_sessi
 
 
 def test_a_company_footer_says_partners(db_session):
+    from app.domains.mdm.api import Tenant
     from app.ui import site_context
 
-    org = db_session.get(Organization, TENANT_MILLEGEM_ID)
+    org = db_session.get(Tenant, TENANT_MILLEGEM_ID)
     org.kind = TenantKind.COMPANY
     db_session.flush()
     assert site_context(db_session)["sponsors_kop"] == "Partners"
@@ -228,13 +230,12 @@ def test_the_editor_hides_the_settings_of_modules_that_are_off_and_keeps_them(
 ):
     from app.domains.auth.api import csrf_token_for
     from app.domains.auth.models import User, UserRole
-    from app.domains.mdm.api import create_tenant
 
     user = db_session.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).one()
     if not db_session.query(UserRole).filter_by(user_id=user.id, role_code="OPERATOR").first():
         db_session.add(UserRole(user_id=user.id, role_code="OPERATOR"))
-    company = create_tenant(db_session, name="Firma", code="firma-1477", kind=TenantKind.COMPANY)
-    association = create_tenant(db_session, name="Club", code="club-1477")
+    company = new_site(db_session, name="Firma", code="firma-1477", kind=TenantKind.COMPANY)
+    association = new_site(db_session, name="Club", code="club-1477")
     set_setting(db_session, "membership_price_full", "40.00", tenant_id=company.id)
     db_session.commit()
     session = make_session_value(SEEDED_ADMIN_EMAIL)

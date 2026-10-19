@@ -58,9 +58,8 @@ from app.domains.auth.api import (
     require_right,
     require_tenant_workspace,
 )
-from app.domains.mdm.api import ORGANIZATION_TYPE, OrganizationType
 from app.i18n import _
-from app.kernel.codes import code_labels, code_of, register_tones, tone
+from app.kernel.codes import code_of
 from app.kernel.refusals import FieldError
 from app.ui import (
     PER_PAGE_DEFAULT,
@@ -82,21 +81,8 @@ NAV = "/admin/organisaties"
 OWN = "/admin/organisatie"
 RECORD_MESSAGE = "#org-melding"
 
-SORTS = ("naam", "-naam", "soort", "-soort")
+SORTS = ("naam", "-naam")
 SORT_DEFAULT = SORTS[0]
-
-# CR-12 phase 2: the words of the organisation kind come from its label table;
-# the dictionary that stood here became its seed. The badge tone stays here,
-# next to the screen that draws it (§B4.5): the legal entity blue, the rest gray.
-register_tones(
-    ORGANIZATION_TYPE.name,
-    {
-        OrganizationType.ACCOUNT: "blue",
-        OrganizationType.UNIT: "gray",
-        OrganizationType.PLATFORM: "gray",
-    },
-)
-
 
 # ── The list ──────────────────────────────────────────────────────────────────
 
@@ -105,12 +91,9 @@ register_tones(
 class OrganisationsView(ViewModel):
     """`admin_organisaties.html` and its fragment `_org_kaarten.html`."""
 
-    #: One dict per row: id, name, code, href, kind_label, kind_tone, parent
-    #: ({name, href} or None), legal_form, inactive.
+    #: One dict per row: id, name, href, legal_form, inactive.
     rows: list[dict[str, Any]]
     columns: list[dict[str, Any]]
-    segments: list[dict[str, Any]]
-    kind: str
     q: str
     sort: str
     sort_options: list[tuple[str, str]]
@@ -122,38 +105,20 @@ class OrganisationsView(ViewModel):
     empty_reason: str
     csrf_token: str
     nav_items: list[dict[str, Any]] = field(default_factory=list)
-    #: The fragment carries the toolbar's count and segment counts out-of-band.
+    #: The fragment carries the toolbar's count out-of-band.
     oob: bool = False
 
 
-def _sorted(organisations: list[dict], sort: str, order: dict[str, int]) -> list[dict]:
-    """The list in the chosen order: by name, or by kind and then name."""
-
-    def by_name(o: dict) -> tuple:
-        return ((o["name"] or "").casefold(),)
-
-    def by_kind(o: dict) -> tuple:
-        return (order.get(o["org_type"], 99), (o["name"] or "").casefold())
-
-    return sorted(
-        organisations,
-        key=by_kind if sort in ("soort", "-soort") else by_name,
-        reverse=sort[0] == "-",
-    )
-
-
 def _list_view(request: Request, db: Session, *, oob: bool = False) -> OrganisationsView:
-    """The list Organisaties (#1932): the kinds as the segments with their counts,
-    the search on name and code, the sort by name or by kind. The state is in the
-    URL; the toolbar asks this same address for the fragment."""
+    """The list Organisaties (#1932): the parties only since CR-20 — a tenant is
+    no organisation any more, so the kinds (account, afdeling, platform) that
+    were the segments are gone with the column that held them (CR-20 F5). The
+    search on name, the sort by name. The state is in the URL; the toolbar asks
+    this same address for the fragment."""
     from app.domains.mdm.api import legal_form_options, organization_options
 
     state = filterparams(request)
     q = (state.get("q") or "").strip()
-    kinds = code_labels(ORGANIZATION_TYPE.name, db=db)
-    kind = (state.get("org_type") or "").strip()
-    if kind not in dict(kinds):
-        kind = ""
     sort = (state.get("sort") or "").strip()
     if sort not in SORTS:
         sort = SORT_DEFAULT
@@ -163,89 +128,55 @@ def _list_view(request: Request, db: Session, *, oob: bool = False) -> Organisat
     except ValueError:
         page = 1
 
-    everyone = organization_options(db)
-    by_id = {o["id"]: o for o in everyone}
-    kind_labels = dict(kinds)
     legal_forms = dict(legal_form_options(db))
-    order = {code: at for at, (code, _label) in enumerate(kinds)}
-
-    shown = everyone
+    shown = organization_options(db)
     if q:
         needle = q.lower()
-        shown = [
-            o
-            for o in shown
-            if needle in (o["name"] or "").lower() or needle in (o["code"] or "").lower()
-        ]
-    if kind:
-        shown = [o for o in shown if o["org_type"] == kind]
-    shown = _sorted(shown, sort, order)
+        shown = [o for o in shown if needle in (o["name"] or "").lower()]
+    shown = sorted(
+        shown, key=lambda o: ((o["name"] or "").casefold(), o["id"]), reverse=sort[0] == "-"
+    )
     total = len(shown)
     page = min(page, max(1, -(-total // per_page)))
     shown = shown[(page - 1) * per_page : page * per_page]
 
     way_back = list_return(
         NAV,
-        org_type=kind,
         q=q,
         sort=sort if sort != SORT_DEFAULT else "",
         page=page if page > 1 else "",
         per_page=per_page if per_page != PER_PAGE_DEFAULT else "",
     )
-    rows = []
-    for o in shown:
-        parent = by_id.get(o["parent_id"]) if o["parent_id"] else None
-        rows.append(
-            {
-                "id": o["id"],
-                "name": o["name"],
-                "code": o["code"],
-                "href": f"{NAV}/{o['id']}?terug={quote(way_back, safe='/')}",
-                "kind_label": kind_labels.get(o["org_type"], o["org_type"]),
-                "kind_tone": tone(ORGANIZATION_TYPE.name, o["org_type"]),
-                "parent": {"name": parent["name"], "href": f"{NAV}/{parent['id']}"}
-                if parent
-                else None,
-                # The code, not the member: `organization_options` hands over the
-                # column as it is, an enum member that equals no string.
-                "legal_form": legal_forms.get(code_of(o["legal_form"]) or "", ""),
-                "inactive": not o["is_active"],
-            }
-        )
-
-    link_state = {"org_type": kind, "q": q}
+    rows = [
+        {
+            "id": o["id"],
+            "name": o["name"],
+            "href": f"{NAV}/{o['id']}?terug={quote(way_back, safe='/')}",
+            # The code, not the member: `organization_options` hands over the
+            # column as it is, an enum member that equals no string.
+            "legal_form": legal_forms.get(code_of(o["legal_form"]) or "", ""),
+            "inactive": not o["is_active"],
+        }
+        for o in shown
+    ]
 
     def _query(**more: Any) -> str:
         return urlencode(
-            {k: v for k, v in {**link_state, "per_page": per_page, **more}.items() if v != ""}
+            {k: v for k, v in {"q": q, "per_page": per_page, **more}.items() if v != ""}
         )
 
-    def _head(
-        key: str, label: str, cell: str, ascending: str, descending: str, **extra: Any
-    ) -> dict[str, Any]:
-        turned = descending if sort == ascending else ascending
-        head: dict[str, Any] = {
-            "key": key,
-            "label": label,
-            "cell": cell,
-            "sort_url": f"{NAV}?{_query(sort=turned)}",
-            "sort_page_url": f"{NAV}?{_query(sort=turned)}",
-            **extra,
-        }
-        if sort in (ascending, descending):
-            head["sorted"] = "asc" if sort == ascending else "desc"
-        return head
-
-    counts = {code: sum(1 for o in everyone if o["org_type"] == code) for code, _label in kinds}
-    segments = [{"value": "", "label": _("Alle"), "count": len(everyone)}] + [
-        {"value": code, "label": label, "count": counts[code]} for code, label in kinds
-    ]
+    turned = "-naam" if sort == "naam" else "naam"
     return OrganisationsView(
         rows=rows,
         columns=[
-            _head("naam", _("Organisatie"), "name", "naam", "-naam"),
-            _head("soort", _("Soort"), "context", "soort", "-soort", width=150),
-            {"key": "onder", "label": _("Onder"), "cell": "extra", "priority": 1, "width": 200},
+            {
+                "key": "naam",
+                "label": _("Organisatie"),
+                "cell": "name",
+                "sort_url": f"{NAV}?{_query(sort=turned)}",
+                "sort_page_url": f"{NAV}?{_query(sort=turned)}",
+                "sorted": "asc" if sort == "naam" else "desc",
+            },
             {
                 "key": "rechtsvorm",
                 "label": _("Rechtsvorm"),
@@ -255,19 +186,15 @@ def _list_view(request: Request, db: Session, *, oob: bool = False) -> Organisat
             },
             {"key": "status", "label": _("Status"), "cell": "status"},
         ],
-        segments=segments,
-        kind=kind,
         q=q,
         sort=sort,
-        sort_options=[("naam", _("Naam")), ("soort", _("Soort, dan naam"))],
+        sort_options=[("naam", _("Naam"))],
         page=page,
         per_page=per_page,
         total=total,
         page_sizes=list(PER_PAGE_OPTIONS),
         pager_url=f"{NAV}?{_query(sort=sort)}",
-        empty_reason=(
-            _("Geen organisaties gevonden.") if (q or kind) else _("Nog geen organisaties.")
-        ),
+        empty_reason=_("Geen organisaties gevonden.") if q else _("Nog geen organisaties."),
         csrf_token=csrf_from_request(request),
         nav_items=[] if oob else admin_nav(NAV, request),
         oob=oob,
@@ -286,14 +213,13 @@ def organisations(
     return templates.TemplateResponse(request, template, view.as_context())
 
 
-# ── A new account ─────────────────────────────────────────────────────────────
+# ── A new organisation ────────────────────────────────────────────────────────
 
 
-def _new_account_ctx(request: Request, *, name: str = "", code: str = "", error=None) -> dict:
+def _new_organisation_ctx(request: Request, *, name: str = "", error=None) -> dict:
     return {
         "nav_items": admin_nav(NAV, request),
         "name": name,
-        "code": code,
         "error": error,
         "csrf_token": csrf_from_request(request),
     }
@@ -301,38 +227,39 @@ def _new_account_ctx(request: Request, *, name: str = "", code: str = "", error=
 
 # Declared before `/{organization_id}`: FastAPI matches in declaration order.
 @router.get("/admin/organisaties/nieuw", response_class=HTMLResponse)
-def new_account_form(
+def new_organisation_form(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_platform_right(Right.PLATFORM_VIEW)),
 ):
-    """ "Nieuw account" (CR-19, #1495): OPERATOR only, on GET as on POST."""
+    """ "Nieuwe organisatie" (CR-20 F5; "Nieuw account" until then, CR-19 #1495):
+    OPERATOR only, on GET as on POST."""
     return templates.TemplateResponse(
-        request, "admin_organisatie_nieuw.html", _new_account_ctx(request)
+        request, "admin_organisatie_nieuw.html", _new_organisation_ctx(request)
     )
 
 
 @router.post(
     "/admin/organisaties", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
 )
-def create_account_route(
+def create_organisation_route(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_platform_right(Right.PLATFORM_MANAGE)),
     name: str = Form(""),
-    code: str = Form(""),
 ):
-    """Creates the account and lands on its organisation screen, where the rest
-    is filled in. A refusal shows the form again with what was typed."""
-    from app.domains.mdm.api import TenantFout, create_account
+    """Creates the organisation — a party, no code (CR-20 C4.7) — and lands on
+    its screen, where the rest is filled in. A refusal shows the form again with
+    what was typed."""
+    from app.domains.mdm.api import TenantFout, create_organization
 
     try:
-        account = create_account(db, name=name, code=code)
+        organisation = create_organization(db, name=name)
     except TenantFout as fout:
         # 200, not 422: htmx swaps no 4xx answer, and the banner would not show.
-        ctx = _new_account_ctx(request, name=name, code=code, error=_(str(fout)))
+        ctx = _new_organisation_ctx(request, name=name, error=_(str(fout)))
         return templates.TemplateResponse(request, "admin_organisatie_nieuw.html", ctx)
-    target = f"{NAV}/{account.id}"
+    target = f"{NAV}/{organisation.id}"
     # As in meetings: a boosted form is an htmx request, and `HX-Redirect` makes
     # the browser really navigate, so the address bar follows.
     if request.headers.get("HX-Request"):
@@ -402,6 +329,7 @@ def _record_view(
         organization_address,
         organization_details,
         organization_options,
+        tenants,
     )
 
     everyone = organization_options(db)
@@ -419,32 +347,23 @@ def _record_view(
     editing = frame["head_editing"] if edit is None else edit
     editing = editing and can_edit
 
-    kinds = dict(code_labels(ORGANIZATION_TYPE.name, db=db))
-    kind_label = kinds.get(organisation["org_type"], organisation["org_type"])
     legal_forms = legal_form_options(db)
     values = organization_details(db, organization_id)
     legal_form_label = dict(legal_forms).get(values["legal_form"], "")
-    parent = next((o for o in everyone if o["id"] == organisation["parent_id"]), None)
     postal = {pc.postal_code: f"{pc.postal_code} {pc.municipality}" for pc in list_postal_codes(db)}
     address = organization_address(db, organization_id)
 
-    # The tenant editor exists only for organisations that run a site; an ACCOUNT
-    # has none, and a link there would end on a 404.
-    has_site = organisation["org_type"] in ("UNIT", "PLATFORM")
-    facts: list[dict[str, str]] = [{"text": organisation["code"]}]
+    # The tenant editor of the site that shows this organisation (CR-20: a
+    # tenant is its own record now, so the link goes to the tenant that shows
+    # it, not to an editor of the same id). Several tenants may show one
+    # organisation; the first is linked — the list of them is CR-20 phase 2's.
+    showing = [t for t in tenants(db) if t.organization_id == organization_id]
+    facts: list[dict[str, str]] = []
     if legal_form_label:
         facts.append({"text": legal_form_label})
-    if parent is not None:
-        under = _("Onder %(naam)s") % {"naam": parent["name"]}
-        # Platform administration answers in the platform workspace only.
-        facts.append(
-            {"text": under, "kind": "reference", "href": f"{NAV}/{parent['id']}"}
-            if not own
-            else {"text": under}
-        )
     record_head = {
         "title": organisation["name"],
-        "badges": [{"label": kind_label, "tone": "gray"}],
+        "badges": [],
         "facts": facts,
         "primary": {
             "label": _("Bewerken"),
@@ -456,10 +375,10 @@ def _record_view(
             {
                 "kind": "record",
                 "label": _("Instellingen van de site"),
-                "href": "/admin/instellingen" if own else f"/admin/tenants/{organization_id}",
+                "href": "/admin/instellingen" if own else f"/admin/tenants/{showing[0].id}",
             }
         ]
-        if has_site
+        if showing
         else [],
     }
     summary = {
@@ -468,9 +387,7 @@ def _record_view(
             "tone": "green" if organisation["is_active"] else "red",
         },
         "figures": [
-            {"label": _("Soort"), "value": kind_label},
-            {"label": _("Code"), "value": organisation["code"]},
-            {"label": _("Onder"), "value": parent["name"] if parent else "—"},
+            {"label": _("Rechtsvorm"), "value": legal_form_label or "—"},
         ],
     }
     return OrganisationRecordView(

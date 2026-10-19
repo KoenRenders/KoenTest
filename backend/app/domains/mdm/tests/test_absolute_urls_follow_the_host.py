@@ -212,7 +212,10 @@ def test_the_derivation_uses_the_incoming_host_and_not_just_any_platform_host(
         invalidate_tenant_codes()
 
     assert f"//{PLATFORM_HOST}/raakvoorbeeldafdeling" in html
-    assert "eerste.example.test" not in html, (
+    # The afdeling's address; the platform's own card (listed under its account
+    # since CR-20 F1, as on UAT and PROD where it had one) is the platform's
+    # home, not a derivation of an afdeling's address.
+    assert "//eerste.example.test/raak" not in html, (
         "the derivation took the first host from the configuration instead of the one "
         "this request arrived on"
     )

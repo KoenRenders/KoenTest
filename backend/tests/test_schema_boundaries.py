@@ -13,6 +13,13 @@ would lose the database check that is the reason the list exists: a label row
 with language `nl_BE` or `NL` would otherwise be a row nobody ever reads, with
 nothing complaining. The exception is narrow on purpose: **only** towards
 `<foundation>.<list>_codes`, never towards an ordinary table of those schemas.
+
+**A second named exception since CR-20 (B4; Koen, 18 October 2026, Q&A nr. 03
+question 1: "a"):** a foreign key towards the two identity tables of the
+kernel, `mdm.tenants` and `mdm.parties` (CR-26). Every domain already depends on
+a tenant — `tenant_id` is on every tenant table — and CR-20 gives that column
+the key it never had; CR-26 does the same for the buyer of an order. Named one
+by one, never "anything in mdm": `mdm.persons` stays refused (the proof below).
 """
 
 from sqlalchemy import text
@@ -21,8 +28,22 @@ from sqlalchemy import text
 FOUNDATION_SCHEMAS = ("mdm", "auth")
 
 
+#: The identity tables a cross-schema FK may point at (CR-20 B4), by name.
+IDENTITY_TABLES = (("mdm", "tenants"), ("mdm", "parties"))
+
+
 def _is_code_table_of_a_foundation(ref_schema: str, ref_table: str) -> bool:
     return ref_schema in FOUNDATION_SCHEMAS and ref_table.endswith("_codes")
+
+
+def _is_an_identity_table(ref_schema: str, ref_table: str) -> bool:
+    return (ref_schema, ref_table) in IDENTITY_TABLES
+
+
+def _allowed(ref_schema: str, ref_table: str) -> bool:
+    return _is_code_table_of_a_foundation(ref_schema, ref_table) or _is_an_identity_table(
+        ref_schema, ref_table
+    )
 
 
 def test_no_cross_schema_foreign_keys(db_session):
@@ -37,7 +58,7 @@ def test_no_cross_schema_foreign_keys(db_session):
           AND tc.table_schema != ccu.table_schema
     """)
     ).fetchall()
-    forbidden = [r for r in rows if not _is_code_table_of_a_foundation(r.ref_schema, r.ref_table)]
+    forbidden = [r for r in rows if not _allowed(r.ref_schema, r.ref_table)]
     assert forbidden == [], f"Cross-schema FK's gevonden: {forbidden}"
 
 
@@ -53,3 +74,17 @@ def test_the_exception_covers_code_tables_only():
     assert _is_code_table_of_a_foundation("auth", "role_codes")
     assert not _is_code_table_of_a_foundation("mdm", "persons")
     assert not _is_code_table_of_a_foundation("payment", "payment_status_codes")
+
+
+def test_the_identity_exception_names_its_two_tables_only():
+    """CR-20 B4: the second exception is two tables by name, not a schema.
+
+    Proven red (put back): `_is_an_identity_table` widened to `ref_schema ==
+    "mdm"` → the `mdm.persons` assertion below fails, and so does the gate on a
+    key towards `mdm.persons` added to a model.
+    """
+    assert _allowed("mdm", "tenants")
+    assert _allowed("mdm", "parties")
+    assert not _allowed("mdm", "persons")
+    assert not _allowed("mdm", "organizations")
+    assert not _allowed("auth", "users")

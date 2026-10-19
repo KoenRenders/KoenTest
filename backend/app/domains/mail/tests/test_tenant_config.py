@@ -1,6 +1,8 @@
 """Fase 5b (#406): per-tenant config/secrets, demo-mail-modus (log_only),
 per-tenant Mollie-key/base-URL en de OPERATOR-platformrol."""
 
+import pytest
+
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, make_session_value
 from app.domains.mail.models import EmailLog, MailStatus
 from app.kernel.tenancy import TENANT_VOORBEELD_ID, current_tenant_id
@@ -12,6 +14,16 @@ from app.kernel.tenant_config import (
     tenant_mail_mode,
     tenant_mollie_key,
 )
+
+
+@pytest.fixture(autouse=True)
+def _the_tenants_exist(db_session):
+    """CR-20: a `tenant_id` has a key to `mdm.tenants` (C6 test 10), so the
+    tenant this file names by number must exist."""
+    from tests._sites import a_tenant_with_id
+
+    for tenant_id in (97, 99):
+        a_tenant_with_id(db_session, tenant_id)
 
 
 def test_setting_plain_en_secret(db_session):

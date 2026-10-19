@@ -20,7 +20,6 @@ from app.domains.mdm.api import (
     ContactDetail,
     Organization,
     OrganizationIdentification,
-    OrganizationType,
     Person,
 )
 from app.kernel.tenant_config import _actieve_tenant
@@ -320,14 +319,10 @@ def test_an_organisation_row_is_invisible_under_the_tenant_filter(db_session, or
     Getoetst met de ACCOUNT-organisatie: die is géén tenant, dus haar rijen mogen
     onder de gewone filter nooit opduiken.
     """
+    from app.domains.mdm.api import Tenant
     from app.kernel.tenancy import current_tenant_id
 
-    account = (
-        db_session.query(Organization)
-        .filter(Organization.org_type == OrganizationType.ACCOUNT)
-        .execution_options(include_all_tenants=True)
-        .first()
-    )
+    account = db_session.get(Organization, db_session.get(Tenant, organisatie.id).account_id)
     assert account is not None and account.id != organisatie.id
     db_session.add(
         ContactDetail(

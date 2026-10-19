@@ -187,15 +187,13 @@ def test_the_boards_form_without_a_component_is_refused_as_before(client, db_ses
 def test_the_circle_without_an_organisation_is_refused_as_before(
     client, db_session, monkeypatch, name, path, fields
 ):
-    """The test world has its organisation, so the read is made to find none —
-    under both names it is reached by: the facade's, which the screen imported
-    before the move, and the service's own, which the moved rule calls."""
-    import app.domains.mdm.api as mdm_api
+    """The test world has its organisation, so the read is made to find none.
+    Since CR-20 (F11) the circle hangs on the organisation the current tenant
+    shows, read by `shown_organization`, which the rule calls."""
     import app.domains.mdm.tenant_service as tenant_service
     from app.domains.mdm.api import Person
 
-    monkeypatch.setattr(mdm_api, "platform_org", lambda db: None)
-    monkeypatch.setattr(tenant_service, "platform_org", lambda db: None)
+    monkeypatch.setattr(tenant_service, "shown_organization", lambda db: None)
     _household, main = create_test_family(db_session, email="kringlid-1251@example.com")
     db_session.commit()
     persons = db_session.query(Person).count()

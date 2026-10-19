@@ -19,10 +19,12 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from app.domains.mdm.api import (
     Organization,
-    create_account,
+    Tenant,
+    create_organization,
     save_organization,
 )
 from app.kernel.tenancy import TENANT_VOORBEELD_ID
+from tests._sites import new_site
 from tests.conftest import seed_postal_code
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -47,7 +49,7 @@ def _brand(db):
     in the middleware's code cache, which reads through a session of its own, so
     its prefix would answer 404."""
     seed_postal_code(db, "2400", "Mol")
-    account = create_account(db, name="Account Acht", code="acht-1550")
+    account = create_organization(db, name="Account Acht")
     db.commit()
     save_organization(
         db,
@@ -62,8 +64,8 @@ def _brand(db):
     from app.domains.mdm.api import update_organization_details
 
     update_organization_details(db, account.id, {"payment_iban": IBAN})
-    brand = db.get(Organization, TENANT_VOORBEELD_ID)
-    brand.parent_id = account.id
+    brand = db.get(Tenant, TENANT_VOORBEELD_ID)
+    brand.account_id = account.id
     db.commit()
     return account, brand
 
@@ -98,13 +100,14 @@ def test_a_brand_shows_its_accounts_data_and_nothing_is_copied(
         )
     assert saved.status_code == 200, saved.text[-400:]
     db_session.expire_all()
-    assert db_session.get(Organization, brand.id).site_organization_id == account.id
+    assert db_session.get(Tenant, brand.id).organization_id == account.id
     from app.kernel.tenant_config import site_organization_id
 
     assert site_organization_id(db_session, brand.id) == account.id
     assert tenant_payment_iban(db_session, brand.id) == IBAN, "the bank account in the mails"
     assert any(
-        "tenant site organisation changed" in r.getMessage() and "-> acht-1550" in r.getMessage()
+        "tenant site organisation changed" in r.getMessage()
+        and f"-> {account.id} " in r.getMessage()
         for r in caplog.records
     )
 
@@ -130,7 +133,9 @@ def test_a_brand_shows_its_accounts_data_and_nothing_is_copied(
 
 def test_an_organisation_of_another_account_is_refused(client, platform_workspace, db_session):
     _account, brand = _brand(db_session)
-    other = create_account(db_session, name="Account Negen", code="negen-1550")
+    # CR-20: an organisation belongs to another account when a tenant of that
+    # account names it — here the site of another customer.
+    other = new_site(db_session, name="Account Negen", code="negen-1550").organization
     db_session.commit()
     csrf = _login(client, db_session, "operator2-1550@example.com", "OPERATOR", None)
 
@@ -142,7 +147,7 @@ def test_an_organisation_of_another_account_is_refused(client, platform_workspac
     assert refused.status_code == 422
     assert "Kies een organisatie van het eigen account." in refused.text
     db_session.expire_all()
-    assert db_session.get(Organization, brand.id).site_organization_id is None
+    assert db_session.get(Tenant, brand.id).organization_id == brand.id
 
 
 def test_a_tenant_without_a_choice_is_as_before(client, db_session):
@@ -154,7 +159,7 @@ def test_a_tenant_without_a_choice_is_as_before(client, db_session):
 
 def test_onze_organisatie_shows_the_account_read_only(client, db_session):
     account, brand = _brand(db_session)
-    setattr(brand, "site_organization_id", account.id)
+    brand.organization_id = account.id
     db_session.commit()
     csrf = _login(client, db_session, "admin-1550@example.com", "ADMIN", brand.id)
 

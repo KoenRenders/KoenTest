@@ -1,8 +1,7 @@
 """Organisaties on the kit (#1932): the list and the record.
 
-What can break: the five columns, the kind segments and their counts, the
-Status cell that holds only Inactief, the jump link to the account an afdeling
-hangs under, the record's four cards in both modes with every field of the old
+What can break: the three columns (the kind segments and the account above went
+with CR-20), the Status cell that holds only Inactief, the record's four cards in both modes with every field of the old
 form, the head and its Acties, the summary card, and the help texts that said
 what another domain does with a value.
 
@@ -15,7 +14,8 @@ from html.parser import HTMLParser
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
-from app.domains.mdm.api import ALLE_ORGANISATIEVELDEN, Organization, create_account
+from app.domains.mdm.api import ALLE_ORGANISATIEVELDEN, Organization, Tenant, create_organization
+from tests._sites import new_site
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_postal_code
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -32,11 +32,9 @@ def _operator(client, db):
 
 
 def _unit_under(db, account, *, name="Afdeling Zeven", code="zeven-1932"):
-    """An afdeling that hangs under `account`: a row with its kind and parent."""
-    unit = Organization(name=name, code=code, org_type="UNIT", parent_id=account.id)
-    db.add(unit)
-    db.flush()
-    return unit
+    """An afdeling that hangs under `account` (CR-20: a tenant showing a party of
+    its own). Returns the party the tenant shows."""
+    return new_site(db, name=name, code=code, account_id=account.id).organization
 
 
 def _row(html: str, organisation_id: int) -> str:
@@ -51,72 +49,47 @@ def _cell(row: str, cell: str, nth: int = 0) -> str:
 # ── The list ──────────────────────────────────────────────────────────────────
 
 
-def test_the_five_columns_stand_in_their_order(client, platform_workspace, db_session):
+def test_the_three_columns_stand_in_their_order(client, platform_workspace, db_session):
+    """CR-20: the parties only — the kind (Soort) and the account above (Onder)
+    went with the tenant columns of the organisation."""
     _operator(client, db_session)
     html = client.get("/admin/organisaties").text
     heads = re.findall(r"data-column-head[^>]*>(.*?)</th>", html, flags=re.S)
     assert [re.sub(r"<[^>]+>", "", h).strip() for h in heads] == [
         "Organisatie",
-        "Soort",
-        "Onder",
         "Rechtsvorm",
         "Status",
     ]
     first = re.search(r"<tr data-row .*?</tr>", html, flags=re.S).group(0)
-    assert re.findall(r'<td data-cell="(\w+)"', first) == [
-        "name",
-        "context",
-        "extra",
-        "extra",
-        "status",
-    ]
+    assert re.findall(r'<td data-cell="(\w+)"', first) == ["name", "extra", "status"]
+    assert "data-status-filter" not in html, "no kind segments since CR-20"
 
 
-def test_the_segments_filter_on_the_kind_and_carry_their_counts(
+def test_a_tenant_is_no_row_and_the_legal_form_reads_as_its_word(
     client, platform_workspace, db_session
 ):
-    """Broken on purpose: the `o["org_type"] == kind` filter removed → every kind
-    stays in the list and the second assertion fails."""
-    account = create_account(db_session, name="Account Tien", code="tien-1932")
-    unit = _unit_under(db_session, account)
-    db_session.commit()
-    _operator(client, db_session)
-
-    html = client.get("/admin/organisaties").text
-    labels = re.findall(r"data-status-filter.*?</fieldset>", html, flags=re.S)[0]
-    counts = re.findall(r"([A-Za-zé ]+?)\s*<span[^>]*>\((\d+)\)</span>", labels)
-    assert [name.strip() for name, _n in counts][:2] == ["Alle", "Account"]
-    assert int(counts[0][1]) == sum(int(n) for _name, n in counts[1:]), "Alle is the sum"
-
-    only_units = client.get("/admin/organisaties?org_type=UNIT").text
-    assert f'data-organisation="{unit.id}"' in only_units
-    assert f'data-organisation="{account.id}"' not in only_units
-
-
-def test_an_afdeling_carries_its_account_as_a_link_and_an_account_a_dash(
-    client, platform_workspace, db_session
-):
-    account = create_account(db_session, name="Account Elf", code="elf-1932")
-    unit = _unit_under(db_session, account, name="Afdeling Elf", code="afdeling-elf-1932")
+    """CR-20 R3: Organisaties lists organisations only. Broken on purpose: the
+    list read from the tenants as well → the brand's code appears and this fails."""
+    account = create_organization(db_session, name="Account Elf")
+    new_site(db_session, name="Afdeling Elf", code="afdeling-elf-1932", account_id=account.id)
     db_session.commit()
     _operator(client, db_session)
     html = client.get("/admin/organisaties").text
+    assert "afdeling-elf-1932" not in html
+    names = re.findall(r"data-row-link[^>]*>([^<]+)</a>", html)
+    assert "Account Elf" in names and "Afdeling Elf" in names, "the two parties"
 
-    under = _cell(_row(html, unit.id), "extra", 0)
-    assert f'href="/admin/organisaties/{account.id}"' in under and "Account Elf" in under
-    # The legal form column shows the word of the code list, not the member.
-    unit.legal_form = "VZW"
+    account.legal_form = "VZW"
     db_session.commit()
     again = client.get("/admin/organisaties").text
-    assert _cell(_row(again, unit.id), "extra", 1).strip() == "vzw"
-    assert _cell(_row(html, account.id), "extra", 0).strip().endswith("—</span>")
+    assert _cell(_row(again, account.id), "extra", 0).strip() == "vzw"
 
 
 def test_only_an_inactive_organisation_has_a_status_badge(client, platform_workspace, db_session):
     """Broken on purpose: the `if r.inactive` taken out of `_org_kaarten.html` →
     the active row carries a badge too and the first assertion fails."""
-    active = create_account(db_session, name="Actief Twaalf", code="actief-1932")
-    inactive = create_account(db_session, name="Inactief Twaalf", code="inactief-1932")
+    active = create_organization(db_session, name="Actief Twaalf")
+    inactive = create_organization(db_session, name="Inactief Twaalf")
     inactive.is_active = False
     db_session.commit()
     _operator(client, db_session)
@@ -126,33 +99,33 @@ def test_only_an_inactive_organisation_has_a_status_badge(client, platform_works
     assert "Inactief" in _cell(_row(html, inactive.id), "status")
 
 
-def test_search_on_name_and_code_and_sort_by_kind(client, platform_workspace, db_session):
-    account = create_account(db_session, name="Zebra Dertien", code="dertien-1932")
-    _unit_under(db_session, account, name="Alfa Dertien", code="alfa-1932")
+def test_search_on_name_and_sort_by_name(client, platform_workspace, db_session):
+    create_organization(db_session, name="Zebra Dertien")
+    create_organization(db_session, name="Alfa Dertien")
     db_session.commit()
     _operator(client, db_session)
 
     by_name = client.get("/admin/organisaties?q=dertien").text
-    names = re.findall(r"data-row-link[^>]*>([^<]+)</a>", by_name)
-    assert names == ["Alfa Dertien", "Zebra Dertien"], "by name, A to Z"
-    by_code = client.get("/admin/organisaties?q=alfa-1932").text
-    assert re.findall(r"data-row-link[^>]*>([^<]+)</a>", by_code) == ["Alfa Dertien"]
-    by_kind = client.get("/admin/organisaties?q=dertien&sort=soort").text
-    assert re.findall(r"data-row-link[^>]*>([^<]+)</a>", by_kind) == [
+    assert re.findall(r"data-row-link[^>]*>([^<]+)</a>", by_name) == [
+        "Alfa Dertien",
+        "Zebra Dertien",
+    ], "by name, A to Z"
+    turned = client.get("/admin/organisaties?q=dertien&sort=-naam").text
+    assert re.findall(r"data-row-link[^>]*>([^<]+)</a>", turned) == [
         "Zebra Dertien",
         "Alfa Dertien",
-    ], "the account before the unit, then by name"
+    ]
 
 
 def test_the_row_link_carries_the_lists_state_and_the_fragment_its_counts(
     client, platform_workspace, db_session
 ):
-    account = create_account(db_session, name="Account Veertien", code="veertien-1932")
+    account = create_organization(db_session, name="Account Veertien")
     db_session.commit()
     _operator(client, db_session)
-    html = client.get("/admin/organisaties?org_type=ACCOUNT&q=veertien").text
+    html = client.get("/admin/organisaties?q=veertien").text
     link = re.search(rf'href="(/admin/organisaties/{account.id}\?terug=[^"]+)"', html).group(1)
-    assert "org_type%3DACCOUNT" in link and "q%3Dveertien" in link
+    assert "q%3Dveertien" in link
 
     fragment = client.get("/admin/organisaties?q=veertien", headers={"HX-Request": "true"}).text
     assert "<html" not in fragment and "Account Veertien" in fragment
@@ -202,7 +175,7 @@ def _form_of(html: str) -> dict[str, str]:
 @pytest.fixture
 def record(client, platform_workspace, db_session):
     seed_postal_code(db_session)
-    account = create_account(db_session, name="Account Vijftien", code="vijftien-1932")
+    account = create_organization(db_session, name="Account Vijftien")
     unit = _unit_under(db_session, account, name="Afdeling Vijftien", code="afd-vijftien-1932")
     db_session.commit()
     csrf = _operator(client, db_session)
@@ -254,7 +227,7 @@ def test_a_form_posted_as_the_old_screen_posted_it_reads_back_in_read_mode(clien
     # The legal form is read as its word, in the card and in the head (#1932).
     assert "Rechtsvorm:</span> vzw" in read
     head = read[read.index("data-record-head") : read.index("data-form-flow")]
-    assert "vzw" in head and "vijftien-1932" in head
+    assert "vzw" in head
     for shown in (
         "Account Vijftien",
         "014 12 34 56",
@@ -293,20 +266,21 @@ def test_read_mode_puts_each_fact_in_the_cell_of_its_field(client, record):
     assert "<input" not in read.split("data-form-flow", 1)[1], "read mode holds no control"
 
 
-def test_the_head_the_summary_and_the_acties_menu(client, record):
+def test_the_head_the_summary_and_the_acties_menu(client, record, db_session):
     account, unit, _csrf = record
     unit_page = client.get(f"/admin/organisaties/{unit.id}").text
     head = unit_page[unit_page.index("data-record-head") : unit_page.index("data-form-flow")]
-    assert "Afdeling" in head and "afd-vijftien-1932" in head
-    assert f'href="/admin/organisaties/{account.id}"' in head and "Onder Account Vijftien" in head
-    assert f'href="/admin/tenants/{unit.id}"' in head, "Instellingen van de site, for an afdeling"
+    showing = db_session.query(Tenant).filter(Tenant.organization_id == unit.id).one()
+    assert "Afdeling Vijftien" in head
+    assert f'href="/admin/tenants/{showing.id}"' in head, (
+        "Instellingen van de site, of the tenant that shows it (CR-20)"
+    )
     assert "Bewerken" in head and "Actief" in unit_page.split("data-summary-card", 1)[1]
 
     account_page = client.get(f"/admin/organisaties/{account.id}").text
-    assert "/admin/tenants/" not in account_page, "an account runs no site"
+    assert "/admin/tenants/" not in account_page, "no tenant shows the account"
     summary = account_page.split("data-summary-card", 1)[1]
-    for row in ("Soort", "Code", "Onder"):
-        assert f">{row}<" in summary
+    assert ">Rechtsvorm<" in summary
 
 
 def test_an_inactive_organisation_says_so_in_the_summary(client, record, db_session):

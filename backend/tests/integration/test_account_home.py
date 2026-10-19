@@ -24,7 +24,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.mdm import tenant_lookup
-from app.domains.mdm.api import Organization, invalidate_tenant_codes
+from app.domains.mdm.api import invalidate_tenant_codes
 from app.kernel.modules import ModuleCode
 from app.kernel.tenancy import TENANT_MILLEGEM_ID
 from app.kernel.tenant_config import _actieve_tenant
@@ -70,13 +70,9 @@ def test_a_member_lands_on_a_page_named_after_the_site(client, member):
 
 
 def test_the_title_follows_the_sites_own_name(client, db_session, member):
-    organisation = (
-        db_session.query(Organization)
-        .filter(Organization.id == _actieve_tenant(None))
-        .execution_options(include_all_tenants=True)
-        .one()
-    )
-    organisation.site_name = "Voorbeeldafdeling"
+    from app.domains.mdm.api import Tenant
+
+    db_session.get(Tenant, _actieve_tenant(None)).site_name = "Voorbeeldafdeling"
     db_session.commit()
     html = client.get("/mijn").text
     assert re.search(r"<h1 data-page-title[^>]*>\s*Mijn Voorbeeldafdeling\s*</h1>", _main(html))

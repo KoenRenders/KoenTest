@@ -84,22 +84,21 @@ def test_request_krijgt_default_tenant(client, db_session):
 
 
 def test_tenant_codes_dynamisch_uit_organizations(db_session):
-    """#546: de code→id-map komt dynamisch uit de actieve UNIT-organizations, zodat
-    een nieuw aangemaakte tenant zonder codewijziging resolvet."""
+    """#546: de code→id-map komt dynamisch uit de actieve tenants (sinds CR-20
+    `mdm.tenants`), zodat een nieuw aangemaakte tenant zonder codewijziging
+    resolvet."""
     from app.domains.mdm.api import tenant_codes
-    from app.domains.mdm.models import Organization
     from app.kernel.tenancy import resolve_tenant
+    from tests._sites import new_site
 
-    org = Organization(org_type="UNIT", code="raaknieuw", name="Raak Nieuw", is_active=True)
-    db_session.add(org)
-    db_session.flush()
+    org = new_site(db_session, name="Raak Nieuw", code="raaknieuw")
 
     codes = tenant_codes(db=db_session)
     assert codes.get("raaknieuw") == org.id
     # Pad-prefix /raaknieuw/... resolvet nu naar de nieuwe tenant.
     assert resolve_tenant("x", "/raaknieuw/activiteiten", {}, codes) == org.id
 
-    # Een inactieve UNIT verdwijnt uit de map (resolvet niet meer).
+    # Een inactieve tenant verdwijnt uit de map (resolvet niet meer).
     org.is_active = False
     db_session.flush()
     assert "raaknieuw" not in tenant_codes(db=db_session)

@@ -13,7 +13,7 @@ text; the sites say who they are (the accounts with their site names).
 
 Measured on master `63677671` before the repair: two of the nine examples
 were markup — `{{tenants}}` (846 characters, starting `<div hx-boost="false"
-data-tenant-sites>`) and `{{tenants:raak}}` (833) — and the bar's description
+data-tenant-sites>`) and `{{tenants:raak}}` (833, a tenant's code since CR-20) — and the bar's description
 ended "na het streepje". These tests cannot run against that code as they
 stand (they pass the request's session, which `placeholders()` did not take);
 the measurement was taken with the same check, `"<" in preview`, on the old
@@ -29,7 +29,8 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.cms import service
 from app.domains.cms.api import CmsPage
-from app.domains.mdm.api import create_account, create_tenant
+from app.domains.mdm.api import create_organization
+from tests._sites import new_site
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -45,15 +46,13 @@ def _previews(db) -> dict[str, str]:
 def network(db_session):
     """Two accounts next to the seed's own: one with an active and a closed
     site, one with a single site."""
-    first = create_account(db_session, name="Account Vijf", code="vijf-1615")
-    second = create_account(db_session, name="Account Zes", code="zes-1615")
-    create_tenant(db_session, name="Clubhuis", code="clubhuis-1615", parent_id=first.id)
-    create_tenant(db_session, name="Atelier", code="atelier-1615", parent_id=first.id)
-    closed = create_tenant(
-        db_session, name="Gesloten Club", code="gesloten-1615", parent_id=first.id
-    )
+    first = create_organization(db_session, name="Account Vijf")
+    second = create_organization(db_session, name="Account Zes")
+    new_site(db_session, name="Clubhuis", code="clubhuis-1615", account_id=first.id)
+    new_site(db_session, name="Atelier", code="atelier-1615", account_id=first.id)
+    closed = new_site(db_session, name="Gesloten Club", code="gesloten-1615", account_id=first.id)
     closed.is_active = False
-    create_tenant(db_session, name="Werkplaats", code="werkplaats-1615", parent_id=second.id)
+    new_site(db_session, name="Werkplaats", code="werkplaats-1615", account_id=second.id)
     db_session.commit()
 
 
@@ -75,24 +74,25 @@ def test_the_sites_example_names_the_accounts_with_their_sites(db_session, netwo
     assert "Raak Millegem" in groups["Raak"], "the seed's own account and site"
     assert "Gesloten Club" not in everything, "a closed site is no example"
 
-    assert sites_in_words("vijf-1615", db_session) == "Atelier, Clubhuis", (
-        "one account: its sites, no heading"
+    assert sites_in_words("clubhuis-1615", db_session) == "Atelier, Clubhuis", (
+        "one tenant's account: its sites, no heading (CR-20 F10)"
     )
     assert sites_in_words("bestaat-niet", db_session) == ""
-    # The legend's own example code is an account of the seed.
-    one = _previews(db_session)["{{tenants:raak}}"]
+    # The legend's own example code is a tenant of the seed.
+    one = _previews(db_session)["{{tenants:raakmillegem}}"]
     assert "Raak Millegem" in one and ":" not in one
 
 
-def test_an_account_without_a_site_has_no_names_and_the_legend_says_so(db_session, monkeypatch):
-    create_account(db_session, name="Leeg Account", code="leeg-1615")
-    db_session.commit()
+def test_an_unknown_tenant_has_no_names_and_the_legend_says_so(db_session, monkeypatch):
+    """CR-20 F10: the parameter names a tenant; a code no tenant has lists nothing."""
     from app.domains.cms import render
 
-    assert render.sites_in_words("leeg-1615", db_session) == ""
-    # The legend's example account, made empty: the example says so in words.
+    assert render.sites_in_words("geen-tenant-1615", db_session) == ""
+    # The legend's example, made empty: the example says so in words.
     monkeypatch.setattr(render, "sites_in_words", lambda code, db=None: "")
-    assert _previews(db_session)["{{tenants:raak}}"] == "geen sites: dit account heeft er geen"
+    assert (
+        _previews(db_session)["{{tenants:raakmillegem}}"] == "geen sites: dit account heeft er geen"
+    )
 
 
 def test_the_form_buttons_bar_is_called_what_it_is():

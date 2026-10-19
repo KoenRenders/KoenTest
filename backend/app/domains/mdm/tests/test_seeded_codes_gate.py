@@ -38,11 +38,11 @@ def _seed_e2e_codes() -> set[str]:
 
 def test_no_code_the_repository_seeds_equals_a_route(db_session):
     import app.main  # noqa: F401  registers the route table
-    from app.domains.mdm.models import Organization
+    from app.domains.mdm.models import Tenant
     from app.kernel.route_table import colliding
     from app.kernel.tenancy import TENANT_CODES
 
-    migrated = {code for (code,) in db_session.query(Organization.code).all() if code}
+    migrated = {code for (code,) in db_session.query(Tenant.code).all() if code}
     seeded = _seed_e2e_codes()
     assert set(TENANT_CODES) <= migrated, (
         f"the migrations do not seed the fallback codes {sorted(TENANT_CODES)}: "

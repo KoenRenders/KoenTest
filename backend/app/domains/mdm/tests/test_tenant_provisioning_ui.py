@@ -3,7 +3,6 @@ De nieuw aangemaakte UNIT-organization resolvet daarna dynamisch (zonder codewij
 """
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
-from app.domains.mdm.api import OrganizationType
 
 
 def _session(client, email):
@@ -29,19 +28,20 @@ def test_tenants_scherm_operator_only(client, platform_workspace, db_session):
 
 
 def test_operator_maakt_tenant_aan_en_resolvet(client, platform_workspace, db_session):
-    from app.domains.mdm.api import Organization, tenant_codes
+    from app.domains.mdm.api import Tenant, tenant_codes
+    from app.kernel.tenancy import ACCOUNT_RAAK_ID
 
     _user(db_session, "op@example.com", "OPERATOR")
     csrf = _session(client, "op@example.com")
     resp = client.post(
         "/admin/tenants",
-        data={"name": "Raak Teststad", "code": "raakteststad"},
+        data={"site_name": "Raak Teststad", "code": "raakteststad", "account_id": ACCOUNT_RAAK_ID},
         headers={"X-CSRF-Token": csrf},
     )
     assert resp.status_code == 200
     db_session.expire_all()
-    org = db_session.query(Organization).filter(Organization.code == "raakteststad").one()
-    assert org.org_type == OrganizationType.UNIT and org.is_active is True
+    org = db_session.query(Tenant).filter(Tenant.code == "raakteststad").one()
+    assert not org.is_platform and org.is_active is True
     # De dynamische code→id-map bevat de nieuwe tenant → hij resolvet.
     assert tenant_codes(db=db_session).get("raakteststad") == org.id
 
@@ -50,6 +50,8 @@ def test_ongeldige_code_geweigerd(client, platform_workspace, db_session):
     _user(db_session, "op2@example.com", "OPERATOR")
     csrf = _session(client, "op2@example.com")
     resp = client.post(
-        "/admin/tenants", data={"name": "X", "code": "Foute Code!"}, headers={"X-CSRF-Token": csrf}
+        "/admin/tenants",
+        data={"code": "Foute Code!", "account_id": "1"},
+        headers={"X-CSRF-Token": csrf},
     )
     assert resp.status_code == 200 and "geldige code" in resp.text.lower()

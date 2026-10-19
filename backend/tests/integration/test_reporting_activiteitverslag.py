@@ -39,6 +39,16 @@ from app.domains.reporting.api import Selection, run_validated
 TENANT = 8811
 
 
+@pytest.fixture(autouse=True)
+def _the_tenants_exist(db_session):
+    """CR-20: a `tenant_id` has a key to `mdm.tenants` (C6 test 10), so the
+    tenant this file names by number must exist."""
+    from tests._sites import a_tenant_with_id
+
+    for tenant_id in (TENANT,):
+        a_tenant_with_id(db_session, tenant_id)
+
+
 @pytest.fixture
 def activiteit(db_session):
     """Eén activiteit met twee organisatoren, waarvan één niet op de affiche."""

@@ -121,20 +121,36 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="mdm.organization.org_type",
-        columns=("mdm.organizations.org_type",),
-        label=None,
-        name_en="Org type",
-        help="The org type of the organization, a code of its code list.",
+        key="mdm.tenant.code",
+        columns=("mdm.tenants.code",),
+        label="Code",
+        name_en="Code",
+        help="The code of the tenant: its path prefix and the key a host maps to.",
+        ai_exposure=AiExposure.INTERNAL,  # K9
+    ),
+    Attribute(
+        key="mdm.tenant.kind",
+        columns=("mdm.tenants.kind",),
+        label="Type",
+        name_en="Kind",
+        help="The kind of the tenant, a code of its code list.",
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="mdm.organization.code",
-        columns=("mdm.organizations.code",),
-        label="Code",
-        name_en="Code",
-        help="The code of the organization.",
+        key="mdm.tenant.site_name",
+        columns=("mdm.tenants.site_name",),
+        label="Naam van de site",
+        name_en="Site name",
+        help="The name the tenant's site shows, when it differs from its organisation's.",
         ai_exposure=AiExposure.INTERNAL,  # K9
+    ),
+    Attribute(
+        key="mdm.tenant.is_active",
+        columns=("mdm.tenants.is_active",),
+        label=None,
+        name_en="Is active",
+        help="Whether the tenant's site is active.",
+        ai_exposure=AiExposure.INTERNAL,  # K8
     ),
     Attribute(
         key="mdm.organization.name",
@@ -142,14 +158,6 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         label="Naam",
         name_en="Name",
         help="The name of the organization.",
-        ai_exposure=AiExposure.INTERNAL,  # K9
-    ),
-    Attribute(
-        key="mdm.organization.site_name",
-        columns=("mdm.organizations.site_name",),
-        label=None,
-        name_en="Site name",
-        help="The site name of the organization.",
         ai_exposure=AiExposure.INTERNAL,  # K9
     ),
     Attribute(
@@ -166,14 +174,6 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         label=None,
         name_en="Legal form",
         help="The legal form of the organization, a code of its code list.",
-        ai_exposure=AiExposure.INTERNAL,  # K0
-    ),
-    Attribute(
-        key="mdm.organization.kind",
-        columns=("mdm.organizations.kind",),
-        label="Type",
-        name_en="Kind",
-        help="The kind of the organization, a code of its code list.",
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(

@@ -202,8 +202,10 @@ PLACEHOLDER_LABELS = {
     "membership_valid_until": "Het jaar waarin een nieuw lidmaatschap eindigt (bv. 2027)",
     # #1543: a list, not a value — see `_sites_html`. The second takes an account's
     # code after the colon; the colon is the only parameter form there is.
-    "tenants": "De accounts met hun sites, met links (zonder account: onder Overige)",
-    "tenants:raak": "De sites van één account; vervang raak door de code van het account",
+    "tenants": "De accounts met hun sites, met links",
+    "tenants:raakmillegem": (
+        "De sites van het account van één site; vervang raakmillegem door de code van die site"
+    ),
     # #1567: a button to one of this tenant's forms, by its slug; the label after
     # the bar is optional (without it, the form's title).
     "form:berichten": "Een knop naar een formulier; vervang berichten door de slug van het formulier",
@@ -259,31 +261,34 @@ def _values() -> Dict[str, str]:
     }
 
 
-#: `{{tenants}}` and `{{tenants:<account code>}}` (#1543). The colon is the one
+#: `{{tenants}}` and `{{tenants:<tenant code>}}` (#1543). The colon is the one
 #: parameter form the placeholders have; measured before it was added, they had
-#: none — `{{code}}` was a plain replacement from a fixed dict.
+#: none — `{{code}}` was a plain replacement from a fixed dict. Since CR-20 (F10)
+#: the parameter names a tenant and lists the sites of that tenant's account: an
+#: account is a party and has no code; the migration rewrote the stored
+#: `{{tenants:<account code>}}` once.
 _SITES = re.compile(r"\{\{tenants(?::([a-z0-9-]+))?\}\}")
 
 
-def sites_in_words(account_code: Optional[str], db=None) -> str:
+def sites_in_words(tenant_code: Optional[str], db=None) -> str:
     """The same accounts and sites as `_sites_html`, in words (#1615): what the
     editor's legend shows as the example of `{{tenants}}` and `{{tenants:<code>}}`
-    — "Account A: Site 1, Site 2 · Overige: Site 3", or one account's site names.
-    The legend shows words, never the cards' markup."""
+    — "Account A: Site 1, Site 2 · Overige: Site 3", or the site names of one
+    tenant's account. The legend shows words, never the cards' markup."""
     parts = []
-    for group in _site_groups(account_code, db):
+    for group in _site_groups(tenant_code, db):
         names = ", ".join(site["name"] for site in group["sites"])
         parts.append(f"{group['heading']}: {names}" if group["heading"] else names)
     return " · ".join(part for part in parts if part)
 
 
-def _sites_html(account_code: Optional[str], db=None) -> str:
+def _sites_html(tenant_code: Optional[str], db=None) -> str:
     """The accounts with their active sites, each site a card (#1543, #1566).
 
     Without a code: every active account with a heading, and "Overige" last for
-    the tenants without one, as the landing of #1525 listed them. With a code:
-    that account's sites only, without a heading; an unknown or inactive code
-    renders nothing. The platform appears under its account when it has one
+    the tenants whose account is inactive, as the landing of #1525 listed them.
+    With a tenant's code: the sites of that tenant's account only, without a
+    heading; an unknown code renders nothing. The platform appears under its account when it has one
     (#1542). The HTML comes from `_tenant_sites.html` (the card is the kit's
     `site_card`), where Jinja escapes names and addresses; it is placed AFTER
     the sanitiser: it is built in code, not typed by an author, and it carries
@@ -298,18 +303,19 @@ def _sites_html(account_code: Optional[str], db=None) -> str:
     """
     from app.ui import templates
 
-    groups = _site_groups(account_code, db)
+    groups = _site_groups(tenant_code, db)
     if not groups:
         return ""
     return templates.env.get_template("_tenant_sites.html").render(groups=groups).strip()
 
 
-def _site_groups(account_code: Optional[str], db=None) -> list[dict]:
+def _site_groups(tenant_code: Optional[str], db=None) -> list[dict]:
     """What the sites placeholder lists, as data: per account its heading (None
-    for one account asked by code) and its sites by name and address. One reader
-    for the cards (`_sites_html`) and for the legend's words (`sites_in_words`)."""
+    for the one account asked by a tenant's code) and its sites by name and
+    address. One reader for the cards (`_sites_html`) and for the legend's words
+    (`sites_in_words`)."""
     from app.database import SessionLocal
-    from app.domains.mdm.api import OrganizationType, active_sites_by_account
+    from app.domains.mdm.api import active_sites_by_account, tenant_by_code
     from app.i18n import _
     from app.kernel.tenant_config import platform_home_url, tenant_display_name, tenant_home_url
 
@@ -318,19 +324,22 @@ def _site_groups(account_code: Optional[str], db=None) -> list[dict]:
         db = SessionLocal()
     try:
         groups = []
+        asked = tenant_by_code(db, tenant_code) if tenant_code is not None else None
+        if tenant_code is not None and asked is None:
+            return []
         for account, sites in active_sites_by_account(db):
-            if account_code is not None and (account is None or account.code != account_code):
+            if asked is not None and (account is None or account.id != asked.account_id):
                 continue
             links = sorted(
                 (
                     tenant_display_name(db, tenant_id=s.id),
                     platform_home_url(db, s.id)
-                    if s.org_type is OrganizationType.PLATFORM
+                    if s.is_platform
                     else tenant_home_url(db, tenant_id=s.id, code=s.code),
                 )
                 for s in sites
             )
-            heading = None if account_code else (account.name if account else _("Overige"))
+            heading = None if tenant_code else (account.name if account else _("Overige"))
             groups.append(
                 {"heading": heading, "sites": [{"name": name, "url": url} for name, url in links]}
             )

@@ -99,15 +99,14 @@ def _set(brand, accent):
 def _company_home() -> str | None:
     import app.models  # noqa: F401
     from app.database import SessionLocal
-    from app.domains.mdm.api import Organization, TenantKind
+    from app.domains.mdm.api import Tenant, TenantKind
 
     db = SessionLocal()
     try:
         company = (
-            db.query(Organization.code)
-            .filter(Organization.kind == TenantKind.COMPANY, Organization.is_active.is_(True))
-            .execution_options(include_all_tenants=True)
-            .order_by(Organization.id.desc())
+            db.query(Tenant.code)
+            .filter(Tenant.kind == TenantKind.COMPANY, Tenant.is_active.is_(True))
+            .order_by(Tenant.id.desc())
             .first()
         )
     finally:

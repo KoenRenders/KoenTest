@@ -94,7 +94,7 @@ def _person(db, voornaam: str, achternaam: str, email: str | None = None) -> Per
 def _in_circle(db, person: Person) -> OrganizationPerson:
     organization = db.query(Organization).first()
     if organization is None:
-        organization = Organization(name="Raak Millegem", code="raakmillegem")
+        organization = Organization(name="Raak Millegem")
         db.add(organization)
         db.flush()
     relation = OrganizationPerson(
@@ -1337,7 +1337,7 @@ def _organisatie(db):
 
     org = db.query(Organization).first()
     if org is None:
-        org = Organization(name="Raak Millegem", code="raakmillegem")
+        org = Organization(name="Raak Millegem")
         db.add(org)
         db.flush()
     return org
