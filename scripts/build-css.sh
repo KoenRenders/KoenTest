@@ -940,6 +940,9 @@ body[data-shell="site"]{overflow-x:clip}
 .de-section-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:.75rem;font-size:.875rem}
 .de-section-bar select,.de-section-bar input{min-height:36px;padding:0 .5rem;border:1px solid rgb(var(--c-line));border-radius:6px;background:rgb(var(--c-surface));color:rgb(var(--c-ink))}
 .de-section-eyebrow{flex:1 1 12rem;min-width:0}
+.de-section-remove{min-height:36px;padding:0 .75rem;border:1px solid rgb(var(--c-line));border-radius:6px;background:rgb(var(--c-surface));color:rgb(var(--c-ink));cursor:pointer}
+.de-section-remove:hover{background:rgb(var(--c-surface-2))}
+.de-section-remove:focus-visible{outline:2px solid rgb(var(--c-blue-600));outline-offset:2px}
 .prose-hero-lead{margin:1rem 0 0;max-width:768px;font-size:1.25rem;line-height:1.5}
 .prose-hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:1.5rem}
 /* The buttons are the button block's own (`.prose-raak a.prose-button`), so the
