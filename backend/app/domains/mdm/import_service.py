@@ -65,7 +65,7 @@ from app.domains.mdm.history import (
 )
 from app.domains.mdm.models import EmailAddressInvalid, require_email_address
 from app.domains.mdm.service import email_refusal
-from app.domains.membership.api import has_membership_for_year
+from app.domains.membership.api import has_membership_for_year, member_at_another_tenant
 from app.kernel.codes import code_of
 from app.kernel.contracts.mdm import BoardMemberReported, MembershipReported
 from app.kernel.events import KernelEvent, has_subscribers, publish
@@ -117,6 +117,9 @@ class ImportReport:
     persons_added: int = 0
     persons_updated: int = 0
     persons_removed: int = 0
+    #: Persons the report leaves out of a household that is still a member at
+    #: another department: kept, with a warning each (CR-26).
+    persons_kept_elsewhere: int = 0
     persons_revived: int = 0
     memberships_created: int = 0
     admins_created: int = 0
@@ -185,6 +188,7 @@ class ImportReport:
             "persons_added": self.persons_added,
             "persons_updated": self.persons_updated,
             "persons_removed": self.persons_removed,
+            "persons_kept_elsewhere": self.persons_kept_elsewhere,
             "persons_revived": self.persons_revived,
             "memberships_created": self.memberships_created,
             "admins_created": self.admins_created,
@@ -1025,6 +1029,11 @@ def _sync_family(
     # Verwijder personen die niet (meer) in de adresgroep van het rapport staan
     # (enkel bij een bestaand gezin; een nieuw gezin heeft nog geen leden).
     if not is_new:
+        # CR-26: a household is the account's. While it is still a member at
+        # another department, this department's report does not speak for it, and
+        # whoever it leaves out stays — and is reported (Koen, 19 October 2026, to
+        # what one department's import may do with a shared household: "b").
+        elsewhere = member_at_another_tenant(db, member.id, IMPORT_YEAR)
         for mp in list(member.member_persons):
             if mp.person_id in processed_person_ids:
                 continue
@@ -1034,6 +1043,14 @@ def _sync_family(
             # here as well, the link was deleted twice: two history rows and
             # "expected to delete 1 row(s); 0 were matched".
             if lidnr in desired_lidnrs or lidnr in report_lidnrs:
+                continue
+            if elsewhere:
+                report.persons_kept_elsewhere += 1
+                report.warn(
+                    f"Gezin #{member.id}: {mp.person.first_name} {mp.person.last_name} "
+                    f"staat niet in het rapport en blijft in het gezin — "
+                    f"het gezin is nog lid bij een andere afdeling."
+                )
                 continue
             report.persons_removed += 1
             # #1687: the member number when the person has one, and no "#?" when not.

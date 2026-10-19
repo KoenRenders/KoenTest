@@ -415,3 +415,92 @@ def test_the_import_links_a_member_of_another_department_by_e_mail(db_session):
         .filter(Membership.member_id == household.id)
     }
     assert tenants == {TENANT_MILLEGEM_ID, TENANT_VOORBEELD_ID}
+
+
+def _shared_household(db, millegem_year: int):
+    """A household of Millegem with two persons — a main member the
+    Voorbeeldafdeling's report will list, and a child only Millegem knows — and an
+    active membership at Millegem for `millegem_year`."""
+    with _At(TENANT_MILLEGEM_ID):
+        household, main = create_test_family(db, email="gedeeld@example.org")
+        main.first_name, main.last_name = "Gedeeld", "Lid"
+        child = create_test_person(db)
+        child.first_name, child.last_name = "Enkel", "Millegem"
+        db.add(MemberPerson(member_id=household.id, person_id=child.id, relation_type="KIND"))
+        at_tenant(db, household, TENANT_MILLEGEM_ID, year=millegem_year).is_active = True
+        db.commit()
+    return household, child
+
+
+def _report_of_the_main_member_only():
+    return [
+        [
+            {
+                "lidnr": "88002",
+                "voornaam": "Gedeeld",
+                "naam": "Lid",
+                "straat": "Kerkstraat",
+                "huisnummer": "1",
+                "busnummer": "",
+                "postcode": "2400",
+                "gemeente": "Mol",
+                "email": "gedeeld@example.org",
+                "telefoon": None,
+                "gsm": None,
+                "geboortedatum": None,
+                "geslacht": None,
+                "bestuurslid": None,
+                "_relatie": "HOOFDLID",
+            }
+        ]
+    ]
+
+
+def _members_of(db, household_id: int) -> set[int]:
+    return {
+        mp.person_id
+        for mp in db.query(MemberPerson)
+        .execution_options(include_all_tenants=True)
+        .filter(MemberPerson.member_id == household_id)
+    }
+
+
+def test_the_import_keeps_whom_another_department_still_counts(db_session):
+    """The Voorbeeldafdeling's report links the main member of a household that is
+    still a member at Millegem, and leaves out the child: the child stays, in the
+    dry run as in the run, and each names it once with the count (Koen, 19 October
+    2026: "b").
+
+    Proven red, additively: `elsewhere = False` added after the call of
+    `member_at_another_tenant` in `_sync_family` → the dry run counts the child
+    as removed, and the run takes it out of the household.
+    """
+    from app.domains.mdm.import_service import IMPORT_YEAR, upsert_families
+    from tests.conftest import seed_postal_code
+
+    seed_postal_code(db_session)
+    household, child = _shared_household(db_session, IMPORT_YEAR)
+    with _At(TENANT_VOORBEELD_ID):
+        dry = upsert_families(db_session, _report_of_the_main_member_only(), {}, [], apply=False)
+        run = upsert_families(db_session, _report_of_the_main_member_only(), {}, [], apply=True)
+        db_session.commit()
+    for report in (dry, run):
+        assert (report.persons_removed, report.persons_kept_elsewhere) == (0, 1)
+        assert [w for w in report.warnings if "Enkel Millegem" in w], report.warnings
+        assert not [line for line in report.lines if "verwijderd" in line], report.lines
+    assert child.id in _members_of(db_session, household.id)
+
+
+def test_the_import_removes_whom_no_other_department_counts_any_more(db_session):
+    """The same report, but Millegem's membership is of an earlier year: no other
+    department counts the household now, so the child leaves it, as before."""
+    from app.domains.mdm.import_service import IMPORT_YEAR, upsert_families
+    from tests.conftest import seed_postal_code
+
+    seed_postal_code(db_session)
+    household, child = _shared_household(db_session, IMPORT_YEAR - 1)
+    with _At(TENANT_VOORBEELD_ID):
+        report = upsert_families(db_session, _report_of_the_main_member_only(), {}, [], apply=True)
+        db_session.commit()
+    assert (report.persons_removed, report.persons_kept_elsewhere) == (1, 0)
+    assert child.id not in _members_of(db_session, household.id)
