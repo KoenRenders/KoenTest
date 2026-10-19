@@ -673,6 +673,7 @@ def test_an_emptied_description_field_stays_empty_on_the_screen(
         "preset": code_of(design.preset),
         "layout": "print_a",
         "explanation_md": "",
+        "blijven": "1",  # "Bewaren en voorbeeld vernieuwen": the answer is the editor again
     }
     page = client.post(
         f"/admin/ontwerpen/{design.id}", data=data, headers={"X-CSRF-Token": csrf_token_for(sess)}
@@ -803,9 +804,11 @@ def test_the_screens_sit_behind_the_admin_door(client):
         assert response.status_code in (302, 303, 401, 403), path
 
 
-def test_a_refused_save_shows_what_was_typed(client, db_session, design):
-    """Round 5: a wrong icon in one row must not cost the other rows and the
-    subtitle the person just typed."""
+def test_a_refused_save_answers_the_reason_alone_and_saves_nothing(client, db_session, design):
+    """Round 5: a wrong icon in one row must not cost the other rows and the subtitle the
+    person just typed. Since #2120 the form is a record form: the refusal is the banner alone
+    (`refusal_response`, swapped into the message line), so the form keeps what was typed; the
+    browser test walks that (`test_design_record_2120`). Here: the reason, and nothing saved."""
     from app.domains.auth.api import csrf_token_for
 
     sess = make_session_value(SEEDED_ADMIN_EMAIL)
@@ -821,10 +824,13 @@ def test_a_refused_save_shows_what_was_typed(client, db_session, design):
         "hl_text_1": "Fout",
     }
     page = client.post(
-        f"/admin/ontwerpen/{design.id}", data=data, headers={"X-CSRF-Token": csrf_token_for(sess)}
+        f"/admin/ontwerpen/{design.id}",
+        data=data,
+        headers={"X-CSRF-Token": csrf_token_for(sess), "HX-Request": "true"},
     )
-    assert page.status_code == 200 and "Onbekend icoon" in page.text
-    assert 'value="net getypt"' in page.text and 'value="Eerste kernpunt net getypt"' in page.text
+    assert page.status_code == 422 and "Onbekend icoon" in page.text
+    assert "data-save-refusal" in page.text and "<html" not in page.text.lower()
+    assert page.headers["HX-Retarget"] == "#ds-melding"
     db_session.refresh(design)
     assert design.subtitle == "samen wandelen"  # nothing saved
 
@@ -833,9 +839,13 @@ def test_the_list_and_the_editor_render_for_an_admin(client, db_session, design)
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     page = client.get("/admin/ontwerpen")
     assert page.status_code == 200 and "Stappen en Klappen" in page.text
-    editor = client.get(f"/admin/ontwerpen/{design.id}")
+    editor = client.get(f"/admin/ontwerpen/{design.id}?bewerken=1")
     assert editor.status_code == 200
     assert "Miloheem" in editor.text and 'name="hl_text_0"' in editor.text
+    read = client.get(f"/admin/ontwerpen/{design.id}")
+    assert (
+        read.status_code == 200 and "Miloheem" in read.text and 'name="hl_text_0"' not in read.text
+    )
     variants = client.get(f"/admin/ontwerpen/{design.id}/varianten", headers={"X-Raak-Filter": "1"})
     assert (
         variants.status_code == 200
@@ -850,33 +860,22 @@ def test_the_list_and_the_editor_render_for_an_admin(client, db_session, design)
 def test_annuleren_brengt_de_bewaarde_waarde_terug(client, db_session, design):
     """#1089: the cancel button had no destination and did nothing.
 
-    The behaviour, not the button: type something, follow "Annuleren", and the
-    screen shows what is saved again — not what was typed.
+    The behaviour, not the button: the editor's "Annuleren" leads to this design, read — what
+    is saved, not what was typed (#2120: the editor opens from Bewerken, so Annuleren is the
+    way back to reading).
     """
     import re as _re
 
-    from app.domains.auth.api import csrf_token_for
-
     sess = make_session_value(SEEDED_ADMIN_EMAIL)
     client.cookies.set(SESSION_COOKIE, sess)
-    data = {
-        "duo_code": design.duo_code,
-        "preset": "beeld",
-        "subtitle": "net getypt",
-        "layout": "print_a",
-        "hl_icon_0": "no-such-icon",
-        "hl_text_0": "Fout",
-    }
-    typed = client.post(
-        f"/admin/ontwerpen/{design.id}", data=data, headers={"X-CSRF-Token": csrf_token_for(sess)}
+    editor = client.get(f"/admin/ontwerpen/{design.id}?bewerken=1")
+    hrefs = _re.findall(r'href="([^"]+)"[^>]*data-form-cancel', editor.text) or _re.findall(
+        r'<a href="([^"]+)" data-form-cancel', editor.text
     )
-    assert 'value="net getypt"' in typed.text
-
-    hrefs = _re.findall(r'href="([^"]+)"[^>]*>\s*Annuleren', typed.text)
     assert hrefs, "Annuleren heeft geen bestemming — hij doet dan niets (#1089)"
-    back = client.get(hrefs[0])
+    back = client.get(hrefs[0].replace("&amp;", "&"))
     assert back.status_code == 200
-    assert 'value="samen wandelen"' in back.text and "net getypt" not in back.text
+    assert "samen wandelen" in back.text and 'name="subtitle"' not in back.text
 
 
 def test_a_stored_number_reads_in_groups_on_the_poster(db_session, design, activity):

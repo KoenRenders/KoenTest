@@ -1,0 +1,12 @@
+{% import "_macros.html" as ui %}
+{# The card Foto toevoegen (#2120): its own form and its own button — it uploads. #}
+{# ── Upload a photo ── #}
+<form method="post" action="/admin/ontwerpen/{{ design_id }}/afbeelding" enctype="multipart/form-data" class="form-flow">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="layout" value="{{ layout }}">
+  {% call ui.section(_("Foto toevoegen")) %}
+    <div data-span="half" class="min-w-0 [&_input]:max-w-full">{{ ui.upload_field(name="file", text=_("Bestand"), accept="image/*", hint=_("Wordt bewaard tot 2 400 px aan de lange zijde; genoeg voor een A3-affiche.")) }}</div>
+    {{ ui.field("slot", _("Plaats"), kind="select", value="main_image_id", options=slot_options) }}
+    <div data-span="full">{{ ui.btn_secondary(_("Uploaden"), type="submit", size="sm", lead_icon="upload") }}</div>
+  {% endcall %}
+</form>

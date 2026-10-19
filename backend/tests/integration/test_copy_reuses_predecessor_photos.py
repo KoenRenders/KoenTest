@@ -83,7 +83,7 @@ def test_the_copied_design_offers_the_source_photos_selected_and_nothing_is_copi
 
     db_session.expire_all()
     design = db_session.query(Design).filter(Design.activity_id == copy_id).one()
-    html = client.get(f"/admin/ontwerpen/{design.id}").text
+    html = client.get(f"/admin/ontwerpen/{design.id}?bewerken=1").text
 
     # #1473: the slots are pickers — each holds its choice in a hidden field,
     # and the picker's first group is the source's photos, under its name.

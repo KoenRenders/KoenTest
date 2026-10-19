@@ -193,11 +193,11 @@ def test_the_opened_menu_starts_with_who_is_signed_in(client, db_session):
 # by `ui.record_header`, and `test_record_header_gate.py` pins that the head is
 # the first thing they render. The page screen joined them in CR-17 slice 3
 # (#1671): her way back is the head's `back` too — the head partial is the whole
-# of #main there, because a refused save swaps her back in whole.
+# of #main there, because a refused save swaps her back in whole. The Design Studio's
+# design left it with #2120: its way back is the head's `back` too.
 RECORD_PAGES = [
     "domains/activities/templates/_insch_recordkop.html",
     "domains/forms/templates/_fb_recordkop.html",
-    "domains/designstudio/templates/admin_ontwerp.html",
     "domains/reporting/templates/admin_rapport_paneel.html",
 ]
 

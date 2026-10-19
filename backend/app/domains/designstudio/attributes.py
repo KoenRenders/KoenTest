@@ -35,7 +35,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="designstudio.design.preset",
         columns=("designstudio.designs.preset",),
-        label=None,
+        label="Opmaak",
         name_en="Preset",
         help="The preset of the design, a code of its code list.",
         ai_exposure=AiExposure.INTERNAL,  # K0
@@ -43,7 +43,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="designstudio.design.duo_code",
         columns=("designstudio.designs.duo_code",),
-        label=None,
+        label="Kleurenduo",
         name_en="Duo code",
         help="The duo code of the design.",
         ai_exposure=AiExposure.INTERNAL,  # K8
@@ -59,7 +59,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="designstudio.design.poster_title",
         columns=("designstudio.designs.poster_title",),
-        label=None,
+        label="Titel op de affiche",
         name_en="Poster title",
         help="The poster title of the design.",
         ai_exposure=AiExposure.INTERNAL,  # K9
@@ -67,7 +67,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="designstudio.design.tagline",
         columns=("designstudio.designs.tagline",),
-        label=None,
+        label="Handgeschreven lijn",
         name_en="Tagline",
         help="The tagline of the design.",
         ai_exposure=AiExposure.INTERNAL,  # K9
@@ -75,7 +75,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="designstudio.design.subtitle",
         columns=("designstudio.designs.subtitle",),
-        label=None,
+        label="Balk onder de titel",
         name_en="Subtitle",
         help="The subtitle of the design.",
         ai_exposure=AiExposure.INTERNAL,  # K9
@@ -83,7 +83,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="designstudio.design.explanation_md",
         columns=("designstudio.designs.explanation_md",),
-        label=None,
+        label="Omschrijving anders",
         name_en="Explanation md",
         help="The explanation md of the design.",
         ai_exposure=AiExposure.INTERNAL,  # K9
@@ -99,7 +99,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="designstudio.design.main_focus_x",
         columns=("designstudio.designs.main_focus_x",),
-        label=None,
+        label="Brandpunt links–rechts",
         name_en="Main focus x",
         help="The main focus x of the design.",
         ai_exposure=AiExposure.INTERNAL,  # K8
@@ -107,7 +107,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="designstudio.design.main_focus_y",
         columns=("designstudio.designs.main_focus_y",),
-        label=None,
+        label="Brandpunt boven–onder",
         name_en="Main focus y",
         help="The main focus y of the design.",
         ai_exposure=AiExposure.INTERNAL,  # K8
@@ -123,7 +123,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="designstudio.design.inset_corner",
         columns=("designstudio.designs.inset_corner",),
-        label=None,
+        label="Polaroid op de foto",
         name_en="Inset corner",
         help="The inset corner of the design, a code of its code list.",
         ai_exposure=AiExposure.INTERNAL,  # K0
@@ -163,7 +163,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="designstudio.design_highlight.icon_code",
         columns=("designstudio.design_highlights.icon_code",),
-        label=None,
+        label="Icoon",
         name_en="Icon code",
         help="The icon code of the design highlight.",
         ai_exposure=AiExposure.INTERNAL,  # K8
@@ -171,7 +171,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="designstudio.design_highlight.text",
         columns=("designstudio.design_highlights.text",),
-        label=None,
+        label="Tekst van het kernpunt",
         name_en="Text",
         help="The text of the design highlight.",
         ai_exposure=AiExposure.INTERNAL,  # K7
@@ -187,7 +187,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="designstudio.design_logo.media_asset_id",
         columns=("designstudio.design_logos.media_asset_id",),
-        label=None,
+        label="Logostrook",
         name_en="Media asset id",
         help="The media asset id of the design logo.",
         ai_exposure=AiExposure.INTERNAL,  # K8

@@ -7,7 +7,7 @@
     {% if code == layout %}
       {{ ui.btn_primary(label, type="button", size="sm", attrs='disabled') }}
     {% else %}
-      {{ ui.btn_secondary(label, href="/admin/ontwerpen/" ~ design_id ~ "?layout=" ~ code, size="sm") }}
+      {{ ui.btn_secondary(label, href="/admin/ontwerpen/" ~ design_id ~ "?layout=" ~ code ~ ("&bewerken=1" if editing else ""), size="sm") }}
     {% endif %}
   {% endfor %}
   {% if layout in edited_layouts %}{{ ui.badge(_("Handmatig bewerkt"), "yellow") }}{% endif %}

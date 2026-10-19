@@ -2746,7 +2746,8 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    `form` koppelt de Opslaan-submit aan een formulier elders in het vlak
    (HTML `form=`-attribuut): het cluster staat in de kop, het formulier
    eronder. Binnen een formulier (aanmaakvlakken) mag `form` weg. #}
-{% macro action_bar(save_label=None, form=None, save_attrs="", cancel_attrs="", cancel_href=None, delete_attrs="", delete_label=None, delete_confirm=None, cls="", record=False, delete_title=None, delete_refused=None, delete_refused_title=None, send=False, busy_label=None, save_label_attrs="") -%}
+{% macro action_bar(save_label=None, form=None, save_attrs="", cancel_attrs="", cancel_href=None, delete_attrs="", delete_label=None, delete_confirm=None, cls="", record=False, delete_title=None, delete_refused=None, delete_refused_title=None, send=False, busy_label=None, save_label_attrs="",
+                      extra_label=None, extra_name="", extra_value="1", extra_busy_label=None) -%}
 {% if record %}
 {# CR-11 block 9 (#1561, §3.6): the bar of a record form. One per screen, under
    the form's last section, only in edit mode: 64 px, as wide as the form
@@ -2764,7 +2765,15 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    what is running ("Inschrijven…"), and a failure reads "Verzenden is niet
    gelukt." `save_label_attrs` lets the page follow a choice with the label
    (the payment method). A record's save stays "Opslaan": only a `send` bar
-   takes a label of its own (`test_record_form_gate.py`). #}
+   takes a label of its own (`test_record_form_gate.py`).
+
+   `extra_label` (#2120): an optional second save between Annuleren and Opslaan,
+   for a record whose save has a second way — the Design Studio's "Bewaren en
+   voorbeeld vernieuwen" saves and stays in edit, Opslaan saves and returns to
+   read. It submits the same form; `extra_name` / `extra_value` tell the route
+   which of the two was pressed. It takes the states of the first
+   (`record-form.js`) and, on a phone, a line of its own under Opslaan.
+   Without it the bar renders as it always did. #}
 <div data-action-bar class="record-bar{% if cls %} {{ cls }}{% endif %}"
      {% if send %}data-send{% endif %}
      data-discard-title="{{ _('Wijzigingen weggooien?') }}" data-discard-text="{{ _('Wat je invulde, gaat verloren.') if send else _('Wat je sinds de laatste opslag wijzigde, gaat verloren.') }}"
@@ -2781,6 +2790,12 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
           {% if delete_title %}data-confirm-title="{{ delete_title }}"{% endif %} {{ delete_attrs|safe }}>{{ delete_label or _("Verwijderen") }}</button>
   {% endif %}
   <a href="{{ cancel_href }}" data-form-cancel class="{{ btn_class('text', 'sm') }} record-bar-cancel" {{ cancel_attrs|safe }}>{{ _("Annuleren") }}</a>
+  {%- if extra_label %}
+  <button type="submit" data-form-save-extra class="{{ btn_class('secondary', 'sm') }} record-bar-extra"{% if form %} form="{{ form }}"{% endif %}{% if extra_name %} name="{{ extra_name }}" value="{{ extra_value }}"{% endif %}>
+    <span data-save-idle>{{ extra_label }}</span>
+    <span data-save-busy hidden class="inline-flex items-center gap-2"><span class="record-spinner" aria-hidden="true"></span>{{ extra_busy_label or (extra_label ~ "…") }}</span>
+  </button>
+  {%- endif %}
   <button type="submit" data-form-save class="{{ btn_class('primary', 'sm') }} record-bar-save"{% if form %} form="{{ form }}"{% endif %} {{ save_attrs|safe }}>
     <span data-save-idle{% if save_label_attrs %} {{ save_label_attrs|safe }}{% endif %}>{{ save_label or (_("Verzenden") if send else _("Opslaan")) }}</span>
     <span data-save-busy hidden class="inline-flex items-center gap-2"><span class="record-spinner" aria-hidden="true"></span>{{ busy_label or (_("Verzenden…") if send else _("Opslaan…")) }}</span>

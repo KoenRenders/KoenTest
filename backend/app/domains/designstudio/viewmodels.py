@@ -125,9 +125,6 @@ class DesignEditorView(ViewModel):
     design_id: int
     activity_id: int
     activity_name: str
-    status: str
-    status_label: str
-    status_tone: str
 
     # Form values, flat strings as the form posts them.
     preset: str
@@ -164,7 +161,6 @@ class DesignEditorView(ViewModel):
 
     # Facts shown read-only, from the activity.
     facts: list[tuple[str, str]]
-    facts_href: str
 
     # Preview and checks
     preview_url: str
@@ -192,6 +188,22 @@ class DesignEditorView(ViewModel):
     style_options: list[tuple[str, str]]
     style_texts: dict[str, str]  # what the model is told per style, shown so nobody guesses
     ai_pending: bool  # variants still under way → the grid polls
+
+    # The record page (#2120): read first, Bewerken opens the form.
+    editing: bool
+    badges: list[dict[str, str]]
+    head_facts: list[dict[str, str]]
+    primary: Optional[dict[str, str]]
+    actions: list[dict[str, Any]]
+    way_back: dict[str, str]
+    #: Where Annuleren goes: this design, read.
+    record_url: str
+    #: The question of Verwijderen, in the bar of the form.
+    delete_confirm: str
+    #: The logos as the checkbox group's (id, label) choices.
+    logo_choices: list[tuple[int, str]]
+    #: The slots a photo can be uploaded to, as (code, label).
+    slot_options: list[tuple[str, str]]
 
     csrf_token: str
     error: Optional[str] = None

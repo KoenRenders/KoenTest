@@ -135,7 +135,7 @@ def test_the_editor_offers_the_field_with_the_name_as_placeholder(client, db_ses
         assert found, "the editor has no poster title field"
         return found.group(0)
 
-    empty = field(client.get(f"/admin/ontwerpen/{design.id}").text)
+    empty = field(client.get(f"/admin/ontwerpen/{design.id}?bewerken=1").text)
     assert f'placeholder="{NAME}"' in empty and "value=" not in empty
 
     saved = client.post(
@@ -145,6 +145,7 @@ def test_the_editor_offers_the_field_with_the_name_as_placeholder(client, db_ses
             "preset": code_of(design.preset),
             "layout": "print_a",
             "poster_title": "Stappen en klappen",
+            "blijven": "1",
         },
         headers={"X-CSRF-Token": csrf_token_for(session)},
     )

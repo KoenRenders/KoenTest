@@ -16,7 +16,6 @@ confirmation.
 from __future__ import annotations
 
 import logging
-from dataclasses import replace
 from typing import Optional
 
 from fastapi import (
@@ -94,7 +93,16 @@ from app.domains.designstudio.viewmodels import (
 from app.i18n import _, short_date, short_datetime
 from app.kernel.clock import belgian_today
 from app.kernel.codes import code_label, code_labels, code_of, register_tones, tone
-from app.ui import admin_nav, filterparams, is_fragment_request, templates
+from app.kernel.refusals import FieldError
+from app.ui import (
+    admin_nav,
+    delete_question,
+    filterparams,
+    is_fragment_request,
+    record_frame,
+    refusal_response,
+    templates,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -385,39 +393,6 @@ def _facts_rows(facts: dict) -> list[tuple[str, str]]:
     return rows
 
 
-def _typed_over(
-    view: DesignEditorView,
-    values: dict,
-    highlights: list[tuple[str, str, bool]],
-    logo_ids: list[int],
-) -> DesignEditorView:
-    """After a refused save the form shows what was typed, not what was
-    saved — otherwise a wrong icon in row six costs the other five rows."""
-
-    def num(key: str) -> Optional[int]:
-        raw = (values.get(key) or "").strip()
-        return int(raw) if raw.isdigit() else None
-
-    return replace(
-        view,
-        duo_code=values.get("duo_code", view.duo_code),
-        preset=values.get("preset", view.preset),
-        poster_title=values.get("poster_title", view.poster_title),
-        tagline=values.get("tagline", view.tagline),
-        subtitle=values.get("subtitle", view.subtitle),
-        explanation_md=values.get("explanation_md", view.explanation_md),
-        explanation_is_own=bool(values.get("explanation_md", view.explanation_md).strip()),
-        highlights=[HighlightRow(icon=i, text=t, emphasis=e) for i, t, e in highlights],
-        logo_ids=logo_ids,
-        main_image_id=num("main_image_id"),
-        inset_image_id=num("inset_image_id"),
-        third_image_id=num("third_image_id"),
-        main_focus_x=values.get("main_focus_x", view.main_focus_x),
-        main_focus_y=values.get("main_focus_y", view.main_focus_y),
-        inset_corner=values.get("inset_corner", view.inset_corner),
-    )
-
-
 def _editor_view(
     request: Request,
     db: Session,
@@ -429,6 +404,7 @@ def _editor_view(
     violations: Optional[list[str]] = None,
     ai_prompt: str = "",
     ai_style: str = "lijn",
+    editing: bool = False,
 ) -> DesignEditorView:
     try:
         chosen = Layout(layout)
@@ -503,13 +479,69 @@ def _editor_view(
     while len(highlights) < MAX_HIGHLIGHTS:
         highlights.append(HighlightRow(icon="smile", text="", emphasis=False))
     ai = budget(db)
+    base = f"/admin/ontwerpen/{design.id}"
+    name = facts["title"]
+    preset_label = code_label(PRESET.name, design.preset, db=db)
+    head_facts = [
+        {
+            "text": _("Activiteit"),
+            "href": f"/admin/activiteiten/{design.activity_id}",
+            "kind": "reference",
+        },
+        {"text": _("Opmaak: %(l)s") % {"l": preset_label}},
+    ]
+    if versions:
+        head_facts.append(
+            {
+                "text": _("1 versie")
+                if len(versions) == 1
+                else _("%(n)s versies") % {"n": len(versions)}
+            }
+        )
+    view_url = f"{base}?layout={chosen.value}"
     return DesignEditorView(
+        editing=editing,
+        badges=[
+            {
+                "label": code_label(DESIGN_STATUS.name, design.status, db=db),
+                "tone": tone(DESIGN_STATUS.name, design.status),
+            }
+        ],
+        head_facts=head_facts,
+        primary=None if editing else {"label": _("Bewerken"), "href": f"{view_url}&bewerken=1"},
+        actions=[
+            {
+                "kind": "record",
+                "verb": "state",
+                "label": _("Definitief maken"),
+                # An answer that is a refusal is a whole page: it takes the page's place.
+                "attrs": f'hx-post="{base}/definitief" hx-vals=\'{{"layout": "{chosen.value}"}}\' '
+                'hx-target="body" hx-swap="innerHTML"',
+                "confirm": _(
+                    "Rendert print (A3 en A4, pdf en png) en Instagram (png), alles of niets."
+                ),
+                "confirm_ok": _("Definitief maken"),
+            },
+            {
+                "kind": "delete",
+                "label": _("Verwijderen"),
+                "attrs": f'hx-post="{base}/verwijderen"',
+                "confirm": delete_question(_("Ontwerp"), name),
+                "confirm_ok": _("Definitief verwijderen"),
+            },
+        ],
+        way_back=record_frame(request, db, NAV)["way_back"],
+        record_url=view_url,
+        delete_confirm=delete_question(_("Ontwerp"), name),
+        logo_choices=[(o.id, o.label) for o in logos],
+        slot_options=[
+            ("main_image_id", _("Hoofdbeeld")),
+            ("inset_image_id", _("Polaroid")),
+            ("third_image_id", _("Derde beeld")),
+        ],
         design_id=design.id,
         activity_id=design.activity_id,
         activity_name=facts["title"],
-        status=code_of(design.status) or "",
-        status_label=code_label(DESIGN_STATUS.name, design.status, db=db),
-        status_tone=tone(DESIGN_STATUS.name, design.status),
         preset=code_of(design.preset) or "",
         preset_options=_preset_options(db),
         duo_code=design.duo_code,
@@ -533,7 +565,6 @@ def _editor_view(
         logo_options=logos,
         logo_ids=[lg.media_asset_id for lg in design.logos],
         facts=_facts_rows(facts),
-        facts_href=f"/admin/activiteiten/{design.activity_id}",
         preview_url=f"/admin/ontwerpen/{design.id}/voorbeeld.png?layout={chosen.value}&v={fingerprint(facts)[:8]}",
         preview_large_url=f"/admin/ontwerpen/{design.id}/voorbeeld.png?layout={chosen.value}&groot=1&v={fingerprint(facts)[:8]}",
         layout=chosen.value,
@@ -574,7 +605,8 @@ def design_editor(
     notice: str = "",
 ):
     design = _design_or_404(db, design_id)
-    view = _editor_view(request, db, design, layout=layout, notice=notice or None)
+    editing = record_frame(request, db, NAV)["head_editing"]
+    view = _editor_view(request, db, design, layout=layout, notice=notice or None, editing=editing)
     template = "_ds_voorbeeld.html" if is_fragment_request(request) else "admin_ontwerp.html"
     return templates.TemplateResponse(request, template, view.as_context())
 
@@ -701,17 +733,12 @@ async def design_save(
     try:
         save_design(db, design, values, highlights=highlights, logo_ids=logo_ids)
     except DesignError as exc:
-        # The service refuses before it mutates — at most a picture slot before
-        # the refused one, which nothing commits; the form shows what was typed
-        # on top of it, the slots included.
-        view = _typed_over(
-            _editor_view(request, db, design, layout=layout, error=str(exc)),
-            values,
-            highlights,
-            logo_ids,
-        )
-        return templates.TemplateResponse(request, "admin_ontwerp.html", view.as_context())
-    return _redirect(request, f"/admin/ontwerpen/{design.id}?layout={layout}&notice=bewaard")
+        # The service refuses before it mutates — at most a picture slot before the refused
+        # one, which nothing commits. Only the reason comes back: the form keeps what was typed.
+        return refusal_response(request, [FieldError("", str(exc))], "#ds-melding")
+    # "Bewaren en voorbeeld vernieuwen" stays in edit; Opslaan returns to read.
+    stay = "&bewerken=1" if values.get("blijven") else ""
+    return _redirect(request, f"/admin/ontwerpen/{design.id}?layout={layout}{stay}&notice=bewaard")
 
 
 @router.post(
@@ -742,9 +769,13 @@ async def design_image_upload(
         return templates.TemplateResponse(
             request,
             "admin_ontwerp.html",
-            _editor_view(request, db, design, layout=layout, error=str(exc)).as_context(),
+            _editor_view(
+                request, db, design, layout=layout, error=str(exc), editing=True
+            ).as_context(),
         )
-    return _redirect(request, f"/admin/ontwerpen/{design.id}?layout={layout}&notice=afbeelding")
+    return _redirect(
+        request, f"/admin/ontwerpen/{design.id}?layout={layout}&bewerken=1&notice=afbeelding"
+    )
 
 
 @router.post(
@@ -782,10 +813,19 @@ def design_generate(
             request,
             "admin_ontwerp.html",
             _editor_view(
-                request, db, design, layout=layout, error=str(exc), ai_prompt=scene, ai_style=style
+                request,
+                db,
+                design,
+                layout=layout,
+                error=str(exc),
+                ai_prompt=scene,
+                ai_style=style,
+                editing=True,
             ).as_context(),
         )
-    return _redirect(request, f"/admin/ontwerpen/{design.id}?layout={layout}&notice=gevraagd")
+    return _redirect(
+        request, f"/admin/ontwerpen/{design.id}?layout={layout}&bewerken=1&notice=gevraagd"
+    )
 
 
 @router.post(
@@ -809,9 +849,13 @@ def design_pick(
         return templates.TemplateResponse(
             request,
             "admin_ontwerp.html",
-            _editor_view(request, db, design, layout=layout, error=str(exc)).as_context(),
+            _editor_view(
+                request, db, design, layout=layout, error=str(exc), editing=True
+            ).as_context(),
         )
-    return _redirect(request, f"/admin/ontwerpen/{design.id}?layout={layout}&notice=gekozen")
+    return _redirect(
+        request, f"/admin/ontwerpen/{design.id}?layout={layout}&bewerken=1&notice=gekozen"
+    )
 
 
 @router.post(
@@ -902,7 +946,9 @@ async def design_svg_upload(
         return templates.TemplateResponse(
             request,
             "admin_ontwerp.html",
-            _editor_view(request, db, design, layout=layout, error=str(exc)).as_context(),
+            _editor_view(
+                request, db, design, layout=layout, error=str(exc), editing=True
+            ).as_context(),
         )
     if warnings:
         return templates.TemplateResponse(
@@ -915,9 +961,10 @@ async def design_svg_upload(
                 layout=layout,
                 notice=_("SVG bewaard — met opmerkingen van de huisstijl:"),
                 violations=warnings,
+                editing=True,
             ).as_context(),
         )
-    return _redirect(request, f"/admin/ontwerpen/{design.id}?layout={layout}&notice=svg")
+    return _redirect(request, f"/admin/ontwerpen/{design.id}?layout={layout}&bewerken=1&notice=svg")
 
 
 @router.post(
@@ -934,7 +981,9 @@ def design_svg_remove(
 ):
     design = _design_or_404(db, design_id)
     remove_edited_svg(db, design, _layout_or_404(layout))
-    return _redirect(request, f"/admin/ontwerpen/{design.id}?layout={layout}&notice=svgweg")
+    return _redirect(
+        request, f"/admin/ontwerpen/{design.id}?layout={layout}&bewerken=1&notice=svgweg"
+    )
 
 
 @router.post(

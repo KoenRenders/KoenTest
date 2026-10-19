@@ -38,7 +38,6 @@ DECLARED_KIT_EXCEPTIONS: dict[str, str] = {
 RAW_FORM_ELEMENTS: dict[str, int] = {
     "domains/auth/templates/_gu_lijst.html": 2,
     "domains/auth/templates/_gu_rollen_velden.html": 6,
-    "domains/designstudio/templates/admin_ontwerp.html": 2,
     "domains/forms/templates/_fb_builder.html": 12,
     "domains/forms/templates/_formulier_veld.html": 4,
     "domains/meetings/templates/_vg_kring.html": 1,
@@ -54,7 +53,6 @@ RAW_FORM_ELEMENTS: dict[str, int] = {
 RAW_CHECKBOXES: dict[str, int] = {
     "domains/auth/templates/_gu_lijst.html": 1,
     "domains/auth/templates/_gu_rollen_velden.html": 3,
-    "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/forms/templates/_fb_builder.html": 6,
     "domains/newsletter/templates/_nb_gesprek.html": 1,
     "domains/reporting/templates/_rp_paneel.html": 1,
@@ -64,7 +62,6 @@ RAW_CHECKBOXES: dict[str, int] = {
 SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
     "domains/auth/templates/_gu_lijst.html": 1,
     "domains/auth/templates/_gu_rollen_velden.html": 3,
-    "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/forms/templates/_fb_builder.html": 7,
     "domains/forms/templates/_formulier_veld.html": 2,
     "domains/meetings/templates/_vg_kring.html": 3,
@@ -91,7 +88,6 @@ RAW_SURFACES: dict[str, int] = {
 HEADER_EXTRAS: dict[str, int] = {
     "domains/auth/templates/admin_gebruikers.html": 1,
     "domains/auth/templates/admin_gebruikers_overzicht.html": 1,
-    "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/meetings/templates/_vg_verstuur.html": 1,
     "domains/newsletter/templates/admin_nieuwsbrief.html": 5,
     "domains/newsletter/templates/admin_nieuwsbrief_archief.html": 1,
@@ -124,7 +120,6 @@ SHELL_EXTENDED_DIRECTLY: dict[str, int] = {
     "domains/activities/templates/admin_inschrijving.html": 1,
     "domains/auth/templates/admin_gebruikers.html": 1,
     "domains/auth/templates/admin_gebruikers_overzicht.html": 1,
-    "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/designstudio/templates/admin_ontwerp_nieuw.html": 1,
     "domains/forms/templates/admin_formulier_builder.html": 1,
     "domains/forms/templates/admin_formulier_inzendingen.html": 1,

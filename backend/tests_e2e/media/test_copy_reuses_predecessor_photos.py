@@ -99,7 +99,7 @@ def test_the_photo_choice_offers_the_source_pictures(setup, width):
     page = b.new_page(base_url=BASE, viewport={"width": width, "height": 900})
     try:
         login_met_sessie(page, session_value)
-        page.goto(f"/admin/ontwerpen/{data['design']}")
+        page.goto(f"/admin/ontwerpen/{data['design']}?bewerken=1")
         pagina_klaar(page)
         slot = page.locator('input[name="main_image_id"]').locator("xpath=..")
         slot.get_by_role("button", name="Kies een afbeelding").click()

@@ -2,273 +2,106 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Ontwerp") }} — {{ activity_name }} — {{ _("Raak beheer") }}{% endblock %}
 {% block content %}
-{# The editor: form left, preview right. Every button posts a plain form —
-   the screen decides nothing that the service does not also enforce. #}
-{# Where "Annuleren" goes on every form here: back to this editor, which reads
-   the saved design again and so drops whatever was typed (#1089). One value,
-   because four forms must not drift apart. #}
-{% set editor_url = "/admin/ontwerpen/" ~ design_id ~ "?layout=" ~ layout %}
-{{ ui.back_link(_("Alle ontwerpen"), "/admin/ontwerpen") }}
-{% call ui.page_header(activity_name, _("De feiten (titel, data, plaats, contact) komen van de activiteit. Hier kies je beeld, kleur en ontwerptekst.")) %}
-    {{ ui.badge(status_label, status_tone) }}
-    {{ ui.btn_secondary(_("Activiteit"), href=facts_href, size="sm") }}
-  {% endcall %}
-{% if error %}{{ ui.error_banner(error) }}{% endif %}
-{% if notice %}{{ ui.success_banner(notice) }}{% endif %}
-
-<div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
-  <div class="lg:col-span-3 space-y-6">
-
-    {# ── Facts ── #}
-    <section class="bg-surface border border-line rounded-2xl p-5">
-      <h2 class="text-sm font-semibold text-ink mb-2">{{ _("Uit de activiteit") }}</h2>
-      <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-        {% for label, value in facts %}
-        <dt class="text-ink-soft">{{ label }}</dt><dd class="text-ink">{{ value }}</dd>
-        {% endfor %}
-      </dl>
-      <p class="text-xs text-ink-soft mt-2">{{ _("Aanpassen doe je op de activiteit; het ontwerp volgt.") }}</p>
-    </section>
-
-    {# ── Design text ── #}
-    <form method="post" action="/admin/ontwerpen/{{ design_id }}" class="bg-surface border border-line rounded-2xl p-5 space-y-4">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="hidden" name="layout" value="{{ layout }}">
-      <h2 class="text-sm font-semibold text-ink">{{ _("Ontwerp") }}</h2>
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          {{ ui.label(_("Kleurenduo"), "ds-duo") }}
-          {% call ui.select_control("duo_code", cls="w-full", attrs='id="ds-duo"') %}
-            {% for code, label in duo_options %}<option value="{{ code }}"{% if code == duo_code %} selected{% endif %}>{{ label }}</option>{% endfor %}
-          {% endcall %}
-        </div>
-        <div>
-          {{ ui.label(_("Opmaak"), "ds-preset") }}
-          {% call ui.select_control("preset", cls="w-full", attrs='id="ds-preset"') %}
-            {% for code, label in preset_options %}<option value="{{ code }}"{% if code == preset %} selected{% endif %}>{{ label }}</option>{% endfor %}
-          {% endcall %}
-        </div>
-      </div>
-      <div>
-        {{ ui.label(_("Titel op de affiche"), "ds-poster-title") }}
-        {{ ui.input_control("poster_title", id="ds-poster-title", value=poster_title, cls="w-full", placeholder=activity_name) }}
-      </div>
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          {{ ui.label(_("Balk onder de titel"), "ds-subtitle") }}
-          {{ ui.input_control("subtitle", id="ds-subtitle", value=subtitle, cls="w-full", placeholder=_("bv. SAMEN WANDELEN")) }}
-        </div>
-        <div>
-          {{ ui.label(_("Handgeschreven lijn"), "ds-tagline") }}
-          {{ ui.input_control("tagline", id="ds-tagline", value=tagline, cls="w-full", placeholder=_("bv. Zet het in je agenda!")) }}
-        </div>
-      </div>
-      <h3 class="text-sm font-semibold text-ink pt-2">{{ _("Kernpunten") }} <span class="font-normal text-ink-soft">({{ _("ten hoogste %(n)s eigen, allemaal in hoofdletters en vet; datum, plaats en 'iedereen welkom' komen er vanzelf bij", n=highlights|length) }})</span></h3>
-      <div class="space-y-2">
-        {% for hl in highlights %}
-        {% set i = loop.index0 %}
-        <div class="grid grid-cols-[9rem_1fr] gap-2 items-center">
-          {% call ui.select_control("hl_icon_" ~ i, cls="w-full", aria_label=_("Icoon")) %}
-            {% for code, label in icon_options %}<option value="{{ code }}"{% if code == hl.icon %} selected{% endif %}>{{ label }}</option>{% endfor %}
-          {% endcall %}
-          {{ ui.input_control("hl_text_" ~ i, value=hl.text, cls="w-full", aria_label=_("Tekst van het kernpunt")) }}
-        </div>
-        {% endfor %}
-      </div>
-
-      <div class="pt-2">
-        {{ ui.label(_("Omschrijving anders"), "ds-explanation") }}
-        {# Leeg veld = de omschrijving van de activiteit, die als hint in het
-           veld staat. Ze stond er vroeger als waarde in, waardoor leegmaken
-           en bewaren hem gewoon terugzette — en dat leest als een fout
-           (Koen, 21 september 2026). #}
-        {{ ui.textarea_control("explanation_md", id="ds-explanation", value=explanation_md, rows=4, cls="w-full",
-                               placeholder=explanation_hint or _("De activiteit heeft nog geen omschrijving.")) }}
-        <p class="text-xs text-ink-soft mt-1">
-          {% if explanation_is_own %}{{ _("Eigen tekst — wijkt af van de omschrijving van de activiteit. Leegmaken = de omschrijving van de activiteit terug.") }}{% else %}{{ _("Leeg: de affiche drukt de omschrijving van de activiteit, hierboven in het grijs. Typ hier iets anders om ze te vervangen. Alinea's, **vet** en - opsommingen kunnen.") }}{% endif %}
-        </p>
-      </div>
-
-      <h3 class="text-sm font-semibold text-ink pt-2">{{ _("Beelden") }}</h3>
-      {# #1473: one slot per row at every width — a picker (thumbnail, button and
-         "Weghalen") does not fit a third of the form: measured at 1440 px the
-         column was 180 px and the button broke over two lines beside the thumbnail. #}
-      <div class="space-y-3">
-        {% for slot, label, current in (("main_image_id", _("Hoofdbeeld"), main_image_id), ("inset_image_id", _("Polaroid"), inset_image_id), ("third_image_id", _("Derde beeld"), third_image_id)) %}
-        <div>
-          <p class="text-sm font-medium text-ink">{{ label }}</p>
-          {% if slot == "third_image_id" %}<p class="text-xs text-ink-soft -mt-1 mb-1">{{ _("Linksonder, onder de kernpunten; alleen in de opmaak 'met beeld'.") }}</p>{% endif %}
-          {# CR-15 (#1473): the picker over the whole library — last year's photos
-             first for a copied activity. A reference: the picture stays where it is. #}
-          {{ ui.media_picker(slot, value=current, value_thumb=slot_thumbs[slot], for_activity_id=activity_id, title=label, clearable=True) }}
-        </div>
-        {% endfor %}
-      </div>
-      <p class="text-sm font-medium text-ink mt-2">{{ _("Brandpunt van het hoofdbeeld") }} <span class="font-normal text-ink-soft">({{ _("0 = links/boven, 1 = rechts/onder; bepaalt welke kant behouden blijft bij het bijsnijden") }})</span></p>
-      <div class="grid grid-cols-3 gap-3 items-end">
-        <div>
-          {{ ui.label(_("Polaroid op de foto"), "ds-corner") }}
-          {% call ui.select_control("inset_corner", cls="w-full", attrs='id="ds-corner"') %}
-            {% for code, label in corner_options %}<option value="{{ code }}"{% if code == inset_corner %} selected{% endif %}>{{ label }}</option>{% endfor %}
-          {% endcall %}
-        </div>
-        <div>
-          {{ ui.label(_("Links–rechts"), "ds-focus-x") }}
-          {# promise walked by: test_a_focus_point_outside_the_picture_is_stored_at_its_edge #}
-          {{ ui.input_control("main_focus_x", id="ds-focus-x", type="number", value=main_focus_x, cls="w-full", attrs='min="0" max="1" step="0.05"') }}
-        </div>
-        <div>
-          {{ ui.label(_("Boven–onder"), "ds-focus-y") }}
-          {# promise walked by: test_a_focus_point_outside_the_picture_is_stored_at_its_edge #}
-          {{ ui.input_control("main_focus_y", id="ds-focus-y", type="number", value=main_focus_y, cls="w-full", attrs='min="0" max="1" step="0.05"') }}
-        </div>
-      </div>
-      {% if logo_options %}
-      <div>
-        <p class="text-sm font-medium text-ink mb-1">{{ _("Logostrook") }} <span class="font-normal text-ink-soft">({{ _("ten hoogste twee, rechtsonder boven de infobalk") }})</span></p>
-        <div class="flex flex-wrap gap-3">
-          {% for opt in logo_options %}
-          <label class="flex items-center gap-2 text-sm text-ink">
-            <input type="checkbox" name="logo_ids" value="{{ opt.id }}"{% if opt.id in logo_ids %} checked{% endif %}>
-            <img src="{{ opt.thumb_url }}" alt="" class="h-6 w-auto"> {{ opt.label }}
-          </label>
-          {% endfor %}
-        </div>
-      </div>
-      {% endif %}
-      {{ ui.action_bar(save_label=_("Bewaren en voorbeeld vernieuwen"), cancel_href=editor_url) }}
-    </form>
-
-    {# ── Upload a photo ── #}
-    <form method="post" action="/admin/ontwerpen/{{ design_id }}/afbeelding" enctype="multipart/form-data" class="bg-surface border border-line rounded-2xl p-5 space-y-3">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="hidden" name="layout" value="{{ layout }}">
-      <h2 class="text-sm font-semibold text-ink">{{ _("Foto toevoegen") }}</h2>
-      <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-end">
-        <div class="min-w-0 [&_input]:max-w-full">{{ ui.upload_field(name="file", text=_("Bestand"), accept="image/*", hint=_("Wordt bewaard tot 2 400 px aan de lange zijde; genoeg voor een A3-affiche.")) }}</div>
-        <div>
-          {{ ui.label(_("Plaats"), "ds-upload-slot") }}
-          {% call ui.select_control("slot", attrs='id="ds-upload-slot"') %}
-            <option value="main_image_id">{{ _("Hoofdbeeld") }}</option>
-            <option value="inset_image_id">{{ _("Polaroid") }}</option>
-            <option value="third_image_id">{{ _("Derde beeld") }}</option>
-          {% endcall %}
-        </div>
-      </div>
-      {{ ui.action_bar(save_label=_("Uploaden"), cancel_href=editor_url) }}
-    </form>
-
-    {# ── AI line drawing ── #}
-    <section class="bg-surface border border-line rounded-2xl p-5 space-y-3">
-      <h2 class="text-sm font-semibold text-ink">{{ _("Tekening laten maken") }}</h2>
-      <p class="text-sm text-ink-soft">{{ ai_budget_line }}</p>
-      {% if ai_enabled %}
-      <form method="post" action="/admin/ontwerpen/{{ design_id }}/genereer" class="space-y-3">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <input type="hidden" name="layout" value="{{ layout }}">
-        <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-start">
-          <div>
-            {{ ui.label(_("Wat moet erop staan?"), "ds-scene") }}
-            {{ ui.textarea_control("scene", id="ds-scene", value=ai_prompt, rows=2, cls="w-full", placeholder=_("bv. two adults and two children walking a forest path, one carries a lantern")) }}
-            <p class="text-xs text-ink-soft mt-1">{{ _("Nederlands mag: de tekst wordt vóór het verzenden naar het Engels vertaald (Mistral) en die vertaling staat in het AI-logboek. Witte achtergrond en huisstijl zitten er al bij; je krijgt vier varianten.") }}</p>
-          </div>
-          <div>
-            {{ ui.label(_("Stijl"), "ds-style") }}
-            {% call ui.select_control("style", attrs='id="ds-style"') %}
-              {% for code, label in style_options %}<option value="{{ code }}"{% if code == ai_style %} selected{% endif %}>{{ label }}</option>{% endfor %}
-            {% endcall %}
-          </div>
-        </div>
-        <details class="text-xs text-ink-soft"><summary class="cursor-pointer">{{ _("Wat het model per stijl te horen krijgt") }}</summary>
-          <dl class="mt-1 space-y-1">{% for code, label in style_options %}<dt class="font-medium text-ink">{{ label }}</dt><dd>{{ style_texts[code] }}</dd>{% endfor %}</dl>
-        </details>
-        {{ ui.action_bar(save_label=_("Vier varianten maken"), cancel_href=editor_url) }}
-      </form>
-      {% endif %}
-      {% include "_ds_varianten.html" %}
-    </section>
-
-    {# ── Versions and publishing ── #}
-    <section class="bg-surface border border-line rounded-2xl p-5 space-y-3">
-      <h2 class="text-sm font-semibold text-ink">{{ _("Versies") }} <span class="font-normal text-ink-soft">({{ _("ten hoogste %(n)s bewaard", n=max_versions) }})</span></h2>
-      <form method="post" action="/admin/ontwerpen/{{ design_id }}/definitief">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <input type="hidden" name="layout" value="{{ layout }}">
-        {{ ui.btn_primary(_("Definitief maken"), type="submit", size="sm") }}
-        <span class="text-xs text-ink-soft ml-2">{{ _("Rendert print (A3 en A4, pdf en png) en Instagram (png), alles of niets.") }}</span>
-      </form>
-      {% if versions %}
-      <div class="space-y-2">
-        {% for v in versions %}
-        <div class="rounded-xl border border-line p-3">
-          <div class="flex items-center gap-2 flex-wrap">
-            <span class="font-semibold text-ink">{{ _("Versie %(n)s", n=v.number) }}</span>
-            <span class="text-sm text-ink-soft">{{ v.created }}</span>
-            {% if v.published %}{{ ui.badge(_("Gepubliceerd als affiche"), "blue") }}{% endif %}
-            {% if v.stale %}{{ ui.badge(_("Verouderd — feiten gewijzigd"), "red") }}{% endif %}
-            {% if not v.published %}
-            <form method="post" action="/admin/ontwerpen/{{ design_id }}/publiceer" class="ml-auto">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-              <input type="hidden" name="layout" value="{{ layout }}">
-              <input type="hidden" name="version_id" value="{{ v.id }}">
-              {{ ui.btn_outline(_("Publiceren als affiche"), type="submit", size="sm", confirm=_("De huidige affiche van de activiteit wordt vervangen door de A3-pdf van deze versie. Doorgaan?")) }}
-            </form>
-            {% endif %}
-          </div>
-          <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1">
-            {% for f in v.files %}<a href="{{ f.url }}" class="text-sm text-link underline" target="_blank" rel="noopener">{{ f.label }}</a>{% endfor %}
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-      {% endif %}
-    </section>
-
-    {# ── SVG round trip ── #}
-    <section class="bg-surface border border-line rounded-2xl p-5 space-y-3">
-      <h2 class="text-sm font-semibold text-ink">{{ _("Zelf bewerken in Inkscape") }}</h2>
-      <p class="text-sm text-ink-soft">{{ _("Download het SVG, werk het bij in Inkscape en laad het terug op. Dan telt jouw bestand voor deze opmaak, tot je het weer weghaalt.") }}</p>
-      <div class="flex flex-wrap gap-2">
-        {% for code, label in layout_options %}
-          {{ ui.btn_secondary(_("Download %(l)s", l=label), href="/admin/ontwerpen/" ~ design_id ~ "/svg/" ~ code, size="sm") }}
-        {% endfor %}
-      </div>
-      <p class="text-xs text-ink-soft">{{ _("Lettertypes voor op je computer:") }}
-        {% for name, href in font_links %}<a href="{{ href }}" class="underline text-link">{{ name }}</a>{% if not loop.last %} · {% endif %}{% endfor %}
-      </p>
-      <form method="post" action="/admin/ontwerpen/{{ design_id }}/svg" enctype="multipart/form-data" class="space-y-2">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-end">
-          <div class="min-w-0 [&_input]:max-w-full">{{ ui.upload_field(name="file", text=_("Bewerkt SVG"), accept=".svg,image/svg+xml") }}</div>
-          <div>
-            {{ ui.label(_("Voor opmaak"), "ds-svg-layout") }}
-            {% call ui.select_control("layout", attrs='id="ds-svg-layout"') %}
-              {% for code, label in layout_options %}<option value="{{ code }}"{% if code == layout %} selected{% endif %}>{{ label }}</option>{% endfor %}
-            {% endcall %}
-          </div>
-        </div>
-        {{ ui.action_bar(save_label=_("SVG opladen"), cancel_href=editor_url) }}
-      </form>
-      {% if edited_layouts %}
-      <form method="post" action="/admin/ontwerpen/{{ design_id }}/svg/verwijderen" class="flex items-center gap-2">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <input type="hidden" name="layout" value="{{ layout }}">
-        <span class="text-sm text-ink-soft">{{ _("Handmatig bewerkt: %(l)s", l=edited_layouts|join(", ")) }}</span>
-        {{ ui.btn_danger(_("Bewerkt SVG weghalen"), type="submit", size="sm") }}
-      </form>
-      {% endif %}
-    </section>
-
-    <form method="post" action="/admin/ontwerpen/{{ design_id }}/verwijderen">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      {{ ui.btn_danger(_("Ontwerp verwijderen"), type="submit", size="sm", confirm=confirm_attrs("ontwerp", activity_name)) }}
-    </form>
-  </div>
-
-  <div class="lg:col-span-2">
-    <div id="ds-voorbeeld" class="lg:sticky lg:top-4">
-      {% include "_ds_voorbeeld.html" %}
-    </div>
-  </div>
+{# One design, read first (#2120; CR-11 phase 5, track 2, round 2). The head names the
+   status, the activity as a jump link, the layout and the versions; the preview stands
+   in the summary column. Bewerken opens the cards Ontwerp, Kernpunten and Beelden as ONE
+   form with one bar (Annuleren, "Bewaren en voorbeeld vernieuwen", Opslaan); the cards
+   Foto toevoegen, Tekening laten maken, Versies and Inkscape keep a button of their own:
+   they upload, ask for a drawing, make a version. "Definitief maken" and Verwijderen are
+   under Acties. Every button posts a plain form or a command — the screen decides nothing
+   that the service does not also enforce. #}
+{{ ui.record_header(activity_name, badges=badges, facts=head_facts, primary=primary, actions=actions,
+                    back=way_back, editing=editing) }}
+<div id="ds-melding" data-form-message>
+  {% if error %}{{ ui.error_banner(error) }}{% endif %}
+  {% if notice %}{{ ui.success_banner(notice) }}{% endif %}
 </div>
+{% set _preview %}
+<div id="ds-voorbeeld" class="lg:sticky lg:top-4">
+  {% include "_ds_voorbeeld.html" %}
+</div>
+{% endset %}
+
+{% macro _main_sections() %}
+  {# ── Design text ── #}
+  {% call ui.section(_("Ontwerp")) %}
+    {{ ui.field("duo_code", attribute="designstudio.design.duo_code", kind="select", options=duo_options, value=duo_code, edit=editing) }}
+    {{ ui.field("preset", attribute="designstudio.design.preset", kind="select", options=preset_options, value=preset, edit=editing) }}
+    {{ ui.field("poster_title", attribute="designstudio.design.poster_title", value=poster_title, placeholder=activity_name, edit=editing) }}
+    {{ ui.field("subtitle", attribute="designstudio.design.subtitle", value=subtitle, placeholder=_("bv. SAMEN WANDELEN"), edit=editing) }}
+    {{ ui.field("tagline", attribute="designstudio.design.tagline", value=tagline, placeholder=_("bv. Zet het in je agenda!"), edit=editing) }}
+    {# Leeg veld = de omschrijving van de activiteit, die als hint in het veld staat. Ze stond er
+       vroeger als waarde in, waardoor leegmaken en bewaren hem gewoon terugzette — en dat leest
+       als een fout (Koen, 21 september 2026). #}
+    {{ ui.field("explanation_md", attribute="designstudio.design.explanation_md", kind="textarea", rows=4, value=explanation_md,
+                placeholder=explanation_hint or _("De activiteit heeft nog geen omschrijving."), edit=editing,
+                help=(_("Eigen tekst — wijkt af van de omschrijving van de activiteit. Leegmaken = de omschrijving van de activiteit terug.") if explanation_is_own else _("Leeg: de affiche drukt de omschrijving van de activiteit, hierboven in het grijs. Typ hier iets anders om ze te vervangen. Alinea's, **vet** en - opsommingen kunnen."))) }}
+  {% endcall %}
+  {% call ui.section(_("Kernpunten"), intro=_("Ten hoogste %(n)s eigen, allemaal in hoofdletters en vet; datum, plaats en 'iedereen welkom' komen er vanzelf bij.", n=highlights|length)) %}
+    {% for hl in highlights %}
+    {{ ui.field("hl_icon_" ~ loop.index0, attribute="designstudio.design_highlight.icon_code", kind="select", options=icon_options, value=hl.icon, edit=editing) }}
+    {{ ui.field("hl_text_" ~ loop.index0, attribute="designstudio.design_highlight.text", value=hl.text, edit=editing) }}
+    {% endfor %}
+  {% endcall %}
+  {% call ui.section(_("Beelden")) %}
+    {# #1473: one slot per row at every width — a picker (thumbnail, button and "Weghalen") does
+       not fit a third of the form. CR-15 (#1473): the picker over the whole library — last year's
+       photos first for a copied activity. A reference: the picture stays where it is. #}
+    {% for slot, label, current in (("main_image_id", _("Hoofdbeeld"), main_image_id), ("inset_image_id", _("Polaroid"), inset_image_id), ("third_image_id", _("Derde beeld"), third_image_id)) %}
+    <div data-span="full" data-field="{{ slot }}" class="min-w-0">
+      <p class="text-sm font-medium leading-[21px] text-ink mb-1">{{ label }}</p>
+      {% if slot == "third_image_id" %}<p class="text-[13px] leading-[19.5px] text-ink-soft mb-1">{{ _("Linksonder, onder de kernpunten; alleen in de opmaak 'met beeld'.") }}</p>{% endif %}
+      {% if editing %}
+      {{ ui.media_picker(slot, value=current, value_thumb=slot_thumbs[slot], for_activity_id=activity_id, title=label, clearable=True) }}
+      {% elif slot_thumbs[slot] %}
+      <img data-value src="{{ slot_thumbs[slot] }}" alt="" class="h-16 w-16 rounded-md border border-line bg-surface-2 object-cover">
+      {% else %}
+      <p data-value class="text-sm leading-[21px] text-ink">—</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {{ ui.field("inset_corner", attribute="designstudio.design.inset_corner", kind="select", options=corner_options, value=inset_corner, edit=editing) }}
+    {# promise walked by: test_a_focus_point_outside_the_picture_is_stored_at_its_edge #}
+    {{ ui.field("main_focus_x", attribute="designstudio.design.main_focus_x", kind="number", value=main_focus_x, span="quarter", edit=editing, attrs='min="0" max="1" step="0.05"') }}
+    {# promise walked by: test_a_focus_point_outside_the_picture_is_stored_at_its_edge #}
+    {{ ui.field("main_focus_y", attribute="designstudio.design.main_focus_y", kind="number", value=main_focus_y, span="quarter", edit=editing, attrs='min="0" max="1" step="0.05"') }}
+    <p data-span="full" class="text-[13px] leading-[19.5px] text-ink-soft">{{ _("Brandpunt: 0 = links/boven, 1 = rechts/onder; bepaalt welke kant behouden blijft bij het bijsnijden.") }}</p>
+    {% if logo_options %}
+    {{ ui.field("logo_ids", attribute="designstudio.design_logo.media_asset_id", kind="checkbox_group", value=logo_ids, edit=editing,
+                options=logo_choices,
+                help=_("Ten hoogste twee, rechtsonder boven de infobalk.")) }}
+    {% endif %}
+  {% endcall %}
+{% endmacro %}
+
+{% call ui.record_columns(aside=_preview) %}
+<div class="form-flow">
+  {# ── The facts of the activity ── #}
+  {% call ui.section(_("Uit de activiteit"), intro=_("De feiten (titel, data, plaats, contact) komen van de activiteit. Hier kies je beeld, kleur en ontwerptekst.")) %}
+    {% for label, value in facts %}
+    <div data-span="{{ 'full' if value|length > 40 else 'half' }}" data-fact-row>{{ ui.label_fact(label, value) }}</div>
+    {% endfor %}
+    <p data-span="full" class="text-[13px] leading-[19.5px] text-ink-soft">{{ _("Aanpassen doe je op de activiteit; het ontwerp volgt.") }}</p>
+  {% endcall %}
+
+  {% if editing %}
+  <form id="ds-form" data-record-form data-message="#ds-melding" class="form-flow" novalidate
+        hx-post="/admin/ontwerpen/{{ design_id }}">
+    <input type="hidden" name="layout" value="{{ layout }}">
+    {{ _main_sections() }}
+  </form>
+  {{ ui.action_bar(record=True, form="ds-form", cancel_href=record_url, delete_attrs='hx-post="/admin/ontwerpen/' ~ design_id ~ '/verwijderen"',
+                   delete_confirm=delete_confirm, extra_label=_("Bewaren en voorbeeld vernieuwen"), extra_name="blijven") }}
+  {% else %}
+  {{ _main_sections() }}
+  {% endif %}
+
+  {% if editing %}
+  {% include "_ds_foto.html" %}
+  {% include "_ds_tekening.html" %}
+  {% endif %}
+  {% include "_ds_versies.html" %}
+  {% include "_ds_inkscape.html" %}
+</div>
+{% endcall %}
 {% endblock %}
