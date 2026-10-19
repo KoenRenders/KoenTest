@@ -123,9 +123,10 @@ def test_an_address_outlives_the_request(real_request):
 
 def test_removing_an_address_outlives_the_request(real_request):
     _sql(
-        "INSERT INTO mdm.addresses (organization_id, tenant_id, street, house_number, "
-        "postal_code_id, created_at, updated_at) SELECT :o, :o, 'Kerkstraat', '7', id, now(), now() "
-        "FROM mdm.postal_codes WHERE postal_code = :p",
+        "INSERT INTO mdm.addresses (organization_id, account_id, street, house_number, "
+        "postal_code_id, created_at, updated_at) SELECT :o, o.account_id, 'Kerkstraat', '7', "
+        "pc.id, now(), now() FROM mdm.postal_codes pc, mdm.organizations o "
+        "WHERE pc.postal_code = :p AND o.id = :o",
         o=ACCOUNT_ID,
         p=POSTCODE,
     )

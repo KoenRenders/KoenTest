@@ -60,9 +60,9 @@
   {% endif %}
 
   {% if tenant_card %}
-  {# #1533: the type, the account and whose data the site shows, saved with the
-     one Opslaan; the modules do not follow a new type. #1542: the platform's
-     type is fixed and reads as a fact. #}
+  {# #1533: the type and whose data the site shows, saved with the one Opslaan;
+     the modules do not follow a new type. #1542: the platform's type is fixed
+     and reads as a fact; since CR-26 the account is a fact for every tenant. #}
   {% call ui.section(_("Tenant"), id="tn-section-tenant", attrs="data-tenant-kind") %}
     {% if edit and tenant_card.kind.options %}
     {{ ui.field("kind", _("Type"), kind="select", value=tenant_card.kind.value, options=tenant_card.kind.options, id="t-kind",
@@ -70,11 +70,8 @@
     {% else %}
     <p data-span="half" data-setting="kind" class="min-w-0">{{ ui.label_fact(_("Type"), tenant_card.kind.label) }}</p>
     {% endif %}
-    {% if edit %}
-    {{ ui.field("account_id", _("Account"), kind="select", value=tenant_card.account.value, options=tenant_card.account.options, id="t-account") }}
-    {% else %}
+    {# CR-26: the account is chosen once, at Tenants › Nieuw; here a fact. #}
     <p data-span="half" data-setting="account_id" class="min-w-0">{{ ui.label_fact(_("Account"), tenant_card.account.label) }}</p>
-    {% endif %}
     {# #1550: whose data the site shows — never an organisation of another account. #}
     {% if tenant_card.site_org.options %}
     {% if edit %}

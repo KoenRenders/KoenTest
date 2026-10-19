@@ -287,8 +287,11 @@ def _row(
 # A long text is not written out: "<label> gewijzigd" — its old and new text stay
 # in the history table (Koen, 16 October 2026, "10a").
 
-#: What no row of Wijzigingen shows, with its reason. `tenant_id` for every kind.
-NOT_SHOWN_ANYWHERE = {"tenant_id": "the screen shows one workspace's changes"}
+#: What no row of Wijzigingen shows, with its reason. `tenant_id` and `account_id` for every kind.
+NOT_SHOWN_ANYWHERE = {
+    "tenant_id": "the screen shows one workspace's changes",
+    "account_id": "the account a party belongs to (CR-26): the screen shows one account's",
+}
 
 #: Per logged model: the columns its own summary shows (`shown`) and the ones no
 #: row shows (`not_shown`, with the reason). Every other logged column is shown

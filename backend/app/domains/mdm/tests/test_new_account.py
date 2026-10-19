@@ -110,14 +110,16 @@ def test_new_tenant_offers_the_account_and_hangs_under_it(client, platform_works
     headers = _login(client, db_session, operator=True)
 
     form = client.get("/admin/tenants/nieuw").text
-    assert re.search(rf'<option value="{first.account_id}"[^>]*>Bakkerij Janssens</option>', form)
+    assert re.search(
+        rf'<option value="{first.organization_id}"[^>]*>Bakkerij Janssens</option>', form
+    )
 
     answer = client.post(
         "/admin/tenants",
         data={
             "site_name": "Bakkerij Janssens Site",
             "code": "bakkerij-janssens-site",
-            "account_id": str(first.account_id),
+            "account_id": str(first.organization_id),
             "kind": "BEDRIJF",
         },
         headers=headers,
@@ -126,12 +128,12 @@ def test_new_tenant_offers_the_account_and_hangs_under_it(client, platform_works
     db_session.expire_all()
     tenant = db_session.query(Tenant).filter(Tenant.code == "bakkerij-janssens-site").one()
     assert tenant.account_id == first.account_id
-    assert tenant.organization_id == first.account_id, "it shows its account's data"
+    assert tenant.organization_id == first.organization_id, "it shows its account's data"
 
 
 def test_an_inactive_account_takes_no_new_tenant(db_session):
     site = new_site(db_session, name="Gestopt", code="gestopt-1495")
-    account = db_session.get(Organization, site.account_id)
+    account = db_session.get(Organization, site.organization_id)
     assert account.id in {a.id for a in accounts(db_session)}
     account.is_active = False
     db_session.commit()
@@ -165,7 +167,9 @@ def test_new_tenant_with_a_new_account_and_a_new_organisation(
     assert answer.status_code == 200, answer.text[-400:]
     db_session.expire_all()
     tenant = db_session.query(Tenant).filter(Tenant.code == "merk-nieuw-cr20").one()
-    assert tenant.account.name == "Holding Nieuw"
+    account = db_session.query(Organization).filter_by(party_id=tenant.account_id).one()
+    assert account.name == "Holding Nieuw"
+    assert account.account_id == account.party_id, "a new account is its own account"
     assert tenant.organization.name == "Merk Nieuw"
 
 
@@ -197,11 +201,11 @@ def test_the_shown_organisation_follows_the_account(client, platform_workspace, 
     """The field offers the account itself, what its tenants show, and a new one."""
     first = new_site(db_session, name="Firma Getoond", code="getoond-cr20")
     sibling = create_organization(db_session, name="Merk Getoond")
-    new_site(db_session, name="Zuster", code="zuster-cr20", account_id=first.account_id)
+    new_site(db_session, name="Zuster", code="zuster-cr20", account_id=first.organization_id)
     db_session.commit()
     _login(client, db_session, operator=True)
 
-    field = client.get(f"/admin/tenants/nieuw/getoond?account_id={first.account_id}").text
+    field = client.get(f"/admin/tenants/nieuw/getoond?account_id={first.organization_id}").text
     options = re.findall(r'<option value="([^"]*)"[^>]*>([^<]*)</option>', field)
     assert options[0] == ("", "Het account zelf")
     assert options[-1] == ("nieuw", "Nieuwe organisatie…")

@@ -7,6 +7,8 @@ binnen zijn eigen werkruimte — en dus nooit de OPERATOR-rol, want die staat
 erboven. De kern: **ADMIN in werkruimte A is geen ADMIN in werkruimte B.**
 """
 
+import re
+
 import pytest
 import pytest as _pytest
 
@@ -93,7 +95,7 @@ def test_operator_wordt_nergens_buiten_het_platform_toegekend(client, db_session
     # in Millegem tóch niet.
     csrf = _login(client)
 
-    lijst = client.get("/admin/gebruikers").text
+    lijst = client.get(f"/admin/gebruikers/{doel.id}?bewerken=1").text
     assert 'value="OPERATOR"' not in lijst
 
     r = client.post(
@@ -128,13 +130,15 @@ def platform_host(monkeypatch):
 
 def test_platform_beheert_rollen_per_werkruimte(client, db_session, platform_host):
     """Aanscherping 16 sep: op het platform toont de gebruikerskaart een rij
-    vinkjes PER werkruimte — zo maakt een OPERATOR de eerste gebruikers van
+    vinkjes PER werkruimte (sinds #2114 op het record, een kaart per werkruimte) — zo maakt een OPERATOR de eerste gebruikers van
     een nieuwe tenant aan — en dáár staat ook het OPERATOR-vinkje."""
     doel = _user(db_session, "doelwit@example.com", ("ADMIN", TENANT_MILLEGEM_ID))
     db_session.commit()
     csrf = _login(client)  # beheerder = OPERATOR (087)
 
-    lijst = client.get("/admin/gebruikers", headers={"host": platform_host}).text
+    lijst = client.get(
+        f"/admin/gebruikers/{doel.id}?bewerken=1", headers={"host": platform_host}
+    ).text
     assert f'name="rollen_{TENANT_VOORBEELD_ID}"' in lijst
     assert 'name="operator"' in lijst and 'value="OPERATOR"' not in lijst
 
@@ -196,7 +200,9 @@ def test_platform_admin_zonder_operator_kan_operator_niet_zetten(client, db_sess
 
     assert (
         'name="operator"'
-        not in client.get("/admin/gebruikers", headers={"host": platform_host}).text
+        not in client.get(
+            f"/admin/gebruikers/{doel.id}?bewerken=1", headers={"host": platform_host}
+        ).text
     )
     r = client.post(
         f"/admin/gebruikers/{doel.id}",
@@ -244,15 +250,16 @@ def test_lijst_toont_rollen_van_de_actieve_werkruimte(client, db_session):
 
     Since #1500 an account with roles only in another workspace is not on
     this workspace's list at all; in its own workspace its ADMIN is ticked."""
-    _user(db_session, "doelwit@example.com", ("ADMIN", TENANT_VOORBEELD_ID))
+    doel = _user(db_session, "doelwit@example.com", ("ADMIN", TENANT_VOORBEELD_ID))
     db_session.commit()
     _login(client)
     html = client.get("/admin/gebruikers?q=doelwit").text
     assert "doelwit@example.com" not in html, "an ADMIN of another workspace is listed here"
+    # Not listed, so not opened either (#2114): the record is the list's own account.
+    assert client.get(f"/admin/gebruikers/{doel.id}").status_code == 404
 
-    eigen = client.get("/raakvoorbeeldafdeling/admin/gebruikers?q=doelwit").text
-    kaart = eigen.split("doelwit@example.com")[1]
-    assert 'value="ADMIN" checked' in kaart or 'value="ADMIN"  checked' in kaart
+    eigen = client.get(f"/raakvoorbeeldafdeling/admin/gebruikers/{doel.id}?bewerken=1").text
+    assert re.search(r'name="role_codes" value="ADMIN"[^>]*checked', eigen)
 
 
 def test_accountmenu_toont_wisselen_alleen_bij_meerdere_werkruimtes(client, db_session):
@@ -359,3 +366,19 @@ def test_migratie_plaatst_account_admin_bij_raak_vzw_en_platform(db_session):
     assert platform is not None
     assert {t for c, t in rijen if c == "ACCOUNT_ADMIN"} == {1, platform}
     assert {t for c, t in rijen if c == "ADMIN"} == {1, 2, 3}
+
+
+def test_on_the_platform_every_workspace_is_a_card_with_its_name_2114(
+    client, db_session, platform_host
+):
+    """#2114: the record of an account on the platform has a card per workspace, its name
+    as the title, and the platform-wide role for an operator."""
+    doel = _user(db_session, "platform-2114@example.com", ("ADMIN", TENANT_MILLEGEM_ID))
+    db_session.commit()
+    _login(client)
+    html = client.get(
+        f"/admin/gebruikers/{doel.id}?bewerken=1", headers={"host": platform_host}
+    ).text
+    for workspace in (TENANT_MILLEGEM_ID, TENANT_VOORBEELD_ID):
+        assert f'id="gu-werkruimte-{workspace}"' in html and f'name="rollen_{workspace}"' in html
+    assert 'name="operator"' in html, "the platform-wide role, for an operator"

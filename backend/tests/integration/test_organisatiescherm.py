@@ -32,6 +32,7 @@ from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.reporting.tests.test_reporting_panel_ui import login
 from app.kernel.clock import belgian_today
 from app.kernel.codes import reset_label_cache
+from tests._sites import at_tenant
 from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, seed_postal_code
 
 ACCOUNT_ID = 1  # Raak vzw — de rechtspersoon, géén tenant
@@ -126,6 +127,7 @@ def test_the_member_screens_keep_working(client, db_session):
     gezinsscherm toont dan het adres van de vereniging.
     """
     member, persoon = create_test_family(db_session, email="lid971@example.com")
+    at_tenant(db_session, member)  # CR-26 F9: the record is the tenant's by a fact
     _operator(client, db_session)
 
     # Een organisatieadres wegschrijven — precies het werk dat dit kan breken.
@@ -159,6 +161,7 @@ def test_a_member_address_still_saves(client, db_session, postcode):
     from app.domains.mdm.api import Address
 
     member, persoon = create_test_family(db_session, email="lid971b@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     db_session.add(
         Address(
             person_id=persoon.id, street="Oudestraat", house_number="3", postal_code_id=postcode.id
@@ -377,9 +380,10 @@ def test_a_second_bank_account_survives_a_save(client, platform_workspace, db_se
     db_session.execute(
         text(
             "INSERT INTO mdm.bank_accounts "
-            "(organization_id, iban, sort_order, created_at, updated_at) "
-            "VALUES (:o, 'BE11 1111 1111 1111', 0, now(), now()), "
-            "       (:o, 'BE22 2222 2222 2222', 1, now(), now())"
+            "(organization_id, account_id, iban, sort_order, created_at, updated_at) "
+            "SELECT :o, o.account_id, v.iban, v.sort_order, now(), now() "
+            "FROM mdm.organizations o, (VALUES ('BE11 1111 1111 1111', 0), "
+            "('BE22 2222 2222 2222', 1)) v(iban, sort_order) WHERE o.id = :o"
         ),
         {"o": ACCOUNT_ID},
     )

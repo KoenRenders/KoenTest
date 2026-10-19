@@ -24,6 +24,7 @@ from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_va
 from app.domains.mdm.api import ContactDetail, Member, MemberPerson, Person, new_contact_detail
 from app.domains.mdm.import_service import upsert_families
 from tests._refusal import message_line
+from tests._sites import at_tenant
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_postal_code
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -40,6 +41,7 @@ def _member(db, first_name, *, email=None):
     db.flush()
     household = Member()
     db.add(household)
+    at_tenant(db, household)  # CR-26 F9
     db.flush()
     db.add(MemberPerson(member_id=household.id, person_id=person.id, relation_type="HOOFDLID"))
     db.flush()

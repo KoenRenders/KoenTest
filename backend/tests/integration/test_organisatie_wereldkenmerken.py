@@ -117,7 +117,6 @@ def test_the_env_stays_the_safety_net(db_session, organisatie):
 def test_an_address_can_belong_to_an_organisation(db_session, organisatie, postcode):
     """Het goede geval: een adres zonder persoon eronder."""
     adres = Address(
-        tenant_id=TENANT,
         organization_id=organisatie.id,
         street="Kerkstraat",
         house_number="1",
@@ -135,12 +134,11 @@ def test_an_address_with_both_owners_is_refused(db_session, organisatie, postcod
     de andere door — en beide richtingen in één test betekent dat de eerste
     terugrol de tweede onmogelijk maakt.
     """
-    persoon = Person(tenant_id=TENANT, first_name="Test", last_name="Persoon")
+    persoon = Person(first_name="Test", last_name="Persoon")
     db_session.add(persoon)
     db_session.flush()
     db_session.add(
         Address(
-            tenant_id=TENANT,
             person_id=persoon.id,
             organization_id=organisatie.id,
             street="Fout",
@@ -157,7 +155,6 @@ def test_an_address_without_an_owner_is_refused(db_session, postcode):
     """De andere kant: een adres dat nergens aan hangt."""
     db_session.add(
         Address(
-            tenant_id=TENANT,
             person_id=None,
             organization_id=None,
             street="Fout",
@@ -175,7 +172,6 @@ def test_one_live_address_per_organisation(db_session, organisatie, postcode):
     pc = postcode
     db_session.add(
         Address(
-            tenant_id=TENANT,
             organization_id=organisatie.id,
             street="Kerkstraat",
             house_number="1",
@@ -185,7 +181,6 @@ def test_one_live_address_per_organisation(db_session, organisatie, postcode):
     db_session.commit()
     db_session.add(
         Address(
-            tenant_id=TENANT,
             organization_id=organisatie.id,
             street="Tweede straat",
             house_number="2",
@@ -208,12 +203,11 @@ def test_a_person_address_still_works_exactly_as_before(db_session, postcode):
     en een query op `person_id` hoort de organisatierijen níét te zien.
     """
     pc = postcode
-    persoon = Person(tenant_id=TENANT, first_name="Anna", last_name="Test")
+    persoon = Person(first_name="Anna", last_name="Test")
     db_session.add(persoon)
     db_session.flush()
     db_session.add(
         Address(
-            tenant_id=TENANT,
             person_id=persoon.id,
             street="Dorpsstraat",
             house_number="5",
@@ -228,7 +222,6 @@ def test_a_person_address_still_works_exactly_as_before(db_session, postcode):
     )
     db_session.add(
         Address(
-            tenant_id=TENANT,
             organization_id=organisatie.id,
             street="Kerkstraat",
             house_number="1",

@@ -163,7 +163,6 @@ def test_the_privacy_page_shows_the_block(client, db_session):
     # belandt — precies het soort stille nuloperatie waar deze week vol mee zat.
     db_session.add(
         ContactDetail(
-            tenant_id=tenant,
             organization_id=organisatie.id,
             contact_type_code="EMAIL",
             value="bestuur@example.com",
@@ -176,7 +175,6 @@ def test_the_privacy_page_shows_the_block(client, db_session):
         db_session.flush()
     db_session.add(
         Address(
-            tenant_id=tenant,
             organization_id=organisatie.id,
             street="Kerkstraat",
             house_number="12",

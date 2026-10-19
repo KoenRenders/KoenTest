@@ -14,12 +14,15 @@
 {# Inside the account layout (CR-22, #1723): the menu of the account pages on
    the left with "Mijn gezin" marked — the one macro of S3, as Mijn gegevens.
    What an answer replaces stays inside it. #}
-{% call pub.account_page(_("Mijn gezin"), member_nav, "/leden/gezin", gebruiker, heading=False) %}
+{# CR-26 (A3): a household of another department of the account joining this
+   one has no Mijn gezin here yet — no way back to it, nothing marked in the
+   menu (Koen, 19 October 2026: "1a"). #}
+{% call pub.account_page(_("Lidmaatschap betalen") if page.joining else _("Mijn gezin"), member_nav, None if page.joining else "/leden/gezin", gebruiker, heading=False) %}
 <div id="vernieuw-pagina">
 {# #1737 (Koen, 8 October 2026): the page is named for what everyone does
    on it — a household that never paid does not renew. #}
 {% call ui.public_form_page(_("Lidmaatschap betalen"), intro=_("Betaal het lidmaatschap voor je hele gezin."),
-                            back_href="/leden/gezin", back_label=_("Mijn gezin")) %}
+                            back_href=None if page.joining else "/leden/gezin", back_label=_("Mijn gezin")) %}
 {% include "_renewal_form.html" %}
 {% endcall %}
 </div>

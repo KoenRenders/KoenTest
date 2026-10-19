@@ -42,6 +42,7 @@ import pytest
 from app.domains.mdm.api import MemberPerson
 from app.domains.membership.api import Membership, MembershipHistory, open_renewal_payment
 from app.domains.payment.api import PaymentRecord
+from tests._sites import at_tenant
 from tests.conftest import SEEDED_ADMIN_EMAIL, board_session, create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -80,6 +81,7 @@ def _started(db, member) -> MembershipHistory:
 
 def test_the_record_offers_it_and_the_page_is_the_form_in_the_admin_shell(client, db_session):
     member, _person = create_test_family(db_session, email="aanbod-1899@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     db_session.commit()
     board_session(client)
 
@@ -96,6 +98,7 @@ def test_the_record_offers_it_and_the_page_is_the_form_in_the_admin_shell(client
 
 def test_a_transfer_runs_on_the_record_and_names_the_board_member(client, db_session):
     member, _person = create_test_family(db_session, email="overschrijving-1899@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     db_session.commit()
     headers = board_session(client)
 
@@ -123,6 +126,7 @@ def test_the_members_own_renewal_still_names_the_member(client, db_session):
     from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 
     member, _person = create_test_family(db_session, email="zelf-1899@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     db_session.commit()
     value = make_session_value("zelf-1899@example.com")
     client.cookies.set(SESSION_COOKIE, value)
@@ -156,6 +160,7 @@ def test_online_leaves_for_the_provider_who_returns_to_the_record(
 
     monkeypatch.setattr(mollie.MollieProvider, "create_payment", create_payment)
     member, _person = create_test_family(db_session, email="online-1899@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     db_session.commit()
     headers = board_session(client)
 
@@ -171,6 +176,7 @@ def test_online_leaves_for_the_provider_who_returns_to_the_record(
 
 def test_a_household_without_a_main_member_is_offered_nothing_and_refused(client, db_session):
     member, person = create_test_family(db_session, email="geenhoofd-1899@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     link = db_session.query(MemberPerson).filter_by(member_id=member.id, person_id=person.id).one()
     link.relation_type = "PARTNER"
     db_session.commit()
@@ -192,6 +198,7 @@ def test_a_household_without_a_main_member_is_offered_nothing_and_refused(client
 
 def test_without_a_payment_method_it_is_refused_at_the_choice(client, db_session):
     member, _person = create_test_family(db_session, email="geenkeuze-1899@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     db_session.commit()
     headers = board_session(client)
     before = _written(db_session)

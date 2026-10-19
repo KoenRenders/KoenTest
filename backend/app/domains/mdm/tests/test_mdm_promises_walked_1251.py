@@ -21,6 +21,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Address, Member, PostalCode
+from tests._sites import at_tenant
 from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, nieuw_lid_velden
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -55,6 +56,7 @@ def test_a_first_address_without_it_is_refused(client, db_session, postal_code, 
     from tests.conftest import record_fields, save_record
 
     household, _main = create_test_family(db_session, email="belofte-a@example.com")
+    at_tenant(db_session, household)  # CR-26 F9
     db_session.commit()
     headers = _login(client)
     fields = record_fields(client, household.id)
@@ -72,6 +74,7 @@ def test_an_address_that_is_there_cannot_lose_it(client, db_session, postal_code
     from tests.conftest import record_fields, save_record
 
     household, main = create_test_family(db_session, email="belofte-b@example.com")
+    at_tenant(db_session, household)  # CR-26 F9
     db_session.commit()
     headers = _login(client)
     fields = record_fields(client, household.id)

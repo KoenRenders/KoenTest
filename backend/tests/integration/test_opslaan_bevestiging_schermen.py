@@ -33,6 +33,7 @@ from app.domains.auth.api import (
     make_session_value,
 )
 from app.kernel.clock import belgian_today
+from tests._sites import at_tenant
 from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -142,6 +143,7 @@ def test_een_persoon_opslaan_bevestigt(client, db_session):
     from tests.conftest import record_fields, save_record
 
     member, person = create_test_family(db_session, email="toast@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     db_session.commit()
     hdr = _login(client)
     fields = record_fields(client, member.id)
@@ -154,6 +156,7 @@ def test_een_persoon_opslaan_bevestigt(client, db_session):
 
 def test_een_gezin_openen_bevestigt_niets(client, db_session):
     member, _person = create_test_family(db_session, email="toast2@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     hdr = _login(client)
 
     resp = client.get(f"/admin/leden/gezin/{member.id}", headers=hdr)

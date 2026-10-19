@@ -21,6 +21,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.mdm.api import new_contact_detail
+from tests._sites import at_tenant
 from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -34,6 +35,7 @@ def test_the_household_screen_promises_nothing_about_the_addresses(client, db_se
     other domains do with a person's e-mail addresses is gone from the household
     record, in both modes — a screen says what a value is."""
     household, _person = create_test_family(db_session, email=EMAIL)
+    at_tenant(db_session, household)  # CR-26 F9
     db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     for mode in ("", "?bewerken=1"):
@@ -54,6 +56,7 @@ def test_the_members_own_screens_say_confirmed_too(client, db_session, page):
     Red: the old sentence put back in that one place → both screens, naming it.
     """
     _household, person = create_test_family(db_session, email=EMAIL)
+    at_tenant(db_session, _household)  # CR-26 F9
     db_session.add(
         new_contact_detail(db_session, person, "EMAIL", WAITING, is_primary=False, confirmed=False)
     )
@@ -72,6 +75,7 @@ def test_the_members_own_screens_say_confirmed_too(client, db_session, page):
 
 def test_the_code_page_stands_on_the_card_of_the_sign_in_screens(client, db_session):
     _household, person = create_test_family(db_session, email=EMAIL)
+    at_tenant(db_session, _household)  # CR-26 F9
     row = new_contact_detail(
         db_session, person, "EMAIL", WAITING, is_primary=False, confirmed=False
     )

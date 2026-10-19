@@ -83,7 +83,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="auth.user.is_active",
         columns=("auth.users.is_active",),
-        label=None,
+        label="Actief",
         name_en="Is active",
         help="The is active of the user.",
         ai_exposure=AiExposure.INTERNAL,  # K8
@@ -91,7 +91,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="auth.user_role.role_code",
         columns=("auth.user_roles.role_code",),
-        label=None,
+        label="Rollen",
         name_en="Role code",
         help="The role code of the user role, a code of its code list.",
         ai_exposure=AiExposure.INTERNAL,  # K0

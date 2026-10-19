@@ -11,6 +11,7 @@ from datetime import date
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
+from tests._sites import at_tenant
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -66,6 +67,7 @@ def test_F34_samenvatting_zonder_adres_en_met_enkelvoud(client, db_session):
 
     m = Member()
     db_session.add(m)
+    at_tenant(db_session, m)  # CR-26 F9
     db_session.flush()
     p = Person(date_of_birth=date(1980, 1, 1), gender_code="M", first_name="Rita", last_name="Solo")
     db_session.add(p)

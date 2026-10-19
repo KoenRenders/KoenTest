@@ -43,6 +43,7 @@ from app.domains.auth.api import (
 from app.domains.auth.models import User, UserRole
 from app.domains.mdm.api import ContactDetail, MemberPerson, Person
 from app.domains.mdm.models import ContactDetailHistory, MemberPersonHistory, PersonHistory
+from tests._sites import at_tenant
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     board_at_the_household,
@@ -81,6 +82,7 @@ def world(client, db_session):
     e-mail address, a mobile number and a registration."""
     household, main = create_test_family(db_session, email=MAIN_EMAIL)
     main.first_name, main.last_name = "Mila", "Peeters"
+    at_tenant(db_session, household)  # CR-26 F9: the household is the tenant's by a fact
     partner = create_test_person(db_session, first_name="Noor", last_name="Peeters")
     db_session.add(
         MemberPerson(member_id=household.id, person_id=partner.id, relation_type="PARTNER")
@@ -346,36 +348,9 @@ def test_the_main_member_is_refused_on_the_json_route(client, db_session, world)
     )
 
 
-def test_a_refusal_writes_nothing_for_someone_in_two_households(client, db_session, world):
-    """The partner of one household is the main member of another: the refusal
-    comes before his link to the first is touched.
-
-    Red: the sort taken out of `delete_person` → the first household's link is
-    detached (a `MemberPersonHistory` row) before the second one refuses."""
-    from tests.conftest import create_test_member
-
-    second = create_test_member(db_session)
-    db_session.add(
-        MemberPerson(member_id=second.id, person_id=world["partner"], relation_type="HOOFDLID")
-    )
-    db_session.commit()
-    headers = _board(client)
-    answer = client.post(
-        f"{PAGE}/{world['partner']}/verwijderen",
-        headers={**headers, "HX-Current-URL": "http://testserver/admin/personen?zicht=in"},
-    )
-    assert "Noor Peeters is niet verwijderd. Een gezin heeft een hoofdlid nodig." in answer.text
-    assert (
-        db_session.query(MemberPersonHistory)
-        .filter(MemberPersonHistory.person_id == world["partner"])
-        .count()
-        == 0
-    ), "the refusal came after a write"
-    db_session.expire_all()
-    assert (
-        db_session.query(MemberPerson).filter(MemberPerson.person_id == world["partner"]).count()
-        == 2
-    )
+# `test_a_refusal_writes_nothing_for_someone_in_two_households` stood here:
+# since CR-26 nobody is in two households (F5), and the sort it guarded in
+# `delete_person` went with it.
 
 
 def test_a_person_who_is_gone_is_said_so(client, world):

@@ -63,7 +63,7 @@ def _activiteit_met_twee_soorten(db):
         )
     )
 
-    persoon = Person(tenant_id=TENANT, first_name="Mira", last_name="Vandenbulcke")
+    persoon = Person(first_name="Mira", last_name="Vandenbulcke")
     db.add(persoon)
     db.flush()
 
@@ -129,7 +129,7 @@ def test_de_herkomst_volgt_de_naam_en_niet_de_koppeling(db_session):
     activiteit = Activity(tenant_id=TENANT, name="Quiz")
     db_session.add(activiteit)
     db_session.flush()
-    weg = Person(tenant_id=TENANT, first_name="Weg", last_name="Gehaald")
+    weg = Person(first_name="Weg", last_name="Gehaald")
     db_session.add(weg)
     db_session.flush()
     reg = Registration(

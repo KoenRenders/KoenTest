@@ -26,6 +26,9 @@ from app.domains.mdm.models import (
     LegalFormLabel,
     OrganizationRelationType,
     OrganizationRelationTypeLabel,
+    PartyKind,
+    PartyKindCode,
+    PartyKindLabel,
     PaymentMethod,
     PaymentMethodCode,
     PaymentMethodLabel,
@@ -220,6 +223,22 @@ TENANT_KIND = CodeList(
     labels=TenantKindLabel,
     enum=TenantKind,
     fk_from=("mdm.tenants.kind",),
+)
+
+# CR-26 F1: what a party is. No screen shows the word (A3: *partij* is the
+# model's word); the list is there for the foreign key and the register.
+PARTY_KIND_CODES = (
+    CodeSeed(code="PERSON", nl="Persoon", en="Person", sort_order=1),
+    CodeSeed(code="ORGANIZATION", nl="Organisatie", en="Organisation", sort_order=2),
+)
+
+PARTY_KIND = CodeList(
+    name="party_kind",
+    schema="mdm",
+    codes=PartyKindCode,
+    labels=PartyKindLabel,
+    enum=PartyKind,
+    fk_from=("mdm.parties.kind",),
 )
 
 #: The organisation types ACCOUNT, UNIT and PLATFORM, as migration 154 seeded

@@ -17,6 +17,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.payment.api import PaymentStatus
+from tests._sites import at_tenant
 from tests.conftest import create_test_family, household_fields
 
 
@@ -44,8 +45,12 @@ def test_gezinsportaal_idor_blokkeert_bewerken_vreemd_gezin(client, db_session):
     """
     from app.domains.mdm.api import Person
 
-    create_test_family(db_session, email="idor-a@example.com", mobile="0470 00 00 01")
+    at_tenant(
+        db_session,
+        create_test_family(db_session, email="idor-a@example.com", mobile="0470 00 00 01")[0],
+    )  # CR-26 F9
     _mem_b, pers_b = create_test_family(db_session, email="idor-b@example.com")
+    at_tenant(db_session, _mem_b)  # CR-26 F9
     db_session.commit()
     original = pers_b.first_name
 

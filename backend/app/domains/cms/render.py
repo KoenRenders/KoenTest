@@ -328,7 +328,7 @@ def _site_groups(tenant_code: Optional[str], db=None) -> list[dict]:
         if tenant_code is not None and asked is None:
             return []
         for account, sites in active_sites_by_account(db):
-            if asked is not None and (account is None or account.id != asked.account_id):
+            if asked is not None and (account is None or account.party_id != asked.account_id):
                 continue
             links = sorted(
                 (

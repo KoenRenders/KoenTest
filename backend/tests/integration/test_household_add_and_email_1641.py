@@ -30,6 +30,7 @@ from app.domains.mdm.household_form import household_from_form
 from app.domains.membership.api import Membership
 from app.domains.payment.api import GatewayPayment, PaymentRecord
 from app.kernel.clock import belgian_today
+from tests._sites import at_tenant
 from tests.conftest import create_test_family, create_test_person, form_fields
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -42,6 +43,7 @@ _TEMPLATE = re.compile(r"<template\b(?:(?!<template\b).)*?</template>", re.S)
 def _household(db, email: str):
     """A main member with an address to sign in with, and a partner without one."""
     member, main = create_test_family(db, email=email, mobile="0470000000")
+    at_tenant(db, member)  # CR-26 F9
     partner = create_test_person(db)
     db.add(MemberPerson(member_id=member.id, person_id=partner.id, relation_type="PARTNER"))
     db.commit()

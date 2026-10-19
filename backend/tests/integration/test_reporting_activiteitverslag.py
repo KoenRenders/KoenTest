@@ -35,6 +35,7 @@ from datetime import date
 import pytest
 
 from app.domains.reporting.api import Selection, run_validated
+from tests._sites import in_the_circle
 
 TENANT = 8811
 
@@ -68,7 +69,6 @@ def activiteit(db_session):
     mensen = {}
     for voornaam, contact, orde in (("Jan", True, 0), ("Marie", True, 1), ("Stil", False, 2)):
         persoon = Person(
-            tenant_id=TENANT,
             first_name=voornaam,
             last_name="Trekker",
             date_of_birth=date(1980, 1, 1),
@@ -76,6 +76,8 @@ def activiteit(db_session):
         )
         db_session.add(persoon)
         db_session.flush()
+        # CR-26 F9: an organiser is no fact; the circle is, so the name resolves.
+        in_the_circle(db_session, persoon, TENANT)
         db_session.add(
             ActivityOrganiser(
                 tenant_id=TENANT,

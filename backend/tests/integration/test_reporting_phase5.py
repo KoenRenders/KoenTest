@@ -288,34 +288,10 @@ def test_a_submission_carries_no_name_or_e_mail(db_session):
 # ── f_membership_persons and question 8 ──────────────────────────────────────
 
 
-def test_a_person_in_two_households_counts_once(db_session, situation):
-    """ "How many members do we have" must not count anybody twice."""
-    from app.domains.mdm.api import MemberPerson
-
-    _y0, _y1, y2, _y3 = situation["years"]
-    # Put H1's head of family in H3 as well, for the same year.
-    persoon = db_session.execute(
-        text("SELECT person_id FROM mdm.member_persons WHERE member_id = :m LIMIT 1"),
-        {"m": situation["households"]["h1"]},
-    ).scalar()
-    db_session.add(
-        MemberPerson(
-            tenant_id=TENANT_A,
-            member_id=situation["households"]["h3"],
-            person_id=persoon,
-            relation_type="PARTNER",
-        )
-    )
-    db_session.commit()
-
-    aantal = db_session.execute(
-        text(
-            "SELECT COUNT(*) FROM reporting.f_membership_persons "
-            "WHERE tenant_id = :t AND year = :y AND person_id = :p"
-        ),
-        {"t": TENANT_A, "y": y2, "p": persoon},
-    ).scalar()
-    assert aantal == 1, "één rij per persoon per jaar, ook bij twee gezinnen"
+# `test_a_person_in_two_households_counts_once` stood here: it put a person in a
+# second household to show `f_membership_persons` counts him once. Since CR-26
+# that situation cannot exist — `uq_member_persons_one_household` refuses it
+# (F5; `app/domains/mdm/tests/test_one_household_cr26.py`).
 
 
 # ── The small-cell threshold (#841 test 2) ───────────────────────────────────
@@ -354,12 +330,11 @@ def test_a_group_of_four_is_shown_as_itself(db_session, situation):
         pc = PostalCode(postal_code=gemeente_pc, municipality=f"Plaats{gemeente_pc}")
         db_session.add(pc)
         db_session.flush()
-        member = Member(tenant_id=TENANT_A)
+        member = Member()
         db_session.add(member)
         db_session.flush()
         for index in range(personen):
             person = Person(
-                tenant_id=TENANT_A,
                 first_name=f"P{index}",
                 last_name="Test",
                 date_of_birth=geboren,
@@ -369,7 +344,6 @@ def test_a_group_of_four_is_shown_as_itself(db_session, situation):
             db_session.flush()
             db_session.add(
                 MemberPerson(
-                    tenant_id=TENANT_A,
                     member_id=member.id,
                     person_id=person.id,
                     relation_type="HOOFDLID" if index == 0 else "PARTNER",
@@ -378,7 +352,6 @@ def test_a_group_of_four_is_shown_as_itself(db_session, situation):
             if index == 0:
                 db_session.add(
                     Address(
-                        tenant_id=TENANT_A,
                         person_id=person.id,
                         street="Straat",
                         house_number="1",

@@ -484,6 +484,30 @@ def has_membership_for_year(member, year: int) -> bool:
     return any(membership.year == year for membership in member.memberships)
 
 
+def member_at_another_tenant(db, household_id: int, year: int) -> bool:
+    """Is this household still a member at another department of the account —
+    an active membership there for ``year`` or later (CR-26, the import of one
+    department and a shared household)? False without a current tenant."""
+    from app.domains.membership.models import Membership
+    from app.kernel.tenancy import current_tenant_id
+
+    tenant = current_tenant_id.get()
+    if tenant is None:
+        return False
+    return (
+        db.query(Membership.id)
+        .filter(
+            Membership.member_id == household_id,
+            Membership.tenant_id != tenant,
+            Membership.is_active.is_(True),
+            Membership.year >= year,
+        )
+        .execution_options(include_all_tenants=True)
+        .first()
+        is not None
+    )
+
+
 def add_reported_membership(
     db, household_id: int, year: int, *, source: str, actor: Optional[str]
 ) -> None:

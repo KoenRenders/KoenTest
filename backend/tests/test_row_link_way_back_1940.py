@@ -19,6 +19,8 @@ from urllib.parse import parse_qs, unquote, urlsplit
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
+from app.kernel.clock import belgian_today
+from tests._sites import at_tenant
 from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family
 
 
@@ -28,9 +30,12 @@ def _login(client):
 
 @pytest.fixture
 def households(db_session):
-    """Two households without a membership: they stand under Opgezegd, and their
-    persons in the list Personen under "In een gezin"."""
+    """Two households whose membership ended long ago: they stand under Opgezegd,
+    and their persons in the list Personen under "In een gezin". (Until CR-26
+    they had no membership at all; such a household is at no tenant now, F9.)"""
     families = [create_test_family(db_session, email=f"rijlink{n}@example.com") for n in (1, 2)]
+    for household, _person in families:
+        at_tenant(db_session, household, year=belgian_today().year - 5)
     db_session.commit()
     return families
 

@@ -44,10 +44,11 @@ pytestmark = pytest.mark.ui_serverrendered
 
 DOMAINS = Path(__file__).resolve().parents[1] / "app" / "domains"
 
+# (Gebruikers stond hier tot #2114: het is een record geworden met de balk van een record,
+# `test_record_form_gate.py`.)
 # Scherm → (template, het blok waarin het cluster hoort, handgerolde vormen die
 # er niet meer mogen staan).
 SCHERMEN = {
-    "gebruikers": "auth/templates/_gu_lijst.html",
     "rapportpaneel": "reporting/templates/_rp_paneel.html",
     "optierij": "forms/templates/_fb_builder.html",
 }
@@ -122,14 +123,6 @@ def _controleer_cluster(cluster: str, *, met_verwijderen: bool) -> None:
     for knop in re.findall(r"<(?:button|a)\b[^>]*>", cluster):
         klassen = set(re.search(r'class="([^"]*)"', knop).group(1).split())
         assert maat <= klassen, f"knop zonder kitmaat sm: {knop[:120]}"
-
-
-def test_de_gebruikersrij_rendert_het_cluster_in_volgorde(client, db_session):
-    _login(client, db_session)
-    html = client.get("/admin/gebruikers").text
-    clusters = _clusters(html)
-    for cluster in clusters:
-        _controleer_cluster(cluster, met_verwijderen=True)
 
 
 def test_het_rapportpaneel_rendert_het_cluster_in_volgorde(client, db_session):

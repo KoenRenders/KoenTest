@@ -29,6 +29,7 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import ContactDetail, Person
+from tests._sites import at_tenant
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     create_test_family,
@@ -122,6 +123,7 @@ def test_publieke_registratie_eist_ze_ook_van_een_bijkomend_lid(client, db_sessi
 
 def test_beheer_toevoegen_eist_de_velden(client, db_session):
     member, _ = create_test_family(db_session, email="beheer-add@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     db_session.commit()
     _admin(client)
     nieuw = {
@@ -157,6 +159,7 @@ def test_beheer_bewerken_kan_de_velden_niet_leegmaken(client, db_session):
     gezinsrecord.
     """
     member, person = create_test_family(db_session, email="beheer-edit@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     db_session.commit()
     origineel = person.date_of_birth
     _admin(client)
@@ -192,6 +195,7 @@ def test_portaal_bewerken_kan_de_velden_niet_leegmaken(client, db_session):
     _member, person = create_test_family(
         db_session, email="portaal681@example.com", mobile="0470 00 00 01"
     )
+    at_tenant(db_session, _member)  # CR-26 F9
     db_session.commit()
     origineel = person.date_of_birth
     csrf = _lid(client, "portaal681@example.com")
@@ -221,6 +225,7 @@ def test_portaal_toevoegen_eist_de_velden(client, db_session):
     _member, _person = create_test_family(
         db_session, email="portaal-add@example.com", mobile="0470 00 00 01"
     )
+    at_tenant(db_session, _member)  # CR-26 F9
     db_session.commit()
     csrf = _lid(client, "portaal-add@example.com")
     velden = household_fields(client)
@@ -263,6 +268,7 @@ def test_the_main_members_mobile_can_be_emptied_at_both_doors_and_word_lid_asks_
     member, person = create_test_family(
         db_session, email="gsm-hoofd@example.com", mobile="0470 00 00 01"
     )
+    at_tenant(db_session, member)  # CR-26 F9
     db_session.commit()
 
     csrf = _lid(client, "gsm-hoofd@example.com")

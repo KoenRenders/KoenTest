@@ -29,6 +29,7 @@ from app.domains.mdm.api import (
     Person,
     PostalCode,
 )
+from tests._sites import at_tenant
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -45,6 +46,7 @@ def world(db_session):
         db.flush()
     household = Member()
     db.add(household)
+    at_tenant(db, household)  # CR-26 F9
     db.flush()
     people = {}
     for name, relation in (("An", "HOOFDLID"), ("Cas", "KIND")):
@@ -228,6 +230,7 @@ def test_a_member_saves_only_their_own_household(client, db_session, world):
     db = db_session
     other = Member()
     db.add(other)
+    at_tenant(db, other)  # CR-26 F9
     db.flush()
     stranger = Person(
         first_name="Vreemd", last_name="Elders", date_of_birth=date(1970, 1, 1), gender_code="M"

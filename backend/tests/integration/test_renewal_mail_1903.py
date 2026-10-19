@@ -46,6 +46,7 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import ContactDetail, MemberPerson, Person
 from app.domains.membership.api import open_renewal_payment
+from tests._sites import at_tenant
 from tests.conftest import SEEDED_ADMIN_EMAIL, board_session, create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -123,6 +124,7 @@ def _one(mails: list[dict], to: str) -> dict:
 
 def test_a_transfer_from_the_public_side_mails_the_booking_that_was_made(client, db_session, sent):
     member, _person = create_test_family(db_session, email="lid-1903@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     db_session.commit()
 
     answer = _member_renews(client, "lid-1903@example.com", "transfer")
@@ -138,7 +140,9 @@ def test_a_transfer_from_the_public_side_mails_the_booking_that_was_made(client,
 
 def test_the_board_renews_and_the_main_member_gets_the_same_mail(client, db_session, sent):
     member, _person = create_test_family(db_session, email="hoofd-1903@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     other, _p = create_test_family(db_session, email="zelf-1903@example.com")
+    at_tenant(db_session, other)  # CR-26 F9
     db_session.commit()
 
     assert _board_renews(client, member.id, "transfer").status_code == 200
@@ -161,6 +165,7 @@ def test_the_board_renews_and_the_main_member_gets_the_same_mail(client, db_sess
 
 def test_a_partner_who_renews_has_the_mail_sent_to_the_main_member(client, db_session, sent):
     member, _person = create_test_family(db_session, email="hoofdlid-p-1903@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     from datetime import date
 
     partner = Person(
@@ -185,7 +190,9 @@ def test_a_partner_who_renews_has_the_mail_sent_to_the_main_member(client, db_se
 
 
 def test_online_mails_once_and_says_when_it_becomes_active(client, db_session, sent, mock_mollie):
-    create_test_family(db_session, email="online-1903@example.com")
+    at_tenant(
+        db_session, create_test_family(db_session, email="online-1903@example.com")[0]
+    )  # CR-26 F9
     db_session.commit()
 
     assert _member_renews(client, "online-1903@example.com", "online").status_code == 200
@@ -196,7 +203,9 @@ def test_online_mails_once_and_says_when_it_becomes_active(client, db_session, s
 
 
 def test_a_refused_renewal_mails_nothing(client, db_session, sent):
-    create_test_family(db_session, email="tweemaal-1903@example.com")
+    at_tenant(
+        db_session, create_test_family(db_session, email="tweemaal-1903@example.com")[0]
+    )  # CR-26 F9
     db_session.commit()
     assert _member_renews(client, "tweemaal-1903@example.com", "transfer").status_code == 200
     _renewal_mails(db_session, sent)
@@ -212,6 +221,7 @@ def test_without_a_confirmed_address_nothing_is_mailed_and_the_record_says_so(
     client, db_session, sent
 ):
     member, person = create_test_family(db_session, email="wacht-1903@example.com")
+    at_tenant(db_session, member)  # CR-26 F9
     for detail in db_session.query(ContactDetail).filter_by(person_id=person.id):
         detail.confirmed_at = None
     db_session.commit()
@@ -232,7 +242,9 @@ def test_the_transfer_block_is_the_one_of_the_registration_mail(client, db_sessi
     function writes a transfer's lines, which both confirmation mails call."""
     from pathlib import Path
 
-    create_test_family(db_session, email="bron-1903@example.com")
+    at_tenant(
+        db_session, create_test_family(db_session, email="bron-1903@example.com")[0]
+    )  # CR-26 F9
     db_session.commit()
     assert _member_renews(client, "bron-1903@example.com", "transfer").status_code == 200
     mail = _one(_renewal_mails(db_session, sent), "bron-1903@example.com")

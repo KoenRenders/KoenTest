@@ -32,6 +32,7 @@ on its lost hidden HOOFDLID field; the partner test stayed green, as it should.
 import re
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests._sites import at_tenant
 from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, household_fields
 
 
@@ -41,6 +42,7 @@ def test_the_admin_form_keeps_the_main_member_a_main_member(client, db_session):
     from tests.conftest import record_fields
 
     member, person = create_test_family(db_session, email="main-1268@example.org")
+    at_tenant(db_session, member)  # CR-26 F9
     db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     html = client.get(f"/admin/leden/gezin/{member.id}?bewerken=1").text
@@ -88,6 +90,7 @@ def test_the_portal_shows_the_main_member_as_the_main_member(client, db_session)
     member, person = create_test_family(
         db_session, email="main-1268-portal@example.org", mobile="0470 00 00 01"
     )
+    at_tenant(db_session, member)  # CR-26 F9
     db_session.commit()
     session = make_session_value("main-1268-portal@example.org")
     client.cookies.set(SESSION_COOKIE, session)
@@ -144,6 +147,7 @@ def test_a_partner_is_not_a_main_member(client, db_session):
     member, person = create_test_family(
         db_session, email="partner-1268@example.org", relation_type="PARTNER"
     )
+    at_tenant(db_session, member)  # CR-26 F9
     db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     html = client.get(f"/admin/leden/gezin/{member.id}?bewerken=1").text

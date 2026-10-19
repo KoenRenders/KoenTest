@@ -99,7 +99,7 @@ def recorded_history_rows(db, snapshots) -> list[tuple[str, dict]]:
     `snapshots` is `[(function, HistoryModel, source)]`; the source is a plain
     object with the attributes the function reads, so the input is the same on
     every run and needs no row of its own. Every column of the history row is
-    returned but its own id, its tenant and the moment it was written — a column the function
+    returned but its own id, its tenant or account and the moment it was written — a column the function
     forgot, or one it filled from the wrong attribute, shows in the comparison."""
     rows = []
     for index, (function, model, source) in enumerate(snapshots):
@@ -117,7 +117,7 @@ def recorded_history_rows(db, snapshots) -> list[tuple[str, dict]]:
         columns = {
             column.key: getattr(row, column.key)
             for column in model.__table__.columns
-            if column.key not in {"id", "recorded_at", "tenant_id"}
+            if column.key not in {"id", "recorded_at", "tenant_id", "account_id"}
         }
         rows.append(
             (

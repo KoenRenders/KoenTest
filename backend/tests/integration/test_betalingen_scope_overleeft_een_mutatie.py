@@ -38,6 +38,7 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.auth.models import User, UserRole
 from app.domains.payment.api import PaymentRecord
+from tests._sites import at_tenant
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     create_test_family,
@@ -78,6 +79,7 @@ def _register(client, activity, component, product, name, email):
 def world(client, db_session):
     """Activity A with two registrations (one by a family member), activity B with one."""
     family, _person = create_test_family(db_session, email=FAMILY_EMAIL)
+    at_tenant(db_session, family)  # CR-26 F9
     a, a_comp, a_prod = seed_activity_with_product(db_session, price="10.00", is_free=False)
     b, b_comp, b_prod = seed_activity_with_product(db_session, price="12.00", is_free=False)
     _register(client, a, a_comp, a_prod, "Rec Anna", FAMILY_EMAIL)

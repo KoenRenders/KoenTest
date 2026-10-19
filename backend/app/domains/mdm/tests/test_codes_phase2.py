@@ -267,8 +267,9 @@ def test_an_unknown_contact_type_is_still_refused_by_the_database(db_session):
             text(
                 "INSERT INTO mdm.contact_details "
                 "(person_id, contact_type_code, value, is_primary, created_at, "
-                " updated_at, tenant_id) "
-                "VALUES (:p, 'SEMAFOON', 'x', false, now(), now(), 2)"
+                " updated_at, account_id) "
+                "SELECT :p, 'SEMAFOON', 'x', false, now(), now(), account_id "
+                "FROM mdm.persons WHERE id = :p"
             ),
             {"p": person.id},
         )

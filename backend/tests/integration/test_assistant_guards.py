@@ -35,6 +35,7 @@ from app.domains.reporting.assistant import (
     build_system_prompt,
     dispatcher,
 )
+from tests._sites import at_tenant, in_the_circle
 
 TENANT = 2
 
@@ -72,32 +73,31 @@ def _assign_board_member(db, person):
     knows them — the view is built from the assignment, not from the person."""
     from app.domains.mdm.api import Member
 
-    member = Member(tenant_id=TENANT, board_member_id=person.id)
+    member = Member(board_member_id=person.id)
     db.add(member)
     db.flush()
+    # CR-26 F9: the household and its board member are at the tenant by a fact.
+    at_tenant(db, member, TENANT)
+    in_the_circle(db, person, TENANT)
     return member
 
 
 def _person(db, first: str, last: str):
     from app.domains.mdm.api import Member, MemberPerson, Person
 
-    member = Member(tenant_id=TENANT)
+    member = Member()
     db.add(member)
     db.flush()
+    at_tenant(db, member, TENANT)
     person = Person(
         date_of_birth=date(1980, 1, 1),
         gender_code="M",
-        tenant_id=TENANT,
         first_name=first,
         last_name=last,
     )
     db.add(person)
     db.flush()
-    db.add(
-        MemberPerson(
-            tenant_id=TENANT, member_id=member.id, person_id=person.id, relation_type="HOOFDLID"
-        )
-    )
+    db.add(MemberPerson(member_id=member.id, person_id=person.id, relation_type="HOOFDLID"))
     db.flush()
     return person
 

@@ -446,16 +446,18 @@ def _shown_options(db: Session, account: str) -> list[tuple[str, str]]:
 def _site_org_options(db: Session, unit) -> list[tuple[str, str]]:
     """The organisations a tenant's site may show (#1550): its account first,
     then the organisations the account's tenants show (CR-20)."""
-    from app.domains.mdm.api import organizations_of_account
+    from app.domains.mdm.api import account_organization_id, organizations_of_account
 
-    return [(str(o["id"]), o["name"]) for o in organizations_of_account(db, unit.account_id)]
+    account = account_organization_id(db, unit)
+    return [(str(o["id"]), o["name"]) for o in organizations_of_account(db, account)]
 
 
 def _account_names(db: Session, units) -> dict[int, str]:
     """Each listed site's account name, by the site's id (#1542)."""
     from app.domains.mdm.api import organization_options
 
-    names = {o["id"]: o["name"] for o in organization_options(db)}
+    # A tenant names its account's party (CR-26 C4.9).
+    names = {o["party_id"]: o["name"] for o in organization_options(db)}
     return {u.id: names[u.account_id] for u in units if u.account_id in names}
 
 
@@ -697,7 +699,7 @@ def _record_view(
     without the Tenant card and with the modules read-only — type, account and
     modules are platform administration (#1533). `typed` are the values of a
     refused save, shown again as they were sent (#797)."""
-    from app.domains.mdm.api import accounts, enabled_modules, organization_options
+    from app.domains.mdm.api import enabled_modules, organization_options
     from app.domains.mdm.api import secrets_gezet as _secrets_gezet
     from app.kernel.tenant_config import get_setting, site_name_default, site_organization_id
 
@@ -722,7 +724,7 @@ def _record_view(
     is_platform = unit.is_platform
     kind_label = _kind_labels().get(unit.kind.value, "") if unit.kind is not None else ""
     everyone = {o["id"]: o for o in organization_options(db)}
-    account = everyone.get(unit.account_id)
+    account = next((o for o in everyone.values() if o["party_id"] == unit.account_id), None)
     behind_id = site_organization_id(db, tenant_id)
     behind = everyone.get(behind_id)
 
@@ -755,8 +757,6 @@ def _record_view(
     if not own:
         site_org_options = _site_org_options(db, unit)
         site_org_value = str(unit.organization_id)
-        account_options = [(str(a.id), a.name) for a in accounts(db)]
-        account_value = str(unit.account_id)
         tenant_card = {
             # #1533: a unit's kind can be changed between the creatable kinds;
             # the platform's is fixed and only shown.
@@ -765,14 +765,10 @@ def _record_view(
                 "label": kind_label or "—",
                 "options": [] if is_platform else _creatable_kind_options(),
             },
-            # #1533 (Koen): the account the tenant hangs under, chosen from the
-            # active accounts (#1495). #1542: the platform too. Every tenant has
-            # one since CR-20 (F1).
-            "account": {
-                "value": account_value,
-                "label": account["name"] if account else "—",
-                "options": account_options,
-            },
+            # The account the tenant hangs under, a fact: chosen once, at Tenants ›
+            # Nieuw — an existing tenant never changes it (CR-26; Koen,
+            # 19 October 2026: "1").
+            "account": {"label": account["name"] if account else "—"},
             # #1550: whose data the site shows — its account, or another
             # organisation of its account (CR-20).
             "site_org": {
@@ -1036,6 +1032,7 @@ async def _save(request: Request, db: Session, tenant_id: int, email: str, *, ow
             modules=modules,
             # #1533: only what the form sends; the platform's editor sends none.
             kind=str(form["kind"]) if "kind" in form else None,
+            # The editor sends no account; one that is posted all the same is refused.
             account=str(form["account_id"]) if "account_id" in form else None,
             site_organization=str(form["site_organization_id"])
             if "site_organization_id" in form

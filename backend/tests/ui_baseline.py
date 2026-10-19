@@ -36,8 +36,6 @@ DECLARED_KIT_EXCEPTIONS: dict[str, str] = {
 
 #: B7 test 8 — raw <label>, <select>, <textarea>, visible <input>. 55 in 16 files.
 RAW_FORM_ELEMENTS: dict[str, int] = {
-    "domains/auth/templates/_gu_lijst.html": 2,
-    "domains/auth/templates/_gu_rollen_velden.html": 6,
     "domains/designstudio/templates/admin_ontwerp.html": 2,
     "domains/forms/templates/_fb_builder.html": 12,
     "domains/forms/templates/_formulier_veld.html": 4,
@@ -52,8 +50,6 @@ RAW_FORM_ELEMENTS: dict[str, int] = {
 
 #: B7 test 9 — raw type="checkbox". 14 in 7 files.
 RAW_CHECKBOXES: dict[str, int] = {
-    "domains/auth/templates/_gu_lijst.html": 1,
-    "domains/auth/templates/_gu_rollen_velden.html": 3,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/forms/templates/_fb_builder.html": 6,
     "domains/newsletter/templates/_nb_gesprek.html": 1,
@@ -62,8 +58,6 @@ RAW_CHECKBOXES: dict[str, int] = {
 
 #: B7 test 8 — margin/padding/gap/space class on a raw form element. 47 in 15 files.
 SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
-    "domains/auth/templates/_gu_lijst.html": 1,
-    "domains/auth/templates/_gu_rollen_velden.html": 3,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/forms/templates/_fb_builder.html": 7,
     "domains/forms/templates/_formulier_veld.html": 2,
@@ -76,7 +70,6 @@ SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
 
 #: B7 test 8 — bg-white, bg-gray-50, bg-gray-100 written by the template. 50 in 23 files.
 RAW_SURFACES: dict[str, int] = {
-    "domains/auth/templates/_gu_lijst.html": 1,
     "domains/forms/templates/_fb_builder.html": 6,
     "domains/forms/templates/_fb_resultaten.html": 1,
     "domains/media/templates/_me_boom.html": 1,
@@ -88,7 +81,6 @@ RAW_SURFACES: dict[str, int] = {
 
 #: B7 test 17 — a header button that is neither the create nor "Instellingen". 18 in 10 files.
 HEADER_EXTRAS: dict[str, int] = {
-    "domains/auth/templates/admin_gebruikers.html": 1,
     "domains/auth/templates/admin_gebruikers_overzicht.html": 1,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/meetings/templates/_vg_verstuur.html": 1,
@@ -120,7 +112,6 @@ CHECKBOX_GROUPS_IN_TOOLBARS: dict[str, int] = {}
 #: B7 test 1 — an admin page on the shell itself, no layout and no record head. 26 in 26 files.
 SHELL_EXTENDED_DIRECTLY: dict[str, int] = {
     "domains/activities/templates/admin_inschrijving.html": 1,
-    "domains/auth/templates/admin_gebruikers.html": 1,
     "domains/auth/templates/admin_gebruikers_overzicht.html": 1,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/designstudio/templates/admin_ontwerp_nieuw.html": 1,

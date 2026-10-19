@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from contextvars import ContextVar
 
-from sqlalchemy import Column, ForeignKey, Integer, event
+from sqlalchemy import Column, ForeignKey, Integer, event, false, text
 from sqlalchemy.orm import Session, declarative_mixin, declared_attr, with_loader_criteria
 
 # Vaste organization-ids uit de seed (migratie 086) — bewust deterministisch,
@@ -68,28 +68,74 @@ class TenantMixin:
     Since CR-20 the column is a foreign key to ``mdm.tenants`` — a row can no
     longer carry a tenant that does not exist. The key crosses a schema for every
     table outside ``mdm``, by the one named exception of CR-20 B4 (the schema
-    boundary gate allows ``mdm.tenants`` and ``mdm.parties``).
-
-    A model that sets ``tenant_key = False`` declares the column without the key:
-    the ``mdm`` tables whose ``tenant_id`` holds an organisation's id on an
-    organisation's own rows (addresses, contacts, the organisation's persons, and
-    their history — CR-20 F2, C4.8). CR-26 takes them out of the tenant scope;
-    until then they stand in the baseline of
-    ``tests/test_tenant_key_gate.py``, which may only shrink.
+    boundary gate allows ``mdm.tenants`` and ``mdm.parties``). Until CR-26 a model
+    could declare the column without the key, for the ``mdm`` seam of CR-20 F2;
+    those tables are on the account scope now (``AccountMixin``), and the way out
+    went with them.
     """
-
-    tenant_key = True
 
     @declared_attr
     def tenant_id(cls):  # noqa: N805 - declarative_mixin-conventie
-        if not cls.__dict__.get("tenant_key", True):
-            return Column(Integer, nullable=False, index=True, default=_tenant_default)
         return Column(
             Integer,
             ForeignKey("mdm.tenants.id"),
             nullable=False,
             index=True,
             default=_tenant_default,
+        )
+
+
+# The account of each tenant (CR-26 F2, C4.9): `mdm.tenants.account_id`, the
+# account's own party. Read once per tenant and kept, like the tenant codes;
+# `forget_tenant_accounts()` clears it with them (`mdm.api.invalidate_tenant_codes`).
+# The kernel reads the table by name and imports no domain.
+_tenant_accounts: dict[int, int] = {}
+
+
+def forget_tenant_accounts() -> None:
+    _tenant_accounts.clear()
+
+
+def account_of_tenant(connection, tenant_id: int) -> int | None:
+    """The account of a tenant, or None for a tenant that does not exist."""
+    account = _tenant_accounts.get(tenant_id)
+    if account is None:
+        account = connection.execute(
+            text("SELECT account_id FROM mdm.tenants WHERE id = :tenant"), {"tenant": tenant_id}
+        ).scalar()
+        if account is not None:
+            _tenant_accounts[tenant_id] = account
+    return account
+
+
+def _account_default(context) -> int:
+    account = account_of_tenant(context.connection, _tenant_default())
+    if account is None:
+        raise LookupError(f"tenant {_tenant_default()} has no account")
+    return account
+
+
+@declarative_mixin
+class AccountMixin:
+    """The account scope (CR-26 F2, C4.2): a party and what hangs on it belong to
+    the account — the customer of the platform — and not to one of its tenants.
+
+    ``account_id`` is the account's own party. There is no context variable of
+    its own: the account is derived from the current tenant, inside the filter
+    and the default, because the tenant is set in more than one place and a
+    second setter that a job forgot would show every account (C4.9). A table
+    carries this mixin or ``TenantMixin``, never both
+    (``tests/test_scope_gate.py``).
+    """
+
+    @declared_attr
+    def account_id(cls):  # noqa: N805 - declarative_mixin-conventie
+        return Column(
+            Integer,
+            ForeignKey("mdm.parties.id"),
+            nullable=False,
+            index=True,
+            default=_account_default,
         )
 
 
@@ -198,7 +244,9 @@ def parse_hostname_map(raw: str) -> dict[str, str]:
 def _filter_tenant(execute_state):
     """Globale tenant-filter — zelfde canonieke recept als de soft-delete-filter
     (#166): elke ORM-SELECT (incl. relationship-loads) krijgt automatisch
-    ``tenant_id = <actieve tenant>``. Geen actieve tenant (None) = geen filter."""
+    ``tenant_id = <actieve tenant>``. Geen actieve tenant (None) = geen filter.
+    Since CR-26 the same select gets ``account_id = <the tenant's account>`` on
+    the account-scoped tables, under the same way out (``include_all_tenants``)."""
     tenant = current_tenant_id.get()
     if (
         tenant is not None
@@ -206,10 +254,26 @@ def _filter_tenant(execute_state):
         and not execute_state.is_column_load
         and not execute_state.execution_options.get("include_all_tenants", False)
     ):
-        execute_state.statement = execute_state.statement.options(
+        options = [
             with_loader_criteria(
                 TenantMixin,
                 lambda cls: cls.tenant_id == tenant,
                 include_aliases=True,
             )
-        )
+        ]
+        # CR-26 F2: the account of the current tenant. A tenant without one does
+        # not exist (CR-20 F1); then nothing of an account is shown. Not on a
+        # relationship load: that follows a key from a row already read, and a
+        # tenant names the parties of its account by key — the platform shows
+        # every account's sites and their organisations (`Tenant.organization`).
+        if not execute_state.is_relationship_load:
+            account = account_of_tenant(execute_state.session.connection(), tenant)
+            options.append(
+                with_loader_criteria(
+                    AccountMixin,
+                    (lambda cls: cls.account_id == account) if account is not None else false(),
+                    include_aliases=True,
+                    propagate_to_loaders=False,
+                )
+            )
+        execute_state.statement = execute_state.statement.options(*options)

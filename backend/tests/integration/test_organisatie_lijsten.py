@@ -43,7 +43,6 @@ def organisatie(db_session):
 
 def _contact(db_session, organisatie, code: str, waarde: str) -> ContactDetail:
     rij = ContactDetail(
-        tenant_id=organisatie.id,
         organization_id=organisatie.id,
         contact_type_code=code,
         value=waarde,
@@ -216,7 +215,6 @@ def test_a_person_only_sees_their_own_contact_details(db_session, organisatie):
     db_session.flush()
     db_session.add(
         ContactDetail(
-            tenant_id=organisatie.id,
             person_id=persoon.id,
             contact_type_code="EMAIL",
             value="persoon@example.com",
@@ -249,7 +247,6 @@ def test_a_row_cannot_belong_to_both_at_once(db_session, organisatie):
     db_session.flush()
     db_session.add(
         ContactDetail(
-            tenant_id=organisatie.id,
             person_id=persoon.id,
             organization_id=organisatie.id,
             contact_type_code="EMAIL",
@@ -261,9 +258,7 @@ def test_a_row_cannot_belong_to_both_at_once(db_session, organisatie):
     db_session.rollback()
 
     # En de andere kant: een rij zonder eigenaar is evengoed geweigerd.
-    db_session.add(
-        ContactDetail(tenant_id=organisatie.id, contact_type_code="EMAIL", value="wees@example.com")
-    )
+    db_session.add(ContactDetail(contact_type_code="EMAIL", value="wees@example.com"))
     with pytest.raises(IntegrityError):
         db_session.commit()
     db_session.rollback()
@@ -291,7 +286,6 @@ def test_the_audit_lookup_ignores_the_organisation_row(db_session, organisatie):
     db_session.flush()
     db_session.add(
         ContactDetail(
-            tenant_id=organisatie.id,
             person_id=persoon.id,
             contact_type_code="EMAIL",
             value="gedeeld@example.com",
@@ -305,59 +299,52 @@ def test_the_audit_lookup_ignores_the_organisation_row(db_session, organisatie):
     )
 
 
-# ── 5. De tenant-naad, expliciet ────────────────────────────────────────────
+# ── 5. The account scope, which ended the tenant seam ───────────────────────
 
 
-def test_an_organisation_row_is_invisible_under_the_tenant_filter(db_session, organisatie):
-    """`tenant_id` is op een organisatierij niet de scope — vastgelegd (#945).
+def test_an_organisations_rows_are_its_accounts(db_session, organisatie):
+    """Until CR-26 `tenant_id` on an organisation's row held the owner, not the
+    scope (#945), and such a row was invisible under the tenant filter. Since
+    CR-26 F1 the row carries the organisation's account: every tenant of that
+    account sees it, a tenant of another account does not — unless it asks for
+    every account, as the operator's screens do.
 
-    De kolom is NOT NULL en krijgt de eigenaar mee omdat er geen betere waarde
-    bestaat. Wie ooit RLS aanzet schrijft een policy op `tenant_id` en mis-scoopt
-    deze rijen stil; deze test maakt het gedrag opzettelijk in plaats van
-    toevallig.
-
-    Getoetst met de ACCOUNT-organisatie: die is géén tenant, dus haar rijen mogen
-    onder de gewone filter nooit opduiken.
+    Tested with the ACCOUNT organisation: no tenant shows it, its account's
+    tenants see its rows all the same.
     """
     from app.domains.mdm.api import Tenant
     from app.kernel.tenancy import current_tenant_id
+    from tests._sites import a_tenant_with_id
 
-    account = db_session.get(Organization, db_session.get(Tenant, organisatie.id).account_id)
-    assert account is not None and account.id != organisatie.id
+    tenant = db_session.get(Tenant, organisatie.id)
+    account = db_session.query(Organization).filter_by(party_id=tenant.account_id).one()
+    assert account.id != organisatie.id
     db_session.add(
         ContactDetail(
-            tenant_id=account.id,
             organization_id=account.id,
+            account_id=account.account_id,
             contact_type_code="EMAIL",
             value="account@example.com",
         )
     )
+    elsewhere = a_tenant_with_id(db_session, 9_945)
     db_session.commit()
 
-    token = current_tenant_id.set(organisatie.id)
-    try:
-        zonder = (
-            db_session.query(ContactDetail)
-            .filter(ContactDetail.value == "account@example.com")
-            .all()
-        )
-        met = (
-            db_session.query(ContactDetail)
-            .filter(ContactDetail.value == "account@example.com")
-            .execution_options(include_all_tenants=True)
-            .all()
-        )
-    finally:
-        current_tenant_id.reset(token)
+    def seen(tenant_id: int, *, every: bool = False) -> int:
+        token = current_tenant_id.set(tenant_id)
+        try:
+            query = db_session.query(ContactDetail).filter(
+                ContactDetail.value == "account@example.com"
+            )
+            if every:
+                query = query.execution_options(include_all_tenants=True)
+            return query.count()
+        finally:
+            current_tenant_id.reset(token)
 
-    assert zonder == [], (
-        "zonder include_all_tenants hoort een organisatierij van een ándere "
-        "organisatie onzichtbaar te zijn"
-    )
-    assert len(met) == 1, (
-        "en mét die optie hoort ze er wél te zijn — anders toetst de regel "
-        "hierboven alleen dat de rij nergens bestaat"
-    )
+    assert seen(organisatie.id) == 1, "a tenant of the account sees its organisation's row"
+    assert seen(elsewhere.id) == 0, "a tenant of another account does not"
+    assert seen(elsewhere.id, every=True) == 1, "and with the option it is there"
 
 
 # ── 6. De telling in de migratie kan rood worden ────────────────────────────
