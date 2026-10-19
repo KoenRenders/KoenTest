@@ -55,7 +55,9 @@ class DailyAudioBudget:
     def __init__(self, max_bytes_per_day: int):
         self.max_bytes = max_bytes_per_day
         self._usage: dict[str, int] = defaultdict(int)
-        self._day: date = belgian_today()
+        # Asked at the first charge, not here: the day is the tenant's (#2156), and a
+        # module that builds its budget at import has no tenant and no database yet.
+        self._day: date | None = None
 
     def _roll(self) -> None:
         today = belgian_today()
@@ -78,4 +80,4 @@ class DailyAudioBudget:
 
     def reset(self) -> None:
         self._usage.clear()
-        self._day = belgian_today()
+        self._day = None

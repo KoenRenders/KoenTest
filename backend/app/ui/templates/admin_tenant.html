@@ -93,8 +93,15 @@
     {% if edit %}
     {{ ui.field("site_name", _("Naam van de site"), value=site_name.value, placeholder=site_name.default, id="site_name",
                 help=_("De naam waaronder de site zich voorstelt. Leeg = de naam van de organisatie achter de site.")) }}
+    {% if tenant_card %}
+    {# #2156: the day the site lives by; the platform's screen sets it (a tenant's own
+       settings read it). #}
+    {{ ui.field("time_zone", attribute="mdm.tenant.time_zone", value=time_zone, id="time_zone",
+                help=_("De tijdzone waarin de dagen van deze site geteld worden, bv. Europe/Brussels.")) }}
+    {% endif %}
     {% else %}
     <p data-span="half" data-setting="site_name" class="min-w-0">{{ ui.label_fact(_("Naam van de site"), site_name.value or site_name.default or "—") }}</p>
+    <p data-span="half" data-setting="time_zone" class="min-w-0">{{ ui.label_fact(_("Tijdzone"), time_zone or "—") }}</p>
     {% endif %}
     {% for f in card.fields %}{{ setting(f) }}{% endfor %}
     {% for s in card.secrets %}{{ secret(s) }}{% endfor %}

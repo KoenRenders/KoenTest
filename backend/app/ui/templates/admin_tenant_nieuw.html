@@ -27,6 +27,8 @@
               help=_("Kleine letters, cijfers, streepjes — wordt de pad-prefix (/code/…).")) }}
   {{ ui.field("site_name", attribute="mdm.tenant.site_name", id="t-site-name", value=typed.site_name|default(""),
               help=_("Leeg laten: de site toont de naam van de organisatie.")) }}
+  {{ ui.field("time_zone", attribute="mdm.tenant.time_zone", id="t-time-zone", placeholder="Europe/Brussels", value=typed.time_zone|default(""),
+              help=_("Leeg laten: Europe/Brussels. De tijdzone waarin de dagen van deze site geteld worden.")) }}
   {{ ui.field("base_url", _("Canonieke URL"), id="t-baseurl", placeholder="https://…", value=typed.base_url|default(""),
               help=_("Optioneel; de overige instellingen zet je nadien in de tenant zelf.")) }}
   {% endcall %}

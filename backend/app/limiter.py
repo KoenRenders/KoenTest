@@ -71,7 +71,9 @@ class DailyCharBudget:
     def __init__(self, max_chars_per_day: int):
         self.max_chars = max_chars_per_day
         self._usage: dict = defaultdict(int)
-        self._day: date = belgian_today()
+        # Asked at the first charge, not here: the day is the tenant's (#2156) and a
+        # module that builds its limiter at import has no tenant and no database yet.
+        self._day: date | None = None
 
     def _roll_day(self):
         today = belgian_today()

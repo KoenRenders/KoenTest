@@ -57,6 +57,7 @@ def create_tenant(
     site_name: str = "",
     base_url: str = "",
     kind=None,
+    time_zone: str = "",
     new_account_name: str | None = None,
     new_organization_name: str | None = None,
 ):
@@ -91,6 +92,7 @@ def create_tenant(
     new_account = _checked_name(new_account_name) if new_account_name is not None else None
     new_shown = _checked_name(new_organization_name) if new_organization_name is not None else None
     checked_site_name = _checked_site_name(site_name)
+    checked_time_zone = _checked_time_zone(time_zone) if (time_zone or "").strip() else None
     if new_account is None:
         account = _checked_account(db, str(account_id) if account_id is not None else "")
         if new_shown is None:
@@ -119,6 +121,7 @@ def create_tenant(
         account_id=account.party_id,
         organization_id=shown.id,
         site_name=checked_site_name,
+        **({"time_zone": checked_time_zone} if checked_time_zone else {}),
         is_active=True,
     )
     db.add(tenant)
@@ -274,6 +277,7 @@ def save_tenant(
     account: str | None = None,
     site_organization: str | None = None,
     site_name: str | None = None,
+    time_zone: str | None = None,
     actor: str | None = None,
 ) -> None:
     """The tenant editor's one Opslaan (#1498): the module set and the settings
@@ -305,6 +309,7 @@ def save_tenant(
         raise TenantFout("Het account van een bestaande tenant verandert niet.")
     site_org = _checked_site_organization(db, tenant_id, site_organization, account_org)
     new_site_name = _checked_site_name(site_name) if site_name is not None else None
+    new_time_zone = _checked_time_zone(time_zone) if time_zone is not None else None
     chosen = _checked_modules(modules) if modules is not None else None
     _write_settings(db, tenant_id, form, known=known, secret=secret)
     if chosen is not None:
@@ -315,6 +320,8 @@ def save_tenant(
     _write_reference(db, tenant, "organization_id", "site organisation", site_org.id, actor=actor)
     if site_name is not None:
         tenant.site_name = new_site_name
+    if new_time_zone is not None:
+        tenant.time_zone = new_time_zone
     db.commit()
     invalidate_tenant_codes()
 
@@ -492,6 +499,21 @@ def _checked_site_name(value: str) -> str | None:
     if len(name) > 255:
         raise TenantFout("De naam van de site is te lang (maximaal 255 tekens).")
     return name or None
+
+
+def _checked_time_zone(value: str) -> str:
+    """The time zone a tenant lives by (#2156): a name of the IANA time zone database
+    (`Europe/Brussels`), checked here because a CHECK cannot hold the list. The day of
+    a tenant is decided from it everywhere (`kernel.clock`, `mdm.tenant_today()`), so a
+    name the database does not know is refused before anything is written."""
+    from zoneinfo import available_timezones
+
+    name = (value or "").strip()
+    if name not in available_timezones():
+        raise TenantFout(
+            "Dit is geen tijdzone uit de IANA-lijst. Bv. Europe/Brussels of America/New_York."
+        )
+    return name
 
 
 def _write_reference(db, tenant, column: str, what: str, chosen: int, *, actor: str | None) -> None:
