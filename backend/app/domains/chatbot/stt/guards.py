@@ -9,11 +9,11 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict, deque
-from datetime import date
+from datetime import date, datetime
 
 from starlette.websockets import WebSocket
 
-from app.kernel.clock import belgian_today
+from app.kernel.clock import BELGIUM
 
 
 def ws_client_ip(websocket: WebSocket) -> str:
@@ -55,14 +55,12 @@ class DailyAudioBudget:
     def __init__(self, max_bytes_per_day: int):
         self.max_bytes = max_bytes_per_day
         self._usage: dict[str, int] = defaultdict(int)
-        # The day of a process-wide budget is that of whichever tenant charges first after a
-        # rollover (#2156); equal while every tenant lives in Brussels.
-        # Asked at the first charge, not here: the day is the tenant's (#2156), and a
-        # module that builds its budget at import has no tenant and no database yet.
         self._day: date | None = None
 
     def _roll(self) -> None:
-        today = belgian_today()
+        # A websocket has no tenant (the middleware serves HTTP only), and the budget is
+        # the process's, not a tenant's: its day is Brussels', named (#2156).
+        today = datetime.now(BELGIUM).date()
         if today != self._day:
             self._usage.clear()
             self._day = today
