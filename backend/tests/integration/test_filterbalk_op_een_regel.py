@@ -178,7 +178,6 @@ def _seed(db):
 SCHERMEN = [
     # #1527: the tree chooses the kind and the activity; the row keeps the search.
     ("/admin/media", {"q"}),
-    ("/admin/gebruikers", {"q", "rol", "actief"}),
 ]
 
 
