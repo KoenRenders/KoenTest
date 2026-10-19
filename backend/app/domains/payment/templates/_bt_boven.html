@@ -8,37 +8,18 @@
    the status tabs became the toolbar's status filter, so here only the scope
    line is left. An **embedded** Betalingen tab has no title row of its own.
    The activity's figures stand on its summary card (K6, #1560); the tab of a
-   household and of a registration keeps the band below until pilot B. #}
+   household and of a registration shows the same three figures below (CR-11
+   phase 5, #2128). #}
 {% if scope and not scope.get("stil") %}
 {% call ui.scope_regel(scope.alles_url) %}{{ scope.soort }}{% if scope.titel %} <a class="font-medium hover:underline" href="{{ scope.titel_url }}">{{ scope.titel }}</a>{% endif %}{% endcall %}
 {% endif %}
 
 {% if show_band %}
-{# The figures of an embedded tab that has no summary card yet (the household
-   and the registration, until pilot B; the activity's stand on its summary
-   card since K6, #1560). Counted over the selection before
-   the status filter: the filter cuts the table, not these figures. Orange is
-   this screen's fixed meaning "money still has to move" (#1391, W1). #}
-<div class="kpi-strip mb-4 md:max-w-3xl flex flex-col md:flex-row rounded-card border border-gray-200 bg-white shadow-sm divide-y md:divide-y-0 md:divide-x divide-gray-100">
-  <div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block">
-    <div class="text-[11px] text-ink-soft" title="{{ _("Netto te betalen") }}">{{ _("Netto te betalen") }} <span class="md:hidden">· {{ kpi.boekingen }} {{ _("boekingen") }}</span></div>
-    <div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums text-ink">€ {{ kpi.due|geld }}</div>
-    <div class="hidden md:block text-[11px] text-ink-soft">{{ kpi.boekingen }} {{ _("boekingen") }}</div>
-  </div>
-  <div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block">
-    <div class="text-[11px] text-ink-soft" title="{{ _("Ontvangen") }}">{{ _("Ontvangen") }} <span class="md:hidden">· {{ _("na terugbetalingen") }}</span></div>
-    <div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums text-ink">€ {{ kpi.paid|geld }}</div>
-    <div class="hidden md:block text-[11px] text-ink-soft">{{ _("Na terugbetalingen") }}</div>
-  </div>
-  <div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block" data-open-side="receive">
-    <div class="text-[11px] text-ink-soft" title="{{ _("Nog te ontvangen") }}">{{ _("Nog te ontvangen") }} <span class="md:hidden">· {{ kpi.receive_count }} {{ _("boekingen") }}</span></div>
-    <div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums {{ 'text-orange-700' if kpi.to_receive > 0 else 'text-ink' }}">€ {{ kpi.to_receive|geld }}</div>
-    <div class="hidden md:block text-[11px] text-ink-soft">{{ kpi.receive_count }} {{ _("boekingen") }}</div>
-  </div>
-  <div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block" data-open-side="refund">
-    <div class="text-[11px] text-ink-soft" title="{{ _("Nog terug te betalen") }}">{{ _("Nog terug te betalen") }} <span class="md:hidden">· {{ kpi.refund_count }} {{ _("boekingen") }}</span></div>
-    <div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums {{ 'text-orange-700' if kpi.to_refund > 0 else 'text-ink' }}">€ {{ kpi.to_refund|geld }}</div>
-    <div class="hidden md:block text-[11px] text-ink-soft">{{ kpi.refund_count }} {{ _("boekingen") }}</div>
-  </div>
-</div>
+{# The figures of an embedded tab that has no summary card (the household and the
+   registration; the activity's stand on its summary card since K6, #1560): the
+   kit's three, as on the Betalingen list's title row (CR-11 phase 5, #2128).
+   Counted over the selection before the status filter: the filter cuts the
+   table, not these figures. Orange is this screen's fixed meaning "money still
+   has to move" (#1391, W1). #}
+<div class="mb-3">{{ ui.figures(figures) }}</div>
 {% endif %}
