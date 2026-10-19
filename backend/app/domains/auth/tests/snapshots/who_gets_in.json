@@ -1210,6 +1210,10 @@
    "platform": "OPERATOR",
    "tenant": "OPERATOR"
   },
+  "POST /admin/organisaties/{organization_id}/verwijderen": {
+   "platform": "OPERATOR",
+   "tenant": "OPERATOR"
+  },
   "POST /admin/paginas": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"

@@ -477,9 +477,10 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `GET /admin/tenants/nieuw/getoond`
 - `GET /admin/tenants/{tenant_id}`
 
-### `platform.manage` — 4 routes
+### `platform.manage` — 5 routes
 
 - `POST /admin/organisaties`
 - `POST /admin/organisaties/{organization_id}`
+- `POST /admin/organisaties/{organization_id}/verwijderen`
 - `POST /admin/tenants`
 - `POST /admin/tenants/{tenant_id}`

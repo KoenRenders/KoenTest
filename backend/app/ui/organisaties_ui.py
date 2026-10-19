@@ -115,7 +115,7 @@ def _list_view(request: Request, db: Session, *, oob: bool = False) -> Organisat
     were the segments are gone with the column that held them (CR-20 F5). The
     search on name, the sort by name. The state is in the URL; the toolbar asks
     this same address for the fragment."""
-    from app.domains.mdm.api import legal_form_options, organization_options
+    from app.domains.mdm.api import legal_form_options, organization_options, tenants_naming_each
 
     state = filterparams(request)
     q = (state.get("q") or "").strip()
@@ -147,10 +147,21 @@ def _list_view(request: Request, db: Session, *, oob: bool = False) -> Organisat
         page=page if page > 1 else "",
         per_page=per_page if per_page != PER_PAGE_DEFAULT else "",
     )
+    # CR-20 F5: how many tenants name each party — what makes it "in use", from
+    # the one place that rule stands (`tenants_naming_each`).
+    naming = tenants_naming_each(db)
+
+    def used_by(o) -> str:
+        n = len(naming.get(o["id"], []))
+        if not n:
+            return ""
+        return _("1 tenant") if n == 1 else _("%(n)s tenants") % {"n": n}
+
     rows = [
         {
             "id": o["id"],
             "name": o["name"],
+            "used_by": used_by(o),
             "href": f"{NAV}/{o['id']}?terug={quote(way_back, safe='/')}",
             # The code, not the member: `organization_options` hands over the
             # column as it is, an enum member that equals no string.
@@ -176,6 +187,13 @@ def _list_view(request: Request, db: Session, *, oob: bool = False) -> Organisat
                 "sort_url": f"{NAV}?{_query(sort=turned)}",
                 "sort_page_url": f"{NAV}?{_query(sort=turned)}",
                 "sorted": "asc" if sort == "naam" else "desc",
+            },
+            {
+                "key": "gebruik",
+                "label": _("Gebruikt door"),
+                "cell": "extra",
+                "priority": 1,
+                "width": 140,
             },
             {
                 "key": "rechtsvorm",
@@ -371,15 +389,32 @@ def _record_view(
         }
         if can_edit
         else None,
-        "actions": [
-            {
-                "kind": "record",
-                "label": _("Instellingen van de site"),
-                "href": "/admin/instellingen" if own else f"/admin/tenants/{showing[0].id}",
-            }
-        ]
-        if showing
-        else [],
+        "actions": (
+            [
+                {
+                    "kind": "record",
+                    "label": _("Instellingen van de site"),
+                    "href": "/admin/instellingen" if own else f"/admin/tenants/{showing[0].id}",
+                }
+            ]
+            if showing
+            else []
+        )
+        # CR-20 F5, C4.4: the platform deletes a party; one a tenant names refuses
+        # with the tenants' names, on the record's banner.
+        + (
+            [
+                {
+                    "kind": "delete",
+                    "label": _("Verwijderen"),
+                    "attrs": f'hx-post="{base}/verwijderen"',
+                    "confirm": _("De organisatie en haar gegevens verdwijnen uit de lijsten."),
+                    "confirm_ok": _("Definitief verwijderen"),
+                }
+            ]
+            if can_edit and not own
+            else []
+        ),
     }
     summary = {
         "state": {
@@ -442,6 +477,34 @@ async def organisation_save(
     return await _save(request, db, email, organization_id, own=False)
 
 
+@router.post(
+    "/admin/organisaties/{organization_id}/verwijderen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def organisation_delete(
+    organization_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_platform_right(Right.PLATFORM_MANAGE)),
+):
+    """Delete an organisation (CR-20 F5, C4.4): back to the list, or the reason
+    on the record's banner — the tenants that name it."""
+    from app.domains.mdm.api import OngeldigeInstelling, delete_organization
+
+    try:
+        delete_organization(db, organization_id, actor=email)
+    except OngeldigeInstelling as refusal:
+        return refusal_response(
+            request,
+            [FieldError(name, message) for name, message in refusal.fouten.items()],
+            RECORD_MESSAGE,
+        )
+    if request.headers.get("HX-Request"):
+        return Response(status_code=204, headers={"HX-Redirect": NAV})
+    return RedirectResponse(NAV, status_code=303)
+
+
 @router.get("/admin/organisatie", response_class=HTMLResponse)
 def own_organisation(
     request: Request,
@@ -460,12 +523,17 @@ def own_organisation(
 
 def _own_organisation(db: Session) -> tuple[int, bool]:
     """The organisation "Onze organisatie" shows (#1550), and whether this
-    workspace may edit it: only its own row."""
+    workspace may edit it (CR-20 F5, test 16): when its party is nobody's
+    account — this tenant's own included — and no other tenant shows it. An
+    account's record is edited in the platform's Organisaties only; a party two
+    sites show, by neither."""
+    from app.domains.mdm.api import is_account, tenants
     from app.kernel.tenant_config import site_organization_id
 
     tenant = require_tenant_workspace(db)
     org_id = site_organization_id(db, tenant)
-    return org_id, org_id == tenant
+    shown_elsewhere = any(t.organization_id == org_id and t.id != tenant for t in tenants(db))
+    return org_id, not is_account(db, org_id) and not shown_elsewhere
 
 
 @router.post(

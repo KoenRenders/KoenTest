@@ -725,6 +725,87 @@ def tenants_of_account(db, organization_id: int):
     return db.query(Tenant).filter(Tenant.account_id == party).order_by(Tenant.id).all()
 
 
+def tenants_naming_each(db) -> dict[int, list]:
+    """Per organisation id, the tenants that name its party — as the
+    organisation they show or as their account — by id: what makes a party "in
+    use" (CR-20 C4.4), the one place that rule stands. Nothing else does: a
+    relation goes with the party, an order keeps its buyer copy. The list of
+    Organisaties counts from it, the delete refuses from it."""
+    from app.domains.mdm.models import Organization, Tenant
+
+    organization_of_party = dict(
+        db.query(Organization.party_id, Organization.id)
+        .execution_options(include_all_tenants=True)
+        .all()
+    )
+    naming: dict[int, list] = {}
+    for tenant in db.query(Tenant).order_by(Tenant.id):
+        named = {tenant.organization_id, organization_of_party.get(tenant.account_id)}
+        for organization_id in named - {None}:
+            naming.setdefault(organization_id, []).append(tenant)
+    return naming
+
+
+def tenants_naming(db, organization_id: int) -> list:
+    """The tenants that name this organisation's party (`tenants_naming_each`)."""
+    return tenants_naming_each(db).get(organization_id, [])
+
+
+def delete_organization(db, organization_id: int, *, actor: str | None = None) -> None:
+    """Delete an organisation (CR-20 F6, C4.4). A party a tenant names refuses,
+    naming those tenants. Otherwise the organisation goes softly with its party
+    row and its details — addresses, contacts, bank accounts, identifications,
+    relations — in one transaction, with a history row where the table has one.
+    No cascade through the keys: this decides, the keys only guard. Commits."""
+    from app.domains.mdm.history import snapshot_address, snapshot_contact_detail
+    from app.domains.mdm.models import (
+        Address,
+        BankAccount,
+        ContactDetail,
+        OrganizationPerson,
+        Party,
+        PartyIdentification,
+    )
+    from app.i18n import _
+    from app.kernel.tenant_config import tenant_display_name
+    from app.soft_delete import soft_delete
+
+    organization = _organization(db, organization_id)
+    if organization is None:
+        raise OngeldigeInstelling({"": _("Onbekende organisatie.")})
+    naming = tenants_naming(db, organization_id)
+    if naming:
+        names = ", ".join(tenant_display_name(db, t.id) for t in naming)
+        raise OngeldigeInstelling(
+            {"": _("Deze organisatie is in gebruik door %(tenants)s.") % {"tenants": names}}
+        )
+
+    def rows(model, column, value):
+        return (
+            db.query(model)
+            .execution_options(include_all_tenants=True)
+            .filter(column == value)
+            .all()
+        )
+
+    history = {"operation": "delete", "action": "organization_deleted", "source": "admin_manual"}
+    for address in rows(Address, Address.party_id, organization.party_id):
+        snapshot_address(db, address, actor=actor, **history)
+        soft_delete(address)
+    for contact in rows(ContactDetail, ContactDetail.party_id, organization.party_id):
+        snapshot_contact_detail(db, contact, actor=actor, **history)
+        soft_delete(contact)
+    for model in (BankAccount, PartyIdentification):
+        for row in rows(model, model.party_id, organization.party_id):
+            soft_delete(row)
+    for relation in rows(OrganizationPerson, OrganizationPerson.organization_id, organization.id):
+        soft_delete(relation)
+    for party in rows(Party, Party.id, organization.party_id):
+        soft_delete(party)
+    soft_delete(organization)
+    db.commit()
+
+
 def _organization_party(db, organization_id: int) -> int | None:
     organization = _organization(db, organization_id)
     return organization.party_id if organization is not None else None
