@@ -548,6 +548,9 @@ def test_the_payments_tab_of_a_household_shows_the_three_figures(client, db_sess
     _login(client, db_session)
     html = client.get(f"/admin/leden/gezin/{member.id}/betalingen").text
     assert html.count("data-figure-label") == 3
+    # The hover says what the figure counts: this household, not "the selection".
+    assert 'title="Wat dit gezin netto kost, na terugbetalingen"' in html
+    assert "in deze selectie" not in html
 
 
 def test_the_registrations_own_payments_tab_opens_the_booking_too(client, db_session, world):

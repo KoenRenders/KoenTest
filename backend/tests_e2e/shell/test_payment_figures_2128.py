@@ -37,6 +37,7 @@ FIGURES = """() => [...document.querySelectorAll('#bt-boven [data-figures] [data
   const box = f.getBoundingClientRect();
   return { value: f.innerText.trim(), top: Math.round(box.top), left: Math.round(box.left),
     right: Math.round(box.right), warning: f.className.includes('text-brand-warning'),
+    title: f.parentElement.title,
     label: f.parentElement.querySelector('[data-figure-label]').innerText.trim() };
 })"""
 
@@ -196,21 +197,31 @@ def _print(page, name: str) -> None:
 
 
 SCREENS = {
-    "gezin": (f"/admin/leden/gezin/{MEMBER_ID}/betalingen", ["€ 65,00", "€ 20,00", "€ 5,00"]),
-    "inschrijving": (f"/admin/inschrijvingen/{PAID}/betalingen", ["€ 15,00", "€ 0,00", "€ 5,00"]),
+    "gezin": (
+        f"/admin/leden/gezin/{MEMBER_ID}/betalingen",
+        ["€ 65,00", "€ 20,00", "€ 5,00"],
+        "Wat dit gezin netto kost, na terugbetalingen",
+    ),
+    "inschrijving": (
+        f"/admin/inschrijvingen/{PAID}/betalingen",
+        ["€ 15,00", "€ 0,00", "€ 5,00"],
+        "Wat deze inschrijving netto kost, na terugbetalingen",
+    ),
 }
+HINTS = ["Wat nog betaald moet worden", "Wat nog terugbetaald moet worden"]
 
 
 @pytest.mark.parametrize("width", [390, 1100])
 @pytest.mark.parametrize("screen", sorted(SCREENS))
 def test_the_three_figures_stand_once_on_one_line(world, screen, width):
-    path, amounts = SCREENS[screen]
+    path, amounts, net_hint = SCREENS[screen]
     page = _open(world, path, width)
     try:
         figures = page.evaluate(FIGURES)
         print("MEASURE figures", screen, width, figures)
         assert [f["label"] for f in figures] == LABELS, figures
         assert [f["value"] for f in figures] == amounts, figures
+        assert [f["title"] for f in figures] == [net_hint, *HINTS], figures
         assert page.locator("#bt-boven .kpi-strip").count() == 0
         assert "Ontvangen" not in page.locator("#bt-boven").inner_text().replace(
             "Nog te ontvangen", ""
