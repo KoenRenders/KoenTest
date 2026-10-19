@@ -479,7 +479,7 @@
 {#- #1561: a command that is refused says why, before any click: no dialog first. -#}
 {% if a.get("disabled") %}<div role="menuitem" aria-disabled="true" data-menu-refused class="px-3 py-2 text-sm text-ink-soft">
   <span class="block font-medium">{{ a.label }}</span><span class="block text-[13px] leading-[19.5px]">{{ a.disabled }}</span></div>
-{% elif a.get("href") %}<a role="menuitem" href="{{ a.href }}"{% if a.get("target") %} target="{{ a.target }}" rel="noopener noreferrer"{% endif %} class="{{ _cls }}">{{ a.label }}</a>
+{% elif a.get("href") %}<a role="menuitem" href="{{ a.href }}"{% if a.get("target") %} target="{{ a.target }}" rel="noopener noreferrer"{% endif %}{% if a.get("attrs") %} {{ a.attrs|safe }}{% endif %} class="{{ _cls }}">{{ a.label }}</a>
 {% else %}<button role="menuitem" type="button" class="{{ _cls }}" {{ a.get("attrs", "")|safe }}{% if a.get("confirm") %} data-confirm="{{ a.confirm }}"{% if a.get("confirm_title") %} data-confirm-title="{{ a.confirm_title }}"{% endif %}{% if a.get("confirm_ok") %} data-confirm-ok="{{ a.confirm_ok }}"{% endif %}{% if danger %} data-confirm-tone="delete"{% endif %}{% endif %}{% if a.get("toast") %} data-toast-after="{{ a.toast }}"{% endif %}>{{ a.label }}</button>{% endif %}
 {%- endmacro %}
 <header data-record-head class="mb-3">
@@ -624,7 +624,11 @@
    component) — the cards did not read as components without it. 8 px closer
    to the cards under it than two cards are to each other. #}
 {% macro flow_heading(title, id=None) -%}
-<h2 data-flow-heading{% if id %} id="{{ id }}"{% endif %} class="-mb-2 text-base font-semibold leading-6 text-ink">{{ title }}</h2>
+{#- A caller puts badges beside the heading (a meeting's section with its totals,
+    #2112); without one the markup is the heading alone. -#}
+{% set _extra = (caller() if caller is defined else "")|trim %}
+{% if _extra %}<div data-flow-heading-row class="-mb-2 flex flex-wrap items-center gap-x-3 gap-y-1"><h2 data-flow-heading{% if id %} id="{{ id }}"{% endif %} class="text-base font-semibold leading-6 text-ink">{{ title }}</h2>{{ _extra|safe }}</div>
+{% else %}<h2 data-flow-heading{% if id %} id="{{ id }}"{% endif %} class="-mb-2 text-base font-semibold leading-6 text-ink">{{ title }}</h2>{% endif %}
 {%- endmacro %}
 
 {# `rare_line(title, count)` — what is rarely set, as a closed line in the card

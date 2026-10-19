@@ -44,7 +44,7 @@ RIDES = [
 # the widest element in it, so a failure names what sticks out.
 _POINTS = """(heading) => {
   const card = [...document.querySelectorAll('#vg-document h2')]
-    .find(h => h.textContent.trim() === heading).closest('div.rounded-2xl');
+    .find(h => h.textContent.trim() === heading).closest('[data-vg-section]');
   return [...card.querySelectorAll('[id^="vg-punt-"]')].map(p => {
     const spans = p.querySelectorAll('span');
     return {
@@ -163,7 +163,8 @@ def test_every_ride_is_its_own_point_and_its_own_choice(browser):
         _shot(page, "390-volgende-activiteiten")
 
         card = page.locator(
-            "#vg-document div.rounded-2xl", has=page.locator("h2", has_text="Volgende activiteiten")
+            "#vg-document [data-vg-section]",
+            has=page.locator("h2", has_text="Volgende activiteiten"),
         )
         card.get_by_role("button", name="Punt toevoegen").click()
         htmx_stil(page)
@@ -271,7 +272,7 @@ def test_an_existing_meeting_offers_every_ride_next_to_its_old_point(browser):
         )
 
         card = page.locator(
-            "#vg-document div.rounded-2xl",
+            "#vg-document [data-vg-section]",
             has=page.locator("h2", has_text="Evaluatie voorbije activiteiten"),
         )
         card.get_by_role("button", name="Punt toevoegen").click()

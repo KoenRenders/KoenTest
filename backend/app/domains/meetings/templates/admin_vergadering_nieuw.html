@@ -2,28 +2,21 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ title }} — {{ _("Raak beheer") }}{% endblock %}
 {% block content %}
-{% call ui.page_header(title, intro) %}{% endcall %}
-{% if error %}{{ ui.error_banner(error) }}{% endif %}
-<div class="bg-surface border border-line rounded-2xl p-6 max-w-xl">
-  <form method="post" action="{{ action }}" class="space-y-4">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <div>
-      {{ ui.label(_("Datum"), "vg-datum", required=True) }}
-      {# promise walked by: test_a_meeting_is_not_made_without_its_date #}
-      {{ ui.input_control("meeting_date", id="vg-datum", type="date", value=suggested_date, required=True, cls="w-full") }}
-    </div>
-    <div class="grid grid-cols-2 gap-3">
-      <div>
-        {{ ui.label(_("Aanvang"), "vg-uur") }}
-        {{ ui.input_control("start_time", id="vg-uur", type="time", value=suggested_time, cls="w-full") }}
-      </div>
-      <div>
-        {{ ui.label(_("Locatie"), "vg-locatie") }}
-        {{ ui.input_control("location", id="vg-locatie", value=suggested_location, cls="w-full") }}
-      </div>
-    </div>
-    
-    {{ ui.action_bar(save_label=submit_label, cancel_href=cancel_href) }}
-  </form>
+{# Aanmaken én wijzigen: dezelfde drie velden op de formulierpagina van de kit
+   (CR-11 fase 5, #2112); de actiebalk bewaart. #}
+{% call ui.public_form_page(title, shell="admin", back_href=cancel_href, back_label=_("Terug"), intro=intro) %}
+<div data-form-flow data-mode="edit" class="form-flow">
+{{ ui.error_banner(error) }}
+<form id="vg-form" method="post" action="{{ action }}" class="contents">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  {% call ui.section(_("Vergadering")) %}
+  {# promise walked by: test_a_meeting_is_not_made_without_its_date #}
+  {{ ui.field("meeting_date", attribute="meetings.meeting.meeting_date", kind="date", id="vg-datum", value=suggested_date, required=True, span="quarter") }}
+  {{ ui.field("start_time", attribute="meetings.meeting.start_time", kind="time", id="vg-uur", value=suggested_time, span="quarter") }}
+  {{ ui.field("location", attribute="meetings.meeting.location", id="vg-locatie", value=suggested_location, span="half") }}
+  {% endcall %}
+</form>
+{{ ui.action_bar(save_label=submit_label, form="vg-form", cancel_href=cancel_href, record=True) }}
 </div>
+{% endcall %}
 {% endblock %}

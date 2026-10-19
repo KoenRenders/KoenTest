@@ -59,6 +59,7 @@ from app.domains.meetings.api import (
     files_of,
     get_file,
     get_meeting,
+    last_saved_at,
     list_meetings,
     long_date,
     mail_signature,
@@ -82,13 +83,14 @@ from app.domains.meetings.api import (
 from app.domains.meetings.viewmodels import (
     MeetingCircleView,
     MeetingDocumentView,
+    MeetingHead,
     MeetingItemView,
     MeetingListView,
     MeetingNewView,
     MeetingSendView,
 )
-from app.i18n import _
-from app.kernel.clock import belgian_today
+from app.i18n import _, clock_time, short_date
+from app.kernel.clock import belgian_day, belgian_today
 from app.kernel.codes import code_of, register_tones
 from app.ui import admin_nav, is_fragment_request, templates
 
@@ -593,6 +595,37 @@ def notes_editor_config() -> dict:
     return schema.schema_for("notes")
 
 
+def _head(request: Request, db: Session, meeting) -> MeetingHead:
+    """The facts of the record head: when it starts, where, how many are present and
+    when something was last written (#2112)."""
+    facts: list[dict[str, str]] = []
+    if meeting.start_time:
+        facts.append({"text": meeting.start_time.strftime("%H:%M")})
+    if meeting.location:
+        facts.append({"text": meeting.location})
+    present = sum(1 for state in attendance_of(db, meeting).values() if state == Attendance.PRESENT)
+    if present:
+        facts.append({"text": _("%(n)s aanwezig") % {"n": present}})
+    saved = last_saved_at(db, meeting)
+    if saved is not None:
+        if belgian_day(saved) == belgian_today():
+            facts.append({"text": _("Opgeslagen om %(tijd)s") % {"tijd": clock_time(saved)}})
+        else:
+            facts.append(
+                {
+                    "text": _("Opgeslagen op %(dag)s om %(tijd)s")
+                    % {"dag": short_date(saved), "tijd": clock_time(saved)}
+                }
+            )
+    return MeetingHead(
+        meeting=meeting,
+        title=_title(meeting),
+        facts=facts,
+        editable=meeting.status != MeetingStatus.SENT,
+        csrf_token=_csrf(request),
+    )
+
+
 def _document_view(
     request: Request,
     db: Session,
@@ -609,6 +642,7 @@ def _document_view(
     return MeetingDocumentView(
         meeting=meeting,
         title=_title(meeting),
+        head=_head(request, db, meeting),
         sections=document_of(db, meeting),
         participants=participants_of(db, meeting),
         circle=organization_circle(db, on_day=meeting.meeting_date),
@@ -648,10 +682,11 @@ def _item_response(
         return _document_response(request, db, meeting)
     return templates.TemplateResponse(
         request,
-        "_vg_punt.html",
+        "_vg_punt_antwoord.html",
         MeetingItemView(
             item=punt,
             meeting=meeting,
+            head=_head(request, db, meeting),
             editable=meeting.status != MeetingStatus.SENT,
             circle=organization_circle(db, on_day=meeting.meeting_date),
             csrf_token=_csrf(request),

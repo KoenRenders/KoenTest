@@ -621,6 +621,11 @@ def test_elk_formulier_op_de_vergaderschermen_kan_ook_echt_verzenden():
                 or "btn_outline(" in stuk
                 or "action_bar(" in stuk
             )
+            # De actiebalk van de kit staat onder het formulier en wijst ernaar met
+            # `form="<id>"` (#2112): de knop hoort er dan wel bij.
+            formulier_id = re.search(r'<form\b[^>]*\bid="([^"]+)"', stuk)
+            if formulier_id and f'form="{formulier_id.group(1)}"' in tekst:
+                heeft_knop = True
             heeft_trigger = "hx-trigger=" in stuk
             if not (heeft_knop or heeft_trigger):
                 kop = " ".join(stuk.split())[:90]
