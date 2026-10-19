@@ -148,9 +148,15 @@ def place_order(
     items: list[tuple[int, int]],
     member: bool,
     submission_key: str | None = None,
+    buyer_organization_id: int | None = None,
 ):
     """Place an order: every price recomputed, the lines and their reservations
     written (C4.1, C5, F1).
+
+    `buyer_organization_id` (CR-26 F8): the order is for an organisation, bought
+    *namens* by the person who placed it. Refused unless the invoices module is on
+    for the tenant, in the back office too (R13: a rule of the service). The order
+    copies the buyer — name, address, VAT number — as they stand now.
 
     Nothing the browser sent is an amount — each line's price comes from
     `price_for` here. The variants are reserved in a fixed order (by variant id),
@@ -190,6 +196,7 @@ def place_order(
             payment_method=method,
             submission_key=submission_key,
             secret_key=secrets.token_urlsafe(32),
+            **_buyer_columns(db, person_id, buyer_organization_id),
         )
         db.add(order)
         db.flush()
@@ -242,6 +249,52 @@ def place_order(
         raise
     savepoint.commit()
     return order
+
+
+def _buyer_columns(db: Session, person_id: int | None, organization_id: int | None) -> dict:
+    """`buyer_party_id` and the buyer copy of an order (CR-26 F8).
+
+    *Namens*: the organisation's party and its data, only at a tenant with the
+    invoices module on. *Voor mezelf*: the signed-in person's own party, name and
+    address. A guest: nothing — the invoice of CR-34 will read the one copy that
+    is there. The copy keeps what the invoice must show even when the party later
+    changes or is deleted."""
+    from app.domains.mdm.api import buyer_copy_of_organisation, module_enabled, person_buyer_copy
+    from app.i18n import _
+    from app.kernel.modules import ModuleCode
+
+    if organization_id is not None:
+        if not module_enabled(ModuleCode.INVOICES):
+            raise SalesError(_("Bestellen namens een organisatie kan hier niet."))
+        copy = buyer_copy_of_organisation(db, organization_id)
+        if not copy:
+            raise SalesError(_("Deze organisatie bestaat niet meer."))
+    elif person_id is not None:
+        copy = person_buyer_copy(db, person_id)
+    else:
+        return {}
+    party_id = copy.pop("party_id", None)
+    return {"buyer_party_id": party_id, **{f"buyer_{key}": value for key, value in copy.items()}}
+
+
+def has_orders(db: Session, party_id: int, tenant_id: int | None = None) -> bool:
+    """Is this party a customer here — did it buy, or did a person of that party
+    place an order? The one place *klant* is read from (CR-26 F11: no role is
+    stored). `tenant_id` names the tenant when the call is not inside one."""
+    from sqlalchemy import or_
+
+    from app.domains.mdm.api import Person
+    from app.domains.sales.models import SalesOrder
+
+    person_ids = db.query(Person.id).filter(Person.party_id == party_id).scalar_subquery()
+    query = db.query(SalesOrder.id).filter(
+        or_(SalesOrder.buyer_party_id == party_id, SalesOrder.person_id.in_(person_ids))
+    )
+    if tenant_id is not None:
+        query = query.execution_options(include_all_tenants=True).filter(
+            SalesOrder.tenant_id == tenant_id
+        )
+    return query.first() is not None
 
 
 def total_of(order) -> Decimal:
@@ -447,6 +500,7 @@ def submit_order(
     phone: str,
     method: Any,
     items: list[tuple[int, int]],
+    buyer_organization_id: int | None = None,
 ) -> tuple[str | None, int, str | None]:
     """The whole placing flow (C4.1, C5, #1987): place, start the payment, publish,
     commit. A shown form is accepted once — a second post answers with the first
@@ -494,10 +548,19 @@ def submit_order(
     if proof is not form_guard.TRUSTED and not phone.strip():
         raise SalesError(_("Vul je mobiele nummer in."), field="phone")
 
+    if buyer_organization_id is not None:
+        # *Namens* is a person's, for an organisation he acts for, at the shop and in
+        # Verkoop alike (Q13: no confirmation step, but no order without the relation).
+        from app.domains.mdm.api import acts_for
+
+        if person_id is None or not acts_for(db, person_id, buyer_organization_id):
+            raise SalesError(_("Je bestelt niet namens deze organisatie."))
+
     try:
         order = place_order(
             db,
             person_id=person_id,
+            buyer_organization_id=buyer_organization_id,
             guest_name=contact_name,
             guest_email=contact_email,
             guest_mobile=phone,

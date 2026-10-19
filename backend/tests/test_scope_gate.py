@@ -33,6 +33,7 @@ ACCOUNT_SCOPED = {
     "mdm.contact_details",
     "mdm.bank_accounts",
     "mdm.party_identifications",
+    "mdm.party_relationships",
     "mdm.person_history",
     "mdm.member_history",
     "mdm.member_person_history",

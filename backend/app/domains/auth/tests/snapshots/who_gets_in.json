@@ -734,6 +734,10 @@
    "platform": "everyone",
    "tenant": "everyone"
   },
+  "GET /mijn/organisatie": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
   "GET /nieuwsbrief": {
    "platform": "everyone",
    "tenant": "everyone"
@@ -1495,6 +1499,14 @@
    "tenant": "everyone"
   },
   "POST /mijn/gegevens": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /mijn/organisatie": {
+   "platform": "everyone",
+   "tenant": "everyone"
+  },
+  "POST /mijn/organisatie/{organization_id}/ontkoppelen": {
    "platform": "everyone",
    "tenant": "everyone"
   },

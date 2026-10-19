@@ -286,7 +286,7 @@ def main() -> None:
         # `resolve_request`, and `/webshop` would be stripped to `/`.
         if "winkel" not in tenant_codes(db):
             webshop = _site("Webshop", code="winkel", kind=TenantKind.ASSOCIATION)
-            set_modules(db, webshop.id, DEFAULTS["VERENIGING"] | {_M.SHOP})
+            set_modules(db, webshop.id, DEFAULTS["VERENIGING"] | {_M.SHOP, _M.INVOICES})
         webshop_id = tenant_codes(db)["winkel"]
 
         token = current_tenant_id.set(webshop_id)

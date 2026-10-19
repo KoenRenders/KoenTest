@@ -53,6 +53,7 @@ from app.domains.mdm.api import EmailAddressInUse, EmailAddressInvalid
 from app.domains.mdm.handlers import (  # noqa: F401 - event subscriptions (#1346)
     set_circle_start_when_chosen,
 )
+from app.domains.mdm.organisation_ui import router as mdm_organisation_ui_router
 from app.domains.mdm.persons_ui import router as mdm_persons_ui_router
 from app.domains.mdm.ui import router as mdm_ui_router
 from app.domains.media.admin_ui import router as media_admin_ui_router
@@ -236,6 +237,7 @@ app.include_router(
 app.include_router(changes_ui_router)
 app.include_router(account_ui_router)
 app.include_router(mdm_account_ui_router)
+app.include_router(mdm_organisation_ui_router, dependencies=_module(M.INVOICES))
 app.include_router(mdm_persons_ui_router)
 app.include_router(design_system_ui_router)
 app.include_router(system_ui_router)

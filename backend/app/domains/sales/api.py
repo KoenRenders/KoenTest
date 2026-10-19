@@ -24,6 +24,7 @@ from app.domains.sales.service import (  # noqa: F401
     change_plan,
     deliver_line,
     get_order,
+    has_orders,
     list_orders,
     offered_products,
     order_again,
@@ -49,6 +50,7 @@ from app.domains.sales.service import (  # noqa: F401
 )
 
 __all__ = [
+    "has_orders",
     "Honeypot",
     "ProductHasOrderLines",
     "SalesError",

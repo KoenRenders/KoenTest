@@ -29,12 +29,12 @@ from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_va
 from app.domains.mdm.api import (
     ContactDetail,
     MasterDataError,
-    Organization,
-    OrganizationPerson,
+    PartyRelationship,
     Person,
     end_circle_relation,
     organization_circle,
 )
+from app.domains.mdm.tenant_service import shown_organization
 from app.domains.meetings.api import (
     circle_gap,
     create_meeting,
@@ -58,7 +58,7 @@ def _login(client) -> dict:
 
 def _empty_circle(db) -> None:
     """The test database may carry circle rows; these tests need a known circle."""
-    for relation in db.query(OrganizationPerson).all():
+    for relation in db.query(PartyRelationship).all():
         db.delete(relation)
     db.flush()
 
@@ -79,8 +79,8 @@ def _person(db, first: str, last: str) -> Person:
     return person
 
 
-def _relation_of(db, person: Person) -> OrganizationPerson:
-    return db.query(OrganizationPerson).filter_by(person_id=person.id).one()
+def _relation_of(db, person: Person) -> PartyRelationship:
+    return db.query(PartyRelationship).filter_by(from_party_id=person.party_id).one()
 
 
 def test_a_start_before_the_meeting_puts_the_person_in_it(client, db_session):
@@ -131,11 +131,11 @@ def test_a_start_after_the_end_is_refused_with_the_reason_on_the_screen(client, 
     _empty_circle(db_session)
     headers = _login(client)
     person = _person(db_session, "Weg", "Gegaan")
-    organization = db_session.query(Organization).first()
-    relation = OrganizationPerson(
-        person_id=person.id,
-        organization_id=organization.id,
-        relation_type="BOARD_MEETING",
+    organization = shown_organization(db_session)
+    relation = PartyRelationship(
+        from_party_id=person.party_id,
+        to_party_id=organization.party_id,
+        kind="BOARD_MEETING",
         start_date=date(2026, 1, 1),
         end_date=date(2026, 6, 1),
     )
@@ -155,12 +155,12 @@ def test_a_start_after_the_end_is_refused_with_the_reason_on_the_screen(client, 
 
 def test_the_object_refuses_a_start_after_the_end(db_session):
     person = _person(db_session, "Object", "Regel")
-    organization = db_session.query(Organization).first()
+    organization = shown_organization(db_session)
     db_session.add(
-        OrganizationPerson(
-            person_id=person.id,
-            organization_id=organization.id,
-            relation_type="BOARD_MEETING",
+        PartyRelationship(
+            from_party_id=person.party_id,
+            to_party_id=organization.party_id,
+            kind="BOARD_MEETING",
             start_date=date(2026, 7, 1),
             end_date=date(2026, 6, 1),
         )
@@ -174,19 +174,19 @@ def test_the_database_refuses_it_too(db_session):
     from sqlalchemy import text
 
     person = _person(db_session, "Databank", "Regel")
-    organization = db_session.query(Organization).first()
-    relation = OrganizationPerson(
-        person_id=person.id,
-        organization_id=organization.id,
-        relation_type="BOARD_MEETING",
+    organization = shown_organization(db_session)
+    relation = PartyRelationship(
+        from_party_id=person.party_id,
+        to_party_id=organization.party_id,
+        kind="BOARD_MEETING",
         start_date=date(2026, 1, 1),
         end_date=date(2026, 6, 1),
     )
     db_session.add(relation)
     db_session.flush()
-    with pytest.raises(IntegrityError, match="ck_organization_persons_period"):
+    with pytest.raises(IntegrityError, match="ck_party_relationships_period"):
         db_session.execute(
-            text("UPDATE mdm.organization_persons SET start_date = '2026-07-01' WHERE id = :id"),
+            text("UPDATE mdm.party_relationships SET start_date = '2026-07-01' WHERE id = :id"),
             {"id": relation.id},
         )
 
@@ -194,12 +194,12 @@ def test_the_database_refuses_it_too(db_session):
 def test_the_same_day_in_and_out_is_allowed(db_session):
     """`<=`, not `<`: added and taken out again on the same day."""
     person = _person(db_session, "Zelfde", "Dag")
-    organization = db_session.query(Organization).first()
+    organization = shown_organization(db_session)
     db_session.add(
-        OrganizationPerson(
-            person_id=person.id,
-            organization_id=organization.id,
-            relation_type="BOARD_MEETING",
+        PartyRelationship(
+            from_party_id=person.party_id,
+            to_party_id=organization.party_id,
+            kind="BOARD_MEETING",
             start_date=belgian_today(),
             end_date=belgian_today(),
         )
@@ -210,12 +210,12 @@ def test_the_same_day_in_and_out_is_allowed(db_session):
 def test_taking_out_someone_who_has_not_started_yet_ends_on_the_start(db_session):
     """A start in the future is possible now; ending today would precede it."""
     person = _person(db_session, "Nog", "Niet")
-    organization = db_session.query(Organization).first()
+    organization = shown_organization(db_session)
     start = belgian_today() + timedelta(days=10)
-    relation = OrganizationPerson(
-        person_id=person.id,
-        organization_id=organization.id,
-        relation_type="BOARD_MEETING",
+    relation = PartyRelationship(
+        from_party_id=person.party_id,
+        to_party_id=organization.party_id,
+        kind="BOARD_MEETING",
         start_date=start,
     )
     db_session.add(relation)

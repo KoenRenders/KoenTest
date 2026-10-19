@@ -762,9 +762,9 @@ def delete_organization(db, organization_id: int, *, actor: str | None = None) -
         Address,
         BankAccount,
         ContactDetail,
-        OrganizationPerson,
         Party,
         PartyIdentification,
+        PartyRelationship,
     )
     from app.i18n import _
     from app.kernel.tenant_config import tenant_display_name
@@ -798,8 +798,11 @@ def delete_organization(db, organization_id: int, *, actor: str | None = None) -
     for model in (BankAccount, PartyIdentification):
         for row in rows(model, model.party_id, organization.party_id):
             soft_delete(row)
-    for relation in rows(OrganizationPerson, OrganizationPerson.organization_id, organization.id):
-        soft_delete(relation)
+    # A relation with the party on either end: the people in its circle and the
+    # people who act for it (CR-26 F4). `rows` takes one column, so two reads.
+    for column in (PartyRelationship.to_party_id, PartyRelationship.from_party_id):
+        for relation in rows(PartyRelationship, column, organization.party_id):
+            soft_delete(relation)
     for party in rows(Party, Party.id, organization.party_id):
         soft_delete(party)
     soft_delete(organization)

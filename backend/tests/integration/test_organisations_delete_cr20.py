@@ -36,14 +36,13 @@ from app.domains.mdm.api import (
     ContactDetailHistory,
     OngeldigeInstelling,
     Organization,
-    OrganizationPerson,
     PartyIdentification,
     Person,
     Tenant,
     create_organization,
     delete_organization,
 )
-from app.domains.mdm.models import Party
+from app.domains.mdm.models import Party, PartyRelationship
 from app.domains.reporting.tests.test_reporting_panel_ui import login
 from app.kernel.tenancy import TENANT_MILLEGEM_ID, TENANT_VOORBEELD_ID
 from app.kernel.tenant_config import tenant_display_name
@@ -114,11 +113,10 @@ def test_an_unused_party_goes_softly_with_its_row_and_its_details(db_session):
             ),
             BankAccount(party_id=party, account_id=account, iban="BE00 0000 0000 2020"),
             PartyIdentification(party_id=party, account_id=account, scheme="VAT", value="BE0"),
-            OrganizationPerson(
-                organization_id=organisation.id,
-                person_id=person.id,
-                tenant_id=TENANT_MILLEGEM_ID,
+            PartyRelationship(
+                to_party_id=party, from_party_id=person.party_id, kind="BOARD_MEETING"
             ),
+            PartyRelationship(to_party_id=party, from_party_id=person.party_id, kind="ACTS_FOR"),
         ]
     )
     db_session.commit()
@@ -132,7 +130,7 @@ def test_an_unused_party_goes_softly_with_its_row_and_its_details(db_session):
         (ContactDetail, ContactDetail.party_id == party),
         (BankAccount, BankAccount.party_id == party),
         (PartyIdentification, PartyIdentification.party_id == party),
-        (OrganizationPerson, OrganizationPerson.organization_id == organisation.id),
+        (PartyRelationship, PartyRelationship.to_party_id == party),
     ):
         rows = _all(db_session, model, where)
         assert rows and all(r.deleted_at is not None for r in rows), model.__name__
@@ -149,8 +147,8 @@ def test_deleting_a_person_takes_its_party_and_its_relations_along(db_session):
     organisation = _organisation(db_session, "Kring vzw")
     person = create_test_person(db_session)
     db_session.add(
-        OrganizationPerson(
-            organization_id=organisation.id, person_id=person.id, tenant_id=TENANT_MILLEGEM_ID
+        PartyRelationship(
+            to_party_id=organisation.party_id, from_party_id=person.party_id, kind="ACTS_FOR"
         )
     )
     db_session.commit()
@@ -158,7 +156,9 @@ def test_deleting_a_person_takes_its_party_and_its_relations_along(db_session):
     db_session.commit()
     assert _all(db_session, Person, Person.id == person.id)[0].deleted_at is not None
     assert _all(db_session, Party, Party.id == person.party_id)[0].deleted_at is not None
-    relations = _all(db_session, OrganizationPerson, OrganizationPerson.person_id == person.id)
+    relations = _all(
+        db_session, PartyRelationship, PartyRelationship.from_party_id == person.party_id
+    )
     assert relations and all(r.deleted_at is not None for r in relations)
 
 

@@ -22,7 +22,7 @@ from app.kernel.ports import handles
 
 @subscribe(CircleStartChosen)
 def set_circle_start_when_chosen(event: CircleStartChosen, db: Session) -> None:
-    """Store the chosen start date (#1346); `OrganizationPerson.check()` refuses a
+    """Store the chosen start date (#1346); `PartyRelationship.check()` refuses a
     start after the end, and the refusal reaches the publisher."""
     set_circle_start(db, event.relation_id, date.fromisoformat(event.start_date))
 

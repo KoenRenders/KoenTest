@@ -91,6 +91,7 @@ TYPED_LABELS: dict[str, dict[str, int]] = {
     "domains/sales/templates/_verkoop_nieuw_form.html": {
         "Artikel": 1,
         "E-mailadres van de koper": 1,
+        "Voor wie": 1,
     },
     "domains/sales/templates/_verkoop_wijzig_form.html": {
         "Artikel": 1,
@@ -108,6 +109,15 @@ TYPED_LABELS: dict[str, dict[str, int]] = {
     # #2110: the files of an upload are no datum of the register.
     "domains/media/templates/admin_media_nieuw.html": {
         "Bestanden (afbeeldingen)": 1,
+    },
+    # CR-26 F7/F8: a VAT number and a legal form have no register entry on the public
+    # page either (as on the back office's); the two choices are no datum.
+    "domains/mdm/templates/my_organisation.html": {
+        "Btw-nummer": 1,
+        "Rechtsvorm": 1,
+    },
+    "domains/sales/templates/webshop_mandje.html": {
+        "Je bestelt": 1,
     },
     "ui/templates/admin_organisatie.html": {
         "BIC": 1,

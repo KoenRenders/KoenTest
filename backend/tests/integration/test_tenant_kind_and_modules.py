@@ -36,7 +36,7 @@ pytestmark = pytest.mark.ui_serverrendered
 
 # CR-21 (Q49): the shop is off by default, so an association's "full" set is
 # every module but the shop.
-EVERY = {code.value for code in ModuleCode if code is not ModuleCode.SHOP}
+EVERY = {code.value for code in ModuleCode if code not in (ModuleCode.SHOP, ModuleCode.INVOICES)}
 COMPANY = {"cms", "media", "forms"}
 
 
@@ -204,7 +204,8 @@ def test_record_counts_count_this_tenants_live_records(db_session):
     counts = record_counts(db_session, org.id)
     assert counts[ModuleCode.ACTIVITIES] == 1
     assert counts[ModuleCode.CMS] == 2, "the two seeded site blocks"
-    assert set(counts) == set(ModuleCode) - {ModuleCode.REPORTING}, "reporting is uncounted"
+    uncounted = {ModuleCode.REPORTING, ModuleCode.INVOICES}
+    assert set(counts) == set(ModuleCode) - uncounted, "reporting and invoices are uncounted"
 
 
 def test_the_editor_shows_the_kind_and_the_modules_and_refuses_a_missing_dependency(

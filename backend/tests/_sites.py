@@ -124,14 +124,14 @@ def in_the_circle(db, person, tenant_id: int = 2):
     """Give a person who is in no household a fact at a tenant (CR-26 F9): a
     place in its meeting circle, on the organisation the tenant shows. For a
     test whose board member or organiser must be named at that tenant. Flushes."""
-    from app.domains.mdm.api import OrganizationPerson, Tenant
+    from app.domains.mdm.api import Organization, PartyRelationship, Tenant
 
     tenant = db.get(Tenant, tenant_id)
-    row = OrganizationPerson(
-        tenant_id=tenant_id,
-        organization_id=tenant.organization_id,
-        person_id=person.id,
-        relation_type="BOARD_MEETING",
+    organization = db.get(Organization, tenant.organization_id)
+    row = PartyRelationship(
+        from_party_id=person.party_id,
+        to_party_id=organization.party_id,
+        kind="BOARD_MEETING",
     )
     db.add(row)
     db.flush()

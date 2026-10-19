@@ -38,6 +38,14 @@
     <p data-span="full" class="text-[13px] text-ink-soft">{{ _("De artikelen worden voor je gereserveerd zodra je bestelt.") }}</p>
   {% endcall %}
   {{ ui.total_line(total, note=_("(ledenprijs)") if member_applied else "") }}
+  {% if organisations %}
+  {# CR-26 F8: only for a signed-in person who acts for an organisation, at a tenant with
+     the invoices module. No address and no VAT field here: the organisation has them. #}
+  {% call ui.section(_("Wie bestelt")) %}
+    {{ ui.field("buyer_organization_id", _("Je bestelt"), kind="radio_group", value=buyer, id="buyer",
+                options=organisations) }}
+  {% endcall %}
+  {% endif %}
   {% call ui.section(_("Contact")) %}
     {{ ui.field("contact_name", attribute="sales.sales_order.guest_name", required=True, value=contact_name) }}
     {{ ui.field("contact_email", attribute="sales.sales_order.guest_email", kind="email", required=True, value=contact_email) }}

@@ -34,7 +34,9 @@ pytestmark = pytest.mark.ui_serverrendered
 
 # CR-21 (Q49): the shop is off by default, so an association's "full" set is
 # every module but the shop.
-EVERY = frozenset(code.value for code in ModuleCode if code is not ModuleCode.SHOP)
+EVERY = frozenset(
+    code.value for code in ModuleCode if code not in (ModuleCode.SHOP, ModuleCode.INVOICES)
+)
 
 
 @pytest.fixture
@@ -153,7 +155,7 @@ def test_the_defaults_per_kind_and_a_new_tenant(db_session):
     """C6 test 2, the defaults: an association has everything, a company the
     three of §C2 that are modules (the workbench, its fourth, is core: #1876). A tenant made today starts as an association (the kind is #1478)."""
     assert DEFAULTS["VERENIGING"] == frozenset(
-        code for code in ModuleCode if code is not ModuleCode.SHOP
+        code for code in ModuleCode if code not in (ModuleCode.SHOP, ModuleCode.INVOICES)
     )
     assert {c.value for c in DEFAULTS["BEDRIJF"]} == {"cms", "media", "forms"}
 

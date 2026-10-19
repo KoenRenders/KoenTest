@@ -8,6 +8,9 @@
       {{ ui.field("email", _("E-mailadres van de koper"), kind="email", value=email, required=True,
                  attrs='hx-post="/admin/verkoop/nieuw/koppeling" hx-include="closest form" hx-target="#bestel-form" hx-swap="outerHTML" hx-trigger="input changed delay:400ms"') }}
       <div id="koppeling" data-span="full">{% include "_verkoop_koppeling.html" %}</div>
+      {% if organisations %}
+      {{ ui.field("buyer_organization_id", _("Voor wie"), kind="radio_group", value=buyer, id="buyer", options=organisations) }}
+      {% endif %}
     {% endcall %}
     {% call ui.section(_("Artikelen")) %}
       {% if lines %}

@@ -313,6 +313,8 @@ class OrganisationRecordView(ViewModel):
     cancel_href: str
     csrf_token: str
     nav_items: list[dict[str, Any]] = field(default_factory=list)
+    #: The card Personen (CR-26): who is linked to the organisation, and how.
+    people: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _address_line(address: dict[str, str], postal: dict[str, str]) -> str:
@@ -347,6 +349,7 @@ def _record_view(
         organization_address,
         organization_details,
         organization_options,
+        people_of_organisation,
         tenants,
     )
 
@@ -445,6 +448,7 @@ def _record_view(
         cancel_href=base + (f"?{keep}" if keep else ""),
         csrf_token=csrf_from_request(request),
         nav_items=admin_nav(OWN if own else NAV, request),
+        people=people_of_organisation(db, organization_id),
     )
 
 

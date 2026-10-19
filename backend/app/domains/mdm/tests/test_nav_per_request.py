@@ -197,12 +197,19 @@ def test_mijn_gezin_goes_with_membership():
     try:
         # CR-22 S3 and S5 (#1706, #1709): an account-menu item brings its own icon.
         items = {n["href"]: n["icon"] for n in _public_nav("member_items")}
-        assert items == {"/leden/gezin": "users", "/mijn/inschrijvingen": "calendar-days"}
+        assert items == {
+            "/leden/gezin": "users",
+            "/mijn/inschrijvingen": "calendar-days",
+            "/mijn/organisatie": "building-2",
+        }
     finally:
         current_modules.reset(token)
     token = current_modules.set(EVERY - {ModuleCode.MEMBERSHIP.value})
     try:
-        assert [n["href"] for n in _public_nav("member_items")] == ["/mijn/inschrijvingen"]
+        assert [n["href"] for n in _public_nav("member_items")] == [
+            "/mijn/inschrijvingen",
+            "/mijn/organisatie",
+        ]
     finally:
         current_modules.reset(token)
 

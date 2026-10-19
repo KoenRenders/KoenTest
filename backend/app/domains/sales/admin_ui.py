@@ -246,7 +246,14 @@ async def add_order_submit(
                 merged = dict(items)
                 merged[variant_id] = merged.get(variant_id, 0) + quantity
                 items = sorted(merged.items())
-        vm = _board_order_view(db, request, email=email, items=items, product_id="")
+        vm = _board_order_view(
+            db,
+            request,
+            email=email,
+            items=items,
+            product_id="",
+            buyer=str(form.get("buyer_organization_id") or ""),
+        )
         return templates.TemplateResponse(request, "_verkoop_nieuw_form.html", vm.as_context())
 
     if action == "remove":
@@ -257,7 +264,14 @@ async def add_order_submit(
             except ValueError:
                 remove_id = 0
             items = [(v, q) for v, q in items if v != remove_id]
-        vm = _board_order_view(db, request, email=email, items=items, product_id="")
+        vm = _board_order_view(
+            db,
+            request,
+            email=email,
+            items=items,
+            product_id="",
+            buyer=str(form.get("buyer_organization_id") or ""),
+        )
         return templates.TemplateResponse(request, "_verkoop_nieuw_form.html", vm.as_context())
 
     if parse_error is not None:
@@ -305,6 +319,8 @@ async def add_order_submit(
             "#bestel-melding",
             send=True,
         )
+    chosen = str(form.get("buyer_organization_id") or "").strip()
+    buyer_organization_id = int(chosen) if chosen.isdigit() else None
     try:
         _checkout, order_id, _secret = submit_order(
             db,
@@ -317,6 +333,7 @@ async def add_order_submit(
             phone="",
             method=method,
             items=items,
+            buyer_organization_id=buyer_organization_id,
         )
     except SalesError as refusal:
         return refusal_response(
@@ -325,6 +342,23 @@ async def add_order_submit(
     except form_guard.NotSent as hurry:
         return refusal_response(request, [FieldError("", str(hurry))], "#bestel-melding", send=True)
     return _redirect(request, f"/admin/verkoop/{order_id}")
+
+
+def _buyer_options(db: Session, person_id: int) -> list[tuple[str, str]]:
+    """Verkoop's "Voor wie" (CR-26 F8): the person himself and one *namens* per
+    organisation he acts for — only at a tenant with the invoices module, and only
+    when he acts for one. Empty means no choice is shown."""
+    from app.domains.mdm.api import module_enabled, organisations_acting_for
+    from app.kernel.modules import ModuleCode
+
+    if not module_enabled(ModuleCode.INVOICES):
+        return []
+    acting = organisations_acting_for(db, person_id)
+    if not acting:
+        return []
+    return [("", _("de koper zelf"))] + [
+        (str(o["id"]), _("namens %(name)s") % {"name": o["name"]}) for o in acting
+    ]
 
 
 def _board_order_view(
@@ -336,6 +370,7 @@ def _board_order_view(
     product_id: str = "",
     member_override: bool | None = None,
     kept_prices: list | None = None,
+    buyer: str = "",
 ) -> BoardOrderView:
     """The "Bestelling toevoegen" view-model (R43): the lines at the member price
     of the typed person, the articles for the picker, and the chosen article's
@@ -354,10 +389,14 @@ def _board_order_view(
     )
     articles = [(str(p["id"]), p["name"]) for p in offered_products(db, member=member)]
     person_name = ""
+    organisations: list[tuple[str, str]] = []
     if person is not None:
         person_name = f"{person.first_name} {person.last_name}".strip()
+        organisations = _buyer_options(db, person.id)
     return BoardOrderView(
         email=email,
+        organisations=organisations,
+        buyer=buyer,
         status=status,
         person_name=person_name,
         lines=lines,

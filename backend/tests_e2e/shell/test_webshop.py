@@ -1327,3 +1327,73 @@ def test_de_voorraadzin_staat_over_de_volle_breedte(browser):
     finally:
         page.evaluate("localStorage.removeItem('raak_basket')")
         page.close()
+
+
+# ── CR-26 phase 2: Mijn organisatie and "Wie bestelt" ────────────────────────
+
+ORGANISATION_VAT = "BE0403170701"
+
+
+def _organisatie_registreren(page, naam: str) -> None:
+    """Register an organisation through Mijn organisatie (idempotent: a VAT number the
+    account knows links to it, so a second run only lists it)."""
+    page.goto("/mijn/organisatie")
+    page.locator("#org-vat_number").fill(ORGANISATION_VAT)
+    page.locator("#org-name").fill(naam)
+    page.locator("#org-street").fill("Teststraat")
+    page.locator("#org-house_number").fill("1")
+    page.locator("#org-postal_code").select_option("2400")
+    laat_de_wacht_passeren(page)
+    with htmx_afgerond(page):
+        page.get_by_role("button", name="Registreren").click()
+    page.locator("[data-organisation]", has_text=naam).first.wait_for()
+
+
+def test_mijn_organisatie_registreert_en_past_op_een_telefoon(webshop_page):
+    """A signed-in person registers an organisation, which then stands in the list with
+    its Ontkoppelen button whole inside the 390 px screen and no sideways scroll."""
+    from app.domains.auth.api import make_session_value
+
+    page = webshop_page
+    login_met_sessie(page, make_session_value("webshop.lid@example.com"), WEBSHOP_HOST)
+    page.set_viewport_size({"width": 390, "height": 844})
+    _organisatie_registreren(page, "Proef BV")
+
+    width = page.evaluate("document.documentElement.scrollWidth")
+    assert width <= 390, f"sideways scroll on Mijn organisatie: {width}px"
+    row = page.locator("[data-organisation]", has_text="Proef BV").first
+    button = row.get_by_role("button", name="Ontkoppelen").bounding_box()
+    assert button is not None and button["x"] >= 0 and button["x"] + button["width"] <= 390, button
+    for field in ("#org-vat_number", "#org-name", "#org-street", "#org-postal_code"):
+        box = page.locator(field).bounding_box()
+        assert box is not None and box["x"] >= 0 and box["x"] + box["width"] <= 390, (field, box)
+
+
+def test_de_mand_biedt_namens_aan_en_bestelt_namens_de_organisatie(webshop_page):
+    """The basket asks "Wie bestelt" when the person acts for an organisation: voor mezelf
+    and namens …; choosing namens places the order, which Mijn aankopen then lists."""
+    from app.domains.auth.api import make_session_value
+
+    page = webshop_page
+    login_met_sessie(page, make_session_value("webshop.lid@example.com"), WEBSHOP_HOST)
+    page.set_viewport_size({"width": 390, "height": 844})
+    _organisatie_registreren(page, "Proef BV")
+    page.evaluate("localStorage.removeItem('raak_basket')")
+
+    _voeg_de_maat_toe_aan_het_mandje(page)
+    with htmx_afgerond(page):
+        page.locator("form[data-basket-form] button[type=submit]").click()
+    page.wait_for_url("**/webshop/mandje")
+
+    choices = page.locator('input[name="buyer_organization_id"]')
+    assert choices.count() == 2, "voor mezelf and one namens"
+    assert "namens Proef BV" in page.locator("main").inner_text()
+    page.get_by_text("namens Proef BV").click()
+    assert page.locator('input[name="buyer_organization_id"]:checked').get_attribute("value") != ""
+    page.locator('input[name="phone"]').fill("0470000000")
+    page.locator('input[name="payment_method"][value="transfer"]').check()
+    laat_de_wacht_passeren(page)
+    with htmx_afgerond(page):
+        page.get_by_role("button", name="Bestellen en betalen").click()
+    page.wait_for_url("**/webshop/bedankt?**")
+    page.evaluate("localStorage.removeItem('raak_basket')")

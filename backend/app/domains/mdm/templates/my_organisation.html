@@ -1,0 +1,50 @@
+{% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
+{% import "_public_macros.html" as pub %}
+{% block title %}{{ title }} · {{ site_name }}{% endblock %}
+{% block content %}
+{# Mijn organisatie (CR-26 F7, F14): the organisations the signed-in person acts for,
+   and one form to register another. A VAT number the account already knows links
+   instead of creating. `#organisatie-pagina` is what a good answer replaces. #}
+{% call pub.account_page(title, nav, active, gebruiker, heading=False) %}
+<div id="organisatie-pagina">
+{% call ui.public_form_page(title, intro=_("De organisaties namens wie je bestelt.")) %}
+<div data-form-flow data-mode="edit" class="form-flow">
+  <div id="organisatie-melding" data-form-message></div>
+  {% if saved %}<p data-saved class="mb-3 text-sm text-ink">{{ _("Je bent gekoppeld aan de bestaande organisatie met dit btw-nummer.") if linked else _("Organisatie geregistreerd.") }}</p>{% endif %}
+  {% call ui.section(_("Je organisaties"), id="organisatie-lijst") %}
+    {% if organisations %}
+    {% for o in organisations %}
+    <div data-organisation="{{ o.id }}" data-span="full" class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line py-2">
+      <p class="min-w-0 text-sm leading-[21px] text-ink [overflow-wrap:anywhere]"><strong>{{ o.name }}</strong>
+        <span class="text-ink-soft">{{ o.legal_form_label }}{% if o.legal_form_label and o.vat_number %} · {% endif %}{{ o.vat_number }}</span></p>
+      {{ ui.btn_outline(_("Ontkoppelen"), attrs='hx-post="/mijn/organisatie/' ~ o.id ~ '/ontkoppelen" hx-target="#organisatie-pagina" hx-select="#organisatie-pagina" hx-swap="outerHTML"', confirm=_("Je bestelt dan niet meer namens deze organisatie. De organisatie en haar bestellingen blijven bestaan.")) }}
+    </div>
+    {% endfor %}
+    {% else %}
+    <p data-span="full" class="text-sm text-ink-soft">{{ _("Je bent nog aan geen organisatie gekoppeld.") }}</p>
+    {% endif %}
+  {% endcall %}
+  <form id="organisatie-form" class="contents" data-record-form data-message="#organisatie-melding" novalidate
+        hx-post="/mijn/organisatie" hx-target="#organisatie-pagina" hx-select="#organisatie-pagina"
+        hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap">
+  {% call ui.section(_("Organisatie registreren"), id="organisatie-registreren", intro=_("Staat het btw-nummer al in het systeem, dan word je aan die organisatie gekoppeld.")) %}
+    {# promise walked by: test_the_page_refuses_a_missing_vat_number #}
+    {{ ui.field("vat_number", _("Btw-nummer"), value=values.get("vat_number", ""), edit=True, required=True, id="org-vat_number") }}
+    {{ ui.field("name", attribute="mdm.organization.name", value=values.get("name", ""), edit=True, id="org-name") }}
+    {{ ui.field("legal_form", _("Rechtsvorm"), kind="select", value=values.get("legal_form", ""), edit=True, id="org-legal_form", options=legal_forms) }}
+  {% endcall %}
+  {% call ui.section(_("Adres"), id="organisatie-adres") %}
+    {{ ui.field("street", attribute="mdm.address.street", value=values.get("street", ""), edit=True, id="org-street") }}
+    {{ ui.field("house_number", attribute="mdm.address.house_number", value=values.get("house_number", ""), edit=True, span="quarter", id="org-house_number") }}
+    {{ ui.field("bus_number", attribute="mdm.address.bus_number", value=values.get("bus_number", ""), edit=True, span="quarter", id="org-bus_number") }}
+    {{ ui.field("postal_code", attribute="mdm.address.postal_code_id", kind="select", value=values.get("postal_code", ""), edit=True, span="full", id="org-postal_code", options=postal_options) }}
+  {% endcall %}
+  </form>
+  {{ ui.action_bar(save_label=_("Registreren"), busy_label=_("Registreren…"), record=True, send=True, form="organisatie-form", cancel_href="/mijn/organisatie") }}
+</div>
+{% endcall %}
+</div>
+{% endcall %}
+{% if saved %}{{ ui.toast_oob() }}{% endif %}
+{% endblock %}

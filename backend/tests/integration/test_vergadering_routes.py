@@ -23,7 +23,8 @@ import pytest
 
 from app.domains.activities.api import Activity, ActivityDate
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from app.domains.mdm.api import ContactDetail, Organization, OrganizationPerson, Person
+from app.domains.mdm.api import ContactDetail, Organization, PartyRelationship, Person
+from app.domains.mdm.tenant_service import shown_organization
 from app.domains.meetings.api import (
     Attendance,
     FilePurpose,
@@ -50,7 +51,7 @@ def _login(client) -> dict:
 
 
 def _kringlid(db, voornaam="Mon", achternaam="Essers", email="mon@example.org"):
-    organisatie = db.query(Organization).first()
+    organisatie = shown_organization(db)
     if organisatie is None:
         organisatie = Organization(name="Raak Millegem")
         db.add(organisatie)
@@ -60,10 +61,10 @@ def _kringlid(db, voornaam="Mon", achternaam="Essers", email="mon@example.org"):
     db.flush()
     db.add(ContactDetail(party_id=person.party_id, contact_type_code="EMAIL", value=email))
     db.add(
-        OrganizationPerson(
-            person_id=person.id,
-            organization_id=organisatie.id,
-            relation_type="BOARD_MEETING",
+        PartyRelationship(
+            from_party_id=person.party_id,
+            to_party_id=organisatie.party_id,
+            kind="BOARD_MEETING",
             start_date=date(2020, 1, 1),
         )
     )

@@ -226,27 +226,43 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K8
     ),
     Attribute(
-        key="mdm.organization_person.relation_type",
-        columns=("mdm.organization_persons.relation_type",),
+        key="mdm.party_relationship.from_party_id",
+        columns=("mdm.party_relationships.from_party_id",),
         label=None,
-        name_en="Relation type",
-        help="The relation type of the organization person, a code of its code list.",
+        name_en="From party",
+        help="The party that stands in the relation: the person of a circle, the person who acts for an organisation.",
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="mdm.organization_person.start_date",
-        columns=("mdm.organization_persons.start_date",),
+        key="mdm.party_relationship.to_party_id",
+        columns=("mdm.party_relationships.to_party_id",),
+        label=None,
+        name_en="To party",
+        help="The party the relation is to: the organisation of a circle, the organisation acted for.",
+        ai_exposure=AiExposure.INTERNAL,  # K0
+    ),
+    Attribute(
+        key="mdm.party_relationship.kind",
+        columns=("mdm.party_relationships.kind",),
+        label=None,
+        name_en="Kind",
+        help="The kind of the party relationship, a code of its code list.",
+        ai_exposure=AiExposure.INTERNAL,  # K0
+    ),
+    Attribute(
+        key="mdm.party_relationship.start_date",
+        columns=("mdm.party_relationships.start_date",),
         label=None,
         name_en="Start date",
-        help="The start date of the organization person.",
+        help="The start date of the party relationship.",
         ai_exposure=AiExposure.INTERNAL,  # K8
     ),
     Attribute(
-        key="mdm.organization_person.end_date",
-        columns=("mdm.organization_persons.end_date",),
+        key="mdm.party_relationship.end_date",
+        columns=("mdm.party_relationships.end_date",),
         label=None,
         name_en="End date",
-        help="The end date of the organization person.",
+        help="The end date of the party relationship; it ends, nothing is deleted.",
         ai_exposure=AiExposure.INTERNAL,  # K8
     ),
     Attribute(

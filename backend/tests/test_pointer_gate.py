@@ -13,9 +13,9 @@ organisation hangs on its party, by one `party_id`.
   is what stood on master when the gate landed (B7 counted eight on `d23caea5`;
   the meeting circle's moved into `mdm` since, seven are left).
 
-`mdm.organization_persons` carries the pair until phase 2 makes it
-`party_relationships`; it is the one entry of the pair's baseline, and the test
-fails when the table is gone so that the entry goes with it.
+`mdm.organization_persons` was the one table that carried the pair; CR-26 phase 2 made it
+`party_relationships` (a `from_party_id` and a `to_party_id`), so the pair gate is hard and has no
+baseline any more.
 
 Proven red, additively (put back each time), on a test model too: a `person_id`
 and an `organization_id` column added to `ContactDetail` → the first test names
@@ -32,9 +32,6 @@ import app.models  # noqa: F401 - registers every model
 from app.database import Base
 
 POINTERS = ("person_id", "organization_id")
-
-#: Phase 2 of CR-26 makes it `party_relationships` (F4).
-PAIR_BASELINE = {"mdm.organization_persons"}
 
 #: The pointers outside `mdm` on master when the gate landed. Only shrinks.
 OUTSIDE_BASELINE = {
@@ -68,11 +65,7 @@ def _outside(metadata: MetaData) -> set[str]:
 
 def test_no_table_points_at_a_person_and_an_organisation():
     pairs = _pairs(Base.metadata)
-    assert PAIR_BASELINE <= pairs, (
-        f"{sorted(PAIR_BASELINE - pairs)} carries the pair no more: take it out of PAIR_BASELINE"
-    )
-    new = pairs - PAIR_BASELINE
-    assert not new, f"{sorted(new)} points at a person and an organisation: point at a party"
+    assert not pairs, f"{sorted(pairs)} points at a person and an organisation: point at a party"
 
 
 def test_no_new_pointer_outside_mdm():

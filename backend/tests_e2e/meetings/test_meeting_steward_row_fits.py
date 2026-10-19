@@ -57,10 +57,10 @@ def _setup(tag: str, meeting_year: int, with_circle: bool) -> str:
     from app.domains.mdm.api import (
         Member,
         MemberPerson,
-        Organization,
-        OrganizationPerson,
+        PartyRelationship,
         Person,
     )
+    from app.domains.mdm.tenant_service import shown_organization
     from app.domains.membership.api import Membership
 
     db = SessionLocal()
@@ -93,10 +93,10 @@ def _setup(tag: str, meeting_year: int, with_circle: bool) -> str:
             db.add(steward)
             db.flush()
             db.add(
-                OrganizationPerson(
-                    person_id=steward.id,
-                    organization_id=db.query(Organization).first().id,
-                    relation_type="BOARD_MEETING",
+                PartyRelationship(
+                    from_party_id=steward.party_id,
+                    to_party_id=shown_organization(db).party_id,
+                    kind="BOARD_MEETING",
                     start_date=date(2020, 1, 1),
                 )
             )

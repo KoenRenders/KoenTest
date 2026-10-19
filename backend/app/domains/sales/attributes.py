@@ -17,6 +17,78 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
+        key="sales.sales_order.buyer_party_id",
+        columns=("sales.sales_orders.buyer_party_id",),
+        label=None,
+        name_en="Buyer party id",
+        help="Voor wie de bestelling is: de eigen partij van de persoon (voor mezelf), een organisatie (namens), leeg voor een gast.",
+        ai_exposure=AiExposure.INTERNAL,  # K0
+    ),
+    Attribute(
+        key="sales.sales_order.buyer_name",
+        columns=("sales.sales_orders.buyer_name",),
+        label=None,
+        name_en="Buyer name",
+        help="De naam van de koper zoals hij bij het plaatsen was: de organisatie of de persoon.",
+        ai_exposure=AiExposure.TOKENISED,  # K2
+    ),
+    Attribute(
+        key="sales.sales_order.buyer_street",
+        columns=("sales.sales_orders.buyer_street",),
+        label=None,
+        name_en="Buyer street",
+        help="De straat van de koper bij het plaatsen; leeg als de partij geen adres heeft.",
+        ai_exposure=AiExposure.INTERNAL,  # K9
+    ),
+    Attribute(
+        key="sales.sales_order.buyer_house_number",
+        columns=("sales.sales_orders.buyer_house_number",),
+        label=None,
+        name_en="Buyer house number",
+        help="Het huisnummer van de koper bij het plaatsen.",
+        ai_exposure=AiExposure.INTERNAL,  # K9
+    ),
+    Attribute(
+        key="sales.sales_order.buyer_bus_number",
+        columns=("sales.sales_orders.buyer_bus_number",),
+        label=None,
+        name_en="Buyer box number",
+        help="Het busnummer van de koper bij het plaatsen.",
+        ai_exposure=AiExposure.INTERNAL,  # K9
+    ),
+    Attribute(
+        key="sales.sales_order.buyer_postal_code",
+        columns=("sales.sales_orders.buyer_postal_code",),
+        label=None,
+        name_en="Buyer postal code",
+        help="De postcode van de koper bij het plaatsen, als tekst.",
+        ai_exposure=AiExposure.INTERNAL,  # K9
+    ),
+    Attribute(
+        key="sales.sales_order.buyer_municipality",
+        columns=("sales.sales_orders.buyer_municipality",),
+        label=None,
+        name_en="Buyer municipality",
+        help="De gemeente van de koper bij het plaatsen.",
+        ai_exposure=AiExposure.INTERNAL,  # K9
+    ),
+    Attribute(
+        key="sales.sales_order.buyer_country",
+        columns=("sales.sales_orders.buyer_country",),
+        label=None,
+        name_en="Buyer country",
+        help="Het land van de koper bij het plaatsen (ISO 3166-1 alpha-2).",
+        ai_exposure=AiExposure.INTERNAL,  # K8
+    ),
+    Attribute(
+        key="sales.sales_order.buyer_vat_number",
+        columns=("sales.sales_orders.buyer_vat_number",),
+        label=None,
+        name_en="Buyer VAT number",
+        help="Het btw-nummer van de koper bij het plaatsen; een particulier heeft er geen.",
+        ai_exposure=AiExposure.INTERNAL,  # K9
+    ),
+    Attribute(
         key="sales.sales_order.guest_name",
         columns=("sales.sales_orders.guest_name",),
         label="Naam",

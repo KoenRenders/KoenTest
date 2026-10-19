@@ -487,21 +487,30 @@ def organization_circle(
     end-dates it rather than deleting it, so the attendance of an old report
     keeps resolving to the person who was there.
     """
-    from app.domains.mdm.models import OrganizationPerson, Person
+    from app.domains.mdm.models import PartyRelationship, Person
+    from app.domains.mdm.tenant_service import shown_organization
 
     if on_day is None:
         on_day = belgian_today()
+    # CR-26 phase 2 (M1): the circle hangs on the party the current tenant shows
+    # (CR-20 F11) — the relations are the account's now, so the tenant no longer
+    # narrows them by itself.
+    shown = shown_organization(db)
+    if shown is None:
+        return []
+    circle_party = shown.party_id
     rows = (
-        db.query(OrganizationPerson, Person)
-        .join(Person, Person.id == OrganizationPerson.person_id)
+        db.query(PartyRelationship, Person)
+        .join(Person, Person.party_id == PartyRelationship.from_party_id)
         .filter(
-            OrganizationPerson.relation_type == relation_type,
-            or_(OrganizationPerson.start_date.is_(None), OrganizationPerson.start_date <= on_day),
+            PartyRelationship.kind == relation_type,
+            PartyRelationship.to_party_id == circle_party,
+            or_(PartyRelationship.start_date.is_(None), PartyRelationship.start_date <= on_day),
             # `>` en niet `>=`: de einddatum is de dag waaróp iemand de
             # kring verlaat, niet zijn laatste dag erin. Met `>=` bleef
             # wie je vandaag verwijderde nog tot morgen in de lijst staan
             # — en dan lijkt de knop stuk (gemeld door Koen, 15 sep 2026).
-            or_(OrganizationPerson.end_date.is_(None), OrganizationPerson.end_date > on_day),
+            or_(PartyRelationship.end_date.is_(None), PartyRelationship.end_date > on_day),
         )
         .order_by(Person.first_name.asc(), Person.last_name.asc(), Person.id.asc())
         .all()
@@ -527,26 +536,33 @@ def add_to_circle(
 ):
     """Put a person in the circle. Idempotent: an existing open relation is
     returned unchanged, so a double click does not create a second row."""
-    from app.domains.mdm.models import OrganizationPerson
+    from app.domains.mdm.models import MasterDataError, Organization, PartyRelationship, Person
 
+    person = db.get(Person, person_id)
+    organization = db.get(Organization, organization_id)
+    if person is None or organization is None:
+        from app.i18n import _
+
+        raise MasterDataError(_("Onbekende persoon of organisatie."))
     existing = (
-        db.query(OrganizationPerson)
+        db.query(PartyRelationship)
         .filter(
-            OrganizationPerson.person_id == person_id,
+            PartyRelationship.from_party_id == person.party_id,
             # CR-20 F11: each tenant's circle hangs on its own shown party, so
             # one person may stand in the circle of two departments.
-            OrganizationPerson.organization_id == organization_id,
-            OrganizationPerson.relation_type == relation_type,
-            OrganizationPerson.end_date.is_(None),
+            PartyRelationship.to_party_id == organization.party_id,
+            PartyRelationship.kind == relation_type,
+            PartyRelationship.end_date.is_(None),
+            PartyRelationship.deleted_at.is_(None),
         )
         .first()
     )
     if existing is not None:
         return existing
-    relation = OrganizationPerson(
-        person_id=person_id,
-        organization_id=organization_id,
-        relation_type=relation_type,
+    relation = PartyRelationship(
+        from_party_id=person.party_id,
+        to_party_id=organization.party_id,
+        kind=relation_type,
         start_date=on_day or belgian_today(),
     )
     db.add(relation)
@@ -562,13 +578,13 @@ def set_circle_start(db: Session, relation_id: int, start_date: date) -> None:
     not count for a meeting last month: its attendance list was empty and its
     report went to nobody. The secretary sets the real date here.
 
-    `OrganizationPerson.check()` refuses a start after the end, on the flush.
+    `PartyRelationship.check()` refuses a start after the end, on the flush.
     Reached through the `CircleStartChosen` event (`mdm.handlers`), so it never
     commits: the publisher's door does.
     """
-    from app.domains.mdm.models import MasterDataError, OrganizationPerson
+    from app.domains.mdm.models import MasterDataError, PartyRelationship
 
-    relation = db.get(OrganizationPerson, relation_id)
+    relation = db.get(PartyRelationship, relation_id)
     if relation is None:
         from app.i18n import _
 
@@ -591,9 +607,9 @@ def end_circle_relation(db: Session, relation_id: int, on_day: Optional[date] = 
     blijft de aanwezigheid van oude verslagen leesbaar zonder dat er iets
     gekopieerd hoeft te worden.
     """
-    from app.domains.mdm.models import OrganizationPerson
+    from app.domains.mdm.models import PartyRelationship
 
-    relation = db.get(OrganizationPerson, relation_id)
+    relation = db.get(PartyRelationship, relation_id)
     if relation is None:
         return
     end = on_day or belgian_today()
@@ -1913,7 +1929,7 @@ def delete_person(db: Session, person: Person, *, actor: Optional[str]) -> None:
         snapshot_person,
     )
     from app.domains.mdm.household_service import detach_household_person
-    from app.domains.mdm.models import OrganizationPerson
+    from app.domains.mdm.models import PartyRelationship
     from app.soft_delete import soft_delete
 
     history = {"operation": "delete", "action": "person_deleted", "source": BOARD_SOURCE}
@@ -1937,8 +1953,8 @@ def delete_person(db: Session, person: Person, *, actor: Optional[str]) -> None:
     # relation from it (who sits on a board, who acts for an organisation).
     soft_delete(person.party)
     for relation in (
-        db.query(OrganizationPerson)
+        db.query(PartyRelationship)
         .execution_options(include_all_tenants=True)
-        .filter(OrganizationPerson.person_id == person.id)
+        .filter(PartyRelationship.from_party_id == person.party_id)
     ):
         soft_delete(relation)
