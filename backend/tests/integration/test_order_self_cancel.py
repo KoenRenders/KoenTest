@@ -130,7 +130,9 @@ def test_a_household_member_can_cancel(client, db_session, every_module_on):
         MemberPerson(member_id=owner_member.id, person_id=partner.id, relation_type="PARTNER")
     )
     db_session.add(
-        ContactDetail(person_id=partner.id, contact_type_code="EMAIL", value="partner@example.com")
+        ContactDetail(
+            party_id=partner.party_id, contact_type_code="EMAIL", value="partner@example.com"
+        )
     )
     db_session.flush()  # the partner is the test's own seed, before the app commits (#1885)
     order = _order(db_session, [(m.id, 1)], person_id=owner_person.id)

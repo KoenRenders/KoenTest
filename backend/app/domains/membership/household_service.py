@@ -423,17 +423,17 @@ def list_families(
         # Nagemeten op de uitgevoerde SQL i.p.v. aangenomen — want de vraag was
         # of `with_loader_criteria` ook een subquery binnen een `IN` bereikt. Dat
         # doet het: de join komt eruit als
-        # `LEFT OUTER JOIN mdm.addresses ON mdm.addresses.person_id =
-        # mdm.persons.id AND mdm.addresses.deleted_at IS NULL`.
+        # `LEFT OUTER JOIN mdm.addresses ON mdm.addresses.party_id =
+        # mdm.persons.party_id AND mdm.addresses.deleted_at IS NULL`.
         #
         # Daarom hier GEEN eigen `deleted_at`-filter: de twee joins hierboven
         # (persons, contact_details) leunen op precies dezelfde globale regel, en
         # één van de drie een eigen kopie geven doet de andere twee lezen als een
         # vergetelheid. `test_leden_zoeken_op_straat.py` bewaakt het gedrag.
         #
-        # De join blijft op `person_id`: sinds #924/#945 kan een adres ook aan een
-        # ORGANISATIE hangen (XOR-CHECK in de databank), en die rijen horen niet
-        # in een gezinstreffer. Niet verbreden.
+        # De join loopt over de partij van de persoon: sinds #924/#945 kan een
+        # adres ook aan een ORGANISATIE hangen, en die rijen horen niet in een
+        # gezinstreffer (CR-26 F3: `party_id`). Niet verbreden.
         like = f"%{q.strip()}%"
         match_ids = (
             db.query(MemberPerson.member_id)
@@ -441,11 +441,11 @@ def list_families(
             .outerjoin(
                 ContactDetail,
                 and_(
-                    ContactDetail.person_id == Person.id,
+                    ContactDetail.party_id == Person.party_id,
                     ContactDetail.contact_type_code == CONTACT.EMAIL,
                 ),
             )
-            .outerjoin(Address, Address.person_id == Person.id)
+            .outerjoin(Address, Address.party_id == Person.party_id)
             .filter(
                 or_(
                     func.concat(Person.first_name, " ", Person.last_name).ilike(like),

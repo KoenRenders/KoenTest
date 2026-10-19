@@ -72,7 +72,7 @@ def _person_without_household(db) -> None:
     for code, value in (("EMAIL", "pekkie.meetbasis@example.com"), ("MOBILE", "0470 00 00 09")):
         db.add(
             ContactDetail(
-                person_id=person.id,
+                party_id=person.party_id,
                 contact_type_code=code,
                 value=value,
                 is_primary=True,

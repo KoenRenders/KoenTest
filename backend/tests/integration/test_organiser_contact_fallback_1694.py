@@ -36,6 +36,7 @@ from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.designstudio import service as designstudio
 from app.domains.mdm.api import CONTACT, ContactDetail, Member, MemberPerson, Person
 from app.kernel.codes import code_of
+from tests._sites import party_of
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -55,9 +56,9 @@ def _member(db, first_name, *, email=None, mobile=None):
     db.flush()
     db.add(MemberPerson(member_id=household.id, person_id=person.id, relation_type="HOOFDLID"))
     if email:
-        db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=email))
+        db.add(ContactDetail(party_id=person.party_id, contact_type_code="EMAIL", value=email))
     if mobile:
-        db.add(ContactDetail(person_id=person.id, contact_type_code="MOBILE", value=mobile))
+        db.add(ContactDetail(party_id=person.party_id, contact_type_code="MOBILE", value=mobile))
     db.flush()
     return person
 
@@ -186,7 +187,9 @@ def test_two_rows_of_one_type_give_the_same_value_on_the_record_and_the_poster(
     activity_id, both, _neither, _other = record
     person_id = db_session.get(ActivityOrganiser, both).person_id
     db_session.add(
-        ContactDetail(person_id=person_id, contact_type_code="MOBILE", value="0470000009")
+        ContactDetail(
+            party_id=party_of(db_session, person_id), contact_type_code="MOBILE", value="0470000009"
+        )
     )
     db_session.commit()
     own = member_contacts(db_session, [person_id])[(person_id, code_of(CONTACT.MOBILE))]

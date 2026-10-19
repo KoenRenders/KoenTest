@@ -35,7 +35,7 @@ def gezin(db_session):
     at_tenant(db_session, member)  # CR-26 F9
     db_session.add(
         ContactDetail(
-            person_id=person.id, contact_type_code="EMAIL", value=TIKFOUT, is_primary=False
+            party_id=person.party_id, contact_type_code="EMAIL", value=TIKFOUT, is_primary=False
         )
     )
     db_session.commit()

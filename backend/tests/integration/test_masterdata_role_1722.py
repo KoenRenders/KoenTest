@@ -78,7 +78,7 @@ def world(db_session):
     ]
     upsert_families(db_session, [rows], {}, [], apply=True)
     db_session.flush()
-    numbers = {n.external_id: n.person_id for n in db_session.query(ExternalNumber).all()}
+    numbers = {n.external_id: n.person.id for n in db_session.query(ExternalNumber).all()}
     partner = numbers["172202"]
     member = db_session.query(MemberPerson).filter_by(person_id=partner).one().member_id
     users = {}

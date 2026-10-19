@@ -44,7 +44,12 @@ def _form(db, *addresses: str, **changes) -> dict:
 def _addresses(db, email: str) -> dict[str, bool]:
     """The e-mail rows of the person who owns `email`, as {value: is_primary}."""
     db.expire_all()
-    person_id = db.query(ContactDetail.person_id).filter(ContactDetail.value == email).scalar()
+    person_id = (
+        db.query(Person.id)
+        .join(ContactDetail, ContactDetail.party_id == Person.party_id)
+        .filter(ContactDetail.value == email)
+        .scalar()
+    )
     assert person_id, f"no person was stored with {email}"
     person = db.get(Person, person_id)
     return {
@@ -136,7 +141,12 @@ def test_the_second_address_logs_in(client, db_session):
     first, second = "rij.login1-1246@example.com", "rij.login2-1246@example.com"
     client.post("/lid-worden", data=_form(db_session, first, second))
     db_session.expire_all()
-    owner = db_session.query(ContactDetail.person_id).filter(ContactDetail.value == first).scalar()
+    owner = (
+        db_session.query(Person.id)
+        .join(ContactDetail, ContactDetail.party_id == Person.party_id)
+        .filter(ContactDetail.value == first)
+        .scalar()
+    )
     person = login_person_for_email(db_session, second)
     assert person is not None, "the second address does not log in"
     assert getattr(person, "id", person) == owner

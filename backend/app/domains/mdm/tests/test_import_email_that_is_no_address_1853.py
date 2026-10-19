@@ -34,7 +34,7 @@ def _contacts(db, first_name: str) -> list[tuple[str, str]]:
     person = db.query(Person).filter_by(first_name=first_name).one()
     return sorted(
         (c.contact_type_code, c.value)
-        for c in db.query(ContactDetail).filter_by(person_id=person.id)
+        for c in db.query(ContactDetail).filter_by(party_id=person.party_id)
     )
 
 

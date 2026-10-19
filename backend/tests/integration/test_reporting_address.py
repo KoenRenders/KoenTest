@@ -40,11 +40,12 @@ from sqlalchemy import text
 from app.domains.mdm.api import Address, PostalCode
 from app.domains.reporting.api import Selection, build_query, run_validated
 from tests._reporting_seed import TENANT_A, TENANT_B, seed
+from tests._sites import party_of
 
 # The migration that currently defines `d_address`. Move the view again and this
 # is the one line to follow it — the tests break loudly rather than silently
 # rebuilding a stale definition.
-ADDRESS_MIGRATION = "314_2026_10_19_002214_parties_per_account.py"
+ADDRESS_MIGRATION = "315_2026_10_19_051425_the_rest_on_the_party.py"
 
 
 def _migration():
@@ -85,7 +86,7 @@ def test_the_grain_is_one_address_per_person(db_session, situation):
     assert (
         db_session.execute(
             text(
-                "SELECT COUNT(*) FROM mdm.addresses WHERE person_id = :p AND deleted_at IS NOT NULL"
+                "SELECT COUNT(*) FROM mdm.addresses WHERE party_id = (SELECT party_id FROM mdm.persons WHERE id = :p) AND deleted_at IS NOT NULL"
             ),
             {"p": situation["moved_person"]},
         ).scalar()
@@ -195,7 +196,7 @@ def test_the_address_hangs_off_the_person_and_not_off_the_household(db_session, 
     pc = db_session.query(PostalCode).first()
     db_session.add(
         Address(
-            person_id=tweede_bewoner,
+            party_id=party_of(db_session, tweede_bewoner),
             street="Andere straat",
             house_number="3",
             postal_code_id=pc.id,

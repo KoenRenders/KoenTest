@@ -539,12 +539,14 @@ def create_test_family(db, *, email="hoofdlid@example.com", relation_type="HOOFD
     person = create_test_person(db)
     db.add(MemberPerson(member_id=member.id, person_id=person.id, relation_type=relation_type))
     db.add(
-        ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=email, is_primary=True)
+        ContactDetail(
+            party_id=person.party_id, contact_type_code="EMAIL", value=email, is_primary=True
+        )
     )
     if mobile:
         db.add(
             ContactDetail(
-                person_id=person.id, contact_type_code="MOBILE", value=mobile, is_primary=True
+                party_id=person.party_id, contact_type_code="MOBILE", value=mobile, is_primary=True
             )
         )
     db.flush()

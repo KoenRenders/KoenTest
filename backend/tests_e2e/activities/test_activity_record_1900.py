@@ -108,8 +108,10 @@ def _seed() -> dict:
             db.add(
                 MemberPerson(member_id=household.id, person_id=person.id, relation_type="HOOFDLID")
             )
-            db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=email))
-            db.add(ContactDetail(person_id=person.id, contact_type_code="MOBILE", value=mobile))
+            db.add(ContactDetail(party_id=person.party_id, contact_type_code="EMAIL", value=email))
+            db.add(
+                ContactDetail(party_id=person.party_id, contact_type_code="MOBILE", value=mobile)
+            )
             db.flush()
             return person.id
 

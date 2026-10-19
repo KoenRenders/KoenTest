@@ -246,7 +246,7 @@ def apply_address(
     if address is None:
         require_whole_address(address_data)
         address = Address(
-            person_id=target.id,
+            party_id=target.party_id,
             street=address_data["street"].strip(),
             house_number=address_data["house_number"].strip(),
             bus_number=(address_data.get("bus_number") or "").strip() or None,
@@ -753,7 +753,7 @@ def create_household(
         # The address belongs to the main member alone (= the household's). #125
         if is_main:
             address = Address(
-                person_id=person.id,
+                party_id=person.party_id,
                 street=street,
                 house_number=house_number,
                 bus_number=bus_number or None,

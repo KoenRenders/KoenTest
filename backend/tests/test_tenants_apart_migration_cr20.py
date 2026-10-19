@@ -27,17 +27,15 @@ soft-delete assertion fails; step 6 without its `UPDATE … organization_persons
 from __future__ import annotations
 
 import json
-import os
 import re
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
-from alembic import command
-from alembic.config import Config
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import make_url
+from sqlalchemy import text
+
+from tests._own_database import own_database
 
 BEFORE = "312_2026_10_16_162902"
 AFTER = "313_2026_10_18_180812"
@@ -45,34 +43,12 @@ AFTER = "313_2026_10_18_180812"
 
 def _migrated(name: str, target: str):
     """A database of its own: the chain to 312, the cases, then `target`."""
-    from tests.conftest import TEST_DATABASE_URL
-
-    url = make_url(TEST_DATABASE_URL)
-    own = url.set(database=f"{url.database}_{name}")
-    admin = create_engine(url.set(database="postgres"), isolation_level="AUTOCOMMIT")
-    with admin.connect() as conn:
-        conn.exec_driver_sql(f'DROP DATABASE IF EXISTS "{own.database}" WITH (FORCE)')
-        conn.exec_driver_sql(f'CREATE DATABASE "{own.database}"')
-    rendered = own.render_as_string(hide_password=False)
-    cfg = Config(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
-    previous = os.environ.get("DATABASE_URL")
-    os.environ["DATABASE_URL"] = rendered
-    try:
-        command.upgrade(cfg, BEFORE)
-        engine = create_engine(rendered)
+    with own_database(name) as (upgrade, engine):
+        upgrade(BEFORE)
         with engine.begin() as conn:
             _write_the_cases(conn)
-        command.upgrade(cfg, target)
+        upgrade(target)
         yield engine
-        engine.dispose()
-    finally:
-        if previous is None:
-            os.environ.pop("DATABASE_URL", None)
-        else:
-            os.environ["DATABASE_URL"] = previous
-        with admin.connect() as conn:
-            conn.exec_driver_sql(f'DROP DATABASE IF EXISTS "{own.database}" WITH (FORCE)')
-        admin.dispose()
 
 
 @pytest.fixture(scope="module")

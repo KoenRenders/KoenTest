@@ -292,7 +292,7 @@ IDENTIFICATION_SCHEME = CodeList(
     codes=IdentificationScheme,
     labels=IdentificationSchemeLabel,
     enum=None,
-    fk_from=("mdm.organization_identifications.scheme",),
+    fk_from=("mdm.party_identifications.scheme",),
 )
 
 EXTERNAL_SOURCE_CODES = (

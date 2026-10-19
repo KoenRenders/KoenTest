@@ -496,7 +496,7 @@ def test_the_search_offers_members_with_their_address_and_skips_who_is_there(cli
     bert, _ = _member(db_session, "Zoekbert")
     _member(db_session, "Zoekgast", member=False)
     db_session.add(
-        ContactDetail(person_id=an.id, contact_type_code="EMAIL", value="zoekan@example.com")
+        ContactDetail(party_id=an.party_id, contact_type_code="EMAIL", value="zoekan@example.com")
     )
     db_session.add(ActivityOrganiser(activity_id=activity.id, person_id=bert.id, sort_order=0))
     db_session.commit()

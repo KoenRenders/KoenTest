@@ -93,7 +93,10 @@ def sint(client, db_session):
     _member, person = create_test_family(db_session, email="anna.eerst@example.com")
     db_session.add(
         Address(
-            person_id=person.id, street="Kerkstraat", house_number="7", postal_code_id=postcode.id
+            party_id=person.party_id,
+            street="Kerkstraat",
+            house_number="7",
+            postal_code_id=postcode.id,
         )
     )
     db_session.get(Registration, anna).person_id = person.id

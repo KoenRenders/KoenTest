@@ -86,7 +86,7 @@ def household(db, email: str, year: int = YEAR) -> Member:
     db.add(person)
     db.flush()
     db.add(MemberPerson(member_id=member.id, person_id=person.id, relation_type="HOOFDLID"))
-    db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=email))
+    db.add(ContactDetail(party_id=person.party_id, contact_type_code="EMAIL", value=email))
     db.add(
         Membership(
             member_id=member.id,

@@ -324,7 +324,8 @@ def test_een_leeg_gsm_nummer_verwijdert_wel(db_session):
     mobiel = (
         db_session.query(ContactDetail)
         .filter(
-            ContactDetail.person_id == persoon.id, ContactDetail.contact_type_code == CONTACT.MOBILE
+            ContactDetail.party_id == persoon.party_id,
+            ContactDetail.contact_type_code == CONTACT.MOBILE,
         )
         .all()
     )

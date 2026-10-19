@@ -248,7 +248,7 @@ def test_a_person_without_a_household_saves_without_birth_date_or_gender(db_sess
 def test_the_block_reads_only_live_rows_main_address_first(db_session, member):
     db_session.add(
         ContactDetail(
-            person_id=member.id,
+            party_id=member.party_id,
             contact_type_code="EMAIL",
             value="extra-1710@example.org",
             is_primary=False,

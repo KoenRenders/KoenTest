@@ -1126,7 +1126,7 @@ def _footer_organisatie(db, organisatie) -> dict | None:
 
     adres = (
         db.query(Address)
-        .filter(Address.organization_id == organisatie.id, Address.deleted_at.is_(None))
+        .filter(Address.party_id == organisatie.party_id, Address.deleted_at.is_(None))
         .execution_options(include_all_tenants=True)
         .one_or_none()
     )
@@ -1149,7 +1149,7 @@ def _footer_organisatie(db, organisatie) -> dict | None:
     contacten = {
         _code_of(c.contact_type_code): c.value
         for c in db.query(ContactDetail)
-        .filter(ContactDetail.organization_id == organisatie.id, ContactDetail.deleted_at.is_(None))
+        .filter(ContactDetail.party_id == organisatie.party_id, ContactDetail.deleted_at.is_(None))
         .execution_options(include_all_tenants=True)
         .all()
     }
@@ -1157,7 +1157,7 @@ def _footer_organisatie(db, organisatie) -> dict | None:
     # meer dan één is (#945).
     rekening = (
         db.query(BankAccount)
-        .filter(BankAccount.organization_id == organisatie.id, BankAccount.deleted_at.is_(None))
+        .filter(BankAccount.party_id == organisatie.party_id, BankAccount.deleted_at.is_(None))
         .order_by(BankAccount.sort_order, BankAccount.id)
         .execution_options(include_all_tenants=True)
         .first()
@@ -1283,7 +1283,7 @@ def _sociale_links(db, organisatie) -> list[dict]:
         code_of(c.contact_type_code): c.value
         for c in db.query(ContactDetail)
         .filter(
-            ContactDetail.organization_id == organisatie.id,
+            ContactDetail.party_id == organisatie.party_id,
             ContactDetail.contact_type_code.in_(list(netwerken)),
             ContactDetail.deleted_at.is_(None),
         )

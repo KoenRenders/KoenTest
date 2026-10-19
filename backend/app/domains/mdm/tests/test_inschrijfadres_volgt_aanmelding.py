@@ -39,7 +39,7 @@ def lid_met_twee_adressen(db_session):
     _member, person = create_test_family(db_session, email=HOOFD)
     db_session.add(
         ContactDetail(
-            person_id=person.id, contact_type_code="EMAIL", value=TWEEDE, is_primary=False
+            party_id=person.party_id, contact_type_code="EMAIL", value=TWEEDE, is_primary=False
         )
     )
     db_session.commit()
@@ -110,7 +110,7 @@ def test_het_mobiele_nummer_blijft_uit_de_contactgegevens_komen(
     activity, component, _p = seed_activity_with_product(db_session, price="0", is_free=True)
     db_session.add(
         ContactDetail(
-            person_id=lid_met_twee_adressen.id,
+            party_id=lid_met_twee_adressen.party_id,
             contact_type_code="MOBILE",
             value="0470112233",
             is_primary=True,

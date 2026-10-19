@@ -56,7 +56,7 @@ def _household(db, first: str, last: str, *, board_member=None, extra=0, lid=Fal
     db.add(MemberPerson(member_id=member.id, person_id=person.id, relation_type="HOOFDLID"))
     db.add(
         Address(
-            person_id=person.id,
+            party_id=person.party_id,
             street="Kerkstraat",
             house_number="7",
             postal_code_id=postal.id,

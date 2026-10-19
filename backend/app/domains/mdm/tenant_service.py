@@ -407,7 +407,8 @@ def _free(db, organization, tenant_id: int | None = None) -> bool:
 
 def _move_to_account(db, organization, account: int) -> None:
     """Give an organisation, its party and what hangs on it — addresses,
-    contacts, bank accounts, their history — this account (CR-26 F1). Nothing
+    contacts, bank accounts, identifications, their history — this account
+    (CR-26 F1, F3). Nothing
     when it has it already. Read across accounts: the rows are of another
     account than the current tenant's, which the filter would hide."""
     from app.domains.mdm.models import (
@@ -417,15 +418,23 @@ def _move_to_account(db, organization, account: int) -> None:
         ContactDetail,
         ContactDetailHistory,
         Party,
+        PartyIdentification,
     )
 
     if organization.account_id == account:
         return
-    for model in (Address, ContactDetail, BankAccount, AddressHistory, ContactDetailHistory):
+    for model in (
+        Address,
+        ContactDetail,
+        BankAccount,
+        PartyIdentification,
+        AddressHistory,
+        ContactDetailHistory,
+    ):
         rows = (
             db.query(model)
             .execution_options(include_all_tenants=True)
-            .filter(model.organization_id == organization.id)
+            .filter(model.party_id == organization.party_id)
         )
         for row in rows:
             row.account_id = account

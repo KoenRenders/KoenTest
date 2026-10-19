@@ -52,9 +52,9 @@ def _persoon(db, voornaam, achternaam, *, lid=True, email=None, gsm=None):
         db.flush()
         db.add(MemberPerson(member_id=gezin.id, person_id=person.id, relation_type="HOOFDLID"))
     if email:
-        db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=email))
+        db.add(ContactDetail(party_id=person.party_id, contact_type_code="EMAIL", value=email))
     if gsm:
-        db.add(ContactDetail(person_id=person.id, contact_type_code="MOBILE", value=gsm))
+        db.add(ContactDetail(party_id=person.party_id, contact_type_code="MOBILE", value=gsm))
     db.flush()
     return person
 

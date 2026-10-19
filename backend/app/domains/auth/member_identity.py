@@ -27,7 +27,7 @@ def find_persons_by_email(db: Session, email: str) -> List[Person]:
     """
     return (
         db.query(Person)
-        .join(ContactDetail, ContactDetail.person_id == Person.id)
+        .join(ContactDetail, ContactDetail.party_id == Person.party_id)
         .filter(
             ContactDetail.contact_type_code == CONTACT.EMAIL,
             ContactDetail.confirmed_at.isnot(None),

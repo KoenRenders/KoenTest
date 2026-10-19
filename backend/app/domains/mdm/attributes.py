@@ -186,35 +186,35 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="mdm.organization_identification.scheme",
-        columns=("mdm.organization_identifications.scheme",),
+        key="mdm.party_identification.scheme",
+        columns=("mdm.party_identifications.scheme",),
         label=None,
         name_en="Scheme",
-        help="The scheme of the organization identification, a code of its code list.",
+        help="The scheme of the party identification, a code of its code list.",
         ai_exposure=AiExposure.INTERNAL,  # K0
     ),
     Attribute(
-        key="mdm.organization_identification.value",
-        columns=("mdm.organization_identifications.value",),
+        key="mdm.party_identification.value",
+        columns=("mdm.party_identifications.value",),
         label=None,
         name_en="Value",
-        help="The value of the organization identification.",
+        help="The value of the party identification.",
         ai_exposure=AiExposure.INTERNAL,  # K9
     ),
     Attribute(
-        key="mdm.organization_identification.country",
-        columns=("mdm.organization_identifications.country",),
+        key="mdm.party_identification.country",
+        columns=("mdm.party_identifications.country",),
         label=None,
         name_en="Country",
-        help="The country of the organization identification.",
+        help="The country of the party identification.",
         ai_exposure=AiExposure.INTERNAL,  # K9
     ),
     Attribute(
-        key="mdm.organization_identification.sort_order",
-        columns=("mdm.organization_identifications.sort_order",),
+        key="mdm.party_identification.sort_order",
+        columns=("mdm.party_identifications.sort_order",),
         label=None,
         name_en="Sort order",
-        help="The sort order of the organization identification.",
+        help="The sort order of the party identification.",
         ai_exposure=AiExposure.INTERNAL,  # K8
     ),
     Attribute(

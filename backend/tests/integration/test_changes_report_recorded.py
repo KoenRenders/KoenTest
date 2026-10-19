@@ -621,7 +621,8 @@ def _person(first_name: str) -> SimpleNamespace:
 def _address(street: str) -> SimpleNamespace:
     return _source(
         id=886_004,
-        person_id=886_001,
+        # CR-26 phase 3: an address hangs on the person's party.
+        party_id=886_010,
         street=street,
         house_number="12",
         bus_number="B",
@@ -632,7 +633,7 @@ def _address(street: str) -> SimpleNamespace:
 def _contact(value: str) -> SimpleNamespace:
     return _source(
         id=886_006,
-        person_id=886_001,
+        party_id=886_010,
         contact_type_code=CONTACT.EMAIL,
         value=value,
         is_primary=True,

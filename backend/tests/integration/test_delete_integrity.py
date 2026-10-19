@@ -132,7 +132,9 @@ def test_delete_family_with_external_number(client, db_session):
     member = _create_family(client, db_session)
     mp = member.member_persons[0]
     db_session.add(
-        ExternalNumber(person_id=mp.person_id, source="ledenadministratie", external_id="OUD-123")
+        ExternalNumber(
+            party_id=mp.person.party_id, source="ledenadministratie", external_id="OUD-123"
+        )
     )
     db_session.flush()
 

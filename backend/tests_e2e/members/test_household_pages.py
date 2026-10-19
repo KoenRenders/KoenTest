@@ -89,7 +89,12 @@ def _household(email: str) -> dict | None:
 
     db = _db()
     try:
-        person_id = db.query(ContactDetail.person_id).filter(ContactDetail.value == email).scalar()
+        person_id = (
+            db.query(Person.id)
+            .join(ContactDetail, ContactDetail.party_id == Person.party_id)
+            .filter(ContactDetail.value == email)
+            .scalar()
+        )
         if person_id is None:
             return None
         member_id = (
@@ -132,6 +137,7 @@ def _history(member_id: int) -> list[str]:
         ContactDetailHistory,
         MemberPerson,
         MemberPersonHistory,
+        Person,
         PersonHistory,
     )
 
@@ -143,9 +149,21 @@ def _history(member_id: int) -> list[str]:
             .execution_options(include_deleted=True)
             .filter(MemberPerson.member_id == member_id)
         ]
+        # CR-26 phase 3: an address's and a contact's history name the party.
+        parties = [
+            party
+            for (party,) in db.query(Person.party_id)
+            .execution_options(include_deleted=True)
+            .filter(Person.id.in_(ids))
+        ]
         found: list[str] = []
-        for model in (PersonHistory, ContactDetailHistory, AddressHistory, MemberPersonHistory):
-            found += [r.action for r in db.query(model).filter(model.person_id.in_(ids))]
+        for model, column, keys in (
+            (PersonHistory, PersonHistory.person_id, ids),
+            (ContactDetailHistory, ContactDetailHistory.party_id, parties),
+            (AddressHistory, AddressHistory.party_id, parties),
+            (MemberPersonHistory, MemberPersonHistory.person_id, ids),
+        ):
+            found += [r.action for r in db.query(model).filter(column.in_(keys))]
         return sorted(found)
     finally:
         db.close()
@@ -691,12 +709,17 @@ def test_mijn_gezin_on_a_phone_the_default_and_the_choice_of_partner_or_child(br
 def _drop_address(email: str) -> None:
     """Take the household's address away, as a household made by the board or an
     import can be without one."""
-    from app.domains.mdm.api import Address, ContactDetail
+    from app.domains.mdm.api import Address, ContactDetail, Person
 
     db = _db()
     try:
-        person_id = db.query(ContactDetail.person_id).filter(ContactDetail.value == email).scalar()
-        db.query(Address).filter(Address.person_id == person_id).delete()
+        person_id = (
+            db.query(Person.id)
+            .join(ContactDetail, ContactDetail.party_id == Person.party_id)
+            .filter(ContactDetail.value == email)
+            .scalar()
+        )
+        db.query(Address).filter(Address.party_id == db.get(Person, person_id).party_id).delete()
         db.commit()
     finally:
         db.close()

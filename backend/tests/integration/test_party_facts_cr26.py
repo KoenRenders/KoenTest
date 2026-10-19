@@ -233,7 +233,7 @@ def _confirmed_email(db, person, address: str) -> None:
 
     db.add(
         ContactDetail(
-            person_id=person.id,
+            party_id=person.party_id,
             contact_type_code="EMAIL",
             value=address,
             is_primary=True,
@@ -256,7 +256,7 @@ def test_a_member_of_one_department_signs_in_at_the_other_as_himself(db_session)
     with _At(TENANT_MILLEGEM_ID):
         household, person = create_test_family(db_session, email="tweeplekken@example.org")
         at_tenant(db_session, household, TENANT_MILLEGEM_ID)
-        db_session.query(ContactDetail).filter_by(person_id=person.id).update(
+        db_session.query(ContactDetail).filter_by(party_id=person.party_id).update(
             {"confirmed_at": db_session.query(Person.created_at).filter_by(id=person.id).scalar()}
         )
         db_session.commit()
@@ -302,7 +302,7 @@ def test_a_duplicate_pair_of_the_account_signs_in_nowhere(db_session):
             db_session.flush()
             db_session.execute(
                 ContactDetail.__table__.insert().values(
-                    person_id=person.id,
+                    party_id=person.party_id,
                     account_id=person.account_id,
                     contact_type_code="EMAIL",
                     value="dubbel@example.org",
@@ -332,7 +332,7 @@ def test_word_lid_at_a_second_department_joins_with_the_existing_household(clien
 
     household, person = create_test_family(db_session, email="aansluiten@example.org")
     at_tenant(db_session, household, TENANT_MILLEGEM_ID)
-    db_session.query(ContactDetail).filter_by(person_id=person.id).update(
+    db_session.query(ContactDetail).filter_by(party_id=person.party_id).update(
         {"confirmed_at": datetime.now(timezone.utc)}
     )
     db_session.commit()

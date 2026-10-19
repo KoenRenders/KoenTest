@@ -111,7 +111,7 @@ def seed(db) -> dict:
             people.append(person)
         db.add(
             Address(
-                person_id=people[0].id,
+                party_id=people[0].party_id,
                 street="Straat",
                 house_number=house_number,
                 postal_code_id=postal.id,
@@ -141,11 +141,11 @@ def seed(db) -> dict:
     # soft-deleted ones behind it. Without such a person in the seed, a grain test
     # on `reporting.d_address` proves nothing — the unique index holds it green
     # whatever the view does.
-    verhuisd = db.query(Address).filter(Address.person_id == _h2_people[0].id).one()
+    verhuisd = db.query(Address).filter(Address.party_id == _h2_people[0].party_id).one()
     soft_delete(verhuisd)
     db.add(
         Address(
-            person_id=_h2_people[0].id,
+            party_id=_h2_people[0].party_id,
             street="Straat",
             house_number="9",
             postal_code_id=postal.id,

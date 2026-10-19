@@ -19,7 +19,7 @@ from app.domains.mdm.api import (
     BankAccount,
     ContactDetail,
     Organization,
-    OrganizationIdentification,
+    PartyIdentification,
     Person,
 )
 from app.kernel.tenant_config import _actieve_tenant
@@ -43,7 +43,7 @@ def organisatie(db_session):
 
 def _contact(db_session, organisatie, code: str, waarde: str) -> ContactDetail:
     rij = ContactDetail(
-        organization_id=organisatie.id,
+        party_id=organisatie.party_id,
         contact_type_code=code,
         value=waarde,
     )
@@ -64,21 +64,21 @@ def test_two_vat_numbers_in_two_countries_are_two_rows(db_session, organisatie):
     """
     db_session.add_all(
         [
-            OrganizationIdentification(
-                organization_id=organisatie.id, scheme="VAT", value="BE0123456789", country="BE"
+            PartyIdentification(
+                party_id=organisatie.party_id, scheme="VAT", value="BE0123456789", country="BE"
             ),
-            OrganizationIdentification(
-                organization_id=organisatie.id, scheme="VAT", value="NL123456789B01", country="NL"
+            PartyIdentification(
+                party_id=organisatie.party_id, scheme="VAT", value="NL123456789B01", country="NL"
             ),
         ]
     )
     db_session.commit()
 
     rijen = (
-        db_session.query(OrganizationIdentification)
+        db_session.query(PartyIdentification)
         .filter(
-            OrganizationIdentification.organization_id == organisatie.id,
-            OrganizationIdentification.scheme == "VAT",
+            PartyIdentification.party_id == organisatie.party_id,
+            PartyIdentification.scheme == "VAT",
         )
         .execution_options(include_all_tenants=True)
         .all()
@@ -98,7 +98,7 @@ def test_the_scheme_must_exist_in_the_code_list(db_session, organisatie):
     from sqlalchemy.exc import IntegrityError
 
     db_session.add(
-        OrganizationIdentification(organization_id=organisatie.id, scheme="VERZONNEN", value="X")
+        PartyIdentification(party_id=organisatie.party_id, scheme="VERZONNEN", value="X")
     )
     with pytest.raises(IntegrityError):
         db_session.commit()
@@ -116,8 +116,8 @@ def test_a_second_bank_account_is_a_row_and_the_first_one_is_shown(db_session, o
     """
     db_session.add_all(
         [
-            BankAccount(organization_id=organisatie.id, iban="BE22 2222 2222 2222", sort_order=1),
-            BankAccount(organization_id=organisatie.id, iban="BE11 1111 1111 1111", sort_order=0),
+            BankAccount(party_id=organisatie.party_id, iban="BE22 2222 2222 2222", sort_order=1),
+            BankAccount(party_id=organisatie.party_id, iban="BE11 1111 1111 1111", sort_order=0),
         ]
     )
     db_session.commit()
@@ -139,8 +139,8 @@ def test_the_payment_instructions_follow_the_same_first_account(db_session, orga
 
     db_session.add_all(
         [
-            BankAccount(organization_id=organisatie.id, iban="BE22 2222 2222 2222", sort_order=1),
-            BankAccount(organization_id=organisatie.id, iban="BE11 1111 1111 1111", sort_order=0),
+            BankAccount(party_id=organisatie.party_id, iban="BE22 2222 2222 2222", sort_order=1),
+            BankAccount(party_id=organisatie.party_id, iban="BE11 1111 1111 1111", sort_order=0),
         ]
     )
     db_session.commit()
@@ -215,7 +215,7 @@ def test_a_person_only_sees_their_own_contact_details(db_session, organisatie):
     db_session.flush()
     db_session.add(
         ContactDetail(
-            person_id=persoon.id,
+            party_id=persoon.party_id,
             contact_type_code="EMAIL",
             value="persoon@example.com",
         )
@@ -230,34 +230,12 @@ def test_a_person_only_sees_their_own_contact_details(db_session, organisatie):
     )
 
 
-def test_a_row_cannot_belong_to_both_at_once(db_session, organisatie):
-    """De XOR die de containment draagt, en ze moet rood kunnen.
-
-    Alle bestaande lezers zoeken op `person_id`. Dat ze de organisatierijen niet
-    zien, geldt alleen zolang géén rij allebei draagt — anders duikt de
-    organisatie op in het antwoord over een persoon.
-
-    **Kapotgemaakt om te toetsen:** een rij met beide kolommen gevuld. De CHECK
-    weigert hem; zonder die CHECK zou hij er gewoon in gaan.
-    """
+def test_a_row_without_an_owner_is_refused(db_session):
+    """A contact hangs on a party (CR-26 F3): a row that names none is refused
+    by the database. Since phase 3 a row cannot name two owners any more — it
+    has one pointer — so the XOR CHECK of #945 went with the pair."""
     from sqlalchemy.exc import IntegrityError
 
-    persoon = Person(first_name="Test", last_name="Persoon")
-    db_session.add(persoon)
-    db_session.flush()
-    db_session.add(
-        ContactDetail(
-            person_id=persoon.id,
-            organization_id=organisatie.id,
-            contact_type_code="EMAIL",
-            value="beide@example.com",
-        )
-    )
-    with pytest.raises(IntegrityError):
-        db_session.commit()
-    db_session.rollback()
-
-    # En de andere kant: een rij zonder eigenaar is evengoed geweigerd.
     db_session.add(ContactDetail(contact_type_code="EMAIL", value="wees@example.com"))
     with pytest.raises(IntegrityError):
         db_session.commit()
@@ -273,8 +251,8 @@ def test_the_audit_lookup_ignores_the_organisation_row(db_session, organisatie):
     `.first()` de organisatierij pakken en `None` teruggeven: de auditregel
     verliest stil haar onderwerp.
 
-    **Kapotgemaakt om te toetsen:** de voorwaarde `person_id IS NOT NULL` uit
-    `changes.py` weggehaald. Deze test faalt dan met `None`, want de
+    **Kapotgemaakt om te toetsen:** de join op de persoon uit `changes.py`
+    weggehaald (sinds CR-26 fase 3; daarvoor de voorwaarde `person_id IS NOT NULL`). Deze test faalt dan met `None`, want de
     organisatierij wordt als eerste aangemaakt en komt dus eerst.
     """
     from app.domains.reporting.changes import _SubjectResolver
@@ -286,7 +264,7 @@ def test_the_audit_lookup_ignores_the_organisation_row(db_session, organisatie):
     db_session.flush()
     db_session.add(
         ContactDetail(
-            person_id=persoon.id,
+            party_id=persoon.party_id,
             contact_type_code="EMAIL",
             value="gedeeld@example.com",
         )
@@ -321,7 +299,7 @@ def test_an_organisations_rows_are_its_accounts(db_session, organisatie):
     assert account.id != organisatie.id
     db_session.add(
         ContactDetail(
-            organization_id=account.id,
+            party_id=account.party_id,
             account_id=account.account_id,
             contact_type_code="EMAIL",
             value="account@example.com",
@@ -455,7 +433,7 @@ def test_clearing_a_field_removes_the_row(db_session, organisatie):
     rijen = (
         db_session.query(ContactDetail)
         .filter(
-            ContactDetail.organization_id == organisatie.id,
+            ContactDetail.party_id == organisatie.party_id,
             ContactDetail.contact_type_code == CONTACT.EMAIL,
         )
         .execution_options(include_all_tenants=True)

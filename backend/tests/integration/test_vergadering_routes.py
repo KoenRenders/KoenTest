@@ -58,7 +58,7 @@ def _kringlid(db, voornaam="Mon", achternaam="Essers", email="mon@example.org"):
     person = Person(first_name=voornaam, last_name=achternaam)
     db.add(person)
     db.flush()
-    db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=email))
+    db.add(ContactDetail(party_id=person.party_id, contact_type_code="EMAIL", value=email))
     db.add(
         OrganizationPerson(
             person_id=person.id,

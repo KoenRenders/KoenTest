@@ -63,7 +63,7 @@ def test_footer_sociale_links_zijn_iconen(client, db_session):
     db_session.add(
         ContactDetail(
             account_id=organisatie.account_id,
-            organization_id=organisatie.id,
+            party_id=organisatie.party_id,
             contact_type_code="FACEBOOK",
             value="https://www.facebook.com/raakvoorbeeld",
         )

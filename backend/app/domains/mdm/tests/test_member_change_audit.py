@@ -39,7 +39,7 @@ def test_only_changed_contact_is_snapshotted(client, db_session):
     person = _make_person(client, db_session)
     before_contacts = (
         db_session.query(ContactDetailHistory)
-        .filter(ContactDetailHistory.person_id == person.id)
+        .filter(ContactDetailHistory.party_id == person.party_id)
         .count()
     )
     before_persons = (
@@ -57,7 +57,7 @@ def test_only_changed_contact_is_snapshotted(client, db_session):
 
     contacts = (
         db_session.query(ContactDetailHistory)
-        .filter(ContactDetailHistory.person_id == person.id)
+        .filter(ContactDetailHistory.party_id == person.party_id)
         .order_by(ContactDetailHistory.id)
         .all()
     )
