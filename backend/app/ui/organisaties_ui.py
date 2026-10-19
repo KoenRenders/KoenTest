@@ -607,13 +607,12 @@ def _own_organisation(db: Session) -> tuple[int, bool]:
     account — this tenant's own included — and no other tenant shows it. An
     account's record is edited in the platform's Organisaties only; a party two
     sites show, by neither."""
-    from app.domains.mdm.api import is_account, tenants
+    from app.domains.mdm.api import organisation_editable_here
     from app.kernel.tenant_config import site_organization_id
 
     tenant = require_tenant_workspace(db)
     org_id = site_organization_id(db, tenant)
-    shown_elsewhere = any(t.organization_id == org_id and t.id != tenant for t in tenants(db))
-    return org_id, not is_account(db, org_id) and not shown_elsewhere
+    return org_id, organisation_editable_here(db, org_id, tenant)
 
 
 @router.post(
@@ -693,6 +692,13 @@ def _party_here(db: Session, organization_id: int) -> None:
         raise HTTPException(status_code=404, detail=_("Onbekende organisatie"))
 
 
+def _editable_here(db: Session, organization_id: int) -> bool:
+    """The rule of Q14 for this department: the one function "Onze organisatie" reads."""
+    from app.domains.mdm.api import organisation_editable_here
+
+    return organisation_editable_here(db, organization_id, require_tenant_workspace(db))
+
+
 @department_router.get("/admin/relaties", response_class=HTMLResponse)
 def department_organisations(
     request: Request,
@@ -749,7 +755,14 @@ def department_organisation_record(
     _workspace: None = Depends(_department_workspace),
 ):
     _party_here(db, organization_id)
-    return _record_page(request, db, email, organization_id, scope=DEPARTMENT)
+    return _record_page(
+        request,
+        db,
+        email,
+        organization_id,
+        scope=DEPARTMENT,
+        read_only=not _editable_here(db, organization_id),
+    )
 
 
 @department_router.post(
@@ -765,4 +778,16 @@ async def department_organisation_save(
     _workspace: None = Depends(_department_workspace),
 ):
     _party_here(db, organization_id)
+    if not _editable_here(db, organization_id):
+        # The refusal on the record's banner, as every other refusal of this screen; a 403
+        # would read as "no right", and the person holds it — the party is not his to edit.
+        return refusal_response(
+            request,
+            [
+                FieldError(
+                    "", _("Deze gegevens komen van een andere organisatie; je bewerkt ze daar.")
+                )
+            ],
+            RECORD_MESSAGE,
+        )
     return await _save(request, db, email, organization_id, own=False, scope=DEPARTMENT)

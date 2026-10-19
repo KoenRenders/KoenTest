@@ -148,3 +148,63 @@ def test_the_department_address_is_one_constant():
     root = pathlib.Path(__file__).resolve().parents[2] / templates
     for name in ("admin_organisatie.html", "admin_organisatie_nieuw.html"):
         assert f'hx-post="{BASE}' in (root / name).read_text(), name
+
+
+def _read_only_and_refused(client, csrf, organisation_id: int, db_session, name: str) -> None:
+    """The record opens read-only even with `?bewerken=1`, and the save is refused (422, on the banner)
+    with the name unchanged: the rule of Q14, as "Onze organisatie" applies it."""
+    record = client.get(f"{BASE}/{organisation_id}?bewerken=1").text
+    assert "data-read-only" in record and 'hx-post="/admin/relaties/' not in record
+    refused = client.post(
+        f"{BASE}/{organisation_id}", data={"name": "Gekaapt"}, headers={"X-CSRF-Token": csrf}
+    )
+    assert refused.status_code == 422
+    db_session.expire_all()
+    from app.domains.mdm.api import Organization
+
+    assert db_session.get(Organization, organisation_id).name == name
+
+
+def test_the_account_itself_is_read_only_in_a_department(client, db_session, every_module_on):
+    """An ADMIN of a department cannot rename the account's own organisation, which the
+    list shows him as a party with a fact nowhere (dev4's measurement, PR #2169).
+
+    Red proof (put back): the `read_only=` of the department's record dropped -> the form
+    opens; the refusal of the save dropped -> the account is renamed."""
+    from app.domains.mdm.api import Organization
+    from app.kernel.tenancy import current_tenant_id
+
+    csrf = login(client, db_session, SEEDED_ADMIN_EMAIL, ("ADMIN",))
+    token = current_tenant_id.set(TENANT_MILLEGEM_ID)
+    try:
+        account = (
+            db_session.query(Organization)
+            .filter(Organization.party_id == current_account_id(db_session))
+            .execution_options(include_all_tenants=True)
+            .one()
+        )
+    finally:
+        current_tenant_id.reset(token)
+    assert f'data-organisation="{account.id}"' in client.get(BASE).text
+    _read_only_and_refused(client, csrf, account.id, db_session, account.name)
+
+
+def test_a_party_two_departments_show_is_read_only_at_both(client, db_session, every_module_on):
+    from app.domains.mdm.api import Tenant
+
+    shared = _account_org(db_session, "Gedeeld vzw")
+    for tenant_id in (TENANT_MILLEGEM_ID, TENANT_VOORBEELD_ID):
+        db_session.get(Tenant, tenant_id).organization_id = shared.id
+    db_session.commit()
+    csrf = login(client, db_session, SEEDED_ADMIN_EMAIL, ("ADMIN",))
+    _read_only_and_refused(client, csrf, shared.id, db_session, "Gedeeld vzw")
+
+
+def test_an_organisation_of_the_department_alone_is_editable(client, db_session, every_module_on):
+    own = _account_org(db_session, "Eigen vzw")
+    db_session.commit()
+    csrf = login(client, db_session, SEEDED_ADMIN_EMAIL, ("ADMIN",))
+    saved = client.post(
+        f"{BASE}/{own.id}", data={"name": "Eigen BV"}, headers={"X-CSRF-Token": csrf}
+    )
+    assert saved.status_code == 200 and "Eigen BV" in saved.text

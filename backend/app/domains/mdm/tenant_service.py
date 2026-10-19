@@ -824,6 +824,18 @@ def _organization_party(db, organization_id: int) -> int | None:
     return organization.party_id if organization is not None else None
 
 
+def organisation_editable_here(db, organization_id: int, tenant_id: int) -> bool:
+    """May this workspace edit the organisation (CR-20 F5, Q14, test 16)? When its party
+    is nobody's account — this tenant's own included — and no other tenant shows it. An
+    account's record is edited in the platform's Organisaties only; a party two sites show,
+    by neither. The one rule of both doors: "Onze organisatie" and a department's
+    Organisaties (CR-26 F9)."""
+    shown_elsewhere = any(
+        t.organization_id == organization_id and t.id != tenant_id for t in tenants(db)
+    )
+    return not is_account(db, organization_id) and not shown_elsewhere
+
+
 def is_account(db, organization_id: int) -> bool:
     """Is this organisation an account? Yes when a tenant names it as its
     account — the role is read from that fact, never stored (CR-20 C4.2)."""

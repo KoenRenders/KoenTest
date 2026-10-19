@@ -6,7 +6,9 @@ answers *(tenant, organisation)*. A fact is
 
 - the tenant shows the organisation (`tenants.organization_id`);
 - an order of the tenant names its party as the buyer (`sales_orders.buyer_party_id`);
-- a person who acts for it is at the tenant (`person_tenants`, relation kind `ACTS_FOR`).
+- a person who acts for it is at the tenant (`person_tenants`, relation kind `ACTS_FOR`):
+  only that kind counts — a circle membership is no fact — and an ended relation still
+  counts, as an ended membership does for `household_tenants`.
 
 A new kind of fact (an invoice, a registration for an organisation) adds a branch.
 An organisation with none is at no tenant: the platform sees it, a department does not.

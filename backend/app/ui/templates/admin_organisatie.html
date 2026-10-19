@@ -26,7 +26,7 @@
                     editing=edit) }}
 {# #1550: the site shows another organisation of its account; its data lives there. #}
 {% if read_only %}
-<p class="text-sm text-ink-soft mb-4" data-read-only>{{ _("Deze site toont de gegevens van %(naam)s. Je bewerkt ze bij die organisatie; hier staan ze alleen ter inzage.", naam=organization.name) }}</p>
+<p class="text-sm text-ink-soft mb-4" data-read-only>{% if department %}{{ _("Deze organisatie is van het platform of wordt door meerdere afdelingen getoond. Je bewerkt ze daar; hier staat ze alleen ter inzage.") }}{% else %}{{ _("Deze site toont de gegevens van %(naam)s. Je bewerkt ze bij die organisatie; hier staan ze alleen ter inzage.", naam=organization.name) }}{% endif %}</p>
 {% endif %}
 {% set _card %}{{ ui.summary_card(summary.state, summary.figures) }}{% endset %}
 {% call ui.record_columns(aside=_card|trim) %}
