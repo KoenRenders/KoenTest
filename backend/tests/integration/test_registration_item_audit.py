@@ -220,7 +220,8 @@ def test_registrations_expose_item_id(client, db_session):
 
 
 def test_the_registration_screens_refuse_an_account_without_the_board_role(client, db_session):
-    """Changing a line, the remark and deleting are the board's. The three JSON
+    """Changing a line, the one save (order, contact, remark, answers) and deleting are the
+    board's. The three JSON
     routes each had a "requires admin" test until CR-13 phase 4b (#1251) pruned
     them; the screens that remain are held here, with a signed-in account that
     has a valid CSRF token and only the treasurer's role — so it is the role
@@ -247,8 +248,8 @@ def test_the_registration_screens_refuse_an_account_without_the_board_role(clien
             data={"quantity": "2"},
             headers=headers,
         ),
-        "remark": client.post(
-            f"/admin/inschrijvingen/{reg.id}/opmerking", data={"remarks": "x"}, headers=headers
+        "save": client.post(
+            f"/admin/inschrijvingen/{reg.id}/opslaan", data={"remarks": "x"}, headers=headers
         ),
         "delete": client.post(
             f"/admin/activiteiten/{activity_id}/inschrijvingen/{reg.id}/verwijderen",
@@ -258,7 +259,7 @@ def test_the_registration_screens_refuse_an_account_without_the_board_role(clien
 
     assert {what: answer.status_code for what, answer in answers.items()} == {
         "line": 403,
-        "remark": 403,
+        "save": 403,
         "delete": 403,
     }
     db_session.expire_all()

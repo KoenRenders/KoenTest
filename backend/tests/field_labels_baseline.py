@@ -49,8 +49,6 @@ TYPED_LABELS: dict[str, dict[str, int]] = {
         "Vriendelijke URL": 1,
     },
     "domains/activities/templates/_inschrijf_velden.html": {
-        "Opmerkingen": 1,
-        "Ploegnaam": 1,
         "Wanneer vul je de vragen in?": 1,
     },
     "domains/cms/templates/_cp_record.html": {

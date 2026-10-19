@@ -1,7 +1,8 @@
 """Golf 4 (#913, B2): de inschrijving als volwaardige pagina.
 
-De recordnaam in een lijst opent `/admin/inschrijvingen/{id}` als echte pagina;
-het htmx-fragment verhuisde naar `/fragment`. De terugknop volgt A7: een
+De recordnaam in een lijst opent `/admin/inschrijvingen/{id}` als echte pagina (sinds
+#2127 de recordpagina met één Opslaan; het fragment op `/fragment` bestaat niet meer).
+De terugknop volgt A7: een
 gevalideerde interne retourcontext, met de activiteit van het record als
 canonieke fallback — nooit de Referer, nooit een extern adres.
 """
@@ -23,6 +24,14 @@ def _login(client):
     value = make_session_value(SEEDED_ADMIN_EMAIL)
     client.cookies.set(SESSION_COOKIE, value)
     return csrf_token_for(value)
+
+
+def _way_back_label(html: str) -> str:
+    """The text of the way back in the record head (`data-way-back`)."""
+    import re
+
+    link = html[html.index("data-way-back") :]
+    return re.search(r"<span>([^<]*)</span>", link).group(1)
 
 
 def _inschrijving(client, db_session, naam="Pagina Proef"):
@@ -60,8 +69,11 @@ def test_pagina_toont_kop_context_en_editor(client, db_session):
     # De contextregel linkt naar de activiteit en noemt het onderdeel.
     assert f'href="/admin/activiteiten/{activity.id}"' in html
     assert component.name in html
-    # Het gedeelde editorfragment zit erin: dezelfde ene bron als het openvouwen.
-    assert f'hx-post="/admin/inschrijvingen/{reg.id}/opslaan"' in html
+    # De editor is de bewerkstand van dezelfde pagina (#2127): lezen eerst, `?bewerken=1`
+    # opent hem met één Opslaan.
+    assert f'hx-post="/admin/inschrijvingen/{reg.id}/opslaan"' not in html
+    editing = client.get(f"/admin/inschrijvingen/{reg.id}?bewerken=1").text
+    assert f'hx-post="/admin/inschrijvingen/{reg.id}/opslaan"' in editing
 
 
 def test_terug_herstelt_de_meegegeven_lijstcontext(client, db_session):
@@ -104,17 +116,6 @@ def test_onbekende_inschrijving_geeft_404(client, db_session):
     assert client.get("/admin/inschrijvingen/999999").status_code == 404
 
 
-def test_fragmentroute_blijft_het_kale_fragment(client, db_session):
-    """De secundaire variant (inline openvouwen, betalingen-expand) haalt
-    `/fragment` op en hoort géén volledige pagina terug te krijgen — een
-    pagina-in-een-rij zou de admin-schil dubbel renderen."""
-    activity, component, reg = _inschrijving(client, db_session)
-    _login(client)
-    frag = client.get(f"/admin/inschrijvingen/{reg.id}/fragment").text
-    assert "Pagina Proef" in frag
-    assert "<title>" not in frag
-
-
 def test_teruglink_benoemt_de_herkomst(client, db_session):
     """P3: geen kaal "Terug" — het label volgt het gevalideerde pad, dus een
     vervalste terug krijgt ook een canoniek label (de activiteitnaam)."""
@@ -123,8 +124,8 @@ def test_teruglink_benoemt_de_herkomst(client, db_session):
     via_betalingen = client.get(
         f"/admin/inschrijvingen/{reg.id}", params={"terug": "/admin/betalingen"}
     ).text
-    assert "‹ Betalingen" in via_betalingen
+    assert _way_back_label(via_betalingen) == "Betalingen"
     vervalst = client.get(
         f"/admin/inschrijvingen/{reg.id}", params={"terug": "https://evil.example"}
     ).text
-    assert f"‹ {activity.name}" in vervalst
+    assert _way_back_label(vervalst) == activity.name

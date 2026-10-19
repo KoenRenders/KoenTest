@@ -642,13 +642,14 @@ def households_as_named(db: Session, member_ids: list[int]) -> list[dict]:
     person_ids = [p.id for _link, p in links]
     addresses = {}
     if person_ids:
-        for address, postal in (
-            db.query(Address, PostalCode)
+        for person_id, address, postal in (
+            db.query(Person.id, Address, PostalCode)
+            .join(Person, Person.party_id == Address.party_id)
             .outerjoin(PostalCode, PostalCode.id == Address.postal_code_id)
-            .filter(Address.person_id.in_(person_ids))
+            .filter(Person.id.in_(person_ids))
             .all()
         ):
-            addresses[address.person_id] = (address, postal)
+            addresses[person_id] = (address, postal)
 
     out = []
     for member in members:
@@ -705,23 +706,24 @@ def email_refusal(
 
     Per tenant by itself: contact details carry the tenant filter, so a person
     of another tenant with the same address is not seen here (R10). Rows of an
-    organisation (`person_id IS NULL`) are no person's address and do not count.
+    organisation are no person's address and do not count: the join on the
+    person's party leaves them out (CR-26 F3).
 
     `household_id`: the household this person is about to join, when that link
     is not written yet — the import's preview decides for a person it has not
     stored. Its members count as housemates, as they will once he is in it.
     """
-    from app.domains.mdm.models import ContactDetail, MemberPerson
+    from app.domains.mdm.models import ContactDetail, MemberPerson, Person
 
     address = (value or "").strip().lower()
     if not address:
         return None
     holders = {
-        row.person_id
-        for row in db.query(ContactDetail.person_id)
+        row.id
+        for row in db.query(Person.id)
+        .join(ContactDetail, ContactDetail.party_id == Person.party_id)
         .filter(
             ContactDetail.contact_type_code == CONTACT.EMAIL,
-            ContactDetail.person_id.isnot(None),
             ContactDetail.confirmed_at.isnot(None),
             func.lower(func.trim(ContactDetail.value)) == address,
         )
@@ -805,7 +807,7 @@ def new_contact_detail(
     if code_of(type_code) == code_of(CONTACT.EMAIL):
         require_email_free(db, person, value)
     return ContactDetail(
-        person_id=person.id,
+        party_id=person.party_id,
         contact_type_code=type_code,
         value=value,
         is_primary=is_primary,
@@ -1171,17 +1173,17 @@ def _waiting_row(db: Session, by, contact_id: int):
     if (
         row is None
         or row.deleted_at is not None
-        or row.person_id is None
+        or row.person is None
         or code_of(row.contact_type_code) != code_of(CONTACT.EMAIL)
         or row.confirmed_at is not None
     ):
         return None
-    if row.person_id == by.id:
+    if row.person.id == by.id:
         return row
     mine = {link.member_id for link in by.member_persons}
     shared = (
         db.query(MemberPerson.id)
-        .filter(MemberPerson.person_id == row.person_id, MemberPerson.member_id.in_(mine))
+        .filter(MemberPerson.person_id == row.person.id, MemberPerson.member_id.in_(mine))
         .first()
         if mine
         else None
@@ -1510,7 +1512,8 @@ def upsert_primary_contact(
                 # "geladen" terwijl andere relaties van diezelfde persoon dat niet
                 # zijn. Gemeten: de import zag daarna `person.address` als None
                 # terwijl het adres bestond, en probeerde een tweede adres in te
-                # voegen — `uq_addresses_person_id`. Acht bestaande importtests
+                # voegen — `uq_addresses_person_id`, sinds CR-26 fase 3
+                # `uq_addresses_party_id`. Acht bestaande importtests
                 # vielen erop om. De import deed dit altijd al met `db.add`; die
                 # vorm is hier de veilige.
                 nieuw = new_contact_detail(db, person, type_code, value, is_primary=is_primary)

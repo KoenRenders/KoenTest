@@ -280,7 +280,10 @@ def test_the_main_members_mobile_can_be_emptied_at_both_doors_and_word_lid_asks_
 
     db_session.add(
         ContactDetail(
-            person_id=person.id, contact_type_code="MOBILE", value="0470 00 00 02", is_primary=True
+            party_id=person.party_id,
+            contact_type_code="MOBILE",
+            value="0470 00 00 02",
+            is_primary=True,
         )
     )
     db_session.commit()

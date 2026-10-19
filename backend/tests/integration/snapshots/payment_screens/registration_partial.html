@@ -1,43 +1,46 @@
 <main id="main" class="flex-1 px-4 md:px-6 min-[1680px]:px-8 py-8">
 <div class="admin-content max-w-5xl mx-auto">
-<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/activiteiten/<ACTIVITY>">‹ Betaalkarakter</a></p>
-<div data-page-header class="flex flex-wrap gap-x-3 gap-y-2 mb-6 items-end">
-<div data-title-block class="block min-w-0 max-w-full flex-[1_0_auto]">
-<h1 tabindex="-1" class="text-3xl font-bold text-kop truncate">Deelnemer partial</h1>
+<header data-record-head class="mb-3">
+<a data-way-back href="/admin/activiteiten/<ACTIVITY>" class="inline-flex items-center gap-1 min-h-11 md:min-h-7 mb-2 max-w-full text-sm text-blue-500 hover:underline [overflow-wrap:anywhere]"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 shrink-0" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>Betaalkarakter</span></a>
+<div class="flex flex-wrap items-start gap-x-4 gap-y-3">
+<div data-title-group class="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0 max-w-full flex-[1_0_auto] md:flex-[1_1_0%] md:min-w-[min(100%,360px)]">
+<h1 tabindex="-1" class="min-w-0 max-w-full text-[28px] md:text-3xl leading-9 font-semibold text-kop [overflow-wrap:anywhere]">Deelnemer partial</h1>
+<span data-badges class="flex flex-wrap items-center gap-2 min-w-0 max-w-full">
+<span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-yellow-100 text-yellow-800">Openstaand</span>
+</span>
 </div>
 </div>
-<p class="text-sm text-ink-soft -mt-4 mb-4">
-<a class="text-blue-700 hover:underline" href="/admin/activiteiten/<ACTIVITY>">Betaalkarakter</a> · Deelname · ingeschreven op 01-09-2026
+<p data-facts class="mt-2 md:min-h-6 overflow-x-clip text-sm text-ink-soft">
+<span class="-ml-4 flex flex-wrap items-center gap-y-1">
+<span data-fact class="inline-flex items-center min-w-0 max-w-full"><span data-fact-dot aria-hidden="true" class="inline-block w-4 shrink-0 text-center">·</span><a href="/admin/activiteiten/<ACTIVITY>" data-reference class="inline-flex items-center gap-1 text-blue-500 underline hover:no-underline min-h-11 md:min-h-6">Betaalkarakter<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a></span>
+<span data-fact class="inline-flex items-center min-w-0 max-w-full"><span data-fact-dot aria-hidden="true" class="inline-block w-4 shrink-0 text-center">·</span><span class="min-w-0">Deelname</span></span>
+<span data-fact class="inline-flex items-center min-w-0 max-w-full"><span data-fact-dot aria-hidden="true" class="inline-block w-4 shrink-0 text-center">·</span><span class="min-w-0">ingeschreven op 01-09-2026</span></span>
+</span>
 </p>
-<div class="border-b border-gray-200 mb-6">
-<nav class="-mb-px flex gap-6 text-sm overflow-x-auto whitespace-nowrap">
-<a href="/admin/inschrijvingen/<R:partial>?terug=%2Fadmin%2Factiviteiten%2F<ACTIVITY>" class="py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300">Overzicht</a>
-<a href="/admin/inschrijvingen/<R:partial>/betalingen?terug=%2Fadmin%2Factiviteiten%2F<ACTIVITY>" class="py-2 border-b-2 border-blue-700 text-blue-700 font-semibold">Betalingen 1</a>
+</header>
+<nav data-related-tabs class="flex items-stretch gap-3 md:gap-5 mb-3 border-b border-line overflow-x-auto whitespace-nowrap">
+<a href="/admin/inschrijvingen/<R:partial>?terug=%2Fadmin%2Factiviteiten%2F<ACTIVITY>"
+ class="inline-flex items-center gap-1 min-h-11 border-b-2 text-sm border-transparent text-ink-soft hover:text-blue-700">Gegevens</a>
+<a href="/admin/inschrijvingen/<R:partial>/betalingen?terug=%2Fadmin%2Factiviteiten%2F<ACTIVITY>" aria-current="page"
+ class="inline-flex items-center gap-1 min-h-11 border-b-2 text-sm border-blue-700 text-blue-700 font-semibold">Betalingen<span class="text-[13px] font-medium tabular-nums">(1)</span></a>
 </nav>
-</div>
 <div id="bt-boven">
-<div class="kpi-strip mb-4 md:max-w-3xl flex flex-col md:flex-row rounded-card border border-gray-200 bg-white shadow-sm divide-y md:divide-y-0 md:divide-x divide-gray-100">
-<div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block">
-<div class="text-[11px] text-ink-soft" title="Netto te betalen">Netto te betalen <span class="md:hidden">· 1 boekingen</span></div>
-<div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums text-ink">€ 20,00</div>
-<div class="hidden md:block text-[11px] text-ink-soft">1 boekingen</div>
+<div class="mb-3"><div data-figures class="overflow-hidden md:overflow-visible min-w-0">
+<dl class="m-0 flex flex-wrap items-start gap-y-2 -ml-[17px] md:ml-0">
+<div class="flex flex-col min-w-0 border-l border-line px-4" title="Wat deze inschrijving netto kost, na terugbetalingen">
+<dd data-figure class="order-first m-0 text-2xl leading-[30px] font-semibold tracking-tight tabular-nums whitespace-nowrap text-ink">€ 20,00</dd>
+<dt data-figure-label class="text-[13px] leading-5 text-ink-soft whitespace-nowrap overflow-hidden text-ellipsis">Netto te betalen</dt>
 </div>
-<div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block">
-<div class="text-[11px] text-ink-soft" title="Ontvangen">Ontvangen <span class="md:hidden">· na terugbetalingen</span></div>
-<div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums text-ink">€ 5,00</div>
-<div class="hidden md:block text-[11px] text-ink-soft">Na terugbetalingen</div>
+<div class="flex flex-col min-w-0 border-l border-line px-4" title="Wat nog betaald moet worden">
+<dd data-figure class="order-first m-0 text-2xl leading-[30px] font-semibold tracking-tight tabular-nums whitespace-nowrap text-brand-warning">€ 15,00</dd>
+<dt data-figure-label class="text-[13px] leading-5 text-ink-soft whitespace-nowrap overflow-hidden text-ellipsis">Nog te ontvangen</dt>
 </div>
-<div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block" data-open-side="receive">
-<div class="text-[11px] text-ink-soft" title="Nog te ontvangen">Nog te ontvangen <span class="md:hidden">· 1 boekingen</span></div>
-<div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums text-orange-700">€ 15,00</div>
-<div class="hidden md:block text-[11px] text-ink-soft">1 boekingen</div>
+<div class="flex flex-col min-w-0 border-l border-line px-4" title="Wat nog terugbetaald moet worden">
+<dd data-figure class="order-first m-0 text-2xl leading-[30px] font-semibold tracking-tight tabular-nums whitespace-nowrap text-ink">€ 0,00</dd>
+<dt data-figure-label class="text-[13px] leading-5 text-ink-soft whitespace-nowrap overflow-hidden text-ellipsis">Nog terug te betalen</dt>
 </div>
-<div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block" data-open-side="refund">
-<div class="text-[11px] text-ink-soft" title="Nog terug te betalen">Nog terug te betalen <span class="md:hidden">· 0 boekingen</span></div>
-<div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums text-ink">€ 0,00</div>
-<div class="hidden md:block text-[11px] text-ink-soft">0 boekingen</div>
-</div>
-</div>
+</dl>
+</div></div>
 </div>
 <form id="bt-filter" data-toolbar class="relative mb-3 flex flex-wrap items-center gap-2 min-w-0"
  hx-get="/admin/betalingen/lijst" hx-target="#betalingen-lijst" hx-swap="innerHTML"

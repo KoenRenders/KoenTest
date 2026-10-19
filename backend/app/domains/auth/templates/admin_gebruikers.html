@@ -1,35 +1,31 @@
-{% extends "admin_base.html" %}
+{% extends "list_page.html" %}
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Gebruikers — Raak beheer") }}{% endblock %}
-{% block content %}
-{# Records-lijst (design-system C1, #589): titel → duidingsregel → primaire
-   "+ Nieuwe gebruiker" (los, aanmaken in een modal) → zoeken → filters (rol,
-   actief) → kaarten. De kaarten blijven inline bewerkbaar: een account is één
-   regel met rolvinkjes, daar hoort geen aparte editorpagina bij. #}
-
-{# De primaire actie is een LINK naar het aanmaakscherm (#627, §2.8): aanmaken
-   opent een volledige-pagina-editor, geen modal. Je werkt na het aanmaken toch
-   verder in de editor, en de velden uit een dialoogje maken het object zelden
-   compleet. #}
-{% call ui.page_header(_("Gebruikers"), _("Backoffice-accounts en hun rollen. Inloggen gebeurt met een e-mailcode — er zijn geen wachtwoorden."), list_page=True) %}
-    {% if toon_overzicht %}{{ ui.btn_secondary(_("Alle werkruimtes"), href="/admin/gebruikers/alle-werkruimtes") }}{% endif %}
-    {{ ui.btn_primary(_("Nieuwe gebruiker"), href="/admin/gebruikers/nieuw", lead_icon="plus") }}
-  {% endcall %}
-
-
-{% call ui.filter_bar("/admin/gebruikers", "#gu-lijst") %}
-  <div class="flex flex-wrap gap-3 items-center">
-    <div class="flex-1 min-w-[14rem]">{{ ui.search(value=q, placeholder=_('Zoek op e-mail…'), standalone=False) }}</div>
-    {% call ui.select_control("rol", aria_label=_("Rol")) %}
-      {% for code, label in rol_options %}
-      <option value="{{ code }}" {% if rol == code %}selected{% endif %}>{{ label }}</option>
-      {% endfor %}
+{# Gebruikers (#2114, CR-11 fase 5; end state §2.1, §5.1) on the `list_page` layout:
+   the title and the one primary button, the toolbar (the status as the segments
+   with their counts, the search on e-mail, the role in the filters, the sort) and
+   the kit's table. A row opens the account's record; nothing is edited in the list.
+   The primary action is a LINK to the create page (#627, §2.8): creating opens a
+   full-page editor. The overview of every workspace stands under the toolbar's `⋯`
+   (an operator, on the platform only). The toolbar stands outside the list fragment. #}
+{% block list_title %}{{ _("Gebruikers") }}{% endblock %}
+{% block list_primary %}{{ ui.btn_primary(_("Nieuwe gebruiker"), href="/admin/gebruikers/nieuw", lead_icon="plus") }}{% endblock %}
+{% block list_toolbar %}
+{% call ui.toolbar("/admin/gebruikers", "#gu-lijst", "gu-filter",
+                   segments=segments, status_name="actief", status_current=actief, status_legend=_("Status"),
+                   q=q, search_placeholder=_("Zoek op e-mail…"),
+                   page=page, per_page=per_page, total=total, page_sizes=page_sizes,
+                   sort=sort, sort_options=sort_options, menu=menu) %}
+  <div class="flex flex-col gap-1">
+    {{ ui.label(_("Rol"), "gu-rol") }}
+    {% call ui.select_control("rol", cls="w-full", attrs='id="gu-rol"') %}
+      {% for code, label in rol_options %}<option value="{{ code }}"{% if rol == code %} selected{% endif %}>{{ label }}</option>{% endfor %}
     {% endcall %}
-    {{ ui.chips("actief", actief_options, actief) }}
   </div>
 {% endcall %}
-
+{% endblock %}
+{% block list_body %}
 <div id="gu-lijst">
-  {% include "_gu_lijst.html" %}
+  {% include "_gu_tabel.html" %}
 </div>
 {% endblock %}

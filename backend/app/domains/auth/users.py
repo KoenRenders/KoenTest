@@ -29,6 +29,16 @@ class UserCreate(BaseModel):
     role_codes: List[str] = []
 
 
+class UserRefused(HTTPException):
+    """A 400 that names the form field it is about (#2114), so the record page can mark
+    that field. Still an `HTTPException`: every caller that handled the plain one
+    handles this one the same way."""
+
+    def __init__(self, detail: str, field: str = "") -> None:
+        super().__init__(status_code=400, detail=detail)
+        self.field = field
+
+
 class UserUpdate(BaseModel):
     email: Optional[str] = None
     is_active: Optional[bool] = None
@@ -73,6 +83,41 @@ def users_of_workspace(db: Session, workspace_id: int) -> list:
         for u in db.query(User).order_by(User.email).all()
         if any(r.tenant_id is None or r.tenant_id == workspace_id for r in u.roles)
     ]
+
+
+def user_of_workspace(db: Session, user_id: int):
+    """The account `user_id` as the current workspace's Gebruikers knows it, or
+    404 as for an account that does not exist (#2162): on the platform every
+    account, in a workspace one with a role here or a platform-wide one
+    (`users_of_workspace`). The one scope of the user record: opening it, saving
+    it and deleting it all go through here."""
+    if is_platform_workspace(db):
+        user = db.query(User).filter(User.id == user_id).first()
+    else:
+        user = next(
+            (u for u in users_of_workspace(db, _actieve_werkruimte()) if u.id == user_id), None
+        )
+    if user is None:
+        raise HTTPException(status_code=404, detail=_("Gebruiker niet gevonden."))
+    return user
+
+
+def changeable_here(db: Session, user) -> bool:
+    """May the current workspace change this account? Everywhere on the
+    platform; in a workspace not an account with a platform-wide role, which the
+    platform manages (Koen, 19 October 2026: such an account is read-only in a
+    workspace)."""
+    return is_platform_workspace(db) or not any(r.tenant_id is None for r in user.roles)
+
+
+def user_to_change(db: Session, user_id: int):
+    """The account `user_id` for a save or a delete: in this workspace's scope
+    (`user_of_workspace`, else 404) and changeable here (else refused, as the
+    form's other refusals are: a rule of the domain, not a missing right)."""
+    user = user_of_workspace(db, user_id)
+    if not changeable_here(db, user):
+        raise UserRefused(_("Dit account is platformbreed en wordt op het platform beheerd."))
+    return user
 
 
 class AccessRow(NamedTuple):
@@ -211,8 +256,10 @@ def list_users(db: Session, _admin=None):
 
 
 def create_user(body: UserCreate, db: Session, _admin=None):
+    if not (body.email or "").strip():
+        raise UserRefused(_("E-mailadres is verplicht."), field="email")
     if db.query(User).filter(User.email == body.email).first():
-        raise HTTPException(status_code=400, detail=_("E-mailadres is al in gebruik."))
+        raise UserRefused(_("E-mailadres is al in gebruik."), field="email")
     _validate_role_codes(db, body.role_codes)
     user = User(email=body.email, is_active=body.is_active)
     db.add(user)
@@ -224,13 +271,11 @@ def create_user(body: UserCreate, db: Session, _admin=None):
 
 
 def update_user(user_id: int, body: UserUpdate, db: Session, _admin=None):
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail=_("Gebruiker niet gevonden."))
+    user = user_to_change(db, user_id)
     if body.email is not None:
         existing = db.query(User).filter(User.email == body.email, User.id != user_id).first()
         if existing:
-            raise HTTPException(status_code=400, detail=_("E-mailadres is al in gebruik."))
+            raise UserRefused(_("E-mailadres is al in gebruik."), field="email")
         user.email = body.email
     if body.is_active is not None:
         user.is_active = body.is_active
@@ -245,9 +290,7 @@ def update_user(user_id: int, body: UserUpdate, db: Session, _admin=None):
 def delete_user(user_id: int, db: Session, current_admin: User):
     if current_admin.id == user_id:
         raise HTTPException(status_code=400, detail=_("Je kan jezelf niet verwijderen."))
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail=_("Gebruiker niet gevonden."))
+    user = user_to_change(db, user_id)
     from app.soft_delete import soft_delete
 
     soft_delete(user)

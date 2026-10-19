@@ -79,7 +79,10 @@ def real_request(client, platform_workspace):
     try:
         yield client, csrf_token_for(session)
     finally:
-        _sql("DELETE FROM mdm.addresses WHERE organization_id = :o", o=ACCOUNT_ID)
+        _sql(
+            "DELETE FROM mdm.addresses WHERE party_id = (SELECT party_id FROM mdm.organizations WHERE id = :o)",
+            o=ACCOUNT_ID,
+        )
         _sql("UPDATE mdm.organizations SET name = :n WHERE id = :o", n=name_before, o=ACCOUNT_ID)
         _sql("DELETE FROM mdm.postal_codes WHERE postal_code = :p", p=POSTCODE)
         _sql(
@@ -100,7 +103,8 @@ def _post(real_request, **fields):
 def _address():
     rows = _sql(
         "SELECT street, house_number FROM mdm.addresses "
-        "WHERE organization_id = :o AND deleted_at IS NULL",
+        "WHERE party_id = (SELECT party_id FROM mdm.organizations WHERE id = :o) "
+        "AND deleted_at IS NULL",
         o=ACCOUNT_ID,
     )
     return tuple(rows[0]) if rows else None
@@ -123,8 +127,8 @@ def test_an_address_outlives_the_request(real_request):
 
 def test_removing_an_address_outlives_the_request(real_request):
     _sql(
-        "INSERT INTO mdm.addresses (organization_id, account_id, street, house_number, "
-        "postal_code_id, created_at, updated_at) SELECT :o, o.account_id, 'Kerkstraat', '7', "
+        "INSERT INTO mdm.addresses (party_id, account_id, street, house_number, "
+        "postal_code_id, created_at, updated_at) SELECT o.party_id, o.account_id, 'Kerkstraat', '7', "
         "pc.id, now(), now() FROM mdm.postal_codes pc, mdm.organizations o "
         "WHERE pc.postal_code = :p AND o.id = :o",
         o=ACCOUNT_ID,

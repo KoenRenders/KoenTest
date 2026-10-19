@@ -101,7 +101,7 @@ def test_a_free_address_is_still_added_on_that_screen(client, db_session, two_ho
     assert answer.status_code == 200, answer.text[:200]
     db_session.expire_all()
     row = db_session.query(ContactDetail).filter_by(value="vrij@example.com").one()
-    assert row.person_id == other.id and row.confirmed_at is not None
+    assert row.party_id == other.party_id and row.confirmed_at is not None
 
 
 def test_the_meeting_circle_says_why_and_makes_no_person(client, db_session, two_households):

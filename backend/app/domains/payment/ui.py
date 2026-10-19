@@ -60,6 +60,27 @@ _TAB_PATHS = {
 }
 
 
+def _figure_hints(subject: str) -> tuple[str, str, str]:
+    """The hover titles of the three figures: net, still to receive, still to refund."""
+    if subject == "inschrijving":
+        return (
+            _("Wat deze inschrijving netto kost, na terugbetalingen"),
+            _("Wat nog betaald moet worden"),
+            _("Wat nog terugbetaald moet worden"),
+        )
+    if subject == "gezin":
+        return (
+            _("Wat dit gezin netto kost, na terugbetalingen"),
+            _("Wat nog betaald moet worden"),
+            _("Wat nog terugbetaald moet worden"),
+        )
+    return (
+        _("Wat er in deze selectie te betalen is, na terugbetalingen."),
+        _("Wat er in deze selectie nog moet binnenkomen."),
+        _("Wat er in deze selectie nog terugbetaald moet worden."),
+    )
+
+
 def _booking_origin(db: Session, url: str) -> str | None:
     """ "Betaling van <naam>" for a way back that leads to one booking: its own
     page (`/admin/betalingen/<id>`, #1574) or its row on the payments list
@@ -737,6 +758,9 @@ def _view(
         context_groups[_("Activiteit / onderdeel")] = [
             (f"comp-{cid}", label) for cid, label in _comp
         ]
+    # What a figure's hover says names what it counts: one household, one
+    # registration, or — on the list itself — the selection (CR-11 phase 5, #2128).
+    hints = _figure_hints(str(scope["param_naam"]) if scope and "param_naam" in scope else "")
     return BetalingenView(
         records=zichtbaar,
         groepen=groepen,
@@ -774,18 +798,18 @@ def _view(
             {
                 "value": f"€ {geld(kpi['due'])}",
                 "label": _("Netto te betalen"),
-                "title": _("Wat er in deze selectie te betalen is, na terugbetalingen."),
+                "title": hints[0],
             },
             {
                 "value": f"€ {geld(kpi['to_receive'])}",
                 "label": _("Nog te ontvangen"),
-                "title": _("Wat er in deze selectie nog moet binnenkomen."),
+                "title": hints[1],
                 "warning": kpi["to_receive"] > 0,
             },
             {
                 "value": f"€ {geld(kpi['to_refund'])}",
                 "label": _("Nog terug te betalen"),
-                "title": _("Wat er in deze selectie nog terugbetaald moet worden."),
+                "title": hints[2],
                 "warning": kpi["to_refund"] > 0,
             },
         ],

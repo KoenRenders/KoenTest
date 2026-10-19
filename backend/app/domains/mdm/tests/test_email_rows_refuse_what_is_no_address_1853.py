@@ -30,6 +30,7 @@ from app.domains.mdm.tests.test_household_cards_say_why_1831 import (  # noqa: F
     world,
 )
 from tests._refusal import message_line
+from tests._sites import party_of
 from tests.conftest import record_fields, save_record
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -71,7 +72,7 @@ def test_the_contact_detail_holds_the_rule_at_the_flush(db_session, world):  # n
     """The net under every door: a row written past the doors is refused too."""
     row = (
         db_session.query(ContactDetail)
-        .filter_by(person_id=world.main, contact_type_code="EMAIL")
+        .filter_by(party_id=party_of(db_session, world.main), contact_type_code="EMAIL")
         .one()
     )
     row.value = "geen adres"
@@ -82,7 +83,11 @@ def test_the_contact_detail_holds_the_rule_at_the_flush(db_session, world):  # n
 
 def test_a_telephone_row_is_not_judged_as_an_address(db_session, world):  # noqa: F811
     db_session.add(
-        ContactDetail(person_id=world.partner, contact_type_code="PHONE", value="014 00 00 00")
+        ContactDetail(
+            party_id=party_of(db_session, world.partner),
+            contact_type_code="PHONE",
+            value="014 00 00 00",
+        )
     )
     db_session.flush()
 
@@ -111,7 +116,7 @@ def test_a_new_row_on_a_persons_card_says_why(client, db_session, world, typed):
 def test_an_existing_row_changed_into_no_address_says_why(client, db_session, world):  # noqa: F811
     row = (
         db_session.query(ContactDetail)
-        .filter_by(person_id=world.main, contact_type_code="EMAIL")
+        .filter_by(party_id=party_of(db_session, world.main), contact_type_code="EMAIL")
         .one()
     )
     before = _state(db_session)

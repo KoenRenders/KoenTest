@@ -72,16 +72,19 @@ def sessions():
     from app.database import SessionLocal
     from app.domains.auth.api import make_session_value
     from app.domains.auth.models import User, UserRole
+    from app.kernel.tenancy import DEFAULT_TENANT_ID
 
     db = SessionLocal()
-    out = {}
+    out: dict = {"ids": {}}
     for role in ("FINANCE", "MASTERDATA", "ADMIN"):
         email = f"e2e-1722-{role.lower()}-{secrets.token_hex(3)}@example.org"
         user = User(email=email, is_active=True)
         db.add(user)
         db.flush()
-        db.add(UserRole(user_id=user.id, role_code=role))
+        # In the workspace: a role without one is platform-wide, read-only there (#2162).
+        db.add(UserRole(user_id=user.id, role_code=role, tenant_id=DEFAULT_TENANT_ID))
         out[role] = make_session_value(email)
+        out["ids"][role] = user.id
     db.commit()
     db.close()
     return out
@@ -153,7 +156,12 @@ def test_gebruikers_ticks_roles_by_their_label(page, sessions):
     login_met_sessie(page, sessions["ADMIN"])
     page.goto(BASE + "/admin/gebruikers")
     pagina_klaar(page)
-    row = page.locator("#gu-lijst form").first
+    # #2114: a user is a record; the roles stand to tick in its editor. The
+    # admin's own record: an account of another test may be platform-wide, and
+    # such an account is read-only in a workspace (#2162).
+    page.goto(BASE + f"/admin/gebruikers/{sessions['ids']['ADMIN']}?bewerken=1")
+    pagina_klaar(page)
+    row = page.locator("#gu-record")
     expect(row).to_be_visible()
     labels = [
         t.strip() for t in row.locator('label:has(input[name="role_codes"])').all_inner_texts()

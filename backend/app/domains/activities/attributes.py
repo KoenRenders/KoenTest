@@ -421,7 +421,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="activities.registration.remarks",
         columns=("activities.registrations.remarks",),
-        label=None,
+        label="Opmerking",
         name_en="Remarks",
         help="The remarks of the registration.",
         ai_exposure=AiExposure.NONE,  # K3

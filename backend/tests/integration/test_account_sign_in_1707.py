@@ -152,7 +152,9 @@ def test_a_shared_household_address_signs_in_as_the_main_member(db_session):
     partner = _person(db_session, "Partner", household=household, relation="PARTNER")
     main = _person(db_session, "Hoofd", household=household, email="gezin@example.com")
     db_session.add(
-        ContactDetail(person_id=partner.id, contact_type_code="EMAIL", value="gezin@example.com")
+        ContactDetail(
+            party_id=partner.party_id, contact_type_code="EMAIL", value="gezin@example.com"
+        )
     )
     db_session.commit()
     assert sign_in_identity(db_session, "Gezin@Example.com") == ("ok", main)
@@ -187,7 +189,7 @@ def test_an_address_that_does_not_say_who_signs_in_signs_nobody_in(db_session):
 
     def give(name, address):
         db_session.add(
-            ContactDetail(person_id=people[name].id, contact_type_code="EMAIL", value=address)
+            ContactDetail(party_id=people[name].party_id, contact_type_code="EMAIL", value=address)
         )
 
     give("Een", "tweegezinnen@example.com")

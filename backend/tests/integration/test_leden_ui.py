@@ -26,7 +26,9 @@ def _family_with_address(db):
     at_tenant(db, member, year=belgian_today().year - 5)
     pc = seed_postal_code(db, code="2400", municipality="Mol")
     db.add(
-        Address(person_id=person.id, street="Dorpsstraat", house_number="1", postal_code_id=pc.id)
+        Address(
+            party_id=person.party_id, street="Dorpsstraat", house_number="1", postal_code_id=pc.id
+        )
     )
     db.flush()
     return member, person

@@ -283,12 +283,25 @@ class Person(AccountMixin, SoftDeleteMixin, Base):
     )
 
     member_persons = relationship("MemberPerson", back_populates="person")
-    address = relationship("Address", back_populates="person", uselist=False)
+    # CR-26 F3: an address and a contact hang on the party; the person reaches
+    # them through its own `party_id`.
+    address = relationship(
+        "Address",
+        primaryjoin="Person.party_id == foreign(Address.party_id)",
+        back_populates="person",
+        uselist=False,
+    )
     contact_details = relationship(
-        "ContactDetail", back_populates="person", cascade="all, delete-orphan"
+        "ContactDetail",
+        primaryjoin="Person.party_id == foreign(ContactDetail.party_id)",
+        back_populates="person",
+        cascade="all, delete-orphan",
     )
     external_numbers = relationship(
-        "ExternalNumber", back_populates="person", cascade="all, delete-orphan"
+        "ExternalNumber",
+        primaryjoin="Person.party_id == foreign(ExternalNumber.party_id)",
+        back_populates="person",
+        cascade="all, delete-orphan",
     )
     # Bewust GEEN registrations-relatie: activiteiten zijn een ander domein;
     # Registration definieert de koppeling via een backref (zelfde regel).
@@ -556,21 +569,20 @@ class OrganizationRelationTypeLabel(Base):
 
 
 class Address(AccountMixin, SoftDeleteMixin, Base):
-    # CR-26 F1: on the account scope with the person or organisation it hangs
-    # on; the pointer columns become one `party_id` in phase 3.
+    """The postal address of a party — UBL ``cac:PostalAddress``, which hangs on
+    the party, not in it.
+
+    CR-26 F3 (phase 3): one `party_id`, the person's or the organisation's party.
+    Until then the row carried `person_id` or `organization_id` under a CHECK that
+    exactly one was set (#924); a party is either, so the CHECK has nothing left to
+    guard. One living address per party: `uq_addresses_party_id` (migration 315).
+    """
+
     __tablename__ = "addresses"
     __table_args__ = {"schema": "mdm"}
 
     id = Column(Integer, primary_key=True, index=True)
-    # Uniciteit op person_id is partieel (WHERE deleted_at IS NULL) — zie migratie 050.
-    #
-    # #924: een adres hangt aan een persoon OF aan een organisatie, nooit aan
-    # allebei en nooit aan geen van beide. De databank bewaakt dat met een
-    # XOR-CHECK; `person_id` gaf daarvoor zijn NOT NULL af. Bestaande query's
-    # zoeken op `person_id = X` en zien de organisatierijen niet — dat is wat deze
-    # uitbreiding contained maakt.
-    person_id = Column(Integer, ForeignKey("mdm.persons.id"), nullable=True)
-    organization_id = Column(Integer, ForeignKey("mdm.organizations.id"), nullable=True)
+    party_id = Column(Integer, ForeignKey("mdm.parties.id"), nullable=False, index=True)
     street = Column(String(255), nullable=False)
     house_number = Column(String(10), nullable=False)
     bus_number = Column(String(10), nullable=True)
@@ -580,7 +592,12 @@ class Address(AccountMixin, SoftDeleteMixin, Base):
         DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
     )
 
-    person = relationship("Person", back_populates="address")
+    #: The person whose address this is; None on an organisation's.
+    person = relationship(
+        "Person",
+        primaryjoin="foreign(Address.party_id) == Person.party_id",
+        back_populates="address",
+    )
     postal_code = relationship("PostalCode")
 
 
@@ -603,18 +620,19 @@ class ContactDetail(AccountMixin, SoftDeleteMixin, Base):
     ``include_all_tenants=True``. A new organisation row takes the
     organisation's account, not the current tenant's.
 
-    Dezelfde XOR-regel als ``Address``: precies één van ``person_id`` en
-    ``organization_id`` is gevuld, bewaakt door een CHECK. Bestaande query's
-    zoeken op ``person_id`` en zien de organisatierijen niet — dat is wat deze
-    uitbreiding contained maakt.
+    **One pointer, one rule (CR-26 F3, C4.10).** A row hangs on a party, the
+    person's or the organisation's, by ``party_id``; the pair ``person_id`` /
+    ``organization_id`` and its CHECK are gone. The rule is the person's for every
+    party: several contacts per type, one primary per type
+    (``uq_contact_details_one_primary_per_type``, migration 315) — so an
+    organisation may hold two e-mail addresses, where it held one per type before.
     """
 
     __tablename__ = "contact_details"
     __table_args__ = {"schema": "mdm"}
 
     id = Column(Integer, primary_key=True, index=True)
-    person_id = Column(Integer, ForeignKey("mdm.persons.id"), nullable=True)
-    organization_id = Column(Integer, ForeignKey("mdm.organizations.id"), nullable=True)
+    party_id = Column(Integer, ForeignKey("mdm.parties.id"), nullable=False, index=True)
     # No enum, unlike the other lists of this change request (Koen,
     # 26 September 2026). #1160 made the public footer data-driven: a fifth
     # social network is one row and not a code change. An enum column would
@@ -649,7 +667,12 @@ class ContactDetail(AccountMixin, SoftDeleteMixin, Base):
     # replaced by the default.
     confirmed_at = Column(DateTime(timezone=True).evaluates_none(), default=_now_utc, nullable=True)
 
-    person = relationship("Person", back_populates="contact_details")
+    #: The person whose contact this is; None on an organisation's.
+    person = relationship(
+        "Person",
+        primaryjoin="foreign(ContactDetail.party_id) == Person.party_id",
+        back_populates="contact_details",
+    )
 
     def check(self) -> None:
         """A contact detail of the e-mail kind holds an e-mail address (#1853) — of a
@@ -688,7 +711,9 @@ class ExternalNumber(TenantMixin, SoftDeleteMixin, Base):
     __table_args__ = {"schema": "mdm"}
 
     id = Column(Integer, primary_key=True, index=True)
-    person_id = Column(Integer, ForeignKey("mdm.persons.id"), nullable=False, index=True)
+    #: CR-26 F3 (phase 3): the person's party, in place of `person_id`; the
+    #: tenant stays the scope — a member number is issued per department.
+    party_id = Column(Integer, ForeignKey("mdm.parties.id"), nullable=False, index=True)
     # CR-12 phase 5 (#1182): a code of `external_source`, with a foreign key of
     # its own. It leaves the partial unique index on (source, external_id) of
     # migration 053 as it is. The default is the code as a literal because
@@ -708,7 +733,11 @@ class ExternalNumber(TenantMixin, SoftDeleteMixin, Base):
 
     # Uniciteit op (source, external_id) is partieel (WHERE deleted_at IS NULL) — zie migratie 050.
 
-    person = relationship("Person", back_populates="external_numbers")
+    person = relationship(
+        "Person",
+        primaryjoin="foreign(ExternalNumber.party_id) == Person.party_id",
+        back_populates="external_numbers",
+    )
 
 
 class Organization(AccountMixin, SoftDeleteMixin, Base):
@@ -758,7 +787,7 @@ class Organization(AccountMixin, SoftDeleteMixin, Base):
     # Elf kolommen stonden hier tot #945: `enterprise_number`, `vat_number`,
     # `email`, `phone`, `website`, `payment_iban`, `payment_beneficiary`,
     # `payment_bic` en de drie `*_url`. Ze zijn geen kolom meer maar een rij —
-    # identificaties in `OrganizationIdentification`, rekeningen in `BankAccount`,
+    # identificaties in `PartyIdentification`, rekeningen in `BankAccount`,
     # contact en links in `ContactDetail`. Reden: elk van de drie is van nature
     # een lijst (een tweede btw-nummer in een ander land, een tweede rekening,
     # een vijfde netwerk) en één kolom per soort laat het tweede geval niet toe.
@@ -866,16 +895,14 @@ class BankAccount(AccountMixin, SoftDeleteMixin, Base):
 
     **The account scope (CR-26 F1):** the rows are the organisation's, and
     carry its account; until CR-26 they had no scope at all, the organisation
-    being none.
+    being none. Since phase 3 (F3) a row hangs on the organisation's party.
     """
 
     __tablename__ = "bank_accounts"
     __table_args__ = {"schema": "mdm"}
 
     id = Column(Integer, primary_key=True, index=True)
-    organization_id = Column(
-        Integer, ForeignKey("mdm.organizations.id"), nullable=False, index=True
-    )
+    party_id = Column(Integer, ForeignKey("mdm.parties.id"), nullable=False, index=True)
     iban = Column(String(40), nullable=False)
     bic = Column(String(20), nullable=True)
     # UBL `cac:PayeeFinancialAccount/cbc:Name`: op wiens naam de rekening staat.
@@ -887,10 +914,8 @@ class BankAccount(AccountMixin, SoftDeleteMixin, Base):
         DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
     )
 
-    organization = relationship("Organization")
 
-
-class OrganizationIdentification(SoftDeleteMixin, Base):
+class PartyIdentification(AccountMixin, SoftDeleteMixin, Base):
     """Een identificatienummer van een organisatie (#945).
 
     UBL ``cac:PartyIdentification`` en ``cac:PartyTaxScheme`` — allebei
@@ -904,17 +929,17 @@ class OrganizationIdentification(SoftDeleteMixin, Base):
     vocabulaire en wij vullen alleen wat we gebruiken. ``country`` is
     ISO 3166-1 alpha-2, zoals ``cbc:IdentificationCode``.
 
-    No scope of its own yet: CR-26 phase 3 widens it to ``party_identifications``
-    on the account scope (F3).
+    CR-26 F3 (phase 3): the organisation's identifications widened to the party
+    (``party_identifications``, `party_id`), on the account scope. The schemes stay
+    VAT and KBO; the member number is no identification of the party but a fact
+    per department (``external_numbers``, C4.10).
     """
 
-    __tablename__ = "organization_identifications"
+    __tablename__ = "party_identifications"
     __table_args__ = {"schema": "mdm"}
 
     id = Column(Integer, primary_key=True, index=True)
-    organization_id = Column(
-        Integer, ForeignKey("mdm.organizations.id"), nullable=False, index=True
-    )
+    party_id = Column(Integer, ForeignKey("mdm.parties.id"), nullable=False, index=True)
     scheme = Column(String(20), ForeignKey("mdm.identification_scheme_codes.code"), nullable=False)
     value = Column(String(50), nullable=False)
     country = Column(String(2), nullable=True)
@@ -923,8 +948,6 @@ class OrganizationIdentification(SoftDeleteMixin, Base):
     updated_at = Column(
         DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
     )
-
-    organization = relationship("Organization")
 
 
 # ── Codetabellen van de masterdata ──────────────────────────────────────────────
@@ -1322,13 +1345,12 @@ class AddressHistory(AccountMixin, HistoryMixin, Base):
     __table_args__ = {"schema": "mdm"}
 
     address_id = Column(Integer, nullable=False, index=True)
-    person_id = Column(Integer, nullable=True, index=True)
+    #: CR-26 F13: the pointer of its table (migration 315).
+    party_id = Column(Integer, nullable=True, index=True)
     street = Column(String(255), nullable=True)
     house_number = Column(String(20), nullable=True)
     bus_number = Column(String(10), nullable=True)
     postal_code_id = Column(Integer, nullable=True)
-    # #1885 (migration 215).
-    organization_id = Column(Integer, nullable=True)
 
 
 class ContactDetailHistory(AccountMixin, HistoryMixin, Base):
@@ -1336,12 +1358,11 @@ class ContactDetailHistory(AccountMixin, HistoryMixin, Base):
     __table_args__ = {"schema": "mdm"}
 
     contact_detail_id = Column(Integer, nullable=False, index=True)
-    person_id = Column(Integer, nullable=True, index=True)
+    #: CR-26 F13: the pointer of its table (migration 315).
+    party_id = Column(Integer, nullable=True, index=True)
     contact_type_code = Column(String(10), nullable=True)
     value = Column(String(255), nullable=True)
     is_primary = Column(Boolean, nullable=True)
-    # #1885 (migration 215).
-    organization_id = Column(Integer, nullable=True)
 
 
 class ExternalNumberHistory(TenantMixin, HistoryMixin, Base):
@@ -1353,7 +1374,8 @@ class ExternalNumberHistory(TenantMixin, HistoryMixin, Base):
     __table_args__ = {"schema": "mdm"}
 
     external_number_id = Column(Integer, nullable=False, index=True)
-    person_id = Column(Integer, nullable=True)
+    #: CR-26 F13: the pointer of its table (migration 315).
+    party_id = Column(Integer, nullable=True)
     number_source = Column(String(50), nullable=True)
     external_id = Column(String(50), nullable=True)
 

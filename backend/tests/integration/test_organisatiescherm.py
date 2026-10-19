@@ -164,7 +164,10 @@ def test_a_member_address_still_saves(client, db_session, postcode):
     at_tenant(db_session, member)  # CR-26 F9
     db_session.add(
         Address(
-            person_id=persoon.id, street="Oudestraat", house_number="3", postal_code_id=postcode.id
+            party_id=persoon.party_id,
+            street="Oudestraat",
+            house_number="3",
+            postal_code_id=postcode.id,
         )
     )
     db_session.flush()
@@ -189,11 +192,15 @@ def test_a_member_address_still_saves(client, db_session, postcode):
 
     assert resp.status_code == 200
     van_lid = db_session.execute(
-        text("SELECT street FROM mdm.addresses WHERE person_id = :p AND deleted_at IS NULL"),
+        text(
+            "SELECT street FROM mdm.addresses WHERE party_id = (SELECT party_id FROM mdm.persons WHERE id = :p) AND deleted_at IS NULL"
+        ),
         {"p": persoon.id},
     ).scalar()
     van_vereniging = db_session.execute(
-        text("SELECT street FROM mdm.addresses WHERE organization_id = :o AND deleted_at IS NULL"),
+        text(
+            "SELECT street FROM mdm.addresses WHERE party_id = (SELECT party_id FROM mdm.organizations WHERE id = :o) AND deleted_at IS NULL"
+        ),
         {"o": MILLEGEM_ID},
     ).scalar()
     assert van_lid == "Ledenlaan"
@@ -380,8 +387,8 @@ def test_a_second_bank_account_survives_a_save(client, platform_workspace, db_se
     db_session.execute(
         text(
             "INSERT INTO mdm.bank_accounts "
-            "(organization_id, account_id, iban, sort_order, created_at, updated_at) "
-            "SELECT :o, o.account_id, v.iban, v.sort_order, now(), now() "
+            "(party_id, account_id, iban, sort_order, created_at, updated_at) "
+            "SELECT o.party_id, o.account_id, v.iban, v.sort_order, now(), now() "
             "FROM mdm.organizations o, (VALUES ('BE11 1111 1111 1111', 0), "
             "('BE22 2222 2222 2222', 1)) v(iban, sort_order) WHERE o.id = :o"
         ),
@@ -395,7 +402,7 @@ def test_a_second_bank_account_survives_a_save(client, platform_workspace, db_se
         r[0]
         for r in db_session.execute(
             text(
-                "SELECT iban FROM mdm.bank_accounts WHERE organization_id = :o "
+                "SELECT iban FROM mdm.bank_accounts WHERE party_id = (SELECT party_id FROM mdm.organizations WHERE id = :o) "
                 "AND deleted_at IS NULL ORDER BY sort_order, id"
             ),
             {"o": ACCOUNT_ID},
@@ -443,7 +450,7 @@ def test_clearing_street_and_number_removes_the_address(client, platform_workspa
 
     aantal = db_session.execute(
         text(
-            "SELECT count(*) FROM mdm.addresses WHERE organization_id = :o AND deleted_at IS NULL"
+            "SELECT count(*) FROM mdm.addresses WHERE party_id = (SELECT party_id FROM mdm.organizations WHERE id = :o) AND deleted_at IS NULL"
         ),
         {"o": ACCOUNT_ID},
     ).scalar()

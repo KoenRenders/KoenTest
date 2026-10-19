@@ -38,12 +38,12 @@ def _rows(db, person: Person) -> list[tuple]:
     db.expire_all()
     return sorted(
         (c.contact_type_code, c.value, bool(c.is_primary))
-        for c in db.query(ContactDetail).filter(ContactDetail.person_id == person.id)
+        for c in db.query(ContactDetail).filter(ContactDetail.party_id == person.party_id)
     )
 
 
 def _history(db, person: Person) -> int:
-    ids = [c.id for c in db.query(ContactDetail).filter(ContactDetail.person_id == person.id)]
+    ids = [c.id for c in db.query(ContactDetail).filter(ContactDetail.party_id == person.party_id)]
     return (
         db.query(ContactDetailHistory)
         .filter(ContactDetailHistory.contact_detail_id.in_(ids))
@@ -88,13 +88,13 @@ def _legacy(db) -> Person:
     db.add_all(
         [
             ContactDetail(
-                person_id=person.id,
+                party_id=person.party_id,
                 contact_type_code=CONTACT.PHONE,
                 value="014123456",
                 is_primary=True,
             ),
             ContactDetail(
-                person_id=person.id,
+                party_id=person.party_id,
                 contact_type_code=CONTACT.MOBILE,
                 value="0470123456",
                 is_primary=False,
@@ -141,7 +141,7 @@ def test_an_emptied_cell_removes_the_row_and_leaves_an_address_we_collected(db_s
     person = _imported(db_session)
     db_session.add(
         ContactDetail(
-            person_id=person.id,
+            party_id=person.party_id,
             contact_type_code=CONTACT.EMAIL,
             value="extra-1676@example.com",
             is_primary=False,

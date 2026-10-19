@@ -794,7 +794,9 @@ def test_a_strangers_order_is_the_same_404_as_a_missing_one(client, db_session, 
         MemberPerson(member_id=owner_member.id, person_id=partner.id, relation_type="PARTNER")
     )
     db_session.add(
-        ContactDetail(person_id=partner.id, contact_type_code="EMAIL", value="partner@example.com")
+        ContactDetail(
+            party_id=partner.party_id, contact_type_code="EMAIL", value="partner@example.com"
+        )
     )
     create_test_family(db_session, email="vreemde@example.com")
     order = place_order(
@@ -1426,7 +1428,7 @@ def test_een_account_zonder_lidmaatschap_wordt_zo_genoemd(client, db_session, ev
     person = create_test_person(db_session, first_name="An", last_name="Zonder")
     db_session.add(
         ContactDetail(
-            person_id=person.id,
+            party_id=person.party_id,
             contact_type_code="EMAIL",
             value="account@example.com",
             is_primary=True,

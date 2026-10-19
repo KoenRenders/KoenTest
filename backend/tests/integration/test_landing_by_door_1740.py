@@ -208,7 +208,7 @@ def _double(db, email: str, *, same_household: bool = False, mixed: bool = False
     for person in (one, two):
         db.add(
             ContactDetail(
-                person_id=person.id,
+                party_id=person.party_id,
                 contact_type_code="EMAIL",
                 value=email,
                 is_primary=True,

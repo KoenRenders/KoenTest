@@ -25,14 +25,12 @@ fails (DID NOT RAISE).
 
 from __future__ import annotations
 
-import os
 from contextlib import contextmanager
 
 import pytest
-from alembic import command
-from alembic.config import Config
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import make_url
+from sqlalchemy import text
+
+from tests._own_database import own_database
 
 BEFORE = "313_2026_10_18_180812"
 AFTER = "314_2026_10_19_002214"
@@ -45,33 +43,11 @@ def _one(conn, sql: str, **params):
 @contextmanager
 def _migrated(name: str, cases):
     """A database of its own: the chain to 313, `cases(conn)`, then 314."""
-    from tests.conftest import TEST_DATABASE_URL
-
-    url = make_url(TEST_DATABASE_URL)
-    own = url.set(database=f"{url.database}_{name}")
-    admin = create_engine(url.set(database="postgres"), isolation_level="AUTOCOMMIT")
-    with admin.connect() as conn:
-        conn.exec_driver_sql(f'DROP DATABASE IF EXISTS "{own.database}" WITH (FORCE)')
-        conn.exec_driver_sql(f'CREATE DATABASE "{own.database}"')
-    rendered = own.render_as_string(hide_password=False)
-    cfg = Config(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
-    previous = os.environ.get("DATABASE_URL")
-    os.environ["DATABASE_URL"] = rendered
-    engine = create_engine(rendered)
-    try:
-        command.upgrade(cfg, BEFORE)
+    with own_database(name) as (upgrade, engine):
+        upgrade(BEFORE)
         with engine.begin() as conn:
             found = cases(conn)
-        yield lambda: command.upgrade(cfg, AFTER), engine, found
-    finally:
-        engine.dispose()
-        if previous is None:
-            os.environ.pop("DATABASE_URL", None)
-        else:
-            os.environ["DATABASE_URL"] = previous
-        with admin.connect() as conn:
-            conn.exec_driver_sql(f'DROP DATABASE IF EXISTS "{own.database}" WITH (FORCE)')
-        admin.dispose()
+        yield lambda: upgrade(AFTER), engine, found
 
 
 def _org(conn, name: str) -> int:

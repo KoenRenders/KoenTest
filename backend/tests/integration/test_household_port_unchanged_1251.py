@@ -90,6 +90,9 @@ def _rows(db) -> str:
         return "yes" if row.deleted_at else "no"
 
     lines = []
+    # CR-26 phase 3: an address and a contact hang on the person's party; the
+    # rows name the person, as they were recorded.
+    person_of = {person.party_id: person.id for person in every(Person)}
     for household in every(Member):
         lines.append(
             f"household {household.id}: board_member={household.board_member_id} "
@@ -107,13 +110,13 @@ def _rows(db) -> str:
         )
     for address in every(Address):
         lines.append(
-            f"address {address.id} of {address.person_id}: {address.street!r} "
+            f"address {address.id} of {person_of.get(address.party_id)}: {address.street!r} "
             f"{address.house_number!r} bus={address.bus_number!r} "
             f"postal={address.postal_code_id} deleted={gone(address)}"
         )
     for contact in every(ContactDetail):
         lines.append(
-            f"contact {contact.id} of {contact.person_id}: {contact.contact_type_code} "
+            f"contact {contact.id} of {person_of.get(contact.party_id)}: {contact.contact_type_code} "
             f"{contact.value!r} primary={contact.is_primary} deleted={gone(contact)}"
         )
     for membership in every(Membership):

@@ -36,7 +36,7 @@ def _person(db, first: str, last: str, email: str | None, *, member: bool = True
     if email:
         db.add(
             ContactDetail(
-                person_id=person.id, contact_type_code="EMAIL", value=email, is_primary=True
+                party_id=person.party_id, contact_type_code="EMAIL", value=email, is_primary=True
             )
         )
     if member:

@@ -178,7 +178,6 @@ def _seed(db):
 SCHERMEN = [
     # #1527: the tree chooses the kind and the activity; the row keeps the search.
     ("/admin/media", {"q"}),
-    ("/admin/gebruikers", {"q", "rol", "actief"}),
 ]
 
 
@@ -201,33 +200,6 @@ def test_zoek_en_filters_staan_in_een_rij(client, workspace_host, db_session, pa
         f"filterbalk ({sorted(regels)}) — elk kind is een eigen regel. "
         f"Verdeling: {sorted(controls)}"
     )
-
-
-def test_het_zoekveld_wint_de_restbreedte(client, db_session):
-    """De wrapper van de referentie moet mee, anders staat het zoekveld op zijn
-    vaste `sm:w-64` naast een leeg gat — de F8-bevinding van #996.
-
-    Op de bron getoetst en niet op de gerenderde pagina: de klasse zit op de
-    wrapper rond de macro-aanroep, en dat is precies de regel die per scherm
-    vergeten kan worden.
-    """
-    from pathlib import Path
-
-    app = Path(__file__).resolve().parents[2] / "app"
-    balken = [
-        app / p
-        for p in (
-            # #2130: Media left the filter bar for the kit's toolbar, whose search
-            # takes the rest of the row itself (`data-toolbar-search`); so did Pagina's,
-            # Formulieren and Rapporten with #2123.
-            "domains/auth/templates/admin_gebruikers.html",
-        )
-    ]
-    for pad in balken:
-        assert pad.exists(), pad  # een verplaatst bestand mag niet stil overslaan
-        assert 'class="flex-1 min-w-[14rem]"' in pad.read_text(), (
-            f"{pad.name}: het zoekveld mist de flex-1-wrapper van de referentie"
-        )
 
 
 # ── Media: de rij verspringt niet bij het wisselen van soort ─────────────────

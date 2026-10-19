@@ -82,17 +82,20 @@ def world():
     import app.models  # noqa: F401  load_all_models()
     from app.database import SessionLocal
     from app.domains.activities.api import Registration
-    from app.domains.mdm.api import ContactDetail
+    from app.domains.mdm.api import ContactDetail, Organization
     from app.domains.media.api import MediaAsset
     from app.domains.payment.api import PaymentRecord
-    from app.kernel.tenant_config import _actieve_tenant
+    from app.kernel.tenant_config import _actieve_tenant, site_organization_id
 
     db = SessionLocal()
     tenant = _actieve_tenant(None)
     made: dict = {}
     try:
         contact = ContactDetail(
-            organization_id=tenant,
+            party_id=db.query(Organization.party_id)
+            .filter(Organization.id == site_organization_id(db, tenant))
+            .execution_options(include_all_tenants=True)
+            .scalar(),
             contact_type_code="FACEBOOK",
             value="https://facebook.example/voorbeeld-1647",
         )

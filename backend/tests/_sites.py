@@ -136,3 +136,28 @@ def in_the_circle(db, person, tenant_id: int = 2):
     db.add(row)
     db.flush()
     return row
+
+
+def party_of(db, person_id: int) -> int:
+    """The party of a person by id — a deleted person's too (CR-26 F3): what
+    hangs on a person (an address, a contact, a member number) points at it."""
+    from app.domains.mdm.api import Person
+
+    return (
+        db.query(Person.party_id)
+        .filter(Person.id == person_id)
+        .execution_options(include_deleted=True, include_all_tenants=True)
+        .scalar()
+    )
+
+
+def organization_party(db, organization_id: int) -> int:
+    """The party of an organisation by id (CR-26 F3), across accounts."""
+    from app.domains.mdm.api import Organization
+
+    return (
+        db.query(Organization.party_id)
+        .filter(Organization.id == organization_id)
+        .execution_options(include_all_tenants=True)
+        .scalar()
+    )

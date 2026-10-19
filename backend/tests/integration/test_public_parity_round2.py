@@ -45,7 +45,10 @@ def test_registration_form_prefills_email_and_mobile_for_member(client, db_sessi
     _member, person = create_test_family(db_session, email="lid@example.com")
     db_session.add(
         ContactDetail(
-            person_id=person.id, contact_type_code="MOBILE", value="0470112233", is_primary=True
+            party_id=person.party_id,
+            contact_type_code="MOBILE",
+            value="0470112233",
+            is_primary=True,
         )
     )
     # #1459: a members-only activity takes a member with a valid membership

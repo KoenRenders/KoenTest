@@ -51,26 +51,56 @@ class AudienceLine:
 
 
 @dataclass(frozen=True, kw_only=True)
+class NewsletterHead:
+    """What the record head of a draft shows (#2113): one description for the head of
+    the page and for the head a save sends back out of band, so "Opgeslagen om" never
+    says an older moment than the screen has."""
+
+    letter: Any
+    title: str
+    #: The audience and when it was saved — each a plain text.
+    facts: list[dict[str, str]]
+    csrf_token: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class NewsletterSavedView(ViewModel):
+    """`_nb_bewaard_antwoord.html` and `_nb_kop_antwoord.html`: the answer of a save — the
+    status line or the error, and the head, sent back out of band."""
+
+    head: NewsletterHead
+    error: Optional[str] = None
+    notice: Optional[str] = None
+
+
+@dataclass(frozen=True, kw_only=True)
 class NewsletterComposeView(ViewModel):
     """`admin_nieuwsbrief.html` for a draft, with its fragments."""
 
+    head: NewsletterHead
     letter: Any
+    #: What the head's edit card holds (#2113): the saved values.
+    subject: str
+    preview_text: str
+    #: The letter's own audience as a code, to select the right option.
+    audience: str
+    #: `(code, "label · count")` per audience on offer.
+    audience_options: list[tuple[str, str]]
+    #: Who each audience is, in the send screen's words (#1834): the lists and what
+    #: they share, from the same function as that screen.
+    audience_lines: list[AudienceLine]
+    audience_overlap: str
+    #: The list under *Eerdere deelnemers* (CR-36): shown only while that audience is
+    #: the one chosen.
+    participants_shown: bool
+    participant_offered: list[Any]
+    participant_lines: list[AudienceLine]
+    participant_notes: list[str]
     #: The letter's text as the page editor's document, JSON text.
     body_json: str
     #: The page editor's configuration for the letter set, with the letter's featured
     #: activities for its activity dialog.
     editor_config: Any
-    counts: Any
-    #: `(code, label, count)` — the code is the radio value, so the
-    #: template never renders an enum member into an attribute.
-    audience_options: list[tuple[str, str, str]]
-    #: Who each audience is, in the send screen's words (#1834): the lists and
-    #: what they share, from the same function as that screen.
-    audience_lines: list[AudienceLine]
-    audience_overlap: str
-    #: The letter's own audience as a code, to tick the right radio.
-    audience: str
-    saved_at: str
     # Raakje (CR-05 §3.15): off when the back-office switch is off. Since #1562
     # the conversation stands in the Assistent's panel, not on this page.
     raakje_enabled: bool
@@ -81,12 +111,6 @@ class NewsletterComposeView(ViewModel):
     featured_options: list[dict[str, Any]]
     #: `(id, title)` of the site's pages a button of the letter may lead to.
     button_pages: list[tuple[int, str]]
-    #: The list under *Eerdere deelnemers* (CR-36): shown only while that audience is
-    #: the one chosen.
-    participants_shown: bool
-    participant_offered: list[Any]
-    participant_lines: list[AudienceLine]
-    participant_notes: list[str]
     # How many whole meeting reports go along (CR-11 W13).
     report_count: int
     csrf_token: str

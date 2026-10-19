@@ -140,7 +140,7 @@ def test_de_producten_staan_boven_de_opmerking_in_een_formulier(client, db_sessi
     reg, _item = _inschrijving(client, db_session)
     _login(client)
 
-    html = client.get(f"/admin/inschrijvingen/{reg.id}").text
+    html = client.get(f"/admin/inschrijvingen/{reg.id}?bewerken=1").text
     assert "Product toevoegen" not in html and 'name="product_id"' not in html
     assert "data-product-row" in html and "Opmerking" in html
     assert html.index("data-product-row") < html.index("Opmerking")

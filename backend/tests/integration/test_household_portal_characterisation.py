@@ -99,7 +99,7 @@ def household(db_session):
     db.add(
         Address(
             id=ADDRESS_ID,
-            person_id=MAIN_ID,
+            party_id=db.get(Person, MAIN_ID).party_id,
             street="Proefstraat",
             house_number="1",
             postal_code_id=POSTAL_CODE_ID,
@@ -108,7 +108,7 @@ def household(db_session):
     db.add(
         ContactDetail(
             id=CONTACT_ID,
-            person_id=MAIN_ID,
+            party_id=db.get(Person, MAIN_ID).party_id,
             contact_type_code="EMAIL",
             value=MAIN_EMAIL,
             is_primary=True,
@@ -312,7 +312,7 @@ def test_the_household_is_in_its_own_order(client, db_session):
         if first == "Hoofd":
             db_session.add(
                 ContactDetail(
-                    person_id=person.id,
+                    party_id=person.party_id,
                     contact_type_code="EMAIL",
                     value="volgorde-hoofd@example.com",
                     is_primary=True,

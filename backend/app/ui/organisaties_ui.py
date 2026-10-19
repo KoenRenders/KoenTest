@@ -21,7 +21,7 @@ model in elkaar zit, want dat is wat je moet begrijpen om het goed in te vullen.
 | Organisatie: naam, rechtsvorm, contactgegevens (ook de sociale links) | `mdm.organizations`, `mdm.contact_details` |
 | Adres | `mdm.addresses` |
 | Rekening | `mdm.bank_accounts` |
-| Nummers | `mdm.organization_identifications` |
+| Nummers | `mdm.party_identifications` |
 
 **Het adres is LETTERLIJK dat van het hoofdlid.** Straat over de helft, huisnummer en
 bus een kwart elk, postcode als dropdown over de volle breedte. Dat is een

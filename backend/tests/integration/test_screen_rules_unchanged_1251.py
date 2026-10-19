@@ -125,7 +125,7 @@ def test_an_address_for_a_household_is_stored_as_before(client, db_session):
     assert response.status_code == 200, response.text[:300]
     db_session.expire_all()
     stored = db_session.query(Address).one()
-    assert (stored.person_id, stored.street, stored.house_number, stored.bus_number) == (
+    assert (stored.person.id, stored.street, stored.house_number, stored.bus_number) == (
         main.id,
         "Nieuwstraat",
         "7",

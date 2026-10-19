@@ -191,14 +191,18 @@ def test_soft_delete_payment_hidden_but_kept(client, db_session):
 
 
 def test_soft_delete_user_and_reuse_email(client, db_session):
-    from app.domains.auth.api import admin_user_by_email
+    from app.domains.auth.api import UserRole, admin_user_by_email
     from app.domains.auth.users import delete_user
+    from app.kernel.tenancy import DEFAULT_TENANT_ID
     from tests.conftest import SEEDED_ADMIN_EMAIL
 
     u = User(email="temp@example.com")
     db_session.add(u)
     db_session.flush()
     uid = u.id
+    # A role here: deleting is in the workspace's scope (#2162).
+    db_session.add(UserRole(user_id=uid, role_code="ADMIN", tenant_id=DEFAULT_TENANT_ID))
+    db_session.flush()
     # The function the users screen calls (until CR-13 phase 4b, #1251, this asked a JSON route with a bearer token).
     delete_user(uid, db_session, admin_user_by_email(db_session, SEEDED_ADMIN_EMAIL))
     assert db_session.query(User).filter(User.id == uid).first() is None

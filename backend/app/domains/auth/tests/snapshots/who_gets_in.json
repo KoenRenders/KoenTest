@@ -214,6 +214,10 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
+  "GET /admin/gebruikers/{user_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
   "GET /admin/info": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
@@ -233,10 +237,6 @@
   "GET /admin/inschrijvingen/{registration_id}/betalingen": {
    "platform": "ADMIN FINANCE OPERATOR",
    "tenant": "ADMIN FINANCE OPERATOR"
-  },
-  "GET /admin/inschrijvingen/{registration_id}/fragment": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
   },
   "GET /admin/instellingen": {
    "platform": "ADMIN OPERATOR",
@@ -1002,15 +1002,7 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
-  "POST /admin/inschrijvingen/{registration_id}/antwoorden": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
   "POST /admin/inschrijvingen/{registration_id}/antwoordlink": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
-  "POST /admin/inschrijvingen/{registration_id}/opmerking": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
@@ -1111,6 +1103,10 @@
    "tenant": "ADMIN OPERATOR"
   },
   "POST /admin/nieuwsbrieven/{newsletter_id:int}/bewaren": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/nieuwsbrieven/{newsletter_id:int}/bewerken": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },

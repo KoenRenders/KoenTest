@@ -89,7 +89,9 @@ def stranger(db_session):
     from tests.conftest import create_test_person
 
     person = create_test_person(db_session)
-    db_session.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=STRANGER))
+    db_session.add(
+        ContactDetail(party_id=person.party_id, contact_type_code="EMAIL", value=STRANGER)
+    )
     db_session.commit()
     return person
 

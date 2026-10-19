@@ -16,8 +16,8 @@ product rows of these screens on master in between — its change, not phase 1's
 Six screens, each at the region that shows registrations:
 
 - the public registration form of a component (`/activiteiten/{id}/inschrijven/{c}`);
-- the back office's list per activity, one registration's page and its fragment,
-  and the board's "new registration" form;
+- the back office's list per activity, one registration's page (read and, since #2127,
+  edit; its fragment is gone) and the board's "new registration" form;
 - a family's registrations tab.
 
 The world is fixed: ids high enough that masking cannot hit a number the page
@@ -161,7 +161,7 @@ def world(db_session):
     db.add(MemberPerson(member_id=MEMBER_ID, person_id=PERSON_ID, relation_type="HOOFDLID"))
     db.add(
         ContactDetail(
-            person_id=PERSON_ID,
+            party_id=db.get(Person, PERSON_ID).party_id,
             contact_type_code="EMAIL",
             value="karakter@example.org",
             is_primary=True,
@@ -254,7 +254,7 @@ SCREENS = {
     "admin_list": f"/admin/activiteiten/{ACTIVITY_ID}/inschrijvingen",
     "admin_detail_member": f"/admin/inschrijvingen/{REGISTRATION_IDS['member']}",
     "admin_detail_guest": f"/admin/inschrijvingen/{REGISTRATION_IDS['guest']}",
-    "admin_fragment_member": f"/admin/inschrijvingen/{REGISTRATION_IDS['member']}/fragment",
+    "admin_detail_member_edit": f"/admin/inschrijvingen/{REGISTRATION_IDS['member']}?bewerken=1",
     "admin_new": f"/admin/activiteiten/{ACTIVITY_ID}/inschrijvingen/nieuw",
     "admin_new_team": (
         f"/admin/activiteiten/{ACTIVITY_ID}/inschrijvingen/nieuw?onderdeel={TEAM_COMPONENT_ID}"

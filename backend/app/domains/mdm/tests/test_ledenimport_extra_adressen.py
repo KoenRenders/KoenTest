@@ -92,12 +92,14 @@ def lid_met_twee_adressen(db_session):
     # Eerst het extra adres (laagste id), dán het hoofdadres.
     db_session.add(
         ContactDetail(
-            person_id=persoon.id, contact_type_code="EMAIL", value=EXTRA, is_primary=False
+            party_id=persoon.party_id, contact_type_code="EMAIL", value=EXTRA, is_primary=False
         )
     )
     db_session.flush()
     db_session.add(
-        ContactDetail(person_id=persoon.id, contact_type_code="EMAIL", value=HOOFD, is_primary=True)
+        ContactDetail(
+            party_id=persoon.party_id, contact_type_code="EMAIL", value=HOOFD, is_primary=True
+        )
     )
     db_session.commit()
     db_session.expire_all()
@@ -188,7 +190,7 @@ def test_het_rapportadres_promoveert_een_bestaand_extra_adres(db_session):
             persoon.contact_details.remove(c)
     db_session.add(
         ContactDetail(
-            person_id=persoon.id, contact_type_code="EMAIL", value=HOOFD, is_primary=False
+            party_id=persoon.party_id, contact_type_code="EMAIL", value=HOOFD, is_primary=False
         )
     )
     db_session.commit()

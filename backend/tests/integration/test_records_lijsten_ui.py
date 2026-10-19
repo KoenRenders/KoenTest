@@ -191,15 +191,15 @@ def test_gebruikers_actieffilter_en_htmx_fragment(client, db_session):
     inactief = client.get("/admin/gebruikers", params={"actief": "nee"})
     assert "slaper@example.com" in inactief.text
 
-    # In het fragment staan enkel de kaarten: de ingelogde (actieve) beheerder
+    # In het fragment staan enkel de rijen: de ingelogde (actieve) beheerder
     # hoort er niet in, en het zoekveld evenmin — dat blijft op de pagina staan.
     fragment = client.get("/admin/gebruikers", params={"actief": "nee"}, headers=HX)
     assert "<html" not in fragment.text.lower()
     assert "slaper@example.com" in fragment.text
     assert SEEDED_ADMIN_EMAIL not in fragment.text
     assert 'type="search"' not in fragment.text
-    # de filterstand reist wél mee als verborgen veld, zodat opslaan niet ontfiltert
-    assert 'name="actief" value="nee"' in fragment.text
+    # wat met de lijst verandert reist mee buiten het fragment (#2114): het aantal per segment
+    assert 'id="gu-filter-n-nee"' in fragment.text
 
 
 # ── Wijzigingen (#590) ────────────────────────────────────────────────────────

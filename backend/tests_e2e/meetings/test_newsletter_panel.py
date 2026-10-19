@@ -33,6 +33,7 @@ from app.kernel.clock import belgian_today
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from tests_e2e.newsletter_head import open_head_card  # noqa: E402
 from tests_e2e.schermen import (  # noqa: E402
     BASE,
     htmx_afgerond,
@@ -236,7 +237,7 @@ def test_the_three_groups_stand_on_the_page_and_a_choice_follows_without_a_page_
     assert calendar["chips"] >= 4 and calendar["count"] == f"({calendar['chips']})"
     assert page.locator("#nb-raakje").count() == 0, "no column of Raakje on the page"
     above = page.evaluate(
-        "document.getElementById('nb-keuzes').getBoundingClientRect().bottom <= document.getElementById('nb-formulier').getBoundingClientRect().top"
+        "document.getElementById('nb-keuzes').getBoundingClientRect().bottom <= document.getElementById('nb-formulier').querySelector('[data-form-section]').getBoundingClientRect().top"
     )
     assert above
 
@@ -271,7 +272,7 @@ def test_the_calendar_block_is_the_calendar_group(setup):
     page.locator("#nb-editor .de-menu-item", has_text="Kalender").click()
     assert page.locator("#nb-editor [data-letter-block=calendar]").count() == 1
     with htmx_afgerond(page):
-        page.locator("#nb-onderwerp").click()
+        page.locator("#nb-kop h1").click()
     letter = setup[2]["letters"][0]
     preview = page.request.get(f"/admin/nieuwsbrieven/{letter}/voorbeeld").text()
     assert "Paneelwandeling 1" in preview, "the calendar's lines stand in the mail"
@@ -282,6 +283,8 @@ def test_the_calendar_block_is_the_calendar_group(setup):
 
 def test_the_preview_text_grows_and_stops_at_200(setup):
     page = _page(setup, 0)
+    # The preview text is the head's field since #2113: its edit card.
+    open_head_card(page)
     field = page.locator("#nb-voorbeeldtekst")
     one_line = field.bounding_box()["height"]
     field.fill("Een voorbeeldtekst die lang genoeg is om over meer dan één regel te lopen. " * 4)
@@ -290,7 +293,6 @@ def test_the_preview_text_grows_and_stops_at_200(setup):
     grown = field.bounding_box()["height"]
     print("MEASURE preview field", one_line, grown)
     assert grown > one_line, "a growing field: nothing is cut off"
-    assert page.locator("[data-preview-count]").inner_text() == "200 / 200"
     page.close()
 
 
@@ -342,9 +344,10 @@ def test_toepassen_fills_subject_preview_and_text_and_leaves_the_marked_sentence
 
     assert page.locator("#nb-onderwerp").input_value() == SUBJECT
     assert page.locator("#nb-voorbeeldtekst").input_value() == PREVIEW
-    assert page.locator("[data-preview-count]").inner_text() == f"{len(PREVIEW)} / 200", (
-        "the counter heard the change"
-    )
+    # Toepassen opens the head's edit card with the fields filled (#2113); nothing of the
+    # head is saved before Opslaan.
+    expect(page.locator("#nb-kop-form")).to_be_visible()
+    expect(page.locator("#nb-kop-bewerken [data-badges]")).to_contain_text("Bewerken")
     text = page.evaluate(TEXT_OF)
     assert "Kom naar de wandeling." in text and "zaklopen" not in text
     fields = page.evaluate(_FIELDS)
@@ -353,12 +356,13 @@ def test_toepassen_fills_subject_preview_and_text_and_leaves_the_marked_sentence
     expect(result).to_have_text("3 velden ingevuld.")
     assert any(u.endswith("/toepassen") for u in posts)
 
-    # the page's own autosave stores what the form took
-    page.wait_for_function(
-        "document.getElementById('nb-bewaard').innerText.trim().length > 0", timeout=10_000
-    )
-    page.locator("#nb-onderwerp").blur()
-    expect(page.locator("#nb-bewaard")).to_contain_text("ewaard", timeout=10_000)
+    # The text is the page's own autosave; the subject and the preview text wait for Opslaan.
+    page.locator("#nb-kop-bewerken h1").click()
+    htmx_stil(page)
+    assert _stored(letter)["subject"] == "Paneelbrief 1", "the head is not saved before Opslaan"
+    with htmx_afgerond(page):
+        page.locator("[data-action-bar] [data-form-save]").click()
+    expect(page.locator("#nb-kop-form")).to_be_hidden()
     stored = _stored(letter)
     assert stored["status"] == "applied"
     assert stored["subject"] == SUBJECT and stored["preview"] == PREVIEW

@@ -47,10 +47,14 @@ def _gezin(
     )
     db.add(MemberPerson(member_id=member.id, person_id=person.id, relation_type="HOOFDLID"))
     db.add(
-        ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=email, is_primary=True)
+        ContactDetail(
+            party_id=person.party_id, contact_type_code="EMAIL", value=email, is_primary=True
+        )
     )
     db.add(
-        Address(person_id=person.id, street=straat, house_number="12", postal_code_id=postcode.id)
+        Address(
+            party_id=person.party_id, street=straat, house_number="12", postal_code_id=postcode.id
+        )
     )
     db.flush()
     return member, person
@@ -126,7 +130,7 @@ def test_a_family_is_not_found_on_the_street_it_left(db_session, postcode):
     bereikt ook een subquery binnen een `IN`. Afgelezen van de uitgevoerde SQL:
 
         LEFT OUTER JOIN mdm.addresses
-          ON mdm.addresses.person_id = mdm.persons.id
+          ON mdm.addresses.party_id = mdm.persons.party_id
          AND mdm.addresses.deleted_at IS NULL
 
     Een eigen filter in de join was dus een tweede plek voor hetzelfde feit —
@@ -147,10 +151,12 @@ def test_a_family_is_not_found_on_the_street_it_left(db_session, postcode):
 
     # De verhuizing: oude rij stempelen, nieuwe rij erbij — precies wat de
     # partiële uniciteit op `person_id` (migratie 050) toelaat.
-    oud_adres = db_session.query(Address).filter(Address.person_id == person.id).one()
+    oud_adres = db_session.query(Address).filter(Address.party_id == person.party_id).one()
     soft_delete(oud_adres)
     db_session.add(
-        Address(person_id=person.id, street=NIEUW, house_number="3", postal_code_id=postcode.id)
+        Address(
+            party_id=person.party_id, street=NIEUW, house_number="3", postal_code_id=postcode.id
+        )
     )
     db_session.commit()
 
@@ -181,7 +187,7 @@ def test_an_address_of_an_organisation_is_no_family_hit(db_session, postcode):
     )
     db_session.add(
         Address(
-            organization_id=org.id,
+            party_id=org.party_id,
             street="Zetelstraat",
             house_number="1",
             postal_code_id=postcode.id,
@@ -235,7 +241,7 @@ def test_a_family_without_an_address_is_still_found_by_name(db_session, postcode
     db_session.add(MemberPerson(member_id=member.id, person_id=person.id, relation_type="HOOFDLID"))
     db_session.commit()
 
-    assert db_session.query(Address).filter(Address.person_id == person.id).count() == 0, (
+    assert db_session.query(Address).filter(Address.party_id == person.party_id).count() == 0, (
         "opzet klopt niet"
     )
     assert member.id in _zoek(db_session, "Adresloos"), (

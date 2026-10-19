@@ -44,6 +44,7 @@ from app.domains.mdm.api import (
 )
 from app.domains.mdm.import_service import upsert_families
 from app.kernel.clock import belgian_today
+from tests._sites import party_of
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_postal_code
 
 BOARD = SimpleNamespace(email="board@example.org")
@@ -79,10 +80,10 @@ def _household(db) -> SimpleNamespace:
     upsert_families(db, [[dict(head), dict(partner)]], {}, [], apply=True)
     db.flush()
     numbers = {n.external_id: n for n in db.query(ExternalNumber).all()}
-    partner_id = numbers[NUMBER].person_id
+    partner_id = numbers[NUMBER].person.id
     link = next(m for m in db.get(Person, partner_id).member_persons)
     return SimpleNamespace(
-        head_id=numbers["880100"].person_id,
+        head_id=numbers["880100"].person.id,
         partner_id=partner_id,
         member_id=link.member_id,
         head_row=head,
@@ -95,7 +96,7 @@ def _number(db, person_id) -> ExternalNumber:
     return (
         db.query(ExternalNumber)
         .execution_options(include_deleted=True)
-        .filter(ExternalNumber.person_id == person_id)
+        .filter(ExternalNumber.party_id == party_of(db, person_id))
         .one()
     )
 

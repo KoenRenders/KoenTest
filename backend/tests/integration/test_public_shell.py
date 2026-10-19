@@ -55,7 +55,7 @@ def _organisation(db):
 
 
 def _contact(db, organisation, code: str, value: str) -> None:
-    db.add(ContactDetail(organization_id=organisation.id, contact_type_code=code, value=value))
+    db.add(ContactDetail(party_id=organisation.party_id, contact_type_code=code, value=value))
 
 
 @pytest.fixture
@@ -70,10 +70,10 @@ def details(db_session):
         db_session.flush()
     _contact(db_session, organisation, "EMAIL", "bestuur@example.com")
     _contact(db_session, organisation, "PHONE", "014 00 00 00")
-    db_session.add(BankAccount(organization_id=organisation.id, iban="BE68 5390 0754 7034"))
+    db_session.add(BankAccount(party_id=organisation.party_id, iban="BE68 5390 0754 7034"))
     db_session.add(
         Address(
-            organization_id=organisation.id,
+            party_id=organisation.party_id,
             street="Kerkstraat",
             house_number="12",
             postal_code_id=pc.id,

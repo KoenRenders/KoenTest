@@ -285,7 +285,7 @@ def _one_row(db, table: str) -> int:
         from app.domains.mdm.api import ExternalNumber
         from tests.conftest import create_test_person
 
-        row = ExternalNumber(person_id=create_test_person(db).id, external_id="phase5-proof")
+        row = ExternalNumber(party_id=create_test_person(db).party_id, external_id="phase5-proof")
     elif table == "public.kernel_jobs":
         from datetime import datetime, timezone
 

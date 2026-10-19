@@ -7,7 +7,9 @@ every column of the row it writes is compared with what the code wrote before
 the move. `EXPECTED` was recorded on the old code (9 October 2026, the functions
 still in `audit/service.py`) and touched once since: #1885 (16 October 2026)
 gave the history tables every column of their model, so the rows gained those
-columns; every column of before kept the value it was recorded with.
+columns; every column of before kept the value it was recorded with. And CR-26
+phase 3 (#2020, 19 October 2026): an address's and a contact's pair
+`person_id` / `organization_id` became one `party_id`, in the source and the row.
 
 Proven red (9 October 2026): `value=contact.value` taken out of `snapshot_contact_detail` → its row differs.
 """
@@ -83,12 +85,11 @@ EXPECTED: list[tuple[str, dict]] = [
         "snapshot_address",
         {
             "address_id": 883004,
-            "person_id": 883001,
+            "party_id": 883010,
             "street": "Voorbeeldstraat",
             "house_number": "12",
             "bus_number": "B",
             "postal_code_id": 883005,
-            "organization_id": None,
             "operation": "update",
             "action": "recorded_3",
             "source": "recording",
@@ -99,11 +100,10 @@ EXPECTED: list[tuple[str, dict]] = [
         "snapshot_contact_detail",
         {
             "contact_detail_id": 883006,
-            "person_id": 883001,
+            "party_id": 883010,
             "contact_type_code": "EMAIL",
             "value": "an@example.org",
             "is_primary": True,
-            "organization_id": None,
             "operation": "update",
             "action": "recorded_4",
             "source": "recording",
@@ -154,9 +154,8 @@ def test_every_snapshot_of_mdm_writes_the_row_it_wrote(db_session):
                 AddressHistory,
                 SimpleNamespace(
                     id=883_004,
-                    organization_id=None,
                     account_id=account,
-                    person_id=883_001,
+                    party_id=883_010,
                     street="Voorbeeldstraat",
                     house_number="12",
                     bus_number="B",
@@ -168,9 +167,8 @@ def test_every_snapshot_of_mdm_writes_the_row_it_wrote(db_session):
                 ContactDetailHistory,
                 SimpleNamespace(
                     id=883_006,
-                    organization_id=None,
                     account_id=account,
-                    person_id=883_001,
+                    party_id=883_010,
                     contact_type_code=CONTACT.EMAIL,
                     value="an@example.org",
                     is_primary=True,

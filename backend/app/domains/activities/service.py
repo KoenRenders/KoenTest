@@ -43,6 +43,7 @@ from app.kernel.copying import CopyPlan
 
 if TYPE_CHECKING:
     from app.domains.activities.models import ActivityOrganiser, ActivityProduct, RegistrationItem
+    from app.kernel.refusals import Refusals
     from app.schemas.activity import (
         ActivityDateResponse,
         ActivityResponse,
@@ -1484,6 +1485,7 @@ def set_order_quantities(
     quantities: dict[int, int],
     *,
     actor: str | None = None,
+    commit: bool = True,
 ) -> Registration | None:
     """Bring the order to these quantities per product, in ONE transaction (#1494).
 
@@ -1496,6 +1498,9 @@ def set_order_quantities(
 
     None when the registration is not found; a product that is not the
     component's is refused (`controleer_bestelproduct`), before anything changes.
+    `commit=False` leaves the commit to the caller: the one save of the registration's
+    record page writes the order, the contact and the answers in one transaction
+    (`registration_save`, #2127).
     """
     from app.domains.activities.history import snapshot_registration_item
     from app.domains.activities.models import RegistrationItem
@@ -1569,11 +1574,13 @@ def set_order_quantities(
                 actor=actor,
             )
     if changed:
-        _herbereken(db, reg, actor)
+        _herbereken(db, reg, actor, commit=commit)
     return reg
 
 
-def _herbereken(db: Session, reg: Registration, actor: Optional[str]) -> None:
+def _herbereken(
+    db: Session, reg: Registration, actor: Optional[str], *, commit: bool = True
+) -> None:
     """De betaalposten volgen de bestelling (#185) — through an event since CR-13
     phase 1, and in ONE transaction.
 
@@ -1583,8 +1590,9 @@ def _herbereken(db: Session, reg: Registration, actor: Optional[str]) -> None:
     change back: the line no longer stays changed with a balance that did not follow.
     """
     _order_changed(db, reg, actor)
-    db.commit()
-    db.refresh(reg)
+    if commit:
+        db.commit()
+        db.refresh(reg)
 
 
 def _order_changed(db: Session, reg: Registration, actor: Optional[str]) -> None:
@@ -1869,7 +1877,12 @@ def _attached_answers(answers: list) -> tuple:
 
 
 def edit_answers(
-    db: Session, registration_id: int, answers: list, *, actor: Optional[str]
+    db: Session,
+    registration_id: int,
+    answers: list,
+    *,
+    actor: Optional[str],
+    commit: bool = True,
 ) -> Registration:
     """An organiser corrects a registration's answers (CR-14 §B4.7, R7).
 
@@ -1920,7 +1933,8 @@ def edit_answers(
             actor=actor,
             answers="\n".join(changes),
         )
-    db.commit()
+    if commit:
+        db.commit()
     return registration
 
 
@@ -2209,6 +2223,8 @@ def update_registration_contact(
     gezet: dict[str, Optional[str]],
     *,
     actor: Optional[str] = None,
+    commit: bool = True,
+    errors: Refusals | None = None,
 ) -> Optional[Registration]:
     """Corrigeer contactgegevens en/of opmerking (#283, uitgebreid #624).
 
@@ -2218,6 +2234,9 @@ def update_registration_contact(
 
     Alleen bij een échte wijziging een snapshot: een opslag zonder verschil hoort
     geen rij in het logboek op te leveren, anders wordt de geschiedenis ruis.
+    `commit=False` laat het vastleggen aan de aanroeper (#2127). Met `errors` wordt een
+    weigering genoteerd op het veld dat ze veroorzaakte, en gaat de controle door naar
+    het volgende veld; de aanroeper beslist daarna of er iets bewaard blijft.
     """
     reg = _registratie(db, activity_id, registration_id)
     if reg is None:
@@ -2233,7 +2252,11 @@ def update_registration_contact(
     if "phone" in gezet:
         nieuw = (str(gezet["phone"]) if gezet["phone"] is not None else "").strip() or None
         if nieuw != reg.phone:
-            require_phone(nieuw)
+            if errors is None:
+                require_phone(nieuw)
+            else:
+                with errors.at("phone"):
+                    require_phone(nieuw)
     gewijzigd = False
     try:
         for veld in ("contact_name", "contact_email", "phone", "team_name", "remarks"):
@@ -2241,8 +2264,19 @@ def update_registration_contact(
                 continue
             waarde = (str(gezet[veld]) if gezet[veld] is not None else "").strip() or None
             if getattr(reg, veld) != waarde:
-                setattr(reg, veld, waarde)
-                gewijzigd = True
+                if errors is None:
+                    setattr(reg, veld, waarde)
+                    gewijzigd = True
+                    continue
+                before = len(errors.found)
+                with errors.at(veld):
+                    setattr(reg, veld, waarde)
+                    db.flush()
+                if len(errors.found) > before:
+                    # What was refused must not make the next field's flush fail again.
+                    db.expire(reg)
+                else:
+                    gewijzigd = True
         if gewijzigd:
             db.flush()
     except ActiviteitFout:
@@ -2260,8 +2294,9 @@ def update_registration_contact(
             source="admin_manual",
             actor=actor,
         )
-    db.commit()
-    db.refresh(reg)
+    if commit:
+        db.commit()
+        db.refresh(reg)
     return reg
 
 
@@ -2773,10 +2808,10 @@ def sorteer_inschrijvingen(
 def inschrijving_tabs(
     db: Session, registration_id: int, viewer_email: str, actief: str, *, terug: str = ""
 ) -> list[dict]:
-    """Tabbalk van de inschrijvings-recordpagina (feedback 15 sep): Overzicht ·
-    Betalingen N — zelfde patroon als activiteit en gezin; de P13-chip op dat
-    scherm verdween hiermee. `terug` (door de route gevalideerd) reist met
-    beide tabs mee, zodat de A7-terugweg een tabwissel overleeft."""
+    """Tabbalk van de inschrijvings-recordpagina (feedback 15 sep): Gegevens ·
+    Betalingen (N) — zelfde patroon als activiteit en gezin (`ui.related_tabs`, #2127);
+    de P13-chip op dat scherm verdween hiermee. `terug` (door de route gevalideerd)
+    reist met beide tabs mee, zodat de A7-terugweg een tabwissel overleeft."""
     from urllib.parse import quote
 
     from app.domains.auth.api import Right, may
@@ -2786,7 +2821,7 @@ def inschrijving_tabs(
     suffix = f"?terug={quote(terug, safe='')}" if terug else ""
     tabs = [
         {
-            "label": _("Overzicht"),
+            "label": _("Gegevens"),
             "href": f"/admin/inschrijvingen/{registration_id}{suffix}",
             "active": actief == "overzicht",
         }
@@ -2795,7 +2830,8 @@ def inschrijving_tabs(
         n = len(get_records_for(db, "registration", registration_id))
         tabs.append(
             {
-                "label": _("Betalingen") + f" {n}",
+                "label": _("Betalingen"),
+                "count": n,
                 "href": (f"/admin/inschrijvingen/{registration_id}/betalingen{suffix}"),
                 "active": actief == "betalingen",
             }
@@ -2842,7 +2878,45 @@ def inschrijving_kop_ctx(
         "terug": pad,
         "terug_label": label,
         "record_tabs": inschrijving_tabs(db, registration_id, viewer_email, actief, terug=pad),
+        "record_head": registration_head(db, reg, activity, component),
     }
+
+
+def registration_head(db: Session, reg: Registration, activity: Any, component: Any) -> dict:
+    """The head of a registration's record (#2127): the name as the title, the payment
+    state as the badge, the activity and the component and the day of registering as
+    the facts. The primary and the actions are the Gegevens page's own; the
+    Betalingen tab shows the head without them."""
+    from app.domains.payment.api import registration_payment_states
+    from app.i18n import _, short_date
+
+    badges: list[dict[str, str]] = []
+    if reg.deleted_at is not None:
+        badges.append({"label": _("Verwijderd"), "tone": "red"})
+    else:
+        state = registration_payment_states(db, [reg.id]).get(reg.id)
+        if state is not None:
+            badges.append(
+                {"label": _("Openstaand"), "tone": "yellow"}
+                if state["state"] == "open"
+                else {"label": _("Vereffend"), "tone": "green"}
+            )
+    facts: list[dict[str, str]] = []
+    if activity is not None:
+        facts.append(
+            {
+                "text": activity.name,
+                "href": f"/admin/activiteiten/{reg.activity_id}",
+                "kind": "reference",
+            }
+        )
+    if component is not None:
+        facts.append({"text": component.name})
+    if reg.registered_at:
+        facts.append(
+            {"text": _("ingeschreven op %(datum)s") % {"datum": short_date(reg.registered_at)}}
+        )
+    return {"title": reg.contact_name, "badges": badges, "facts": facts}
 
 
 def registration_contact_names(db: Session) -> list[str]:
@@ -3291,7 +3365,7 @@ def member_contacts(db: Session, person_ids: list[int]) -> dict[tuple[int, str |
     the search. A second lookup beside this one would let the grey value and
     the printed value drift apart.
     """
-    from app.domains.mdm.api import ContactDetail
+    from app.domains.mdm.api import ContactDetail, Person
 
     contacten: dict[tuple[int, str | None], str] = {}
     if not person_ids:
@@ -3301,16 +3375,17 @@ def member_contacts(db: Session, person_ids: list[int]) -> dict[tuple[int, str |
     # an order the answer was whichever row the database returned first, so a
     # member with two addresses could print another one on the next render.
     rows = (
-        db.query(ContactDetail)
-        .filter(ContactDetail.person_id.in_(person_ids))
+        db.query(Person.id, ContactDetail)
+        .join(Person, Person.party_id == ContactDetail.party_id)
+        .filter(Person.id.in_(person_ids))
         .order_by(ContactDetail.is_primary.desc(), ContactDetail.id)
         .all()
     )
-    for detail in rows:
+    for person_id, detail in rows:
         # CR-12 phase 2: the `.upper()` was a normalisation because the column
         # accepted any spelling. The code list does that now; `code_of` returns
         # the code, whether it comes back as a member or as a bare code.
-        sleutel = (detail.person_id, code_of(detail.contact_type_code))
+        sleutel = (person_id, code_of(detail.contact_type_code))
         if detail.value and sleutel not in contacten:
             contacten[sleutel] = detail.value
     return contacten

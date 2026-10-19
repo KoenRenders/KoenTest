@@ -1,172 +1,96 @@
 <main id="main" class="flex-1 px-4 md:px-6 min-[1680px]:px-8 py-8">
 <div class="admin-content max-w-5xl mx-auto">
-<div class="max-w-2xl">
-<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/activiteiten/<ACTIVITY>">‹ Karakterisering</a></p>
-<div data-page-header class="flex flex-wrap gap-x-3 gap-y-2 mb-6 items-end">
-<div data-title-block class="block min-w-0 max-w-full flex-[1_0_auto]">
-<h1 tabindex="-1" class="text-3xl font-bold text-kop truncate">Karel Karakter</h1>
-</div>
-</div>
-<p class="text-sm text-ink-soft -mt-4 mb-4">
-<a class="text-blue-700 hover:underline" href="/admin/activiteiten/<ACTIVITY>">Karakterisering</a> · Ploegen · ingeschreven op 01-02-2099
-</p>
-<div class="border-b border-gray-200 mb-6">
-<nav class="-mb-px flex gap-6 text-sm overflow-x-auto whitespace-nowrap">
-<a href="/admin/inschrijvingen/<R:member>?terug=%2Fadmin%2Factiviteiten%2F<ACTIVITY>" class="py-2 border-b-2 border-blue-700 text-blue-700 font-semibold">Overzicht</a>
-<a href="/admin/inschrijvingen/<R:member>/betalingen?terug=%2Fadmin%2Factiviteiten%2F<ACTIVITY>" class="py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300">Betalingen 1</a>
-</nav>
-</div>
-<div data-registration-detail class="bg-surface-2 border border-gray-200 rounded-lg p-3 mt-2 text-sm"
- x-data="{ edit: false }">
-<div class="flex flex-wrap items-start justify-between gap-2">
-<div class="min-w-0 break-words">
-<div class="font-medium">Karel Karakter (De Karakters)</div>
-<div class="text-gray-500 [overflow-wrap:anywhere]">karakter@example.org · 0470 00 00 01</div>
-</div>
-<div class="flex flex-wrap justify-end gap-2 ml-auto">
-<button type="button" x-show="!edit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" @click="edit = true">Bewerken</button>
-<div x-show="edit" x-cloak>
-<div class="flex flex-wrap items-center justify-end gap-2">
-<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/activiteiten/<ACTIVITY>/inschrijvingen/<R:member>/verwijderen?vanuit=pagina" data-confirm='Inschrijving "Karel Karakter" definitief verwijderen?'>Verwijderen</button></span>
-<span class="flex gap-2">
-<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="edit = false">Annuleren</button>
-<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" form="insch-form-<R:member>" >Opslaan</button>
+<div id="insch-record">
+<header data-record-head class="mb-3">
+<a data-way-back href="/admin/activiteiten/<ACTIVITY>" class="inline-flex items-center gap-1 min-h-11 md:min-h-7 mb-2 max-w-full text-sm text-blue-500 hover:underline [overflow-wrap:anywhere]"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 shrink-0" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>Karakterisering</span></a>
+<div class="flex flex-wrap items-start gap-x-4 gap-y-3">
+<div data-title-group class="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0 max-w-full flex-[1_0_auto] md:flex-[1_1_0%] md:min-w-[min(100%,360px)]">
+<h1 tabindex="-1" class="min-w-0 max-w-full text-[28px] md:text-3xl leading-9 font-semibold text-kop [overflow-wrap:anywhere]">Karel Karakter</h1>
+<span data-badges class="flex flex-wrap items-center gap-2 min-w-0 max-w-full">
+<span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-yellow-100 text-yellow-800">Openstaand</span>
 </span>
 </div>
+<div data-head-controls class="flex flex-wrap justify-end items-center gap-2 ml-auto shrink-0 max-w-full">
+<a href="/admin/inschrijvingen/<R:member>?bewerken=1" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 min-h-11 md:min-h-9" >Bewerken</a>
 </div>
 </div>
+<p data-facts class="mt-2 md:min-h-6 overflow-x-clip text-sm text-ink-soft">
+<span class="-ml-4 flex flex-wrap items-center gap-y-1">
+<span data-fact class="inline-flex items-center min-w-0 max-w-full"><span data-fact-dot aria-hidden="true" class="inline-block w-4 shrink-0 text-center">·</span><a href="/admin/activiteiten/<ACTIVITY>" data-reference class="inline-flex items-center gap-1 text-blue-500 underline hover:no-underline min-h-11 md:min-h-6">Karakterisering<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a></span>
+<span data-fact class="inline-flex items-center min-w-0 max-w-full"><span data-fact-dot aria-hidden="true" class="inline-block w-4 shrink-0 text-center">·</span><span class="min-w-0">Ploegen</span></span>
+<span data-fact class="inline-flex items-center min-w-0 max-w-full"><span data-fact-dot aria-hidden="true" class="inline-block w-4 shrink-0 text-center">·</span><span class="min-w-0">ingeschreven op 01-02-2099</span></span>
+</span>
+</p>
+</header>
+<nav data-related-tabs class="flex items-stretch gap-3 md:gap-5 mb-3 border-b border-line overflow-x-auto whitespace-nowrap">
+<a href="/admin/inschrijvingen/<R:member>?terug=%2Fadmin%2Factiviteiten%2F<ACTIVITY>" aria-current="page"
+ class="inline-flex items-center gap-1 min-h-11 border-b-2 text-sm border-blue-700 text-blue-700 font-semibold">Gegevens</a>
+<a href="/admin/inschrijvingen/<R:member>/betalingen?terug=%2Fadmin%2Factiviteiten%2F<ACTIVITY>"
+ class="inline-flex items-center gap-1 min-h-11 border-b-2 text-sm border-transparent text-ink-soft hover:text-blue-700">Betalingen<span class="text-[13px] font-medium tabular-nums">(1)</span></a>
+</nav>
+<div data-record-frame class="record-frame">
+<div data-record-columns class="record-columns">
+<div data-form-column class="record-form-column">
+<div data-form-flow data-mode="read" class="form-flow">
+<div id="insch-melding" data-form-message></div>
+<section data-form-section id="insch-section-contact" class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
+<h2 class="text-base font-semibold leading-6 text-ink mb-4">Contact</h2>
+<div data-form-grid class="form-grid">
+<div data-field="contact_name" data-kind="text" data-span="half" class="min-w-0">
+<p class="text-sm font-medium leading-[21px] text-ink mb-1">Naam</p>
+<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">Karel Karakter</p>
 </div>
-<div x-show="!edit">
-<ul class="mt-2 text-gray-700">
-<li>2× Product paid</li><li>1× Product free</li><li>1× Product on_site</li>
-</ul>
-<div class="mt-1 font-medium">Totaal: € 20,00</div>
-<div class="mt-2 text-gray-500">💬 Graag vooraan</div>
+<div data-field="contact_email" data-kind="email" data-span="full" class="min-w-0">
+<p class="text-sm font-medium leading-[21px] text-ink mb-1">E-mail</p>
+<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]"><a href="mailto:karakter@example.org" class="text-blue-500 underline">karakter@example.org</a></p>
 </div>
-<div x-show="edit" x-cloak class="mt-3 space-y-3">
-<form id="insch-form-<R:member>" class="space-y-3" hx-post="/admin/inschrijvingen/<R:member>/opslaan"
- hx-target="closest [data-registration-detail]" hx-swap="outerHTML">
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-<div><label for="reg-naam-<R:member>" class="block text-sm font-medium text-gray-700 mb-1">Naam <span class="text-red-600">*</span></label>
-<input type="text" name="contact_name" id="reg-naam-<R:member>" value="Karel Karakter"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
-<div><label for="reg-email-<R:member>" class="block text-sm font-medium text-gray-700 mb-1">E-mail <span class="text-red-600">*</span></label>
-<input type="email" name="contact_email" id="reg-email-<R:member>" value="karakter@example.org"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
-<div><label for="reg-gsm-<R:member>" class="block text-sm font-medium text-gray-700 mb-1">Mobiel <span class="text-red-600">*</span></label>
-<input type="tel" name="phone" id="reg-gsm-<R:member>" value="0470 00 00 01"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
-<div><label for="reg-ploeg-<R:member>" class="block text-sm font-medium text-gray-700 mb-1">Ploegnaam <span class="text-red-600">*</span></label>
-<input type="text" name="team_name" id="reg-ploeg-<R:member>" value="De Karakters"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div data-field="phone" data-kind="phone" data-span="half" class="min-w-0">
+<p class="text-sm font-medium leading-[21px] text-ink mb-1">Mobiel</p>
+<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">0470 00 00 01</p>
 </div>
-<p class="text-xs text-ink-soft">Dit corrigeert enkel deze inschrijving. Het ledenbestand pas je aan bij Leden.</p>
-<div id="reg-prijsblok-<R:member>" class="space-y-2">
-<div class="flex items-center justify-between gap-x-3" data-product-row>
-<div class="text-sm">
-<span class="font-medium">Product paid</span>
-<span class="ml-2 text-gray-500">€ 10,00</span>
+<div data-field="team_name" data-kind="text" data-span="half" class="min-w-0">
+<p class="text-sm font-medium leading-[21px] text-ink mb-1">Ploegnaam</p>
+<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">De Karakters</p>
 </div>
-<div class="inline-flex shrink-0 items-stretch rounded-xl border border-gray-300 overflow-hidden bg-white"
- x-data="{ stap(richting) {
- const veld = $refs.veld;
- const nu = Number(veld.value) || 0;
- const grens = Number(richting < 0 ? veld.min : veld.max);
- const nieuw = richting < 0 ? Math.max(grens, nu + richting)
- : Math.min(grens, nu + richting);
- if (nieuw === nu) return;
- veld.value = nieuw;
- veld.dispatchEvent(new Event('change', { bubbles: true }));
- } }">
-<button type="button" @click="stap(-1)"
- aria-label="Eén minder — Product paid"
- class="h-11 w-11 md:h-9 md:w-9 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">&minus;</button>
-<input type="number" name="product_<P:paid>" id="product-<R:member>-<P:paid>" x-ref="veld" value="2"
- min="0" max="99" inputmode="numeric"class="teller-veld h-11 w-14 md:h-9 md:w-12 shrink-0 text-center border-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
- hx-post="/admin/inschrijvingen/<R:member>/totaal" hx-include="closest form" hx-target="#reg-totaal-<R:member>" hx-swap="innerHTML" hx-sync="#reg-prijsblok-<R:member>:replace" hx-trigger="change, input delay:300ms">
-<button type="button" @click="stap(1)"
- aria-label="Eén meer — Product paid"
- class="h-11 w-11 md:h-9 md:w-9 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">+</button>
+<p data-span="full" class="min-w-0 text-xs text-ink-soft">Dit corrigeert enkel deze inschrijving. Het ledenbestand pas je aan bij Leden.</p>
 </div>
-</div>
-<div class="flex items-center justify-between gap-x-3" data-product-row>
-<div class="text-sm">
-<span class="font-medium">Product free</span>
-<span class="ml-2 text-gray-500">€ 0,00</span>
-</div>
-<div class="inline-flex shrink-0 items-stretch rounded-xl border border-gray-300 overflow-hidden bg-white"
- x-data="{ stap(richting) {
- const veld = $refs.veld;
- const nu = Number(veld.value) || 0;
- const grens = Number(richting < 0 ? veld.min : veld.max);
- const nieuw = richting < 0 ? Math.max(grens, nu + richting)
- : Math.min(grens, nu + richting);
- if (nieuw === nu) return;
- veld.value = nieuw;
- veld.dispatchEvent(new Event('change', { bubbles: true }));
- } }">
-<button type="button" @click="stap(-1)"
- aria-label="Eén minder — Product free"
- class="h-11 w-11 md:h-9 md:w-9 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">&minus;</button>
-<input type="number" name="product_<P:free>" id="product-<R:member>-<P:free>" x-ref="veld" value="1"
- min="0" max="99" inputmode="numeric"class="teller-veld h-11 w-14 md:h-9 md:w-12 shrink-0 text-center border-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
- hx-post="/admin/inschrijvingen/<R:member>/totaal" hx-include="closest form" hx-target="#reg-totaal-<R:member>" hx-swap="innerHTML" hx-sync="#reg-prijsblok-<R:member>:replace" hx-trigger="change, input delay:300ms">
-<button type="button" @click="stap(1)"
- aria-label="Eén meer — Product free"
- class="h-11 w-11 md:h-9 md:w-9 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">+</button>
-</div>
-</div>
-<div class="flex items-center justify-between gap-x-3" data-product-row>
-<div class="text-sm">
-<span class="font-medium">Product on_site</span>
-<span class="ml-2 text-gray-500">€ 3,00</span>
-</div>
-<div class="inline-flex shrink-0 items-stretch rounded-xl border border-gray-300 overflow-hidden bg-white"
- x-data="{ stap(richting) {
- const veld = $refs.veld;
- const nu = Number(veld.value) || 0;
- const grens = Number(richting < 0 ? veld.min : veld.max);
- const nieuw = richting < 0 ? Math.max(grens, nu + richting)
- : Math.min(grens, nu + richting);
- if (nieuw === nu) return;
- veld.value = nieuw;
- veld.dispatchEvent(new Event('change', { bubbles: true }));
- } }">
-<button type="button" @click="stap(-1)"
- aria-label="Eén minder — Product on_site"
- class="h-11 w-11 md:h-9 md:w-9 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">&minus;</button>
-<input type="number" name="product_<P:on_site>" id="product-<R:member>-<P:on_site>" x-ref="veld" value="1"
- min="0" max="99" inputmode="numeric"class="teller-veld h-11 w-14 md:h-9 md:w-12 shrink-0 text-center border-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
- hx-post="/admin/inschrijvingen/<R:member>/totaal" hx-include="closest form" hx-target="#reg-totaal-<R:member>" hx-swap="innerHTML" hx-sync="#reg-prijsblok-<R:member>:replace" hx-trigger="change, input delay:300ms">
-<button type="button" @click="stap(1)"
- aria-label="Eén meer — Product on_site"
- class="h-11 w-11 md:h-9 md:w-9 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">+</button>
-</div>
-</div>
-</div>
-<div id="reg-totaal-<R:member>">
+</section>
+<section data-form-section id="insch-section-products" class="form-section bg-surface border border-line rounded-2xl shadow-sm p-4">
+<h2 class="text-base font-semibold leading-6 text-ink mb-4">Producten</h2>
+<div data-form-grid class="form-grid">
+<p data-span="full" class="min-w-0 text-sm leading-[21px] text-ink">2× Product paid <span class="text-ink-soft">· € 10,00</span></p>
+<p data-span="full" class="min-w-0 text-sm leading-[21px] text-ink">1× Product free <span class="text-ink-soft">· € 0,00</span></p>
+<p data-span="full" class="min-w-0 text-sm leading-[21px] text-ink">1× Product on_site <span class="text-ink-soft">· € 3,00</span></p>
+<div data-span="full" class="min-w-0">
 <div data-total data-registration-total class="border-t border-line pt-3 text-sm font-semibold text-ink">
  Totaal: €20,00
 </div>
 </div>
-<div>
-<label for="reg-remarks-<R:member>" class="block text-sm font-medium text-gray-700 mb-1">Opmerking</label>
-<textarea name="remarks" id="reg-remarks-<R:member>" rows="2"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
- x-data="{ bodem: 0,
- init() { this.groei(); if (this.bodem) return;
- const vak = this.$el, zelf = this;
- const ro = new ResizeObserver(function () {
- if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
- ro.observe(vak); },
- meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
- groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
- this.$el.style.height = `auto`;
- const rand = this.$el.offsetHeight - this.$el.clientHeight;
- this.$el.style.height = Math.min(Math.max(this.$el.scrollHeight + rand, this.bodem), 400) + `px`; } }"
- x-on:input="groei()" >Graag vooraan</textarea>
+<div data-field="remarks" data-kind="textarea" data-span="full" class="min-w-0">
+<p class="text-sm font-medium leading-[21px] text-ink mb-1">Opmerking</p>
+<p data-value class="text-sm leading-[21px] min-h-[21px] text-ink whitespace-pre-line [overflow-wrap:anywhere]">Graag vooraan</p>
 </div>
-</form>
+</div>
+</section>
+</div>
+</div>
+<aside data-summary-column class="record-summary-column"><section data-summary-card class="summary-card rounded-card border border-line bg-surface shadow-sm" aria-label="Samenvatting">
+<div data-summary-state><span data-badge class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap bg-yellow-100 text-yellow-800">Openstaand</span></div>
+<dl data-summary-figures class="m-0">
+<div data-summary-figure>
+<dt class="text-[13px] leading-5 text-ink-soft">Totaal</dt>
+<dd class="m-0 text-[15px] leading-[21px] font-semibold tabular-nums whitespace-nowrap text-ink">€ 20,00</dd>
+</div>
+<div data-summary-figure>
+<dt class="text-[13px] leading-5 text-ink-soft">Betaald</dt>
+<dd class="m-0 text-[15px] leading-[21px] font-semibold tabular-nums whitespace-nowrap text-ink">€ 5,00</dd>
+</div>
+<div data-summary-figure>
+<dt class="text-[13px] leading-5 text-ink-soft">Openstaand</dt>
+<dd class="m-0 text-[15px] leading-[21px] font-semibold tabular-nums whitespace-nowrap text-brand-warning">€ 15,00</dd>
+</div>
+</dl>
+</section></aside>
 </div>
 </div>
 </div>

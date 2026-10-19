@@ -122,18 +122,18 @@ WEBSHOP_LID_EMAIL = "webshop.lid@example.com"
 VOETTEKST_HTML = "<p>Raak Millegem · Dorpsstraat 1, 2400 Mol</p><p>\U0001f4e7 info@example.com</p>"
 
 
-def _adres(db, Address, person_id: int, postal_code_id: int) -> None:
+def _adres(db, Address, person, postal_code_id: int) -> None:
     """Eén adres voor elk gezinslid (#1238 punt 3).
 
     Elk lid krijgt zijn EIGEN rij en niet één rij voor het gezin: zo modelleert
-    `mdm.addresses` het (één adres per persoon, partieel uniek op `person_id`), en het
+    `mdm.addresses` het (één adres per partij, partieel uniek op `party_id`), en het
     gezinsscherm leest het per lid. Zonder rij vallen de leesweergave én het
     bewerkformulier weg — beide hangen aan dezelfde `{% if p.address %}`, en dat is
     waarom het op de afdrukken geen UI-gat was maar ontbrekende data.
     """
     db.add(
         Address(
-            person_id=person_id,
+            party_id=person.party_id,
             street=JOMMEKE_STRAAT,
             house_number=JOMMEKE_HUISNUMMER,
             postal_code_id=postal_code_id,
@@ -207,16 +207,17 @@ def main() -> None:
         # met de .env als vangnet, en de afdrukomgeving heeft geen van beide — de
         # sjabloon verbergt een lege waarde, dus het beeld zou juist het nummer missen
         # dat het moet aanwijzen.
-        from app.domains.mdm.api import BankAccount
+        from app.domains.mdm.api import BankAccount, Organization
         from app.kernel.tenancy import DEFAULT_TENANT_ID
 
-        if (
-            db.query(BankAccount).filter(BankAccount.organization_id == DEFAULT_TENANT_ID).first()
-            is None
-        ):
+        # CR-26 phase 3: the account hangs on the organisation's party.
+        site_party = (
+            db.query(Organization.party_id).filter(Organization.id == DEFAULT_TENANT_ID).scalar()
+        )
+        if db.query(BankAccount).filter(BankAccount.party_id == site_party).first() is None:
             db.add(
                 BankAccount(
-                    organization_id=DEFAULT_TENANT_ID,
+                    party_id=site_party,
                     iban=SEED_IBAN,
                     beneficiary=SEED_BEGUNSTIGDE,
                     sort_order=0,
@@ -333,7 +334,7 @@ def main() -> None:
             # (R43, W26): the board types the address and the page names the member.
             webshop_lid = (
                 db.query(Person)
-                .join(ContactDetail, ContactDetail.person_id == Person.id)
+                .join(ContactDetail, ContactDetail.party_id == Person.party_id)
                 .filter(ContactDetail.value == WEBSHOP_LID_EMAIL)
                 .first()
             )
@@ -356,7 +357,7 @@ def main() -> None:
                 )
                 db.add(
                     ContactDetail(
-                        person_id=lid_person.id,
+                        party_id=lid_person.party_id,
                         contact_type_code="EMAIL",
                         value=WEBSHOP_LID_EMAIL,
                         is_primary=True,
@@ -441,11 +442,11 @@ def main() -> None:
             db.add(gezinslid)
             db.flush()
             db.add(MemberPerson(member_id=member.id, person_id=gezinslid.id, relation_type=relatie))
-            _adres(db, Address, gezinslid.id, postcode.id)
+            _adres(db, Address, gezinslid, postcode.id)
             if relatie == "PARTNER":
                 db.add(
                     ContactDetail(
-                        person_id=gezinslid.id,
+                        party_id=gezinslid.party_id,
                         contact_type_code="EMAIL",
                         value=PARTNER_EMAIL,
                         is_primary=True,
@@ -453,21 +454,27 @@ def main() -> None:
                 )
                 db.add(
                     ContactDetail(
-                        person_id=gezinslid.id,
+                        party_id=gezinslid.party_id,
                         contact_type_code="MOBILE",
                         value=PARTNER_GSM,
                         is_primary=True,
                     )
                 )
-        _adres(db, Address, person.id, postcode.id)
+        _adres(db, Address, person, postcode.id)
         db.add(
             ContactDetail(
-                person_id=person.id, contact_type_code="EMAIL", value=MARKER_EMAIL, is_primary=True
+                party_id=person.party_id,
+                contact_type_code="EMAIL",
+                value=MARKER_EMAIL,
+                is_primary=True,
             )
         )
         db.add(
             ContactDetail(
-                person_id=person.id, contact_type_code="MOBILE", value=HOOFDLID_GSM, is_primary=True
+                party_id=person.party_id,
+                contact_type_code="MOBILE",
+                value=HOOFDLID_GSM,
+                is_primary=True,
             )
         )
         jaar = vandaag.year
@@ -523,7 +530,7 @@ def main() -> None:
         )
         db.add(
             ContactDetail(
-                person_id=verlopen_person.id,
+                party_id=verlopen_person.party_id,
                 contact_type_code="EMAIL",
                 value=MARKER_EMAIL_VERLOPEN,
                 is_primary=True,
@@ -572,13 +579,13 @@ def main() -> None:
         )
         db.add(
             ContactDetail(
-                person_id=vernieuwd_person.id,
+                party_id=vernieuwd_person.party_id,
                 contact_type_code="EMAIL",
                 value=MARKER_EMAIL_VERNIEUWD,
                 is_primary=True,
             )
         )
-        _adres(db, Address, vernieuwd_person.id, postcode.id)
+        _adres(db, Address, vernieuwd_person, postcode.id)
         # Twee lidmaatschappen, zoals een echt vernieuwd gezin ze heeft: het lopende
         # jaar en het jaar dat net betaald is.
         db.add(
@@ -658,13 +665,13 @@ def main() -> None:
         )
         db.add(
             ContactDetail(
-                person_id=overschrijving_person.id,
+                party_id=overschrijving_person.party_id,
                 contact_type_code="EMAIL",
                 value=MARKER_EMAIL_OVERSCHRIJVING,
                 is_primary=True,
             )
         )
-        _adres(db, Address, overschrijving_person.id, postcode.id)
+        _adres(db, Address, overschrijving_person, postcode.id)
         db.add(
             Membership(
                 member_id=overschrijving_member.id,

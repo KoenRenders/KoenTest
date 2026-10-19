@@ -81,7 +81,7 @@ def _remove(email: str) -> None:
     db = SessionLocal()
     try:
         for contact in db.query(ContactDetail).filter(ContactDetail.value == email).all():
-            person = db.query(Person).filter(Person.id == contact.person_id).first()
+            person = db.query(Person).filter(Person.party_id == contact.party_id).first()
             if person is not None:
                 for other in person.contact_details:
                     soft_delete(other)

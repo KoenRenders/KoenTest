@@ -75,7 +75,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="newsletter.newsletter.subject",
         columns=("newsletter.newsletters.subject",),
-        label=None,
+        label="Onderwerp",
         name_en="Subject",
         help="The subject of the newsletter.",
         ai_exposure=AiExposure.INTERNAL,  # K9
@@ -83,7 +83,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="newsletter.newsletter.preview_text",
         columns=("newsletter.newsletters.preview_text",),
-        label=None,
+        label="Voorbeeldtekst in de mailbox",
         name_en="Preview text",
         help="The preview text of the newsletter.",
         ai_exposure=AiExposure.INTERNAL,  # K7
@@ -99,7 +99,7 @@ ATTRIBUTES: tuple[Attribute, ...] = (
     Attribute(
         key="newsletter.newsletter.audience",
         columns=("newsletter.newsletters.audience",),
-        label=None,
+        label="Aan wie",
         name_en="Audience",
         help="The audience of the newsletter, a code of its code list.",
         ai_exposure=AiExposure.INTERNAL,  # K0
