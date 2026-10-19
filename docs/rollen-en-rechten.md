@@ -426,10 +426,11 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `GET /admin/werkruimte-wisselen`
 - `GET /admin/werkruimte-wisselen/{tenant_id}`
 
-### `user.view` — 2 routes
+### `user.view` — 3 routes
 
 - `GET /admin/gebruikers`
 - `GET /admin/gebruikers/nieuw`
+- `GET /admin/gebruikers/{user_id}`
 
 ### `user.manage` — 3 routes
 

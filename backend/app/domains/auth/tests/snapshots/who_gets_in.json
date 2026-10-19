@@ -214,6 +214,10 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
+  "GET /admin/gebruikers/{user_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
   "GET /admin/info": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"

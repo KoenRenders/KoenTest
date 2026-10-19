@@ -41,12 +41,14 @@ def test_gebruiker_email_is_editable(client, db_session):
 
     csrf = _login(client)
     client.post(
-        "/admin/gebruikers", data={"email": "oud@example.com"}, headers={"X-CSRF-Token": csrf}
+        "/admin/gebruikers",
+        data={"email": "oud@example.com", "role_codes": ["ADMIN"]},
+        headers={"X-CSRF-Token": csrf},
     )
     user = db_session.query(User).filter(User.email == "oud@example.com").one()
 
-    # De edit-rij bevat een e-mailinput.
-    assert 'name="email"' in client.get("/admin/gebruikers").text
+    # De bewerkmodus van het record (#2114) bevat een e-mailinput.
+    assert 'name="email"' in client.get(f"/admin/gebruikers/{user.id}?bewerken=1").text
 
     # E-mail wijzigen via de update-route.
     resp = client.post(

@@ -29,6 +29,16 @@ class UserCreate(BaseModel):
     role_codes: List[str] = []
 
 
+class UserRefused(HTTPException):
+    """A 400 that names the form field it is about (#2114), so the record page can mark
+    that field. Still an `HTTPException`: every caller that handled the plain one
+    handles this one the same way."""
+
+    def __init__(self, detail: str, field: str = "") -> None:
+        super().__init__(status_code=400, detail=detail)
+        self.field = field
+
+
 class UserUpdate(BaseModel):
     email: Optional[str] = None
     is_active: Optional[bool] = None
@@ -211,8 +221,10 @@ def list_users(db: Session, _admin=None):
 
 
 def create_user(body: UserCreate, db: Session, _admin=None):
+    if not (body.email or "").strip():
+        raise UserRefused(_("E-mailadres is verplicht."), field="email")
     if db.query(User).filter(User.email == body.email).first():
-        raise HTTPException(status_code=400, detail=_("E-mailadres is al in gebruik."))
+        raise UserRefused(_("E-mailadres is al in gebruik."), field="email")
     _validate_role_codes(db, body.role_codes)
     user = User(email=body.email, is_active=body.is_active)
     db.add(user)
@@ -230,7 +242,7 @@ def update_user(user_id: int, body: UserUpdate, db: Session, _admin=None):
     if body.email is not None:
         existing = db.query(User).filter(User.email == body.email, User.id != user_id).first()
         if existing:
-            raise HTTPException(status_code=400, detail=_("E-mailadres is al in gebruik."))
+            raise UserRefused(_("E-mailadres is al in gebruik."), field="email")
         user.email = body.email
     if body.is_active is not None:
         user.is_active = body.is_active

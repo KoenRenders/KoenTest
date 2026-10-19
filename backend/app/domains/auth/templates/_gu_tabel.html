@@ -1,0 +1,23 @@
+{% import "_macros.html" as ui %}
+{# The list of Gebruikers (#2114): one row per account on the kit's table — the
+   e-mail address as the way in to the record, the roles it holds in this
+   workspace as words, and a Status cell that holds only Inactief: active is quiet.
+   The toolbar swaps this fragment; what changes with the list — the count, a
+   segment's count, the sort — travels out-of-band. #}
+{% if rows %}
+{% call ui.data_table(columns, hx_target="#gu-lijst", caption=_("Gebruikers")) %}
+  <tbody>
+    {% for r in rows %}
+    <tr data-row data-user="{{ r.id }}" class="align-middle">
+      <td data-cell="name" class="h-[57px] border-b border-line px-3 py-2">{{ ui.row_link(r.email, r.href) }}</td>
+      <td data-cell="context" class="border-b border-line px-3 py-2 text-ink-soft">{{ r.roles or "—" }}</td>
+      <td data-cell="status" class="border-b border-line px-3 py-2">{% if r.inactive %}{{ ui.badge(_("Inactief"), "red") }}{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+{% endcall %}
+{{ ui.pager(page, per_page=per_page, total=total, hx_get=pager_url, hx_target="#gu-lijst", count=False, push=True) }}
+{% else %}
+{{ ui.empty_state(empty_reason) }}
+{% endif %}
+{% if oob %}{{ ui.toolbar_oob("gu-filter", segments=segments, page=page, per_page=per_page, total=total, sort=sort) }}{% endif %}
