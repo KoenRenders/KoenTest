@@ -75,8 +75,11 @@ def test_gebruikers_beheer(client, db_session):
     csrf = _login(client)
     # Sinds #627 komt de gebruiker van een eigen aanmaakpagina; na het opslaan
     # stuurt de route door naar de lijst i.p.v. een fragment terug te geven.
+    # With a role here: the record is this workspace's only then (#2162).
     resp = client.post(
-        "/admin/gebruikers", data={"email": "nieuw@example.com"}, headers={"X-CSRF-Token": csrf}
+        "/admin/gebruikers",
+        data={"email": "nieuw@example.com", "role_codes": "FINANCE"},
+        headers={"X-CSRF-Token": csrf},
     )
     assert resp.status_code == 204
     assert resp.headers.get("HX-Redirect") == "/admin/gebruikers"
@@ -89,7 +92,11 @@ def test_gebruikers_beheer(client, db_session):
     assert "al in gebruik" in resp.text
 
     # deactiveren (checkbox niet meegestuurd = uit)
-    resp = client.post(f"/admin/gebruikers/{user.id}", data={}, headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        f"/admin/gebruikers/{user.id}",
+        data={"role_codes": "FINANCE"},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert resp.status_code == 200
     db_session.expire_all()
     assert user.is_active is False

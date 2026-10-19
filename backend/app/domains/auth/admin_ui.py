@@ -403,12 +403,12 @@ def _record_ctx(
     — one card per workspace on the platform, one card in a workspace — read first,
     `?bewerken=1` the editor with ONE save. Who may see an account is what the list
     shows; who may change one is `Right.USER_MANAGE`, as before."""
+    from app.domains.auth.users import changeable_here, user_of_workspace
+
     scope = _scope(db, viewer_email)
-    user = next((u for u in _accounts(db, scope) if u.id == user_id), None)
-    if user is None:
-        raise HTTPException(status_code=404, detail=_("Gebruiker niet gevonden."))
+    user = user_of_workspace(db, user_id)
     held = _held(user, scope)
-    can_manage = may(db, viewer_email, Right.USER_MANAGE)
+    can_manage = may(db, viewer_email, Right.USER_MANAGE) and changeable_here(db, user)
     me = admin_user_by_email(db, viewer_email)
     frame = record_frame(request, db, NAV)
     way_back = frame["way_back"]
@@ -541,6 +541,8 @@ async def gebruiker_bijwerken(
                 _admin=admin_user_by_email(db, email),
             )
     except HTTPException as exc:
+        if exc.status_code == 404:
+            raise  # not this workspace's account (#2162): as the GET answers
         return refusal_response(
             request, [FieldError(getattr(exc, "field", ""), str(exc.detail))], RECORD_MESSAGE
         )
@@ -570,5 +572,7 @@ async def gebruiker_verwijderen(
     try:
         delete_user(user_id, db=db, current_admin=admin_user_by_email(db, email))
     except HTTPException as exc:
+        if exc.status_code == 404:
+            raise  # not this workspace's account (#2162): as the GET answers
         return refusal_response(request, [FieldError("", str(exc.detail))], RECORD_MESSAGE)
     return _redirect(request, NAV)

@@ -18,10 +18,16 @@ def _session(client, email):
 
 
 def _make_backoffice(db, email, role):
+    """An account with one role: OPERATOR platform-wide, as it is only ever
+    assigned; any other in the default workspace, as an admin gives it (#2162:
+    a platform-wide account is read-only in a workspace)."""
+    from app.kernel.tenancy import DEFAULT_TENANT_ID
+
     user = User(email=email, is_active=True)
     db.add(user)
     db.flush()
-    db.add(UserRole(user_id=user.id, role_code=role))
+    tenant = None if role == "OPERATOR" else DEFAULT_TENANT_ID
+    db.add(UserRole(user_id=user.id, role_code=role, tenant_id=tenant))
     db.flush()
     return user
 
