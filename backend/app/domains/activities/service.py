@@ -3291,7 +3291,7 @@ def member_contacts(db: Session, person_ids: list[int]) -> dict[tuple[int, str |
     the search. A second lookup beside this one would let the grey value and
     the printed value drift apart.
     """
-    from app.domains.mdm.api import ContactDetail
+    from app.domains.mdm.api import ContactDetail, Person
 
     contacten: dict[tuple[int, str | None], str] = {}
     if not person_ids:
@@ -3301,16 +3301,17 @@ def member_contacts(db: Session, person_ids: list[int]) -> dict[tuple[int, str |
     # an order the answer was whichever row the database returned first, so a
     # member with two addresses could print another one on the next render.
     rows = (
-        db.query(ContactDetail)
-        .filter(ContactDetail.person_id.in_(person_ids))
+        db.query(Person.id, ContactDetail)
+        .join(Person, Person.party_id == ContactDetail.party_id)
+        .filter(Person.id.in_(person_ids))
         .order_by(ContactDetail.is_primary.desc(), ContactDetail.id)
         .all()
     )
-    for detail in rows:
+    for person_id, detail in rows:
         # CR-12 phase 2: the `.upper()` was a normalisation because the column
         # accepted any spelling. The code list does that now; `code_of` returns
         # the code, whether it comes back as a member or as a bare code.
-        sleutel = (detail.person_id, code_of(detail.contact_type_code))
+        sleutel = (person_id, code_of(detail.contact_type_code))
         if detail.value and sleutel not in contacten:
             contacten[sleutel] = detail.value
     return contacten

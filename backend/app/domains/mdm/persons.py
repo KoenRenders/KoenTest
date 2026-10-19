@@ -88,10 +88,14 @@ def _searched(query, q: str):
     if not needle:
         return query
     pattern = f"%{needle.translate(_LIKE_SPECIAL)}%"
-    with_address = select(ContactDetail.person_id).where(
-        ContactDetail.deleted_at.is_(None),
-        ContactDetail.contact_type_code == CONTACT.EMAIL,
-        func.lower(ContactDetail.value).like(pattern, escape="\\"),
+    with_address = (
+        select(Person.id)
+        .join(ContactDetail, ContactDetail.party_id == Person.party_id)
+        .where(
+            ContactDetail.deleted_at.is_(None),
+            ContactDetail.contact_type_code == CONTACT.EMAIL,
+            func.lower(ContactDetail.value).like(pattern, escape="\\"),
+        )
     )
     return query.filter(
         or_(

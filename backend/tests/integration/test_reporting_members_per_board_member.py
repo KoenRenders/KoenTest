@@ -310,7 +310,8 @@ def test_a_bus_number_is_written_the_way_the_rest_of_the_code_writes_it(db_sessi
 
     adres = (
         db_session.query(Address)
-        .filter(Address.person_id.isnot(None), Address.deleted_at.is_(None))
+        .join(Person, Person.party_id == Address.party_id)
+        .filter(Address.deleted_at.is_(None))
         .first()
     )
     adres.bus_number = "3"

@@ -56,7 +56,7 @@ def _household(db, email: str):
     at_tenant(db, member)  # CR-26 F9: Mijn gezin where the household is a member
     db.add(
         ContactDetail(
-            person_id=main.id,
+            party_id=main.party_id,
             contact_type_code="EMAIL",
             value="tweede." + email,
             is_primary=False,
@@ -66,7 +66,7 @@ def _household(db, email: str):
     db.add(MemberPerson(member_id=member.id, person_id=partner.id, relation_type="PARTNER"))
     db.add(
         ContactDetail(
-            person_id=partner.id,
+            party_id=partner.party_id,
             contact_type_code="EMAIL",
             value="partner." + email,
             is_primary=True,
@@ -225,7 +225,7 @@ def test_an_e_mail_row_with_the_main_members_number_is_not_the_main_member(clien
     db_session.add(
         ContactDetail(
             id=main.id,
-            person_id=partner.id,
+            party_id=partner.party_id,
             contact_type_code="EMAIL",
             value="partner.botsing@example.com",
             is_primary=True,

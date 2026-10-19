@@ -21,7 +21,7 @@ from datetime import date
 
 import pytest
 
-from app.domains.mdm.api import ContactDetail, MemberPerson
+from app.domains.mdm.api import ContactDetail, MemberPerson, Person
 from app.domains.membership.api import Membership
 from app.kernel.clock import belgian_today
 from tests.conftest import signup_fields
@@ -47,7 +47,10 @@ def _sign_up_online(client, db_session) -> int:
     )
     assert response.headers.get("HX-Redirect", "").startswith("https://mollie.test/checkout/")
     person_id = (
-        db_session.query(ContactDetail.person_id).filter(ContactDetail.value == MAIL).scalar()
+        db_session.query(Person.id)
+        .join(ContactDetail, ContactDetail.party_id == Person.party_id)
+        .filter(ContactDetail.value == MAIL)
+        .scalar()
     )
     return (
         db_session.query(MemberPerson.member_id)

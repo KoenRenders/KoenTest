@@ -343,7 +343,7 @@ def _unstage() -> None:
         for contact in db.query(ContactDetail).filter(ContactDetail.value == WAITING_EMAIL):
             soft_delete(contact)
         for contact in db.query(ContactDetail).filter(ContactDetail.value == ACCOUNT_EMAIL).all():
-            person = db.query(Person).filter(Person.id == contact.person_id).first()
+            person = db.query(Person).filter(Person.party_id == contact.party_id).first()
             if person is not None:
                 for other in person.contact_details:
                     soft_delete(other)

@@ -43,7 +43,7 @@ from app.domains.auth.api import (
 from app.domains.auth.models import User, UserRole
 from app.domains.mdm.api import ContactDetail, MemberPerson, Person
 from app.domains.mdm.models import ContactDetailHistory, MemberPersonHistory, PersonHistory
-from tests._sites import at_tenant
+from tests._sites import at_tenant, party_of
 from tests.conftest import (
     SEEDED_ADMIN_EMAIL,
     board_at_the_household,
@@ -89,21 +89,24 @@ def world(client, db_session):
     )
     db_session.add(
         ContactDetail(
-            person_id=partner.id, contact_type_code="EMAIL", value=PARTNER_EMAIL, is_primary=True
+            party_id=partner.party_id,
+            contact_type_code="EMAIL",
+            value=PARTNER_EMAIL,
+            is_primary=True,
         )
     )
     loose = create_test_person(db_session, first_name="Tibo", last_name="Zondergezin")
     db_session.add_all(
         [
             ContactDetail(
-                person_id=loose.id,
+                party_id=loose.party_id,
                 contact_type_code="EMAIL",
                 value=LOOSE_EMAIL,
                 is_primary=True,
                 confirmed_at=datetime.now(timezone.utc),
             ),
             ContactDetail(
-                person_id=loose.id,
+                party_id=loose.party_id,
                 contact_type_code="MOBILE",
                 value="0470 00 17 12",
                 is_primary=True,
@@ -228,7 +231,9 @@ def test_deleting_a_person_without_a_household(client, db_session, world):
     db_session.expire_all()
     assert db_session.query(Person).filter(Person.id == world["loose"]).first() is None
     assert (
-        db_session.query(ContactDetail).filter(ContactDetail.person_id == world["loose"]).count()
+        db_session.query(ContactDetail)
+        .filter(ContactDetail.party_id == party_of(db_session, world["loose"]))
+        .count()
         == 0
     )
     person_rows = (
@@ -242,7 +247,7 @@ def test_deleting_a_person_without_a_household(client, db_session, world):
     )
     contact_rows = (
         db_session.query(ContactDetailHistory)
-        .filter(ContactDetailHistory.person_id == world["loose"])
+        .filter(ContactDetailHistory.party_id == party_of(db_session, world["loose"]))
         .filter(ContactDetailHistory.action == "person_deleted")
         .count()
     )
@@ -296,9 +301,18 @@ def _main_member_stays(db_session, world) -> None:
     assert (
         db_session.query(MemberPerson).filter(MemberPerson.person_id == world["main"]).count() == 1
     )
-    assert db_session.query(ContactDetail).filter(ContactDetail.person_id == world["main"]).count()
-    for model in (PersonHistory, MemberPersonHistory, ContactDetailHistory):
-        assert db_session.query(model).filter(model.person_id == world["main"]).count() == 0, (
+    assert (
+        db_session.query(ContactDetail)
+        .filter(ContactDetail.party_id == party_of(db_session, world["main"]))
+        .count()
+    )
+    party = party_of(db_session, world["main"])
+    for model, column in (
+        (PersonHistory, PersonHistory.person_id == world["main"]),
+        (MemberPersonHistory, MemberPersonHistory.person_id == world["main"]),
+        (ContactDetailHistory, ContactDetailHistory.party_id == party),
+    ):
+        assert db_session.query(model).filter(column).count() == 0, (
             f"a refused delete wrote a {model.__name__} row"
         )
 

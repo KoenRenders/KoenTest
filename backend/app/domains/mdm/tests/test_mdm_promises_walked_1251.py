@@ -87,7 +87,7 @@ def test_an_address_that_is_there_cannot_lose_it(client, db_session, postal_code
     response = save_record(client, household.id, fields, headers)
 
     db_session.expire_all()
-    address = db_session.query(Address).filter(Address.person_id == main.id).one()
+    address = db_session.query(Address).filter(Address.party_id == main.party_id).one()
     assert getattr(address, empty) == WHOLE[empty], (
         f"the address lost its {empty} (the answer was {response.status_code})"
     )

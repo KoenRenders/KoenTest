@@ -171,7 +171,7 @@ def test_an_address_the_board_types_counts_at_once(client, db_session, world):
     assert save_record(client, world["id"], fields).status_code == 200
     db_session.expire_all()
     row = db_session.query(ContactDetail).filter(ContactDetail.value == NEW).one()
-    assert row.person_id == world["partner"]
+    assert row.person.id == world["partner"]
     assert row.confirmed_at is not None, "the board's address waits for a code"
     assert row.is_primary
     history = db_session.query(ContactDetailHistory).filter_by(contact_detail_id=row.id).all()

@@ -32,8 +32,10 @@ def _contact_person(db_session, *, first, last, email, mobile):
     from tests.conftest import create_test_person
 
     person = create_test_person(db_session, first_name=first, last_name=last)
-    db_session.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=email))
-    db_session.add(ContactDetail(person_id=person.id, contact_type_code="MOBILE", value=mobile))
+    db_session.add(ContactDetail(party_id=person.party_id, contact_type_code="EMAIL", value=email))
+    db_session.add(
+        ContactDetail(party_id=person.party_id, contact_type_code="MOBILE", value=mobile)
+    )
     db_session.flush()
     return person
 

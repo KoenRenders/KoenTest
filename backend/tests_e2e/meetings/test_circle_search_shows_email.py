@@ -50,7 +50,7 @@ def _people(last: str) -> None:
             if email:
                 db.add(
                     ContactDetail(
-                        person_id=person.id,
+                        party_id=person.party_id,
                         contact_type_code="EMAIL",
                         value=email,
                         is_primary=True,

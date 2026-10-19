@@ -334,7 +334,7 @@ def test_the_poster_gsm_comes_from_the_real_mobile_row(db_session, design):
     )
     db_session.add(
         ContactDetail(
-            organization_id=organisatie.id,
+            party_id=organisatie.party_id,
             contact_type_code="MOBILE",
             value="0470 55 44 33",
         )

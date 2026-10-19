@@ -261,10 +261,10 @@ Business columns: **381**; technical columns by the metadata (primary key, forei
 | contact_details | confirmed_at | DATETIME |  |  |  | plain | K8 an amount, a date, a count, a flag or a code |
 | external_numbers | source | VARCHAR(50) | required | → mdm.external_source_codes | (label of the code list) | plain | K0 a code: the label is the code list's, the value is a code |
 | external_numbers | external_id | VARCHAR(50) | required |  |  | never | K1 identifies a person, names who did it, or is a secret or an opaque payload |
-| organization_identifications | scheme | VARCHAR(20) | required | → mdm.identification_scheme_codes | (label of the code list) | plain | K0 a code: the label is the code list's, the value is a code |
-| organization_identifications | value | VARCHAR(50) | required |  | Waarde | plain | K9 the tenant's own definitions and organisations: internal (Koen, 15 October 2026) |
-| organization_identifications | country | VARCHAR(2) |  |  | Land | plain | K9 the tenant's own definitions and organisations: internal (Koen, 15 October 2026) |
-| organization_identifications | sort_order | INTEGER | required |  | Volgorde | plain | K8 an amount, a date, a count, a flag or a code |
+| party_identifications | scheme | VARCHAR(20) | required | → mdm.identification_scheme_codes | (label of the code list) | plain | K0 a code: the label is the code list's, the value is a code |
+| party_identifications | value | VARCHAR(50) | required |  | Waarde | plain | K9 the tenant's own definitions and organisations: internal (Koen, 15 October 2026) |
+| party_identifications | country | VARCHAR(2) |  |  | Land | plain | K9 the tenant's own definitions and organisations: internal (Koen, 15 October 2026) |
+| party_identifications | sort_order | INTEGER | required |  | Volgorde | plain | K8 an amount, a date, a count, a flag or a code |
 | organization_persons | relation_type | VARCHAR(30) | required | → mdm.organization_relation_type_codes | (label of the code list) | plain | K0 a code: the label is the code list's, the value is a code |
 | organization_persons | start_date | DATE |  |  | Startdatum | plain | K8 an amount, a date, a count, a flag or a code |
 | organization_persons | end_date | DATE |  |  | Einddatum | plain | K8 an amount, a date, a count, a flag or a code |

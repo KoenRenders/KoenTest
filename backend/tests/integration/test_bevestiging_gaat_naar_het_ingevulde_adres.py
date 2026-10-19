@@ -81,7 +81,9 @@ def verstuurde_mail(monkeypatch):
 def lid_met_twee_adressen(db_session):
     _member, person = create_test_family(db_session, email=HOOFD)
     db_session.add(
-        ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=WERK, is_primary=False)
+        ContactDetail(
+            party_id=person.party_id, contact_type_code="EMAIL", value=WERK, is_primary=False
+        )
     )
     db_session.commit()
     return person

@@ -83,13 +83,19 @@ def _household(db) -> dict:
     an = people["An"]
     postal = db.query(PostalCode).filter(PostalCode.postal_code == "2400").one()
     db.add(
-        Address(person_id=an.id, street="Dorpsstraat", house_number="1", postal_code_id=postal.id)
+        Address(
+            party_id=an.party_id, street="Dorpsstraat", house_number="1", postal_code_id=postal.id
+        )
     )
-    db.add(ContactDetail(person_id=an.id, contact_type_code="EMAIL", value=ACTOR, is_primary=True))
-    db.add(ContactDetail(person_id=an.id, contact_type_code="EMAIL", value="an.werk@example.com"))
+    db.add(
+        ContactDetail(party_id=an.party_id, contact_type_code="EMAIL", value=ACTOR, is_primary=True)
+    )
+    db.add(
+        ContactDetail(party_id=an.party_id, contact_type_code="EMAIL", value="an.werk@example.com")
+    )
     db.add(
         ContactDetail(
-            person_id=an.id, contact_type_code="MOBILE", value="0470000000", is_primary=True
+            party_id=an.party_id, contact_type_code="MOBILE", value="0470000000", is_primary=True
         )
     )
     db.commit()
@@ -239,7 +245,7 @@ def test_phone_and_mobile_are_set_changed_and_removed(db_session):
     _row(payload, bert).phone = ""
     _save(db_session, world, payload)
     assert _contacts(db_session, bert) == {}
-    actions = [h[:2] for h in _history(db_session, ContactDetailHistory, person_id=bert.id)]
+    actions = [h[:2] for h in _history(db_session, ContactDetailHistory, party_id=bert.party_id)]
     assert actions[:2] == [("insert", "contacts_updated")] * 2
     assert all(action == "contacts_updated" for _operation, action in actions)
     assert len(actions) == 5, "set twice, changed once, removed twice"
@@ -606,12 +612,12 @@ def test_email_rows_are_edited_added_and_removed_with_the_members_own_source(db_
         "an.kantoor@example.com": False,
         "an.extra@example.com": False,
     }
-    history = _history(db_session, ContactDetailHistory, person_id=an.id)
+    history = _history(db_session, ContactDetailHistory, party_id=an.party_id)
     assert history == [
         ("insert", "email_added", "member_self"),
         ("insert", "email_added", "member_self"),
     ]
-    assert _history(db_session, ContactDetailHistory, person_id=world["Bert"].id) == [
+    assert _history(db_session, ContactDetailHistory, party_id=world["Bert"].party_id) == [
         ("insert", "email_added", "member_self")
     ], "a person's first address waits too: it is not the primary one before its code"
 
@@ -654,7 +660,7 @@ def test_the_primary_mark_moves_when_the_form_marks_another_row(db_session):
         if c.contact_type_code == "EMAIL"
     }
     assert mails == {ACTOR: False, "an.werk@example.com": True}
-    assert [h[1] for h in _history(db_session, ContactDetailHistory, person_id=an.id)] == [
+    assert [h[1] for h in _history(db_session, ContactDetailHistory, party_id=an.party_id)] == [
         "email_demoted",
         "email_promoted",
     ]
@@ -903,9 +909,9 @@ def test_new_every_refusal_comes_back_at_once_and_nothing_is_written(db_session)
 def _snapshot(db, world) -> list[tuple]:
     db.expire_all()
     return sorted(
-        (c.person_id, c.contact_type_code, c.value, c.is_primary)
+        (c.person.id, c.contact_type_code, c.value, c.is_primary)
         for c in db.query(ContactDetail).filter(
-            ContactDetail.person_id.in_([world["An"].id, world["Bert"].id])
+            ContactDetail.party_id.in_([world["An"].party_id, world["Bert"].party_id])
         )
     )
 

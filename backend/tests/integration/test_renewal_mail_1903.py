@@ -176,7 +176,7 @@ def test_a_partner_who_renews_has_the_mail_sent_to_the_main_member(client, db_se
     db_session.add(MemberPerson(member_id=member.id, person_id=partner.id, relation_type="PARTNER"))
     db_session.add(
         ContactDetail(
-            person_id=partner.id,
+            party_id=partner.party_id,
             contact_type_code="EMAIL",
             value="partner-1903@example.com",
             is_primary=True,
@@ -222,7 +222,7 @@ def test_without_a_confirmed_address_nothing_is_mailed_and_the_record_says_so(
 ):
     member, person = create_test_family(db_session, email="wacht-1903@example.com")
     at_tenant(db_session, member)  # CR-26 F9
-    for detail in db_session.query(ContactDetail).filter_by(person_id=person.id):
+    for detail in db_session.query(ContactDetail).filter_by(party_id=person.party_id):
         detail.confirmed_at = None
     db_session.commit()
 

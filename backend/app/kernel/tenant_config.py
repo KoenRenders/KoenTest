@@ -417,8 +417,8 @@ def _eerste_rekening(db: Session, tenant_id: int | None = None):
     return db.execute(
         text(
             "SELECT iban, bic, beneficiary FROM mdm.bank_accounts "
-            "WHERE organization_id = :id AND deleted_at IS NULL "
-            "ORDER BY sort_order, id LIMIT 1"
+            "WHERE party_id = (SELECT party_id FROM mdm.organizations WHERE id = :id) "
+            "AND deleted_at IS NULL ORDER BY sort_order, id LIMIT 1"
         ),
         # #1550: the account of the organisation behind the site.
         {"id": site_organization_id(db, tenant_id)},

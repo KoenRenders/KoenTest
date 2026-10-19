@@ -184,7 +184,7 @@ def _actions(db, person) -> list[str]:
     return [
         h.action
         for h in db.query(ContactDetailHistory)
-        .filter_by(person_id=person.id)
+        .filter_by(party_id=person.party_id)
         .order_by(ContactDetailHistory.id)
     ]
 

@@ -131,7 +131,7 @@ def seed(db) -> dict:
                 )
                 db.add(
                     Address(
-                        person_id=persoon.id,
+                        party_id=persoon.party_id,
                         street=straat,
                         house_number=str(nummer + 1),
                         postal_code_id=postal.id,

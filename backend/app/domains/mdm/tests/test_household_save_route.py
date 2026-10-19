@@ -60,19 +60,22 @@ def world(db_session):
     postal = db.query(PostalCode).filter(PostalCode.postal_code == "2400").one()
     db.add(
         Address(
-            person_id=people["An"].id,
+            party_id=people["An"].party_id,
             street="Dorpsstraat",
             house_number="1",
             postal_code_id=postal.id,
         )
     )
     mail = ContactDetail(
-        person_id=people["An"].id, contact_type_code="EMAIL", value=MAIL, is_primary=True
+        party_id=people["An"].party_id, contact_type_code="EMAIL", value=MAIL, is_primary=True
     )
     db.add(mail)
     db.add(
         ContactDetail(
-            person_id=people["An"].id, contact_type_code="MOBILE", value=MOBILE, is_primary=True
+            party_id=people["An"].party_id,
+            contact_type_code="MOBILE",
+            value=MOBILE,
+            is_primary=True,
         )
     )
     db.commit()

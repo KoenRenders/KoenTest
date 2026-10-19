@@ -115,6 +115,34 @@ def _log(db, rij, operation: str, actor: str | None) -> None:
         )
 
 
+def _in_order(model) -> list:
+    """Which row of a kind a one-per-kind form reads and writes: the primary
+    first (a contact has one), then the oldest. Since CR-26 phase 3 an
+    organisation may hold two contacts of one kind (C4.10); the form has one
+    input per kind, so it must show and edit the same row every time."""
+    primary = [model.is_primary.desc()] if hasattr(model, "is_primary") else []
+    return [*primary, model.id]
+
+
+def party_contacts(db, party_id: int, codes=None) -> dict[str, str]:
+    """One value per contact type of a party, by code: the primary, else the
+    oldest (`_in_order`). `codes` narrows to those types. Read across accounts:
+    the operator's screens show every account's organisations."""
+    from app.domains.mdm.models import ContactDetail
+
+    query = db.query(ContactDetail).filter(
+        ContactDetail.party_id == party_id, ContactDetail.deleted_at.is_(None)
+    )
+    if codes is not None:
+        query = query.filter(ContactDetail.contact_type_code.in_(list(codes)))
+    found: dict[str, str] = {}
+    for row in query.order_by(*_in_order(ContactDetail)).execution_options(
+        include_all_tenants=True
+    ):
+        found.setdefault(row.contact_type_code, row.value)
+    return found
+
+
 def _zet_lijstrij(
     db,
     model,
@@ -135,6 +163,7 @@ def _zet_lijstrij(
         db.query(model)
         .filter_by(**filters)
         .filter(model.deleted_at.is_(None))
+        .order_by(*_in_order(model))
         .execution_options(include_all_tenants=True)
         .first()
     )
@@ -207,7 +236,7 @@ def _write_organization_details(
     Het formulier is hetzelfde gebleven — één invoer per soort — maar het schrijft
     nu rijen. Een lege waarde wist de rij; zie :func:`_zet_lijstrij`.
     """
-    from app.domains.mdm.models import ContactDetail, LegalForm, OrganizationIdentification
+    from app.domains.mdm.models import ContactDetail, LegalForm, PartyIdentification
 
     rij = _organisatie(db, organization_id)
     if rij is None:
@@ -258,12 +287,12 @@ def _write_organization_details(
         _zet_lijstrij(
             db,
             ContactDetail,
-            {"organization_id": organization_id, "contact_type_code": code},
+            {"party_id": rij.party_id, "contact_type_code": code},
             "value",
             (form.get(veld) or "").strip() or None,
             # The organisation's account (CR-26 F1), not the current tenant's:
             # the operator edits every account's organisations from the platform.
-            standaard={"account_id": rij.account_id, "person_id": None},
+            standaard={"account_id": rij.account_id},
             actor=actor,
         )
 
@@ -272,11 +301,11 @@ def _write_organization_details(
             continue
         _zet_lijstrij(
             db,
-            OrganizationIdentification,
-            {"organization_id": organization_id, "scheme": schema},
+            PartyIdentification,
+            {"party_id": rij.party_id, "scheme": schema},
             "value",
             (form.get(veld) or "").strip() or None,
-            standaard={"country": "BE"},
+            standaard={"country": "BE", "account_id": rij.account_id},
         )
 
     _bewaar_rekening(db, organization_id, form)
@@ -335,9 +364,10 @@ def _bewaar_rekening(db, organization_id: int, form: Mapping) -> None:
 
     if not any(veld in form for veld, _ in REKENINGVELDEN):
         return
+    organisatie = _organisatie(db, organization_id)
     rekening = (
         db.query(BankAccount)
-        .filter(BankAccount.organization_id == organization_id, BankAccount.deleted_at.is_(None))
+        .filter(BankAccount.party_id == organisatie.party_id, BankAccount.deleted_at.is_(None))
         .order_by(BankAccount.sort_order, BankAccount.id)
         .execution_options(include_all_tenants=True)
         .first()
@@ -353,9 +383,8 @@ def _bewaar_rekening(db, organization_id: int, form: Mapping) -> None:
             db.delete(rekening)
         return
     if rekening is None:
-        organisatie = _organisatie(db, organization_id)
         rekening = BankAccount(
-            organization_id=organization_id, iban=iban, account_id=organisatie.account_id
+            party_id=organisatie.party_id, iban=iban, account_id=organisatie.account_id
         )
         db.add(rekening)
     for kolom, waarde in waarden.items():
@@ -371,7 +400,7 @@ def organization_details(db, organization_id: int) -> dict[str, str]:
     ziet nog altijd één plat woordenboek — het scherm hoeft niet te weten welke
     tabel welk veld draagt.
     """
-    from app.domains.mdm.models import BankAccount, ContactDetail, OrganizationIdentification
+    from app.domains.mdm.models import BankAccount, PartyIdentification
 
     leeg = {key: "" for key in ALLE_ORGANISATIEVELDEN}
     rij = _organisatie(db, organization_id)
@@ -384,34 +413,27 @@ def organization_details(db, organization_id: int) -> dict[str, str]:
     # code and the template compares it with the selected value.
     uit["legal_form"] = code_of(rij.legal_form) or ""
 
-    contacten = {
-        c.contact_type_code: c.value
-        for c in db.query(ContactDetail)
-        .filter(
-            ContactDetail.organization_id == organization_id, ContactDetail.deleted_at.is_(None)
-        )
-        .execution_options(include_all_tenants=True)
-        .all()
-    }
+    contacten = party_contacts(db, rij.party_id)
     for veld, code in CONTACTVELDEN:
         uit[veld] = contacten.get(code) or ""
 
-    nummers = {
-        i.scheme: i.value
-        for i in db.query(OrganizationIdentification)
+    nummers: dict[str, str] = {}
+    for i in (
+        db.query(PartyIdentification)
         .filter(
-            OrganizationIdentification.organization_id == organization_id,
-            OrganizationIdentification.deleted_at.is_(None),
+            PartyIdentification.party_id == rij.party_id,
+            PartyIdentification.deleted_at.is_(None),
         )
+        .order_by(*_in_order(PartyIdentification))
         .execution_options(include_all_tenants=True)
-        .all()
-    }
+    ):
+        nummers.setdefault(i.scheme, i.value)
     for veld, schema in IDENTIFICATIEVELDEN:
         uit[veld] = nummers.get(schema) or ""
 
     rekening = (
         db.query(BankAccount)
-        .filter(BankAccount.organization_id == organization_id, BankAccount.deleted_at.is_(None))
+        .filter(BankAccount.party_id == rij.party_id, BankAccount.deleted_at.is_(None))
         .order_by(BankAccount.sort_order, BankAccount.id)
         .execution_options(include_all_tenants=True)
         .first()
@@ -498,9 +520,12 @@ def organization_address(db, organization_id: int) -> dict[str, str]:
     from app.domains.mdm.models import Address
 
     leeg = {"street": "", "house_number": "", "bus_number": "", "postal_code": ""}
+    organisatie = _organisatie(db, organization_id)
+    if organisatie is None:
+        return leeg
     rij = (
         db.query(Address)
-        .filter(Address.organization_id == organization_id, Address.deleted_at.is_(None))
+        .filter(Address.party_id == organisatie.party_id, Address.deleted_at.is_(None))
         .order_by(Address.id)
         .execution_options(include_all_tenants=True)
         .first()
@@ -535,9 +560,10 @@ def update_organization_address(
     bus = (form.get("bus_number") or "").strip()
     postcode = (form.get("postal_code") or "").strip()
 
+    organisatie = _organisatie(db, organization_id)
     rij = (
         db.query(Address)
-        .filter(Address.organization_id == organization_id, Address.deleted_at.is_(None))
+        .filter(Address.party_id == organisatie.party_id, Address.deleted_at.is_(None))
         .order_by(Address.id)
         .execution_options(include_all_tenants=True)
         .first()
@@ -572,10 +598,9 @@ def update_organization_address(
     operation = "insert" if rij is None else "update"
     if rij is None:
         rij = Address(
-            organization_id=organization_id,
-            person_id=None,
+            party_id=organisatie.party_id,
             # The organisation's account (CR-26 F1), not the current tenant's.
-            account_id=_organisatie(db, organization_id).account_id,
+            account_id=organisatie.account_id,
         )
         db.add(rij)
     rij.street = straat

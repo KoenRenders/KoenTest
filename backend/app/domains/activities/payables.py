@@ -102,7 +102,7 @@ def describe_registrations(db: Session, ids: Iterable[int]) -> dict[int, "Payabl
 def registrations_of_household(db: Session, household_id: int) -> list[int]:
     """The registrations of a household's persons — by person, and by e-mail address
     for a guest registration (the same rule as the audit resolver)."""
-    from app.domains.mdm.api import CONTACT, ContactDetail, MemberPerson
+    from app.domains.mdm.api import CONTACT, ContactDetail, MemberPerson, Person
 
     person_ids = [
         row[0]
@@ -113,8 +113,9 @@ def registrations_of_household(db: Session, household_id: int) -> list[int]:
     emails = [
         row[0].strip().lower()
         for row in _q(db, ContactDetail.value)
+        .join(Person, Person.party_id == ContactDetail.party_id)
         .filter(
-            ContactDetail.person_id.in_(person_ids or [0]),
+            Person.id.in_(person_ids or [0]),
             ContactDetail.contact_type_code == CONTACT.EMAIL,
         )
         .all()

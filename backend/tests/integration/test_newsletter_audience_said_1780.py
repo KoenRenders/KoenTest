@@ -74,7 +74,9 @@ def _household(db, *addresses, year=YEAR):
         relation = "HOOFDLID" if n == 0 else "PARTNER"
         db.add(MemberPerson(member_id=member.id, person_id=person.id, relation_type=relation))
         if address:
-            db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=address))
+            db.add(
+                ContactDetail(party_id=person.party_id, contact_type_code="EMAIL", value=address)
+            )
     if year is not None:
         db.add(
             Membership(

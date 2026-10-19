@@ -64,7 +64,7 @@ def loose_person():
         db.flush()
         db.add(
             ContactDetail(
-                person_id=person.id,
+                party_id=person.party_id,
                 contact_type_code="EMAIL",
                 value=f"proef-{tag}@example.org",
                 is_primary=True,

@@ -21,7 +21,8 @@ import app.models  # noqa: F401 - registers every model
 from app.database import Base
 from app.kernel.tenancy import AccountMixin, TenantMixin
 
-#: CR-26 F1, F5, F13: the party and what hangs on it, phase 1.
+#: CR-26 F1, F3, F5, F13: the party and what hangs on it (phase 1; the
+#: identifications since phase 3).
 ACCOUNT_SCOPED = {
     "mdm.parties",
     "mdm.persons",
@@ -31,6 +32,7 @@ ACCOUNT_SCOPED = {
     "mdm.addresses",
     "mdm.contact_details",
     "mdm.bank_accounts",
+    "mdm.party_identifications",
     "mdm.person_history",
     "mdm.member_history",
     "mdm.member_person_history",

@@ -347,7 +347,7 @@ def test_een_emailadres_dat_geen_adres_is_wordt_op_zijn_veld_geweigerd(
         )
         rows = (
             db_session.query(ContactDetail)
-            .filter(ContactDetail.organization_id == TENANT)
+            .filter(ContactDetail.party_id == organisatie.party_id)
             .execution_options(include_all_tenants=True)
         )
         return organisatie.name, sorted((r.contact_type_code, r.value) for r in rows)

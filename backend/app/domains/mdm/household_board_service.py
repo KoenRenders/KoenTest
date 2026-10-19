@@ -189,7 +189,7 @@ def update_person_address(
                 detail=_("Onbekende postcode: %(postal_code)s") % {"postal_code": data.postal_code},
             )
         address = Address(
-            person_id=person.id,
+            party_id=person.party_id,
             street=data.street,
             house_number=data.house_number,
             bus_number=data.bus_number or None,

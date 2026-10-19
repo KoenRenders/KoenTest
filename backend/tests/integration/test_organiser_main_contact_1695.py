@@ -37,13 +37,16 @@ from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.designstudio import service as designstudio
 from app.domains.mdm.api import CONTACT, ContactDetail, Member, MemberPerson, Person
 from app.kernel.codes import code_of
+from tests._sites import party_of
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
 
 
 def _contact(db, person_id, kind, value, *, main=False):
-    row = ContactDetail(person_id=person_id, contact_type_code=kind, value=value, is_primary=main)
+    row = ContactDetail(
+        party_id=party_of(db, person_id), contact_type_code=kind, value=value, is_primary=main
+    )
     db.add(row)
     db.flush()
     return row
@@ -112,7 +115,7 @@ def test_without_a_main_contact_the_oldest_row_is_taken_every_time(db_session, o
     activity_id, _row, person_id = organiser
     newer = ContactDetail(
         id=9_000_000,
-        person_id=person_id,
+        party_id=party_of(db_session, person_id),
         contact_type_code="EMAIL",
         value="tweede@example.com",
         is_primary=False,
