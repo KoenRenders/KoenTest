@@ -22,6 +22,8 @@ the record (`test_from_the_lists_menu_…` in `test_menu_sections_2024.py`);
 and the design's Acties → their e2e's `count() == 0` is red.
 
 Rows are made for this file (tagged `Weg2172`) and stay: the e2e database is fresh per run.
+The example tenant shows the used organisation during this module only; the fixture puts
+its own organisation back, since later files read the site's name from it.
 """
 
 import os
@@ -73,6 +75,8 @@ def _seed() -> dict:
         used = create_organization(db, name=f"{TAG} In Gebruik vzw")
         unused = create_organization(db, name=f"{TAG} Ongebruikt vzw")
         voorbeeld = db.get(Tenant, TENANT_VOORBEELD_ID)
+        # Put back after the module: the other files read the site's name from it.
+        made["shown_before"] = voorbeeld.organization_id
         voorbeeld.organization_id = used.id
         made.update(used=used.id, unused=unused.id)
 
@@ -104,6 +108,20 @@ def world():
             "made": made,
         }
         browser.close()
+    _put_back(made["shown_before"])
+
+
+def _put_back(organization_id) -> None:
+    from app.database import SessionLocal
+    from app.domains.mdm.api import Tenant
+    from app.kernel.tenancy import TENANT_VOORBEELD_ID
+
+    db = SessionLocal()
+    try:
+        db.get(Tenant, TENANT_VOORBEELD_ID).organization_id = organization_id
+        db.commit()
+    finally:
+        db.close()
 
 
 def _open(world, path: str, *, platform: bool = False):
