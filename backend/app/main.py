@@ -103,6 +103,7 @@ from app.models import *  # noqa: F401, F403 - ensures all models are registered
 from app.ui.account_ui import router as account_ui_router
 from app.ui.changes_ui import router as changes_ui_router
 from app.ui.design_system_ui import router as design_system_ui_router
+from app.ui.organisaties_ui import department_router as organisaties_department_router
 from app.ui.organisaties_ui import router as organisaties_ui_router
 from app.ui.system_ui import router as system_ui_router
 from app.ui.tenants_ui import router as tenants_ui_router
@@ -242,6 +243,7 @@ app.include_router(mdm_persons_ui_router)
 app.include_router(design_system_ui_router)
 app.include_router(system_ui_router)
 app.include_router(organisaties_ui_router)
+app.include_router(organisaties_department_router, dependencies=_module(M.INVOICES))
 app.include_router(tenants_ui_router)
 app.include_router(email_log_ui_router)
 app.include_router(mdm_ui_router, dependencies=_module(M.MEMBERSHIP))

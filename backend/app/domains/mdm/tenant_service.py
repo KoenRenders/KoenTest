@@ -189,18 +189,28 @@ def _new_party(db, name: str):
     return org
 
 
-def create_organization(db, *, name: str):
+def current_account_id(db) -> int | None:
+    """The account of the current tenant — the party it belongs to (CR-26 F2)."""
+    from app.domains.mdm.models import Tenant
+    from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
+
+    tenant = db.get(Tenant, current_tenant_id.get() or DEFAULT_TENANT_ID)
+    return tenant.account_id if tenant is not None else None
+
+
+def create_organization(db, *, name: str, account_id: int | None = None):
     """Create an organisation — a party, no code (CR-20 F6, C4.7). It becomes
     an account when a tenant names it as one. Until a tenant names it, it is
-    free in the platform's account (CR-26 F1), whatever tenant made it. Legal form, identifiers, address
-    and bank account are filled in on the organisation screen it lands on.
-    Commits."""
+    free in the platform's account (CR-26 F1), whatever tenant made it — unless a
+    department makes it (`account_id`: the department's account, F9), so that the
+    department that made it sees it. Legal form, identifiers, address and bank
+    account are filled in on the organisation screen it lands on. Commits."""
     from app.domains.mdm.models import Organization
 
     name = (name or "").strip()
     if not name:
         raise TenantFout("Een naam is verplicht.")
-    org = Organization(name=name, is_active=True, account_id=_platform_account(db))
+    org = Organization(name=name, is_active=True, account_id=account_id or _platform_account(db))
     db.add(org)
     db.commit()
     return org
@@ -812,6 +822,18 @@ def delete_organization(db, organization_id: int, *, actor: str | None = None) -
 def _organization_party(db, organization_id: int) -> int | None:
     organization = _organization(db, organization_id)
     return organization.party_id if organization is not None else None
+
+
+def organisation_editable_here(db, organization_id: int, tenant_id: int) -> bool:
+    """May this workspace edit the organisation (CR-20 F5, Q14, test 16)? When its party
+    is nobody's account — this tenant's own included — and no other tenant shows it. An
+    account's record is edited in the platform's Organisaties only; a party two sites show,
+    by neither. The one rule of both doors: "Onze organisatie" and a department's
+    Organisaties (CR-26 F9)."""
+    shown_elsewhere = any(
+        t.organization_id == organization_id and t.id != tenant_id for t in tenants(db)
+    )
+    return not is_account(db, organization_id) and not shown_elsewhere
 
 
 def is_account(db, organization_id: int) -> bool:

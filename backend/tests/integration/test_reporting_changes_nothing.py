@@ -212,6 +212,8 @@ def test_the_menu_gained_exactly_one_item_and_nothing_else_moved():
         # organisation.
         "/admin/personen",
         "/admin/organisaties",
+        # CR-26 F9: a department's Organisaties, behind the invoices module.
+        "/admin/relaties",
         "/admin/tenants",
         # #1535: a tenant workspace's own organisation and settings, where the
         # platform workspace has Organisaties and Tenants (each menu shows one pair).

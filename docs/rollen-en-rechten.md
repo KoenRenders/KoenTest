@@ -309,7 +309,7 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `GET /admin/rapporten/raakje/paneel`
 - `POST /admin/rapporten/raakje/scherm/{scherm}`
 
-### `party.view` — 10 routes
+### `party.view` — 13 routes
 
 - `GET /admin/leden`
 - `GET /admin/leden-import`
@@ -321,8 +321,11 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `GET /admin/organisatie`
 - `GET /admin/personen`
 - `GET /admin/personen/lijst`
+- `GET /admin/relaties`
+- `GET /admin/relaties/nieuw`
+- `GET /admin/relaties/{organization_id}`
 
-### `party.masterdata` — 8 routes
+### `party.masterdata` — 10 routes
 
 - `POST /admin/leden`
 - `POST /admin/leden-import/commit`
@@ -332,6 +335,8 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `POST /admin/leden/gezin/{family_id}/verwijderen`
 - `POST /admin/organisatie`
 - `POST /admin/personen/{person_id}/verwijderen`
+- `POST /admin/relaties`
+- `POST /admin/relaties/{organization_id}`
 
 ### `product.view` — 3 routes
 

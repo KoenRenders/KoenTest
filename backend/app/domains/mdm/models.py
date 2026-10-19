@@ -1407,6 +1407,16 @@ person_tenants = Table(
     schema="mdm",
 )
 
+#: An organisation is at a tenant through a fact there (`organisation_tenants`,
+#: CR-26 F9): the tenant shows it, an order names it, or a person at the tenant acts for it.
+organisation_tenants = Table(
+    "organisation_tenants",
+    _VIEWS,
+    Column("tenant_id", Integer),
+    Column("organization_id", Integer),
+    schema="mdm",
+)
+
 
 # CR-26 F1: every new person and organisation gets its party in the same flush;
 # the listener is a service's, not an entity's (CR-13 §B4.1).

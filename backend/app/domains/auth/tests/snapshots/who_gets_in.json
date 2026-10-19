@@ -490,6 +490,18 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
+  "GET /admin/relaties": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/relaties/nieuw": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "GET /admin/relaties/{organization_id}": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
   "GET /admin/tenants": {
    "platform": "OPERATOR",
    "tenant": "OPERATOR"
@@ -1307,6 +1319,14 @@
    "tenant": "ADMIN OPERATOR"
   },
   "POST /admin/rapporten/{report_id}/verwijderen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/relaties": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/relaties/{organization_id}": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },

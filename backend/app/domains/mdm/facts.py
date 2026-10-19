@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
-from app.domains.mdm.models import household_tenants, person_tenants
+from app.domains.mdm.models import household_tenants, organisation_tenants, person_tenants
 from app.kernel.tenancy import current_tenant_id
 
 
@@ -91,3 +91,50 @@ def persons_seen_here(query):
 
     here = persons_of_tenant()
     return query if here is None else query.filter(Person.id.in_(here))
+
+
+def organisations_of_tenant():
+    """The ids of the organisations the current tenant sees, as a select for an
+    `in_()`; None without a tenant (CR-26 F9): the ones with a fact here — shown by the
+    tenant, named by one of its orders, acted for by a person at it — and the ones with a
+    fact at no tenant at all, which every department of their account sees until they get
+    one (the rule of `persons_of_tenant`, Koen, 19 October 2026: "1 voor allen zichtbaar") —
+    except an account's own organisation, which only a fact of its own lists.
+    The account is the filter's, as for persons."""
+    from sqlalchemy import exists
+
+    from app.domains.mdm.models import Organization, Tenant
+
+    tenant = current_tenant_id.get()
+    if tenant is None:
+        return None
+    # The account's own organisation is the party that pays the platform, not one a
+    # department deals with: it is listed only through a fact of its own (Koen,
+    # 19 October 2026, "b").
+    nowhere = select(Organization.id).where(
+        ~exists().where(organisation_tenants.c.organization_id == Organization.id),
+        ~exists().where(Tenant.account_id == Organization.party_id),
+    )
+    return (
+        select(organisation_tenants.c.organization_id)
+        .where(organisation_tenants.c.tenant_id == tenant)
+        .union(nowhere)
+    )
+
+
+def organisation_at_tenant(db, organization_id: int) -> bool:
+    """Is this organisation at the current tenant (`party_at_tenant` of F9, for an
+    organisation)? True without a tenant; a department asks it before it shows a
+    record by id, and answers 404 when it is not."""
+    here = organisations_of_tenant()
+    if here is None:
+        return True
+    sub = here.subquery()
+    return db.execute(select(sub.c[0]).where(sub.c[0] == organization_id)).first() is not None
+
+
+def organisation_ids_here(db) -> set[int] | None:
+    """The ids `organisations_of_tenant` selects, as a set for a list; None without a
+    tenant."""
+    here = organisations_of_tenant()
+    return None if here is None else set(db.execute(here).scalars())

@@ -9,9 +9,9 @@
    (CR-20 C4.7) — OPERATOR only, like the whole screen. The toolbar stands
    outside the list fragment. #}
 {% block list_title %}{{ _("Organisaties") }}{% endblock %}
-{% block list_primary %}{{ ui.btn_primary(_("Nieuwe organisatie"), href="/admin/organisaties/nieuw", lead_icon="plus") }}{% endblock %}
+{% block list_primary %}{% if can_create %}{{ ui.btn_primary(_("Nieuwe organisatie"), href=base ~ "/nieuw", lead_icon="plus") }}{% endif %}{% endblock %}
 {% block list_toolbar %}
-{{ ui.toolbar("/admin/organisaties", "#org-lijst", "org-filter",
+{{ ui.toolbar(base, "#org-lijst", "org-filter",
               q=q, search_placeholder=_("Zoek op naam…"),
               page=page, per_page=per_page, total=total, page_sizes=page_sizes,
               sort=sort, sort_options=sort_options) }}
