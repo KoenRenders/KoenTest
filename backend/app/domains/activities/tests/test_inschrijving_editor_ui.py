@@ -61,13 +61,15 @@ def test_editor_update_quantity_add_delete_and_remarks(client, db_session):
     r = client.post(
         f"/admin/inschrijvingen/{reg_id}/regels/{item_id}", data={"quantity": 4}, headers=hdr
     )
-    assert r.status_code == 200 and "4×" in r.text
+    assert r.status_code == 200 and f'name="product_{product.id}"' in r.text
     db_session.expire_all()
     assert db_session.get(RegistrationItem, item_id).quantity == 4
 
-    # Opmerking opslaan
+    # Opmerking opslaan: with the rest, in the one save (#2127)
     r = client.post(
-        f"/admin/inschrijvingen/{reg_id}/opmerking", data={"remarks": "Komt later"}, headers=hdr
+        f"/admin/inschrijvingen/{reg_id}/opslaan",
+        data={f"product_{product.id}": "4", "remarks": "Komt later"},
+        headers=hdr,
     )
     assert r.status_code == 200 and "Komt later" in r.text
     db_session.expire_all()

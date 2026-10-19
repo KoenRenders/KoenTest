@@ -111,7 +111,6 @@ CHECKBOX_GROUPS_IN_TOOLBARS: dict[str, int] = {}
 
 #: B7 test 1 — an admin page on the shell itself, no layout and no record head. 26 in 26 files.
 SHELL_EXTENDED_DIRECTLY: dict[str, int] = {
-    "domains/activities/templates/admin_inschrijving.html": 1,
     "domains/auth/templates/admin_gebruikers_overzicht.html": 1,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/designstudio/templates/admin_ontwerp_nieuw.html": 1,
@@ -125,7 +124,6 @@ SHELL_EXTENDED_DIRECTLY: dict[str, int] = {
     "domains/newsletter/templates/admin_nieuwsbrief_archief.html": 1,
     "domains/newsletter/templates/admin_nieuwsbrief_instellingen.html": 1,
     "domains/newsletter/templates/admin_nieuwsbrief_versturen.html": 1,
-    "domains/payment/templates/admin_inschrijving_betalingen.html": 1,
     "domains/reporting/templates/admin_rapport_paneel.html": 1,
     "ui/templates/admin_dashboard.html": 1,
     "ui/templates/admin_info.html": 1,

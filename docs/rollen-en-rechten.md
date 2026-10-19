@@ -86,7 +86,7 @@ A role that bundles nothing opens nothing of the back office.
 
 Every route whose gate asks the right. A right without a route here opens nothing yet: its screens come with a later change.
 
-### `activity.view` — 13 routes
+### `activity.view` — 12 routes
 
 - `GET /admin/activiteiten`
 - `GET /admin/activiteiten/nieuw`
@@ -100,9 +100,8 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `GET /admin/activiteiten/{activity_id}/onderdelen/{component_id}/export`
 - `GET /admin/activiteiten/{activity_id}/organisatoren`
 - `GET /admin/inschrijvingen/{registration_id}`
-- `GET /admin/inschrijvingen/{registration_id}/fragment`
 
-### `activity.manage` — 18 routes
+### `activity.manage` — 16 routes
 
 - `POST /admin/activiteiten/nieuw`
 - `POST /admin/activiteiten/nieuw/raakje/voorstel`
@@ -116,9 +115,7 @@ Every route whose gate asks the right. A right without a route here opens nothin
 - `POST /admin/activiteiten/{activity_id}/kopieren`
 - `POST /admin/activiteiten/{activity_id}/status`
 - `POST /admin/activiteiten/{activity_id}/verwijderen`
-- `POST /admin/inschrijvingen/{registration_id}/antwoorden`
 - `POST /admin/inschrijvingen/{registration_id}/antwoordlink`
-- `POST /admin/inschrijvingen/{registration_id}/opmerking`
 - `POST /admin/inschrijvingen/{registration_id}/opslaan`
 - `POST /admin/inschrijvingen/{registration_id}/regels/{item_id}`
 - `POST /admin/inschrijvingen/{registration_id}/totaal`

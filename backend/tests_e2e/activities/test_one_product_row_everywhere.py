@@ -192,16 +192,14 @@ def test_editing_has_the_one_row(browser, setup, registration, width):
     try:
         page.goto(f"/admin/inschrijvingen/{registration}")
         pagina_klaar(page)
-        panel = page.locator(
-            "div[data-registration-detail]", has=page.locator('form[id^="insch-form-"]')
-        )
-        panel.first.get_by_role("button", name="Bewerken").first.click()
+        page.locator("#insch-record").get_by_role("link", name="Bewerken").first.click()
+        page.locator("#insch-form").wait_for(state="attached")
         rows = _check_rows(page, f"edit @{width}")
         # #1494: every product is a counter row; no "Verwijderen" beside it.
         assert not any("Verwijderen" in r["text"] for r in rows), rows
 
         _plus(page, setup["product"])  # 2 → 3, recalculated, not stored
-        form = page.locator('form[id^="insch-form-"]').first
+        form = page.locator("#insch-form")
         assert "30,00" in form.inner_text(), "the total does not follow the counter"
         _no_line_amount(page, "30,00", f"edit @{width}")
 

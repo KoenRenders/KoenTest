@@ -187,7 +187,7 @@ def test_a_registration_without_a_phone_stays_editable(client, db_session, world
         data=_edit_form(phone="", remarks="Nieuwe opmerking"),
     )
     assert response.status_code == 200, response.text
-    assert 'role="alert"' not in response.text, response.text
+    assert "data-save-refusal" not in response.text, response.text
     db_session.expire_all()
     stored = db_session.get(Registration, registration.id)
     assert stored.remarks == "Nieuwe opmerking"
@@ -207,8 +207,9 @@ def test_a_mobile_number_cannot_be_cleared(client, db_session, world):
         headers=_login(client),
         data=_edit_form(phone="  ", remarks="Nieuwe opmerking"),
     )
-    assert response.status_code == 200, response.text
+    assert response.status_code == 422, response.text
     assert "Vul een mobiel nummer in." in response.text
+    assert 'data-error-for="phone"' in response.text
     db_session.expire_all()
     stored = db_session.get(Registration, registration.id)
     assert stored.phone == "0470000000"
@@ -242,8 +243,8 @@ def test_a_new_registration_without_a_phone_is_refused(client, db_session, world
 
 def test_the_edit_screen_refuses_a_cleared_email_address_and_shows_why(client, db_session, world):
     """Koen, 29 September 2026: the board can change an address, not clear it. The
-    refusal is shown in the screen's error banner (200, htmx swaps it) and nothing
-    is stored."""
+    refusal is shown at the field in the record's banner (422, the kit swaps it into the
+    message line, #2127) and nothing is stored."""
     activity, component = world
     registration = _registration(activity, component)
     db_session.add(registration)
@@ -255,9 +256,10 @@ def test_the_edit_screen_refuses_a_cleared_email_address_and_shows_why(client, d
         headers=headers,
         data=_edit_form(contact_email="   "),
     )
-    assert refused.status_code == 200, refused.text
+    assert refused.status_code == 422, refused.text
     assert 'role="alert"' in refused.text
     assert "Vul een geldig e-mailadres in." in refused.text
+    assert 'data-error-for="contact_email"' in refused.text
     db_session.expire_all()
     assert db_session.get(Registration, registration.id).contact_email == "an@example.org"
 

@@ -433,13 +433,10 @@ class Betalingenscherm:
                 hrefs.append(href)
         for href in hrefs:
             self.page.goto(href)
-            # Ankeren op het formulier-id en niet op de Bewerken-knop: locators
-            # her-resolven bij elke actie, en zodra Bewerken geklikt is verbergt
-            # x-show hem — een has=Bewerken-paneel lost dan op naar niets.
-            paneel = self.page.locator(
-                "div[data-registration-detail]", has=self.page.locator('form[id^="insch-form-"]')
-            ).first
-            if paneel.count() and paneel.get_by_role("button", name="Bewerken").count():
+            # Sinds #2127 is het paneel de recordpagina (`#insch-record`): lezen eerst, de
+            # opener een link in de kop. Een geschrapte inschrijving heeft hem niet.
+            paneel = self.page.locator("#insch-record")
+            if paneel.count() and paneel.get_by_role("link", name="Bewerken").count():
                 return paneel
         return None
 
@@ -457,7 +454,8 @@ class Inschrijvingsdetail:
         self.page = paneel.page
 
     def bewerken(self):
-        self.paneel.get_by_role("button", name="Bewerken").first.click()
+        self.paneel.get_by_role("link", name="Bewerken").first.click()
+        self.page.locator("#insch-form").wait_for(state="attached")
 
     def aantalvelden(self):
         # #1494: one counter per product of the component, `product_<id>`.
@@ -468,19 +466,16 @@ class Inschrijvingsdetail:
 
     def opslaan(self):
         with htmx_afgerond(self.page):
-            self.paneel.get_by_role("button", name="Opslaan").first.click()
+            self.page.locator("[data-action-bar] [data-form-save]").first.click()
 
     def totaal(self) -> str:
         return self.paneel.locator("text=Totaal").first.inner_text()
 
     def staat_in_bewerkmodus(self) -> bool:
-        """De bewerkstand herkennen aan de Opslaan-knop, niet aan de x-data.
-
-        Alpine zet `x-show` om naar `display:none`; het attribuut blijft staan. Wat
-        de gebruiker ziet, is dus of de knop er staat — en dat is ook waar #717 over
-        gaat.
-        """
-        knop = self.paneel.get_by_role("button", name="Opslaan")
+        """De bewerkstand herkennen aan de Opslaan-knop in de balk (#2127: lezen en
+        bewerken zijn twee standen van de pagina, de balk staat er alleen in de
+        bewerkstand) — en dat is ook waar #717 over gaat."""
+        knop = self.page.locator("[data-action-bar] [data-form-save]")
         return knop.count() > 0 and knop.first.is_visible()
 
 

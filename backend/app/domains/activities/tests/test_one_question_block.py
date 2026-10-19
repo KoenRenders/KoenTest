@@ -3,8 +3,8 @@
 Koen, after testing the Sint registration on HDEV: the registration used the form
 builder's field, but built everything around it again, so the work on the form's
 own page (title, description, spacing, white card) never reached it. The block is
-now one partial, `forms/templates/_formulier_vragen.html` (`vragen_kop`,
-`vragen_kaarten`).
+now one partial, `forms/templates/_formulier_vragen.html` (`vragen_kaarten`;
+its `vragen_kop` left with the registration detail's own form, #2127).
 
 Proven by what it does, not by a class name: the partial is replaced, for the length
 of the test, by a copy that carries a marker in each of its two macros — and the
@@ -43,28 +43,24 @@ from tests.conftest import (
 pytestmark = pytest.mark.ui_serverrendered
 
 PARTIAL = "_formulier_vragen.html"
-HEAD_MARK = "<!--probe:vragen_kop-->"
 CARDS_MARK = "<!--probe:vragen_kaarten-->"
 
 
 @pytest.fixture
 def probed_partial():
-    """The shared partial with a marker at the start of each macro."""
+    """The shared partial with a marker at the start of its macro."""
     env = templates.env
     source, _filename, _uptodate = env.loader.get_source(env, PARTIAL)
-    head = "{% macro vragen_kop("
     cards = "{% macro vragen_kaarten("
-    assert source.count(head) == 1 and source.count(cards) == 1, "the macros moved"
-    # The markers go on the first line INSIDE each macro, so they render with it.
+    assert source.count(cards) == 1, "the macro moved"
+    # The marker goes on the first line INSIDE the macro, so it renders with it.
     out = []
     for line in source.split("\n"):
         out.append(line)
-        if line.startswith(head):
-            out.append(HEAD_MARK)
-        elif line.startswith(cards):
+        if line.startswith(cards):
             out.append(CARDS_MARK)
     probed = "\n".join(out)
-    assert HEAD_MARK in probed and CARDS_MARK in probed, "the probe did not land"
+    assert CARDS_MARK in probed, "the probe did not land"
     original = env.loader
     env.loader = ChoiceLoader([DictLoader({PARTIAL: probed}), original])
     env.cache.clear()
@@ -82,18 +78,17 @@ def sint(client, db_session):
 
 
 def _marked(html: str) -> bool:
-    return HEAD_MARK in html and CARDS_MARK in html
+    return CARDS_MARK in html
 
 
 def test_the_form_and_the_registration_render_the_same_block(client, sint, probed_partial):
     own = client.get(f"/formulier/{sint.form.share_token}").text
-    assert CARDS_MARK in own and HEAD_MARK not in own, "the form's own page"
+    assert CARDS_MARK in own, "the form's own page"
     # #1589 (§2.6): on the registration page the questions stand under the
     # section "Vragen bij de inschrijving" — the page's own head, with the
     # form's description — so only the CARDS are the shared block there.
     page = client.get(f"/activiteiten/{sint.activity.id}/inschrijven/{sint.component.id}").text
     assert CARDS_MARK in page, "the registration page"
-    assert HEAD_MARK not in page
 
 
 def test_the_answer_link_and_the_correction_render_it_too(client, db_session, sint, probed_partial):
@@ -129,9 +124,9 @@ def test_the_answer_link_and_the_correction_render_it_too(client, db_session, si
     }
 
     link = client.get(f"/inschrijving/{regs['Later Lies'].answer_token}/vragen").text
-    assert CARDS_MARK in link and HEAD_MARK not in link, "the answer link"
+    assert CARDS_MARK in link, "the answer link"
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
-    assert _marked(client.get(f"/admin/inschrijvingen/{regs['Nu Noor'].id}").text)
+    assert _marked(client.get(f"/admin/inschrijvingen/{regs['Nu Noor'].id}?bewerken=1").text)
 
 
 def test_the_registration_page_names_the_form_once_above_its_cards(client, sint):

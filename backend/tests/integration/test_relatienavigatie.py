@@ -7,6 +7,8 @@ het id. Een onzichtbaar voorfilter is precies wat het patroon verbiedt — het
 bestaande `?record=` (#704) krijgt daarom dezelfde zichtbare regel.
 """
 
+import re
+
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
@@ -134,15 +136,16 @@ def test_export_draagt_de_scope_mee(client, db_session):
 
 
 def test_tabs_op_de_inschrijvingspagina(client, db_session):
-    """Feedback 15 sep: tabs (Overzicht · Betalingen N) i.p.v. de P13-chip —
+    """Feedback 15 sep: tabs (Gegevens · Betalingen N, sinds #2127 `related_tabs`) i.p.v. de P13-chip —
     zelfde patroon als de activiteit- en gezinspagina. De Betalingen-tab is de
     INGEBEDDE pagina onder dezelfde kop, niet meer het losse scherm."""
     anna, bert = _twee_inschrijvingen(client, db_session)
     _login(client)
     html = client.get(f"/admin/inschrijvingen/{anna.id}").text
-    assert ">Overzicht</a>" in html
+    assert ">Gegevens</a>" in html
     assert f"/admin/inschrijvingen/{anna.id}/betalingen" in html
-    assert "Betalingen 1" in html  # één betaalrecord uit het publieke pad
+    # één betaalrecord uit het publieke pad
+    assert re.search(r"Betalingen\s*<span[^>]*>\(1\)</span>", html)
 
 
 def test_betalingen_tab_van_de_inschrijving_is_gescopeerd(client, db_session):

@@ -103,7 +103,7 @@ def test_zonder_getypt_aantal_blijft_de_bewaarde_stand_staan(client, db_session)
     reg_id, item_id, product_id = _inschrijving(client, db_session, aantal=2)
     hdr = _login(client)
 
-    resp = client.get(f"/admin/inschrijvingen/{reg_id}", headers=hdr)
+    resp = client.get(f"/admin/inschrijvingen/{reg_id}?bewerken=1", headers=hdr)
 
     assert _veldwaarde(resp.text, product_id) == "2"
 

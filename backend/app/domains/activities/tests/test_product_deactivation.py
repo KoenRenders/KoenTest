@@ -200,7 +200,7 @@ def test_the_back_office_can_still_book_an_inactive_product(client, db_session):
     csrf = _login(client)
     # #1494: the card shows every product of the component as a counter — the
     # inactive one too — and Save books it.
-    fiche = client.get(f"/admin/inschrijvingen/{reg.id}").text
+    fiche = client.get(f"/admin/inschrijvingen/{reg.id}?bewerken=1").text
     assert f'name="product_{product.id}"' in fiche, "the inactive product has no counter"
     respons = client.post(
         f"/admin/inschrijvingen/{reg.id}/opslaan",

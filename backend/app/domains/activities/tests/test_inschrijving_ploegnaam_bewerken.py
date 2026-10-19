@@ -118,7 +118,7 @@ def test_het_veld_staat_er_als_het_onderdeel_een_ploegnaam_vraagt(client, db_ses
     db_session.get(ActivitySubRegistration, reg.component_id).team_name_required = True
     db_session.flush()
     _login(client)
-    html = client.get(f"/admin/inschrijvingen/{reg_id}").text
+    html = client.get(f"/admin/inschrijvingen/{reg_id}?bewerken=1").text
     assert 'name="team_name"' in html, "geen invoerveld voor de ploegnaam (#716)"
 
 
@@ -133,7 +133,7 @@ def test_het_veld_staat_er_ook_als_de_vlag_intussen_af_staat(client, db_session)
     db_session.flush()
 
     _login(client)
-    html = client.get(f"/admin/inschrijvingen/{reg_id}").text
+    html = client.get(f"/admin/inschrijvingen/{reg_id}?bewerken=1").text
     assert 'name="team_name"' in html, (
         "een bewaarde ploegnaam is onbewerkbaar zodra de vlag afgaat (#716)"
     )
@@ -144,5 +144,5 @@ def test_zonder_vlag_en_zonder_waarde_geen_veld(client, db_session):
     """Anders krijgt elk onderdeel een veld dat het niet gebruikt."""
     reg_id = _inschrijving(client, db_session, ploegnaam=None, vraagt_ploegnaam=False)
     _login(client)
-    html = client.get(f"/admin/inschrijvingen/{reg_id}").text
+    html = client.get(f"/admin/inschrijvingen/{reg_id}?bewerken=1").text
     assert 'name="team_name"' not in html
