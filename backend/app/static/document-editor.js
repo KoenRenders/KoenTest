@@ -527,8 +527,13 @@
           eyebrow.className = "de-section-eyebrow";
           eyebrow.placeholder = words.eyebrowLabel;
           eyebrow.setAttribute("aria-label", words.eyebrowLabel);
+          var remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "de-section-remove";
+          remove.textContent = words.removeLabel;
           bar.appendChild(select);
           bar.appendChild(eyebrow);
+          bar.appendChild(remove);
           var content = document.createElement("div");
           content.className = "de-section-content";
           dom.appendChild(bar);
@@ -546,6 +551,20 @@
           }
           select.addEventListener("change", function () { set({ tone: select.value }); });
           eyebrow.addEventListener("input", function () { set({ eyebrow: eyebrow.value.trim() ? eyebrow.value : null }); });
+          /* The whole band, with everything in it, as ONE step of the history
+             (Ctrl+Z brings it back whole). Nothing is stored before Opslaan, so
+             no question. A document needs a block: the only one is replaced by
+             an empty paragraph. */
+          remove.addEventListener("click", function () {
+            var pos = props.getPos();
+            if (typeof pos !== "number") return;
+            var state = props.editor.state;
+            var tr = state.tr;
+            if (state.doc.childCount === 1) tr.replaceWith(pos, pos + node.nodeSize, state.schema.nodes.paragraph.create());
+            else tr.delete(pos, pos + node.nodeSize);
+            props.editor.view.dispatch(tr);
+            props.editor.view.focus();
+          });
           paint();
           return {
             dom: dom,

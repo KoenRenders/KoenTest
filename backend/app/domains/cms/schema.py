@@ -989,6 +989,7 @@ def schema_for(
                 ],
                 "toneLabel": _("Tint van de sectie"),
                 "eyebrowLabel": _("Bovenkopje"),
+                "removeLabel": _("Sectie verwijderen"),
             }
             if "section" in BLOCK_SETS[set_name]["insert"]
             else None
