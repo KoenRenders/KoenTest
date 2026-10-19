@@ -695,6 +695,10 @@ _ADMIN_NAV_LAYOUT: list[tuple[str | None, list[str | tuple[str, str]]]] = [
             # organisation — master data, in the tenant workspace only.
             ("/admin/personen", "Personen"),
             ("/admin/organisaties", "Organisaties"),
+            # CR-26 F9: a department's Organisaties, the ones with a fact at it, behind
+            # the invoices module (its label is the registry's); the platform has the
+            # line above.
+            "/admin/relaties",
             ("/admin/tenants", "Tenants"),
             # #1535: a tenant workspace's own organisation and site settings, in
             # the place where the platform workspace has Organisaties and Tenants.
@@ -755,6 +759,7 @@ _ADMIN_NAV_ICONS: dict[str, str] = {
     "/admin/e-maillog": "inbox",
     "/admin/personen": "user",
     "/admin/organisaties": "building-2",
+    "/admin/relaties": "building-2",
     "/admin/tenants": "globe",
     # #1535: one meaning per glyph — the own organisation is an organisation, and
     # it never stands in the same menu as Organisaties.
@@ -767,7 +772,9 @@ _ADMIN_NAV_ICONS: dict[str, str] = {
 #: every tenant, every organisation — is in the platform workspace's menu; a
 #: tenant workspace has its own organisation and settings in their place.
 PLATFORM_ONLY_ITEMS = frozenset({"/admin/organisaties", "/admin/tenants"})
-TENANT_ONLY_ITEMS = frozenset({"/admin/personen", "/admin/organisatie", "/admin/instellingen"})
+TENANT_ONLY_ITEMS = frozenset(
+    {"/admin/personen", "/admin/relaties", "/admin/organisatie", "/admin/instellingen"}
+)
 
 
 def _on_platform_workspace() -> bool:

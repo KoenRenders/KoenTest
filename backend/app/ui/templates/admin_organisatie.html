@@ -35,7 +35,7 @@
   {% if edit %}
   {# #1535: the target literally per scope — the rules gate walks it to its route. #}
   <form id="org-form" class="contents" data-record-form data-message="#org-melding" novalidate
-        {% if own %}hx-post="/admin/organisatie"{% else %}hx-post="/admin/organisaties/{{ organization_id }}"{% endif %}
+        {% if own %}hx-post="/admin/organisatie"{% elif department %}hx-post="/admin/relaties/{{ organization_id }}"{% else %}hx-post="/admin/organisaties/{{ organization_id }}"{% endif %}
         hx-target="#org-record" hx-select="#org-record"
         hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap">
   {% endif %}

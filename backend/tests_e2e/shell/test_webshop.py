@@ -16,6 +16,7 @@ association's tenant stays untouched.
 from __future__ import annotations
 
 import os
+import re
 import sys
 
 import pytest
@@ -1397,3 +1398,28 @@ def test_de_mand_biedt_namens_aan_en_bestelt_namens_de_organisatie(webshop_page)
         page.get_by_role("button", name="Bestellen en betalen").click()
     page.wait_for_url("**/webshop/bedankt?**")
     page.evaluate("localStorage.removeItem('raak_basket')")
+
+
+def test_een_afdeling_ziet_haar_organisaties_op_een_telefoon(webshop_page):
+    """CR-26 F9: the department's Organisaties (the address family of its own, behind the
+    invoices module) lists an organisation a person of the department acts for, and its
+    record names that person; at 390 px there is no sideways scroll and the menu names
+    the item Organisaties."""
+    from app.domains.auth.api import make_session_value
+    from tests.conftest import SEEDED_ADMIN_EMAIL
+
+    page = webshop_page
+    login_met_sessie(page, make_session_value("webshop.lid@example.com"), WEBSHOP_HOST)
+    page.set_viewport_size({"width": 390, "height": 844})
+    _organisatie_registreren(page, "Proef BV")
+
+    login_met_sessie(page, make_session_value(SEEDED_ADMIN_EMAIL), WEBSHOP_HOST)
+    page.goto("/admin/relaties")
+    row = page.locator("[data-organisation]", has_text="Proef BV").first
+    row.wait_for()
+    assert page.evaluate("document.documentElement.scrollWidth") <= 390
+    row.locator("a").first.click()
+    page.wait_for_url(re.compile(r"/admin/relaties/\d+"))
+    page.locator("#org-section-people").wait_for()
+    assert "Webshop Lid" in page.locator("#org-section-people").inner_text()
+    assert page.evaluate("document.documentElement.scrollWidth") <= 390

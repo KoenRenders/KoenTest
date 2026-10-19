@@ -7,16 +7,16 @@
    organisation screen it lands on. It becomes an account when a tenant names it.
    On the kit since #2110, like Nieuw lid. #}
 {% call ui.public_form_page(_("Nieuwe organisatie"), shell="admin",
-                            back_href="/admin/organisaties", back_label=_("Organisaties"),
-                            intro=_("Platformbeheer — enkel OPERATOR. Na het aanmaken vul je rechtsvorm, nummers, adres en rekening aan.")) %}
+                            back_href=base, back_label=_("Organisaties"),
+                            intro=(_("Na het aanmaken vul je rechtsvorm, nummers, adres en rekening aan.") if department else _("Platformbeheer — enkel OPERATOR. Na het aanmaken vul je rechtsvorm, nummers, adres en rekening aan."))) %}
 <div data-form-flow data-mode="edit" class="form-flow">
 {{ ui.error_banner(error) }}
-<form id="organisatie-nieuw-form" class="contents" hx-post="/admin/organisaties" hx-target="body" hx-swap="innerHTML">
+<form id="organisatie-nieuw-form" class="contents" {% if department %}hx-post="/admin/relaties"{% else %}hx-post="/admin/organisaties"{% endif %} hx-target="body" hx-swap="innerHTML">
   {% call ui.section(_("Organisatie")) %}
   {{ ui.field("name", attribute="mdm.organization.name", id="a-name", value=name, required=True) }}
   {% endcall %}
 </form>
-{{ ui.action_bar(record=True, form="organisatie-nieuw-form", cancel_href="/admin/organisaties") }}
+{{ ui.action_bar(record=True, form="organisatie-nieuw-form", cancel_href=base) }}
 </div>
 {% endcall %}
 {% endblock %}

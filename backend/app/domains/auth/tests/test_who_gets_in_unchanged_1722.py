@@ -409,6 +409,8 @@ ON_A_RIGHT = {
     "/admin/gebruikers": ("user.view", "user.manage"),
     "/admin/gebruikers/alle-werkruimtes": ("platform.view", "platform.manage"),
     "/admin/organisaties": ("platform.view", "platform.manage"),
+    # CR-26 F9: a department's Organisaties, the same screens on its own address family.
+    "/admin/relaties": ("party.view", "party.masterdata"),
     "/admin/tenants": ("platform.view", "platform.manage"),
     # Slice 5. The workbench and the shell around it: one right, to look and to act.
     "/admin/werkbank": ("workbench.use", "workbench.use"),

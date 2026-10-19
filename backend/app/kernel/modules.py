@@ -186,8 +186,9 @@ MODULES: tuple[Module, ...] = (
         # for selling to an organisation — *Mijn organisatie*, *namens …* in the
         # checkout, an order with an organisation as buyer. CR-34 adds its routes here
         # when it comes. Off for every tenant until it is switched on, like the shop.
+        admin_items=(("/admin/relaties", "Organisaties"),),
         member_items=(("/mijn/organisatie", "Mijn organisatie", "building-2"),),
-        route_prefixes=("/mijn/organisatie",),
+        route_prefixes=("/mijn/organisatie", "/admin/relaties"),
         # The invoices are of sold things, and sold things are paid.
         depends_on=((M.SHOP,), (M.PAYMENT,)),
     ),
