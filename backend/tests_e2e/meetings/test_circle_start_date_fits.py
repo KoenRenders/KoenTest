@@ -48,10 +48,10 @@ def _add_to_circle(first: str, last: str) -> None:
     from app.database import SessionLocal
     from app.domains.mdm.api import (
         ContactDetail,
-        Organization,
-        OrganizationPerson,
+        PartyRelationship,
         Person,
     )
+    from app.domains.mdm.tenant_service import shown_organization
 
     db = SessionLocal()
     try:
@@ -67,10 +67,10 @@ def _add_to_circle(first: str, last: str) -> None:
             )
         )
         db.add(
-            OrganizationPerson(
-                person_id=person.id,
-                organization_id=db.query(Organization).first().id,
-                relation_type="BOARD_MEETING",
+            PartyRelationship(
+                from_party_id=person.party_id,
+                to_party_id=shown_organization(db).party_id,
+                kind="BOARD_MEETING",
                 start_date=belgian_today(),
             )
         )
@@ -82,12 +82,12 @@ def _add_to_circle(first: str, last: str) -> None:
 def _start_of(last: str) -> date:
     import app.models  # noqa: F401
     from app.database import SessionLocal
-    from app.domains.mdm.api import OrganizationPerson, Person
+    from app.domains.mdm.api import PartyRelationship, Person
 
     db = SessionLocal()
     try:
         person = db.query(Person).filter_by(last_name=last).one()
-        return db.query(OrganizationPerson).filter_by(person_id=person.id).one().start_date
+        return db.query(PartyRelationship).filter_by(from_party_id=person.party_id).one().start_date
     finally:
         db.close()
 

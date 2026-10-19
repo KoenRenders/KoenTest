@@ -50,6 +50,24 @@ def _buyer(request: Request, db: Session) -> tuple[int | None, bool]:
     return person.id, has_valid_membership(person, belgian_today())
 
 
+def _acting_organisations(request: Request, db: Session) -> list[tuple[str, str]]:
+    """The choice "Wie bestelt" of the basket (CR-26 F8): *voor mezelf* and one
+    *namens …* per organisation the signed-in person acts for, as `(value, label)`. Empty — and so no choice on the
+    page — without the invoices module, signed out, or with no relation."""
+    from app.domains.mdm.api import module_enabled, organisations_acting_for
+    from app.kernel.modules import ModuleCode
+
+    person_id, _is_member = _buyer(request, db)
+    if person_id is None or not module_enabled(ModuleCode.INVOICES):
+        return []
+    acting = organisations_acting_for(db, person_id)
+    if not acting:
+        return []
+    return [("", _("voor mezelf"))] + [
+        (str(o["id"]), _("namens %(name)s") % {"name": o["name"]}) for o in acting
+    ]
+
+
 def _member(request: Request, db: Session) -> bool:
     """Is the signed-in person a member with a valid membership today? (F3, R11)."""
     return _buyer(request, db)[1]
@@ -134,8 +152,12 @@ async def mandje(request: Request, db: Session = Depends(get_db)) -> Response:
 
     from app.domains.sales.api import SalesError
 
-    def _vm(*, lines, total, contact_name="", contact_email="", phone="", error="") -> BasketView:
+    def _vm(
+        *, lines, total, contact_name="", contact_email="", phone="", error="", buyer=""
+    ) -> BasketView:
         return BasketView(
+            organisations=_acting_organisations(request, db),
+            buyer=buyer,
             lines=lines,
             total=total,
             member_applied=member,
@@ -179,6 +201,7 @@ async def mandje(request: Request, db: Session = Depends(get_db)) -> Response:
             contact_name=str(form.get("contact_name") or contact_name),
             contact_email=str(form.get("contact_email") or contact_email),
             phone=str(form.get("phone") or phone),
+            buyer=str(form.get("buyer_organization_id") or ""),
         ).as_context(),
     )
 
@@ -219,6 +242,17 @@ async def order_submit(request: Request, db: Session = Depends(get_db)) -> Respo
     contact_email = str(form.get("contact_email") or "").strip()
     phone = str(form.get("phone") or "").strip()
     person_id, member = _buyer(request, db)
+    # "Wie bestelt": empty is *voor mezelf*, a number is *namens* that organisation
+    # (the service checks the relation and the module).
+    buyer_text = str(form.get("buyer_organization_id") or "").strip()
+    if buyer_text and not buyer_text.isdigit():
+        return refusal_response(
+            request,
+            [FieldError("buyer_organization_id", _("Kies wie er bestelt."))],
+            "#bestel-melding",
+            send=True,
+        )
+    buyer_organization_id = int(buyer_text) if buyer_text else None
 
     try:
         checkout_url, order_id, secret_key = submit_order(
@@ -232,6 +266,7 @@ async def order_submit(request: Request, db: Session = Depends(get_db)) -> Respo
             phone=phone,
             method=method,
             items=items,
+            buyer_organization_id=buyer_organization_id,
         )
     except Honeypot:
         return HTMLResponse("")

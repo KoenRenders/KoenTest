@@ -8,7 +8,7 @@
 contactgegevens, postcodes, externe nummers, organisaties (ACCOUNT/UNIT) en de
 bijbehorende codetabellen — plus merge/survivorship.
 
-*Process (A2.1 — membership: joining, changing, leaving, for the persons and the household; and the party under every other process).* Aggregates with a `check()` of their own: `Person`, `MemberPerson`, `OrganizationPerson`, `ContactDetail`; beside them `Member` (the household), `Address`, `Organization` with its identifications and bank accounts, and the `Tenant` with its modules (CR-20).
+*Process (A2.1 — membership: joining, changing, leaving, for the persons and the household; and the party under every other process).* Aggregates with a `check()` of their own: `Person`, `MemberPerson`, `PartyRelationship`, `ContactDetail`; beside them `Member` (the household), `Address`, `Organization` with its identifications and bank accounts, and the `Tenant` with its modules (CR-20).
 
 ## Publishes
 
@@ -51,7 +51,7 @@ bijbehorende codetabellen — plus merge/survivorship.
   preview counts is read through `auth.api.has_login` and
   `membership.api.has_membership_for_year`.
 - Subscribes to `CircleStartChosen` (`app.kernel.contracts.meetings`, #1346): stores
-  the start date of a circle relation, refused by `OrganizationPerson.check()` when
+  the start date of a circle relation, refused by `PartyRelationship.check()` when
   it lies after the end (`mdm.handlers`).
 
 **The account scope (CR-26 phase 1).** A person, a household, an organisation
@@ -118,7 +118,7 @@ None: no part of this contract is in its deprecation cycle.
 
 ## Rules and gates
 
-- **Rules whose home is this module** — `Person`: `@validates` on `first_name` and `last_name`, and `check()`; `MemberPerson.check()`, `OrganizationPerson.check()`, `ContactDetail.check()`; 3 `CheckConstraint`s in `models.py`. `new_contact_detail` is the one place a `ContactDetail` is made.
+- **Rules whose home is this module** — `Person`: `@validates` on `first_name` and `last_name`, and `check()`; `MemberPerson.check()`, `PartyRelationship.check()`, `ContactDetail.check()`; 3 `CheckConstraint`s in `models.py`. `new_contact_detail` is the one place a `ContactDetail` is made.
 - **Gates in this module's own `tests/`** — none among its 63 test files. The gates about it stand in `backend/tests/`: `test_contact_detail_factory_gate.py`, `test_contact_labels_gate.py`.
 
 ## Evolutions

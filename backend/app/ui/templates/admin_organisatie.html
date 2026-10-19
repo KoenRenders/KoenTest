@@ -114,6 +114,21 @@
     {% endif %}
   {% endcall %}
 
+  {# CR-26 C9: who is linked to the organisation — in its circle or acting for it. Read only;
+     the relation is made on the person's side (Mijn organisatie) or in the circle. #}
+  {% if not edit %}
+  {% call ui.section(_("Personen"), id="org-section-people") %}
+    {% if people %}
+    {% for p in people %}
+    <p data-span="full" data-person-link="{{ p.person_id }}" class="min-w-0 text-sm leading-[21px] text-ink [overflow-wrap:anywhere]">
+      <strong>{{ p.name }}</strong> <span class="text-ink-soft">· {{ p.kind }}{% if p.start_date %} · {{ _("sinds") }} {{ p.start_date|kortedatum }}{% endif %}{% if p.end_date %} · {{ _("tot") }} {{ p.end_date|kortedatum }}{% endif %}</span></p>
+    {% endfor %}
+    {% else %}
+    <p data-span="full" class="text-sm text-ink-soft">{{ _("Aan deze organisatie zijn geen personen gekoppeld.") }}</p>
+    {% endif %}
+  {% endcall %}
+  {% endif %}
+
   {% if edit %}
   </form>
   {{ ui.action_bar(record=True, form="org-form", cancel_href=cancel_href) }}

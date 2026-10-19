@@ -36,6 +36,11 @@ _MIME_TYPE = "A MIME type: IANA's list, not ours (§B4.10)."
 
 #: Columns that look like a vocabulary but get no code table (§B4.10).
 FK_NOT_OUR_LIST: dict[str, str] = {
+    "sales.sales_orders.buyer_postal_code": (
+        "A copy of the buyer's address as it was at placement (CR-26 F8), text like the "
+        "address it was copied from; the postal code list belongs to mdm and the copy must "
+        "outlive it, as an invoice shows what was typed."
+    ),
     "payment.gateway_payments.status": (
         "Mollie's own list. Mollie can add a value without our migration, and a "
         "foreign key would make the webhook fail at exactly the wrong moment. The "

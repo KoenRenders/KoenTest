@@ -56,6 +56,10 @@ class BasketView(ViewModel):
     contact_email: str = ""
     phone: str = ""
     error: str = ""
+    #: "Wie bestelt" (CR-26 F8): `(value, label)` options — *voor mezelf* and one *namens* per organisation the
+    #: signed-in person acts for; empty means no choice is shown. `buyer` is the chosen id.
+    organisations: list[tuple[str, str]] = field(default_factory=list)
+    buyer: str = ""
     site: dict[str, Any] = field(default_factory=dict)
 
     def as_context(self) -> dict[str, Any]:
@@ -170,6 +174,9 @@ class BoardOrderView(ViewModel):
     email: str = ""
     status: str = ""
     person_name: str = ""
+    #: "Voor wie" (CR-26 F8): `(value, label)` options, empty when there is no choice.
+    organisations: list[tuple[str, str]] = field(default_factory=list)
+    buyer: str = ""
     form_url: str = "/admin/verkoop/nieuw"
     order_id: int = 0
     lines: list[dict[str, Any]] = field(default_factory=list)

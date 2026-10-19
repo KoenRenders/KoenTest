@@ -50,6 +50,7 @@ class ModuleCode(str, TechnicalEnum):
     REPORTING = "reporting"
     CHATBOT = "chatbot"
     SHOP = "shop"
+    INVOICES = "invoices"
 
     def __str__(self) -> str:
         return self.value
@@ -176,6 +177,19 @@ MODULES: tuple[Module, ...] = (
         # The shop pays its orders through payment, and its pictures come from
         # media (CR-21 Q59).
         depends_on=((M.PAYMENT,), (M.MEDIA,)),
+    ),
+    Module(
+        M.INVOICES,
+        "Facturen",
+        # CR-26 phase 2 (F14, Koen, 18 October 2026: "één schakelaar … als je aan
+        # organisaties verkoopt, heb je ook facturen"): one switch for the invoices and
+        # for selling to an organisation — *Mijn organisatie*, *namens …* in the
+        # checkout, an order with an organisation as buyer. CR-34 adds its routes here
+        # when it comes. Off for every tenant until it is switched on, like the shop.
+        member_items=(("/mijn/organisatie", "Mijn organisatie", "building-2"),),
+        route_prefixes=("/mijn/organisatie",),
+        # The invoices are of sold things, and sold things are paid.
+        depends_on=((M.SHOP,), (M.PAYMENT,)),
     ),
     Module(
         M.FORMS,
@@ -316,14 +330,16 @@ def nav_item_shown(field: str, href: str, enabled) -> bool:
 #: addresses its schema, so its saved reports are not counted from here.
 UNCOUNTED: dict[ModuleCode, str] = {
     M.REPORTING: "a terminus: its schema is addressed only from its own domain",
+    M.INVOICES: "phase 2 holds no invoice yet: the buyer sits on the shop's orders, counted there",
 }
 
 #: The modules a tenant starts with, per kind (CR-19 §C2 kernel; #1478), and
 #: the platform's own set (#1523).
 DEFAULTS: dict[str, frozenset[ModuleCode]] = {
     # CR-21 (Q49): the shop is off by default for every kind of tenant, the
-    # association included — it is switched on per tenant.
-    "VERENIGING": frozenset(code for code in ModuleCode if code is not M.SHOP),
+    # association included — it is switched on per tenant. So are the invoices
+    # (CR-26 F14).
+    "VERENIGING": frozenset(code for code in ModuleCode if code not in (M.SHOP, M.INVOICES)),
     "BEDRIJF": frozenset({M.CMS, M.MEDIA, M.FORMS}),
     # #1523: the platform — pages, media and forms, for help
     # pages and a contact or request form. Equal to BEDRIJF's today ("op dit

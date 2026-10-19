@@ -30,7 +30,8 @@ import pytest
 
 from app.domains.activities.api import Activity, ActivityDate
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from app.domains.mdm.api import ContactDetail, Organization, OrganizationPerson, Person
+from app.domains.mdm.api import ContactDetail, Organization, PartyRelationship, Person
+from app.domains.mdm.tenant_service import shown_organization
 from app.domains.meetings.api import (
     Attendance,
     FilePurpose,
@@ -91,16 +92,16 @@ def _person(db, voornaam: str, achternaam: str, email: str | None = None) -> Per
     return person
 
 
-def _in_circle(db, person: Person) -> OrganizationPerson:
-    organization = db.query(Organization).first()
+def _in_circle(db, person: Person) -> PartyRelationship:
+    organization = shown_organization(db)
     if organization is None:
         organization = Organization(name="Raak Millegem")
         db.add(organization)
         db.flush()
-    relation = OrganizationPerson(
-        person_id=person.id,
-        organization_id=organization.id,
-        relation_type="BOARD_MEETING",
+    relation = PartyRelationship(
+        from_party_id=person.party_id,
+        to_party_id=organization.party_id,
+        kind="BOARD_MEETING",
         start_date=date(2020, 1, 1),
     )
     db.add(relation)
@@ -1340,7 +1341,7 @@ def _organisatie(db):
     """De organisatie waaraan de kring hangt; maak er een als ze ontbreekt."""
     from app.domains.mdm.api import Organization
 
-    org = db.query(Organization).first()
+    org = shown_organization(db)
     if org is None:
         org = Organization(name="Raak Millegem")
         db.add(org)

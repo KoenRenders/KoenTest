@@ -24,11 +24,11 @@ from app.domains.mdm.models import (
     LegalForm,
     LegalFormCode,
     LegalFormLabel,
-    OrganizationRelationType,
-    OrganizationRelationTypeLabel,
     PartyKind,
     PartyKindCode,
     PartyKindLabel,
+    PartyRelationshipKind,
+    PartyRelationshipKindLabel,
     PaymentMethod,
     PaymentMethodCode,
     PaymentMethodLabel,
@@ -254,17 +254,26 @@ ORGANIZATION_TYPE_CODES = (
 #: These two already had the shape (#924); they are only registered here, so
 #: the gates include them. The `en` rows of the identification schemes were
 #: missing and are added in the same migration.
+#: The one kind `organization_relation_type_codes` was seeded with, as migration 140 has
+#: it. The list and its table are gone since CR-26 phase 2 (it is `party_relationship_kind`
+#: now); the seed stays because a merged migration imports it and is never changed.
 ORGANIZATION_RELATION_TYPE_CODES = (
     CodeSeed(code="BOARD_MEETING", nl="Bestuursvergadering", en="Board meeting", sort_order=10),
 )
 
-ORGANIZATION_RELATION_TYPE = CodeList(
-    name="organization_relation_type",
+PARTY_RELATIONSHIP_KIND_CODES = (
+    CodeSeed(code="BOARD_MEETING", nl="Bestuursvergadering", en="Board meeting", sort_order=10),
+    # CR-26 phase 2 (C4.7): the person who registered an organisation buys on its behalf.
+    CodeSeed(code="ACTS_FOR", nl="Treedt op namens", en="Acts for", sort_order=20),
+)
+
+PARTY_RELATIONSHIP_KIND = CodeList(
+    name="party_relationship_kind",
     schema="mdm",
-    codes=OrganizationRelationType,
-    labels=OrganizationRelationTypeLabel,
+    codes=PartyRelationshipKind,
+    labels=PartyRelationshipKindLabel,
     enum=None,
-    fk_from=("mdm.organization_persons.relation_type",),
+    fk_from=("mdm.party_relationships.kind",),
 )
 
 IDENTIFICATION_SCHEME_CODES = (

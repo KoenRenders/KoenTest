@@ -455,8 +455,15 @@ class MemberPerson(AccountMixin, SoftDeleteMixin, Base):
 
 
 @aggregate
-class OrganizationPerson(TenantMixin, SoftDeleteMixin, Base):
-    """Junction table linking persons to an organisation in a named role (#258).
+class PartyRelationship(AccountMixin, SoftDeleteMixin, Base):
+    """A relation between two parties, in a named kind (CR-26 F4; it was
+    `OrganizationPerson`, #258, until phase 2).
+
+    `from_party` stands in the relation to `to_party`: a person in an
+    organisation's board-meeting circle, a person who *acts for* an organisation
+    (the person who buys on its behalf, CR-26 C4.7). One table with a kind from a
+    code list, so a third kind (committee, works for) is a row and not a table;
+    roles are none (C4.6): customer, supplier and account are read from facts.
 
     The board-meeting circle is the first consumer (CR-09 §3.11): the people who
     receive the agenda and the report are not derivable from membership — the
@@ -466,37 +473,32 @@ class OrganizationPerson(TenantMixin, SoftDeleteMixin, Base):
     persons and their contact details already live, instead of in a second address
     list owned by the meetings module.
 
-    Deliberately generic, following :class:`MemberPerson`: a code table decides
-    which relations exist, so a second kind (committee, working group) is a row and
-    not a table. ``end_date`` ends a relation instead of deleting it — the
-    attendance of an old report must keep resolving to the person who was there.
+    `end_date` ends a relation instead of deleting it — the attendance of an old
+    report must keep resolving to the person who was there, and Ontkoppelen of
+    *Mijn organisatie* ends the relation the same way. The ids are the ones
+    `organization_persons` had: the meeting circle reads them by id.
+
+    The account scope (F2): a relation belongs to the account of the parties it
+    joins; a department sees the ones that touch a fact at it (`person_tenants`).
     """
 
-    __tablename__ = "organization_persons"
-    # #1346: what `check()` says, at rest too; migration 174 puts it on the
-    # environments. `<=` and not `<`, deliberately: someone added to the circle
-    # and taken out again on the same day has start = end today, and that must
-    # stay possible. `end_date` is the day someone leaves, so such a relation
-    # never counts for any meeting, which is exactly what happened.
+    __tablename__ = "party_relationships"
+    # #1346: what `check()` says, at rest too. `<=` and not `<`, deliberately:
+    # someone added to the circle and taken out again on the same day has
+    # start = end today, and that must stay possible. `end_date` is the day
+    # someone leaves, so such a relation never counts for any meeting.
     __table_args__ = (
         CheckConstraint(
             "start_date IS NULL OR end_date IS NULL OR start_date <= end_date",
-            name="ck_organization_persons_period",
+            name="ck_party_relationships_period",
         ),
         {"schema": "mdm"},
     )
 
-    id = Column(Integer, primary_key=True, index=True)
-    organization_id = Column(
-        Integer, ForeignKey("mdm.organizations.id"), nullable=False, index=True
-    )
-    person_id = Column(Integer, ForeignKey("mdm.persons.id"), nullable=False, index=True)
-    relation_type = Column(
-        String(30),
-        ForeignKey("mdm.organization_relation_type_codes.code"),
-        nullable=False,
-        default="BOARD_MEETING",
-    )
+    id = Column(Integer, primary_key=True)
+    from_party_id = Column(Integer, ForeignKey("mdm.parties.id"), nullable=False, index=True)
+    to_party_id = Column(Integer, ForeignKey("mdm.parties.id"), nullable=False, index=True)
+    kind = Column(String(30), ForeignKey("mdm.party_relationship_kind_codes.code"), nullable=False)
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
@@ -504,8 +506,8 @@ class OrganizationPerson(TenantMixin, SoftDeleteMixin, Base):
         DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
     )
 
-    organization = relationship("Organization")
-    person = relationship("Person")
+    from_party = relationship("Party", foreign_keys=[from_party_id])
+    to_party = relationship("Party", foreign_keys=[to_party_id])
 
     def check(self) -> None:
         """A relation cannot start after it ends (#1346). Reads only its own fields.
@@ -523,43 +525,36 @@ class OrganizationPerson(TenantMixin, SoftDeleteMixin, Base):
                 )
 
 
-class OrganizationRelationType(Base):
-    """Which relations a person can have to an organisation (#258) — the identity.
+class PartyRelationshipKind(Base):
+    """Which relations a party can have to another (#258, CR-26 F4) — the identity.
 
     Split from its labels deliberately. The older code tables key on
     (code, language), so the code alone is not unique and no foreign key can
     point at it; adding a unique key on the code alone is precisely what dropped
     every English label in migration 017. Here the code is the row, and
-    :class:`OrganizationRelationTypeLabel` carries the texts — a third language
+    :class:`PartyRelationshipKindLabel` carries the texts — a third language
     is a row, and the foreign key keeps working.
     """
 
-    # CR-12 phase 2: renamed to the shape of §B4.2 (`<list>_codes`). The
-    # label table was already called `..._labels`; the code table was the only
-    # one outside the pattern, and then every gate has to make an exception
-    # for it.
-    __tablename__ = "organization_relation_type_codes"
+    __tablename__ = "party_relationship_kind_codes"
     __table_args__ = {"schema": "mdm"}
 
     code = Column(String(30), primary_key=True)
-    # CR-12 phase 2, same addition as for `identification_schemes`: the shape
-    # of #924 was almost that of §B4.2, but without ordering and without
-    # retirability. Now this list fits the pattern.
     sort_order = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
 
 
-class OrganizationRelationTypeLabel(Base):
-    """The readable name of a relation type, per language."""
+class PartyRelationshipKindLabel(Base):
+    """The readable name of a relation kind, per language."""
 
-    __tablename__ = "organization_relation_type_labels"
+    __tablename__ = "party_relationship_kind_labels"
     __table_args__ = {"schema": "mdm"}
 
     code = Column(
-        String(30), ForeignKey("mdm.organization_relation_type_codes.code"), primary_key=True
+        String(30), ForeignKey("mdm.party_relationship_kind_codes.code"), primary_key=True
     )
-    language = Column(String(5), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(100), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
@@ -1050,7 +1045,7 @@ class LanguageLabel(Base):
 class IdentificationScheme(Base):
     """Welke identificatieschema's bestaan (#945) — de identiteit.
 
-    Gesplitst van zijn labels, zoals :class:`OrganizationRelationType` en om
+    Gesplitst van zijn labels, zoals :class:`PartyRelationshipKind` en om
     dezelfde reden: de oudere codetabellen sleutelen op (code, taal), waardoor de
     code alleen niet uniek is en er geen foreign key naar kan wijzen. Een
     uniciteit op de code alleen toevoegen is precies wat in migratie 017 elk
@@ -1063,7 +1058,7 @@ class IdentificationScheme(Base):
     niet opnieuw te maken.
     """
 
-    # CR-12 phase 2: renamed to `<list>_codes`, see OrganizationRelationType.
+    # CR-12 phase 2: renamed to `<list>_codes`, see PartyRelationshipKind.
     __tablename__ = "identification_scheme_codes"
     __table_args__ = {"schema": "mdm"}
 

@@ -151,7 +151,7 @@ def test_the_record_in_read_mode_shares_a_row_for_phone_and_mobile_and_sets_rows
     page.close()
 
     assert t["mode"] == "read"
-    assert t["sections"] == ["Organisatie", "Adres", "Rekening", "Nummers"]
+    assert t["sections"] == ["Organisatie", "Adres", "Rekening", "Nummers", "Personen"]
     # Naam and Rechtsvorm; Telefoon and Mobiel; E-mail; Website; Facebook; Instagram; TikTok.
     assert t["spans"][:4] == ["half"] * 4
     assert t["row_sizes"][:2] == [2, 2], f"Telefoon and Mobiel do not share a row: {t['row_sizes']}"

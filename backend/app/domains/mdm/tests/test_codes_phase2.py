@@ -311,7 +311,7 @@ def test_a_retired_gender_still_renders(db_session):
 # ── The two lists that were nearly in the pattern (#924) ─────────────────────
 
 
-@pytest.mark.parametrize("code_list", ["organization_relation_type", "identification_scheme"])
+@pytest.mark.parametrize("code_list", ["party_relationship_kind", "identification_scheme"])
 def test_the_924_lists_are_now_fully_in_the_pattern(db_session, code_list):
     """Renamed to `<list>_codes`, and given the two columns they lacked.
 

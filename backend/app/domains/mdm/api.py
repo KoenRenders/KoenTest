@@ -8,6 +8,17 @@ aangesproken. Soft-ref-patroon (§6): consumenten bewaren waarde-id's
 
 # CR-12: this domain's code lists belong to the public facade, so that another
 # domain reaches an FK target and an enum through one door.
+from app.domains.mdm.acting import (  # noqa: F401
+    act_for,
+    acts_for,
+    buyer_copy_of_organisation,
+    end_acts_for,
+    organisation_by_vat,
+    organisations_acting_for,
+    people_of_organisation,
+    person_buyer_copy,
+    register_organisation,
+)
 from app.domains.mdm.change_lines import (  # noqa: F401
     FieldChange,
     contact_change,
@@ -21,7 +32,7 @@ from app.domains.mdm.codes import (  # noqa: F401,E402
     IDENTIFICATION_SCHEME,
     LANGUAGE,
     LEGAL_FORM,
-    ORGANIZATION_RELATION_TYPE,
+    PARTY_RELATIONSHIP_KIND,
     PAYMENT_METHOD,
     RELATION_TYPE,
     TENANT_KIND,
@@ -128,10 +139,10 @@ from app.domains.mdm.models import (  # noqa: F401
     MemberPerson,
     MemberPersonHistory,
     Organization,
-    OrganizationPerson,
-    OrganizationRelationType,
-    OrganizationRelationTypeLabel,
     PartyIdentification,
+    PartyRelationship,
+    PartyRelationshipKind,
+    PartyRelationshipKindLabel,
     PaymentMethod,
     PaymentMethodCode,
     PaymentMethodLabel,
@@ -277,6 +288,15 @@ def language_code_exists(db, code: str) -> bool:
 
 
 __all__ = [
+    "act_for",
+    "acts_for",
+    "buyer_copy_of_organisation",
+    "end_acts_for",
+    "organisation_by_vat",
+    "organisations_acting_for",
+    "people_of_organisation",
+    "person_buyer_copy",
+    "register_organisation",
     "snapshot_address",
     "snapshot_contact_detail",
     "snapshot_member",
@@ -383,7 +403,7 @@ __all__ = [
     "RELATION_TYPE",
     "LEGAL_FORM",
     "TENANT_KIND",
-    "ORGANIZATION_RELATION_TYPE",
+    "PARTY_RELATIONSHIP_KIND",
     "IDENTIFICATION_SCHEME",
     "Person",
     "PersonHistory",
@@ -403,9 +423,9 @@ __all__ = [
     "set_modules",
     "BOARD_MEETING",
     "CirclePerson",
-    "OrganizationPerson",
-    "OrganizationRelationType",
-    "OrganizationRelationTypeLabel",
+    "PartyRelationship",
+    "PartyRelationshipKind",
+    "PartyRelationshipKindLabel",
     "add_to_circle",
     "create_person_for_circle",
     "end_circle_relation",

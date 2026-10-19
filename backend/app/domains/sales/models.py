@@ -72,10 +72,16 @@ class SalesOrder(TenantMixin, SoftDeleteMixin, Base):
     """One webshop order (D6). Soft-deleted as a registration (Q61): a cancelled
     order leaves the lists and keeps its rows.
 
-    `person_id` names the buyer — the person of the typed address, never the seller
-    (F18); for a guest the three `guest_*` fields carry the address instead. The
-    order's payment status comes from `payment`, its delivery status from its lines
-    (R34) — no status column of its own.
+    `person_id` names the person who placed the order — the person of the typed
+    address, never the seller (F18); for a guest the three `guest_*` fields carry the
+    address instead. `buyer_party_id` (CR-26 F8) names who the order is for: the person's
+    own party for *voor mezelf*, an organisation's for *namens*, NULL for a guest; for an
+    order Verkoop enters for an organisation `person_id` may be NULL. The `buyer_*`
+    columns are the copy of who that was at placement — name, address, VAT number — so
+    the invoice of CR-34 reads one source; all nullable (a private person has no VAT
+    number, a guest's address is asked of nobody by this change). The order's payment
+    status comes from `payment`, its delivery status from its lines (R34) — no status
+    column of its own.
     """
 
     __tablename__ = "sales_orders"
@@ -101,6 +107,17 @@ class SalesOrder(TenantMixin, SoftDeleteMixin, Base):
     guest_name = Column(String(200), nullable=True)
     guest_email = Column(String(200), nullable=True)
     guest_mobile = Column(String(200), nullable=True)
+    #: A real key across schemas, by the named exception of CR-26 B4 (the schema
+    #: boundary gate allows `mdm.parties`).
+    buyer_party_id = Column(Integer, ForeignKey("mdm.parties.id"), nullable=True, index=True)
+    buyer_name = Column(String(200), nullable=True)
+    buyer_street = Column(String(200), nullable=True)
+    buyer_house_number = Column(String(20), nullable=True)
+    buyer_bus_number = Column(String(20), nullable=True)
+    buyer_postal_code = Column(String(10), nullable=True)
+    buyer_municipality = Column(String(100), nullable=True)
+    buyer_country = Column(String(2), nullable=True)
+    buyer_vat_number = Column(String(50), nullable=True)
     payment_method: Mapped[PaymentMethod] = mapped_column(
         EnumColumn(PaymentMethod, length=20), nullable=True
     )
@@ -127,9 +144,10 @@ class SalesOrder(TenantMixin, SoftDeleteMixin, Base):
     def check(self) -> None:
         """A guest's order needs the buyer's name, e-mail and mobile (A7's privacy
         row, K6): the order hangs on the person of the typed address, so without a
-        person those three carry the address. Judged on the outcome, on the
-        aggregate, whatever path created the order."""
-        if self.person_id is not None:
+        person those three carry the address. An order with a buyer party but no person
+        (Verkoop for an organisation, CR-26 F8) passes: the party is who it is for.
+        Judged on the outcome, on the aggregate, whatever path created the order."""
+        if self.person_id is not None or self.buyer_party_id is not None:
             return
         from app.i18n import _
 

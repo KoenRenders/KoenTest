@@ -111,6 +111,8 @@ def test_import_boundaries():
                     "account_ui",
                     # CR-22 S7 (#1712): Personen, master data's own back-office screen.
                     "persons_ui",
+                    # CR-26 F7: Mijn organisatie, behind the invoices module.
+                    "organisation_ui",
                 )
             ) or (
                 module == "app.models.__init__"
