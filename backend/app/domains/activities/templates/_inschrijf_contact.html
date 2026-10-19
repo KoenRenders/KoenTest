@@ -1,0 +1,38 @@
+{% import "_macros.html" as ui %}
+{# The contact block and the remark of a registration — ONE place (#2127).
+
+   The public registration form, the board's form and the registration's record
+   page (read and edit) all draw their contact fields and their remark here, with
+   their labels from the attribute register (`activities.registration.*`, CR-33):
+   no second typed copy of "Naam", "E-mail", "Mobiel", "Ploegnaam" or "Opmerking".
+   The caller wraps them in its own section.
+
+   `values` carries `contact_name`, `contact_email`, `phone`, `team_name`.
+   `show_team` / `team_required`: the component asks for a team name, or the
+   registration already holds one (a stored name stays correctable and may be
+   cleared, #733). `email_attrs` lets the board's form follow the typed address
+   with the prices (#1284). A `{% call %}` body stands between the e-mail address
+   and the mobile number: the board's "linked to" line (`_registration_link.html`).
+   `edit=False` is the record's reading state: the same fields, as facts. #}
+{% macro contact_fields(values, show_team=False, team_required=False, edit=True, email_attrs='autocomplete="email"') %}
+{# promise walked by: test_a_registration_refuses_each_empty_contact_field #}
+{{ ui.field("contact_name", attribute="activities.registration.contact_name", required=True, attrs='autocomplete="name"',
+            value=values.get("contact_name", ""), edit=edit) }}
+{# promise walked by: test_a_registration_refuses_each_empty_contact_field #}
+{{ ui.field("contact_email", attribute="activities.registration.contact_email", kind="email", required=True,
+            value=values.get("contact_email", ""), attrs=email_attrs, edit=edit) }}
+{% if caller is defined %}{{ caller() }}{% endif %}
+{# promise walked by: test_a_registration_refuses_each_empty_contact_field #}
+{{ ui.field("phone", attribute="activities.registration.phone", kind="phone", required=True,
+            value=values.get("phone", ""), attrs='autocomplete="tel"', edit=edit) }}
+{% if show_team %}
+{# promise walked by: test_a_registration_refuses_each_empty_contact_field #}
+{{ ui.field("team_name", attribute="activities.registration.team_name", required=team_required,
+            value=values.get("team_name", ""), edit=edit) }}
+{% endif %}
+{% endmacro %}
+
+{% macro remark_field(value="", edit=True, placeholder="") %}
+{{ ui.field("remarks", attribute="activities.registration.remarks", kind="textarea", rows=2, value=value,
+            placeholder=placeholder, edit=edit) }}
+{% endmacro %}

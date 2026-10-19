@@ -44,7 +44,7 @@ RAW_FORM_ELEMENTS: dict[str, int] = {
     "domains/newsletter/templates/_nb_import.html": 1,
     "domains/newsletter/templates/_nb_kiezer.html": 1,
     "domains/newsletter/templates/_nb_versturen.html": 4,
-    "domains/newsletter/templates/admin_nieuwsbrief.html": 3,
+    "domains/newsletter/templates/admin_nieuwsbrief.html": 1,
     "domains/reporting/templates/_rp_paneel.html": 4,
 }
 
@@ -65,7 +65,6 @@ SPACING_ON_FORM_ELEMENTS: dict[str, int] = {
     "domains/newsletter/templates/_nb_gesprek.html": 2,
     "domains/newsletter/templates/_nb_kiezer.html": 2,
     "domains/newsletter/templates/_nb_versturen.html": 2,
-    "domains/newsletter/templates/admin_nieuwsbrief.html": 3,
     "domains/reporting/templates/_rp_paneel.html": 2,
 }
 
@@ -85,7 +84,6 @@ HEADER_EXTRAS: dict[str, int] = {
     "domains/auth/templates/admin_gebruikers_overzicht.html": 1,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/meetings/templates/_vg_verstuur.html": 1,
-    "domains/newsletter/templates/admin_nieuwsbrief.html": 5,
     "domains/newsletter/templates/admin_nieuwsbrief_archief.html": 1,
 }
 
@@ -113,7 +111,6 @@ CHECKBOX_GROUPS_IN_TOOLBARS: dict[str, int] = {}
 
 #: B7 test 1 — an admin page on the shell itself, no layout and no record head. 26 in 26 files.
 SHELL_EXTENDED_DIRECTLY: dict[str, int] = {
-    "domains/activities/templates/admin_inschrijving.html": 1,
     "domains/auth/templates/admin_gebruikers_overzicht.html": 1,
     "domains/designstudio/templates/admin_ontwerp.html": 1,
     "domains/designstudio/templates/admin_ontwerp_nieuw.html": 1,
@@ -124,11 +121,9 @@ SHELL_EXTENDED_DIRECTLY: dict[str, int] = {
     "domains/meetings/templates/admin_vergadering_verstuur.html": 1,
     "domains/meetings/templates/admin_vergaderkring.html": 1,
     "domains/newsletter/templates/admin_abonnees_import.html": 1,
-    "domains/newsletter/templates/admin_nieuwsbrief.html": 1,
     "domains/newsletter/templates/admin_nieuwsbrief_archief.html": 1,
     "domains/newsletter/templates/admin_nieuwsbrief_instellingen.html": 1,
     "domains/newsletter/templates/admin_nieuwsbrief_versturen.html": 1,
-    "domains/payment/templates/admin_inschrijving_betalingen.html": 1,
     "domains/reporting/templates/admin_rapport_paneel.html": 1,
     "ui/templates/admin_dashboard.html": 1,
     "ui/templates/admin_info.html": 1,

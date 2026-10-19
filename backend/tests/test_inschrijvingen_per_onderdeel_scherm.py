@@ -126,13 +126,13 @@ def test_het_paneel_heeft_een_bewerkstand(client, db_session):
     """
     _activity, _comp, reg_id = _met_inschrijving(client, db_session)
     _login(client)
-    paneel = client.get(f"/admin/inschrijvingen/{reg_id}").text
+    lezen = client.get(f"/admin/inschrijvingen/{reg_id}").text
 
-    # Kop-herziening golf 6 (#913): de opener draagt x-show="!edit" op de knop
-    # zelf (klasse ertussen), met het cluster ernaast als bewerkstand.
-    import re as _re
-
-    assert len(_re.findall(r'<button[^>]*x-show="!edit"[^>]*>Bewerken</button>', paneel)) == 1
-    # Leesregel én invulveld: precies één van elk.
-    assert paneel.count('value="An Janssens"') == 1
-    assert "An Janssens" in paneel
+    # Sinds #2127 is de opener de primaire knop van de kop (`?bewerken=1`); de
+    # bewerkstand is dezelfde pagina met één Opslaan.
+    assert lezen.count(f'href="/admin/inschrijvingen/{reg_id}?bewerken=1"') == 1
+    assert 'value="An Janssens"' not in lezen
+    bewerken = client.get(f"/admin/inschrijvingen/{reg_id}?bewerken=1").text
+    # Leesregel (de titel van de kop) én invulveld: precies één van elk.
+    assert bewerken.count('value="An Janssens"') == 1
+    assert "An Janssens" in lezen and "An Janssens" in bewerken

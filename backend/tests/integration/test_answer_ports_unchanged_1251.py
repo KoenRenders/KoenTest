@@ -95,10 +95,21 @@ def _correct(client, registration_id: int, data: dict):
     value = make_session_value(SEEDED_ADMIN_EMAIL)
     client.cookies.set(SESSION_COOKIE, value)
     return client.post(
-        f"/admin/inschrijvingen/{registration_id}/antwoorden",
+        f"/admin/inschrijvingen/{registration_id}/opslaan",
         data=data,
         headers={"X-CSRF-Token": csrf_token_for(value)},
     )
+
+
+def _correction_answer(response) -> str:
+    """What the board's save answers about the answers: the status and, for a refusal,
+    the sentences with the field they name (#2127: the correction is part of the one
+    save of the record page, so the answer is the page or the banner alone; the ROWS
+    below are what this file holds the port to)."""
+    import re
+
+    places = re.findall(r'data-error-for="([^"]*)"[^>]*>([^<]*)<', response.text)
+    return f"{response.status_code}\n" + "\n".join(f"{place}: {text}" for place, text in places)
 
 
 def _rows(db, s) -> str:
@@ -223,7 +234,7 @@ def test_a_correction_stores_what_it_stored(client, db_session, sint, answered):
         {f"f{sint.slot.id}": str(sint.slot.options[1].id), f"f{sint.story.id}": "Heel braaf"},
     )
     assert response.status_code == 200, response.text[:300]
-    _record("update_accepted", f"{response.status_code}\n{response.text}", db_session, sint)
+    _record("update_accepted", _correction_answer(response), db_session, sint)
 
 
 def test_a_refused_correction_is_refused_as_it_was(client, db_session, sint, answered):
@@ -232,5 +243,5 @@ def test_a_refused_correction_is_refused_as_it_was(client, db_session, sint, ans
         answered.id,
         {f"f{sint.slot.id}": str(sint.slot.options[1].id), f"f{sint.story.id}": ""},
     )
-    assert "Verhaal" in response.text
-    _record("update_refused", f"{response.status_code}\n{response.text}", db_session, sint)
+    assert response.status_code == 422 and "Verhaal" in response.text
+    _record("update_refused", _correction_answer(response), db_session, sint)

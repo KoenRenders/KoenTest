@@ -72,8 +72,8 @@ def test_the_detail_is_as_wide_as_the_screen(browser, setup, width, mode):
         pagina_klaar(page)
         assert page.get_by_text(LONG_EMAIL).count() >= 1, "the long address is not on the page"
         if mode == "edit":
-            page.get_by_role("button", name="Bewerken").first.click()
-            page.get_by_role("button", name="Annuleren").first.wait_for(state="visible")
+            page.get_by_role("link", name="Bewerken").first.click()
+            page.get_by_role("link", name="Annuleren").first.wait_for(state="visible")
         wide = page.evaluate(
             """() => ({doc: document.documentElement.scrollWidth, vw: innerWidth,
                 out: [...document.querySelectorAll('body *')]

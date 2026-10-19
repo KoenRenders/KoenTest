@@ -1,15 +1,16 @@
 """#717 — "Opslaan" sluit het inschrijvingspaneel en bevestigt met een toast.
 
 Het paneel bleef na Opslaan in bewerkmodus staan, zonder enig teken dat er iets
-bewaard was: dezelfde velden, dezelfde knop. Niet toevallig — `edit_open=True`
-is bewust gezet in #613-3, omdat het fragment zichzelf via outerHTML vervangt en
-anders na élke actie dichtklapte. Voor de tussenacties klopt die redenering; voor
-de afsluitende handeling niet.
+bewaard was: dezelfde velden, dezelfde knop. Sinds #2127 is het paneel de
+recordpagina (`#insch-record`, lezen eerst, `?bewerken=1` de bewerkstand); de
+afsluitende handeling antwoordt de pagina in leesstand, een weigering alleen de
+banner.
 
 **Waarom deze tests op de vlaggen toetsen en niet op de statuscode.** `assert
 resp.status_code == 200` slaagde vóór deze wijziging net zo goed — dat is de
 valkuil uit #680. Wat verandert is de stand van twee vlaggen, dus daar kijken we:
-de `edit`-stand in de `x-data` en de aan- of afwezigheid van het oob-attribuut.
+de stand van de pagina (`data-mode="read"` of `"edit"`) en de aan- of afwezigheid van
+het oob-attribuut.
 
 De laatste twee tests zijn de rem: ze leggen de #613-3-invariant vast. Zonder hen
 zou "sluiten na een actie" ongemerkt naar de tussenacties kunnen doorlekken, en dat
@@ -40,8 +41,8 @@ pytestmark = pytest.mark.ui_serverrendered
 # de toast. Eén letterlijke string, zodat een test faalt zodra iemand het contract
 # aan één van beide kanten wijzigt.
 OOB = 'hx-swap-oob="afterbegin:#toasts"'
-PANEEL_DICHT = 'x-data="{ edit: false }"'
-PANEEL_OPEN = 'x-data="{ edit: true }"'
+PANEEL_DICHT = 'data-mode="read"'
+PANEEL_OPEN = 'data-mode="edit"'
 
 
 def _login(client):
@@ -104,15 +105,18 @@ def test_opslaan_bevestigt_met_een_toast(client, db_session):
 def test_de_toast_staat_top_level_in_het_antwoord(client, db_session):
     """Structureel, niet op tekstvolgorde.
 
-    De toast hoort naast het paneel te staan en niet erin: het paneel is precies
-    wat via `outerHTML` vervangen wordt. Een assert op de plaats van de string in
-    de tekst zou hier meebewegen met elke opmaakwijziging; de nestdiepte niet.
+    De toast hoort naast het paneel te staan en niet erin: het paneel (`#insch-record`)
+    is precies wat via `outerHTML` vervangen wordt. Een assert op de plaats van de
+    string in de tekst zou hier meebewegen met elke opmaakwijziging; of het
+    oob-element binnen dat paneel staat niet.
     """
     reg_id, _product = _inschrijving(client, db_session)
     resp = _opslaan(client, reg_id, _login(client))
 
-    dieptes = _oob_dieptes(resp.text)
-    assert dieptes == [0], f"oob-element(en) op nestdiepte {dieptes}, verwacht [0]"
+    meter = _Dieptemeter()
+    meter.feed(resp.text)
+    assert meter.gevonden, "de toast ontbreekt"
+    assert not any(meter.in_paneel), "de toast staat in het paneel dat vervangen wordt"
 
 
 # ── De foutweg blijft zoals ze was ───────────────────────────────────────────
@@ -123,9 +127,12 @@ def test_een_validatiefout_houdt_het_paneel_open_zonder_toast(client, db_session
     reg_id, _product = _inschrijving(client, db_session)
     resp = _opslaan(client, reg_id, _login(client), contact_email="geen-adres")
 
-    assert resp.status_code == 200, resp.text
-    assert PANEEL_OPEN in resp.text, "het paneel hoort open te blijven bij een fout"
-    assert 'role="alert"' in resp.text, "de foutbanner ontbreekt"
+    # 422 met de banner alleen: de kit swapt hem naar de meldingsregel, het formulier
+    # blijft zoals het getypt was (`refusal_response`), dus het paneel blijft open.
+    assert resp.status_code == 422, resp.text
+    assert "data-save-refusal" in resp.text, "de foutbanner ontbreekt"
+    assert resp.headers["HX-Retarget"] == "#insch-melding"
+    assert PANEEL_DICHT not in resp.text and "<html" not in resp.text, "alleen de banner"
     assert OOB not in resp.text, "een mislukte opslag mag niets bevestigen"
 
 
@@ -152,14 +159,14 @@ def test_de_tussenacties_houden_het_paneel_open(client, db_session):
     for pad, data in wegen:
         resp = client.post(pad, headers=hdr, data=data)
         assert resp.status_code == 200, f"{pad}: {resp.text}"
-        assert "x-data=" not in resp.text, f"{pad} tekent het paneel opnieuw"
+        assert "data-mode=" not in resp.text, f"{pad} tekent het paneel opnieuw"
         assert "Totaal" in resp.text, f"{pad} antwoordt het totaal niet"
         assert OOB not in resp.text, f"{pad} stuurde een bevestiging mee"
 
 
 def test_de_detailroute_levert_geen_toast(client, db_session):
-    """Ditzelfde fragment wordt ook zonder actie gerenderd — dan is er niets
-    gebeurd om te bevestigen."""
+    """Dezelfde pagina wordt ook zonder actie gerenderd — dan is er niets gebeurd om
+    te bevestigen."""
     reg_id, _product = _inschrijving(client, db_session)
     resp = client.get(f"/admin/inschrijvingen/{reg_id}", headers=_login(client))
 
@@ -195,23 +202,27 @@ class _Dieptemeter(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.diepte = 0
         self.gevonden: list[int] = []
+        #: Per oob-element: stond het binnen `#insch-record`?
+        self.in_paneel: list[bool] = []
+        self._paneel_op: int | None = None
 
-    def handle_starttag(self, tag, attrs):
+    def _note(self, attrs):
         if any(naam == "hx-swap-oob" for naam, _waarde in attrs):
             self.gevonden.append(self.diepte)
+            self.in_paneel.append(self._paneel_op is not None)
+
+    def handle_starttag(self, tag, attrs):
+        self._note(attrs)
         if tag not in _VOID:
+            if self._paneel_op is None and ("id", "insch-record") in attrs:
+                self._paneel_op = self.diepte
             self.diepte += 1
 
     def handle_startendtag(self, tag, attrs):
-        if any(naam == "hx-swap-oob" for naam, _waarde in attrs):
-            self.gevonden.append(self.diepte)
+        self._note(attrs)
 
     def handle_endtag(self, tag):
         if tag not in _VOID:
             self.diepte = max(0, self.diepte - 1)
-
-
-def _oob_dieptes(html: str) -> list[int]:
-    meter = _Dieptemeter()
-    meter.feed(html)
-    return meter.gevonden
+            if self._paneel_op is not None and self.diepte == self._paneel_op:
+                self._paneel_op = None

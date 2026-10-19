@@ -115,10 +115,11 @@ def test_de_api_weigert_een_ontbrekend_veld_net_zo_goed(client, db_session):
 
 @pytest.mark.parametrize("veld", ["contact_name", "phone", "team_name"])
 def test_het_bewerkscherm_weigert_leegmaken(client, db_session, veld):
-    """En het toont waarom, in de foutbanner — geen kale 422 (#723).
+    """En het toont waarom, op het veld zelf (#2127): de banner van de recordpagina
+    noemt het veld, en het formulier houdt wat er getypt stond.
 
-    htmx swapt een 4xx niet, dus een 422 zou hier betekenen dat er op het scherm
-    niets gebeurt. Vandaar 200 mét banner.
+    Een 422 met HTML: de kit swapt hem naar de meldingsregel van het formulier
+    (`refusal_response`, #1515); het formulier zelf wordt niet vervangen.
     """
     activity, comp, product = _opzet(db_session)
     aangemaakt = _inschrijven(client, activity, _payload(comp, product))
@@ -136,8 +137,10 @@ def test_het_bewerkscherm_weigert_leegmaken(client, db_session, veld):
         f"/admin/inschrijvingen/{reg_id}/opslaan", headers=hdr, data={**velden, veld: "   "}
     )
 
-    assert resp.status_code == 200, resp.text
-    assert 'role="alert"' in resp.text, "de melding staat niet in de foutbanner"
+    assert resp.status_code == 422, resp.text
+    assert "data-save-refusal" in resp.text, "de melding staat niet in de foutbanner"
+    assert f'data-error-for="{veld}"' in resp.text, "de melding noemt het veld niet"
+    assert resp.headers["HX-Retarget"] == "#insch-melding"
     db_session.expire_all()
     assert getattr(db_session.get(Registration, reg_id), veld) is not None, (
         "de weigering mag niets wegschrijven"

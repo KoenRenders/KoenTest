@@ -1,12 +1,98 @@
 {% extends "admin_base.html" %}
 {% import "_macros.html" as ui %}
+{% import "_product_row.html" as rows %}
+{% from "_inschrijf_contact.html" import contact_fields, remark_field with context %}
 {% block title %}{{ reg.contact_name }} — {{ _("Raak beheer") }}{% endblock %}
 {% block content %}
-{# Volwaardige inschrijvingspagina (golf 4, #913 — B2). Sinds de feedback van
-   15 sep met tabs (Overzicht · Betalingen) i.p.v. de P13-chips — zelfde
-   patroon als de activiteit- en gezinspagina. #}
-<div class="max-w-2xl">
-  {% include "_insch_recordkop.html" %}
-  {% include "_inschrijving_detail.html" %}
+{# The registration's record (#2127, CR-11 phase 5, round 4; end state §2.2, §5.2): the head
+   with Bewerken and Acties, the tabs, the summary beside the form column, and the cards
+   Contact, Producten and Antwoorden on the edit grid. READ first; `?bewerken=1` is the
+   editor with ONE "Opslaan": the counters, the contact, the remark and the answers are
+   written in one transaction, or nothing is (`registration_save`). Nothing on the page
+   saves on its own. The contact block and the remark are the public registration
+   form's own partial (`_inschrijf_contact.html`). `#insch-record` is what a good answer
+   replaces; a refusal answers the banner alone, into `#insch-melding`.
+
+   Attributes stand LITERALLY on every element (#613): a `{% set %}` of an attribute
+   string is escaped by the autoescape and htmx reads nothing of it. #}
+<div id="insch-record">
+{% set kop_editing = edit %}
+{% include "_insch_recordkop.html" %}
+{% set _card %}{{ ui.summary_card(summary.state, summary.figures) }}{% endset %}
+{% call ui.record_columns(aside=_card|trim) %}
+<div data-form-flow data-mode="{{ 'edit' if edit else 'read' }}" class="form-flow">
+  <div id="insch-melding" data-form-message>{{ ui.error_banner(error) }}</div>
+  {% if edit %}
+  <form id="insch-form" class="contents" data-record-form data-message="#insch-melding" novalidate
+        hx-post="{{ save_url }}" hx-target="#insch-record" hx-select="#insch-record"
+        hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap">
+  {% endif %}
+
+  {% call ui.section(_("Contact"), id="insch-section-contact") %}
+    {{ contact_fields(contact_values, show_team=toon_ploegnaam, team_required=ploegnaam_verplicht, edit=edit) }}
+    {#- #733: the asterisk follows `ploegnaam_verplicht`; a stored team name on a component
+        that asks none is shown and may be cleared. -#}
+    <p data-span="full" class="min-w-0 text-xs text-ink-soft">{{ _("Dit corrigeert enkel deze inschrijving. Het ledenbestand pas je aan bij Leden.") }}</p>
+  {% endcall %}
+
+  {% call ui.section(_("Producten"), id="insch-section-products") %}
+    {% if edit %}
+    {# #1494: every product of the component, as on the registration form — the one product
+       row (#1287), 0 is "not chosen". A changed counter recalculates the total at once,
+       server-side (§19.3), and answers the TOTAL and nothing else (#1613). The counters
+       share one queue (`hx-sync`, `replace`). #}
+    <div id="reg-prijsblok-{{ reg.id }}" data-span="full" class="min-w-0 grid gap-3">
+      {% for p in product_rows %}
+      {% set price %}{% if p.unit_price is not none %}€ {{ p.unit_price|geld }}{% endif %}{% endset %}
+      <div data-field="product_{{ p.id }}" class="min-w-0">
+      {{ rows.product_row(p.name, price, "product_" ~ p.id, "product-" ~ reg.id ~ "-" ~ p.id,
+                          p.quantity, min=0,
+                          attrs='hx-post="/admin/inschrijvingen/' ~ reg.id ~ '/totaal"'
+                                ' hx-include="closest form"'
+                                ' hx-target="#reg-totaal-' ~ reg.id ~ '" hx-swap="innerHTML"'
+                                ' hx-sync="#reg-prijsblok-' ~ reg.id ~ ':replace"'
+                                ' hx-trigger="change, input delay:300ms"') }}
+      </div>
+      {% else %}
+      <p class="text-sm text-ink-soft">{{ _("Geen producten") }}</p>
+      {% endfor %}
+    </div>
+    <div id="reg-totaal-{{ reg.id }}" data-span="full" class="min-w-0">{% include "_inschrijving_totaal.html" %}</div>
+    {% else %}
+    {% for item in reg["items"] %}
+    <p data-span="full" class="min-w-0 text-sm leading-[21px] text-ink">{{ item.quantity }}× {{ item.product_name or "—" }}{% if item.unit_price is not none %} <span class="text-ink-soft">· € {{ item.unit_price|geld }}</span>{% endif %}</p>
+    {% else %}<p data-span="full" class="min-w-0 text-sm leading-[21px] text-ink-soft">{{ _("Geen producten") }}</p>{% endfor %}
+    {% if reg["items"] %}<div data-span="full" class="min-w-0">{% include "_inschrijving_totaal.html" %}</div>{% endif %}
+    {% endif %}
+    {{ remark_field(reg.remarks or "", edit=edit) }}
+  {% endcall %}
+
+  {# CR-14 phase 2 (§B4.4) and phase 3 (§B4.7): the answers to the component's questions. Edit:
+     the form builder's own cards, checked by its own rules and saved with the rest; read:
+     the answers, or the moment they were asked while the link is open. #}
+  {% if vragen and edit %}
+  {% from "_formulier_vragen.html" import vragen_kaarten with context %}
+  {{ vragen_kaarten(vraag_groepen, vraag_los, vraag_fout=vraag_fout, title=vraagformulier.title) }}
+  {% elif antwoorden or antwoorden_gevraagd_op %}
+  {% call ui.section(_("Antwoorden"), id="insch-section-answers") %}
+    {% if antwoorden %}
+    {% for label, waarde in antwoorden %}
+    <p data-span="full" class="min-w-0">{{ ui.label_fact(label, waarde or "—") }}</p>
+    {% endfor %}
+    {% else %}
+    <div data-span="full" class="min-w-0">{{ ui.badge(_("Antwoorden gevraagd op %(datum)s", datum=antwoorden_gevraagd_op | kortedatum), "orange") }}</div>
+    {% endif %}
+  {% endcall %}
+  {% endif %}
+
+  {% if edit %}
+  </form>
+  {{ ui.action_bar(record=True, form="insch-form", cancel_href=cancel_href, delete_attrs=delete_attrs, delete_confirm=delete_confirm) }}
+  {% endif %}
 </div>
+{% endcall %}
+</div>
+{# #717 — the confirmation after a good "Opslaan": the toast lands in the shell's host,
+   outside what the answer replaces (the first user of `ui.toast_oob`). #}
+{% if toast_bericht %}{{ ui.toast_oob(toast_bericht if toast_bericht is string else None) }}{% endif %}
 {% endblock %}

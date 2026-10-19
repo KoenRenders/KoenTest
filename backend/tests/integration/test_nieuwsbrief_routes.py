@@ -118,10 +118,10 @@ def test_de_hele_weg_van_een_nieuwsbrief(client, db_session, mailbox):
     scherm = client.get(f"/admin/nieuwsbrieven/{letter.id}")
     assert scherm.status_code == 200
     assert 'id="nb-editor"' in scherm.text
-    assert (
-        'name="audience"' in scherm.text
-        and " checked" not in scherm.text.split('name="audience"')[1][:40]
-    )
+    # The audience is the head's (#2113): no radio group on the page, one select in the
+    # head's edit card, and none chosen on a new draft.
+    assert 'input type="radio" name="audience"' not in scherm.text
+    assert 'name="audience"' in scherm.text and 'value="" selected' in scherm.text
 
     # 3. "Blok invoegen › Activiteit" offers the letter's FEATURED activities: the
     # editor's configuration carries them, and the block it inserts is a REFERENCE
@@ -135,22 +135,35 @@ def test_de_hele_weg_van_een_nieuwsbrief(client, db_session, mailbox):
     kiezer = client.get(f"/admin/nieuwsbrieven/{letter.id}/activiteiten?purpose=featured&q=rum")
     assert "Rumproefavond" in kiezer.text
 
-    # 4. Autosave.
+    # 4. The head's own save: subject, preview text and audience, then the autosave of
+    # the text, which leaves all three as they are (#2113).
+    kop_bewaard = client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/bewerken",
+        headers=headers,
+        data={"subject": "Het najaar", "preview_text": "Wat komt er", "audience": "non_members"},
+    )
+    assert kop_bewaard.status_code == 200
+    assert kop_bewaard.headers["HX-Trigger"] == "nb-head-saved"
+    assert 'id="nb-kop" hx-swap-oob="true"' in kop_bewaard.text
     bewaard = client.post(
         f"/admin/nieuwsbrieven/{letter.id}/bewaren",
         headers=headers,
         data={
-            "subject": "Het najaar",
-            "audience": "non_members",
             "body": json.dumps(
                 letter_doc(f"<div>Beste,</div><div>[[activiteit:{rum.id}|Rumproefavond]]</div>")
             ),
         },
     )
     assert bewaard.status_code == 200
-    assert "Bewaard om" in bewaard.text
+    assert "wordt bewaard" in bewaard.text
+    # The save sends the head back out of band, so "Opgeslagen om" follows the text.
+    assert 'id="nb-kop" hx-swap-oob="true"' in bewaard.text
     db_session.refresh(letter)
-    assert (letter.subject, letter.audience) == ("Het najaar", Audience.NON_MEMBERS)
+    assert (letter.subject, letter.preview_text, letter.audience) == (
+        "Het najaar",
+        "Wat komt er",
+        Audience.NON_MEMBERS,
+    )
 
     # 5. The test mail goes to the signed-in admin only.
     test = client.post(f"/admin/nieuwsbrieven/{letter.id}/testmail", headers=headers)

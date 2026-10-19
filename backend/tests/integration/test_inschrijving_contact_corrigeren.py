@@ -78,11 +78,10 @@ def test_ongeldig_e_mailadres_wordt_geweigerd(client, db_session):
         data={"contact_name": "An", "contact_email": "geen-adres", "phone": "", "remarks": ""},
     )
 
-    # Bewust 200 met een zichtbare foutbanner i.p.v. 422: htmx swapt een 422 niet,
-    # dus de gebruiker zou niets zien gebeuren. "Leesbare fout" betekent dat ze op
-    # het scherm staat, niet dat de statuscode klopt.
-    assert resp.status_code == 200, resp.text
-    assert "geldig e-mailadres" in resp.text
+    # Sinds #2127 een 422 met de banner van de recordpagina, die het veld noemt: de kit
+    # swapt hem naar de meldingsregel van het formulier (`refusal_response`).
+    assert resp.status_code == 422, resp.text
+    assert "geldig e-mailadres" in resp.text and 'data-error-for="contact_email"' in resp.text
     db_session.expire_all()
     assert db_session.get(Registration, reg_id).contact_email == "fout@example.com"
 

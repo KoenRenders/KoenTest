@@ -44,18 +44,18 @@ def test_attributen_zijn_niet_geescaped(client, db_session):
     """De kern van #613: `hx-target=&#34;…&#34;` maakt htmx blind voor het doel."""
     reg_id, _ = _inschrijving(client, db_session)
     _login(client)
-    html = client.get(f"/admin/inschrijvingen/{reg_id}").text
+    html = client.get(f"/admin/inschrijvingen/{reg_id}?bewerken=1").text
 
     assert "hx-target=&#34;" not in html and "hx-swap=&#34;" not in html
-    assert 'hx-target="closest [data-registration-detail]"' in html
-    assert 'hx-swap="outerHTML"' in html
+    assert 'hx-target="#insch-record"' in html
+    assert 'hx-swap="outerHTML show:window:top"' in html
 
 
 def test_een_opslaan_voor_aantallen_en_opmerking(client, db_session):
     """#613-2: geen autosave op change, geen aparte "Opmerking opslaan" meer."""
     reg_id, product_id = _inschrijving(client, db_session)
     _login(client)
-    html = client.get(f"/admin/inschrijvingen/{reg_id}").text
+    html = client.get(f"/admin/inschrijvingen/{reg_id}?bewerken=1").text
 
     assert 'hx-trigger="change"' not in html
     assert "Opmerking opslaan" not in html
@@ -84,28 +84,6 @@ def test_opslaan_bewaart_aantal_en_opmerking_samen(client, db_session):
     )
     assert item.quantity == 3
     assert db_session.get(Registration, reg_id).remarks == "Nota van de admin"
-
-
-def test_opslaan_ververst_de_kaart_erboven(client, db_session):
-    """#613-4/#617-3: de kaart staat buiten dit fragment en bleef op het oude bedrag
-    staan terwijl de server al gereconcilieerd had. De HX-Trigger haalt haar erbij.
-
-    Deze test toetste ook dat het paneel na "Opslaan" open bleef (#613-3). Die helft
-    is met #717 van betekenis veranderd, niet weggevallen: Opslaan is de afsluitende
-    handeling en sluit nu, mét een toast. Het openblijven geldt nog steeds voor de
-    tussenacties — /totaal, /regels en /regels/{id}/verwijderen — en staat als
-    invariant in test_inschrijving_opslaan_bevestiging.py, samen met de tegenhanger
-    (Opslaan sluit). Ze zijn dus samen nog altijd afgedekt, op één plek.
-    """
-    reg_id, product_id = _inschrijving(client, db_session)
-    csrf = _login(client)
-
-    r = client.post(
-        f"/admin/inschrijvingen/{reg_id}/opslaan",
-        data={f"product_{product_id}": "2", "remarks": ""},
-        headers={"X-CSRF-Token": csrf},
-    )
-    assert r.headers.get("HX-Trigger") == "betalingen-ververst"
 
 
 def test_paneel_toont_bedragen_en_totaal(client, db_session):

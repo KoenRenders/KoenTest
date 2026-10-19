@@ -13,12 +13,10 @@
    semibold), 16 px between cards (#1899, as the form flow) and the questions on the form grid, 12 px
    apart. One long page: no steps.
 
-   Two macros:
-   - `vragen_kop` — the form's title and description as a heading, for a page
-     that shows the block INSIDE something of its own (the registration detail in
-     the back office). The form's own page puts its name in a name card, and the
-     registration page asks under its own section "Vragen bij de inschrijving".
-   - `vragen_kaarten` — the cards.
+   One macro, `vragen_kaarten` — the cards. (`vragen_kop`, the form's title and
+   description as a heading for the registration detail in the back office, left
+   with that detail's own form: the record page of a registration, #2127, asks the
+   questions under the cards' own `title`.)
 
    Parameters of `vragen_kaarten`:
    - `vraag_fout` — the id of the question a refusal names, marked, where the
@@ -36,11 +34,6 @@
    Expects in the context what `veld` expects: `values` and `ui`. #}
 {% import "_macros.html" as ui %}
 {% from "_formulier_veld.html" import veld with context %}
-{% macro vragen_kop(form, heading="h1", compact=False) %}
-<{{ heading }} class="{{ 'text-xl' if compact else 'text-2xl' }} font-bold text-kop mb-2">{{ form.title }}</{{ heading }}>
-{% if form.description %}<p class="text-gray-600 mb-6 whitespace-pre-wrap">{{ form.description }}</p>{% endif %}
-{% endmacro %}
-
 {% macro vragen_kaarten(grouped, loose_fields, vraag_fout=None, cards_attrs="", path=False, title=None) %}
 {% macro _vraag(f) %}{% if vraag_fout is not none and vraag_fout == f.id %}<div data-span="full" data-question-refused class="rounded-md ring-2 ring-red-600 p-2">{{ veld(f) }}</div>{% else %}{{ veld(f) }}{% endif %}{% endmacro %}
 <div data-question-cards class="grid gap-4 min-w-0" {{ cards_attrs|safe }}>
