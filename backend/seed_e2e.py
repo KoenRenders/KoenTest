@@ -159,6 +159,13 @@ def main() -> None:
 
     load_all_models()
 
+    # The seed works for the association's tenant: the clock asks which day it is for a
+    # tenant and refuses outside one (#2156), and a registration looks at the day.
+    from app.kernel.tenancy import DEFAULT_TENANT_ID as _SEED_TENANT_ID
+    from app.kernel.tenancy import current_tenant_id as _seed_tenant
+
+    _seed_tenant.set(_SEED_TENANT_ID)
+
     from app.domains.activities.api import (
         Activity,
         ActivityDate,

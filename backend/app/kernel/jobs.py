@@ -30,6 +30,7 @@ from sqlalchemy.orm import Session
 
 from app.database import Base, SessionLocal
 from app.kernel.codes import CodeEnum, CodeList, CodeSeed, EnumColumn, code_of
+from app.kernel.tenancy import current_tenant_id
 
 logger = logging.getLogger(__name__)
 
@@ -153,10 +154,19 @@ def enqueue(
     run_at: Optional[datetime] = None,
     max_attempts: int = 5,
 ) -> KernelJob:
-    """Plan een job — in de lopende transactie (commit van de bron = commit van de job)."""
+    """Plan een job — in de lopende transactie (commit van de bron = commit van de job).
+
+    De job draagt de tenant mee waarin hij gepland werd (`tenant_id` in de payload, #2156):
+    de dag van een tenant is die van zijn tijdzone, en een job die de klok vraagt buiten een
+    tenant faalt luid (`clock.NoTenantContext`). Een payload die zelf een `tenant_id`
+    draagt houdt die; buiten elke tenant (de scheduler zelf) wordt niets toegevoegd."""
+    body = dict(payload or {})
+    tenant = current_tenant_id.get()
+    if tenant is not None:
+        body.setdefault("tenant_id", tenant)
     entry = KernelJob(
         name=name,
-        payload=payload or {},
+        payload=body,
         run_at=run_at or datetime.now(timezone.utc),
         max_attempts=max_attempts,
     )
@@ -253,7 +263,14 @@ def run_due_jobs(db: Session, batch: int = 10) -> int:
         try:
             if handler is None:
                 raise LookupError(f"geen handler geregistreerd voor job '{entry.name}'")
-            handler(db, dict(entry.payload or {}))
+            # The job runs in the tenant it was planned in, and in none when it was planned
+            # in none: the scheduler's thread carries no tenant of its own (#2156).
+            body = dict(entry.payload or {})
+            token = current_tenant_id.set(body.get("tenant_id"))
+            try:
+                handler(db, body)
+            finally:
+                current_tenant_id.reset(token)
             if savepoint.is_active:
                 savepoint.commit()
             entry.status = JobStatus.DONE

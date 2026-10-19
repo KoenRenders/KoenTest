@@ -616,6 +616,9 @@ class TenantRecordView(ViewModel):
     #: None in the own scope.
     tenant_card: dict[str, Any] | None
     site_name: dict[str, str]
+    #: The day the site lives by (#2156): an IANA name, edited on the platform's screen
+    #: (the own scope reads it).
+    time_zone: str
     #: The card Site and one card per module: {code, label, on, fields, secrets,
     #: error}; `code` None for Site.
     cards: list[dict[str, Any]]
@@ -822,6 +825,7 @@ def _record_view(
             "value": (typed or {}).get("site_name", unit.site_name or ""),
             "default": site_name_default(db, tenant_id),
         },
+        time_zone=(typed or {}).get("time_zone", unit.time_zone),
         cards=cards,
         kept_modules=sorted(c.value for c in _hidden_cards(unit) if c.value in stored_on),
         error=error,
@@ -931,6 +935,7 @@ def tenant_aanmaken(
     new_organization_name: str = Form(""),
     base_url: str = Form(""),
     kind: str = Form("VERENIGING"),
+    time_zone: str = Form(""),
 ):
     """Creates the tenant — and the organisation chosen as "nieuwe organisatie",
     in the same transaction (CR-20 F5). A refusal shows the form again with what
@@ -948,6 +953,7 @@ def tenant_aanmaken(
             site_name=site_name,
             base_url=base_url,
             kind=kind,
+            time_zone=time_zone,
         )
     except TenantFout as fout:
         typed = {
@@ -959,6 +965,7 @@ def tenant_aanmaken(
             "new_organization_name": new_organization_name,
             "base_url": base_url,
             "kind": kind,
+            "time_zone": time_zone,
         }
         ctx = _new_ctx(request, db, typed=typed, error=_(str(fout)))
         return templates.TemplateResponse(request, "admin_tenant_nieuw.html", ctx)
@@ -1012,7 +1019,9 @@ async def _save(request: Request, db: Session, tenant_id: int, email: str, *, ow
     def again(**kwargs) -> Any:
         # #797: the typed values stay; throwing them away makes the message worse
         # than the mistake.
-        typed = {k: str(v) for k, v in form.items() if k in labels or k == "site_name"}
+        typed = {
+            k: str(v) for k, v in form.items() if k in labels or k in ("site_name", "time_zone")
+        }
         return _record_page(
             request,
             db,
@@ -1044,6 +1053,7 @@ async def _save(request: Request, db: Session, tenant_id: int, email: str, *, ow
             if "site_organization_id" in form
             else None,
             site_name=str(form["site_name"]) if "site_name" in form else None,
+            time_zone=str(form["time_zone"]) if "time_zone" in form else None,
             actor=email,
         )
     except ModuleRefused as fout:

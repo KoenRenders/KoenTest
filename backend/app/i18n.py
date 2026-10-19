@@ -74,11 +74,11 @@ def local_moment(moment: datetime) -> datetime:
     is UTC from one caller and local from the next, and guessing is the bug. A
     caller that holds a local moment hands it in Brussels-aware.
     """
-    from app.kernel.clock import BELGIUM
+    from app.kernel.clock import time_zone
 
     if moment.tzinfo is None:
         raise ValueError(f"a moment to show needs its time zone, got a naive {moment!r}")
-    return moment.astimezone(BELGIUM)
+    return moment.astimezone(time_zone())
 
 
 def _day(d):

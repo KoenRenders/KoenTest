@@ -74,7 +74,7 @@ class TransferDue:
 def transfer_due(db: Session, record, heading: str) -> Optional[TransferDue]:
     """The transfer a booking (`PaymentRecord`) still asks for; None for a
     booking that is not paid by transfer, or for none at all."""
-    from app.kernel.clock import BELGIUM, belgian_today
+    from app.kernel.clock import belgian_day, belgian_today
     from app.kernel.tenant_config import (
         tenant_payment_beneficiary,
         tenant_payment_iban,
@@ -83,7 +83,7 @@ def transfer_due(db: Session, record, heading: str) -> Optional[TransferDue]:
 
     if record is None or record.method is not PaymentMethod.TRANSFER:
         return None
-    made = record.created_at.astimezone(BELGIUM).date() if record.created_at else belgian_today()
+    made = belgian_day(record.created_at) if record.created_at else belgian_today()
     return TransferDue(
         heading=heading,
         amount=record.amount,

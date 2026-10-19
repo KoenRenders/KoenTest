@@ -37,6 +37,7 @@ from app.domains.membership.api import Membership, current_membership_counts
 from app.domains.reporting.api import DASHBOARD_TEGELS, dashboard_numbers
 from app.domains.reporting.tests.test_reporting_panel_ui import ADMIN_EMAIL
 from app.kernel.clock import belgian_today
+from tests._pins import pinned_window  # noqa: F401 - the fixture of the marker below
 from tests._reporting_seed import TENANT_A, seed
 
 # The tile as the dashboard defines it — derived, so this test reads whatever
@@ -89,6 +90,9 @@ def _household(db, *periods: tuple[int, date, date]) -> Member:
     return member
 
 
+# #2156: run inside the window between midnight in Brussels and midnight UTC, at any hour
+# (both clocks pinned, `tests/_pins.py`).
+@pytest.mark.usefixtures("pinned_window")
 def test_a_household_that_joined_after_the_turnover_date_counts_on_both(db_session, situation):
     """Next year's membership, valid from today: a member today."""
     today = belgian_today()
@@ -118,6 +122,9 @@ def test_a_household_with_two_overlapping_memberships_counts_once(db_session, si
     assert _tile(db_session) == tile + 1, "the dashboard counts memberships, not households"
 
 
+# #2156: run inside the window between midnight in Brussels and midnight UTC, at any hour
+# (both clocks pinned, `tests/_pins.py`).
+@pytest.mark.usefixtures("pinned_window")
 def test_the_member_list_and_the_dashboard_give_the_same_number(db_session, situation):
     today = belgian_today()
     # Two households that joined today for next year. Two and not one: the seed

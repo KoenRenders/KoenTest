@@ -381,7 +381,7 @@ def test_every_collector_still_finds_something_or_is_at_zero_on_purpose():
 
 
 def baseline_empty_on_purpose() -> list[str]:
-    return ["checkbox_groups_in_toolbars"]
+    return ["checkbox_groups_in_toolbars", "hand_drawn_tiles"]
 
 
 # ── The red proofs, kept ─────────────────────────────────────────────────────

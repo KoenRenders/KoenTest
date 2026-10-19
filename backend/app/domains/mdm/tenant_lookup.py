@@ -11,6 +11,7 @@ draait; ``invalidate_tenant_codes()`` wist de cache na een tenant-mutatie.
 from __future__ import annotations
 
 from app.domains.mdm.models import TenantKind
+from app.kernel.clock import forget_time_zones
 from app.kernel.tenancy import TENANT_CODES, forget_tenant_accounts
 
 _cache: dict[str, int] | None = None
@@ -159,3 +160,4 @@ def invalidate_tenant_codes() -> None:
     _platform_cache = None
     _modules_cache = None
     forget_tenant_accounts()
+    forget_time_zones()

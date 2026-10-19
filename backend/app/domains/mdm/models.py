@@ -838,6 +838,11 @@ class Tenant(Base):
     #: NULL = that organisation's name. Read through
     #: `kernel.tenant_config.tenant_display_name`.
     site_name = Column(String(255), nullable=True)
+    #: The day this site lives by (#2156): an IANA name (`Europe/Brussels`, the default of
+    #: every tenant). Moments are stored in UTC; "today" and "the day of a moment" are
+    #: the tenant's, decided by `kernel.clock` in the application and by
+    #: `mdm.tenant_today()` / `mdm.tenant_day()` in SQL — one setting for both.
+    time_zone = Column(String(64), nullable=False, default="Europe/Brussels")
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
     updated_at = Column(
