@@ -276,9 +276,14 @@ def test_the_cards_with_a_button_of_their_own_work_from_the_new_page(setup, tmp_
         dialog.get_by_role("button", name="Definitief maken").click()
         page.wait_for_function(
             "() => document.querySelectorAll('[data-version]').length > 0"
-            " || document.querySelector('#ds-melding [role=alert], #ds-melding [data-banner], #ds-melding p')",
+            " || document.querySelector('#ds-melding [role=alert]')",
             timeout=120_000,
         )
+        if page.locator("[data-version]").count() == 0:
+            # a server without Inkscape (CI) refuses with its reason; the version part
+            # of the walk needs one that has it
+            expect(page.locator("#ds-melding [role=alert]")).to_contain_text("Inkscape")
+            return
         # the version stands with its files, and is published after a question
         version = page.locator("[data-version]").first
         expect(version).to_be_visible()
