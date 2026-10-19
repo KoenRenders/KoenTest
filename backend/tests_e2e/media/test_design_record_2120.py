@@ -1,7 +1,7 @@
 """E2E: the Design Studio design is a record page, read first (#2120).
 
 Walked in a browser: the page opens read-only with Bewerken in the head; Definitief
-maken and Verwijderen stand under Acties; Bewerken opens ONE form for Ontwerp, Kernpunten
+maken stands under Acties, Verwijderen only in the edit bar (#2172); Bewerken opens ONE form for Ontwerp, Kernpunten
 and Beelden with a bar of three buttons — Annuleren, "Bewaren en voorbeeld vernieuwen"
 (saves, stays in edit) and Opslaan (saves, back to read). Annuleren with changes asks. A
 refused save says why and keeps what was typed. On a phone the bar's three buttons stand
@@ -93,11 +93,11 @@ def test_it_opens_read_only_with_the_head_of_a_record(setup):
         assert "Opmaak:" in page.locator("[data-facts]").inner_text()
         # the preview stands in the side column
         assert page.locator("[data-summary-column] #ds-voorbeeld img").count() == 1
-        # Definitief maken and Verwijderen are under Acties
+        # Definitief maken is under Acties; Verwijderen is the edit bar's only (#2172)
         page.locator("[data-actions-trigger]").click()
         menu = page.locator("[data-actions-menu]")
         expect(menu.get_by_role("menuitem", name="Definitief maken")).to_be_visible()
-        expect(menu.get_by_role("menuitem", name="Verwijderen")).to_be_visible()
+        assert menu.get_by_role("menuitem", name="Verwijderen").count() == 0
         # the cards that need no editing stay, the ones that upload do not show while reading
         assert page.locator("[data-form-section] h2", has_text="Versies").count() == 1
         assert page.locator("[data-form-section] h2", has_text="Foto toevoegen").count() == 0
@@ -306,17 +306,6 @@ def test_verwijderen_in_the_bar_asks_and_returns_to_the_list(setup):
         expect(dialog).to_be_visible()
         assert data["name"] in dialog.inner_text()
         dialog.get_by_role("button", name="Definitief verwijderen").click()
-        expect(page).to_have_url(re.compile(r"/admin/ontwerpen$"))
-    finally:
-        page.close()
-
-
-def test_verwijderen_under_acties_while_reading(setup):
-    page, data = _open(setup)
-    try:
-        page.locator("[data-actions-trigger]").click()
-        page.get_by_role("menuitem", name="Verwijderen").click()
-        page.get_by_role("dialog").get_by_role("button", name="Definitief verwijderen").click()
         expect(page).to_have_url(re.compile(r"/admin/ontwerpen$"))
     finally:
         page.close()

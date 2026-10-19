@@ -61,6 +61,8 @@ class NewsletterHead:
     #: The audience and when it was saved — each a plain text.
     facts: list[dict[str, str]]
     csrf_token: str
+    #: The question of Verwijderen, in the edit-mode action bar (#2172).
+    delete_confirm: str = ""
 
 
 @dataclass(frozen=True, kw_only=True)

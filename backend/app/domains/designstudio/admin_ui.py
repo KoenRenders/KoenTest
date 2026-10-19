@@ -522,13 +522,6 @@ def _editor_view(
                 ),
                 "confirm_ok": _("Definitief maken"),
             },
-            {
-                "kind": "delete",
-                "label": _("Verwijderen"),
-                "attrs": f'hx-post="{base}/verwijderen"',
-                "confirm": delete_question(_("Ontwerp"), name),
-                "confirm_ok": _("Definitief verwijderen"),
-            },
         ],
         way_back=record_frame(request, db, NAV)["way_back"],
         record_url=view_url,

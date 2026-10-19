@@ -282,3 +282,33 @@ def test_the_menu_switch_says_what_it_does_for_a_section(client, db_session):
     assert "Bij een sectie verdwijnen ook haar pagina" in editor[at - 2000 : at + 2000], (
         "the help line stands with the switch"
     )
+
+
+def test_from_the_lists_menu_the_refusal_and_the_delete_answer_the_list(client, db_session):
+    """#2172: Verwijderen in a row's ⋯ answers the list fragment — the reason on its
+    banner for a section with pages under it, the list without the page otherwise."""
+    section = _page(db_session, "over-ons-2172", "Over ons 2172")
+    _page(db_session, "bestuur-2172", "Bestuur 2172", parent_id=section.id)
+    loose = _page(db_session, "los-2172", "Los 2172")
+    session = make_session_value(SEEDED_ADMIN_EMAIL)
+    client.cookies.set(SESSION_COOKIE, session)
+    headers = {"X-CSRF-Token": csrf_token_for(session), "HX-Request": "true"}
+
+    listed = client.get("/admin/paginas").text
+    row = listed[listed.index(f'data-page="{loose.id}"') :]
+    assert f'hx-post="/admin/paginas/{loose.id}/verwijderen"' in row[: row.index("</tr>")]
+
+    refused = client.post(
+        f"/admin/paginas/{section.id}/verwijderen", data={"from_list": "1"}, headers=headers
+    )
+    assert "HX-Retarget" not in refused.headers, "the list's own target, not the record"
+    assert 'role="alert"' in refused.text and "Er staan nog pagina" in refused.text
+    assert f'data-page="{section.id}"' in refused.text
+
+    gone = client.post(
+        f"/admin/paginas/{loose.id}/verwijderen", data={"from_list": "1"}, headers=headers
+    )
+    assert gone.status_code == 200 and f'data-page="{loose.id}"' not in gone.text
+    db_session.expire_all()
+    assert db_session.get(CmsPage, loose.id) is None
+    assert db_session.get(CmsPage, section.id) is not None
