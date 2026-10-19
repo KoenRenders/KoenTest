@@ -1899,7 +1899,7 @@ def delete_person(db: Session, person: Person, *, actor: Optional[str]) -> None:
     rule (`detach_household_person`: its refusals, its history row), in the same
     transaction; the main member is refused — a household has one. Then the
     person goes, with his contact rows, external numbers and address, each with
-    its history row. Soft deletes: a registration keeps the name and the
+    its history row, and its party. Soft deletes: a registration keeps the name and the
     address written on it, and a deleted person's address finds nobody at the
     sign-in.
 
@@ -1931,3 +1931,6 @@ def delete_person(db: Session, person: Person, *, actor: Optional[str]) -> None:
         soft_delete(person.address)
     snapshot_person(db, person, actor=actor, **history)
     soft_delete(person)
+    # The party and its person live and die together (CR-20 C4.4): a live party
+    # whose person is gone would be a pointer at nothing.
+    soft_delete(person.party)

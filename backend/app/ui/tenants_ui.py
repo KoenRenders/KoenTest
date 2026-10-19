@@ -198,8 +198,10 @@ LEDENSLEUTELS = {
 NAV = "/admin/tenants"
 OWN = "/admin/instellingen"
 STATUSES = ("", "actief", "inactief")
-SORT_DEFAULT = "naam"
-SORTS = (SORT_DEFAULT, "-naam", "type", "-type")
+#: CR-20 F5: by account by default, the account a column (Koen, 19 October 2026:
+#: "a" — no heading per account, no change to the kit).
+SORT_DEFAULT = "account"
+SORTS = (SORT_DEFAULT, "-account", "naam", "-naam", "type", "-type")
 
 #: Mail-modus as a choice (#1933): the stored values are the ones the mail
 #: domain reads; an empty setting means "send".
@@ -253,7 +255,8 @@ class TenantsView(ViewModel):
 
 def _list_view(request: Request, db: Session, *, oob: bool = False, **extra: Any) -> TenantsView:
     """The list Tenants (#1933): the segments Alle · Actief · Inactief with their
-    counts, the search on name and code, the sort by name or by type. The state
+    counts, the search on name and code, the sort by account (the default, CR-20
+    F5), by name or by type. The state
     is in the URL; the toolbar asks this same address for the fragment."""
     state = filterparams(request)
     q = (state.get("q") or "").strip()
@@ -289,9 +292,14 @@ def _list_view(request: Request, db: Session, *, oob: bool = False, **extra: Any
     def by_kind(u) -> tuple:
         return (kind_of[u.id].casefold(), (u.name or "").casefold())
 
-    shown = sorted(
-        shown, key=by_kind if sort in ("type", "-type") else by_name, reverse=sort[0] == "-"
-    )
+    # #1542: the account each site hangs under.
+    accounts = _account_names(db, everyone)
+
+    def by_account(u) -> tuple:
+        return (accounts.get(u.id, "").casefold(), (u.name or "").casefold())
+
+    order = {"naam": by_name, "type": by_kind, "account": by_account}[sort.lstrip("-")]
+    shown = sorted(shown, key=order, reverse=sort[0] == "-")
     total = len(shown)
     page = min(page, max(1, -(-total // per_page)))
     shown = shown[(page - 1) * per_page : page * per_page]
@@ -304,9 +312,7 @@ def _list_view(request: Request, db: Session, *, oob: bool = False, **extra: Any
         page=page if page > 1 else "",
         per_page=per_page if per_page != PER_PAGE_DEFAULT else "",
     )
-    # #1542: the account each site hangs under; #1554: the organisation behind
-    # the site, where it is not the tenant's own.
-    accounts = _account_names(db, shown)
+    # #1554: the organisation behind the site, where it is not the tenant's own.
     site_orgs = _site_org_names(db, shown)
     rows = [
         {
@@ -360,7 +366,7 @@ def _list_view(request: Request, db: Session, *, oob: bool = False, **extra: Any
         "columns": [
             _head("naam", _("Tenant"), "name", "naam", "-naam"),
             _head("type", _("Type"), "context", "type", "-type", width=150),
-            {"key": "account", "label": _("Account"), "cell": "extra", "priority": 1, "width": 200},
+            _head("account", _("Account"), "extra", "account", "-account", priority=1, width=200),
             {
                 "key": "site_org",
                 "label": _("Organisatie achter de site"),
@@ -387,7 +393,7 @@ def _list_view(request: Request, db: Session, *, oob: bool = False, **extra: Any
         "status": status,
         "q": q,
         "sort": sort,
-        "sort_options": [(SORT_DEFAULT, _("Naam")), ("type", _("Type"))],
+        "sort_options": [("account", _("Account")), ("naam", _("Naam")), ("type", _("Type"))],
         "page": page,
         "per_page": per_page,
         "total": total,

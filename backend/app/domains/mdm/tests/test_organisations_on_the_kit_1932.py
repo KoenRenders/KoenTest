@@ -49,19 +49,21 @@ def _cell(row: str, cell: str, nth: int = 0) -> str:
 # ── The list ──────────────────────────────────────────────────────────────────
 
 
-def test_the_three_columns_stand_in_their_order(client, platform_workspace, db_session):
+def test_the_columns_stand_in_their_order(client, platform_workspace, db_session):
     """CR-20: the parties only — the kind (Soort) and the account above (Onder)
-    went with the tenant columns of the organisation."""
+    went with the tenant columns of the organisation; phase 2 adds how many
+    tenants use each one (Gebruikt door, F5)."""
     _operator(client, db_session)
     html = client.get("/admin/organisaties").text
     heads = re.findall(r"data-column-head[^>]*>(.*?)</th>", html, flags=re.S)
     assert [re.sub(r"<[^>]+>", "", h).strip() for h in heads] == [
         "Organisatie",
+        "Gebruikt door",
         "Rechtsvorm",
         "Status",
     ]
     first = re.search(r"<tr data-row .*?</tr>", html, flags=re.S).group(0)
-    assert re.findall(r'<td data-cell="(\w+)"', first) == ["name", "extra", "status"]
+    assert re.findall(r'<td data-cell="(\w+)"', first) == ["name", "extra", "extra", "status"]
     assert "data-status-filter" not in html, "no kind segments since CR-20"
 
 
@@ -82,7 +84,7 @@ def test_a_tenant_is_no_row_and_the_legal_form_reads_as_its_word(
     account.legal_form = "VZW"
     db_session.commit()
     again = client.get("/admin/organisaties").text
-    assert _cell(_row(again, account.id), "extra", 0).strip() == "vzw"
+    assert _cell(_row(again, account.id), "extra", 1).strip() == "vzw"
 
 
 def test_only_an_inactive_organisation_has_a_status_badge(client, platform_workspace, db_session):

@@ -109,7 +109,7 @@ def _open(browser, operator, size, url):
 
 
 @pytest.mark.parametrize("width", [1440, 1920])
-def test_the_list_has_three_heads_on_one_line_and_its_last_cell_reaches_the_edge(
+def test_the_list_has_its_heads_on_one_line_and_its_last_cell_reaches_the_edge(
     browser, operator, width
 ):
     page = _open(browser, operator, (width, 900), "/admin/organisaties")
@@ -118,13 +118,14 @@ def test_the_list_has_three_heads_on_one_line_and_its_last_cell_reaches_the_edge
     page.close()
 
     assert t["rows"] >= 1
-    assert t["columns"] == ["Organisatie", "Rechtsvorm", "Status"]
-    assert t["head_h"] == [36] * 3, f"a head wraps: {t['head_h']}"
+    # CR-20 phase 2: Gebruikt door, how many tenants use the party (F5).
+    assert t["columns"] == ["Organisatie", "Gebruikt door", "Rechtsvorm", "Status"]
+    assert t["head_h"] == [36] * 4, f"a head wraps: {t['head_h']}"
     assert abs(t["last_right"] - t["frame_right"]) <= 2, (
         f"the last column stops short of the frame: {t['last_right']} v {t['frame_right']}"
     )
     gaps = [b - a for a, b in zip(t["head_x"], t["head_x"][1:])]
-    assert gaps == [380, 200], f"the columns are not at the kit's widths: {gaps}"
+    assert gaps == [380, 140, 200], f"the columns are not at the kit's widths: {gaps}"
     assert t["scroll"] == t["width"]
 
 
