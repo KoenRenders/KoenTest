@@ -22,7 +22,7 @@ SHOTS = "/scratch/shots_1359"
 _MEASURE = """(title) => {
   const point = [...document.querySelectorAll('[id^="vg-punt-"]')]
     .find(p => p.querySelector('input[name=title]') && p.querySelector('input[name=title]').value === title);
-  const card = point.closest('div.rounded-2xl').getBoundingClientRect();
+  const card = point.getBoundingClientRect();
   const widest = Math.max(...[...point.querySelector('input[name=title]').closest('form').querySelectorAll('*')]
     .map(e => e.getBoundingClientRect().right));
   const input = point.querySelector('input[name=title]').getBoundingClientRect();
@@ -70,7 +70,7 @@ def test_a_free_point_title_is_changed_in_place(browser):
         htmx_stil(page)
 
         varia = page.locator(
-            "#vg-document div.rounded-2xl", has=page.locator("h2", has_text="Varia")
+            "#vg-document [data-vg-section]", has=page.locator("h2", has_text="Varia")
         )
         varia.get_by_role("button", name="Punt toevoegen").click()
         htmx_stil(page)

@@ -70,6 +70,20 @@ class MeetingNewView(ViewModel):
 
 
 @dataclass(frozen=True, kw_only=True)
+class MeetingHead:
+    """What the record head of a meeting shows (#2112): one description for the head
+    in the document and for the head a saved point sends back out of band, so the
+    "Opgeslagen om" fact never says an older moment than the screen has."""
+
+    meeting: Any
+    title: str
+    # Time, location, how many are present, when it was saved — each a plain text.
+    facts: list[dict[str, str]]
+    editable: bool
+    csrf_token: str
+
+
+@dataclass(frozen=True, kw_only=True)
 class MeetingDocumentView(ViewModel):
     """`admin_vergadering.html` and its fragment `_vg_document.html`.
 
@@ -80,6 +94,7 @@ class MeetingDocumentView(ViewModel):
 
     meeting: Any
     title: str
+    head: MeetingHead
     sections: list[Any]
     # The circle, with who is ticked present or excused.
     circle: list[Any]
@@ -121,6 +136,7 @@ class MeetingItemView(ViewModel):
 
     item: Any
     meeting: Any
+    head: MeetingHead
     circle: list[Any]
     editable: bool
     csrf_token: str

@@ -31,7 +31,7 @@ SHOTS = "/scratch/shots_1365"
 
 _MEASURE = """(name) => {
   const card = [...document.querySelectorAll('#vg-document h2')]
-    .find(h => h.textContent.trim() === 'Leden').closest('div.rounded-2xl');
+    .find(h => h.textContent.trim() === 'Leden').closest('[data-vg-section]');
   const point = [...card.querySelectorAll('[id^="vg-punt-"]')]
     .find(p => p.querySelector('span').textContent.trim() === name);
   const select = point.querySelector('select[name=steward_person_id]');
@@ -42,7 +42,7 @@ _MEASURE = """(name) => {
             top: Math.round(r.top), bottom: Math.round(r.bottom), width: Math.round(r.width)}; };
   return {
     doc: document.documentElement.scrollWidth, vw: innerWidth,
-    card_right: Math.round(card.getBoundingClientRect().right),
+    card_right: Math.round(point.getBoundingClientRect().right),
     options: select.options.length,
     select: box(select), hint: box(hint),
   };

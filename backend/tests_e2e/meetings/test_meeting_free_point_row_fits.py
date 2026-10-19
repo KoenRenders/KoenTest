@@ -25,7 +25,7 @@ SHOTS = "/scratch/shots_1339"
 # The free-point form inside the open picker, its button and the picker box.
 _MEASURE = """() => {
   const form = document.querySelector('#vg-document form input[name=title]').closest('form');
-  const box = form.closest('div.rounded-lg').getBoundingClientRect();
+  const box = form.closest('#vg-kiezer').getBoundingClientRect();
   const input = form.querySelector('input[name=title]').getBoundingClientRect();
   const button = form.querySelector('button[type=submit]').getBoundingClientRect();
   return {
