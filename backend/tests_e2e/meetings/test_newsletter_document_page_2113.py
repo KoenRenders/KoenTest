@@ -127,9 +127,6 @@ def test_the_head_the_save_fact_and_the_edit_page(world):
             page.locator("#nb-kop-bewerken").get_by_role("link", name="Versturen…")
         ).to_have_count(0)
         page.fill("#nb-onderwerp", "Nieuwsbrief december")
-        _print(page, "nieuwsbrief-kop-bewerken", 1100)
-        _print(page, "nieuwsbrief-kop-bewerken", 390)
-        page.set_viewport_size({"width": 1100, "height": 900})
         page.locator("[data-action-bar] [data-form-cancel]").click()
         expect(page.locator("#nb-kop-form")).to_be_hidden()
         expect(page.locator("#nb-kop h1")).to_have_text(SUBJECT)
@@ -162,5 +159,48 @@ def test_the_document_page_does_not_scroll_sideways(world, width):
                 width,
             )
             assert scroll == width, f"{url} scrolls sideways: {scroll} > {width}; {wide}"
+    finally:
+        page.close()
+
+
+LONG_PREVIEW = "Pannenkoeken, een wandeling langs de Schelde en de kerstmarkt op het dorpsplein"
+
+
+@pytest.mark.parametrize("width", [390, 1100])
+def test_the_preview_text_shows_all_its_text_and_the_bar_stays_in_view(world, width, capsys):
+    """The preview text grows with its text in the edit card: its box is as high as its
+    content (a card that was hidden when the page loaded measured nothing, so the box
+    stayed one line and cut the second line in half). On a phone the bar of the card
+    stays in view while the page scrolls down to the text. Measured at the width the
+    page was loaded at; the prints of the open card are taken here too."""
+    page = _page(world, width)
+    try:
+        _new_letter(page)
+        set_head(page, subject=SUBJECT, preview=LONG_PREVIEW, audience="members")
+        editor = page.locator("#nb-editor .ProseMirror")
+        editor.click()
+        for i in range(25):
+            editor.type(f"Regel {i}")
+            page.keyboard.press("Enter")
+        page.reload()
+        pagina_klaar(page)
+        open_head_card(page)
+        box = page.evaluate(
+            """() => { const t = document.getElementById('nb-voorbeeldtekst');
+                       return {height: t.offsetHeight, content: t.scrollHeight, client: t.clientHeight}; }"""
+        )
+        assert box["height"] >= box["content"], f"the preview text is cut off at {width} px: {box}"
+        if width == 390:
+            assert box["height"] > 45, f"a long text on a phone takes more than one line: {box}"
+        bar = page.locator("[data-action-bar]")
+        ys = []
+        for y in (0, 900):
+            page.evaluate(f"window.scrollTo(0, {y})")
+            page.wait_for_timeout(200)
+            ys.append((y, round(bar.bounding_box()["y"]), page.evaluate("window.innerHeight")))
+        with capsys.disabled():
+            print(f"MEASURE preview box at {width}: {box}; bar (scroll, y, window height): {ys}")
+        page.evaluate("window.scrollTo(0, 0)")
+        _print(page, "nieuwsbrief-kop-bewerken", width)
     finally:
         page.close()
