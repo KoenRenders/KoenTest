@@ -6,8 +6,8 @@
    it asks for itself whenever the author picks another audience, with the audience
    that is ticked (not yet saved), so the list stands there before the save is done. #}
 <div id="nb-deelnemers" data-participants
-     hx-get="/admin/nieuwsbrieven/{{ letter.id }}/deelnemers" hx-trigger="change from:input[name=audience]"
-     hx-include="input[name=audience]:checked" hx-target="this" hx-swap="outerHTML">
+     hx-get="/admin/nieuwsbrieven/{{ letter.id }}/deelnemers" hx-trigger="change from:select[name=audience]"
+     hx-include="select[name=audience]" hx-target="this" hx-swap="outerHTML">
 {% if participants_shown %}
   <div class="mt-3 border-t border-line pt-3">
     <p class="text-sm font-semibold">{{ _("Kies één of meer activiteiten") }}</p>

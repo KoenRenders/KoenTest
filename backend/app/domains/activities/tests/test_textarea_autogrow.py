@@ -93,19 +93,18 @@ def test_eigen_plafond_blijft_en_de_optout_groeit_niet(client):
 
 
 def test_de_twee_bewuste_afwijkingen_staan_met_reden_in_de_bron():
-    """De voorbeeldtekst van de nieuwsbrief groeit tot een plafond van 160. De
-    tweede bewuste afwijking — de verborgen HTML-bron-editor van de
-    pagina-editor, met `autogrow=False` omdat x-init op een verborgen element
-    scrollHeight 0 leest — bestaat niet meer: CR-17 snede 3 (#1671) nam de
-    bron-knop én Trix van het paginascherm af; de document-editor heeft geen
-    bronvenster. Eén afwijking over, en deze test bewaakt haar.
+    """De voorbeeldtekst van de nieuwsbrief groeide tot een plafond van 160, de enige
+    bewuste afwijking die overbleef. Sinds #2113 staat hij als veld van de kit in de
+    bewerkkaart van de kop: het veld groeit met zijn tekst en stopt bij zijn grens van
+    200 tekens, een plafond in pixels is er niet meer nodig. Deze test bewaakt dat er
+    geen nieuw plafond of eigen groei-attribuut terugkomt.
 
-    Until #1562 the first one was Raakje's question field in the newsletter's
-    column (ceiling 240); that field is the Assistent panel's now, and the
-    newsletter's own growing field with a ceiling is its preview text."""
+    Until #1562 the first deviation was Raakje's question field in the newsletter's
+    column (ceiling 240); that field is the Assistent panel's now."""
     brief = (TEMPLATES / "domains/newsletter/templates/admin_nieuwsbrief.html").read_text()
-    preview = brief[brief.index('ui.textarea_control("preview_text"') :][:400]
-    assert "max_px=160" in preview
+    preview = brief[brief.index('ui.field("preview_text"') :][:400]
+    assert 'kind="textarea"' in preview and 'maxlength="200"' in preview
+    assert "max_px" not in preview  # het plafond is vervallen met de eigen textarea
     assert "ui.autogrow" not in preview  # niet én de standaard én de oude attrs
 
     # En het paginascherm heeft geen tweede groei-vak meer om rekening mee

@@ -21,6 +21,7 @@ from tests_e2e.meetings.test_nieuwsbrief_flow import (  # noqa: E402,F401
     admin_page,
     browser,
 )
+from tests_e2e.newsletter_head import open_head_card  # noqa: E402
 from tests_e2e.schermen import htmx_afgerond  # noqa: E402
 
 PHONE = 390
@@ -80,12 +81,13 @@ def test_the_list_follows_the_audience_and_a_tick_changes_the_sentence(admin_pag
     page.set_viewport_size({"width": PHONE, "height": 1400})
     page.get_by_role("button", name="Nieuwe nieuwsbrief", exact=True).click()
     page.wait_for_selector("#nb-editor .ProseMirror", timeout=10_000)
-    _klikbaar(page, "#nb-onderwerp")
+    _klikbaar(page, "#nb-editor .ProseMirror")
     adres = page.url
+    open_head_card(page)
 
     assert page.locator("#nb-deelnemers input[name=chosen]").count() == 0, "not before the audience"
     with htmx_afgerond(page):
-        page.locator("input[name=audience][value=participants]").check()
+        page.locator("#nb-doelgroep").select_option("participants")
     page.wait_for_selector("#nb-deelnemers input[name=chosen]", timeout=5_000)
     names = page.locator("#nb-deelnemers label").all_inner_texts()
     assert any("E2E Deelnemers-BBQ" in n for n in names) and any(
@@ -103,15 +105,20 @@ def test_the_list_follows_the_audience_and_a_tick_changes_the_sentence(admin_pag
     assert "4 adressen" in sentence, "four people on five registrations"
     assert page.evaluate("document.documentElement.scrollWidth") <= PHONE
 
-    # The audience and the ticks stand after a reload.
+    # The audience is saved with the head, the ticks saved themselves: both stand after
+    # a reload.
+    page.fill("#nb-onderwerp", "Aan de deelnemers")
+    page.locator("[data-action-bar] [data-form-save]").click()
+    page.locator("#nb-kop-form").wait_for(state="hidden", timeout=10_000)
     page.goto(adres)
+    open_head_card(page)
     page.wait_for_selector("#nb-deelnemers input[name=chosen]")
     assert page.locator("#nb-deelnemers input[name=chosen]:checked").count() == 2
     assert "4 adressen" in page.locator("#nb-deelnemers [data-audience-line]").first.inner_text()
 
     # Another audience takes the list away.
     with htmx_afgerond(page):
-        page.locator("input[name=audience][value=members]").check()
+        page.locator("#nb-doelgroep").select_option("members")
     page.wait_for_function(
         "document.querySelectorAll('#nb-deelnemers input[name=chosen]').length === 0"
     )

@@ -225,16 +225,14 @@ def _concept(client, db, audience: Audience | None = None) -> str:
 
 def _pills(html: str) -> list[tuple[str, str, str]]:
     """`(code, word, number)` of each choice, and no hover text on any of them."""
-    labels = re.findall(
-        r"<label([^>]*)>\s*<input type=\"radio\" name=\"audience\"(.*?)</label>", html, re.S
-    )
-    assert labels, "the concept screen offers no audience"
-    assert not [attrs for attrs, _rest in labels if "title=" in attrs], "a hover text is back"
+    select = re.search(r'<select[^>]*name="audience"[^>]*>(.*?)</select>', html, re.S)
+    assert select, "the concept screen offers no audience"
     found = []
-    for _attrs, rest in labels:
-        code = re.search(r'value="([^"]*)"', rest).group(1)
-        word, number = re.findall(r"<span[^>]*>(.*?)</span>", rest, re.S)
-        found.append((code, unescape(word).strip(), unescape(number).strip()))
+    for code, label_text in re.findall(
+        r'<option value="([^"]+)"[^>]*>(.*?)</option>', select.group(1), re.S
+    ):
+        word, _sep, number = unescape(label_text).partition(" · ")
+        found.append((code, word.strip(), number.strip()))
     return found
 
 
