@@ -37,6 +37,7 @@ from app.domains.reporting.api import (
     selection_of,
 )
 from app.domains.reporting.tests.test_reporting_panel_ui import ADMIN_EMAIL, login
+from tests._pins import pinned_window  # noqa: F401 - the fixture of the marker below
 from tests._reporting_seed import TENANT_A, seed
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
@@ -112,6 +113,9 @@ NIEUWE_KOP = [
 ]
 
 
+# #2156: run inside the window between midnight in Brussels and midnight UTC, at any hour
+# (both clocks pinned, `tests/_pins.py`).
+@pytest.mark.usefixtures("pinned_window")
 def test_the_saved_report_and_the_button_produce_the_same_sheet(client, db_session, situation):
     oud = _old_export(client, db_session)
     nieuw = _strip_intro(_new_report(db_session), NIEUWE_KOP)

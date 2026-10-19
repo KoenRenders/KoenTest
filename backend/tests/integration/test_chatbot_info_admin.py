@@ -9,6 +9,7 @@ from app.domains.media import extraction
 from app.domains.media.api import MediaAsset
 from app.domains.media.service import EXTRACT_JOB
 from app.kernel.jobs import KernelJob, run_due_jobs
+from app.kernel.tenancy import TENANT_MILLEGEM_ID
 from app.schemas.chatbot_info import ChatbotInfoEdit, NoteCreate
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
@@ -119,7 +120,10 @@ def test_the_button_plans_a_forced_reading_and_the_job_replaces_the_text(
     assert answer.status_code == 200, answer.text[:200]
     db_session.expire_all()
     jobs = db_session.query(KernelJob).filter(KernelJob.name == EXTRACT_JOB).all()
-    assert [job.payload for job in jobs] == [{"asset_id": asset.id, "force": True}]
+    # A job carries the tenant it was planned in (#2156): the request's.
+    assert [job.payload for job in jobs] == [
+        {"asset_id": asset.id, "force": True, "tenant_id": TENANT_MILLEGEM_ID}
+    ]
     run_due_jobs(db_session)
     db_session.expire_all()
     row = db_session.query(ChatbotInfo).filter(ChatbotInfo.media_asset_id == asset.id).one()

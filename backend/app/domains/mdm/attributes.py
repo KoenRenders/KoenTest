@@ -145,6 +145,14 @@ ATTRIBUTES: tuple[Attribute, ...] = (
         ai_exposure=AiExposure.INTERNAL,  # K9
     ),
     Attribute(
+        key="mdm.tenant.time_zone",
+        columns=("mdm.tenants.time_zone",),
+        label="Tijdzone",
+        name_en="Time zone",
+        help="The IANA time zone the tenant's days are counted in; Europe/Brussels by default.",
+        ai_exposure=AiExposure.INTERNAL,  # K8
+    ),
+    Attribute(
         key="mdm.tenant.is_active",
         columns=("mdm.tenants.is_active",),
         label=None,

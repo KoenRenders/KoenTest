@@ -890,6 +890,11 @@ cookie), then the default — into a contextvar, from which a global ORM filter
 context; 64 model classes carry it on 13 October 2026. Row-level security in
 PostgreSQL is prepared for and not enabled (→ E6).
 
+**The tenant's day.** A moment is stored in UTC; "today" is the tenant's, computed in its
+time zone (`mdm.tenants.time_zone`) by `kernel/clock.py` and by `mdm.tenant_today()` /
+`mdm.tenant_day()` in SQL, never by `date.today()` or `CURRENT_DATE` (#2156;
+`tests/test_one_clock_gate.py`).
+
 <!-- figure: name=tenancy caption=Tenant_hierarchy_and_per-request_resolution -->
 ```mermaid
 flowchart TB
@@ -1562,6 +1567,7 @@ stands here from the code, not from a change request.
 | OpenID Connect `email_verified` | `mdm.contact_details.confirmed_at` — a timestamp instead of a boolean, because *when* matters for an audit | mdm | CR-22 B3a |
 | NIST SP 800-63B §5.1.3, out-of-band authenticator | `auth.login_tokens` · `otp_code` (hash), `expires_at`, `attempts`, `used` | auth | CR-22 B3a |
 | ISO 8601 with offset | `DateTime(timezone=True)` on every timestamp | all | CR-22 B3a |
+| IANA tz database | the time zone identifier `Europe/Brussels` on `mdm.tenants.time_zone` | all | #2156 |
 | Belgian structured communication (OGM, mod 97); ISO 20022 `RmtInf/Strd` | `payment.payment_records.structured_communication`, from a Postgres sequence | payment | CR-21, CR-31 B3a; `kernel/structured_communication.py` |
 | UBL `cac:PaymentMeans`, `cbc:PaymentID`, `cbc:Note` | `payment.payment_records` · `structured_communication`, `description` | payment | CR-31 B3a |
 | ISO 4217 | `chatbot.ai_call_log` · `cost_currency`; `kernel/money.py` (`Money`: an amount in a currency) | chatbot, kernel | `chatbot/models.py` comment; CR-13 §B4.7 |

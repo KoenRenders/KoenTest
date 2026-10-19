@@ -203,10 +203,10 @@ def subjects(db: Session, tasks: Sequence[WorkflowTask]) -> dict[int, dict[str, 
 
 def _belgian_day(moment: datetime):
     """The day a moment falls on for the board: the Belgian one."""
-    from app.kernel.clock import BELGIUM
+    from app.kernel.clock import belgian_day
 
     aware = moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
-    return aware.astimezone(BELGIUM).date()
+    return belgian_day(aware)
 
 
 def age_days(task: WorkflowTask, now: Optional[datetime] = None) -> Optional[int]:
