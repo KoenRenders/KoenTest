@@ -1044,7 +1044,6 @@ def _detail_ctx(
     db: Session,
     registration_id: int,
     *,
-    edit_open: bool = False,
     quantities: dict | None = None,
 ) -> dict | None:
     """Gedeelde context voor de inschrijving-detail/editor: de verrijkte
@@ -1160,20 +1159,19 @@ def _detail_ctx(
         # wél leeggemaakt worden, dus daar hoort geen sterretje.
         "ploegnaam_verplicht": bool(component is not None and component.team_name_required),
         "editable": reg.deleted_at is None,
-        "edit_open": edit_open,
+        "contact_values": {
+            "contact_name": verrijkt.get("contact_name") or "",
+            "contact_email": verrijkt.get("contact_email") or "",
+            "phone": verrijkt.get("phone") or "",
+            "team_name": verrijkt.get("team_name") or "",
+        },
         "csrf_token": csrf_from_request(request),
-        # Golf 4 (#913): de paginavariant heeft de kop en de canonieke terugweg
-        # nodig. Ze komen hiervandaan — activiteit en onderdeel zijn hierboven al
-        # geladen — zodat de pagina ze niet zelf opnieuw afleidt.
-        "activiteit_id": reg.activity_id,
-        "activiteit_titel": activity.name if activity is not None else "",
-        "component_naam": component.name if component is not None else None,
         # CR-14 phase 2 (§B4.4): the answers to the component's questions, or the
         # moment they were asked while the answer link is still open.
         "antwoorden": antwoorden,
         "antwoorden_gevraagd_op": gevraagd_op,
         # CR-14 phase 3 (§B4.8): "opnieuw" / "sturen" / None — the answer link.
-        "link_actie": link_actie,
+        "_link_actie": link_actie,
         # CR-14 phase 3 (§B4.7): the answers, editable — the form builder's field
         # partial reads `values`; `vraag_fout` marks the question a refusal names.
         # #1380: the form's own question block.
@@ -1183,73 +1181,107 @@ def _detail_ctx(
     }
 
 
-def _render_detail(
+def _record_context(
     request: Request,
     db: Session,
+    email: str,
     registration_id: int,
     *,
-    edit_open: bool = False,
-    ververs: bool = False,
+    edit: bool = False,
+    saved: bool = False,
     error: str | None = None,
     toast: str | None = None,
     quantities: dict | None = None,
-    answer_values: dict | None = None,
-    vraag_fout: int | None = None,
-) -> HTMLResponse:
-    """Rendert het detailfragment.
+) -> dict | None:
+    """Everything the registration's record page draws (#2127): the data of
+    `_detail_ctx`, the head with Bewerken and Acties, the summary and the way back.
+    None when the registration does not exist."""
+    from urllib.parse import quote
 
-    ``edit_open`` houdt het paneel na een bewerking open (#613-3): het fragment
-    vervangt zichzelf via outerHTML, dus zonder dit viel het terug in lees-modus en
-    voelde het alsof er niets gebeurd was. Dat geldt voor de tussenacties; de
-    afsluitende "Opslaan" sluit het paneel juist wél (#717).
+    from app.domains.activities.api import inschrijving_kop_ctx
+    from app.domains.payment.api import registration_payment_states
+    from app.kernel.geld import bedrag
+    from app.ui import delete_question, filterparams
 
-    ``toast`` stuurt een bevestiging out-of-band mee. Deze functie is de enige plek
-    die dit template rendert, dus die ene vlag volstaat om de toast weg te houden
-    bij de detailroute, /totaal en /regels — die renderen hetzelfde fragment.
-
-    ``ververs`` zet een ``HX-Trigger`` (#613-4/#617-3). De kaart erboven op
-    /admin/betalingen staat buiten dit fragment en bleef op het oude bedrag staan —
-    of toonde een nieuwe terugbetaling pas na F5 — terwijl de server al
-    gereconcilieerd had. De betalingenlijst luistert op dat event.
-    """
-    ctx = _detail_ctx(request, db, registration_id, edit_open=edit_open, quantities=quantities)
+    ctx = _detail_ctx(request, db, registration_id, quantities=quantities)
     if ctx is None:
-        return HTMLResponse("")
-    ctx["error"] = error
-    ctx["toast_bericht"] = toast
-    # CR-14 §B4.7: a refused correction shows what was typed, the question marked.
-    if answer_values is not None:
-        ctx["values"] = answer_values
-        ctx["vraag_fout"] = vraag_fout
-    # Golf 8-feedback: op de eigen pagina draagt het cluster ook Verwijderen
-    # (achter de bewerkklik, uiterst links). Of we óp die pagina zijn, zegt
-    # HX-Current-URL — de POSTs van het fragment reizen daarmee.
-    huidig = request.headers.get("HX-Current-URL", "")
-    ctx["op_pagina"] = (
-        f"/admin/inschrijvingen/{registration_id}" in huidig and "/fragment" not in huidig
+        return None
+    # The way back is the page's own: an answer that carries the head along (a save)
+    # knows it from the address of the page, not of its own request.
+    terug = filterparams(request).get("terug", "")
+    kop = inschrijving_kop_ctx(db, registration_id, email, "overzicht", terug)
+    if kop is None:
+        return None
+    reg = ctx["reg"]
+    can_edit = ctx["editable"] and may(db, email, Right.ACTIVITY_MANAGE)
+    base = f"/admin/inschrijvingen/{registration_id}"
+    suffix = f"terug={quote(kop['terug'], safe='')}" if terug else ""
+    link_action = ctx.pop("_link_actie")
+    head = dict(kop["record_head"])
+    head["primary"] = (
+        {"label": _("Bewerken"), "href": f"{base}?bewerken=1" + (f"&{suffix}" if suffix else "")}
+        if can_edit
+        else None
     )
-    resp = templates.TemplateResponse(request, "_inschrijving_detail.html", ctx)
-    if ververs:
-        resp.headers["HX-Trigger"] = "betalingen-ververst"
-    return resp
+    actions: list[dict[str, Any]] = []
+    if link_action and can_edit:
+        actions.append(
+            {
+                "kind": "record",
+                "verb": "send",
+                "label": _("Link opnieuw sturen")
+                if link_action == "opnieuw"
+                else _("Link naar de vragen sturen"),
+                "attrs": f'hx-post="{base}/antwoordlink" hx-target="#insch-record" '
+                'hx-select="#insch-record" hx-swap="outerHTML"',
+            }
+        )
+    head["actions"] = actions
+    # The summary: the payment state and what is due, paid and still open. The amounts of
+    # the payments are for who may see payments (the Betalingen tab's own gate).
+    payment = registration_payment_states(db, [registration_id]).get(registration_id)
+    figures = [{"label": _("Totaal"), "value": "€ " + bedrag(ctx["totaal"])}]
+    if payment is not None and may(db, email, Right.PAYMENT_VIEW):
+        figures += [
+            {"label": _("Betaald"), "value": "€ " + bedrag(payment["paid"])},
+            {
+                "label": _("Openstaand"),
+                "value": "€ " + bedrag(payment["saldo"]),
+                "warning": payment["saldo"] != 0,
+            },
+        ]
+    summary = {"state": head["badges"][0] if head["badges"] else None, "figures": figures}
+    ctx.update(
+        {
+            "edit": edit and can_edit,
+            "saved": saved,
+            "error": error,
+            "toast_bericht": toast,
+            "record_head": head,
+            "summary": summary,
+            "terug": kop["terug"],
+            "terug_label": kop["terug_label"],
+            "record_tabs": kop["record_tabs"],
+            "save_url": f"{base}/opslaan",
+            "cancel_href": base + (f"?{suffix}" if suffix else ""),
+            "delete_attrs": f'hx-post="/admin/activiteiten/{reg["activity_id"]}/inschrijvingen/{registration_id}/verwijderen?vanuit=pagina"',
+            "delete_confirm": delete_question(_("Inschrijving"), reg["contact_name"]),
+        }
+    )
+    return ctx
 
 
-@router.get("/admin/inschrijvingen/{registration_id}/fragment", response_class=HTMLResponse)
-def inschrijving_detail(
-    registration_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_right(Right.ACTIVITY_VIEW)),
-) -> Response:
-    """Detail/editor van één inschrijving (contact + producten + opmerking) als
-    htmx-fragment. Herbruikbaar vanuit betalingen ('Toon inschrijvingsdetails')
-    en de activiteiten-admin. Verrijking neemt soft-deleted mee (financieel feit);
-    een soft-deleted inschrijving is niet bewerkbaar.
+def _record_page(
+    request: Request, db: Session, email: str, registration_id: int, **kwargs: Any
+) -> HTMLResponse:
+    """The record page, or the 404 of a registration that is not there."""
+    from app.domains.activities.viewmodels import AdminInschrijvingView
 
-    Tot golf 4 (#913) woonde dit fragment op de id-URL zelf; die is nu van de
-    volwaardige pagina hieronder (huispatroon: pagina op de id-URL, fragmenten op
-    subpaden — zoals /admin/activiteiten/{id} naast zijn fragmentroutes)."""
-    return _render_detail(request, db, registration_id)
+    ctx = _record_context(request, db, email, registration_id, **kwargs)
+    if ctx is None:
+        raise HTTPException(status_code=404, detail=_("Inschrijving niet gevonden"))
+    view = AdminInschrijvingView(**ctx, nav_items=admin_nav(NAV, request))
+    return templates.TemplateResponse(request, "admin_inschrijving.html", view.as_context())
 
 
 @router.get("/admin/inschrijvingen/{registration_id}", response_class=HTMLResponse)
@@ -1260,36 +1292,18 @@ def inschrijving_pagina(
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.ACTIVITY_VIEW)),
 ) -> Response:
-    """De inschrijving als volwaardige pagina (golf 4, #913 — B2).
+    """The registration as a record page (golf 4, #913 — B2; on the record layout since
+    #2127): read first, `?bewerken=1` the editor with one save.
 
-    De recordnaam in een lijst opent deze pagina; het inline openvouwen blijft
-    bestaan als secundaire variant (het fragment op /fragment). Zelfde bron:
-    beide renderen `_inschrijving_detail.html` uit `_detail_ctx`.
+    A name in a list opens this page. `terug` is the A7 return context: the list that
+    linked here hands its own address along, so the way back restores its filters and
+    sorting; validated by `veilige_terug`, anything that is no internal path falls back
+    to the record's canonical place — its activity."""
+    from app.ui import filterparams
 
-    `terug` is de A7-retourcontext: de lijst die hierheen linkte geeft haar eigen
-    adres mee, zodat de terugknop filters en sortering herstelt. Gevalideerd via
-    `veilige_terug`; alles wat geen intern pad is valt terug op de canonieke plek
-    van dit record — zijn activiteit."""
-    from app.domains.activities.viewmodels import AdminInschrijvingView
-
-    # De rij-knop in de lijsten heet sinds de feedback van 15 sep "Details" en
-    # opent LEESmodus: de consistente Bewerken-opener (met Verwijderen in het
-    # cluster) staat op de pagina zelf. De vroegere `bewerk=1` verdween daarmee.
-    ctx = _detail_ctx(request, db, registration_id, edit_open=False)
-    if ctx is None:
-        raise HTTPException(status_code=404, detail=_("Inschrijving niet gevonden"))
-    from app.domains.activities.api import inschrijving_kop_ctx
-
-    # Kop (terugweg + label + tabs) uit de gedeelde bouwer — de ingebedde
-    # Betalingen-tab rendert exact dezelfde kop.
-    kop = inschrijving_kop_ctx(db, registration_id, email, "overzicht", terug)
-    if kop is None:  # kan niet meer na de 404 hierboven; mypy weet dat niet
-        raise HTTPException(status_code=404, detail=_("Inschrijving niet gevonden"))
-    ctx.update(kop)
-    vm = AdminInschrijvingView(
-        **ctx, error=None, toast_bericht=None, op_pagina=True, nav_items=admin_nav(NAV, request)
+    return _record_page(
+        request, db, email, registration_id, edit=filterparams(request).get("bewerken") == "1"
     )
-    return templates.TemplateResponse(request, "admin_inschrijving.html", vm.as_context())
 
 
 def _reg_or_404(db: Session, registration_id: int) -> Any:
@@ -1330,9 +1344,7 @@ async def inschrijving_totaal(
     it derives; a field is never part of the answer (the pattern of #1596).
     """
     formulier = await request.form()
-    ctx = _detail_ctx(
-        request, db, registration_id, edit_open=True, quantities=_product_quantities(formulier)
-    )
+    ctx = _detail_ctx(request, db, registration_id, quantities=_product_quantities(formulier))
     if ctx is None:
         return HTMLResponse("")
     return templates.TemplateResponse(
@@ -1359,37 +1371,6 @@ def _product_quantities(form: FormData) -> dict[int, int]:
 
 
 @router.post(
-    "/admin/inschrijvingen/{registration_id}/opmerking",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def inschrijving_opmerking(
-    registration_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_right(Right.ACTIVITY_MANAGE)),
-    remarks: str = Form(""),
-) -> Response:
-    from app.domains.activities import service
-    from app.schemas.activity import RegistrationContactUpdate
-
-    reg = _reg_or_404(db, registration_id)
-    velden = RegistrationContactUpdate(remarks=remarks).model_dump(exclude_unset=True)
-    try:
-        bijgewerkt = service.update_registration_contact(
-            db, reg.activity_id, registration_id, velden, actor=email
-        )
-    except service.ActiviteitFout as fout:
-        # #733 toetst op de uitkomst, dus ook een opmerking-opslag op een inschrijving
-        # waar een verplicht veld al leeg stond loopt hier langs. In de banner, niet
-        # als 500.
-        return _render_detail(request, db, registration_id, edit_open=True, error=str(fout))
-    if bijgewerkt is None:
-        raise HTTPException(status_code=404, detail=_("Registration not found"))
-    return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
-
-
-@router.post(
     "/admin/inschrijvingen/{registration_id}/antwoordlink",
     response_class=HTMLResponse,
     dependencies=[Depends(require_csrf)],
@@ -1409,49 +1390,10 @@ def answer_link_send(
     except LookupError:
         raise HTTPException(status_code=404, detail=_("Registration not found"))
     except service.ActiviteitFout as fout:
-        return _render_detail(request, db, registration_id, error=str(fout))
-    return _render_detail(
-        request, db, registration_id, toast=_("De link naar de vragen is verstuurd.")
+        return _record_page(request, db, email, registration_id, error=str(fout))
+    return _record_page(
+        request, db, email, registration_id, toast=_("De link naar de vragen is verstuurd.")
     )
-
-
-@router.post(
-    "/admin/inschrijvingen/{registration_id}/antwoorden",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-async def answers_save(
-    registration_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    email: str = Depends(require_right(Right.ACTIVITY_MANAGE)),
-) -> Response:
-    """Correct a registration's answers (CR-14 §B4.7, R7): the same fields and rules
-    as when they were given, a history row with old and new."""
-    from app.domains.activities import service
-    from app.domains.activities.api import form_values, question_form
-    from app.domains.forms.api import answers_from_form
-
-    reg = _reg_or_404(db, registration_id)
-    form = await request.form()
-    questions = question_form(db, reg.component)
-    if questions is None:
-        raise HTTPException(status_code=404, detail=_("Registration not found"))
-    try:
-        service.edit_answers(db, registration_id, answers_from_form(questions, form), actor=email)
-    except service.ActiviteitFout as fout:
-        return _render_detail(request, db, registration_id, error=str(fout))
-    except HTTPException as exc:
-        return _render_detail(
-            request,
-            db,
-            registration_id,
-            edit_open=True,
-            error=str(exc.detail),
-            answer_values=form_values(form),
-            vraag_fout=getattr(exc, "veld_id", None),
-        )
-    return _render_detail(request, db, registration_id, toast=_("De antwoorden zijn opgeslagen."))
 
 
 @router.post(
@@ -1465,85 +1407,69 @@ async def inschrijving_opslaan(
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.ACTIVITY_MANAGE)),
 ) -> Response:
-    """Aantallen én opmerking in één "Opslaan" (#613-2).
+    """The ONE save of the record page (#2127; it was three: the order and the contact
+    with "Opslaan", the answers with a button of their own): the counters, the contact
+    fields, the remark and the answers to the component's questions, in one transaction
+    (`registration_save`). Every refusal comes back at its field — a count, a contact
+    field, an answer — and nothing is written, the form keeps what was typed (the
+    banner alone, like the organisation's record). A save answers the record page in
+    read mode with the toast; the order's reconciliation and the answers' history rows
+    keep their own words.
 
-    Voorheen sloeg elk onderdeel apart op — het aantal bij `change`, de opmerking met
-    een eigen knop — waardoor je niet kon zien wat er samen bewaard werd. "Toevoegen"
-    en "Verwijder" blijven wél aparte acties: die wijzigen wélke regels er zijn, niet
-    hun waarden.
-
-    We gaan per gewijzigd aantal door ``update_order_line``, zodat validatie en
-    audit-snapshot dezelfde blijven als bij de losse route. Dat reconcilieert per
-    aanroep, maar ``reconcile_registration_charges`` is integraal — het verwijdert de
-    onbetaalde posten en herrekent naar één open post — dus tussenstanden laten geen
-    verdwaalde refund achter.
-    """
-    from app.domains.activities import service
+    The order goes through `set_order_quantities`, so validation, audit snapshot and
+    reconciliation are the ones the separate routes had: the charges follow the whole
+    new order at once, an intermediate state leaves no stray refund behind (#185)."""
+    from app.domains.activities.api import question_form
+    from app.domains.activities.registration_save import (
+        RegistrationRefusal,
+        RegistrationSave,
+        save_registration,
+    )
+    from app.domains.forms.api import answers_from_form
     from app.domains.payment.api import PayableType, open_refund_amount
+    from app.kernel.refusals import FieldError
     from app.schemas.activity import RegistrationContactUpdate
 
     reg = _reg_or_404(db, registration_id)
     form = await request.form()
-
-    # #1494: every product is a counter; the differences go through ONE call, one
-    # transaction and one reconciliation. Removing a paid line refuses nothing,
-    # as "Verwijderen" did: the payment side prepares the refund, and the toast
-    # below says so.
-    terug_voor = open_refund_amount(db, PayableType.REGISTRATION, registration_id)
-    try:
-        gewijzigd = service.set_order_quantities(
-            db, reg.activity_id, registration_id, _product_quantities(form), actor=email
-        )
-    except service.ActiviteitFout as fout:
-        return _render_detail(request, db, registration_id, edit_open=True, error=str(fout))
-    if gewijzigd is None:
-        raise HTTPException(status_code=404, detail=_("Registration not found"))
-    terug_na = open_refund_amount(db, PayableType.REGISTRATION, registration_id)
-
-    # Contactgegevens meenemen in dezelfde "Opslaan" (#624). Enkel wat het formulier
-    # meestuurt wordt gewijzigd; de route laat de rest ongemoeid.
+    data = RegistrationSave(quantities=_product_quantities(form))
+    # The contact fields and the remark: only what the form carries changes.
     contact = {"remarks": str(form.get("remarks") or "")}
     for veld in ("contact_name", "contact_email", "phone", "team_name"):
         if veld in form:
             contact[veld] = str(form.get(veld) or "")
     try:
-        gegevens = RegistrationContactUpdate(**contact)
+        data.contact = RegistrationContactUpdate(**contact).model_dump(exclude_unset=True)
     except ValidationError:
-        # Het schema wordt hier zelf gebouwd (geen request-body), dus Pydantic werpt
-        # i.p.v. FastAPI een 422 te laten maken. Het paneel opnieuw renderen mét een
-        # foutbanner: htmx swapt een 200, dus de gebruiker ziet de fout écht staan.
-        return _render_detail(
-            request, db, registration_id, edit_open=True, error=_("Vul een geldig e-mailadres in.")
-        )
+        # The schema is built here (no request body), so Pydantic raises where FastAPI
+        # would have answered a 422: say it at the field it is about.
+        data.errors.append(FieldError("contact_email", _("Vul een geldig e-mailadres in.")))
+        data.contact = {k: v for k, v in contact.items() if k != "contact_email"}
+    if reg.form_submission_id is not None:
+        questions = question_form(db, reg.component)
+        if questions is not None:
+            data.answers = answers_from_form(questions, form)
+
+    refund_before = open_refund_amount(db, PayableType.REGISTRATION, registration_id)
     try:
-        bijgewerkt = service.update_registration_contact(
-            db,
-            reg.activity_id,
-            registration_id,
-            gegevens.model_dump(exclude_unset=True),
-            actor=email,
-        )
-    except service.ActiviteitFout as fout:
-        # #733: een verplicht veld leeggemaakt. In de bestaande foutbanner en met een
-        # 200, want htmx swapt een 4xx niet — dan zou de gebruiker niets zien
-        # gebeuren, precies zoals bij een ongeldig e-mailadres hierboven.
-        return _render_detail(request, db, registration_id, edit_open=True, error=str(fout))
-    if bijgewerkt is None:
+        saved = save_registration(db, reg.activity_id, registration_id, data, actor=email)
+    except RegistrationRefusal as refusal:
+        return refusal_response(request, refusal.errors, "#insch-melding")
+    if saved is None:
         raise HTTPException(status_code=404, detail=_("Registration not found"))
-    # #717: dit is de afsluitende handeling, geen tussenstap. Openblijven gaf
-    # hetzelfde scherm terug als vóór de klik — zelfde velden, zelfde knop, geen
-    # enkel teken dat er bewaard was — en dus de reflex om nog eens te klikken.
-    # Sluiten alleen volstaat niet (dan zie je leesmodus zonder bevestiging), een
-    # toast alleen ook niet (dan blijft de knop staan). De tussenacties hierboven
-    # en hieronder houden edit_open=True: dat is #613-3 en blijft gelden.
-    bevestiging = _("De inschrijving is opgeslagen.")
-    if terug_na > terug_voor:
+    refund_after = open_refund_amount(db, PayableType.REGISTRATION, registration_id)
+    message = _("De inschrijving is opgeslagen.")
+    if refund_after > refund_before:
         from app.kernel.geld import bedrag
 
-        bevestiging += " " + _(
+        message += " " + _(
             "Er staat een terugbetaling van € %(bedrag)s klaar om te bevestigen."
-        ) % {"bedrag": bedrag(terug_na)}
-    return _render_detail(request, db, registration_id, ververs=True, toast=bevestiging)
+        ) % {"bedrag": bedrag(refund_after)}
+    response = _record_page(
+        request, db, email, registration_id, edit=False, saved=True, toast=message
+    )
+    response.headers["HX-Push-Url"] = f"/admin/inschrijvingen/{registration_id}"
+    return response
 
 
 @router.post(
@@ -1570,7 +1496,7 @@ def inschrijving_regel_bijwerken(
         raise HTTPException(status_code=400, detail=str(fout))
     if gewijzigd is None:
         raise HTTPException(status_code=404, detail=_("Order line not found"))
-    return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
+    return _record_page(request, db, email, registration_id, edit=True)
 
 
 # ── Inschrijvingen + export ────────────────────────────────────────────────────

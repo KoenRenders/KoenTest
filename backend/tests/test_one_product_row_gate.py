@@ -18,7 +18,8 @@ registration form had the counter and no line amount. Koen decided (28 September
 
 Proven red (29 September 2026), additively:
 - a `{{ ui.input_control("quantity", type="number") }}` added to
-  `_inschrijving_detail.html` → "type=number in activities/templates";
+  `_inschrijving_detail.html` (the registration's record page, `admin_inschrijving.html`
+  since #2127) → "type=number in activities/templates";
 - a `{{ ui.stepper("x") }}` added to `_inschrijf_prijsblok.html` → "a counter
   outside the one product row";
 - the scan pointed at a folder that does not exist → `bestanden()`, "0 bestanden".
@@ -64,7 +65,7 @@ def test_the_counter_lives_only_in_the_one_product_row():
     assert "{% macro quantity(" in kit, "the kit lost the counter of a quantity"
 
 
-@pytest.mark.parametrize("template", ["_inschrijf_prijsblok.html", "_inschrijving_detail.html"])
+@pytest.mark.parametrize("template", ["_inschrijf_prijsblok.html", "admin_inschrijving.html"])
 def test_both_screens_use_the_one_row(template):
     assert "rows.product_row(" in _sources()[template], f"{template} writes its own product row"
 

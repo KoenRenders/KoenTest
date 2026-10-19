@@ -28,6 +28,7 @@ save).
 
 from __future__ import annotations
 
+import re
 from types import SimpleNamespace
 
 import pytest
@@ -245,7 +246,7 @@ def answered(client, db_session, sint):
 def _save_answers(client, a, data):
     csrf = _as_board(client)
     return client.post(
-        f"/admin/inschrijvingen/{a.registration.id}/antwoorden",
+        f"/admin/inschrijvingen/{a.registration.id}/opslaan",
         data=data,
         headers={"X-CSRF-Token": csrf},
     )
@@ -262,8 +263,9 @@ def _answer_rows(db, a):
 @pytest.mark.ui_serverrendered
 def test_the_detail_offers_the_answers_to_correct(client, answered):
     _as_board(client)
-    html = client.get(f"/admin/inschrijvingen/{answered.registration.id}").text
-    assert f'hx-post="/admin/inschrijvingen/{answered.registration.id}/antwoorden"' in html
+    html = client.get(f"/admin/inschrijvingen/{answered.registration.id}?bewerken=1").text
+    # The answers are corrected in the record's one form, saved with the rest (#2127).
+    assert f'hx-post="/admin/inschrijvingen/{answered.registration.id}/opslaan"' in html
     assert f'name="f{answered.story.id}"' in html and ">Braaf</textarea>" in html
 
 
@@ -274,7 +276,8 @@ def test_an_empty_required_answer_is_refused_on_edit(client, db_session, answere
         answered,
         {f"f{answered.slot.id}": str(answered.slot.options[1].id), f"f{answered.story.id}": ""},
     )
-    assert "Verhaal" in r.text and "ring-red-600" in r.text
+    assert r.status_code == 422
+    assert f'data-error-for="f{answered.story.id}"' in r.text and "Verhaal" in r.text
     assert _answer_rows(db_session, answered)["Verhaal"] == "Braaf"
     assert _answer_rows(db_session, answered)["Tijdslot"] == "Voormiddag"
     assert _history(db_session, answered.registration.id) == []
@@ -314,3 +317,128 @@ def test_a_correction_replaces_the_answers_and_records_old_and_new(client, db_se
 
     _save_answers(client, answered, data)  # the same again: no second row
     assert _history(db_session, answered.registration.id) == ["answers_edited"]
+
+
+# ── One save for the record page (#2127) ─────────────────────────────────────
+#
+# The order, the contact, the remark and the answers were saved in three goes; a
+# refusal of one left the other written. `POST /admin/inschrijvingen/{id}/opslaan` writes
+# them in one transaction (`activities.registration_save`): a change of contact and of an
+# answer stores both; a refused answer or a refused count refuses everything, shows at its
+# own field, and nothing is stored. Broken on purpose (19 October 2026, each put back): the
+# savepoint rollback of `save_registration` taken out → the answer and the count refusal tests find the contact name
+# already written; `commit=False` dropped from the call of `edit_answers` → the same tests
+# find the answer written before the order was refused; the field place of a refused count
+# taken out of `_order` → the count test finds no `data-error-for`.
+
+
+def _one_save(client, a, **overrides):
+    csrf = _as_board(client)
+    data = {
+        "contact_name": "Ward Mail",
+        "contact_email": "ward@example.com",
+        "phone": "0470000000",
+        "remarks": "",
+        f"product_{a.s.product.id}": "1",
+        f"f{a.slot.id}": str(a.slot.options[0].id),
+        f"f{a.story.id}": "Braaf",
+    }
+    data.update(overrides)
+    return client.post(
+        f"/admin/inschrijvingen/{a.registration.id}/opslaan",
+        data=data,
+        headers={"X-CSRF-Token": csrf},
+    )
+
+
+def _stored(db, a):
+    from app.domains.activities.api import Registration, RegistrationItem
+
+    db.expire_all()
+    reg = db.get(Registration, a.registration.id)
+    items = db.query(RegistrationItem).filter_by(registration_id=reg.id, deleted_at=None).all()
+    return {
+        "name": reg.contact_name,
+        "remarks": reg.remarks,
+        "quantity": sum(i.quantity for i in items),
+        "answers": _answer_rows(db, a),
+    }
+
+
+def _places(response) -> list[str]:
+    return re.findall(r'data-error-for="([^"]*)"', response.text)
+
+
+@pytest.mark.ui_serverrendered
+def test_a_changed_contact_and_a_changed_answer_are_stored_in_one_save(
+    client, db_session, answered
+):
+    response = _one_save(
+        client,
+        answered,
+        contact_name="Ward Poort",
+        remarks="Graag aan één tafel",
+        **{
+            f"product_{answered.s.product.id}": "2",
+            f"f{answered.slot.id}": str(answered.slot.options[1].id),
+            f"f{answered.story.id}": "Heel braaf",
+        },
+    )
+
+    assert response.status_code == 200, response.text[:300]
+    stored = _stored(db_session, answered)
+    assert stored["name"] == "Ward Poort"
+    assert stored["remarks"] == "Graag aan één tafel"
+    assert stored["quantity"] == 2
+    assert stored["answers"]["Verhaal"] == "Heel braaf"
+    assert stored["answers"]["Tijdslot"] == "Namiddag"
+
+
+@pytest.mark.ui_serverrendered
+def test_a_refused_answer_refuses_the_whole_save_and_shows_at_its_field(
+    client, db_session, answered
+):
+    before = _stored(db_session, answered)
+
+    response = _one_save(
+        client,
+        answered,
+        contact_name="Ward Poort",
+        remarks="Nieuwe opmerking",
+        **{f"product_{answered.s.product.id}": "3", f"f{answered.story.id}": ""},
+    )
+
+    assert response.status_code == 422, response.text[:300]
+    assert _places(response) == [f"f{answered.story.id}"], "the refusal names the question"
+    assert response.headers["HX-Retarget"] == "#insch-melding"
+    assert _stored(db_session, answered) == before, "a refused save writes nothing at all"
+
+
+@pytest.mark.ui_serverrendered
+def test_a_refused_count_refuses_the_whole_save_and_keeps_the_answers(client, db_session, answered):
+    from tests.conftest import seed_activity_with_product
+
+    before = _stored(db_session, answered)
+    _activity, _component, foreign = seed_activity_with_product(db_session, is_free=False)
+
+    response = _one_save(
+        client,
+        answered,
+        contact_name="Ward Poort",
+        **{f"product_{foreign.id}": "1", f"f{answered.story.id}": "Heel braaf"},
+    )
+
+    assert response.status_code == 422, response.text[:300]
+    assert _places(response) == [f"product_{foreign.id}"]
+    assert _stored(db_session, answered) == before, "the answer was not written either"
+
+
+@pytest.mark.ui_serverrendered
+def test_every_refusal_of_one_save_is_heard_at_once(client, db_session, answered):
+    before = _stored(db_session, answered)
+
+    response = _one_save(client, answered, contact_name="   ", **{f"f{answered.story.id}": ""})
+
+    assert response.status_code == 422
+    assert set(_places(response)) == {"contact_name", f"f{answered.story.id}"}
+    assert _stored(db_session, answered) == before

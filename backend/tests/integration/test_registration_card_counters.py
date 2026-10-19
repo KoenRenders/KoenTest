@@ -71,7 +71,7 @@ def _lines(db, reg_id) -> dict[int, int]:
 def test_the_card_shows_every_product_as_a_counter(client, db_session):
     reg_id, (first, second, third) = _three_products(client, db_session)
     _admin(client)
-    html = client.get(f"/admin/inschrijvingen/{reg_id}").text
+    html = client.get(f"/admin/inschrijvingen/{reg_id}?bewerken=1").text
 
     assert html.count("data-product-row") == 3, "one counter per product of the component"
     values = dict(re.findall(r'name="product_(\d+)"[^>]*value="(\d+)"', html))
@@ -138,6 +138,7 @@ def test_a_product_of_another_component_is_refused_and_nothing_is_saved(client, 
         data={f"product_{second.id}": "4", f"product_{foreign.id}": "1"},
         headers=_admin(client),
     )
-    assert answer.status_code == 200
+    assert answer.status_code == 422
     assert "Product hoort niet bij deze activiteit." in answer.text
+    assert f'data-error-for="product_{foreign.id}"' in answer.text
     assert _lines(db_session, reg_id) == {first.id: 1}, "nothing of the rest was saved"

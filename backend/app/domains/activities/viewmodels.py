@@ -65,23 +65,25 @@ class AdminActiviteitenView(ViewModel):
 
 @dataclass(frozen=True, kw_only=True)
 class AdminInschrijvingView(ViewModel):
-    """`admin_inschrijving.html` — de inschrijving als volwaardige pagina (golf 4,
-    #913, B2). De pagina wikkelt `_inschrijving_detail.html`, dus dit model draagt
-    naast de paginakop precies wat dat gedeelde fragment belooft te krijgen
-    (`_detail_ctx` + de error/toast-vlaggen die `_render_detail` altijd zet)."""
+    """`admin_inschrijving.html` — the registration's record (golf 4, #913, B2; on the
+    record layout since #2127): the head with Bewerken and Acties, the tabs, the summary
+    beside the form column, and the cards Contact, Producten and Antwoorden — read
+    first, `?bewerken=1` the editor with ONE save (`registration_save`)."""
 
-    # Fragmentcontract (_inschrijving_detail.html)
     reg: dict[str, Any]
     #: Every product of the component as a counter row (#1494): id, name,
     #: unit_price, quantity — 0 is "not chosen", as on the registration form.
     product_rows: list[dict[str, Any]]
     totaal: Any
+    #: The contact fields as `_inschrijf_contact.html` reads them.
+    contact_values: dict[str, str]
     toon_ploegnaam: bool
     ploegnaam_verplicht: bool
     editable: bool
-    edit_open: bool
-    # Golf 8-feedback: op de eigen pagina draagt het cluster ook Verwijderen.
-    op_pagina: bool
+    #: The editor is open (`?bewerken=1`), only for a registration that may be edited.
+    edit: bool
+    #: A save just went through: the toast comes with the answer.
+    saved: bool
     csrf_token: str
     error: str | None
     toast_bericht: str | None
@@ -89,7 +91,6 @@ class AdminInschrijvingView(ViewModel):
     # answers were asked while the link is open.
     antwoorden: list[tuple[str, str]]
     antwoorden_gevraagd_op: Any
-    link_actie: str | None
     # CR-14 phase 3 (§B4.7): the questions to correct the answers in, the answers as
     # the field partial reads them, and the question a refusal names.
     vragen: list[Any]
@@ -98,15 +99,17 @@ class AdminInschrijvingView(ViewModel):
     vraag_los: list[Any]
     values: dict[str, Any]
     vraag_fout: int | None
-
-    # Paginakop + de weg terug (A7)
-    activiteit_id: int
-    activiteit_titel: str
-    component_naam: str | None
+    #: Title, badges, facts, the primary and the actions (`registration_head` + the page's).
+    record_head: dict[str, Any]
+    summary: dict[str, Any]
+    #: The way back as the list was left (A7) and the tabs.
     terug: str
     terug_label: str
-    # Feedback 15 sep: tabs (Overzicht · Betalingen) i.p.v. de P13-chips.
     record_tabs: list[dict[str, Any]]
+    save_url: str
+    cancel_href: str
+    delete_attrs: str
+    delete_confirm: str
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 
 
