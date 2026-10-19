@@ -102,6 +102,24 @@ def user_of_workspace(db: Session, user_id: int):
     return user
 
 
+def changeable_here(db: Session, user) -> bool:
+    """May the current workspace change this account? Everywhere on the
+    platform; in a workspace not an account with a platform-wide role, which the
+    platform manages (Koen, 19 October 2026: such an account is read-only in a
+    workspace)."""
+    return is_platform_workspace(db) or not any(r.tenant_id is None for r in user.roles)
+
+
+def user_to_change(db: Session, user_id: int):
+    """The account `user_id` for a save or a delete: in this workspace's scope
+    (`user_of_workspace`, else 404) and changeable here (else refused, as the
+    form's other refusals are: a rule of the domain, not a missing right)."""
+    user = user_of_workspace(db, user_id)
+    if not changeable_here(db, user):
+        raise UserRefused(_("Dit account is platformbreed en wordt op het platform beheerd."))
+    return user
+
+
 class AccessRow(NamedTuple):
     """One (account, workspace, role) of the operator's overview (#1500)."""
 
@@ -253,7 +271,7 @@ def create_user(body: UserCreate, db: Session, _admin=None):
 
 
 def update_user(user_id: int, body: UserUpdate, db: Session, _admin=None):
-    user = user_of_workspace(db, user_id)
+    user = user_to_change(db, user_id)
     if body.email is not None:
         existing = db.query(User).filter(User.email == body.email, User.id != user_id).first()
         if existing:
@@ -272,7 +290,7 @@ def update_user(user_id: int, body: UserUpdate, db: Session, _admin=None):
 def delete_user(user_id: int, db: Session, current_admin: User):
     if current_admin.id == user_id:
         raise HTTPException(status_code=400, detail=_("Je kan jezelf niet verwijderen."))
-    user = user_of_workspace(db, user_id)
+    user = user_to_change(db, user_id)
     from app.soft_delete import soft_delete
 
     soft_delete(user)
