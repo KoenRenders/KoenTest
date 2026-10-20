@@ -16,8 +16,10 @@ Proven red (20 October 2026, put back): the row's old classes
 past a content box ending at 329, and the buyer's total takes two lines;
 `lead_icon="trash-2"` → the icon assertion is red.
 
-When `E2E_PRINT_DIR` is set a print of both views at 390 px is taken. The order is made
-for this file and stays: the e2e database is fresh per run.
+When `E2E_PRINT_DIR` is set a print of both views at 390 px is taken. The article and
+the order are made for this file and stay: the e2e database is fresh per run. The file's
+name sorts it after `test_webshop.py` and `test_webshop_product_page.py`, which read the
+shop's first row and count its articles; run before them, the extra article turns them red.
 """
 
 from __future__ import annotations
