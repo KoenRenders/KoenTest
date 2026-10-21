@@ -1892,6 +1892,7 @@
         var at = editor.view.posAtDOM(figure, 0);
         var here = editor.state.doc.resolve(at);
         var found = here.nodeAfter && here.nodeAfter.type.name === "figure" ? at : at - 1;
+        editor.chain().focus().setNodeSelection(found).run();
         announceFigure(editor, mount.id, config, found);
       } catch (error) {
         /* A click outside the text asks nothing. */
