@@ -13,21 +13,31 @@
    `data_table`: that one is a list of records — one name, one context column,
    a row that opens its record — and this is a log with two columns of free
    text and nothing behind a row. #}
-<div class="overflow-x-auto">
+<div class="overflow-x-auto{% if markable or bounced %} pb-14{% endif %}">
 <table class="w-full text-sm" data-deliveries>
   <thead><tr class="text-left text-ink-soft border-b border-line">
-    <th scope="col" class="py-2 pr-3 font-semibold">{{ _("Adres") }}</th>
-    <th scope="col" class="py-2 pr-3 font-semibold">{{ _("Status") }}</th>
-    <th scope="col" class="py-2 pr-3 font-semibold whitespace-nowrap">{{ _("Wanneer") }}</th>
+    <th scope="col" class="py-2 pr-2 font-semibold">{{ _("Adres") }}</th>
+    <th scope="col" class="py-2 pr-2 font-semibold">{{ _("Status") }}</th>
+    <th scope="col" class="py-2 pr-2 font-semibold whitespace-nowrap">{{ _("Wanneer") }}</th>
     <th scope="col" class="py-2 font-semibold">{{ _("Reden") }}</th>
   </tr></thead>
   <tbody class="divide-y divide-line">
   {% for delivery in deliveries %}
     <tr>
-      <td class="py-2 pr-3" data-cell="address"><span class="inline-block max-w-[16.5rem] break-words align-top" data-address>{{ delivery.email }}</span></td>
-      <td class="py-2 pr-3 whitespace-nowrap" data-cell="status">{{ ui.badge(delivery.status | code_label("delivery_status"),
+      <td class="py-1 pr-2" data-cell="address"><div class="flex items-center gap-1">
+        {# #2188: the mailbox learns of a bounce, not the platform — a person marks it, and can take it back until the resend. The menu stands before the address, at the card's left edge, so a phone shows it without scrolling the table sideways and its menu has room to open. #}
+        {% if delivery.id in markable %}
+        {{ ui.row_actions_cell(None, [{"label": _("Teruggekomen"), "attrs": 'hx-post="/admin/nieuwsbrieven/' ~ letter.id ~ '/afleveringen/' ~ delivery.id ~ '/teruggekomen" hx-vals=\'{"csrf_token": "' ~ csrf_token ~ '"}\''}], label=delivery.email, menu_side="left") }}
+        {% elif delivery.id in bounced %}
+        {{ ui.row_actions_cell(None, [{"label": _("Toch aangekomen"), "attrs": 'hx-post="/admin/nieuwsbrieven/' ~ letter.id ~ '/afleveringen/' ~ delivery.id ~ '/terugzetten" hx-vals=\'{"csrf_token": "' ~ csrf_token ~ '"}\''}], label=delivery.email, menu_side="left") }}
+        {% elif markable or bounced %}
+        <span class="w-11 md:w-9 shrink-0" aria-hidden="true"></span>
+        {% endif %}
+        <span class="inline-block min-w-0 max-w-[16.5rem] break-words" data-address>{{ delivery.email }}</span>
+      </div></td>
+      <td class="py-2 pr-2 whitespace-nowrap" data-cell="status">{{ ui.badge(delivery.status | code_label("delivery_status"),
                                    delivery.status | tone("delivery_status")) }}</td>
-      <td class="py-2 pr-3 text-ink-soft whitespace-nowrap" data-cell="when">{{ moments[delivery.id] }}</td>
+      <td class="py-2 pr-2 text-ink-soft whitespace-nowrap" data-cell="when">{{ moments[delivery.id] }}</td>
       <td class="py-2 text-ink-soft{% if delivery.error %} min-w-[5.5rem]{% endif %}" data-cell="reason">{{ delivery.error or "" }}</td>
     </tr>
   {% else %}

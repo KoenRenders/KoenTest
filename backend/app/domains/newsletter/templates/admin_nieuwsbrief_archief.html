@@ -29,13 +29,14 @@
       {% if letter.paused_until %}<dt class="text-ink-soft">{{ _("Gaat verder") }}</dt><dd>{{ _("na het dagplafond") }}</dd>{% endif %}
       <dt class="text-ink-soft">{{ _("Verstuurd") }}</dt><dd>{{ progress.sent }} / {{ progress.total }}</dd>
       {% if progress.failed %}<dt class="text-ink-soft">{{ _("Mislukt") }}</dt><dd>{{ progress.failed }}</dd>{% endif %}
+      {% if progress.bounced %}<dt class="text-ink-soft">{{ _("Teruggekomen") }}</dt><dd>{{ progress.bounced }}</dd>{% endif %}
       {% if progress.skipped %}<dt class="text-ink-soft">{{ _("Overgeslagen") }}</dt><dd>{{ progress.skipped }}</dd>{% endif %}
       {% if letter.sent_by %}<dt class="text-ink-soft">{{ _("Verstuurd door") }}</dt><dd>{{ letter.sent_by }}</dd>{% endif %}
       <dt class="text-ink-soft">{{ _("Antwoorden") }}</dt>
       <dd>{% if letter.reply_to_address %}{{ letter.reply_to_address }}{% else %}{{ _("naar de vereniging") }}{% endif %}</dd>
     </dl>
     {# #1783: the failed addresses can be sent again, and only those. #}
-    {% if progress.failed %}
+    {% if progress.to_resend %}
     <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/opnieuw" data-resend-failed>
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       {{ ui.btn_secondary(resend_label, type="submit", lead_icon="send", confirm=resend_question) }}

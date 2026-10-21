@@ -95,6 +95,7 @@ register_tones(
         nb.DeliveryStatus.SENT: "green",
         nb.DeliveryStatus.FAILED: "yellow",
         nb.DeliveryStatus.SKIPPED: "gray",
+        nb.DeliveryStatus.BOUNCED: "yellow",
     },
 )
 register_tones(
@@ -998,15 +999,15 @@ def _archive_view(
     # Not a delete: the question keeps its own words and names the number (#1783).
     resend_question = (
         _("De nieuwsbrief opnieuw sturen naar %(n)s mislukt adres?")
-        if progress.failed == 1
+        if progress.to_resend == 1
         else _("De nieuwsbrief opnieuw sturen naar %(n)s mislukte adressen?")
-    ) % {"n": progress.failed}
+    ) % {"n": progress.to_resend}
     # A send button names whom it sends to (#1780), with the same count.
     resend_label = (
         _("Opnieuw versturen naar %(n)s mislukt adres")
-        if progress.failed == 1
+        if progress.to_resend == 1
         else _("Opnieuw versturen naar %(n)s mislukte adressen")
-    ) % {"n": progress.failed}
+    ) % {"n": progress.to_resend}
     deliveries = nb.deliveries_of(db, letter, status=status, query=q)
     return NewsletterArchiveView(
         letter=letter,
@@ -1038,6 +1039,8 @@ def _archive_view(
         notice=notice,
         resend_question=resend_question,
         resend_label=resend_label,
+        markable={d.id for d in deliveries if d.status == nb.DeliveryStatus.SENT},
+        bounced={d.id for d in deliveries if d.status == nb.DeliveryStatus.BOUNCED},
         nav_items=admin_nav(NAV, request),
     )
 
@@ -1345,6 +1348,51 @@ def newsletter_resend_failed(
             _archive_view(request, db, letter, error=str(exc)).as_context(),
         )
     return _go(request, f"/admin/nieuwsbrieven/{letter.id}?opnieuw={requeued}")
+
+
+@router.post(
+    "/admin/nieuwsbrieven/{newsletter_id:int}/afleveringen/{delivery_id:int}/teruggekomen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def newsletter_mark_bounced(
+    newsletter_id: int,
+    delivery_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
+):
+    """A delivery that came back, set by hand from the mailbox (#2188)."""
+    return _bounce_response(request, db, newsletter_id, delivery_id, nb.mark_bounced)
+
+
+@router.post(
+    "/admin/nieuwsbrieven/{newsletter_id:int}/afleveringen/{delivery_id:int}/terugzetten",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def newsletter_unmark_bounced(
+    newsletter_id: int,
+    delivery_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
+):
+    """Undo it, as long as the delivery has not been sent again (#2188)."""
+    return _bounce_response(request, db, newsletter_id, delivery_id, nb.unmark_bounced)
+
+
+def _bounce_response(request, db, newsletter_id, delivery_id, change):
+    letter = _letter_or_404(db, newsletter_id)
+    try:
+        change(db, letter, delivery_id)
+    except nb.NewsletterError as exc:
+        return templates.TemplateResponse(
+            request,
+            "admin_nieuwsbrief_archief.html",
+            _archive_view(request, db, letter, error=str(exc)).as_context(),
+        )
+    return _go(request, f"/admin/nieuwsbrieven/{letter.id}")
 
 
 @router.post(

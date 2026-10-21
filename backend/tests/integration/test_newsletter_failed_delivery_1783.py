@@ -260,3 +260,107 @@ def test_a_letter_without_failed_deliveries_shows_no_button(client, db_session, 
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
 
     assert "data-resend-failed" not in client.get(f"/admin/nieuwsbrieven/{letter.id}").text
+
+
+# ── Bounced by hand (#2188) ──────────────────────────────────────────────────
+#
+# Broken to prove them: `resend_failed` taking only `FAILED` (the bounced one then
+# stays put), `mark_bounced` accepting any status, and the row menu offering the
+# action on every status.
+
+BOUNCED = "teruggekomen@example.com"
+ARRIVED = "aangekomen@example.com"
+
+
+def _sent_letter(db):
+    return _letter(db, ARRIVED, BOUNCED, status=LetterStatus.SENT, done=(ARRIVED, BOUNCED))
+
+
+def _id_of(db, letter, address):
+    return db.query(Delivery).filter_by(newsletter_id=letter.id, email=address).one().id
+
+
+def test_a_marked_delivery_is_sent_again_and_an_unmarked_one_is_not(db_session, mailbox):
+    letter = _sent_letter(db_session)
+    nb.mark_bounced(db_session, letter, _id_of(db_session, letter, BOUNCED))
+
+    assert nb.progress_of(db_session, letter).to_resend == 1
+    assert nb.resend_failed(db_session, letter) == 1
+    assert nb.send_batch(db_session, letter.id) == "done"
+
+    assert mailbox.attempts == [BOUNCED], "the one that arrived is never sent twice"
+    rows = _by_address(db_session, letter)
+    assert rows[BOUNCED].status == DeliveryStatus.SENT
+    assert rows[BOUNCED].email == BOUNCED, "the stored address is used"
+
+
+def test_failed_and_bounced_are_sent_again_together(db_session, mailbox):
+    letter = _letter(
+        db_session, ARRIVED, BOUNCED, "fout@example.com",
+        status=LetterStatus.SENT, done=(ARRIVED, BOUNCED),
+    )  # fmt: skip
+    nb.mark_bounced(db_session, letter, _id_of(db_session, letter, BOUNCED))
+    failed = db_session.query(Delivery).filter_by(email="fout@example.com").one()
+    failed.status = DeliveryStatus.FAILED
+    db_session.commit()
+
+    assert nb.progress_of(db_session, letter).to_resend == 2
+    assert nb.resend_failed(db_session, letter) == 2
+
+
+def test_taking_the_mark_back_puts_it_on_sent_and_it_is_not_sent_again(db_session, mailbox):
+    letter = _sent_letter(db_session)
+    delivery_id = _id_of(db_session, letter, BOUNCED)
+    nb.mark_bounced(db_session, letter, delivery_id)
+    nb.unmark_bounced(db_session, letter, delivery_id)
+
+    assert _by_address(db_session, letter)[BOUNCED].status == DeliveryStatus.SENT
+    with pytest.raises(nb.NewsletterError, match="geen mislukte adressen"):
+        nb.resend_failed(db_session, letter)
+
+
+def test_only_a_sent_delivery_can_be_marked_and_only_a_marked_one_taken_back(db_session):
+    letter = _letter(db_session, ARRIVED, BOUNCED, status=LetterStatus.SENT, done=(BOUNCED,))
+    queued = _id_of(db_session, letter, ARRIVED)
+
+    with pytest.raises(nb.NewsletterError, match="verstuurde"):
+        nb.mark_bounced(db_session, letter, queued)
+    with pytest.raises(nb.NewsletterError, match="niet als teruggekomen"):
+        nb.unmark_bounced(db_session, letter, _id_of(db_session, letter, BOUNCED))
+
+
+def test_the_row_menu_and_the_button_follow_the_status(client, db_session, mailbox):
+    letter = _sent_letter(db_session)
+    session = make_session_value(SEEDED_ADMIN_EMAIL)
+    client.cookies.set(SESSION_COOKIE, session)
+    headers = {"X-CSRF-Token": csrf_token_for(session), "HX-Request": "true"}
+    base = f"/admin/nieuwsbrieven/{letter.id}"
+
+    page = client.get(base).text
+    assert page.count("Teruggekomen</button>") == 2, "each sent row offers it"
+    assert "data-resend-failed" not in page
+
+    answer = client.post(
+        f"{base}/afleveringen/{_id_of(db_session, letter, BOUNCED)}/teruggekomen",
+        headers=headers,
+    )
+    assert answer.headers["HX-Redirect"] == base
+    page = client.get(base).text
+    assert "Opnieuw versturen naar 1 mislukt adres" in page, "the label is the same"
+    assert "Toch aangekomen</button>" in page and page.count("Teruggekomen</button>") == 1
+
+    answer = client.post(
+        f"{base}/afleveringen/{_id_of(db_session, letter, BOUNCED)}/terugzetten",
+        headers=headers,
+    )
+    assert answer.headers["HX-Redirect"] == base
+    assert "data-resend-failed" not in client.get(base).text
+
+
+def test_a_delivery_of_another_letter_cannot_be_marked(db_session):
+    letter = _sent_letter(db_session)
+    other = _letter(
+        db_session, "ander@example.com", status=LetterStatus.SENT, done=("ander@example.com",)
+    )
+    with pytest.raises(nb.NewsletterError, match="hoort niet bij"):
+        nb.mark_bounced(db_session, letter, _id_of(db_session, other, "ander@example.com"))

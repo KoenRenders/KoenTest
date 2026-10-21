@@ -3907,8 +3907,10 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    screen (#1931: a task that is handled on its subject's own page) —
    {label, href}, a link with the same look; or None. `items`: a list of
    {label, href?|attrs?, confirm?, kind?}; a `kind="delete"` item goes last,
-   red, after a divider. #}
-{% macro row_actions_cell(action=None, items=[], label="") -%}
+   red, after a divider. `menu_side="left"` opens the menu to the right of a `⋯`
+   that stands at the left edge of its row (the log of a sent letter, #2188);
+   the default opens it to the left of one at the right edge. #}
+{% macro row_actions_cell(action=None, items=[], label="", menu_side="right") -%}
 {# `.get`, not `selectattr`: an item without a `kind` is an ordinary one, and
    StrictUndefined refuses the attribute test on it. #}
 {% set _rest = [] %}{% set _deletes = [] %}
@@ -3930,7 +3932,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
             class="inline-grid h-11 w-11 md:h-9 md:w-9 place-items-center rounded-lg text-ink-soft hover:bg-surface-2 hover:text-ink"
             aria-label="{{ _('Meer acties') }}{% if label %}: {{ label }}{% endif %}" @click="open = !open">{{ icon("ellipsis") }}</button>
     <div x-show="open" x-cloak @click.outside="open = false" role="menu" data-row-menu
-         class="absolute right-0 z-30 mt-1 w-[272px] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-white py-1 text-left shadow-lg">
+         class="absolute {{ 'left-0' if menu_side == 'left' else 'right-0' }} z-30 mt-1 w-[272px] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-white py-1 text-left shadow-lg">
       {% for m in _rest %}
       {% if m.get("href") %}<a role="menuitem" href="{{ m.href }}" class="flex min-h-11 w-full items-center px-3 text-sm text-ink hover:bg-surface-2 hover:no-underline"{% if m.get("attrs") %} {{ m.attrs|safe }}{% endif %}>{{ m.label }}</a>
       {% else %}<button role="menuitem" type="button" class="flex min-h-11 w-full items-center px-3 text-left text-sm text-ink hover:bg-surface-2" hx-disabled-elt="this" {{ m.get("attrs", "")|safe }}{% if m.get("confirm") %} data-confirm="{{ m.confirm }}"{% endif %}>{{ m.label }}</button>{% endif %}
