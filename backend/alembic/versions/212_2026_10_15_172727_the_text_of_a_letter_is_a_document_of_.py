@@ -37,6 +37,16 @@ that is not a draft has its frozen body.
 
 Downgrade restores the text with markers from the documents and drops the column;
 the exact Trix markup is not restored.
+
+Amended after v2.17.0 (#2195), the named exception to "a merged migration is never
+modified": this migration never completed on PROD (its transaction rolled back whole to
+202), and HDEV and UAT are past it. Rendering prose asks the clock for today's day, and
+since #2156 the clock needs a tenant, which a migration does not have: PROD's deploy died
+here with `NoTenantContext`. Each letter is now rendered in its own tenant
+(`newsletters.tenant_id`), set before the render and reset after it, also on an error. A
+letter without a tenant still fails; there is no fallback day. Koen, 21 October 2026, to
+"Mag migratie 212 aangepast worden, omdat ze op PROD nooit is afgelopen?": "ja, 212 mag
+aangepast worden".
 """
 
 import logging
@@ -177,6 +187,7 @@ def freeze_sent_letters(bind) -> int:
 
     from app.domains.cms.render import render_document
     from app.domains.newsletter.service import activity_block_html, calendar_list_html
+    from app.kernel.tenancy import current_tenant_id
 
     if "sent_body_html" not in _columns(bind):
         bind.execute(sa.text("ALTER TABLE newsletter.newsletters ADD COLUMN sent_body_html TEXT"))
@@ -207,19 +218,23 @@ def freeze_sent_letters(bind) -> int:
             facts = facts_of(calendar_ids)
             return calendar_list_html(sorted(facts.values(), key=lambda f: (f.start, f.id)))
 
-        body = render_document(
-            document,
-            None,
-            blocks={
-                "activity": activity,
-                "calendar": calendar,
-                "closing": lambda node: _closing(bind, tenant_id),
-                # The letters of this revision came from Trix HTML: no picture (measured)
-                # and no button in any of them.
-                "figure": lambda node: "",
-                "button": lambda node: "",
-            },
-        )
+        token = current_tenant_id.set(tenant_id)
+        try:
+            body = render_document(
+                document,
+                None,
+                blocks={
+                    "activity": activity,
+                    "calendar": calendar,
+                    "closing": lambda node: _closing(bind, tenant_id),
+                    # The letters of this revision came from Trix HTML: no picture (measured)
+                    # and no button in any of them.
+                    "figure": lambda node: "",
+                    "button": lambda node: "",
+                },
+            )
+        finally:
+            current_tenant_id.reset(token)
         bind.execute(
             sa.text("UPDATE newsletter.newsletters SET sent_body_html = :b WHERE id = :i"),
             {"b": body, "i": letter_id},
