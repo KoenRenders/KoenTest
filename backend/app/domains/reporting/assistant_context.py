@@ -145,10 +145,11 @@ def _activity(db: Session, activity_id: int, *, editing: bool = False) -> Assist
     )
 
 
-#: What the newsletter page sends along with a question: the text as it stands
-#: in the editor, the selection and what stands before the cursor — Raakje
+#: What the newsletter page sends along with a question: the letter as its form
+#: holds it (the text in the editor, the subject, the preview text, the choices), the
+#: selection and what stands before the cursor, and nothing of it is stored — Raakje
 #: rewrites the selection or writes for that spot (Koen, 17 September 2026).
-_NEWSLETTER_FIELDS = "#nb-editor-input"
+_NEWSLETTER_FIELDS = "#nb-formulier"
 _NEWSLETTER_VALS = (
     'js:{selection: window.nbSelectie ? nbSelectie() : "", '
     'selection_range: window.nbBereik ? nbBereik() : "", '

@@ -100,6 +100,11 @@ def test_read_mode_shows_everything_and_changes_nothing(world):
         assert menu.get_by_role("menuitem", name="Onderwerp en doelgroep").count() == 0
         page.keyboard.press("Escape")
         assert _visible_controls_in_main(page) == [], "read mode has no field"
+        buttons = page.evaluate(
+            """() => [...document.querySelectorAll('[data-letter-choices] button, [data-letter-choices] [data-choice-add]')]
+                .filter(e => e.checkVisibility()).length"""
+        )
+        assert buttons == 0, "read mode has no button or × in the card of the choices"
         expect(page.locator("#nb-editor .ProseMirror")).to_have_attribute(
             "contenteditable", "false"
         )

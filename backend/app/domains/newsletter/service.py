@@ -1029,15 +1029,15 @@ def default_choices(db: Session, today: Optional[date] = None) -> Choices:
     return Choices(past=tuple(past), featured=tuple(featured), calendar=tuple(calendar))
 
 
-def set_choice(
-    db: Session, letter: Newsletter, group: str, activity_id: int, *, chosen: bool
+def choices_after(
+    db: Session, current: Choices, group: str, activity_id: int, *, chosen: bool
 ) -> Choices:
-    """Put an activity in a group, or take it out. This — and only this — writes
-    the three groups: from the first choice on the letter holds the new form."""
-    _refuse_unless_draft(letter)
+    """The groups once an activity is put in one, or taken out: the rules of a choice
+    (at most three featured, a featured one stands in the calendar too, every group in
+    the order of its dates), without writing anything — the letter's page holds the
+    groups until its Opslaan (#2183)."""
     if group not in GROUPS:
         raise NewsletterError(_("Onbekende groep."))
-    current = choices_of(db, letter)
     groups = {name: list(getattr(current, name)) for name in GROUPS}
     if not chosen:
         groups[group] = [i for i in groups[group] if i != activity_id]
@@ -1050,10 +1050,52 @@ def set_choice(
         # A featured activity stands in the calendar too.
         if group == "featured" and activity_id not in groups["calendar"]:
             groups["calendar"].append(activity_id)
-    new = Choices(**{name: tuple(f.id for f in _by_date(db, ids)) for name, ids in groups.items()})
+    return Choices(**{name: tuple(f.id for f in _by_date(db, ids)) for name, ids in groups.items()})
+
+
+def set_choices(db: Session, letter: Newsletter, choices: Choices) -> Choices:
+    """Store the three groups as the page holds them. This — and only this — writes the
+    groups: from the first save on the letter holds the new form."""
+    _refuse_unless_draft(letter)
+    if len(set(choices.featured)) > FEATURED_MAX:
+        raise NewsletterError(
+            _("Er kunnen hoogstens drie activiteiten uitgelicht zijn. Haal er eerst één weg.")
+        )
+    new = Choices(
+        **{name: tuple(f.id for f in _by_date(db, getattr(choices, name))) for name in GROUPS}
+    )
     letter.draft_activity_ids = new.as_stored()
     db.commit()
     return new
+
+
+def as_on_the_page(
+    db: Session,
+    letter: Newsletter,
+    *,
+    subject: Optional[str] = None,
+    preview_text: Optional[str] = None,
+    body: "Optional[str | dict]" = None,
+    choices: Optional[Choices] = None,
+) -> Newsletter:
+    """The letter as its page holds it right now, for a caller that only READS it
+    (Raakje's questions and the apply of a proposal): the values are put on the letter
+    as if they had been loaded, so nothing marks them as changed and no commit of that
+    caller writes what the author has not saved (#2183). The session keeps them across
+    those commits (`expire_on_commit` off for this request). What is not given stays
+    as stored."""
+    from sqlalchemy.orm.attributes import set_committed_value
+
+    db.expire_on_commit = False
+    if subject is not None:
+        set_committed_value(letter, "subject", subject.strip()[:500])
+    if preview_text is not None:
+        set_committed_value(letter, "preview_text", preview_text.strip()[:PREVIEW_MAX])
+    if body:
+        set_committed_value(letter, "body_document", letter_document(body))
+    if choices is not None:
+        set_committed_value(letter, "draft_activity_ids", choices.as_stored())
+    return letter
 
 
 def set_draft_sources(

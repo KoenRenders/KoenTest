@@ -130,7 +130,9 @@
   </div>
   {% endcall %}
 
-  <div id="nb-keuzes">
+  {# In-place commands: they swap the choices alone and the page keeps what it holds, so
+     they are no way out of the form (the record form lets them pass unasked). #}
+  <div id="nb-keuzes" data-command-safe>
     {% include "_nb_keuzes.html" %}
   </div>
 

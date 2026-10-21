@@ -241,6 +241,14 @@ def test_the_three_groups_stand_on_the_page_and_a_choice_follows_without_a_page_
     )
     assert above
 
+    # Read mode changes nothing (#2183): no button and no × in the card of the choices.
+    visible = page.evaluate(
+        """() => [...document.querySelectorAll('[data-letter-choices] button, [data-letter-choices] [data-choice-add]')]
+            .filter(e => e.checkVisibility()).length"""
+    )
+    assert visible == 0, f"{visible} controls in the card of the choices while the letter is read"
+    open_head_card(page)
+
     loads = []
     page.on("load", lambda _p: loads.append(1))
     first = page.locator('[data-choice-group="featured"] [data-choice]').first
@@ -259,6 +267,71 @@ def test_the_three_groups_stand_on_the_page_and_a_choice_follows_without_a_page_
         row.get_by_role("button", name="Kiezen").click()
     assert page.evaluate(_GROUPS)[1]["count"] == "(3)"
     assert page.errors == []
+    page.close()
+
+
+def test_a_question_to_raakje_stores_nothing_and_annuleren_keeps_the_stored_letter(setup):
+    """#2183: edit a word, ask Raakje, press Annuleren, reload: the stored text is the one
+    from before. The question carries the page's text; it is not stored by asking.
+
+    Proven red by putting `update_draft(…, body=body)` back in `raakje_ask` before the
+    question is answered: the typed word is stored."""
+    import app.models  # noqa: F401
+    from app.database import SessionLocal
+    from app.domains.newsletter import api as nb
+    from app.domains.newsletter.models import Newsletter
+    from tests.conftest import SEEDED_ADMIN_EMAIL
+
+    db = SessionLocal()
+    try:
+        letter = nb.create_newsletter(db, created_by=SEEDED_ADMIN_EMAIL)
+        nb.update_draft(
+            db, letter, subject="Paneelbrief vraag", body_html="<div>Beste,</div>", audience=None
+        )
+        letter_id = letter.id
+    finally:
+        db.close()
+    _SEEDED.append(letter_id)
+
+    def stored_text() -> str:
+        check = SessionLocal()
+        try:
+            return nb.markup_of(check.get(Newsletter, letter_id))
+        finally:
+            check.close()
+
+    before = stored_text()
+    b, session, _data = setup
+    page = b.new_page(base_url=BASE, viewport={"width": 1920, "height": 1000})
+    login_met_sessie(page, session, BASE)
+    page.goto(f"/admin/nieuwsbrieven/{letter_id}")
+    pagina_klaar(page)
+    page.wait_for_function("window.raakDocumentEditor && window.raakDocumentEditor('nb-editor')")
+    open_head_card(page)
+    editor = page.locator("#nb-editor .ProseMirror")
+    editor.click()
+    editor.type(" Ongezien woord.", delay=40)
+    trigger = page.locator("[data-raakje-trigger]")
+    trigger.wait_for(state="visible")
+    if page.locator(".raakje-panel").is_hidden():
+        trigger.click()
+    page.locator(".raakje-panel textarea").wait_for(state="visible")
+    with page.expect_response(lambda r: r.url.endswith("/raakje/vraag")):
+        page.locator(".raakje-panel textarea").fill("Schrijf iets korts")
+        page.locator(".raakje-panel textarea").press("Enter")
+    htmx_stil(page)
+    assert stored_text() == before, "asking stored the typed text"
+
+    page.locator("#nb-kop-bewerken").get_by_role("link", name="Alle nieuwsbrieven").click()
+    page.wait_for_function(
+        "document.querySelector('[data-dialog]').contains(document.activeElement)"
+    )
+    with page.expect_navigation(wait_until="load"):
+        page.click("[data-dialog] [data-dialog-ok]")
+    page.goto(f"/admin/nieuwsbrieven/{letter_id}")
+    pagina_klaar(page)
+    assert stored_text() == before
+    assert "Ongezien" not in page.locator("#nb-editor .ProseMirror").inner_text()
     page.close()
 
 

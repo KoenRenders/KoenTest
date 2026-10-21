@@ -605,10 +605,23 @@ def test_de_kalender_is_de_kalendergroep_van_de_brief(client, db_session):
         "a new letter's calendar holds the next nine, however far"
     )
 
+    # The route answers with the groups the page holds and writes nothing (#2183) …
     weg = client.post(
         f"/admin/nieuwsbrieven/{letter.id}/keuzes/calendar/{ver.id}/weg", headers=headers
     )
     assert weg.status_code == 200
+    assert f'name="choice_calendar" value="{ver.id}"' not in weg.text
+    assert ver.id in nb.choices_of(db_session, letter).calendar, "nothing was stored"
+    # … Opslaan stores them, and the calendar block renders exactly the stored group.
+    held = nb.choices_after(
+        db_session, nb.choices_of(db_session, letter), "calendar", ver.id, chosen=False
+    )
+    client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/bewaren",
+        headers=headers,
+        data={"subject": "x", "choice_calendar": [str(i) for i in held.calendar]},
+    )
+    db_session.expire_all()
     gekozen = rendered()
     assert "Rumproefavond" in gekozen and "Kerstmarkt" not in gekozen
 
@@ -617,10 +630,14 @@ def test_de_kalender_is_de_kalendergroep_van_de_brief(client, db_session):
     assert f'name="activity_id" value="{ver.id}"' in kiezer.text
     assert f'hx-post="/admin/nieuwsbrieven/{letter.id}/keuzes/calendar"' in kiezer.text
     client.post(
-        f"/admin/nieuwsbrieven/{letter.id}/keuzes/calendar",
+        f"/admin/nieuwsbrieven/{letter.id}/bewaren",
         headers=headers,
-        data={"activity_id": str(ver.id)},
+        data={
+            "subject": "x",
+            "choice_calendar": [str(i) for i in (*held.calendar, ver.id)],
+        },
     )
+    db_session.expire_all()
     assert "Kerstmarkt" in rendered()
     assert dichtbij.id in nb.choices_of(db_session, letter).calendar
 

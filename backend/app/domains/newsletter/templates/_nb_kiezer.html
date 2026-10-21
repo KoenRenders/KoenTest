@@ -20,7 +20,7 @@
       <span class="text-sm"><span class="font-medium">{{ item.name }}</span>
         <span class="text-ink-soft"> · {{ item.date }}</span></span>
       <span class="ml-auto">
-        <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/keuzes/{{ purpose }}" hx-target="#nb-keuzes" hx-swap="innerHTML">
+        <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/keuzes/{{ purpose }}" hx-include="[data-choice-state]" hx-target="#nb-keuzes" hx-swap="innerHTML">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <input type="hidden" name="activity_id" value="{{ item.id }}">
           {{ ui.btn_secondary(_("Kiezen"), type="submit", size="sm") }}

@@ -13,7 +13,7 @@ form, so only a choice changes it.
 
 Broken on purpose, each seen red: `choices_of` writing the groups back while
 reading (the untouched letter changes form); the limit of three dropped from
-`set_choice`; a featured activity not joining the calendar; the newsletter
+`choices_after` and `set_choices`; a featured activity not joining the calendar; the newsletter
 branch left out of `context_for` (the
 draft's page gets the dimmed "Raakje kent deze gegevens nog niet").
 """
@@ -35,6 +35,22 @@ from app.kernel.tenancy import DEFAULT_TENANT_ID
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
+
+
+def _state(fragment: str) -> dict[str, list[str]]:
+    """The groups a fragment of the choices holds, as the page sends them back."""
+    held: dict[str, list[str]] = {}
+    for name, value in re.findall(
+        r'<input type="hidden" name="(choice_\w+)" value="(\d*)" form="nb-formulier"', fragment
+    ):
+        held.setdefault(name, []).append(value)
+    return held
+
+
+def _choose(db, letter, group, activity_id, *, chosen):
+    """One choice, stored at once — what the page's Opslaan does with the groups it holds."""
+    new = nb.choices_after(db, nb.choices_of(db, letter), group, activity_id, chosen=chosen)
+    return nb.set_choices(db, letter, new)
 
 
 def _activity(db, name: str, days: int) -> Activity:
@@ -103,7 +119,7 @@ def test_an_older_letter_with_one_list_is_read_and_not_rewritten(db_session, wor
     assert not db_session.dirty
 
     # The first choice writes the three groups.
-    nb.set_choice(db_session, letter, "calendar", world["coming"][4].id, chosen=True)
+    _choose(db_session, letter, "calendar", world["coming"][4].id, chosen=True)
     db_session.expire_all()
     stored = db_session.get(Newsletter, letter.id).draft_activity_ids
     assert set(stored) == {"past", "featured", "calendar"}
@@ -114,12 +130,12 @@ def test_at_most_three_are_featured_and_a_featured_one_joins_the_calendar(db_ses
     letter = nb.create_newsletter(db_session, created_by="s@example.org")
     fourth, fifth = world["coming"][3], world["coming"][4]
     with pytest.raises(nb.NewsletterError, match="hoogstens drie"):
-        nb.set_choice(db_session, letter, "featured", fourth.id, chosen=True)
+        _choose(db_session, letter, "featured", fourth.id, chosen=True)
     assert len(nb.choices_of(db_session, letter).featured) == 3
 
-    nb.set_choice(db_session, letter, "featured", world["coming"][0].id, chosen=False)
-    nb.set_choice(db_session, letter, "calendar", fifth.id, chosen=False)
-    chosen = nb.set_choice(db_session, letter, "featured", fifth.id, chosen=True)
+    _choose(db_session, letter, "featured", world["coming"][0].id, chosen=False)
+    _choose(db_session, letter, "calendar", fifth.id, chosen=False)
+    chosen = _choose(db_session, letter, "featured", fifth.id, chosen=True)
     assert fifth.id in chosen.featured and fifth.id in chosen.calendar
     assert list(chosen.featured) == sorted(
         chosen.featured, key=[a.id for a in world["coming"]].index
@@ -129,7 +145,7 @@ def test_at_most_three_are_featured_and_a_featured_one_joins_the_calendar(db_ses
     )
 
     with pytest.raises(nb.NewsletterError):
-        nb.set_choice(db_session, letter, "elders", fifth.id, chosen=True)
+        _choose(db_session, letter, "elders", fifth.id, chosen=True)
 
 
 def test_a_sent_letter_keeps_its_choices(db_session, world):
@@ -139,14 +155,14 @@ def test_a_sent_letter_keeps_its_choices(db_session, world):
     letter.sent_body_html = "<div>x</div>"
     db_session.commit()
     with pytest.raises(nb.NewsletterError):
-        nb.set_choice(db_session, letter, "past", world["past"].id, chosen=False)
+        _choose(db_session, letter, "past", world["past"].id, chosen=False)
 
 
 def test_a_copy_takes_the_three_groups_as_its_own(db_session, world):
     letter = nb.create_newsletter(db_session, created_by="s@example.org")
     copy = nb.copy_newsletter(db_session, letter, created_by="t@example.org")
     assert nb.choices_of(db_session, copy) == nb.choices_of(db_session, letter)
-    nb.set_choice(db_session, copy, "past", world["past"].id, chosen=False)
+    _choose(db_session, copy, "past", world["past"].id, chosen=False)
     assert nb.choices_of(db_session, letter).past == (world["past"].id,), "two rows, two sets"
 
 
@@ -190,13 +206,17 @@ def test_a_choice_changes_its_group_and_answers_with_the_groups(client, db_sessi
     assert "<html" not in answer.text, "the groups alone"
     featured = _group(answer.text, "featured")
     assert f'data-choice="{first.id}"' not in featured and "data-choice-add" in featured
+    # The groups stand on the page until its Opslaan (#2183): nothing is stored.
+    assert first.id in nb.choices_of(db_session, letter).featured
 
+    held = _state(answer.text)
     for extra in (world["coming"][3], first):
         answer = client.post(
             f"/admin/nieuwsbrieven/{letter.id}/keuzes/featured",
             headers=headers,
-            data={"activity_id": str(extra.id)},
+            data={"activity_id": str(extra.id), **held},
         )
+        held = _state(answer.text)
     assert "hoogstens drie" in answer.text, "the refusal stands with the groups"
     assert len(nb.choices_of(db_session, letter).featured) == 3
 
@@ -214,12 +234,14 @@ def test_the_activity_dialog_offers_the_featured_ones(client, db_session, world)
     offered = [a["id"] for a in config["activity"]["activities"]]
     assert offered == [a.id for a in world["coming"][:3]]
 
-    gone = None
+    gone, held = None, {}
     for activity in world["coming"][:3]:
         gone = client.post(
             f"/admin/nieuwsbrieven/{letter.id}/keuzes/featured/{activity.id}/weg",
             headers=headers,
+            data=held,
         ).text
+        held = _state(gone)
     assert 'raak-letter-featured", []' in gone, "the dialog hears that nothing is featured"
 
 
@@ -249,7 +271,7 @@ def test_a_draft_is_a_context_of_the_panel_and_a_sent_letter_is_not(db_session, 
     assert draft.label == "over de nieuwsbrief “Het najaar”"
     assert draft.post_url == f"/admin/nieuwsbrieven/{letter.id}/raakje/vraag"
     assert draft.history_url == f"/admin/nieuwsbrieven/{letter.id}/raakje/gesprek"
-    assert draft.include == "#nb-editor-input" and "nbSelectie" in draft.vals
+    assert draft.include == "#nb-formulier" and "nbSelectie" in draft.vals
     assert len(draft.suggestions) == 3
 
     # The list of letters and the settings are no draft: the rule of the
@@ -282,7 +304,7 @@ def test_the_panel_of_a_draft_sends_the_text_along_and_loads_its_conversation(
     assert panel.status_code == 200, panel.text[:200]
     form = re.search(r"<form data-raakje-form[^>]*>", panel.text, re.S).group(0)
     assert f'hx-post="/admin/nieuwsbrieven/{letter.id}/raakje/vraag"' in form
-    assert 'hx-include="#nb-editor-input"' in form and "hx-vals='js:{selection:" in form
+    assert 'hx-include="#nb-formulier"' in form and "hx-vals='js:{selection:" in form
     talk = re.search(r"<div[^>]*data-panel-conversation[^>]*>", panel.text, re.S).group(0)
     assert f'hx-get="/admin/nieuwsbrieven/{letter.id}/raakje/gesprek"' in talk
     assert 'hx-trigger="load"' in talk

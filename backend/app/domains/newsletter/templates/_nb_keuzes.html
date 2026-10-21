@@ -15,12 +15,17 @@
   {% if choices_error %}{{ ui.error_banner(choices_error) }}{% endif %}
   {% for group in choices %}
   <div data-choice-group="{{ group.key }}">
+    <input type="hidden" name="choice_{{ group.key }}" value="" form="nb-formulier" data-choice-state>
     <p class="text-sm font-semibold"><span data-choice-title>{{ group.title }}</span> <span data-choice-count class="text-ink-soft font-normal">({{ group["items"]|length }})</span></p>
     <p class="text-xs text-ink-soft">{{ group.hint }}</p>
     <div class="flex flex-wrap gap-1.5 mt-1.5 items-center">
       {% for fact in group["items"] %}
-      <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/keuzes/{{ group.key }}/{{ fact.id }}/weg"
-            hx-target="#nb-keuzes" hx-swap="innerHTML" class="inline">
+      <input type="hidden" name="choice_{{ group.key }}" value="{{ fact.id }}" form="nb-formulier" data-choice-state>
+      {# Read, a chip is a name; edit, it takes itself out — of the groups the page holds,
+         which Opslaan stores (#2183). #}
+      <span data-choice-read x-show="!editing" class="inline-flex items-center rounded-full bg-blue-100 text-blue-700 text-xs font-semibold px-2.5 min-h-7">{{ fact.name }}</span>
+      <form x-show="editing" x-cloak hx-post="/admin/nieuwsbrieven/{{ letter.id }}/keuzes/{{ group.key }}/{{ fact.id }}/weg"
+            hx-include="[data-choice-state]" hx-target="#nb-keuzes" hx-swap="innerHTML" class="inline">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button type="submit" data-choice="{{ fact.id }}" class="inline-flex items-center gap-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold px-2.5 min-h-11 md:min-h-7"
                 aria-label="{{ _("%(naam)s weghalen", naam=fact.name) }}">{{ fact.name }} {{ ui.icon("x", 12) }}</button>
@@ -29,8 +34,10 @@
       <span class="text-sm text-ink-soft">{{ _("Geen.") }}</span>
       {% endfor %}
       {% if group.can_add %}
+      <span x-show="editing" x-cloak>
       {{ ui.btn_outline(_("Toevoegen"), lead_icon="plus", size="xs",
                         attrs='data-choice-add hx-get="/admin/nieuwsbrieven/' ~ letter.id ~ '/activiteiten?purpose=' ~ group.key ~ '" hx-target="#nb-keuzes-kiezer-' ~ group.key ~ '" hx-swap="innerHTML"') }}
+      </span>
       {% endif %}
     </div>
     <div id="nb-keuzes-kiezer-{{ group.key }}"></div>
