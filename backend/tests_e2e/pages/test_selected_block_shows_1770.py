@@ -92,6 +92,17 @@ def setup():
         b.close()
 
 
+def _click_clear(page, locator) -> None:
+    """Click a block with nothing over it. At 390 px the editor's sticky toolbar lies over
+    the middle of the picture once the arrows have scrolled to the cards (measured
+    20 October 2026: `elementFromPoint` there is the toolbar's menu toggle). The block is
+    brought to the viewport's middle first. Centred, the picture's click still left the
+    card selected 2 runs of 7, because its handler opened the dialog without selecting
+    the figure (#2180); the handler now selects it, as the card's and the button's do."""
+    locator.evaluate("e => e.scrollIntoView({block: 'center'})")
+    locator.click()
+
+
 def _the_one_ring(seen: dict, name: str, width: int) -> None:
     assert seen["selected"] == [name], (
         f"at {width} px the editor selects {seen['selected']}, not {name}"
@@ -166,7 +177,7 @@ def test_a_selected_block_carries_the_ring_and_no_other_does(setup, width):
         )
 
         # A card, selected by a click (its dialog closed with Escape).
-        page.locator(CARD).nth(1).click()
+        _click_clear(page, page.locator(CARD).nth(1))
         expect(page.locator(DIALOG)).to_be_visible()
         page.keyboard.press("Escape", delay=HELD)
         expect(page.locator(DIALOG)).to_be_hidden()
@@ -181,7 +192,7 @@ def test_a_selected_block_carries_the_ring_and_no_other_does(setup, width):
 
         # The picture, selected by a click — and still ringed after a key
         # that does nothing.
-        page.locator(f"{EDITOR} .tiptap figure").click()
+        _click_clear(page, page.locator(f"{EDITOR} .tiptap figure"))
         expect(page.locator(FIGURE_DIALOG)).to_be_visible()
         page.keyboard.press("Escape", delay=HELD)
         expect(page.locator(FIGURE_DIALOG)).to_be_hidden()
@@ -190,7 +201,7 @@ def test_a_selected_block_carries_the_ring_and_no_other_does(setup, width):
         _the_one_ring(page.evaluate(RINGS), "picture", width)
 
         # The button, selected by a click (its dialog closed with Escape).
-        page.locator(f"{EDITOR} .tiptap a[data-button]").click()
+        _click_clear(page, page.locator(f"{EDITOR} .tiptap a[data-button]"))
         expect(page.locator(BUTTON_DIALOG)).to_be_visible()
         page.keyboard.press("Escape", delay=HELD)
         expect(page.locator(BUTTON_DIALOG)).to_be_hidden()
