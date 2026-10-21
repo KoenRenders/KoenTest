@@ -130,7 +130,9 @@ def _encode(img: Image.Image, *, keep_alpha: bool) -> tuple[bytes, str]:
 
 def _resized(img: Image.Image, max_side: int) -> Image.Image:
     clone = img.copy()
-    clone.thumbnail((max_side, max_side), Image.Resampling.LANCZOS)
+    # reducing_gap=None: Pillow 13 applies the default gap (2.0) to RGBA too, which makes a
+    # logo reduced 2x or more a fraction less exact at its edges (#2184, Koen, 21 Oct 2026).
+    clone.thumbnail((max_side, max_side), Image.Resampling.LANCZOS, reducing_gap=None)
     return clone
 
 
