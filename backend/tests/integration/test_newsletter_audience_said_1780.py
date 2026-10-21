@@ -223,17 +223,16 @@ def _concept(client, db, audience: Audience | None = None) -> str:
     return answer.text
 
 
-def _pills(html: str) -> list[tuple[str, str, str]]:
-    """`(code, word, number)` of each choice, and no hover text on any of them."""
-    select = re.search(r'<select[^>]*name="audience"[^>]*>(.*?)</select>', html, re.S)
-    assert select, "the concept screen offers no audience"
-    found = []
-    for code, label_text in re.findall(
-        r'<option value="([^"]+)"[^>]*>(.*?)</option>', select.group(1), re.S
-    ):
-        word, _sep, number = unescape(label_text).partition(" · ")
-        found.append((code, word.strip(), number.strip()))
-    return found
+def _pills(html: str) -> list[tuple[str, str]]:
+    """`(code, word)` of each radio button of the audience (#2183): the word alone, the
+    numbers stand in the lines under them."""
+    radios = re.findall(
+        r'<input type="radio" name="audience" value="([^"]+)"[^>]*>\s*<span><span class="font-medium text-ink">(.*?)</span>',
+        html,
+        re.S,
+    )
+    assert radios, "the concept screen offers no audience"
+    return [(code, unescape(word).strip()) for code, word in radios]
 
 
 def test_the_concept_screen_says_who_each_audience_is_before_a_choice(client, db_session, world):
@@ -241,11 +240,11 @@ def test_the_concept_screen_says_who_each_audience_is_before_a_choice(client, db
     lines, overlap = _card(html)
 
     assert _pills(html) == [
-        ("members", "Leden", "3"),
-        ("non_members", "Abonnees", "2"),
-        ("both", "Allebei", "4"),
-        # CR-36: the tenant has the activities module; no activity chosen yet.
-        ("participants", "Eerdere deelnemers", ""),
+        ("members", "Leden"),
+        ("non_members", "Abonnees"),
+        ("both", "Allebei"),
+        # CR-36: the tenant has the activities module.
+        ("participants", "Eerdere deelnemers"),
     ]
     assert lines == [
         (f"Leden van werkjaar {YEAR} · 3 adressen", MEMBERS_SENTENCE),

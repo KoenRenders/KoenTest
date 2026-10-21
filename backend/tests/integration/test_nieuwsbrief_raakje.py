@@ -679,6 +679,71 @@ def test_met_raakje_uit_is_er_geen_paneel_en_werkt_de_rest(client, db_session, m
     assert vraag.status_code == 404
 
 
+def _held_choices(fragment: str) -> dict:
+    """The groups a fragment of the choices holds, as the page sends them along."""
+    import re
+
+    held: dict = {}
+    for name, value in re.findall(
+        r'<input type="hidden" name="(choice_\w+)" value="(\d*)" form="nb-formulier"', fragment
+    ):
+        held.setdefault(name, []).append(value)
+    return held
+
+
+def test_a_question_works_on_the_page_and_writes_nothing_of_it(
+    client, db_session, monkeypatch, raakje
+):
+    """#2183: the question carries the text, the subject and the preview text the page
+    holds, and Raakje works on those — but only the page's Opslaan stores a letter, so
+    a question followed by Annuleren leaves the stored letter as it was.
+
+    Broken on purpose: the old `update_draft(…, body=body)` back in `raakje_ask` → the
+    stored text becomes the typed one and this test is red."""
+    import json
+
+    headers = _login(client)
+    _switch(db_session, monkeypatch, True)
+    letter = _letter(db_session)
+    stored_subject, stored_text = letter.subject, nb.markup_of(letter)
+    raakje(_draft(["Een nieuwe alinea."]), _verdict())
+    typed = {
+        "type": "doc",
+        "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Getypt."}]}],
+    }
+
+    antwoord = client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/raakje/vraag",
+        headers=headers,
+        data={
+            "vraag": "Schrijf iets",
+            "body": json.dumps(typed),
+            "subject": "Nog niet bewaard",
+            "preview_text": "Ook niet",
+        },
+    )
+    assert "X-Raakje-Failed" not in antwoord.headers
+    db_session.expire_all()
+    stored = db_session.get(type(letter), letter.id)
+    assert (stored.subject, nb.markup_of(stored)) == (stored_subject, stored_text)
+    assert stored.preview_text in (None, "")
+    proposal = [m for m in nb.messages_of(db_session, stored) if m.proposal][-1].proposal
+    assert proposal["base_subject"] == "Nog niet bewaard", "Raakje worked on the page"
+    assert proposal["base_preview"] == "Ook niet"
+
+    # Toepassen places the proposal on the text the page holds and stores none of it either.
+    message = [m for m in nb.messages_of(db_session, stored) if m.proposal][-1]
+    toegepast = client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/raakje/{message.id}/toepassen",
+        headers=headers,
+        data={"body": json.dumps(typed), "subject": "Nog niet bewaard"},
+    )
+    assert toegepast.status_code == 200
+    db_session.expire_all()
+    stored = db_session.get(type(letter), letter.id)
+    assert (stored.subject, nb.markup_of(stored)) == (stored_subject, stored_text)
+
+
 def test_het_gesprek_via_het_scherm(client, db_session, monkeypatch, raakje):
     """Ask → the turn shows the proposal with its mark → Toepassen gives the form
     its final values, the marked sentence left out. Since #1562 the conversation
@@ -707,7 +772,7 @@ def test_het_gesprek_via_het_scherm(client, db_session, monkeypatch, raakje):
     antwoord = client.post(
         f"/admin/nieuwsbrieven/{letter.id}/raakje/vraag",
         headers=headers,
-        data={"vraag": "Een feestelijke brief", "body": ""},
+        data={"vraag": "Een feestelijke brief", "body": "", **_held_choices(kies.text)},
     )
     assert "X-Raakje-Failed" not in antwoord.headers
     assert "Een feestelijke brief" in antwoord.text, "the question stands in the turn"
@@ -723,7 +788,7 @@ def test_het_gesprek_via_het_scherm(client, db_session, monkeypatch, raakje):
         f'data-proposal-apply-url="/admin/nieuwsbrieven/{letter.id}/raakje/{message.id}/toepassen"'
         in block
     )
-    assert 'data-proposal-include="#nb-editor-input"' in block and "data-proposal-auto" not in block
+    assert 'data-proposal-include="#nb-formulier"' in block and "data-proposal-auto" not in block
 
     subject_before = letter.subject
     toegepast = client.post(

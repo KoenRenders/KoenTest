@@ -66,11 +66,10 @@ class NewsletterHead:
 
 
 @dataclass(frozen=True, kw_only=True)
-class NewsletterSavedView(ViewModel):
-    """`_nb_bewaard_antwoord.html` and `_nb_kop_antwoord.html`: the answer of a save — the
-    status line or the error, and the head, sent back out of band."""
+class NewsletterNoticeView(ViewModel):
+    """`_nb_bewaard.html`: the line under the head — the answer of a command that
+    leaves the page as it is (the test mail): why it was refused, or that it went."""
 
-    head: NewsletterHead
     error: Optional[str] = None
     notice: Optional[str] = None
 
@@ -81,13 +80,17 @@ class NewsletterComposeView(ViewModel):
 
     head: NewsletterHead
     letter: Any
-    #: What the head's edit card holds (#2113): the saved values.
+    #: Whether the page opens in edit mode: asked for, or a letter that has no subject yet.
+    editing: bool
+    #: What the edit mode holds: the saved values.
     subject: str
     preview_text: str
     #: The letter's own audience as a code, to select the right option.
     audience: str
-    #: `(code, "label · count")` per audience on offer.
+    #: `(code, label)` per audience on offer, in the code list's order.
     audience_options: list[tuple[str, str]]
+    #: The saved audience in words, for the read mode ("" while there is none).
+    audience_label: str
     #: Who each audience is, in the send screen's words (#1834): the lists and what
     #: they share, from the same function as that screen.
     audience_lines: list[AudienceLine]
@@ -124,17 +127,14 @@ class NewsletterComposeView(ViewModel):
 
 @dataclass(frozen=True, kw_only=True)
 class NewsletterParticipantsView(ViewModel):
-    """`_nb_deelnemers.html` — the list of earlier activities under the audience
-    *Eerdere deelnemers*, and who it makes the letter go to (CR-36, #2026). The fields
-    are the compose view's, so the fragment and the page include the same partial."""
+    """`_nb_deelnemers.html` — the list of earlier activities to tick under the audience
+    *Eerdere deelnemers* (CR-36, #2026): part of the record form, stored by its Opslaan.
+    The fields are the compose view's, so the fragment and the page include the same
+    partial."""
 
     letter: Any
     participants_shown: bool
     participant_offered: list[Any]
-    participant_lines: list[AudienceLine]
-    participant_notes: list[str]
-    csrf_token: str
-    choices_error: Optional[str] = None
 
 
 @dataclass(frozen=True, kw_only=True)

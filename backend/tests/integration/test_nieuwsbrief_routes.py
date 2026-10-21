@@ -114,14 +114,14 @@ def test_de_hele_weg_van_een_nieuwsbrief(client, db_session, mailbox):
     nieuw = client.post("/admin/nieuwsbrieven", headers=headers)
     assert nieuw.status_code == 204
     letter = _latest(db_session)
-    assert nieuw.headers["HX-Redirect"] == f"/admin/nieuwsbrieven/{letter.id}"
+    assert nieuw.headers["HX-Redirect"] == f"/admin/nieuwsbrieven/{letter.id}?bewerken=1"
     scherm = client.get(f"/admin/nieuwsbrieven/{letter.id}")
     assert scherm.status_code == 200
     assert 'id="nb-editor"' in scherm.text
-    # The audience is the head's (#2113): no radio group on the page, one select in the
-    # head's edit card, and none chosen on a new draft.
-    assert 'input type="radio" name="audience"' not in scherm.text
-    assert 'name="audience"' in scherm.text and 'value="" selected' in scherm.text
+    # The audience is four radio buttons on the page (#2183), none chosen on a new draft.
+    radios = re.findall(r'<input type="radio" name="audience" value="([^"]*)"([^>]*)>', scherm.text)
+    assert [value for value, _rest in radios] == ["members", "non_members", "both", "participants"]
+    assert not any("checked" in rest for _value, rest in radios)
 
     # 3. "Blok invoegen › Activiteit" offers the letter's FEATURED activities: the
     # editor's configuration carries them, and the block it inserts is a REFERENCE
@@ -135,29 +135,22 @@ def test_de_hele_weg_van_een_nieuwsbrief(client, db_session, mailbox):
     kiezer = client.get(f"/admin/nieuwsbrieven/{letter.id}/activiteiten?purpose=featured&q=rum")
     assert "Rumproefavond" in kiezer.text
 
-    # 4. The head's own save: subject, preview text and audience, then the autosave of
-    # the text, which leaves all three as they are (#2113).
-    kop_bewaard = client.post(
-        f"/admin/nieuwsbrieven/{letter.id}/bewerken",
-        headers=headers,
-        data={"subject": "Het najaar", "preview_text": "Wat komt er", "audience": "non_members"},
-    )
-    assert kop_bewaard.status_code == 200
-    assert kop_bewaard.headers["HX-Trigger"] == "nb-head-saved"
-    assert 'id="nb-kop" hx-swap-oob="true"' in kop_bewaard.text
+    # 4. One Opslaan stores the subject, the preview text, the audience and the text, and
+    # sends the browser back to the page (#2183).
     bewaard = client.post(
         f"/admin/nieuwsbrieven/{letter.id}/bewaren",
         headers=headers,
         data={
+            "subject": "Het najaar",
+            "preview_text": "Wat komt er",
+            "audience": "non_members",
             "body": json.dumps(
                 letter_doc(f"<div>Beste,</div><div>[[activiteit:{rum.id}|Rumproefavond]]</div>")
             ),
         },
     )
-    assert bewaard.status_code == 200
-    assert "wordt bewaard" in bewaard.text
-    # The save sends the head back out of band, so "Opgeslagen om" follows the text.
-    assert 'id="nb-kop" hx-swap-oob="true"' in bewaard.text
+    assert bewaard.status_code == 204
+    assert bewaard.headers["HX-Redirect"] == f"/admin/nieuwsbrieven/{letter.id}"
     db_session.refresh(letter)
     assert (letter.subject, letter.preview_text, letter.audience) == (
         "Het najaar",
@@ -470,19 +463,19 @@ def test_een_ongeldig_adres_blijft_op_het_formulier(client, db_session, confirma
     assert 'name="email"' in antwoord.text
 
 
-def test_automatisch_bewaren_maakt_het_formulier_niet_onklikbaar(client, db_session):
-    """The shell greys out and blocks the element that makes a request
-    (`.htmx-request`). The autosave form points its indicator at the status
-    line, so typing never blocks the editor.
+def test_nothing_of_the_letter_saves_itself(client, db_session):
+    """#2183: the letter is one record page. Its form has no trigger of its own — the
+    autosave of the text is gone — and every field belongs to it by its `form`
+    attribute.
 
-    Broken on purpose: `hx-indicator` removed → this test fails (and the e2e
-    click on "Leden" lands on a div).
-    """
+    Broken on purpose: `hx-trigger="change"` back on the form → this test fails."""
     _login(client)
     letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
     html = client.get(f"/admin/nieuwsbrieven/{letter.id}").text
     formulier = html.split('id="nb-formulier"')[1].split(">")[0]
-    assert 'hx-indicator="#nb-bewaard"' in formulier
+    assert "hx-trigger" not in formulier and "data-record-form" in formulier
+    for name in ("subject", "preview_text", "body", "csrf_token"):
+        assert re.search(rf'name="{name}"[^>]*form="nb-formulier"', html), name
 
 
 def test_de_nieuwsbrief_staat_alleen_als_link_in_de_voet(client, db_session):
@@ -612,10 +605,23 @@ def test_de_kalender_is_de_kalendergroep_van_de_brief(client, db_session):
         "a new letter's calendar holds the next nine, however far"
     )
 
+    # The route answers with the groups the page holds and writes nothing (#2183) …
     weg = client.post(
         f"/admin/nieuwsbrieven/{letter.id}/keuzes/calendar/{ver.id}/weg", headers=headers
     )
     assert weg.status_code == 200
+    assert f'name="choice_calendar" value="{ver.id}"' not in weg.text
+    assert ver.id in nb.choices_of(db_session, letter).calendar, "nothing was stored"
+    # … Opslaan stores them, and the calendar block renders exactly the stored group.
+    held = nb.choices_after(
+        db_session, nb.choices_of(db_session, letter), "calendar", ver.id, chosen=False
+    )
+    client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/bewaren",
+        headers=headers,
+        data={"subject": "x", "choice_calendar": [str(i) for i in held.calendar]},
+    )
+    db_session.expire_all()
     gekozen = rendered()
     assert "Rumproefavond" in gekozen and "Kerstmarkt" not in gekozen
 
@@ -624,10 +630,14 @@ def test_de_kalender_is_de_kalendergroep_van_de_brief(client, db_session):
     assert f'name="activity_id" value="{ver.id}"' in kiezer.text
     assert f'hx-post="/admin/nieuwsbrieven/{letter.id}/keuzes/calendar"' in kiezer.text
     client.post(
-        f"/admin/nieuwsbrieven/{letter.id}/keuzes/calendar",
+        f"/admin/nieuwsbrieven/{letter.id}/bewaren",
         headers=headers,
-        data={"activity_id": str(ver.id)},
+        data={
+            "subject": "x",
+            "choice_calendar": [str(i) for i in (*held.calendar, ver.id)],
+        },
     )
+    db_session.expire_all()
     assert "Kerstmarkt" in rendered()
     assert dichtbij.id in nb.choices_of(db_session, letter).calendar
 
@@ -663,3 +673,51 @@ def test_de_abonneeslijst_staat_op_de_kit(client, db_session):
     assert "lijst07@example.org" in zoek and "lijst08@example.org" not in zoek
     nieuw = client.get("/admin/nieuwsbrieven/abonnees/nieuw")
     assert nieuw.status_code == 200 and 'name="subscriber_email"' in nieuw.text
+
+
+def test_the_subject_and_the_preview_text_are_stored_with_the_letter(client, db_session):
+    """#2183: Opslaan stores the subject and the preview text, whatever else the form
+    holds, and a letter that was saved with them reads them back.
+
+    Broken on purpose: `subject` / `preview_text` left out of `newsletter_save` → red."""
+    headers = _login(client)
+    letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
+    saved = client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/bewaren",
+        headers=headers,
+        data={"subject": "Het najaar", "preview_text": "Wat komt er", "audience": "members"},
+    )
+    assert saved.status_code == 204
+    page = client.get(f"/admin/nieuwsbrieven/{letter.id}").text
+    field = re.search(r'<input[^>]*id="nb-onderwerp"[^>]*>', page).group(0)
+    assert 'value="Het najaar"' in field
+    assert "Wat komt er" in page
+
+
+def test_an_unknown_audience_is_refused_on_the_message_line_and_nothing_is_stored(
+    client, db_session
+):
+    headers = _login(client)
+    letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
+    refused = client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/bewaren",
+        headers=headers,
+        data={"subject": "Anders", "audience": "iedereen-op-aarde"},
+    )
+    assert refused.status_code == 422
+    assert refused.headers["HX-Retarget"] == "#nb-melding"
+    assert "Onbekende doelgroep" in refused.text
+    db_session.refresh(letter)
+    assert letter.subject == ""
+
+
+def test_versturen_refuses_a_letter_without_a_subject_or_an_audience(client, db_session):
+    headers = _login(client)
+    letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
+    first = client.post(f"/admin/nieuwsbrieven/{letter.id}/versturen", headers=headers, data={})
+    assert "Kies eerst voor wie deze nieuwsbrief is." in first.text
+    nb.update_draft(db_session, letter, subject="", audience="members")
+    second = client.post(f"/admin/nieuwsbrieven/{letter.id}/versturen", headers=headers, data={})
+    assert "Geef de nieuwsbrief eerst een onderwerp." in second.text
+    db_session.refresh(letter)
+    assert letter.status == LetterStatus.DRAFT

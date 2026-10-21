@@ -1834,6 +1834,7 @@
       element: surface,
       extensions: extensions,
       content: input && input.value ? JSON.parse(input.value) : "",
+      editable: !mount.hasAttribute("data-readonly"),
       editorProps: {
         /* A file is never taken: dropped or pasted on the editor it would be opened by
            the browser in this tab, and the author's unsaved text is left behind (Trix
@@ -1861,6 +1862,7 @@
        under the text — an author who clicks there to go on writing got a
        dialog. The click's target (or her ancestor) must be the button. */
     surface.addEventListener("click", function (event) {
+      if (!editor.isEditable) return;
       var knop = event.target.closest ? event.target.closest("a[data-button]") : null;
       if (!knop) return;
       try {
@@ -1886,6 +1888,7 @@
        typing fault in the alternative text an author had to remove the
        picture and place it again. The click's target must be the picture. */
     surface.addEventListener("click", function (event) {
+      if (!editor.isEditable) return;
       var figure = event.target.closest ? event.target.closest("figure[data-document-figure]") : null;
       if (!figure || !surface.contains(figure)) return;
       try {
@@ -1908,6 +1911,7 @@
       announce("raak-card-choose", { editor: mount.id, attrs: node.attrs, pos: cardPos, mode: "edit" });
     };
     surface.addEventListener("click", function (event) {
+      if (!editor.isEditable) return;
       var kaart = event.target.closest ? event.target.closest("[data-card]") : null;
       if (!kaart) return;
       try {
@@ -1947,7 +1951,20 @@
         mount.dispatchEvent(new CustomEvent("raak-editor-blur", { bubbles: true }));
       });
     }
-    mount.insertBefore(toolbar(editor, config, mount.id), surface);
+    var bar = toolbar(editor, config, mount.id);
+    mount.insertBefore(bar, surface);
+    /* A screen with a read mode and an edit mode (the letter) switches the same
+       editor between them: the text stays on the page, the toolbar and the
+       typing go. `data-readonly` on the mount is the start. */
+    var setReadonly = function (readonly) {
+      editor.setEditable(!readonly);
+      bar.style.display = readonly ? "none" : "";
+      mount.toggleAttribute("data-readonly", readonly);
+    };
+    setReadonly(mount.hasAttribute("data-readonly"));
+    mount.addEventListener("raak-editor-readonly", function (event) {
+      setReadonly(!!event.detail.readonly);
+    });
   }
 
   /* The library can still be on her way: a swapped fragment brings both

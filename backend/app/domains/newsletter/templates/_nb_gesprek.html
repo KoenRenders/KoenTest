@@ -44,7 +44,7 @@
     {% if p.unverified %}<p class="text-brand-danger mt-2">{{ _("De controle tegen de bronnen lukte niet: lees dit voorstel extra goed na.") }}</p>{% endif %}
   {% endset %}
   {% if _open %}
-  {{ ui.form_proposal(p.fields, extra=_body, include="#nb-editor-input",
+  {{ ui.form_proposal(p.fields, extra=_body, include="#nb-formulier",
                       apply_url="/admin/nieuwsbrieven/" ~ letter.id ~ "/raakje/" ~ p.id ~ "/toepassen",
                       dismiss_url="/admin/nieuwsbrieven/" ~ letter.id ~ "/raakje/" ~ p.id ~ "/weigeren",
                       applied_note=_("Ingevuld door Assistent")) }}

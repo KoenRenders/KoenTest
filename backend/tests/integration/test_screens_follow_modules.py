@@ -197,8 +197,7 @@ def test_without_membership_the_newsletter_offers_only_iedereen(client, db_sessi
     modules(EVERY)
 
     def offered(page: str) -> list[str]:
-        select = re.search(r'<select[^>]*name="audience"[^>]*>(.*?)</select>', page, re.S)
-        return re.findall(r'<option value="([^"]+)"', select.group(1))
+        return re.findall(r'<input type="radio" name="audience" value="([^"]+)"', page)
 
     assert len(offered(client.get(f"/admin/nieuwsbrieven/{letter.id}").text)) == 4
     modules(EVERY - {"membership"})

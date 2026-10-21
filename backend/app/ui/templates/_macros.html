@@ -506,7 +506,7 @@
       {{ button(primary.label, variant="primary", type="button", href=primary.get("href"), size="sm", attrs=primary.get("attrs", ""), cls="min-h-11 md:min-h-9", confirm=primary.get("confirm")) }}
       {% endif %}
       {% if secondary and not editing %}
-      {{ button(secondary.label, variant="secondary", type="button", href=secondary.href, size="sm", attrs="data-head-secondary", cls="min-h-11 md:min-h-9") }}
+      {{ button(secondary.label, variant="secondary", type="button", href=secondary.href, size="sm", attrs="data-head-secondary" ~ (" " ~ secondary.attrs if secondary.get("attrs") else ""), cls="min-h-11 md:min-h-9") }}
       {% endif %}
       {% if actions %}
       <div class="relative" x-data="{ open: false }" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
@@ -1727,12 +1727,12 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
 <script src="{{ statisch('document-editor.js') }}" defer></script>
 {%- endmacro %}
 
-{% macro document_editor(name, blocks, value_json, id=None, cls="", button_pages=None, button_forms=None, button_lid_worden=True, codes=None, assets=True) -%}
+{% macro document_editor(name, blocks, value_json, id=None, cls="", button_pages=None, button_forms=None, button_lid_worden=True, codes=None, assets=True, readonly=False, form=None) -%}
 {%- set editor_id = id or (name ~ "-editor") -%}
 {% if assets %}{{ document_editor_assets() }}{% endif %}
-<input type="hidden" id="{{ editor_id }}-input" name="{{ name }}" value="{{ value_json }}">
+<input type="hidden" id="{{ editor_id }}-input" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %} value="{{ value_json }}">
 <div class="document-editor{% if cls %} {{ cls }}{% endif %}" id="{{ editor_id }}"
-     data-document-editor data-input="{{ editor_id }}-input"{% if codes %} data-codes-label="{{ _('Code') }}"{% endif %}
+     data-document-editor{% if readonly %} data-readonly{% endif %} data-input="{{ editor_id }}-input"{% if codes %} data-codes-label="{{ _('Code') }}"{% endif %}
      data-config='{{ blocks|tojson }}'></div>
 {% if codes %}
 {# The codes (CR-17; Koen, 12 October 2026; CR-32 R19): the insert menu's item
@@ -2338,12 +2338,12 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
    `labelled` = (value, label) pairs shown first, above a rule — the relative
    values of a report filter ("Dit jaar"); `values` = plain values that are their
    own label (2026, 2027). `current` = the ticked values. #}
-{% macro checkbox_group(name, values=[], labelled=[], current=[], aria_label="", cls="") -%}
+{% macro checkbox_group(name, values=[], labelled=[], current=[], aria_label="", cls="", form=None) -%}
 <fieldset class="{{ cls }}"{% if aria_label %} aria-label="{{ aria_label }}"{% endif %}>
   <div class="max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
     {% for value, label in labelled %}
     <label class="flex min-h-11 cursor-pointer items-center gap-3 px-3 text-sm hover:bg-gray-50">
-      <input type="checkbox" name="{{ name }}" value="{{ value }}" class="h-4 w-4 shrink-0"
+      <input type="checkbox" name="{{ name }}" value="{{ value }}"{% if form %} form="{{ form }}"{% endif %} class="h-4 w-4 shrink-0"
              {% if value in current %}checked{% endif %}>
       <span>{{ label }}</span>
     </label>
@@ -2351,7 +2351,7 @@ id="{{ _id }}" name="{{ name }}"{% if form %} form="{{ form }}"{% endif %}{% if 
     {% if labelled and values %}<div class="h-1 bg-gray-50" aria-hidden="true"></div>{% endif %}
     {% for value in values %}
     <label class="flex min-h-11 cursor-pointer items-center gap-3 px-3 text-sm hover:bg-gray-50">
-      <input type="checkbox" name="{{ name }}" value="{{ value }}" class="h-4 w-4 shrink-0"
+      <input type="checkbox" name="{{ name }}" value="{{ value }}"{% if form %} form="{{ form }}"{% endif %} class="h-4 w-4 shrink-0"
              {% if value in current %}checked{% endif %}>
       <span>{{ value }}</span>
     </label>

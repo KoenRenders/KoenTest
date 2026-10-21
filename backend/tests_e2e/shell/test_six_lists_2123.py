@@ -213,7 +213,7 @@ def test_a_new_letter_is_made_and_opened_and_the_extras_stand_under_the_menu(wor
         expect(menu.get_by_text("Abonnees")).to_be_visible()
         page.keyboard.press("Escape")
         page.get_by_role("button", name="Nieuwe nieuwsbrief").click()
-        page.wait_for_url(re.compile(r"/admin/nieuwsbrieven/\d+$"), timeout=15000)
+        page.wait_for_url(re.compile(r"/admin/nieuwsbrieven/\d+(\?bewerken=1)?$"), timeout=15000)
     finally:
         page.close()
 

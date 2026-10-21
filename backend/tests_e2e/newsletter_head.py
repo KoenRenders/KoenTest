@@ -1,18 +1,29 @@
-"""The head of a draft letter in the browser tests (#2113): subject, preview text and
-audience are saved on the head's edit card of the letter's page (Acties › Onderwerp en
-doelgroep, then Opslaan); the text of the letter saves itself."""
+"""The letter in the browser tests (#2183): subject, preview text, audience and text are
+one record page — "Bewerken" opens all of it, one Opslaan stores it and sends the
+browser back to the page, read."""
 
 
 def open_head_card(page) -> None:
-    """Acties › Onderwerp en doelgroep: the head's edit card opens in the page."""
-    page.locator("#nb-kop [data-actions-trigger]").click()
-    page.locator("#nb-kop").get_by_role("menuitem", name="Onderwerp en doelgroep").click()
-    page.locator("#nb-kop-form").wait_for(state="visible")
+    """Bewerken: the letter opens for editing (the action bar stands under it). A new
+    letter opens that way already."""
+    if page.locator("[data-action-bar]").is_visible():
+        return
+    page.locator("#nb-kop [data-head-secondary]").click()
+    page.locator("[data-action-bar]").wait_for(state="visible")
+
+
+def save_letter(page) -> None:
+    """Opslaan, and wait for the read page it sends the browser back to: the browser
+    goes there as a boosted visit, so the page is settled when the bar is gone and the
+    record form has taken its first state again."""
+    page.locator("[data-action-bar] [data-form-save]").click()
+    page.locator("[data-action-bar]").wait_for(state="hidden", timeout=15_000)
+    page.wait_for_function("window.raakRecordForm && window.raakRecordForm.ready()")
 
 
 def set_head(page, *, subject=None, preview=None, audience=None) -> str:
-    """Open the card of the letter the browser is on, fill it, press Opslaan and wait for
-    it to close. Returns the letter's address."""
+    """Open the letter the browser is on for editing, fill it, press Opslaan and wait
+    for the read page. Returns the letter's address."""
     address = page.url.split("?")[0]
     open_head_card(page)
     if subject is not None:
@@ -20,7 +31,6 @@ def set_head(page, *, subject=None, preview=None, audience=None) -> str:
     if preview is not None:
         page.fill("#nb-voorbeeldtekst", preview)
     if audience is not None:
-        page.locator("#nb-doelgroep").select_option(audience)
-    page.locator("[data-action-bar] [data-form-save]").click()
-    page.locator("#nb-kop-form").wait_for(state="hidden", timeout=10_000)
+        page.locator(f'input[name="audience"][value="{audience}"]').check()
+    save_letter(page)
     return address

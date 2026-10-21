@@ -41,9 +41,9 @@ from app.domains.newsletter.viewmodels import (
     NewsletterConversationView,
     NewsletterHead,
     NewsletterListView,
+    NewsletterNoticeView,
     NewsletterParticipantsView,
     NewsletterPickerView,
-    NewsletterSavedView,
     NewsletterSendView,
     NewsletterSettingsView,
     SubscriberImportView,
@@ -249,9 +249,10 @@ def newsletter_create(
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
 ):
-    """A new, empty draft — the composer is its own full page (no modal)."""
+    """A new, empty draft — the composer is its own full page (no modal), open for
+    editing: there is nothing to read yet (#2183)."""
     letter = nb.create_newsletter(db, created_by=email)
-    return _go(request, f"/admin/nieuwsbrieven/{letter.id}")
+    return _go(request, f"/admin/nieuwsbrieven/{letter.id}?bewerken=1")
 
 
 # ── Subscribers ──────────────────────────────────────────────────────────────
@@ -649,9 +650,24 @@ def settings_save(
 # ── One letter ───────────────────────────────────────────────────────────────
 
 
-def _choices(db: Session, letter) -> list[dict]:
-    """The three groups as the page shows them (#1562)."""
-    chosen = nb.choices_of(db, letter)
+def _posted_choices(
+    past: Optional[list[str]], featured: Optional[list[str]], calendar: Optional[list[str]]
+) -> Optional[nb.Choices]:
+    """The three groups as the page's form holds them (`choice_<group>`), or None when
+    the request carries none: the groups stand on the page until its Opslaan (#2183)."""
+    if past is None and featured is None and calendar is None:
+        return None
+
+    def ids(values: Optional[list[str]]) -> tuple[int, ...]:
+        return tuple(int(v) for v in (values or []) if v.isdigit())
+
+    return nb.Choices(past=ids(past), featured=ids(featured), calendar=ids(calendar))
+
+
+def _choices(db: Session, letter, chosen: Optional[nb.Choices] = None) -> list[dict]:
+    """The three groups as the page shows them (#1562); `chosen` is what the page holds
+    when it is not what is stored."""
+    chosen = chosen if chosen is not None else nb.choices_of(db, letter)
     facts = nb.activity_facts(db, chosen.all_ids, base_url=_base_url(db))
 
     def group(key: str, title: str, hint: str, ids, can_add: bool = True) -> dict:
@@ -752,17 +768,13 @@ def _head(request: Request, db: Session, letter) -> NewsletterHead:
 
 
 def _audience_options(db: Session) -> list[tuple[str, str]]:
-    """`(code, "label · count")` per audience on offer. The value is the CODE: it goes
-    into the form as the option's value, so the template never renders an enum member
-    into an attribute (CR-12 phase 3)."""
-    counts = nb.audience_counts(db)
+    """`(code, label)` per audience on offer, in the code list's order. The value is the
+    CODE: it goes into the form as the radio's value, so the template never renders an
+    enum member into an attribute (CR-12 phase 3). How many addresses each one reaches
+    is said under the choice (`_audience_said`), not on the choice."""
     options = [
-        (audience.value, f"{code_label(nb.AUDIENCE.name, audience, db=db)} · {count}")
-        for audience, count in (
-            (nb.Audience.MEMBERS, counts.members),
-            (nb.Audience.NON_MEMBERS, counts.non_members),
-            (nb.Audience.BOTH, counts.both),
-        )
+        (audience.value, code_label(nb.AUDIENCE.name, audience, db=db))
+        for audience in (nb.Audience.MEMBERS, nb.Audience.NON_MEMBERS, nb.Audience.BOTH)
     ]
     # CR-19 (#1477): without the membership module there are no members, so the
     # letter goes to its subscribers — "both" reaches exactly them — offered as
@@ -771,10 +783,9 @@ def _audience_options(db: Session) -> list[tuple[str, str]]:
     from app.kernel.modules import ModuleCode
 
     if not module_enabled(ModuleCode.MEMBERSHIP):
-        options = [(nb.Audience.BOTH.value, f"{_('Iedereen')} · {counts.both}")]
+        options = [(nb.Audience.BOTH.value, _("Iedereen"))]
     # CR-36: the fourth audience reads the registrations, so only a tenant with the
-    # activities module is offered it. No number: it depends on the ticks below it,
-    # which change without a page load; the sentence under the list says it.
+    # activities module is offered it.
     if module_enabled(ModuleCode.ACTIVITIES):
         options.append(
             (
@@ -785,14 +796,8 @@ def _audience_options(db: Session) -> list[tuple[str, str]]:
     return options
 
 
-def _saved_view(
-    request: Request,
-    db: Session,
-    letter,
-    error: Optional[str] = None,
-    notice: Optional[str] = None,
-) -> NewsletterSavedView:
-    return NewsletterSavedView(head=_head(request, db, letter), error=error, notice=notice)
+def _notice_view(error: Optional[str] = None, notice: Optional[str] = None) -> NewsletterNoticeView:
+    return NewsletterNoticeView(error=error, notice=notice)
 
 
 def _compose_view(
@@ -802,6 +807,7 @@ def _compose_view(
     error: Optional[str] = None,
     notice: Optional[str] = None,
     choices_error: Optional[str] = None,
+    editing: bool = False,
 ) -> NewsletterComposeView:
     featured_options = _featured_options(db, letter)
     editor_config = schema.schema_for(
@@ -816,10 +822,14 @@ def _compose_view(
     return NewsletterComposeView(
         head=_head(request, db, letter),
         letter=letter,
+        editing=editing,
         subject=letter.subject or "",
         preview_text=letter.preview_text or "",
         audience=code_of(letter.audience) or "",
         audience_options=_audience_options(db),
+        audience_label=code_label(nb.AUDIENCE.name, letter.audience, db=db)
+        if letter.audience
+        else "",
         audience_lines=lines,
         audience_overlap=overlap,
         participants_shown=letter.audience == nb.Audience.PARTICIPANTS,
@@ -935,9 +945,9 @@ def _button_pages(db: Session) -> list[tuple[int, str]]:
     return button_page_choices(db)
 
 
-def _featured_options(db: Session, letter) -> list[dict]:
+def _featured_options(db: Session, letter, chosen: Optional[nb.Choices] = None) -> list[dict]:
     """The letter's featured activities as the editor's activity dialog lists them."""
-    featured = nb.choices_of(db, letter).featured
+    featured = (chosen if chosen is not None else nb.choices_of(db, letter)).featured
     facts = nb.activity_facts(db, featured, base_url=_base_url(db))
     return [
         {"id": i, "label": f"{facts[i].name} · {nb.short_date(facts[i].start)}"}
@@ -947,15 +957,19 @@ def _featured_options(db: Session, letter) -> list[dict]:
 
 
 def _choices_response(
-    request: Request, db: Session, letter, error: Optional[str] = None
+    request: Request,
+    db: Session,
+    letter,
+    error: Optional[str] = None,
+    chosen: Optional[nb.Choices] = None,
 ) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         "_nb_keuzes.html",
         NewsletterChoicesView(
             letter=letter,
-            choices=_choices(db, letter),
-            featured_options=_featured_options(db, letter),
+            choices=_choices(db, letter, chosen),
+            featured_options=_featured_options(db, letter, chosen),
             report_count=len(nb.reports_since_previous_letter(db)),
             raakje_enabled=_raakje_enabled(db),
             csrf_token=_csrf(request),
@@ -1037,11 +1051,14 @@ def newsletter_screen(
     status: str = "",
     q: str = "",
     opnieuw: int = 0,
+    bewerken: int = 0,
 ):
     letter = _letter_or_404(db, newsletter_id)
     if letter.status == nb.LetterStatus.DRAFT:
         return templates.TemplateResponse(
-            request, "admin_nieuwsbrief.html", _compose_view(request, db, letter).as_context()
+            request,
+            "admin_nieuwsbrief.html",
+            _compose_view(request, db, letter, editing=bool(bewerken)).as_context(),
         )
     view = _archive_view(request, db, letter, status=status, q=q, requeued=opnieuw)
     template = (
@@ -1062,73 +1079,44 @@ def newsletter_save(
     request: Request,
     db: Session = Depends(get_db),
     _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
+    subject: str = Form(""),
+    preview_text: str = Form(""),
+    audience: str = Form(""),
     body: str = Form(""),
+    chosen: list[str] = Form([]),
+    choice_past: Optional[list[str]] = Form(None),
+    choice_featured: Optional[list[str]] = Form(None),
+    choice_calendar: Optional[list[str]] = Form(None),
 ):
-    """Autosave of the text: the status line comes back — and the head, out of band, so
-    its "Opgeslagen om" follows — nothing else is swapped: the editor must never be
-    replaced under the author's fingers. The subject, the preview text and the audience
-    are the head's own form (`newsletter_head_save`)."""
+    """Opslaan of the letter: the subject, the preview text, the audience, the earlier
+    activities ticked under *Eerdere deelnemers*, what the letter is about and the
+    text, in one go (#2183).
+    Nothing of the letter saves itself. A refusal stands on the page's message line and
+    the form keeps what was typed; a saved letter sends the browser back to its page."""
     letter = _letter_or_404(db, newsletter_id)
-    error = None
     try:
         nb.update_draft(
             db,
             letter,
-            subject=letter.subject,
+            subject=subject,
             body=body or None,
-            audience=code_of(letter.audience),
-            preview_text=None,
+            audience=audience or None,
+            preview_text=preview_text,
         )
+        held = _posted_choices(choice_past, choice_featured, choice_calendar)
+        if held is not None:
+            nb.set_choices(db, letter, held)
+        if letter.audience == nb.Audience.PARTICIPANTS:
+            nb.set_participant_activities(db, letter, [int(c) for c in chosen if c.isdigit()])
     except nb.NewsletterError as exc:
-        error = str(exc)
-    return templates.TemplateResponse(
-        request,
-        "_nb_bewaard_antwoord.html",
-        _saved_view(request, db, letter, error=error).as_context(),
-    )
+        field = "audience" if letter.audience is None and audience else ""
+        return refusal_response(request, [{"field": field, "message": str(exc)}], "#nb-melding")
+    return _go(request, f"/admin/nieuwsbrieven/{letter.id}")
 
 
-@router.post(
-    "/admin/nieuwsbrieven/{newsletter_id:int}/bewerken",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def newsletter_head_save(
-    newsletter_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
-    subject: str = Form(""),
-    preview_text: str = Form(""),
-    audience: str = Form(""),
-):
-    """Opslaan of the head's edit card: subject, preview text and audience. The head
-    comes back out of band; the card closes on the event `nb-head-saved`, which only a
-    saved head sends."""
-    letter = _letter_or_404(db, newsletter_id)
-    try:
-        nb.update_draft(
-            db, letter, subject=subject, audience=audience or None, preview_text=preview_text
-        )
-    except nb.NewsletterError as exc:
-        return templates.TemplateResponse(
-            request,
-            "_nb_kop_antwoord.html",
-            _saved_view(request, db, letter, error=str(exc)).as_context(),
-        )
-    response = templates.TemplateResponse(
-        request, "_nb_kop_antwoord.html", _saved_view(request, db, letter).as_context()
-    )
-    response.headers["HX-Trigger"] = "nb-head-saved"
-    return response
-
-
-def _participants_response(
-    request: Request, db: Session, letter, error: Optional[str] = None, *, shown: bool = True
-):
-    """The list under *Eerdere deelnemers* as a fragment: empty when the letter's
-    audience (or the one the page is about to save) is another one."""
-    lines, notes, _count = _participant_said(db, letter) if shown else ([], [], 0)
+def _participants_response(request: Request, db: Session, letter, *, shown: bool = True):
+    """The list under *Eerdere deelnemers* as a fragment: empty when the audience the
+    page is about to save is another one."""
     return templates.TemplateResponse(
         request,
         "_nb_deelnemers.html",
@@ -1136,10 +1124,6 @@ def _participants_response(
             letter=letter,
             participants_shown=shown,
             participant_offered=nb.offered_activities(db, letter) if shown else [],
-            participant_lines=lines,
-            participant_notes=notes,
-            csrf_token=_csrf(request),
-            choices_error=error,
         ).as_context(),
     )
 
@@ -1154,33 +1138,11 @@ def participants_panel(
 ):
     """The list of earlier activities, loaded when the author picks *Eerdere
     deelnemers* — before the choice is saved, so the page says which audience it asks
-    for."""
+    for. The ticks are part of the record form and are stored by its Opslaan."""
     letter = _letter_or_404(db, newsletter_id)
     return _participants_response(
         request, db, letter, shown=audience == nb.Audience.PARTICIPANTS.value
     )
-
-
-@router.post(
-    "/admin/nieuwsbrieven/{newsletter_id:int}/deelnemers",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def participants_choose(
-    newsletter_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
-    chosen: list[str] = Form([]),
-):
-    """The ticked earlier activities, as the form sends them (CR-36)."""
-    letter = _letter_or_404(db, newsletter_id)
-    error = None
-    try:
-        nb.set_participant_activities(db, letter, [int(c) for c in chosen if c.isdigit()])
-    except nb.NewsletterError as exc:
-        error = str(exc)
-    return _participants_response(request, db, letter, error)
 
 
 @router.get("/admin/nieuwsbrieven/{newsletter_id:int}/activiteiten", response_class=HTMLResponse)
@@ -1220,14 +1182,22 @@ def choice_add(
     db: Session = Depends(get_db),
     _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
     activity_id: int = Form(...),
+    choice_past: Optional[list[str]] = Form(None),
+    choice_featured: Optional[list[str]] = Form(None),
+    choice_calendar: Optional[list[str]] = Form(None),
 ):
-    """Put an activity in one of the three groups (#1562)."""
+    """Put an activity in one of the three groups (#1562). The groups are what the page
+    holds (#2183): the answer is the groups after the choice, and nothing is stored —
+    the letter's Opslaan stores them."""
     letter = _letter_or_404(db, newsletter_id)
+    held = _posted_choices(choice_past, choice_featured, choice_calendar) or nb.choices_of(
+        db, letter
+    )
     try:
-        nb.set_choice(db, letter, group, activity_id, chosen=True)
+        new = nb.choices_after(db, held, group, activity_id, chosen=True)
     except nb.NewsletterError as exc:
-        return _choices_response(request, db, letter, error=str(exc))
-    return _choices_response(request, db, letter)
+        return _choices_response(request, db, letter, error=str(exc), chosen=held)
+    return _choices_response(request, db, letter, chosen=new)
 
 
 @router.post(
@@ -1242,13 +1212,19 @@ def choice_remove(
     request: Request,
     db: Session = Depends(get_db),
     _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
+    choice_past: Optional[list[str]] = Form(None),
+    choice_featured: Optional[list[str]] = Form(None),
+    choice_calendar: Optional[list[str]] = Form(None),
 ):
     letter = _letter_or_404(db, newsletter_id)
+    held = _posted_choices(choice_past, choice_featured, choice_calendar) or nb.choices_of(
+        db, letter
+    )
     try:
-        nb.set_choice(db, letter, group, activity_id, chosen=False)
+        new = nb.choices_after(db, held, group, activity_id, chosen=False)
     except nb.NewsletterError as exc:
-        return _choices_response(request, db, letter, error=str(exc))
-    return _choices_response(request, db, letter)
+        return _choices_response(request, db, letter, error=str(exc), chosen=held)
+    return _choices_response(request, db, letter, chosen=new)
 
 
 @router.post(
@@ -1324,8 +1300,8 @@ def newsletter_test_mail(
     except nb.NewsletterError as exc:
         return templates.TemplateResponse(
             request,
-            "_nb_bewaard_antwoord.html",
-            _saved_view(request, db, letter, error=str(exc)).as_context(),
+            "_nb_bewaard.html",
+            _notice_view(error=str(exc)).as_context(),
         )
     # The door's one command (§3.2.1): the newsletter rendered, mail sends.
     outcome = mail.send_campaign_mail(
@@ -1342,8 +1318,8 @@ def newsletter_test_mail(
     )
     return templates.TemplateResponse(
         request,
-        "_nb_bewaard_antwoord.html",
-        _saved_view(request, db, letter, notice=notice).as_context(),
+        "_nb_bewaard.html",
+        _notice_view(notice=notice).as_context(),
     )
 
 
@@ -1618,30 +1594,33 @@ def raakje_ask(
     selection: str = Form(""),
     selection_range: str = Form(""),
     before_cursor: str = Form(""),
+    subject: Optional[str] = Form(None),
+    preview_text: Optional[str] = Form(None),
+    choice_past: Optional[list[str]] = Form(None),
+    choice_featured: Optional[list[str]] = Form(None),
+    choice_calendar: Optional[list[str]] = Form(None),
 ):
     """One turn with Raakje, asked from the Assistent's panel: the answer is the
-    new turn alone, added under the conversation. The current text is saved
-    first, so the proposal works on what the author sees."""
+    new turn alone, added under the conversation. Raakje works on the letter as the page
+    holds it — the text, the subject, the preview text and the choices the request
+    carries — and nothing of it is written: only the page's Opslaan stores a letter
+    (#2183)."""
     from app.domains.chatbot.api import ChatTimeout, SeamBlocked, admin_chat_char_budget
 
-    letter = _raakje_letter(db, newsletter_id)
+    letter = nb.as_on_the_page(
+        db,
+        _raakje_letter(db, newsletter_id),
+        subject=subject,
+        preview_text=preview_text,
+        body=body or None,
+        choices=_posted_choices(choice_past, choice_featured, choice_calendar),
+    )
 
     def failed(message: str) -> HTMLResponse:
         nb.record_turn(db, letter, author_text=vraag, error=message)
         turn = {"question": vraag, "answer": message, "proposal": None, "failed": True}
         return _conversation(request, db, letter, [turn], failed=True)
 
-    try:
-        nb.update_draft(
-            db,
-            letter,
-            subject=letter.subject,
-            body=body or None,
-            audience=letter.audience,
-            preview_text=letter.preview_text,
-        )
-    except nb.NewsletterError as exc:
-        return failed(str(exc))
     admin_chat_char_budget.charge(request, max(len(vraag), 1), key=email)
     try:
         turn = nb.ask_raakje(
@@ -1682,12 +1661,20 @@ async def raakje_apply(
     """Toepassen: the final values for the form. A marked sentence stays out
     unless it was ticked "klopt, behouden" (CR-05 §3.16). Nothing of the proposal
     is written here — the answer goes into the form's fields (#1562: the subject
-    and the preview text too), and the page's own autosave stores them."""
+    and the preview text too), and only the page's Opslaan stores them (#2183). The
+    letter the proposal is placed on is the one the page holds, read, never written."""
     letter = _raakje_letter(db, newsletter_id)
     message = nb.get_drafting_message(db, letter, message_id)
     if message is None or not message.proposal:
         raise HTTPException(status_code=404, detail=_("Voorstel niet gevonden."))
     form = await request.form()
+    subject_sent, preview_sent = form.get("subject"), form.get("preview_text")
+    letter = nb.as_on_the_page(
+        db,
+        letter,
+        subject=None if subject_sent is None else str(subject_sent),
+        preview_text=None if preview_sent is None else str(preview_sent),
+    )
     keep = {int(str(v)) for v in form.getlist("keep") if str(v).isdigit()}
     shown = _proposal_fields(nb.display_proposal(db, letter, message))
     try:

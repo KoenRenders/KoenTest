@@ -1124,7 +1124,9 @@ def apply(
     proposal = dict(message.proposal or {})
     if proposal.get("status") != "open":
         raise DraftingError(_("Dit voorstel is al afgehandeld."))
-    nb.update_draft(db, letter, subject=letter.subject, body=body or None, audience=letter.audience)
+    # The text is the one the page holds, read and never written: only the page's Opslaan
+    # stores a letter (#2183).
+    nb.as_on_the_page(db, letter, body=body or None)
     drop: list[str] = [m["sentence"] for m in proposal.get("marks") or [] if m["id"] not in keep]
     facts = nb.activity_facts(db, proposal.get("facts") or [], base_url=base_url)
     operation = (proposal.get("operations") or [{}])[0]
