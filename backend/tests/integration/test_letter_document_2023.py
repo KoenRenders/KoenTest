@@ -29,7 +29,9 @@ from tests._letter import letter_doc
 pytestmark = pytest.mark.ui_serverrendered
 
 BASE = "https://raak.example"
-MIGRATION = next((Path(__file__).parents[2] / "alembic" / "versions").glob("212_*document_of_*.py"))
+VERSIONS = Path(__file__).parents[2] / "alembic" / "versions"
+MIGRATION = next(VERSIONS.glob("212_*document_of_*.py"))
+FREEZE = next(VERSIONS.glob("320_*freeze_the_sent_letters*.py"))
 
 
 def _activity(db, name="Zomerfeest", days=10):
@@ -315,35 +317,6 @@ def test_a_sent_letter_keeps_the_body_it_went_with(db_session):
     assert "Kerkplein" not in _mail(db_session, letter)
 
 
-def test_the_migration_freezes_the_sent_letters_and_leaves_a_draft(db_session, monkeypatch):
-    activity = _activity(db_session)
-    body = _doc(_par("Hoi"), {"type": "activity", "attrs": {"activity_id": activity.id}})
-    sent = _letter(db_session, body)
-    draft = _letter(db_session, body)
-    sent.link_base = BASE
-    # The state before the migration: sent, with no frozen body and no CHECK yet.
-    db_session.execute(
-        text("ALTER TABLE newsletter.newsletters DROP CONSTRAINT ck_newsletter_sent_has_body")
-    )
-    sent.status = nb.LetterStatus.SENT
-    db_session.flush()
-    spec = importlib.util.spec_from_file_location("letters_212", MIGRATION)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-
-    # The models of the other domains are not read: if they were, this would raise.
-    def refuse(*args, **kwargs):
-        raise AssertionError("the migration read the model of another domain")
-
-    monkeypatch.setattr(nb, "activity_facts", refuse)
-    monkeypatch.setattr("app.domains.activities.api.activities_from", refuse)
-    assert module.freeze_sent_letters(db_session.connection()) == 1
-    db_session.expire_all()
-    assert "Zomerfeest" in sent.sent_body_html and "Hoi" in sent.sent_body_html
-    assert draft.sent_body_html is None
-    assert module.freeze_sent_letters(db_session.connection()) == 0, "a second run changes nothing"
-
-
 def test_a_sent_letter_without_its_body_is_refused_by_the_database(db_session):
     """Broken on purpose: the CHECK left out → the flush succeeds and this fails."""
     from sqlalchemy.exc import IntegrityError
@@ -353,6 +326,40 @@ def test_a_sent_letter_without_its_body_is_refused_by_the_database(db_session):
     with pytest.raises(IntegrityError, match="ck_newsletter_sent_has_body"):
         db_session.flush()
     db_session.rollback()
+
+
+def _freeze_module():
+    spec = importlib.util.spec_from_file_location("letters_320", FREEZE)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _unfrozen(db, body):
+    """A letter as the migration finds it: sent, with no frozen body and no CHECK yet."""
+    letter = _letter(db, body)
+    letter.link_base = BASE
+    db.execute(
+        text(
+            "ALTER TABLE newsletter.newsletters DROP CONSTRAINT IF EXISTS ck_newsletter_sent_has_body"
+        )
+    )
+    letter.status = nb.LetterStatus.SENT
+    db.flush()
+    return letter
+
+
+def test_the_migration_freezes_the_sent_letters_and_leaves_a_draft(db_session):
+    activity = _activity(db_session)
+    body = _doc(_par("Hoi"), {"type": "activity", "attrs": {"activity_id": activity.id}})
+    sent = _unfrozen(db_session, body)
+    draft = _letter(db_session, body)
+    module = _freeze_module()
+    assert module.freeze_sent_letters(db_session.connection()) == 1
+    db_session.expire_all()
+    assert "Zomerfeest" in sent.sent_body_html and "Hoi" in sent.sent_body_html
+    assert draft.sent_body_html is None
+    assert module.freeze_sent_letters(db_session.connection()) == 0, "a second run changes nothing"
 
 
 @pytest.mark.parametrize(
@@ -373,23 +380,13 @@ def test_the_migration_freezes_a_sent_letter_outside_any_tenant(db_session, monk
 
     Broken on purpose (21 October 2026): the `current_tenant_id.set` taken out of
     `freeze_sent_letters` → `NoTenantContext`, both cases red."""
+    from app.domains.payment.api import membership_valid_period
     from app.kernel import clock
     from app.kernel.tenancy import current_tenant_id
 
-    sent = _letter(db_session, _doc(block))
-    sent.link_base = BASE
-    db_session.execute(
-        text("ALTER TABLE newsletter.newsletters DROP CONSTRAINT ck_newsletter_sent_has_body")
-    )
-    sent.status = nb.LetterStatus.SENT
-    db_session.flush()
-    spec = importlib.util.spec_from_file_location("letters_212", MIGRATION)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-
-    from app.domains.payment.api import membership_valid_period
-
     year = str(membership_valid_period()[1].year)
+    sent = _unfrozen(db_session, _doc(block))
+    module = _freeze_module()
     # Only now: building the letter is a call inside a tenant, the migration is not.
     monkeypatch.setattr(clock, "tenant_of_the_call", current_tenant_id.get)
     assert current_tenant_id.get() is None, "the test must run outside any tenant"
