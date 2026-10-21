@@ -353,3 +353,50 @@ def test_a_sent_letter_without_its_body_is_refused_by_the_database(db_session):
     with pytest.raises(IntegrityError, match="ck_newsletter_sent_has_body"):
         db_session.flush()
     db_session.rollback()
+
+
+@pytest.mark.parametrize(
+    "block",
+    [
+        _par("Beste leden,"),
+        {
+            "type": "paragraph",
+            "content": [{"type": "value", "attrs": {"code": "membership_valid_until"}}],
+        },
+    ],
+    ids=["prose", "value-node"],
+)
+def test_the_migration_freezes_a_sent_letter_outside_any_tenant(db_session, monkeypatch, block):
+    """#2195: a migration runs outside any tenant, and rendering prose asks the clock for a
+    day (`membership_valid_until`). PROD's v2.17.0 deploy died here on a sent letter with prose.
+    The migration renders each letter in its own tenant, and leaves no tenant behind.
+
+    Broken on purpose (21 October 2026): the `current_tenant_id.set` taken out of
+    `freeze_sent_letters` → `NoTenantContext`, both cases red."""
+    from app.kernel import clock
+    from app.kernel.tenancy import current_tenant_id
+
+    sent = _letter(db_session, _doc(block))
+    sent.link_base = BASE
+    db_session.execute(
+        text("ALTER TABLE newsletter.newsletters DROP CONSTRAINT ck_newsletter_sent_has_body")
+    )
+    sent.status = nb.LetterStatus.SENT
+    db_session.flush()
+    spec = importlib.util.spec_from_file_location("letters_212", MIGRATION)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    from app.domains.payment.api import membership_valid_period
+
+    year = str(membership_valid_period()[1].year)
+    # Only now: building the letter is a call inside a tenant, the migration is not.
+    monkeypatch.setattr(clock, "tenant_of_the_call", current_tenant_id.get)
+    assert current_tenant_id.get() is None, "the test must run outside any tenant"
+    assert module.freeze_sent_letters(db_session.connection()) == 1
+    assert current_tenant_id.get() is None, "the migration leaves no tenant behind"
+    db_session.expire_all()
+    if block["content"][0]["type"] == "value":
+        assert year in sent.sent_body_html
+    else:
+        assert "Beste leden," in sent.sent_body_html
