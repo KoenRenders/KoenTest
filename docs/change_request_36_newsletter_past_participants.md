@@ -1,7 +1,7 @@
 # Change Request 36 — Newsletter to the people registered for earlier activities
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped with Koen on 15 October 2026 · not assigned to a release; B8 answered
+**Status:** built in v2.17.0 (PR #2064, migration 213; closed out 21 October 2026) · shaped with Koen on 15 October 2026; B8 answered; as-built deviations in B9 (16 Oct 2026)
 **Tracking issue:** #2026 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (audience choice, recipient list, send screen, Raakje's sources), the activities facade (a read of registration addresses), the unsubscribe page
 **Reading:** A 759 words · B 2 110 · C 1 987 — measured per part; A ≤ 1 500, B ≤ 2 500
@@ -347,7 +347,7 @@ Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2
 
 ## C5. Privacy and security — the mechanics behind A7
 
-The registration address is used for a second purpose; Q1 is answered (B9). The link is signed with a key derived from the portal's secret, so nothing is stored per delivery; a bad signature and an unknown delivery answer the same (no oracle). The unsubscribe page has no per-IP limit today and gets none now. Erasure of an address from the archives: C4.4.
+The registration address is used for a second purpose; Q1 is answered (B9). The link is signed with a key derived from the portal's secret, so nothing is stored per delivery (built as: the application's own secret itself, no key of its own; replacing it stops the links in letters already sent, B9 of 16 Oct 2026); a bad signature and an unknown delivery answer the same (no oracle). The unsubscribe page has no per-IP limit today and gets none now. Erasure of an address from the archives: C4.4.
 
 ## C6. Tests — what the build must prove
 

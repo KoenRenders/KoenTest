@@ -1,7 +1,7 @@
 # Change Request 17 — Web content: pages as structured documents, one editor for three places
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 1 October 2026, reframed on 4 October 2026 (the CMS must carry a company tenant's whole public site; the association's sites do not change) · **decided on 5 October 2026** (B8 empty) · **not assigned to a release** (Koen, 7 October 2026; the assignments to v2.14.0 and v2.15.0 of 5 and 6 October are withdrawn): the Mistral CLI builds phase 1 (#1671) and phase 2 (#1679) on the integration branch `cr17/web-content`, every pull request read by a Claude dev CLI, and the branch goes to `master` only after Koen's own approval on a local test version; the spike of phase 0 (#1626) was **built on 6 October 2026, TipTap confirmed** (C8; branch `spike/cr17-tiptap`) · **scope closed on 11 October 2026: this change request goes live after phase 5** (since 15 October 2026 after phase 4: phase 5, the value block and the gallery, moved to CR-32), in one merge of `cr17/web-content` on Koen's word after his own test — not per phase; phases 6 (the menu) and 7 (the letter and the notes) leave it for a change request of their own, still to be shaped (B9, 11 October)
+**Status:** **built in v2.17.0** (tag of 21 October 2026), as phases 1, 2, 6 and 7, and the narrowed scope below · shaped on 1 October 2026, reframed on 4 October 2026 (the CMS must carry a company tenant's whole public site; the association's sites do not change) · decided on 5 October 2026 (B8 empty) · built first by the Mistral CLI on `cr17/web-content`, then finished by Claude dev CLIs on `master` (B9, 12 October 2026). **Shipped in v2.17.0:** phase 0, the spike (#1626, TipTap confirmed, C8); phase 1, pages as documents (#1671); phase 2, the blocks (#1679; the embedded form was not built, a form is reached through a Knop); the quotation block (#1985); phase 6, sections in the menu (#2024); phase 7, the letter and the meeting notes on the editor, Trix removed (#2023). **Not shipped:** phase 5, the value block and the gallery, moved to CR-32 (phase 4, built in v2.17.0 under CR-32 per B9, 15 October 2026); the drop of the old `content` column, #2025 on v2.18, not in v2.17.0; phase 3 (a second language) and phase 4 (the JSON door), the print rendering, the preview's width switch and the autosave of the draft are out of scope and parked in no release (B9, 15 October 2026). The B9 rows marked "Built as" record every deviation of the build
 **Tracking issue:** #1427 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the cms domain (pages, the home blocks, the footer, placeholders, the renderer, the menu); the rich-text editor and its three users (CMS pages, the newsletter, meeting notes); the public page template; the kit macro `ui.rich_text`; the media picker of CR-15; the forms module (a form placed on a page); the public site of a tenant of the kind *company* (CR-19).
 **Reading:** A 1487 words · B 2497 · C 6764 — words to read, code fences excluded, Part C up to the Q&A log; measured on 5 October 2026 after the review of PR #1625; the budget is A ≤ 1 500, B ≤ 2 500
@@ -118,7 +118,7 @@ The words the user reads: "Blok invoegen ▾", "Voorbeeld", "Publiceren", "Gesch
 | R13 | A form of the forms module can be placed on a page, beside text. | Should | Koen, 4 Oct |
 | R14 | A row of clickable cards, each a link to a page or elsewhere. | Should | Koen, 4 Oct |
 | R15 | Content in more than one language: Dutch first, English soon, without rebuilding; the visitor sees their language with a fallback. | Should | Koen, 4 Oct |
-| R16 | A page can be created, changed and published from outside as JSON (a script, an AI agent from a CLI), with the screen's validation and history, under an API key. | Should | Koen, 4 Oct |
+| R16 | A page can be created, changed and published from outside as JSON (a script, an AI agent from a CLI), with the screen's validation and history, under an API key. **Not built (phase 4, B9 15 Oct 2026).** | Should | Koen, 4 Oct |
 | R17 | The association's sites keep their content and look; only column width and picture corners change. | Must (limit) | Koen, 4 Oct |
 
 ## A7. Non-functional requirements — security, privacy, house style, tenants
@@ -138,14 +138,14 @@ The words the user reads: "Blok invoegen ▾", "Voorbeeld", "Publiceren", "Gesch
 | AC2 | A page with heading, text, a picture beside the text, two columns and a button; blocks move and go; the picture has the site's corners and shadow. | R2, R4 |
 | AC3 | An edit does not change the site until "Publiceren"; the preview shows the draft; the previous version is restorable. | R3 |
 | AC4 | The membership price is placed as a value and follows the setting. **Moved to CR-32 (A8.10) on 15 October 2026 with phase 5.** | R5 |
-| AC5 | (Could) The newsletter and the notes on the same editor; an activity block arrives as before. | R6 |
+| AC5 | (Could) The newsletter and the notes on the same editor; an activity block arrives as before. **Built in v2.17.0 (phase 7, #2023; B9).** | R6 |
 | AC6 | On a phone the editor opens, adds a block and saves; nothing scrolls sideways. | R7 |
 | AC7 | The editor loads from the portal only; no CSP violation. | R9 |
 | AC8 | A contact page: form left, details right; a submission lands in the workbench; on a phone the form first. | R13 |
 | AC9 | A section heading over three cards, each a link; the whole card is the target; one per row on a phone. | R14 |
-| AC10 | From a CLI with an API key a page is created, written and published; Terugzetten undoes it; an unknown block is refused by name. | R16 |
+| AC10 | From a CLI with an API key a page is created, written and published; Terugzetten undoes it; an unknown block is refused by name. **Not built: phase 4 is out of scope (B9, 15 Oct 2026).** | R16 |
 | AC11 | Every page of the association renders the same HTML before and after the migration. | R17 |
-| AC12 | A page under its section; an external item links out; a footer item in the footer only. | R8 |
+| AC12 | A page under its section; an external item links out; a footer item in the footer only. **Built in v2.17.0 (phase 6, #2024; B9, 16 Oct 2026).** | R8 |
 
 ---
 
@@ -189,7 +189,7 @@ Decisions, each with the rejected alternative (the reasoning in C4):
 | F13 | The form block renders the chosen form through `forms.api`, same fields, validation and submission; a deleted form renders nothing. | R13 |
 | F14 | The cards block: heading and link cards, two or three per row, one on a phone; the whole card the link; the target a page of the site or a URL. | R14 |
 | F15 | The visitor's language when a published translation exists, else the tenant's; the switch only when a second language has content. | R15 |
-| F16 | Export and import (JSON) on the page; the API with an API key: list and create pages, read and write the draft, **publish**, and the reference lists an agent needs (the schema as JSON Schema, placeholders, media ids, form ids) — phase 4. | R16 |
+| F16 | Export and import (JSON) on the page; the API with an API key: list and create pages, read and write the draft, **publish**, and the reference lists an agent needs (the schema as JSON Schema, placeholders, media ids, form ids) — phase 4, **not built** (B9, 15 Oct 2026). | R16 |
 
 ## B2. Fit with the process and the requirements — for the business
 
@@ -199,10 +199,8 @@ flowchart LR
     o2["Open the page as blocks<br/>cms admin · document layout"]:::cms
     o3["Add or edit a block<br/>the editor (kit)"]:::kit
     o3b["Place a picture<br/>CR-15 picker (media)"]:::media
-    o3c["Place a form<br/>forms module"]:::forms
     o4["Preview the draft<br/>cms admin › Voorbeeld"]:::cms
     o6["Publish<br/>cms admin › Publiceren"]:::cms
-    o8["Import / export JSON<br/>cms admin · API"]:::cms
   end
   subgraph P[Portal]
     p1["Store the document per language<br/>cms service"]:::cms
@@ -210,17 +208,13 @@ flowchart LR
     p3["Fill a value block<br/>kernel tenant_config"]:::kernel
     p4["Keep versions<br/>kernel history"]:::kernel
     p5["Send the letter<br/>newsletter"]:::nl
-    p6["Render the form, take the submission<br/>forms"]:::forms
   end
   o3 -.-> p1
   o3b -.-> p1
-  o3c -.-> p1
-  o8 -.-> p1
   o4 -.-> p2
   o6 -.-> p4
   p2 -.-> p3
   p2 -.-> p5
-  p2 -.-> p6
   classDef cms fill:#d1fae5,stroke:#047857
   classDef kit fill:#fde68a,stroke:#b45309
   classDef media fill:#dbeafe,stroke:#1d4ed8
@@ -229,7 +223,7 @@ flowchart LR
   classDef nl fill:#fce7f3,stroke:#be185d
 ```
 
-Legend: green cms · yellow kit · blue media · purple forms · grey kernel · pink newsletter.
+Legend: green cms · yellow kit · blue media · grey kernel · pink newsletter. **Drawn as built in v2.17.2** (B9, 21 Oct 2026): the form block and the JSON import and export are not drawn because they were not built (Q28; phase 4); the value block is CR-32's (phase 4), built there; the language switch is not built (phase 3), the translation row exists with the tenant's language only. A3 still shows the design.
 
 **Traceability matrix**
 
@@ -239,20 +233,20 @@ Legend: green cms · yellow kit · blue media · purple forms · grey kernel · 
 | R2 parts | F1, F4 | 3 | AC2 |
 | R3 draft, history | F2, F7 | 4–6 | AC3 |
 | R4 pictures | F5 | 7, 11 | AC2 |
-| R5 values | F6 | 8 | AC4 |
+| R5 values | F6 | 8 | AC4 — moved to CR-32 (phase 4), built there |
 | R6 one editor | F4, F9 | 9, 10 | AC5 |
 | R7 phones | F8, F4 | 11, 12 | AC1, AC6 |
 | R8 menu | F10 | 13 | AC12 |
 | R9 served by the portal | F12 | 14 | AC7 |
-| R13 form block | F13 | 16 | AC8 |
+| R13 form block | F13 | 16 | AC8 — **not built** (Q28: a form is reached through a button or a card) |
 | R14 cards | F14 | 17 | AC9 |
-| R15 languages | F2, F15 | 20 | phase 3 |
-| R16 JSON | F16 | 18 | AC10 |
+| R15 languages | F2, F15 | 20 | phase 3 — **not built** (the translation row exists, one language; B9 15 Oct 2026) |
+| R16 JSON | F16 | 18 | AC10 — **not built** (phase 4, parked in no release; B9 15 Oct 2026) |
 | R17 association unchanged | F11 | 19 | AC11 |
 
 **Walkthrough on HDEV** (the organiser; a visitor for 4, 10 and 11) — the detailed steps are C9's annex:
 
-1 A page as blocks. 2 A table added, published, edited, published: still a table. 3 Heading, text, picture beside the text, columns, button; the picture has corners and shadow. 4 A visitor on a phone: the table scrolls inside its block. 5 An unpublished edit leaves the site unchanged; Voorbeeld, Publiceren, Geschiedenis, Terugzetten. 6 A value block follows the setting. 7 (Could) The newsletter and the notes on the same editor. 9 No CSP violation. 10 A contact page with the form block; a submission in the workbench. 11 A cards page; each card a link. 12 From a CLI: create, write, publish; an unknown block refused. 13 The association's pages the same before and after. 14 A section in the menu, an external item, a footer item.
+1 A page as blocks. 2 A table added, published, edited, published: still a table. 3 Heading, text, picture beside the text, columns, button; the picture has corners and shadow. 4 A visitor on a phone: the table scrolls inside its block. 5 An unpublished edit leaves the site unchanged; Voorbeeld, Publiceren, Geschiedenis, Terugzetten. 6 A value block follows the setting (CR-32). 7 (Could) The newsletter and the notes on the same editor. 9 No CSP violation. 10 (Not built, Q28) A contact page with the form block; a form is reached through a button or a card. 11 A cards page; each card a link. 12 (Not built, phase 4) From a CLI: create, write, publish; an unknown block refused. 13 The association's pages the same before and after. 14 A section in the menu, an external item, a footer item.
 
 ## B3. The whole across the modules — for the architect
 
@@ -266,19 +260,15 @@ flowchart TB
   subgraph cms[cms]
     c1[schema.py: the block schema, one source; served as JSON Schema — new]:::new
     c2[render.py: schema → site / mail — changed]:::chg
-    c3[service: draft, publish, restore, versions, import, export — changed]:::chg
+    c3[service: draft, publish, restore, versions — changed]:::chg
     c4[page_translations; cms_page_history; menu columns — new]:::new
-    c5[admin screens: document layout, preview, history, JSON — changed]:::chg
-    c6[public page: reading width, language fallback, the menu with sections — changed]:::chg
+    c5[admin screens: document layout, preview, history — changed]:::chg
+    c6[public page: reading width, the menu with sections — changed]:::chg
     c7[migration: HTML → schema, lossless or listed — new]:::new
-    c8[api.py: render_document, schema_for, import_draft — changed]:::chg
-    c9["router: PUT /pages/{id}/draft, GET /schema — new"]:::new
+    c8[api.py: render_document, schema_for — changed]:::chg
   end
   subgraph media[media — CR-15]
     m1[picker — used; the gallery of an album moved to CR-32]:::used
-  end
-  subgraph forms[forms]
-    f1[api: render a form inside a page; take the submission — used, one new facade call]:::chg
   end
   subgraph nl[newsletter]
     n1[block set letter; markers gone — changed]:::chg
@@ -293,7 +283,6 @@ flowchart TB
   k1 --> c1
   c2 --> h2
   c3 --> h1
-  c2 --> f1
   n1 --> c8
   t1 --> k1
   c5 --> m1
@@ -302,7 +291,7 @@ flowchart TB
   classDef used fill:#f3f4f6,stroke:#6b7280
 ```
 
-Legend: green new · orange changed · grey used.
+Legend: green new · orange changed · grey used. **Drawn as built in v2.17.2** (B9, 21 Oct 2026): not drawn because not built are the JSON router (`PUT /pages/{id}/draft`, `GET /schema`, publish from outside), import and export, the language fallback and the call from the cms to the forms module (the form block, Q28).
 
 **Data model at a glance**
 
@@ -314,17 +303,18 @@ erDiagram
     string slug
     bool show_in_nav
     int sort_order
-    int parent_id "Should, soft ref"
-    string menu_label "Should"
-    string external_url "Should"
-    bool in_footer "Should"
+    int parent_id "a section; one level"
+    bool show_in_footer
     bool is_home
+    string opening "CR-32"
+    jsonb hero "CR-32"
     text content "today's HTML; dropped later"
   }
   CMS_PAGE_TRANSLATION {
     int page_id FK
-    string language FK
+    string language FK "one row: the tenant's language"
     string title
+    string menu_label
     jsonb draft_json
     jsonb published_json
     datetime published_at
@@ -346,10 +336,9 @@ erDiagram
   CMS_PAGE ||--o{ CMS_PAGE_HISTORY : "versions"
   CMS_PAGE_TRANSLATION }o--|| LANGUAGE_CODE : "language"
   CMS_PAGE }o--o{ MEDIA_ASSET : "figure, card (soft)"
-  CMS_PAGE }o--o{ FORM : "form block (soft)"
 ```
 
-Who calls whom: the admin screens call the cms service and render the editor through the kit macro; the public page and the newsletter call `cms.api.render_document`; a figure goes through `media.api`, a form block through `forms.api`, a value through `kernel.tenant_config`. New dependencies: cms → forms.api, newsletter → cms.api. Publish is one transaction.
+Who calls whom: the admin screens call the cms service and render the editor through the kit macro; the public page and the newsletter call `cms.api.render_document`; a figure goes through `media.api`, a value through `kernel.tenant_config`. New dependency: newsletter → cms.api (cms → forms.api was designed for the form block and not built, Q28). Publish is one transaction.
 
 ## B4. Rules this change needs an exception from — decided once, here
 
@@ -383,14 +372,14 @@ Purchases: none. **Running cost:** none. **Operations:** no env var; the bundle 
 | **0 — the spike** (#1626; its start is Koen's to give) | TipTap on a throwaway branch — the one-off bundle without Node in the repo, a table round trip, a custom node, the CSP, a phone; the measurements into C8 | none | none | C8 |
 | **1 — pages as documents** | the schema; the editor macro; the page screen with draft, publish, history, preview; the renderer and the reading-width page; `page_translations`; the picker; the lossless migration | additive | a page is no longer live on save; an unknown block refused by name | AC1, AC3, AC6, AC7, AC11 |
 | **2 — the blocks** | table (full), columns with alignment, button, callout, **cards** (a lone card is a cards block with one card), **form** | none | a deleted form renders nothing | AC2, AC8, AC9 |
-| **3 — a second language** (Should) | the language selector, a second translation row, `/en/`, the fallback, the switch | none | a page without a translation falls back | walkthrough |
-| **4 — the JSON door** | export and import on the page; the API: pages, draft, publish, the reference lists; the schema served | none | an unknown block refused by name | AC10 |
+| **3 — a second language** (Should) — **not built**: out of scope, parked in no release (B9, 15 Oct 2026) | the language selector, a second translation row, `/en/`, the fallback, the switch | none | a page without a translation falls back | walkthrough |
+| **4 — the JSON door** — **not built**: out of scope, parked in no release (B9, 15 Oct 2026) | export and import on the page; the API: pages, draft, publish, the reference lists; the schema served | none | an unknown block refused by name | AC10 |
 | **5 — the value block and the gallery** | moved to CR-32 (phase 4) on 15 October 2026 (it was: the value block in the toolbar, the renderer replacing codes meanwhile, and the gallery block on an album) | none | none | AC4 (moved with it) |
-| **6 — sections in the menu** (Could since 5 Oct, R8; **out of this change request since 11 Oct 2026**, a follow-up change request) | a parent page with pages, app pages and outside addresses under it | additive | none | AC12 |
-| **7 — the letter and the notes** (a follow-up change request, confirmed 11 Oct 2026) | the newsletter on the editor, markers gone, the mail renderer from blocks; the notes | none | a letter the mail renderer refuses is refused at "Versturen…" | AC5 |
-| **later** | the print rendering, the preview's width switch, autosave of the draft; drop `content` two releases after phase 1 | contract for the drop | — | — |
+| **6 — sections in the menu** (Could since 5 Oct, R8; out on 11 Oct 2026, back in on 15 Oct 2026; **built in v2.17.0**, #2024, migration 211, B9 16 Oct) | a parent page with pages, app pages and outside addresses under it | additive | none | AC12 |
+| **7 — the letter and the notes** (a follow-up on 11 Oct 2026, back in on 15 Oct 2026; **built in v2.17.0**, #2023, migration 212; Trix removed; B9 16 Oct) | the newsletter on the editor, markers gone, the mail renderer from blocks; the notes | none | a letter the mail renderer refuses is refused at "Versturen…" | AC5 |
+| **later** | the print rendering, the preview's width switch, autosave of the draft (all out of scope, B9 15 Oct 2026); drop `content` (#2025, v2.18, not in v2.17.0) | contract for the drop | — | — |
 
-Dependencies: CR-15's picker and a company tenant (CR-19) exist. **Order** (Koen, 7 Oct 2026): 0 → 1 → 2 → 3 → 4 → 5 → 6 are the change; 7 is a follow-up change request. **Revised on 11 Oct 2026** (Koen, to "Gaat de PR van CR-17 (web content) naar master na fase 5, of pas na fase 7?": "CR-17 gaat live na fase 5, de rest zal voor later zijn, via een aparte CR"; and on the merge: "De PR van CR-17 gaat toch pas naar master als gans CR-17 voltooid is?"): **0 → 1 → 2 → 3 → 4 → 5 are the change, merged into `master` once, after phase 5 and after Koen's test of the local version; 6 and 7 go to one change request of their own**, numbered and given a tracking issue when Koen asks for it. **Revised again on 15 Oct 2026** (phase 5 moved to CR-32, B9): **0 → 1 → 2 → 3 → 4 are the change, merged into `master` once, after phase 4 and after Koen's test of the local version**; the value block and the gallery are phase 4 of CR-32; 6 and 7 stay follow-ups.
+Dependencies: CR-15's picker and a company tenant (CR-19) exist. **Order** (Koen, 7 Oct 2026): 0 → 1 → 2 → 3 → 4 → 5 → 6 are the change; 7 is a follow-up change request. **Revised on 11 Oct 2026** (Koen, to "Gaat de PR van CR-17 (web content) naar master na fase 5, of pas na fase 7?": "CR-17 gaat live na fase 5, de rest zal voor later zijn, via een aparte CR"; and on the merge: "De PR van CR-17 gaat toch pas naar master als gans CR-17 voltooid is?"): **0 → 1 → 2 → 3 → 4 → 5 are the change, merged into `master` once, after phase 5 and after Koen's test of the local version; 6 and 7 go to one change request of their own**, numbered and given a tracking issue when Koen asks for it. **Revised again on 15 Oct 2026** (phase 5 moved to CR-32, B9): **0 → 1 → 2 → 3 → 4 are the change, merged into `master` once, after phase 4 and after Koen's test of the local version**; the value block and the gallery are phase 4 of CR-32; 6 and 7 stay follow-ups. **As built (B9, 15 Oct 2026):** no `cr17/web-content` merge after phase 4 — Claude dev CLIs finished the work on `master` for v2.17.0, with phases 6 and 7 back in; phases 3 and 4 were not built.
 
 ## B7. Rule and gatekeeper — what this fixes for all future work
 
@@ -431,6 +420,7 @@ None (B9, 5 Oct 2026).
 | 15 Oct 2026 | **Scope closed: the whole change request in v2.17, except the drop of `content`.** Phase 5 was built as CR-32's phase 4; phase 6, sections in the menu, is #2024 and phase 7, the letter and the notes, is #2023, both on v2.17 (Koen, the same day: "die secties mag je inplannen onder versie 2.17"; "Laten we de nieuwe editor ook maar op de nieuwsbrief en de vergaderingen zetten … Dus zet dat dan maar op versie 2.17"). The drop of `content` is #2025 on v2.18 ("plan dat opruimen van die oude kolom maar in op versie 2.18"). Out of scope, parked in no release: phase 3 (a second language), phase 4 (the JSON door), the print rendering, the preview's width switch and the autosave of the draft — to the master CLI's "Mag ik deze vijf parkeren als buiten scope, zodat ze in geen enkele release staan?": "Ja, parkeer maar als allen buiten scope … Dus dat betekent alles integraal af in versie 2.17, met uitzondering van het verwijderen van die ene kolom. Dat is dan versie 2.18." | Koen, to the master CLI |
 | 16 Oct 2026 | **Built as, phase 6 — menu sections (#2024, PR #2057, merged as `68eeac8c`, migration 211).** A page can stand under a section (`parent_id`, one level; the home page is no section; a section with pages cannot be deleted); a page has its own menu name per translation. Koen's choices of 16 October 2026 to the three questions put to him: "1a, 2a, 3a" — (1) in the header from 768 px the section name links to its page and an arrow opens a small drop-down of its pages (click, tap, Enter; closed by Escape, focus leaving or a click outside); (2) in the phone drawer the section's pages stand always visible, indented; (3) an offline section hides its pages from the menu only, their addresses keep working while they are published. Added by the builder, read by dev2 as within the issue: the drop-down opens to the left near the right edge, and the section is marked as the current place on a page under it. Open with Koen: a help line saying that a section taken out of the menu takes its pages with it. | Koen (1–3); the builder dev4 and the reader dev2, at the merge |
 | 16 Oct 2026 | **Built as, phase 7b — the letter on the page editor (#2023, PR #2044, merged as `adf74163`, migration 212).** The text of a letter is a document of blocks; migration 212 converts every stored letter and drops `body_html` (Koen, 15 October 2026: convert everything and drop the old column if nothing writes it). A sent letter keeps its rendered body as it went out (`sent_body_html`, written once at send, read by the archive and every mail; a CHECK refuses a sent letter without it) — Koen, 16 October 2026, to "Archief van een verstuurde brief: a (zoals hij vertrokken is) of b (opnieuw opgebouwd met de gegevens van vandaag)?": "a", and to the way of building it with a new column filled at send: "Ja". Letters sent before 212 get the body rendered at migration time, without importing another domain's models: their activity blocks keep text and facts but no registration link, photo or album link, and a block of an unpublished or dateless activity falls away. Measured before the migration: no picture in any stored letter on PROD or UAT. | Koen; the builder dev1 and the reader dev2, at the merge |
+| 21 Oct 2026 | **Closed out after v2.17.0.** Status line, B6, A8, C2, C6, C10 and the non-goals follow what shipped: phases 0, 1, 2, 6, 7 and the quotation block in v2.17.0; phases 3, 4 and the later items out of scope; phase 5 with CR-32; #2025 (the drop of `content`) on v2.18. | design-documentation CLI |
 
 ---
 
@@ -467,7 +457,7 @@ None (B9, 5 Oct 2026).
 #### ui — the kit (phases 1–2)
 
 - **Screens:** the design-system page renders the editor with every block of every set, and the public prose rules (figure with its radius and shadow, columns, cards, table) as live examples; judged at 390 px.
-- **Code:** `document_editor(name, blocks, value_json, autosave_url=None)` — a second macro beside today's `rich_text` (Trix), which keeps serving the letter and the notes until phase 7 moves them and removes it; one name per editor, never one macro with two engines; the editor bundle under `static/vendor/<editor>-<version>.js|css` with its checksum in `scripts/vendor-manifest.txt`; the editor configuration generated from `cms.api.schema_for(set)` into a `<script type="application/json">`.
+- **Code:** `document_editor(name, blocks, value_json, autosave_url=None)` — a second macro beside today's `rich_text` (Trix), which kept serving the letter and the notes until phase 7 moved them and removed it (**built as: Trix, its macro, bundle, styles and script are gone in v2.17.0, #2023, B9**); one name per editor, never one macro with two engines; the editor bundle under `static/vendor/<editor>-<version>.js|css` with its checksum in `scripts/vendor-manifest.txt`; the editor configuration generated from `cms.api.schema_for(set)` into a `<script type="application/json">`.
 - **Templates:** `_macros.html` (the macro), `admin_base.html` (the one load), the prose rules in `build-css.sh`'s config as hand-written utilities for `.prose-raak` (tables, figures with `rounded-[14px]` and the card shadow, columns top/middle, cards grid); `site_base.html` and `admin_base.html` lose their hand-written `.cms-content` rules.
 - **Tests:** C6 3, 9, 11, 14, 17.
 
@@ -481,7 +471,7 @@ None (B9, 5 Oct 2026).
 - **Templates:** `admin_pagina.html` and `_cp_detail.html` shrink to the layout plus the macro; `cms_pagina.html` on the reading width; the public menu renders sections (phase 6); the public header renders the language switch when a second language has published content (phase 3).
 - **Tests:** C6 1, 2, 4, 5, 6, 8, 12, 13, 16, 18, 19, 20.
 
-#### forms (phase 2)
+#### forms (phase 2 — the embedded form was not built, B9 14 Oct 2026)
 
 - **Code:** `api.render_embedded(form_id, tenant_id)` returns the form's fields as the same partial the form page uses, with the form's own action route, CSRF and thank-you behaviour; the form block passes the page as the return target. The forms module keeps its own page and share link; the block is a second rendering of one definition. *Measure first* (C1's last row) what the public form template needs outside its page.
 - **Tests:** C6 16.
@@ -490,7 +480,7 @@ None (B9, 5 Oct 2026).
 
 - The figure block uses the picker; the gallery block uses the album; a link card's picture is a media id. CR-15 is built.
 
-#### newsletter and meetings (phase 7)
+#### newsletter and meetings (phase 7 — built in v2.17.0, #2023; B9 16 Oct 2026)
 
 - As before: the editor with the letter set; `_clean_body` becomes a schema validation; the mail renderer from blocks; the notes on the macro with the notes set, autosave unchanged. Tests C6 10.
 
@@ -566,9 +556,13 @@ A figure, a card's picture and a gallery item render with the public card radius
 
 ### C4.10 Content per language
 
+**Not built** (phase 3, out of scope and parked in no release, B9 15 Oct 2026). What runs in v2.17.2: `page_translations` keyed by (page, language), with one row per page, the tenant's language; there is no switch, no `/en/` prefix and no fallback. The rest of this section is the design as decided, kept for the change request that takes it up.
+
 "Build what is needed in the shape that grows": a page's title and documents live in `page_translations` keyed by (page, language) from phase 1, with the tenant's language as the only row; a second language is a row, not a column. The site serves the visitor's language (the browser's `Accept-Language` or the switch) when a published translation exists, else the tenant's language; the switch appears only when a second language has published content. One slug per page, the language as a prefix (`/en/…`) — decided now that phase 3 moves up (Koen wants English soon, 4 October 2026): the switch stays on the same page and a link survives a translation; the menu label lives in the translation row. The forms module's forms, the newsletter and the site name stay single-language — outside this change. The app's own words (gettext) and the back office stay Dutch unless Koen asks (Q11); code-list labels already exist per language.
 
 ### C4.11 One JSON door
+
+**Not built** (phase 4, out of scope and parked in no release, B9 15 Oct 2026). What runs in v2.17.2: a page's document is data in `draft_json` and `published_json`; there is no export, no import, no JSON route and no publishing from outside; `cms.api.render_document` and the block schema (`schema_for`) are in-process only. The rest of this section is the design as decided, kept for the change request that takes it up.
 
 A page's document is data, and data has a door: export (draft or published) and import into the draft, through the screen and through `PUT /api/v1/cms/pages/{id}/draft` with an API key — the same validation as the editor's save, an unknown block or attribute refused with its name, a media reference that does not exist refused, nothing stripped silently. The schema is served as one JSON Schema file so a script or an AI knows the blocks before it writes. Publishing from outside is allowed too (Koen, 4 October 2026: a Claude Code CLI must be able to change and publish pages): `POST /api/v1/cms/pages/{id}/publish` runs the same `publish` as the button — one history row, so a wrong publish is one Terugzetten away — and the API lists and creates pages, so a whole site can be written from a CLI. What an agent needs to write a valid document is served next to the schema: the placeholders, the media ids and the form ids of the tenant. The Assistent (CR-11 block 10) uses the same door.
 
@@ -591,6 +585,8 @@ A section is a parent page with items under it: pages of the site, app pages (Li
 The stored content is a JSON document validated against the schema on save and on import (unknown node types and attributes refused, not stripped); the HTML the site serves is generated by the renderer, so an `on*` attribute, a `javascript:` URL or an unknown tag has no way in except through a renderer bug — nh3 on the output catches that. A card's outside URL is `http(s)` only, with `rel="noopener noreferrer"`. The form block renders the forms module's form with its CSRF and validation; a submission is the forms module's. The import route needs an API key and the tenant's scope; it can touch the draft only. The editor loads from the portal's origin under the unchanged CSP; it fetches nothing. The history rows hold a person only in the "by" column.
 
 ## C6. Tests — what the build must prove
+
+The tests of phases 3 and 4 (the language fallback, the JSON door) were not built: those phases are out of scope (B9, 15 Oct 2026). The test of the embedded form (phase 2) went with the form block (B9, 14 Oct 2026).
 
 1. **A table survives.** Saved, loaded into the editor (e2e), edited, saved: the node unchanged except the edit; the site renders `<table>` with a header row. Red on Trix.
 2. **Schema is one source.** The editor configuration and the served JSON Schema are generated from `cms/schema.py`; a node added appears in both and in the renderer's dispatch; a node not in the schema is refused on save with its name (proven by posting one).
@@ -644,7 +640,7 @@ Phase 0 measures and records here: the one-off bundle step (command, duration) a
 
 ## C10. Close-out at the release
 
-Not yet: on hold, nothing built. Filled in when the release that builds this change runs on PROD (release step 14).
+Closed out on 21 October 2026, after release v2.17.0 (tag `060e246a`). Built in v2.17.0: phases 0, 1, 2, 6 and 7 and the quotation block (see the status line). Not built: phases 3 and 4 and the later items (out of scope, B9 15 Oct 2026); phase 5 is CR-32's phase 4; the drop of `content` is #2025 on v2.18. The deviations of the build stand in B9 as "Built as" rows. Whether the release is on PROD was not verified when this was written.
 
 ---
 
@@ -685,7 +681,7 @@ Not yet: on hold, nothing built. Filled in when the release that builds this cha
 
 ## Non-goals — deliberately outside this change
 
-- The menu with sections (phase 6, R8) and the letter and the notes on the editor (phase 7, R6): a change request of their own, after this one is live (Koen, 11 October 2026).
+- The menu with sections (phase 6, R8) and the letter and the notes on the editor (phase 7, R6): outside this change on 11 October 2026, then brought back in and built in v2.17.0 (B9, 15 and 16 October 2026). A second language (phase 3), the JSON door (phase 4), the print rendering, the preview's width switch and the autosave of the draft are outside it, parked in no release.
 - Merged cells in tables, and the activity's description on the same editor — both Could, follow-ups when wanted (Koen, 5 October 2026).
 - A site builder: themes, free placement, per-page templates, colours or widths per block, a plugin system, a second site per tenant (R10).
 - Embedded frames (video, maps): the CSP forbids them; a link card instead (R11).

@@ -2,6 +2,7 @@
 
 **Project:** Web Portal "Raak Millegem"
 **Status:** shaped and confirmed on 29 September 2026 · built in v2.10.0 (#1337), on PROD since 30 September 2026 · issue #1320 · as-built deviations in B10 and marked in the text; the retrospective of 2 October 2026 is in the Q&A log
+**Tracking issue:** #1320 (closed); release tracker #1337 (v2.10.0, closed)
 **Applies to:** the activity registration flow (the public registration — today a modal — the board form, the JSON API), the `forms` domain, the registration detail and export in the admin, the confirmation mail.
 
 > Part A is the business's; Part B is measured on `master` `6a96af01`. Who

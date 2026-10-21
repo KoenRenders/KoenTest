@@ -7,6 +7,7 @@
 
 **Project:** Web Portal "Raak Millegem"
 **Status:** shaped with Koen on 25 September 2026 · Part A approved and Part B development-ready on 26 September 2026 · not assigned to a release
+**Tracking issue:** phase issues #1177, #1178, #1179, #1180, #1181 and #1182 (phases 0 to 5, all closed); release tracker #1184 (v2.7.0, closed); #779 is the pointer to this document
 **Applies to:** every column that carries a fixed vocabulary (status, type,
 kind, method, role, …) in every domain schema; the code tables in `mdm`; the
 label dictionaries in the UI layer; `app/kernel`.

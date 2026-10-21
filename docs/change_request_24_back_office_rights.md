@@ -3,7 +3,7 @@
 **Project:** Web Portal "Raak Millegem"
 **Status:** opened on 7 October 2026 · Parts A, B and C written; build read by desktop-dev1, two architecture reviews and Mistral's review on #1722 taken in (7–8 October 2026); B8 empty · assigned to v2.16 by Koen (8 October 2026), after CR-13 4b in the same release · **built in v2.16.0, on PROD since 10 October 2026** (#1722, closed by the master CLI): six slices on 9 October — the snapshot, the 22 in-body gates, the core in auth (#1864), the call sites in three groups (#1867, #1868, #1869), the gate and the rule (#1870, the last step #1872), the screens and the copy (#1871) — and, after the last step, the workbench made core (#1876, #1879) · the eight as-built rows of B9 folded into the text at the close-out on 10 October 2026 (C10)
 **Tracking issue:** #1722 — the one place where what is open stands; this document is the design, the issue is the status
-**Applies to:** auth (roles, rights, the gates), every back-office route's gate; part 2 is CR-25 (the back office: menu, Bestuur, workbench, business partners)
+**Applies to:** auth (roles, rights, the gates), every back-office route's gate; part 2 was CR-25 (the back office: menu, Bestuur, workbench, business partners), void since 18 October 2026 (Koen: "CR-25 is vervallen")
 **Reading:** A 1 750 words · B 3 042 · C 3 712 — re-measured on 10 October 2026 at the close-out, without drawings and notes, the decisions log excluded as before; the budget is A ≤ 1 500, B ≤ 2 500 — both over since the close-out: the as-built sentences folded into B1, B4, B6 and B7 add about 580 words; to be moved into C in a next pass
 
 ---
@@ -795,11 +795,11 @@ No concepts, by decision rather than by omission. The visible changes are small 
 - **R10** — social tariff: who pays a reduced rate reveals something about income; later, individual payments and tariffs must not be visible to everyone who reads. The model must allow a reading restriction later.
 - **R11** — Accountbeheer (`ACCOUNT_ADMIN`): within one account, create tenants and manage users and their roles in them; "nobody uses it today; we build it later".
 - **R14** — a screen on which a workspace composes its own roles from rights: "zeer mooi op termijn maar nu out-of-scope" (Q6); the bundles ship fixed.
-- Part 2, CR-25: the menu, Bestuur reading only, the workbench per role, organisations as business partners and Relatiebeheer (Q5), R12 (approval of master-data changes).
+- Part 2, CR-25: the menu, Bestuur reading only, the workbench per role, organisations as business partners and Relatiebeheer (Q5), R12 (approval of master-data changes) — **void since 18 October 2026** (Koen to the design-documentation CLI: "CR-25 is vervallen"; #2149 closed). What of it is wanted again comes as a new change request; the organisation as a party is CR-26's.
 
 ## Relationship to existing work — issues and change requests
 
-- **CR-25** (back office, part 2) builds on this.
+- **CR-25** (back office, part 2) was to build on this; void since 18 October 2026 (Koen).
 - **CR-21** (webshop) needs part 1 before it is built.
 - **CR-21** (webshop) brings the four shop roles; **CR-22** (accounts) brings "Personen" and the self-scope.
 - #83 (financial separation), #543, #581, #674 (task visibility), #963 (roles per workspace).

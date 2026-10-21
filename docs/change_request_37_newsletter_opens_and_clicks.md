@@ -1,7 +1,7 @@
 # Change Request 37 — Anonymous opens and clicks of a newsletter
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped with Koen on 15 October 2026, reshaped the same day from per-person to anonymous · not assigned to a release; B8 answered, a second build read is due
+**Status:** built in v2.17.0 (PR #2083, migration 214; closed out 21 October 2026) · shaped with Koen on 15 October 2026, reshaped the same day from per-person to anonymous; as-built deviations in B9 (16 Oct 2026)
 **Tracking issue:** #2027 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the newsletter (rendering of a letter, a public pixel and redirect route, the send screen, the archive of sent letters)
 **Reading:** A 909 words · B 2 243 · C 2 070 — measured per part; A ≤ 1 500, B ≤ 2 500
@@ -69,8 +69,8 @@ flowchart LR
 
 What it says on the screen (Dutch):
 - on a sent letter in the archive, a block **Resultaat**: *Verstuurd*, *Geopend (indicatie)* with a percentage, *Geklikt (indicatie)* with a percentage, and a list **Links**: each link with the number of people who clicked it
-- in the archive list, per letter: subject, number of links, percentage opened, percentage clicked, so letters can be compared
-- on every letter, in the footer and in the plain-text part, one line: *Wij tellen anoniem hoeveel brieven geopend en hoeveel links aangeklikt worden.*
+- in the archive list, per letter: subject, number of links, percentage opened, percentage clicked, so letters can be compared (built as: the list stays cards with one result line per sent letter; B9, 16 Oct 2026)
+- on every letter, in the footer and in the plain-text part, one line: *Wij tellen anoniem hoeveel brieven geopend en hoeveel links aangeklikt worden.* (built as: only in real mails, not in the test mail or the preview; B9, 16 Oct 2026)
 - in the privacy statement, a section on the newsletter that says what is counted and what is not (proposed text under A5)
 
 ## A4. Benefits — what the change earns
@@ -84,7 +84,7 @@ What it says on the screen (Dutch):
 
 Koen's dictation of 15 October 2026. What it taught us from the code: the portal sends one mail per recipient (CR-05 §3.7), so a code per mail is possible without a campaign service. Reporting need: the result block and the archive list of A3, no export.
 
-Proposed text for the privacy statement, to be approved by Koen: *Bij de nieuwsbrief tellen we hoeveel brieven geopend worden en hoe vaak een link wordt aangeklikt. Dat gebeurt anoniem: we houden niet bij wie een brief las, wie op welke link klikte of wanneer. Een uitgeschreven adres krijgt geen nieuwsbrief meer.* (The last sentence only if it stays true after CR-36.)
+Proposed text for the privacy statement, to be approved by Koen: *Bij de nieuwsbrief tellen we hoeveel brieven geopend worden en hoe vaak een link wordt aangeklikt. Dat gebeurt anoniem: we houden niet bij wie een brief las, wie op welke link klikte of wanneer. (built as: "...of wie op welke link klikte", without "of wanneer", because the day is kept; B9, 16 Oct 2026) Een uitgeschreven adres krijgt geen nieuwsbrief meer.* (The last sentence only if it stays true after CR-36.)
 
 ## A6. Business requirements — what the board asks, with MoSCoW
 
@@ -332,7 +332,7 @@ Measured on master @ `ef4b130c` on 15 October 2026 (the build read of dev2 on #2
 
 ## C2. Per module: what must happen
 
-- **newsletter**: `letter_links` (tenant, letter, url, unique on letter and url); `letter_events` (tenant, letter, code, kind, link, day; unique on letter, code, kind, link as `UNIQUE NULLS NOT DISTINCT`, because the link is empty for an open and a plain unique key lets one code open twice); the code made and verified with the shared helper `kernel/signing.py` (`sign(context, *parts)`, `verify(...)`; random number and signature over letter id and number, derived from the portal's secret with its own context), also used by CR-36's unsubscribe link, whichever of the two lands first builds it; the setting `email_log_retention_days` goes from 365 to 90; `render_mail` and `render_text` take an optional `code`; one rewrite function for the HTML and the text; the pixel at the end of the HTML only; the footer line in HTML and text; the two routes; `api.py`: `record_open`, `record_click`, `link_target`, `results_of`; the archive block and the list columns (subject, number of links, opened %, clicked %).
+- **newsletter**: `letter_links` (tenant, letter, url, unique on letter and url); `letter_events` (tenant, letter, code, kind, link, day; built as: no `kind`, an event without a link is an open, B9 of 16 Oct 2026; unique on letter, code, kind, link as `UNIQUE NULLS NOT DISTINCT`, because the link is empty for an open and a plain unique key lets one code open twice); the code made and verified with the shared helper `kernel/signing.py` (`sign(context, *parts)`, `verify(...)`; random number and signature over letter id and number, derived from the portal's secret with its own context), also used by CR-36's unsubscribe link, whichever of the two lands first builds it; the setting `email_log_retention_days` goes from 365 to 90; `render_mail` and `render_text` take an optional `code`; one rewrite function for the HTML and the text; the pixel at the end of the HTML only; the footer line in HTML and text; the two routes; `api.py`: `record_open`, `record_click`, `link_target`, `results_of`; the archive block and the list columns (subject, number of links, opened %, clicked %).
 - **cms**: the section of the privacy statement (Q5).
 - **templates**: the result block, the links list and the list columns in the archive.
 

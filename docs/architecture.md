@@ -880,8 +880,19 @@ household the same mail the member would get.
 
 ## A10. Tenancy and security
 
-**The tenant model.** A tenant is a row of `mdm.organizations` of type `UNIT`
-under an `ACCOUNT` (the customer); the operator role stands above the tree.
+**The tenant model.** *A tenant is a site; an organisation is a party; a
+tenant-scoped row points at a tenant by a foreign key.* (CR-20, built in
+v2.17, migration 313.) A tenant is a row of `mdm.tenants` with a `kind` (the
+platform, an association's site, …), an `account_id` (the customer it belongs
+to) and the organisation it shows; it carries the tenant's code, site name and
+active flag, and it keeps the ids the tenants always had. The organisation is
+a party and no longer a tenant; a tenant without an account is its own account.
+Every tenant-scoped model has a foreign key on `tenant_id` to `mdm.tenants`,
+and `tests/test_tenant_key_gate.py` (test 7 of CR-20) is red for one without;
+the `mdm` seam rows (addresses, contacts) that still carry a party id in
+`tenant_id` are the exception, a baseline that only shrinks until CR-26 phase 1
+moves them to the party. A tenant column on `mdm.organizations` is red as well
+(test 9). The operator role stands above the accounts.
 Per request `kernel/tenancy.py` resolves the tenant — path prefix, then
 hostname, then the platform host (root is the landing page, else the tenant
 cookie), then the default — into a contextvar, from which a global ORM filter

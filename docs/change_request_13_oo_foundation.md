@@ -9,6 +9,7 @@
 
 **Project:** Web Portal "Raak Millegem"
 **Status:** shaped with Koen 26–27 September 2026 · Part A approved by Koen on 27 September 2026 · Part B reviewed twice (author, external model) and corrected · **development-ready; revision `1b22a9f5` approved by Koen on 28 September 2026** · **phases 0a–0c, 1, 2, 3 and 4a built in v2.8.0, on PROD since 29 September 2026** (#755, #1248, #1254, #757, #1249, #1250; 4a in #1251 — the registration mails through the job queue, seven small gates hard) · **phases 4b–4d built in v2.16.0, on PROD since 10 October 2026** (#1251, closed by the master CLI; planned on v2.16 by Koen on 8 October 2026, 4b first): every gate of `tests/test_rules_gate.py` hard, `tests/rules_baseline.py` deleted, one declared set of five command calls left with a reason each (B11, the rows of 9 October; folded into the text at the close-out on 10 October 2026 — B4.6, B7, B9.3, F7) · #1502 (the registration history through a counter or an event) open, not planned
+**Tracking issue:** #236 (a pointer; its state is not checked here)
 **Applies to:** the domain layer of every module (`backend/app/domains/*`,
 `app/kernel`), the entrances to each aggregate (public form, JSON API, admin
 screen, import), and the shape a new module takes from its first commit.

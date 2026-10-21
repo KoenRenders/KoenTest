@@ -2,6 +2,7 @@
 
 **Project:** Web Portal "Raak Millegem"  
 **Apply to:** `raak-millegem-spec.md` and all related data models and code.
+**Tracking issue:** #2153 (made and closed on 18 October 2026, afterwards, so that the list of documents and the list of issues agree)
 
 ---
 

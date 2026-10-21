@@ -14,6 +14,7 @@ CLI): #1006 (member search), #1004 (organisers), #1005 (media kinds) for the
 finetuning CLI; #1007 (the pilot) for the designstudio CLI. Phase 0 is (the registration deadline, B4 §3.8a)
 is #974 and assigned to **v2.5** (#925). The Design Studio itself is not on a
 release yet.
+**Tracking issue:** #1007 (closed; phase 1)
 **Applies to:** a new `designstudio` domain (backend + admin screens), a
 contacts table, two new media kinds, the name search moving into MDM, the AI
 call log (#978). Posters are rendered by **Inkscape** (decided 17 September

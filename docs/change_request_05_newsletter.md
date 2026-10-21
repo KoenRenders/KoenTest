@@ -6,6 +6,7 @@
 alongside the meeting module (CR-09). **Assigned to v2.5.0 by Koen on 17
 September 2026** (#984). No question is open: all were answered on 16 and 17
 September 2026 (§8).
+**Tracking issue:** #258 (closed; the tracker of the newsletter and communication), phase A #984 (closed)
 **Apply to:** a new `newsletter` domain (backend, admin screens, public signup
 pages). Mail goes through the existing `mail` domain; the member audience comes
 from `membership` and `mdm` through their `api.py`.

@@ -15,7 +15,8 @@
 > for the same reason as `docs/own-organisation-inventory.md`.
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** Proposal / discussion — not scheduled. Phased, each phase independently shippable and revertible.
+**Status:** **closed 18 October 2026: realised or superseded by CR-12 and CR-13 (#2148)** — Koen: "ja, CR04 mag je sluiten", after the master CLI's measurement per phase (in the closing comment of #2148). Was: Proposal / discussion — not scheduled. Phased, each phase independently shippable and revertible.
+**Tracking issue:** #2148 — the one place where what is open stands; this document is the design, the issue is the status
 **Apply to:** `backend/app/` (models, services, domains) and, as a parallel track, `frontend/src/`.
 
 ---

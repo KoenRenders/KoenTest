@@ -1,8 +1,8 @@
 # Change Request 25 — Back office, part 2: the menu, the board, the workbench per role, business partners
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** opened on 7 October 2026, split off CR-24 · Part A in progress · nothing is built; not on a release
-**Tracking issue:** none yet — the one place where what is open stands; this document is the design, the issue is the status
+**Status:** **void since 18 October 2026** (Koen: "CR-25 is vervallen") · was opened on 7 October 2026, split off CR-24 · nothing was built under this number; not on a release · whether other change requests have built parts of it was not checked
+**Tracking issue:** #2149 — the one place where what is open stands; this document is the design, the issue is the status
 **Applies to:** the admin menu, the roles that change (Bestuur and the changing roles), the workbench, mdm (organisations as business partners); builds on CR-24 (rights, part 1) and CR-20
 **Reading:** A <n> words · B <n> · C <n> — measured with the word count per part; A ≤ 1 500, B ≤ 2 500
 
@@ -280,6 +280,7 @@ and deliberately not done — recorded so it is not asked again).
 | 7 Oct 2026 | Split off CR-24 as its part 2; built after CR-21 (CR-24 Q4). | Koen |
 | 7 Oct 2026 | ADMIN becomes Bestuur, code `BOARD`: reads everything, no advanced work. | Koen |
 | 7 Oct 2026 | "Relatiebeheer" and the menu group "Relaties"; Relatiebeheer keeps only the commercial relationship with organisations (CR-24 Q3). | Koen |
+| 18 Oct 2026 | This change request is void. Koen, asked whether to close it as void or as built through other change requests: "CR-25 is vervallen". His reason was his own thought that others had built it ("ik denk dat dit ondertussen al gerealiseerd werd via andere CR's … is dus redundant"); that was not checked. | Koen |
 
 ---
 
