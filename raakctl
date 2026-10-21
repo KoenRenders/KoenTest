@@ -14,6 +14,11 @@
 #                                        backups/; --list shows them). No
 #                                        --confirm, also on PROD: it only writes
 #                                        a throwaway database and drops it
+#   raakctl migrate-test <env> <tag> [dump]
+#                                        a release tag's migrations on a throwaway
+#                                        copy of the env's dump (#2196). The tag is
+#                                        required. No --confirm, also on PROD: it
+#                                        only writes a throwaway database and drops it
 #   raakctl psql <env> [-c SQL]          database session, READ-ONLY by default
 #                                        (-f FILE, --db NAME, --write [--confirm])
 #   raakctl up <env>                     start a stopped stack (no build, no git)
@@ -225,6 +230,67 @@ cmd_restore_test() {
   return "$rc"
 }
 
+cmd_migrate_test() {
+  # #2196: the next release's migrations on a throwaway copy of this environment's
+  # dump. Unlike restore-test it runs the script of THIS checkout of raakctl, not of
+  # the environment: PROD runs the previous tag, which does not have the script yet.
+  # The script then works from the environment's checkout (its compose files, its
+  # backups/, the tag's code through `git archive`) and changes nothing in it.
+  #
+  # No --confirm: only a throwaway database is written, and dropped on every exit.
+  local env="${1:?name an environment: hdev|uat|prod}"; shift
+  case "$env" in hdev|uat|prod) ;; *) die "migrate-test works on hdev, uat or prod — not on '$env'" ;; esac
+  local tag="${1:-}"
+  [ -n "$tag" ] || die "migrate-test needs the tag to rehearse: raakctl migrate-test $env <tag> [dump]"
+  shift
+  case "$tag" in
+    -*|*/*|*..*|*" "*) die "'$tag' is not a release tag" ;;
+  esac
+  local d; d="$(checkout "$env")"
+  local dir="$d/backups"
+
+  local dump=""
+  if [ -n "${1:-}" ]; then
+    case "$1" in
+      */*|*..*) die "give a file name from backups/ of $env, not a path: '$1' (see: raakctl restore-test $env --list)" ;;
+    esac
+    [ -f "$dir/$1" ] || die "no dump '$1' in backups/ of $env (see: raakctl restore-test $env --list)"
+    dump="$dir/$1"
+  fi
+
+  local script; script="${RAAKCTL_SCRIPTS_DIR:-$(cd "$(dirname "$0")" && pwd)/scripts}/migrate-test.sh"
+  [ -x "$script" ] || die "no migrate-test.sh next to raakctl ($script)"
+
+  local log; log="$(mktemp)"
+  local start rc
+  start=$(date +%s)
+  set +e
+  # </dev/null: the docker calls inside read stdin, which in the menu is the
+  # next answer of the person typing.
+  ( cd "$d" && BACKUP_DIR="$dir" "$script" "$env" "$tag" ${dump:+"$dump"} ) </dev/null 2>&1 | tee "$log"
+  rc=${PIPESTATUS[0]}
+  set -e
+
+  # The fixed summary the master CLI copies into the release tracker verbatim.
+  echo
+  echo "== migrate-test summary =="
+  echo "environment=$env"
+  echo "tag=$tag"
+  local used
+  used="$(sed -n 's/^== Migration rehearsal: .* dump \(.*\) -> .* ==$/\1/p' "$log" | xargs -r basename)"
+  echo "dump=${used:-none}"
+  echo "duration=$(( $(date +%s) - start ))s"
+  echo "upgrades=$(grep -c 'Running upgrade' "$log" || true)"
+  sed -n 's/^head=\(.*\)$/head=\1/p' "$log"
+  # The count rows of both tables, before and after: `name | value`.
+  awk '/^== Before ==/{w="before"} /^== After ==/{w="after"}
+       w && /^ *(alembic_version|[a-z_]+\.[a-z_]+) *\|/ {
+         gsub(/^ +| +$/,""); gsub(/ *\| */,"="); print w "." $0 }' "$log"
+  if [ "$rc" -eq 0 ]; then echo "result=ok"; else echo "result=failed"; fi
+  rm -f "$log"
+  return "$rc"
+}
+
 cmd_psql() {
   # Database questions, by environment instead of by compose file. During the
   # v2.0.0/v2.1.0 rollout this was the most-needed thing raakctl had no verb for:
@@ -417,6 +483,7 @@ menu() {
     echo "   3) full diagnostics              7) deploy PROD (tag)"
     echo "   4) apply shared Caddy            8) manual backup"
     echo "   9) database session (read-only)  r) restore exercise"
+    echo "   m) migration rehearsal (tag)"
     echo "   q) quit"
     echo "  (fetch the report from step 3 onto your laptop with: raak fetch <env>)"
     read -rp "  choice: " k
@@ -445,6 +512,9 @@ menu() {
       # #1288: the newest dump of the chosen environment, on a throwaway database.
       r|R) e=$(pick_env "${ENVIRONMENTS[@]}") || continue
          cmd_restore_test "$e" || true ;;
+      # #2196: a tag's migrations on a copy of the chosen environment's dump.
+      m|M) e=$(pick_env "${ENVIRONMENTS[@]}") || continue
+         read -rp "  tag: " t; cmd_migrate_test "$e" "$t" || true ;;
       q|Q) return 0 ;;
       *) echo "  unknown choice" ;;
     esac
@@ -461,6 +531,7 @@ case "$verb" in
   services) cmd_services "$@" ;;
   backup)   cmd_backup "$@" ;;
   psql)     cmd_psql "$@" ;;
+  migrate-test) cmd_migrate_test "$@" ;;
   restore-test) cmd_restore_test "$@" ;;
   up)       cmd_up "$@" ;;
   stop)     cmd_stop "$@" ;;
