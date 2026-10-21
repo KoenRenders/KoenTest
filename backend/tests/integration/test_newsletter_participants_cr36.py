@@ -521,28 +521,25 @@ def test_the_list_appears_for_the_audience_ticks_follow_and_the_sentence_says_wh
     assert "Kies één of meer activiteiten" in shown.text
     assert "Quiz" in shown.text and "2 adressen" in shown.text and "1 adres" in shown.text
 
-    answer = client.post(
-        f"/admin/nieuwsbrieven/{letter.id}/deelnemers",
-        headers=headers,
-        data={"chosen": [str(quiz.id), str(bbq.id)]},
+    # The ticks are part of the record form (#2183): Opslaan stores them with the audience.
+    saved = client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/bewaren",
+        headers={**headers, "HX-Request": "true"},
+        data={"subject": "x", "audience": "participants", "chosen": [str(quiz.id), str(bbq.id)]},
     )
-    assert answer.status_code == 200
-    # Saved audience: the page itself holds the panel.
-    nb.update_draft(
-        db_session, letter, subject="x", body_html="<div>x</div>", audience=Audience.PARTICIPANTS
-    )
-    db_session.commit()
+    assert saved.status_code == 204
     page = client.get(f"/admin/nieuwsbrieven/{letter.id}").text
     assert "2 adressen van mensen die waren ingeschreven op" in page, "the union, not the sum"
     assert page.count('name="chosen"') == 2
     assert 'value="participants"' in page
 
-    off = client.post(
-        f"/admin/nieuwsbrieven/{letter.id}/deelnemers",
-        headers=headers,
-        data={"chosen": [str(quiz.id)]},
+    client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/bewaren",
+        headers={**headers, "HX-Request": "true"},
+        data={"subject": "x", "audience": "participants", "chosen": [str(quiz.id)]},
     )
-    sentence = [r for r in off.text.splitlines() if "van mensen die waren ingeschreven op" in r]
+    page = client.get(f"/admin/nieuwsbrieven/{letter.id}").text
+    sentence = [r for r in page.splitlines() if "van mensen die waren ingeschreven op" in r]
     assert sentence and "BBQ" not in sentence[0] and "Quiz" in sentence[0]
     assert [a.activity_id for a in nb.chosen_activities(db_session, letter)] == [quiz.id]
 

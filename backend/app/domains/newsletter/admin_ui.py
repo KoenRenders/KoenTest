@@ -41,9 +41,9 @@ from app.domains.newsletter.viewmodels import (
     NewsletterConversationView,
     NewsletterHead,
     NewsletterListView,
+    NewsletterNoticeView,
     NewsletterParticipantsView,
     NewsletterPickerView,
-    NewsletterSavedView,
     NewsletterSendView,
     NewsletterSettingsView,
     SubscriberImportView,
@@ -249,9 +249,10 @@ def newsletter_create(
     db: Session = Depends(get_db),
     email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
 ):
-    """A new, empty draft — the composer is its own full page (no modal)."""
+    """A new, empty draft — the composer is its own full page (no modal), open for
+    editing: there is nothing to read yet (#2183)."""
     letter = nb.create_newsletter(db, created_by=email)
-    return _go(request, f"/admin/nieuwsbrieven/{letter.id}")
+    return _go(request, f"/admin/nieuwsbrieven/{letter.id}?bewerken=1")
 
 
 # ── Subscribers ──────────────────────────────────────────────────────────────
@@ -752,17 +753,13 @@ def _head(request: Request, db: Session, letter) -> NewsletterHead:
 
 
 def _audience_options(db: Session) -> list[tuple[str, str]]:
-    """`(code, "label · count")` per audience on offer. The value is the CODE: it goes
-    into the form as the option's value, so the template never renders an enum member
-    into an attribute (CR-12 phase 3)."""
-    counts = nb.audience_counts(db)
+    """`(code, label)` per audience on offer, in the code list's order. The value is the
+    CODE: it goes into the form as the radio's value, so the template never renders an
+    enum member into an attribute (CR-12 phase 3). How many addresses each one reaches
+    is said under the choice (`_audience_said`), not on the choice."""
     options = [
-        (audience.value, f"{code_label(nb.AUDIENCE.name, audience, db=db)} · {count}")
-        for audience, count in (
-            (nb.Audience.MEMBERS, counts.members),
-            (nb.Audience.NON_MEMBERS, counts.non_members),
-            (nb.Audience.BOTH, counts.both),
-        )
+        (audience.value, code_label(nb.AUDIENCE.name, audience, db=db))
+        for audience in (nb.Audience.MEMBERS, nb.Audience.NON_MEMBERS, nb.Audience.BOTH)
     ]
     # CR-19 (#1477): without the membership module there are no members, so the
     # letter goes to its subscribers — "both" reaches exactly them — offered as
@@ -771,10 +768,9 @@ def _audience_options(db: Session) -> list[tuple[str, str]]:
     from app.kernel.modules import ModuleCode
 
     if not module_enabled(ModuleCode.MEMBERSHIP):
-        options = [(nb.Audience.BOTH.value, f"{_('Iedereen')} · {counts.both}")]
+        options = [(nb.Audience.BOTH.value, _("Iedereen"))]
     # CR-36: the fourth audience reads the registrations, so only a tenant with the
-    # activities module is offered it. No number: it depends on the ticks below it,
-    # which change without a page load; the sentence under the list says it.
+    # activities module is offered it.
     if module_enabled(ModuleCode.ACTIVITIES):
         options.append(
             (
@@ -785,14 +781,8 @@ def _audience_options(db: Session) -> list[tuple[str, str]]:
     return options
 
 
-def _saved_view(
-    request: Request,
-    db: Session,
-    letter,
-    error: Optional[str] = None,
-    notice: Optional[str] = None,
-) -> NewsletterSavedView:
-    return NewsletterSavedView(head=_head(request, db, letter), error=error, notice=notice)
+def _notice_view(error: Optional[str] = None, notice: Optional[str] = None) -> NewsletterNoticeView:
+    return NewsletterNoticeView(error=error, notice=notice)
 
 
 def _compose_view(
@@ -802,6 +792,7 @@ def _compose_view(
     error: Optional[str] = None,
     notice: Optional[str] = None,
     choices_error: Optional[str] = None,
+    editing: bool = False,
 ) -> NewsletterComposeView:
     featured_options = _featured_options(db, letter)
     editor_config = schema.schema_for(
@@ -816,10 +807,14 @@ def _compose_view(
     return NewsletterComposeView(
         head=_head(request, db, letter),
         letter=letter,
+        editing=editing,
         subject=letter.subject or "",
         preview_text=letter.preview_text or "",
         audience=code_of(letter.audience) or "",
         audience_options=_audience_options(db),
+        audience_label=code_label(nb.AUDIENCE.name, letter.audience, db=db)
+        if letter.audience
+        else "",
         audience_lines=lines,
         audience_overlap=overlap,
         participants_shown=letter.audience == nb.Audience.PARTICIPANTS,
@@ -1037,11 +1032,14 @@ def newsletter_screen(
     status: str = "",
     q: str = "",
     opnieuw: int = 0,
+    bewerken: int = 0,
 ):
     letter = _letter_or_404(db, newsletter_id)
     if letter.status == nb.LetterStatus.DRAFT:
         return templates.TemplateResponse(
-            request, "admin_nieuwsbrief.html", _compose_view(request, db, letter).as_context()
+            request,
+            "admin_nieuwsbrief.html",
+            _compose_view(request, db, letter, editing=bool(bewerken)).as_context(),
         )
     view = _archive_view(request, db, letter, status=status, q=q, requeued=opnieuw)
     template = (
@@ -1062,73 +1060,37 @@ def newsletter_save(
     request: Request,
     db: Session = Depends(get_db),
     _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
+    subject: str = Form(""),
+    preview_text: str = Form(""),
+    audience: str = Form(""),
     body: str = Form(""),
+    chosen: list[str] = Form([]),
 ):
-    """Autosave of the text: the status line comes back — and the head, out of band, so
-    its "Opgeslagen om" follows — nothing else is swapped: the editor must never be
-    replaced under the author's fingers. The subject, the preview text and the audience
-    are the head's own form (`newsletter_head_save`)."""
+    """Opslaan of the letter: the subject, the preview text, the audience, the earlier
+    activities ticked under *Eerdere deelnemers* and the text, in one go (#2183).
+    Nothing of the letter saves itself. A refusal stands on the page's message line and
+    the form keeps what was typed; a saved letter sends the browser back to its page."""
     letter = _letter_or_404(db, newsletter_id)
-    error = None
     try:
         nb.update_draft(
             db,
             letter,
-            subject=letter.subject,
+            subject=subject,
             body=body or None,
-            audience=code_of(letter.audience),
-            preview_text=None,
+            audience=audience or None,
+            preview_text=preview_text,
         )
+        if letter.audience == nb.Audience.PARTICIPANTS:
+            nb.set_participant_activities(db, letter, [int(c) for c in chosen if c.isdigit()])
     except nb.NewsletterError as exc:
-        error = str(exc)
-    return templates.TemplateResponse(
-        request,
-        "_nb_bewaard_antwoord.html",
-        _saved_view(request, db, letter, error=error).as_context(),
-    )
+        field = "audience" if letter.audience is None and audience else ""
+        return refusal_response(request, [{"field": field, "message": str(exc)}], "#nb-melding")
+    return _go(request, f"/admin/nieuwsbrieven/{letter.id}")
 
 
-@router.post(
-    "/admin/nieuwsbrieven/{newsletter_id:int}/bewerken",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def newsletter_head_save(
-    newsletter_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
-    subject: str = Form(""),
-    preview_text: str = Form(""),
-    audience: str = Form(""),
-):
-    """Opslaan of the head's edit card: subject, preview text and audience. The head
-    comes back out of band; the card closes on the event `nb-head-saved`, which only a
-    saved head sends."""
-    letter = _letter_or_404(db, newsletter_id)
-    try:
-        nb.update_draft(
-            db, letter, subject=subject, audience=audience or None, preview_text=preview_text
-        )
-    except nb.NewsletterError as exc:
-        return templates.TemplateResponse(
-            request,
-            "_nb_kop_antwoord.html",
-            _saved_view(request, db, letter, error=str(exc)).as_context(),
-        )
-    response = templates.TemplateResponse(
-        request, "_nb_kop_antwoord.html", _saved_view(request, db, letter).as_context()
-    )
-    response.headers["HX-Trigger"] = "nb-head-saved"
-    return response
-
-
-def _participants_response(
-    request: Request, db: Session, letter, error: Optional[str] = None, *, shown: bool = True
-):
-    """The list under *Eerdere deelnemers* as a fragment: empty when the letter's
-    audience (or the one the page is about to save) is another one."""
-    lines, notes, _count = _participant_said(db, letter) if shown else ([], [], 0)
+def _participants_response(request: Request, db: Session, letter, *, shown: bool = True):
+    """The list under *Eerdere deelnemers* as a fragment: empty when the audience the
+    page is about to save is another one."""
     return templates.TemplateResponse(
         request,
         "_nb_deelnemers.html",
@@ -1136,10 +1098,6 @@ def _participants_response(
             letter=letter,
             participants_shown=shown,
             participant_offered=nb.offered_activities(db, letter) if shown else [],
-            participant_lines=lines,
-            participant_notes=notes,
-            csrf_token=_csrf(request),
-            choices_error=error,
         ).as_context(),
     )
 
@@ -1154,33 +1112,11 @@ def participants_panel(
 ):
     """The list of earlier activities, loaded when the author picks *Eerdere
     deelnemers* — before the choice is saved, so the page says which audience it asks
-    for."""
+    for. The ticks are part of the record form and are stored by its Opslaan."""
     letter = _letter_or_404(db, newsletter_id)
     return _participants_response(
         request, db, letter, shown=audience == nb.Audience.PARTICIPANTS.value
     )
-
-
-@router.post(
-    "/admin/nieuwsbrieven/{newsletter_id:int}/deelnemers",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_csrf)],
-)
-def participants_choose(
-    newsletter_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    _email: str = Depends(require_right(Right.NEWSLETTER_MANAGE)),
-    chosen: list[str] = Form([]),
-):
-    """The ticked earlier activities, as the form sends them (CR-36)."""
-    letter = _letter_or_404(db, newsletter_id)
-    error = None
-    try:
-        nb.set_participant_activities(db, letter, [int(c) for c in chosen if c.isdigit()])
-    except nb.NewsletterError as exc:
-        error = str(exc)
-    return _participants_response(request, db, letter, error)
 
 
 @router.get("/admin/nieuwsbrieven/{newsletter_id:int}/activiteiten", response_class=HTMLResponse)
@@ -1324,8 +1260,8 @@ def newsletter_test_mail(
     except nb.NewsletterError as exc:
         return templates.TemplateResponse(
             request,
-            "_nb_bewaard_antwoord.html",
-            _saved_view(request, db, letter, error=str(exc)).as_context(),
+            "_nb_bewaard.html",
+            _notice_view(error=str(exc)).as_context(),
         )
     # The door's one command (§3.2.1): the newsletter rendered, mail sends.
     outcome = mail.send_campaign_mail(
@@ -1342,8 +1278,8 @@ def newsletter_test_mail(
     )
     return templates.TemplateResponse(
         request,
-        "_nb_bewaard_antwoord.html",
-        _saved_view(request, db, letter, notice=notice).as_context(),
+        "_nb_bewaard.html",
+        _notice_view(notice=notice).as_context(),
     )
 
 

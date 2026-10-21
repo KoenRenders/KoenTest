@@ -1,14 +1,12 @@
 {% import "_macros.html" as ui %}
 {# The record head of a draft (#2113): the subject as the title, the status as the
    badge, the audience and the save moment as facts under it, "Versturen…" as the one
-   primary and the rest under Acties. Two states, like every record head of the kit:
-   read, and — while the head's edit card is open — with the badge "Bewerken" and no
-   primary. The includer says which with `kop_editing`; the page holds both and shows
-   the one its `editing` says, and a save sends both back out of band, so "Opgeslagen
-   om" follows what was just typed. #}
+   primary, "Bewerken" beside it (#2183) and the rest under Acties. Two states, like
+   every record head of the kit: read, and — while the letter is open for editing —
+   with the badge "Bewerken" and no primary. The includer says which with `kop_editing`;
+   the page holds both and shows the one its `editing` says. #}
 {% set _base = "/admin/nieuwsbrieven/" ~ head.letter.id %}
 {% set _acties = [
-     {"kind": "record", "label": _("Onderwerp en doelgroep"), "attrs": '@click="editing = true; open = false"'},
      {"kind": "record", "verb": "copy", "label": _("Kopiëren"), "attrs": 'hx-post="' ~ _base ~ '/kopieren" hx-vals=\'{"csrf_token": "' ~ head.csrf_token ~ '"}\''},
      {"kind": "tool", "label": _("Voorbeeld"), "href": _base ~ "/voorbeeld", "target": "_blank", "attrs": 'hx-boost="false"'},
      {"kind": "tool", "label": _("Testmail naar mezelf"), "attrs": 'hx-post="' ~ _base ~ '/testmail" hx-target="#nb-bewaard" hx-swap="innerHTML" hx-vals=\'{"csrf_token": "' ~ head.csrf_token ~ '"}\''}
@@ -17,4 +15,5 @@
 {{ ui.record_header(head.title,
      badges=[{"label": head.letter.status | code_label("letter_status"), "tone": head.letter.status | tone("letter_status")}],
      facts=head.facts, primary={"label": _("Versturen…"), "href": _base ~ "/versturen"}, actions=_acties,
+     secondary={"label": _("Bewerken"), "href": _base ~ "?bewerken=1", "attrs": 'hx-boost="false" @click.prevent="editing = true"'},
      back={"label": _("Alle nieuwsbrieven"), "href": "/admin/nieuwsbrieven"}, editing=(kop_editing is defined and kop_editing)) }}

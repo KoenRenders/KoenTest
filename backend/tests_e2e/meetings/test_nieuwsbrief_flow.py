@@ -17,10 +17,9 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.newsletter_head import open_head_card, set_head  # noqa: E402
+from tests_e2e.newsletter_head import open_head_card, save_letter, set_head  # noqa: E402
 from tests_e2e.schermen import (  # noqa: E402
     BASE,
-    htmx_afgerond,
     laat_de_wacht_passeren,
     login_als_admin,
     netwerk_bijgewerkt,
@@ -88,6 +87,7 @@ def test_een_activiteit_invoegen_en_bewaren(admin_page):
     page.wait_for_selector("#nb-editor .ProseMirror", timeout=10_000)
     _klikbaar(page, "#nb-editor .ProseMirror")
     adres = set_head(page, subject="Het najaar in de e2e", audience="members")
+    open_head_card(page)
 
     editor = page.locator("#nb-editor .ProseMirror")
     editor.click()
@@ -125,10 +125,8 @@ def test_een_activiteit_invoegen_en_bewaren(admin_page):
     )
     assert soorten == ["activity", "calendar", "closing"], soorten
 
-    # Autosave waits 1.5 s after the last change; leaving the editor saves at once
-    # (`raak-editor-blur`). #997: wait for that save to be answered, not for 2.5 s.
-    with htmx_afgerond(page):
-        page.locator("#nb-kop h1").click()
+    # Nothing saves itself (#2183): Opslaan stores the text, and the page is read again.
+    save_letter(page)
 
     page.goto(adres)
     page.wait_for_selector("#nb-editor .ProseMirror")
@@ -255,12 +253,12 @@ def test_een_voorstel_komt_op_de_cursor_of_over_de_selectie(admin_page):
     assert page.locator('[data-field="body"][data-proposal-applied]').count() == 1
 
 
-def test_the_audience_is_in_the_head_card_and_the_editor_has_the_full_width(admin_page):
+def test_the_audience_card_and_the_editor_have_the_full_width(admin_page):
     """Koen, 17 September 2026: the audience choice stood in the way next to
-    Raakje. Since #1562 there is no column beside the editor — the conversation
-    is in the Assistent's panel, the choices stand above — and the card takes the
-    whole column. Since #2113 the audience is the head's: the letter's page has no
-    radio group for it, and the head's edit card says who each audience is (#1834).
+    Raakje. Since #1562 there is no column beside the editor — the conversation is in
+    the Assistent's panel, the choices stand above — and the card takes the whole
+    column. Since #2183 the audience is the first card of the letter's page, four radio
+    buttons in edit mode, and it says who each audience is (#1834).
 
     What holds, on a desktop and at 390 px: the explanation is in the card, nothing
     of the card sticks out of it, and the page does not scroll sideways.
@@ -269,15 +267,15 @@ def test_the_audience_is_in_the_head_card_and_the_editor_has_the_full_width(admi
     page.get_by_role("button", name="Nieuwe nieuwsbrief", exact=True).click()
     page.wait_for_selector("#nb-editor .ProseMirror", timeout=10_000)
     _klikbaar(page, "#nb-editor .ProseMirror")
-    address = page.url
+    address = page.url.split("?")[0]
 
     letter_page = """() => {
         const r = e => e.getBoundingClientRect();
-        const card = document.getElementById('nb-formulier').querySelector('[data-form-section]');
+        const card = document.getElementById('nb-editor').closest('[data-form-section]');
         const keuzes = document.querySelector('#nb-keuzes > *');
         return {card: [r(card).left, r(card).width], keuzes: [r(keuzes).left, r(keuzes).width],
                 kolom: !!document.getElementById('nb-raakje'), onder: r(card).top >= r(keuzes).bottom,
-                audience: document.querySelectorAll('input[name=audience]').length,
+                audience: [...document.querySelectorAll('input[name=audience]')].filter(e => e.checkVisibility()).length,
                 page: document.documentElement.scrollWidth, window: window.innerWidth};
     }"""
     edit_page = """() => {
@@ -300,7 +298,7 @@ def test_the_audience_is_in_the_head_card_and_the_editor_has_the_full_width(admi
         assert not maten["kolom"], "no column of Raakje beside the editor"
         assert maten["card"] == maten["keuzes"], f"the editor is as wide as the choices, {at}"
         assert maten["onder"], f"the choices stand above the editor, {at}"
-        assert maten["audience"] == 0, f"the audience is not chosen on the letter's page, {at}"
+        assert maten["audience"] == 0, f"the audience is not edited while the letter is read, {at}"
         assert maten["page"] <= maten["window"], f"the page scrolls sideways, {at}: {maten['page']}"
 
         open_head_card(page)

@@ -1,7 +1,6 @@
 {# The head in both of its states (#2113): read, and with the badge "Bewerken". The page
-   includes it as it is; a save includes it with `kop_oob`, so the heads come back out of
-   band. The element with the id carries no `x-show` of its own: htmx would clear the
-   state Alpine gave it. #}
-<div id="nb-kop"{% if kop_oob is defined and kop_oob %} hx-swap-oob="true"{% endif %}><div x-show="!editing">{% include "_nb_kop.html" %}</div></div>
+   holds both and shows the one its `editing` says (#2183: the whole letter is edited
+   at once, with one Opslaan). The element with the id carries no `x-show` of its own. #}
+<div id="nb-kop"><div x-show="!editing">{% include "_nb_kop.html" %}</div></div>
 {% set kop_editing = true %}
-<div id="nb-kop-bewerken"{% if kop_oob is defined and kop_oob %} hx-swap-oob="true"{% endif %}><div x-show="editing" x-cloak>{% include "_nb_kop.html" %}</div></div>
+<div id="nb-kop-bewerken"><div x-show="editing" x-cloak>{% include "_nb_kop.html" %}</div></div>

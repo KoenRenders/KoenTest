@@ -33,7 +33,7 @@ from app.kernel.clock import belgian_today
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.newsletter_head import open_head_card  # noqa: E402
+from tests_e2e.newsletter_head import open_head_card, save_letter  # noqa: E402
 from tests_e2e.schermen import (  # noqa: E402
     BASE,
     htmx_afgerond,
@@ -237,7 +237,7 @@ def test_the_three_groups_stand_on_the_page_and_a_choice_follows_without_a_page_
     assert calendar["chips"] >= 4 and calendar["count"] == f"({calendar['chips']})"
     assert page.locator("#nb-raakje").count() == 0, "no column of Raakje on the page"
     above = page.evaluate(
-        "document.getElementById('nb-keuzes').getBoundingClientRect().bottom <= document.getElementById('nb-formulier').querySelector('[data-form-section]').getBoundingClientRect().top"
+        "document.getElementById('nb-keuzes').getBoundingClientRect().bottom <= document.getElementById('nb-editor').closest('[data-form-section]').getBoundingClientRect().top"
     )
     assert above
 
@@ -267,12 +267,12 @@ def test_the_calendar_block_is_the_calendar_group(setup):
     from the letter's calendar group when it is rendered (#2023)."""
     page = _page(setup, 0)
     expected = page.locator('[data-choice-group="calendar"] [data-choice]').count()
+    open_head_card(page)
     page.locator("#nb-editor .ProseMirror").click()
     page.locator("#nb-editor summary").click()
     page.locator("#nb-editor .de-menu-item", has_text="Kalender").click()
     assert page.locator("#nb-editor [data-letter-block=calendar]").count() == 1
-    with htmx_afgerond(page):
-        page.locator("#nb-kop h1").click()
+    save_letter(page)
     letter = setup[2]["letters"][0]
     preview = page.request.get(f"/admin/nieuwsbrieven/{letter}/voorbeeld").text()
     assert "Paneelwandeling 1" in preview, "the calendar's lines stand in the mail"
@@ -283,7 +283,7 @@ def test_the_calendar_block_is_the_calendar_group(setup):
 
 def test_the_preview_text_grows_and_stops_at_200(setup):
     page = _page(setup, 0)
-    # The preview text is the head's field since #2113: its edit card.
+    # The preview text is a field of the letter's edit mode (#2183).
     open_head_card(page)
     field = page.locator("#nb-voorbeeldtekst")
     one_line = field.bounding_box()["height"]
@@ -330,7 +330,12 @@ def test_beside_a_draft_the_panel_is_the_conversation_about_that_letter(setup):
 
 
 def test_toepassen_fills_subject_preview_and_text_and_leaves_the_marked_sentence_out(setup):
-    """Proven red by ticking nothing and dropping the keep filter from the
+    """Koen's case (21 October 2026): a proposal for the whole letter, Toepassen, and the
+    subject and the preview text must still be there after Opslaan and a reload.
+
+    Proven red by leaving `subject` and `preview_text` out of `newsletter_save` (the
+    form still sends them, the letter keeps the old ones: the reload reads
+    "Paneelbrief 1") and by ticking nothing and dropping the keep filter from the
     apply: the unsupported sentence lands in the letter."""
     b, _s, data = setup
     letter = data["letters"][0]
@@ -342,12 +347,13 @@ def test_toepassen_fills_subject_preview_and_text_and_leaves_the_marked_sentence
     page.wait_for_function("document.getElementById('nb-onderwerp').value !== 'Paneelbrief 1'")
     htmx_stil(page)
 
+    # Toepassen opens the letter for editing with the fields filled — and visible.
+    expect(page.locator("#nb-onderwerp")).to_be_visible()
+    expect(page.locator("#nb-voorbeeldtekst")).to_be_visible()
     assert page.locator("#nb-onderwerp").input_value() == SUBJECT
     assert page.locator("#nb-voorbeeldtekst").input_value() == PREVIEW
-    # Toepassen opens the head's edit card with the fields filled (#2113); nothing of the
-    # head is saved before Opslaan.
-    expect(page.locator("#nb-kop-form")).to_be_visible()
     expect(page.locator("#nb-kop-bewerken [data-badges]")).to_contain_text("Bewerken")
+    expect(page.locator("[data-action-bar]")).to_be_visible()
     text = page.evaluate(TEXT_OF)
     assert "Kom naar de wandeling." in text and "zaklopen" not in text
     fields = page.evaluate(_FIELDS)
@@ -356,21 +362,30 @@ def test_toepassen_fills_subject_preview_and_text_and_leaves_the_marked_sentence
     expect(result).to_have_text("3 velden ingevuld.")
     assert any(u.endswith("/toepassen") for u in posts)
 
-    # The text is the page's own autosave; the subject and the preview text wait for Opslaan.
-    page.locator("#nb-kop-bewerken h1").click()
-    htmx_stil(page)
-    assert _stored(letter)["subject"] == "Paneelbrief 1", "the head is not saved before Opslaan"
-    with htmx_afgerond(page):
-        page.locator("[data-action-bar] [data-form-save]").click()
-    expect(page.locator("#nb-kop-form")).to_be_hidden()
+    # Nothing of the letter is stored before Opslaan (the proposal itself is "applied").
+    stored = _stored(letter)
+    assert stored["subject"] == "Paneelbrief 1" and stored["preview"] == ""
+    assert "zaklopen" not in stored["body"] and "Kom naar" not in stored["body"]
+
+    # Leaving now would lose them: the record form asks first (on master it did not).
+    page.locator("#nb-kop-bewerken").get_by_role("link", name="Alle nieuwsbrieven").click()
+    expect(page.locator("[data-dialog]")).to_contain_text("verlaten")
+    page.wait_for_function(
+        "document.querySelector('[data-dialog]').contains(document.activeElement)"
+    )
+    page.click("[data-dialog] [data-dialog-cancel]")
+    expect(page.locator("#nb-onderwerp")).to_have_value(SUBJECT)
+
+    save_letter(page)
+    pagina_klaar(page)
+    page.reload()
+    pagina_klaar(page)
+    expect(page.locator("#nb-kop h1")).to_have_text(SUBJECT)
+    expect(page.locator("[data-letter-read]")).to_contain_text(PREVIEW)
     stored = _stored(letter)
     assert stored["status"] == "applied"
     assert stored["subject"] == SUBJECT and stored["preview"] == PREVIEW
     assert "Kom naar de wandeling." in stored["body"] and "zaklopen" not in stored["body"]
-
-    # undo takes the text back: it went in through the editor
-    page.evaluate(f"{EDITOR}.commands.undo()")
-    assert "Kom naar de wandeling." not in page.evaluate(TEXT_OF)
     assert page.errors == []
     page.close()
 

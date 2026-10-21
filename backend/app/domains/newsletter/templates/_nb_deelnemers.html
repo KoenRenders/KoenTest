@@ -1,39 +1,31 @@
 {% import "_macros.html" as ui %}
-{# The list under the audience *Eerdere deelnemers* (CR-36, #2026): the past
-   activities of the last three working years, newest first, each with its date and the
-   number of addresses; a tick puts it in the letter's audience, and the sentence under
-   the list says who the letter then goes to. The element carries its own loading rule:
-   it asks for itself whenever the author picks another audience, with the audience
-   that is ticked (not yet saved), so the list stands there before the save is done. #}
+{# The list under the audience *Eerdere deelnemers* (CR-36, #2026), in the edit mode of
+   the letter: the past activities of the last three working years, newest first, each
+   with its date and the number of addresses. The ticks are part of the record form
+   (`form="nb-formulier"`) and are stored by its Opslaan (#2183); who the letter then
+   goes to is said in the read mode. The element asks for itself whenever the author
+   picks another audience, with the audience that is picked (not yet saved), so the list
+   stands there before the save is done. #}
 <div id="nb-deelnemers" data-participants
-     hx-get="/admin/nieuwsbrieven/{{ letter.id }}/deelnemers" hx-trigger="change from:select[name=audience]"
-     hx-include="select[name=audience]" hx-target="this" hx-swap="outerHTML">
+     hx-get="/admin/nieuwsbrieven/{{ letter.id }}/deelnemers" hx-trigger="change from:input[name=audience]"
+     hx-include="input[name=audience]:checked" hx-target="this" hx-swap="outerHTML">
 {% if participants_shown %}
   <div class="mt-3 border-t border-line pt-3">
     <p class="text-sm font-semibold">{{ _("Kies één of meer activiteiten") }}</p>
     <p class="text-xs text-ink-soft">{{ _("De mensen die waren ingeschreven op de activiteiten van de laatste drie werkjaren. Wie op meer dan één staat, krijgt de brief één keer.") }}</p>
-    {% if choices_error %}<div class="mt-2">{{ ui.error_banner(choices_error) }}</div>{% endif %}
     {% if participant_offered %}
-    <div class="mt-2" hx-post="/admin/nieuwsbrieven/{{ letter.id }}/deelnemers" hx-trigger="change"
-         hx-include="this" hx-target="#nb-deelnemers" hx-swap="outerHTML">
+    <div class="mt-2">
       {% set labelled = [] %}
       {% set current = [] %}
       {% for item in participant_offered %}
         {% set _x = labelled.append((item.id|string, item.name ~ " · " ~ (item.last_date|kortedatum) ~ " · " ~ ngettext("%(num)s adres", "%(num)s adressen", item.addresses))) %}
         {% if item.chosen %}{% set _x = current.append(item.id|string) %}{% endif %}
       {% endfor %}
-      {{ ui.checkbox_group("chosen", labelled=labelled, current=current, aria_label=_("Eerdere activiteiten")) }}
+      {{ ui.checkbox_group("chosen", labelled=labelled, current=current, aria_label=_("Eerdere activiteiten"), form="nb-formulier") }}
     </div>
     {% else %}
     <p class="mt-2 py-2 text-sm text-ink-soft">{{ _("Er zijn geen eerdere activiteiten van de laatste drie werkjaren.") }}</p>
     {% endif %}
-    <div class="mt-3 space-y-1" data-audience-said>
-      {% for line in participant_lines %}
-      <p class="text-base" data-audience-line><strong>{{ line.head }}</strong></p>
-      <p class="text-sm">{{ line.sentence }}</p>
-      {% endfor %}
-      {% for note in participant_notes %}<p class="text-sm text-ink-soft" data-participant-note>{{ note }}</p>{% endfor %}
-    </div>
   </div>
 {% endif %}
 </div>

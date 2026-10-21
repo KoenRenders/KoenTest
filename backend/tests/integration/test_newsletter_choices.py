@@ -163,7 +163,7 @@ def test_the_page_shows_three_groups_with_their_counts(client, db_session, world
     _login(client)
     letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
     html = client.get(f"/admin/nieuwsbrieven/{letter.id}").text
-    assert html.index('id="nb-keuzes"') < html.index('id="nb-formulier"'), "above the form"
+    assert html.index('id="nb-keuzes"') < html.index('id="nb-editor"'), "above the text"
     titles = re.findall(
         r"data-choice-title>([^<]+)</span> <span data-choice-count[^>]*>\((\d+)\)", html
     )

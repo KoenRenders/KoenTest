@@ -1,4 +1,4 @@
 {% import "_macros.html" as ui %}
+{# The line under the head for a command that leaves the page as it is (the test mail). #}
 {% if error %}{{ ui.error_banner(error) }}
-{% elif notice %}{{ ui.success_banner(notice) }}
-{% else %}<p class="text-sm text-ink-soft">{{ _("De brief wordt bewaard terwijl je typt.") }}</p>{% endif %}
+{% elif notice %}{{ ui.success_banner(notice) }}{% endif %}

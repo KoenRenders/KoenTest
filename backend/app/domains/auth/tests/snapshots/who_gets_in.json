@@ -1122,15 +1122,7 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
-  "POST /admin/nieuwsbrieven/{newsletter_id:int}/bewerken": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
   "POST /admin/nieuwsbrieven/{newsletter_id:int}/bijlage": {
-   "platform": "ADMIN OPERATOR",
-   "tenant": "ADMIN OPERATOR"
-  },
-  "POST /admin/nieuwsbrieven/{newsletter_id:int}/deelnemers": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
