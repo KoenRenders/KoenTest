@@ -140,6 +140,7 @@ DELIVERY_STATUS_CODES = (
     CodeSeed(code="sent", nl="Verstuurd", en="Sent", sort_order=20),
     CodeSeed(code="failed", nl="Mislukt", en="Failed", sort_order=30),
     CodeSeed(code="skipped", nl="Overgeslagen", en="Skipped", sort_order=40),
+    CodeSeed(code="bounced", nl="Teruggekomen", en="Bounced", sort_order=50),
 )
 
 DELIVERY_STATUS = CodeList(

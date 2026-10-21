@@ -87,6 +87,9 @@ stateDiagram-v2
     queued --> failed : the mail failed
     queued --> skipped : the subscriber is no longer confirmed
     failed --> queued : resent (resend_failed)
+    sent_d --> bounced : marked by hand (mark_bounced)
+    bounced --> sent_d : taken back (unmark_bounced)
+    bounced --> queued : resent (resend_failed)
   }
 ```
 

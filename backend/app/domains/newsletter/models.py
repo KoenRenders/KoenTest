@@ -108,6 +108,9 @@ class DeliveryStatus(CodeEnum):
     SENT = "sent"
     FAILED = "failed"
     SKIPPED = "skipped"
+    #: Left, and came back later: set by hand from the mailbox (#2188). The
+    #: platform never learns of a bounce itself.
+    BOUNCED = "bounced"
 
 
 class MessageRole(CodeEnum):

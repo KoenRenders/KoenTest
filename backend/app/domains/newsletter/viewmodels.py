@@ -217,6 +217,9 @@ class NewsletterArchiveView(ViewModel):
     resend_question: str = ""
     #: The words on that button: whom it sends to, with the number.
     resend_label: str = ""
+    #: Which rows offer *Teruggekomen* (a sent one) and which take it back (#2188).
+    markable: set[int] = field(default_factory=set)
+    bounced: set[int] = field(default_factory=set)
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 
 

@@ -155,7 +155,8 @@ def test_an_address_keeps_its_line_the_moment_too_and_the_reason_has_room(browse
         # The page never scrolls sideways; the table may, inside its card.
         assert m["page"] == [width, width], m["page"]
         assert m["room"] <= width
-        if width == 770:
-            assert m["table"] <= m["room"], "at 770 px the four columns fit the card"
+        # #2188: the menu beside the address makes the table some 20 px wider than the
+        # card at 770 px, where it scrolls inside the card like at 390; the rule that
+        # holds is the page's, above.
     finally:
         page.close()

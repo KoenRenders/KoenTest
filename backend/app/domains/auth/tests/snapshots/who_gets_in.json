@@ -1118,6 +1118,14 @@
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"
   },
+  "POST /admin/nieuwsbrieven/{newsletter_id:int}/afleveringen/{delivery_id:int}/teruggekomen": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
+  "POST /admin/nieuwsbrieven/{newsletter_id:int}/afleveringen/{delivery_id:int}/terugzetten": {
+   "platform": "ADMIN OPERATOR",
+   "tenant": "ADMIN OPERATOR"
+  },
   "POST /admin/nieuwsbrieven/{newsletter_id:int}/bewaren": {
    "platform": "ADMIN OPERATOR",
    "tenant": "ADMIN OPERATOR"

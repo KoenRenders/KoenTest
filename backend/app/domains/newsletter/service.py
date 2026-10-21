@@ -2313,11 +2313,42 @@ def failure_reason(outcome: str) -> str:
     }.get(outcome, _("het versturen is mislukt"))
 
 
+def mark_bounced(db: Session, letter: Newsletter, delivery_id: int) -> Delivery:
+    """A delivery that left and came back later, set by hand from the mailbox
+    (#2188). Only a sent one; the resend picks it up."""
+    delivery = _delivery_of(db, letter, delivery_id)
+    if delivery.status != DeliveryStatus.SENT:
+        raise NewsletterError(
+            _("Alleen een verstuurde brief kan als teruggekomen worden aangeduid.")
+        )
+    delivery.status = DeliveryStatus.BOUNCED
+    db.commit()
+    return delivery
+
+
+def unmark_bounced(db: Session, letter: Newsletter, delivery_id: int) -> Delivery:
+    """Undo `mark_bounced`, as long as the delivery has not been sent again."""
+    delivery = _delivery_of(db, letter, delivery_id)
+    if delivery.status != DeliveryStatus.BOUNCED:
+        raise NewsletterError(_("Dit adres staat niet als teruggekomen."))
+    delivery.status = DeliveryStatus.SENT
+    db.commit()
+    return delivery
+
+
+def _delivery_of(db: Session, letter: Newsletter, delivery_id: int) -> Delivery:
+    delivery = db.get(Delivery, delivery_id)
+    if delivery is None or delivery.newsletter_id != letter.id:
+        raise NewsletterError(_("Dit adres hoort niet bij deze nieuwsbrief."))
+    return delivery
+
+
 def resend_failed(db: Session, letter: Newsletter) -> int:
-    """Queue the failed deliveries of a letter again (#1783) and hand it back to
-    the send job. Returns how many. Only the failed ones: a delivery that left
-    is never touched, so nobody gets the letter twice. A permanent refusal is
-    included — the sender may have corrected the address since."""
+    """Queue the failed and the bounced deliveries of a letter again (#1783,
+    #2188) and hand it back to the send job. Returns how many. Only those: a
+    delivery that left and was not marked is never touched, so nobody gets the
+    letter twice. The address is the one stored on the delivery. A permanent
+    refusal is included — the sender may have corrected the address since."""
     from app.kernel.jobs import enqueue
     from app.kernel.tenancy import current_tenant_id
 
@@ -2325,7 +2356,10 @@ def resend_failed(db: Session, letter: Newsletter) -> int:
         raise NewsletterError(_("Deze nieuwsbrief is nog niet verstuurd."))
     failed = (
         db.query(Delivery)
-        .filter(Delivery.newsletter_id == letter.id, Delivery.status == DeliveryStatus.FAILED)
+        .filter(
+            Delivery.newsletter_id == letter.id,
+            Delivery.status.in_((DeliveryStatus.FAILED, DeliveryStatus.BOUNCED)),
+        )
         .all()
     )
     if not failed:
@@ -2506,6 +2540,12 @@ class Progress:
     skipped: int
     queued: int
     expected_finish: Optional[datetime]
+    bounced: int = 0
+
+    @property
+    def to_resend(self) -> int:
+        """What the resend button sends again: failed and bounced alike (#2188)."""
+        return self.failed + self.bounced
 
 
 def progress_of(db: Session, letter: Newsletter) -> Progress:
@@ -2529,6 +2569,7 @@ def progress_of(db: Session, letter: Newsletter) -> Progress:
         skipped=rows.get(DeliveryStatus.SKIPPED, 0),
         queued=queued,
         expected_finish=expected,
+        bounced=rows.get(DeliveryStatus.BOUNCED, 0),
     )
 
 
