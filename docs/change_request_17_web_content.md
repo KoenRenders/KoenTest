@@ -199,10 +199,8 @@ flowchart LR
     o2["Open the page as blocks<br/>cms admin · document layout"]:::cms
     o3["Add or edit a block<br/>the editor (kit)"]:::kit
     o3b["Place a picture<br/>CR-15 picker (media)"]:::media
-    o3c["Place a form<br/>forms module"]:::forms
     o4["Preview the draft<br/>cms admin › Voorbeeld"]:::cms
     o6["Publish<br/>cms admin › Publiceren"]:::cms
-    o8["Import / export JSON<br/>cms admin · API"]:::cms
   end
   subgraph P[Portal]
     p1["Store the document per language<br/>cms service"]:::cms
@@ -210,17 +208,13 @@ flowchart LR
     p3["Fill a value block<br/>kernel tenant_config"]:::kernel
     p4["Keep versions<br/>kernel history"]:::kernel
     p5["Send the letter<br/>newsletter"]:::nl
-    p6["Render the form, take the submission<br/>forms"]:::forms
   end
   o3 -.-> p1
   o3b -.-> p1
-  o3c -.-> p1
-  o8 -.-> p1
   o4 -.-> p2
   o6 -.-> p4
   p2 -.-> p3
   p2 -.-> p5
-  p2 -.-> p6
   classDef cms fill:#d1fae5,stroke:#047857
   classDef kit fill:#fde68a,stroke:#b45309
   classDef media fill:#dbeafe,stroke:#1d4ed8
@@ -229,7 +223,7 @@ flowchart LR
   classDef nl fill:#fce7f3,stroke:#be185d
 ```
 
-Legend: green cms · yellow kit · blue media · purple forms · grey kernel · pink newsletter.
+Legend: green cms · yellow kit · blue media · grey kernel · pink newsletter. **Drawn as built in v2.17.2** (B9, 21 Oct 2026): the form block and the JSON import and export are not drawn because they were not built (Q28; phase 4); the value block is CR-32's (phase 4), built there; the language switch is not built (phase 3), the translation row exists with the tenant's language only. A3 still shows the design.
 
 **Traceability matrix**
 
@@ -239,20 +233,20 @@ Legend: green cms · yellow kit · blue media · purple forms · grey kernel · 
 | R2 parts | F1, F4 | 3 | AC2 |
 | R3 draft, history | F2, F7 | 4–6 | AC3 |
 | R4 pictures | F5 | 7, 11 | AC2 |
-| R5 values | F6 | 8 | AC4 |
+| R5 values | F6 | 8 | AC4 — moved to CR-32 (phase 4), built there |
 | R6 one editor | F4, F9 | 9, 10 | AC5 |
 | R7 phones | F8, F4 | 11, 12 | AC1, AC6 |
 | R8 menu | F10 | 13 | AC12 |
 | R9 served by the portal | F12 | 14 | AC7 |
-| R13 form block | F13 | 16 | AC8 |
+| R13 form block | F13 | 16 | AC8 — **not built** (Q28: a form is reached through a button or a card) |
 | R14 cards | F14 | 17 | AC9 |
-| R15 languages | F2, F15 | 20 | phase 3 |
-| R16 JSON | F16 | 18 | AC10 |
+| R15 languages | F2, F15 | 20 | phase 3 — **not built** (the translation row exists, one language; B9 15 Oct 2026) |
+| R16 JSON | F16 | 18 | AC10 — **not built** (phase 4, parked in no release; B9 15 Oct 2026) |
 | R17 association unchanged | F11 | 19 | AC11 |
 
 **Walkthrough on HDEV** (the organiser; a visitor for 4, 10 and 11) — the detailed steps are C9's annex:
 
-1 A page as blocks. 2 A table added, published, edited, published: still a table. 3 Heading, text, picture beside the text, columns, button; the picture has corners and shadow. 4 A visitor on a phone: the table scrolls inside its block. 5 An unpublished edit leaves the site unchanged; Voorbeeld, Publiceren, Geschiedenis, Terugzetten. 6 A value block follows the setting. 7 (Could) The newsletter and the notes on the same editor. 9 No CSP violation. 10 A contact page with the form block; a submission in the workbench. 11 A cards page; each card a link. 12 From a CLI: create, write, publish; an unknown block refused. 13 The association's pages the same before and after. 14 A section in the menu, an external item, a footer item.
+1 A page as blocks. 2 A table added, published, edited, published: still a table. 3 Heading, text, picture beside the text, columns, button; the picture has corners and shadow. 4 A visitor on a phone: the table scrolls inside its block. 5 An unpublished edit leaves the site unchanged; Voorbeeld, Publiceren, Geschiedenis, Terugzetten. 6 A value block follows the setting (CR-32). 7 (Could) The newsletter and the notes on the same editor. 9 No CSP violation. 10 (Not built, Q28) A contact page with the form block; a form is reached through a button or a card. 11 A cards page; each card a link. 12 (Not built, phase 4) From a CLI: create, write, publish; an unknown block refused. 13 The association's pages the same before and after. 14 A section in the menu, an external item, a footer item.
 
 ## B3. The whole across the modules — for the architect
 
@@ -266,19 +260,15 @@ flowchart TB
   subgraph cms[cms]
     c1[schema.py: the block schema, one source; served as JSON Schema — new]:::new
     c2[render.py: schema → site / mail — changed]:::chg
-    c3[service: draft, publish, restore, versions, import, export — changed]:::chg
+    c3[service: draft, publish, restore, versions — changed]:::chg
     c4[page_translations; cms_page_history; menu columns — new]:::new
-    c5[admin screens: document layout, preview, history, JSON — changed]:::chg
-    c6[public page: reading width, language fallback, the menu with sections — changed]:::chg
+    c5[admin screens: document layout, preview, history — changed]:::chg
+    c6[public page: reading width, the menu with sections — changed]:::chg
     c7[migration: HTML → schema, lossless or listed — new]:::new
-    c8[api.py: render_document, schema_for, import_draft — changed]:::chg
-    c9["router: PUT /pages/{id}/draft, GET /schema — new"]:::new
+    c8[api.py: render_document, schema_for — changed]:::chg
   end
   subgraph media[media — CR-15]
     m1[picker — used; the gallery of an album moved to CR-32]:::used
-  end
-  subgraph forms[forms]
-    f1[api: render a form inside a page; take the submission — used, one new facade call]:::chg
   end
   subgraph nl[newsletter]
     n1[block set letter; markers gone — changed]:::chg
@@ -293,7 +283,6 @@ flowchart TB
   k1 --> c1
   c2 --> h2
   c3 --> h1
-  c2 --> f1
   n1 --> c8
   t1 --> k1
   c5 --> m1
@@ -302,7 +291,7 @@ flowchart TB
   classDef used fill:#f3f4f6,stroke:#6b7280
 ```
 
-Legend: green new · orange changed · grey used.
+Legend: green new · orange changed · grey used. **Drawn as built in v2.17.2** (B9, 21 Oct 2026): not drawn because not built are the JSON router (`PUT /pages/{id}/draft`, `GET /schema`, publish from outside), import and export, the language fallback and the call from the cms to the forms module (the form block, Q28).
 
 **Data model at a glance**
 
@@ -314,17 +303,18 @@ erDiagram
     string slug
     bool show_in_nav
     int sort_order
-    int parent_id "Should, soft ref"
-    string menu_label "Should"
-    string external_url "Should"
-    bool in_footer "Should"
+    int parent_id "a section; one level"
+    bool show_in_footer
     bool is_home
+    string opening "CR-32"
+    jsonb hero "CR-32"
     text content "today's HTML; dropped later"
   }
   CMS_PAGE_TRANSLATION {
     int page_id FK
-    string language FK
+    string language FK "one row: the tenant's language"
     string title
+    string menu_label
     jsonb draft_json
     jsonb published_json
     datetime published_at
@@ -346,10 +336,9 @@ erDiagram
   CMS_PAGE ||--o{ CMS_PAGE_HISTORY : "versions"
   CMS_PAGE_TRANSLATION }o--|| LANGUAGE_CODE : "language"
   CMS_PAGE }o--o{ MEDIA_ASSET : "figure, card (soft)"
-  CMS_PAGE }o--o{ FORM : "form block (soft)"
 ```
 
-Who calls whom: the admin screens call the cms service and render the editor through the kit macro; the public page and the newsletter call `cms.api.render_document`; a figure goes through `media.api`, a form block through `forms.api`, a value through `kernel.tenant_config`. New dependencies: cms → forms.api, newsletter → cms.api. Publish is one transaction.
+Who calls whom: the admin screens call the cms service and render the editor through the kit macro; the public page and the newsletter call `cms.api.render_document`; a figure goes through `media.api`, a value through `kernel.tenant_config`. New dependency: newsletter → cms.api (cms → forms.api was designed for the form block and not built, Q28). Publish is one transaction.
 
 ## B4. Rules this change needs an exception from — decided once, here
 
@@ -567,9 +556,13 @@ A figure, a card's picture and a gallery item render with the public card radius
 
 ### C4.10 Content per language
 
+**Not built** (phase 3, out of scope and parked in no release, B9 15 Oct 2026). What runs in v2.17.2: `page_translations` keyed by (page, language), with one row per page, the tenant's language; there is no switch, no `/en/` prefix and no fallback. The rest of this section is the design as decided, kept for the change request that takes it up.
+
 "Build what is needed in the shape that grows": a page's title and documents live in `page_translations` keyed by (page, language) from phase 1, with the tenant's language as the only row; a second language is a row, not a column. The site serves the visitor's language (the browser's `Accept-Language` or the switch) when a published translation exists, else the tenant's language; the switch appears only when a second language has published content. One slug per page, the language as a prefix (`/en/…`) — decided now that phase 3 moves up (Koen wants English soon, 4 October 2026): the switch stays on the same page and a link survives a translation; the menu label lives in the translation row. The forms module's forms, the newsletter and the site name stay single-language — outside this change. The app's own words (gettext) and the back office stay Dutch unless Koen asks (Q11); code-list labels already exist per language.
 
 ### C4.11 One JSON door
+
+**Not built** (phase 4, out of scope and parked in no release, B9 15 Oct 2026). What runs in v2.17.2: a page's document is data in `draft_json` and `published_json`; there is no export, no import, no JSON route and no publishing from outside; `cms.api.render_document` and the block schema (`schema_for`) are in-process only. The rest of this section is the design as decided, kept for the change request that takes it up.
 
 A page's document is data, and data has a door: export (draft or published) and import into the draft, through the screen and through `PUT /api/v1/cms/pages/{id}/draft` with an API key — the same validation as the editor's save, an unknown block or attribute refused with its name, a media reference that does not exist refused, nothing stripped silently. The schema is served as one JSON Schema file so a script or an AI knows the blocks before it writes. Publishing from outside is allowed too (Koen, 4 October 2026: a Claude Code CLI must be able to change and publish pages): `POST /api/v1/cms/pages/{id}/publish` runs the same `publish` as the button — one history row, so a wrong publish is one Terugzetten away — and the API lists and creates pages, so a whole site can be written from a CLI. What an agent needs to write a valid document is served next to the schema: the placeholders, the media ids and the form ids of the tenant. The Assistent (CR-11 block 10) uses the same door.
 
